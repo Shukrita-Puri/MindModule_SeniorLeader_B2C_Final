@@ -1,274 +1,604 @@
 
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import MainNavigation from "@/components/MainNavigation";
-import VoiceFirstChat from "@/components/VoiceFirstChat";
-import SessionFeedback from "@/components/SessionFeedback";
-import vibrantGrowthIllustration from "@/assets/vibrant-growth-illustration.png";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Message {
   id: string;
   text: string;
   sender: "user" | "ai";
   timestamp: Date;
+  tags?: string[];
   recommendations?: Array<{
     id: string;
-    type: "article" | "podcast" | "video" | "framework";
+    type: "article" | "podcast" | "video" | "framework" | "quote" | "visual";
     title: string;
     description: string;
-    thumbnail?: string;
-    duration?: string;
+    content?: string;
     author?: string;
+    duration?: string;
   }>;
+}
+
+interface Session {
+  id: string;
+  timestamp: Date;
+  messages: Message[];
+  tags: string[];
+  title: string;
+  mode: "conversation" | "journal";
+  isPinned?: boolean;
 }
 
 const ClarityMode = () => {
   const navigate = useNavigate();
+  const [currentView, setCurrentView] = useState<"entry" | "session" | "archive">("entry");
+  const [mode, setMode] = useState<"conversation" | "journal">("conversation");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [sessionStarted, setSessionStarted] = useState(false);
-  const [isJournalMode, setIsJournalMode] = useState(false);
+  const [currentInput, setCurrentInput] = useState("");
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const handleStartSession = () => {
-    setSessionStarted(true);
-  };
+  const prompts = [
+    "What's been heavy lately?",
+    "Where do you feel stuck?",
+    "What would courage look like here?",
+    "What are you carrying that isn't yours?",
+    "How do you want to grow from this?",
+    "What needs your attention right now?",
+    "What would your wisest self say?",
+    "What patterns do you notice?",
+    "What's asking for space in your mind?",
+    "How are you feeling beneath the surface?"
+  ];
 
-  const handleSendMessage = (message: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: message,
-      sender: "user",
-      timestamp: new Date()
+  const domains = [
+    "Mental Clarity", "Inner Calibration", "Social Intelligence", 
+    "Flow State", "Self-Directed Growth", "Time & Energy Management", 
+    "Resilience & Identity"
+  ];
+
+  const emotions = [
+    "anxious", "overwhelmed", "excited", "doubtful", "focused", 
+    "frustrated", "hopeful", "confused", "motivated", "tired"
+  ];
+
+  // Rotate prompts every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPromptIndex((prev) => (prev + 1) % prompts.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const autoTagMessage = (text: string): string[] => {
+    const tags: string[] = [];
+    
+    // Emotion detection
+    emotions.forEach(emotion => {
+      if (text.toLowerCase().includes(emotion)) {
+        tags.push(emotion);
+      }
+    });
+    
+    // Topic detection (basic keywords)
+    const topicKeywords = {
+      "academics": ["study", "exam", "grade", "school", "homework", "test"],
+      "relationships": ["friend", "parent", "family", "relationship", "social"],
+      "future": ["career", "college", "future", "goals", "ambition"],
+      "pressure": ["stress", "pressure", "overwhelm", "burden", "expectation"],
+      "identity": ["who am i", "identity", "self", "worth", "confidence"]
     };
     
-    setMessages(prev => [...prev, newMessage]);
+    Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+      if (keywords.some(keyword => text.toLowerCase().includes(keyword))) {
+        tags.push(topic);
+      }
+    });
     
-    // In journal mode, don't respond - just save the thought
-    if (isJournalMode) {
+    return tags.slice(0, 3); // Limit to 3 tags
+  };
+
+  const generateAIResponse = (userMessage: string): Message => {
+    const responses = [
+      {
+        text: "I hear the weight in your words. This reminds me of what Viktor Frankl wrote about finding meaning in difficulty...",
+        recommendations: [
+          {
+            id: "1",
+            type: "quote" as const,
+            title: "Viktor Frankl on Meaning",
+            description: "When we are no longer able to change a situation, we are challenged to change ourselves.",
+            content: "Everything can be taken from a man but one thing: the last of human freedoms—to choose one's attitude in any given set of circumstances.",
+            author: "Viktor Frankl, Holocaust survivor & psychiatrist"
+          },
+          {
+            id: "2",
+            type: "framework" as const,
+            title: "The Stoic Dichotomy of Control",
+            description: "Ancient wisdom for modern pressure. Separate what you can and cannot influence.",
+            content: "Focus your energy only on what you can control: your thoughts, actions, and responses.",
+            author: "Epictetus, Stoic philosopher"
+          }
+        ]
+      },
+      {
+        text: "There's something profound happening in what you're sharing. Research shows that acknowledging difficulty is the first step toward clarity...",
+        recommendations: [
+          {
+            id: "3",
+            type: "article" as const,
+            title: "The Neuroscience of Emotional Regulation",
+            description: "How naming emotions reduces their intensity. From UCLA's research lab.",
+            author: "Dr. Matthew Lieberman, UCLA",
+            duration: "5 min read"
+          },
+          {
+            id: "4",
+            type: "framework" as const,
+            title: "RAIN Technique",
+            description: "Recognize, Allow, Investigate, Non-attachment. A mindfulness approach to difficult emotions.",
+            content: "1. Recognize what's happening\n2. Allow the experience to be there\n3. Investigate with kindness\n4. Non-attachment to the outcome",
+            author: "Tara Brach, psychologist"
+          }
+        ]
+      },
+      {
+        text: "Your mind is doing what minds do—trying to solve everything at once. Let's create some space here...",
+        recommendations: [
+          {
+            id: "5",
+            type: "visual" as const,
+            title: "The Mind as Sky Meditation",
+            description: "A visualization to create perspective on thoughts and emotions.",
+            content: "Imagine your thoughts as clouds passing through the vast sky of your awareness. You are the sky, not the clouds.",
+            author: "Tibetan Buddhist tradition"
+          },
+          {
+            id: "6",
+            type: "podcast" as const,
+            title: "Cal Newport on Deep Work and Mental Clarity",
+            description: "How elite students manage cognitive load and maintain focus under pressure.",
+            author: "The Tim Ferriss Show",
+            duration: "18 min"
+          }
+        ]
+      }
+    ];
+
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    return {
+      id: Date.now().toString(),
+      text: randomResponse.text,
+      sender: "ai",
+      timestamp: new Date(),
+      recommendations: randomResponse.recommendations,
+      tags: autoTagMessage(userMessage)
+    };
+  };
+
+  const handleSendMessage = () => {
+    if (!currentInput.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: currentInput,
+      sender: "user",
+      timestamp: new Date(),
+      tags: autoTagMessage(currentInput)
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentInput("");
+
+    // In journal mode, don't generate AI response
+    if (mode === "journal") {
       return;
     }
 
-    // Simulate AI response with diverse educational content
+    // Generate AI response after delay
+    setIsTyping(true);
     setTimeout(() => {
-      const responses = [
-        {
-          text: "I hear you. Let me share some frameworks and insights that might help you gain clarity on this situation...",
-          recommendations: [
-            {
-              id: "1",
-              type: "framework" as const,
-              title: "The Eisenhower Matrix",
-              description: "Separate urgent vs important to prioritize effectively. Used by presidents and CEOs worldwide.",
-              author: "Decision-Making Framework"
-            },
-            {
-              id: "2", 
-              type: "article" as const,
-              title: "Cognitive Load Theory for Students",
-              description: "Neuroscience research on managing mental bandwidth for peak academic performance.",
-              author: "Harvard Educational Review"
-            },
-            {
-              id: "3",
-              type: "podcast" as const,
-              title: "Ancient Stoic Practices for Modern Students",
-              description: "How Marcus Aurelius and Seneca dealt with overwhelming responsibilities and mental clarity.",
-              duration: "12 min",
-              author: "Philosophy for Students"
-            }
-          ]
-        },
-        {
-          text: "That sounds challenging. Here are some mental models and neuroscience insights that might help you process this...",
-          recommendations: [
-            {
-              id: "4",
-              type: "framework" as const, 
-              title: "The OODA Loop",
-              description: "Observe, Orient, Decide, Act - a decision-making framework used by fighter pilots and executives.",
-              author: "Strategic Thinking"
-            },
-            {
-              id: "5",
-              type: "article" as const,
-              title: "The Neuroscience of Stress and Focus",
-              description: "How your brain processes stress and practical techniques to maintain clarity under pressure.",
-              author: "Journal of Applied Psychology"
-            },
-            {
-              id: "6",
-              type: "video" as const,
-              title: "Buddhist Mindfulness for Academic Pressure",
-              description: "Ancient mindfulness techniques adapted for modern student challenges.",
-              duration: "8 min",
-              author: "Mindfulness Research"
-            }
-          ]
-        },
-        {
-          text: "I understand the complexity you're facing. Let me share some research-backed approaches and wisdom traditions that address this...",
-          recommendations: [
-            {
-              id: "7",
-              type: "framework" as const,
-              title: "Systems Thinking Model",
-              description: "See the interconnections in your life rather than isolated problems. Used in therapy and coaching.",
-              author: "Cognitive Behavioral Framework"
-            },
-            {
-              id: "8",
-              type: "article" as const, 
-              title: "Flow State Research for Students",
-              description: "Mihaly Csikszentmihalyi's research on optimal experience and how to achieve it during study.",
-              author: "Positive Psychology Review"
-            },
-            {
-              id: "9",
-              type: "framework" as const,
-              title: "Inner Calibration Breathing Technique",
-              description: "Quick reset technique from our Inner Calibration section - try it when overwhelmed.",
-              author: "Access Inner Calibration →"
-            }
-          ]
-        }
-      ];
-
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      const response: Message = {
-        id: (Date.now() + 1).toString(),
-        text: randomResponse.text,
-        sender: "ai",
-        timestamp: new Date(),
-        recommendations: randomResponse.recommendations
-      };
-      setMessages(prev => [...prev, response]);
-    }, 1500);
+      const aiResponse = generateAIResponse(currentInput);
+      setMessages(prev => [...prev, aiResponse]);
+      setIsTyping(false);
+    }, 2000);
   };
 
   const handleEndSession = () => {
-    setShowFeedback(true);
+    if (messages.length === 0) return;
+
+    const allTags = messages.flatMap(m => m.tags || []);
+    const uniqueTags = [...new Set(allTags)];
+    
+    const newSession: Session = {
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      messages,
+      tags: uniqueTags,
+      title: messages[0]?.text.slice(0, 50) + "..." || "Untitled Session",
+      mode
+    };
+
+    setSessions(prev => [newSession, ...prev]);
+    setMessages([]);
+    setCurrentView("archive");
   };
 
-  const handleFeedbackSubmit = (feedback: any) => {
-    console.log("Session feedback:", feedback);
-    setShowFeedback(false);
-    navigate('/clarity-summary', { state: { messages, feedback } });
+  const handlePromptClick = (prompt: string) => {
+    setCurrentInput(prompt);
   };
 
-  const handleFeedbackSkip = () => {
-    setShowFeedback(false);
-    navigate('/clarity-summary', { state: { messages } });
-  };
+  const renderRecommendation = (rec: any) => (
+    <Card key={rec.id} className="mb-4 border-l-4 border-l-primary bg-card/50">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <Badge variant="secondary" className="text-xs">
+            {rec.type}
+          </Badge>
+          {rec.duration && (
+            <span className="text-xs text-muted-foreground">{rec.duration}</span>
+          )}
+        </div>
+        <h4 className="font-serif text-sm font-medium mb-1">{rec.title}</h4>
+        <p className="text-xs text-muted-foreground mb-2">{rec.description}</p>
+        {rec.content && (
+          <p className="text-sm italic border-l-2 border-muted pl-3 text-foreground/80">
+            {rec.content}
+          </p>
+        )}
+        {rec.author && (
+          <p className="text-xs text-muted-foreground mt-2">— {rec.author}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
 
-  if (sessionStarted) {
+  if (currentView === "archive") {
     return (
-      <div className="fixed inset-0 bg-background font-body overflow-hidden">
-        {/* Full Screen Text-Based Conversation */}
-        <div className="h-full flex flex-col">
-          <VoiceFirstChat
-            title={isJournalMode ? "Journal Mode" : "Clarity Session"}
-            subtitle={isJournalMode ? "Private reflection space" : "Share what's on your mind for guidance"}
-            participantName={isJournalMode ? "Personal Journal" : "Clarity Guide"}
-            initialMessage={isJournalMode ? "What's on your mind? (This is just for you - no responses)" : "What would you like to explore today? I'll share relevant frameworks, research, and wisdom to help you think it through."}
-            onSendMessage={handleSendMessage}
-            onEndSession={handleEndSession}
-            messages={messages}
-            isVoiceActive={false}
-            onVoiceToggle={() => {}}
-            showRecommendations={!isJournalMode}
-            showOrb={false}
-            hideContextInfo={true}
-          />
+      <div className="min-h-screen bg-background font-serif">
+        {/* Archive Header */}
+        <div className="border-b border-border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => setCurrentView("entry")}
+              className="text-foreground hover:bg-muted"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Back to Clarity
+            </Button>
+            <h1 className="text-xl font-serif font-medium">Memory Archive</h1>
+            <div className="w-20" />
+          </div>
+          
+          {/* Search and Filter */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search your sessions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[...new Set(sessions.flatMap(s => s.tags))].slice(0, 8).map(tag => (
+                <Badge
+                  key={tag}
+                  variant={selectedTags.includes(tag) ? "default" : "secondary"}
+                  className="cursor-pointer text-xs"
+                  onClick={() => {
+                    setSelectedTags(prev => 
+                      prev.includes(tag) 
+                        ? prev.filter(t => t !== tag)
+                        : [...prev, tag]
+                    );
+                  }}
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Session Feedback Modal */}
-        {showFeedback && (
-          <SessionFeedback
-            onSubmit={handleFeedbackSubmit}
-            onSkip={handleFeedbackSkip}
-          />
-        )}
+        {/* Sessions List */}
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="grid gap-4">
+            {sessions
+              .filter(session => 
+                (!searchQuery || session.title.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                (selectedTags.length === 0 || selectedTags.some(tag => session.tags.includes(tag)))
+              )
+              .map(session => (
+                <Card key={session.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-serif font-medium text-foreground mb-1">
+                          {session.title}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock size={12} />
+                          {session.timestamp.toLocaleDateString()}
+                          <Badge variant="outline" className="text-xs">
+                            {session.mode}
+                          </Badge>
+                        </div>
+                      </div>
+                      {session.isPinned && <Pin size={16} className="text-primary" />}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {session.tags.slice(0, 5).map(tag => (
+                        <Badge key={tag} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {session.messages.length} messages
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
       </div>
     );
   }
 
+  if (currentView === "session") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col font-serif">
+        {/* Session Header */}
+        <div className="border-b border-border p-4 bg-background/95 backdrop-blur">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="text-xs font-medium">
+                {mode === "journal" ? "Private Journal" : "Clarity Conversation"}
+              </Badge>
+              <div className="flex gap-1">
+                {messages.flatMap(m => m.tags || []).slice(0, 3).map((tag, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentView("archive")}
+              >
+                <Archive size={16} />
+              </Button>
+              {messages.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEndSession}
+                >
+                  End Session
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-6 py-8 max-w-3xl mx-auto w-full">
+          {messages.length === 0 && (
+            <div className="text-center py-16">
+              <h2 className="text-2xl font-serif font-medium text-foreground mb-4">
+                {mode === "journal" ? "Your Private Space" : "What's on Your Mind?"}
+              </h2>
+              <p className="text-muted-foreground mb-8 leading-relaxed">
+                {mode === "journal" 
+                  ? "Write freely. Your thoughts are safe here." 
+                  : "Share what you're thinking about, and I'll offer insights and wisdom to help you find clarity."
+                }
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-8">
+            {messages.map((message) => (
+              <div key={message.id} className={`${message.sender === "user" ? "ml-8" : "mr-8"}`}>
+                <div className={`${
+                  message.sender === "user" 
+                    ? "bg-primary/5 border-l-4 border-l-primary" 
+                    : "bg-muted/30"
+                } p-6 rounded-lg`}>
+                  <p className="text-foreground leading-relaxed font-serif">
+                    {message.text}
+                  </p>
+                  {message.tags && message.tags.length > 0 && (
+                    <div className="flex gap-1 mt-3">
+                      {message.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recommendations */}
+                {message.recommendations && message.recommendations.length > 0 && (
+                  <div className="mt-6 ml-6">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wide">
+                      Recommended Resources
+                    </h4>
+                    <div className="space-y-4">
+                      {message.recommendations.map(renderRecommendation)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {isTyping && (
+            <div className="mr-8 mt-8">
+              <div className="bg-muted/30 p-6 rounded-lg">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
+                  <div className="w-2 h-2 bg-current rounded-full animate-pulse" style={{animationDelay: "0.2s"}} />
+                  <div className="w-2 h-2 bg-current rounded-full animate-pulse" style={{animationDelay: "0.4s"}} />
+                  <span className="ml-2 text-sm">Reflecting...</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-border bg-background/95 backdrop-blur p-6">
+          <div className="max-w-3xl mx-auto">
+            {/* Rotating Prompts */}
+            <div className="text-center mb-4">
+              <button
+                onClick={() => handlePromptClick(prompts[currentPromptIndex])}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors italic font-serif"
+              >
+                "{prompts[currentPromptIndex]}"
+              </button>
+            </div>
+
+            {/* Input Field */}
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Textarea
+                  value={currentInput}
+                  onChange={(e) => setCurrentInput(e.target.value)}
+                  placeholder="Type your thoughts..."
+                  className="resize-none border-border focus:border-primary bg-background font-serif"
+                  rows={3}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!currentInput.trim()}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <Send size={16} />
+              </Button>
+            </div>
+
+            {/* Attachment Options */}
+            <div className="flex justify-center gap-4 mt-4">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <Mail size={14} className="mr-1" />
+                Gmail
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <Calendar size={14} className="mr-1" />
+                Calendar
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <Image size={14} className="mr-1" />
+                Photos
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <FileText size={14} className="mr-1" />
+                Files
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Entry Screen
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-32">
-      {/* Minimal Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <button
-          onClick={() => navigate("/inner-architect")}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-        >
-          <ArrowLeft size={18} className="text-foreground" />
-        </button>
-        <h1 className="text-xl font-heading font-medium text-foreground">
-          Clarity
-        </h1>
-        <div className="w-10"></div>
+    <div className="min-h-screen bg-background font-serif">
+      {/* Header */}
+      <div className="border-b border-border p-6">
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/inner-architect")}
+            className="text-foreground hover:bg-muted"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-serif font-medium">Clarity</h1>
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView("archive")}
+            className="text-foreground hover:bg-muted"
+          >
+            <Archive size={16} className="mr-2" />
+            Archive
+          </Button>
+        </div>
       </div>
 
-      {/* Hero Section */}
-      <div className="px-8 py-16 text-center max-w-2xl mx-auto">
-        <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
-          <img 
-            src={vibrantGrowthIllustration} 
-            alt="Mental clarity and growth"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        
-        <h2 className="text-2xl font-heading font-medium text-foreground mb-6 leading-tight">
-          Mental Clarity
+      {/* Entry Content */}
+      <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+        <h2 className="text-3xl font-serif font-medium text-foreground mb-6">
+          Mind Module
         </h2>
         
-        <p className="text-base text-muted-foreground leading-relaxed mb-12">
-          Clear mental clutter through conversation or private journaling.
+        <p className="text-lg text-muted-foreground leading-relaxed mb-12">
+          A space for thinking clearly, feeling grounded, and growing intentionally.
+          <br />
+          <span className="text-sm italic">ChatGPT meets The New Yorker meets inner mastery.</span>
         </p>
 
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => setIsJournalMode(false)}
-              className={`px-4 py-2 rounded-full text-sm transition-all ${
-                !isJournalMode 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted text-foreground hover:bg-muted/80'
-              }`}
-            >
-              Conversation
-            </button>
-            <button
-              onClick={() => setIsJournalMode(true)}
-              className={`px-4 py-2 rounded-full text-sm transition-all ${
-                isJournalMode 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted text-foreground hover:bg-muted/80'
-              }`}
-            >
-              Journal
-            </button>
-          </div>
-          
-          <Button 
-            onClick={handleStartSession}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg font-body rounded-full"
+        {/* Mode Selection */}
+        <div className="flex justify-center gap-4 mb-12">
+          <Button
+            variant={mode === "conversation" ? "default" : "outline"}
+            onClick={() => setMode("conversation")}
+            className="px-8 py-4 text-base font-serif"
           >
-            {isJournalMode ? "Start journaling" : "Start conversation"}
+            Conversation
           </Button>
-          
-          <p className="text-sm text-muted-foreground text-center max-w-lg">
-            {isJournalMode 
-              ? "Private space for your thoughts"
-              : "Get research insights and frameworks during our conversation"
+          <Button
+            variant={mode === "journal" ? "default" : "outline"}
+            onClick={() => setMode("journal")}
+            className="px-8 py-4 text-base font-serif"
+          >
+            Journal
+          </Button>
+        </div>
+
+        <div className="text-center mb-8">
+          <p className="text-sm text-muted-foreground mb-4">
+            {mode === "conversation" 
+              ? "Share your thoughts and receive insights backed by science, wisdom traditions, and real experience."
+              : "Private writing space with optional gentle insights and mental models."
             }
           </p>
         </div>
-      </div>
 
-      <MainNavigation />
+        <Button
+          onClick={() => setCurrentView("session")}
+          className="px-12 py-4 text-lg font-serif bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          Begin {mode === "conversation" ? "Conversation" : "Journaling"}
+        </Button>
+      </div>
     </div>
   );
 };
