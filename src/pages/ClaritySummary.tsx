@@ -35,30 +35,30 @@ const ClaritySummary = () => {
       title: "Awareness",
       content: "What new insights or perspectives emerged about yourself or the situation?",
       actionSteps: [
-        "Practice mindful breathing before difficult conversations",
-        "Set weekly reflection time to check in with yourself",
-        "Create a personal leadership values statement",
-        "Schedule monthly mentor conversations"
+        "Take 3 deep breaths before challenging conversations with friends",
+        "Set aside 15 minutes each Sunday for self-reflection",
+        "Write down your top 3 values and post them where you'll see them daily",
+        "Find a trusted adult mentor for monthly check-ins"
       ]
     },
     {
       title: "Future",
       content: "What do you want to do differently moving forward?",
       actionSteps: [
-        "Practice mindful breathing before difficult conversations",
-        "Set weekly reflection time to check in with yourself",
-        "Create a personal leadership values statement",
-        "Schedule monthly mentor conversations"
+        "Practice saying 'no' to commitments that don't align with priorities",
+        "Create study boundaries (no phone during focused work time)",
+        "Have honest conversations about expectations with parents/teachers",
+        "Build in buffer time between activities to avoid rushing"
       ]
     },
     {
       title: "Transformation",
       content: "What specific practices or rituals will help you embody these insights?",
       actionSteps: [
-        "Daily 5-minute morning intention setting",
-        "Weekly journaling on leadership challenges",
-        "Monthly progress review with accountability partner",
-        "Quarterly personal development retreat"
+        "Daily 5-minute morning intention setting before school",
+        "Weekly journaling on academic and social challenges",
+        "Monthly progress review with study buddy or mentor",
+        "Create seasonal goals aligned with school calendar"
       ]
     }
   ];

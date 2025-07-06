@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
 import VoiceFirstChat from "@/components/VoiceFirstChat";
 import SessionFeedback from "@/components/SessionFeedback";
-import inkMeditationIllustration from "@/assets/ink-meditation-illustration.png";
+import vibrantGrowthIllustration from "@/assets/vibrant-growth-illustration.png";
 
 interface Message {
   id: string;
@@ -48,16 +48,16 @@ const ClarityMode = () => {
     setTimeout(() => {
       const response: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I understand what you're sharing. Let me reflect this back to you and help you explore this further...",
+        text: "I hear you. Let me help you untangle these thoughts and find your clarity...",
         sender: "ai",
         timestamp: new Date(),
         recommendations: [
           {
             id: "1",
             type: "article",
-            title: "The Power of Self-Reflection",
-            description: "Techniques for deeper personal insight and clarity.",
-            author: "Harvard Business Review"
+            title: "Managing Academic Stress Like a Pro",
+            description: "Evidence-based strategies for high-achieving students.",
+            author: "Student Success Journal"
           }
         ]
       };
@@ -146,20 +146,21 @@ const ClarityMode = () => {
 
       {/* Hero Section */}
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-32 h-32 mx-auto mb-12 rounded-full bg-card border border-border overflow-hidden">
+        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={inkMeditationIllustration} 
-            alt="Contemplative meditation"
-            className="w-full h-full object-contain p-4 opacity-90"
+            src={vibrantGrowthIllustration} 
+            alt="Mental clarity and growth"
+            className="w-full h-full object-cover"
           />
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
-          Explore your thoughts
+          Thought Unclutter
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          A space for reflection and understanding
+          Drag mental noise into a trash zone. Visualize space clearing.<br/>
+          <span className="text-sm italic">"AP Physics test + friendship drama + debate tryouts — what's taking space?"</span>
         </p>
 
         <Button 

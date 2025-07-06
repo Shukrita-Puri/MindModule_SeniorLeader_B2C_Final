@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import inkMeditationIllustration from "@/assets/ink-meditation-illustration.png";
+import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 
 const ScenarioLab = () => {
   const navigate = useNavigate();
@@ -116,11 +116,11 @@ const ScenarioLab = () => {
 
       {/* Hero Section - Voice-First Entry */}
       <div className="px-8 py-20 text-center max-w-3xl mx-auto">
-        <div className="w-40 h-40 mx-auto mb-16 rounded-full bg-card border border-border overflow-hidden">
+        <div className="w-40 h-40 mx-auto mb-16 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={inkMeditationIllustration} 
-            alt="Student preparation"
-            className="w-full h-full object-contain p-6 opacity-90"
+            src={vibrantPracticeIllustration} 
+            alt="Social intelligence practice"
+            className="w-full h-full object-cover"
           />
         </div>
         

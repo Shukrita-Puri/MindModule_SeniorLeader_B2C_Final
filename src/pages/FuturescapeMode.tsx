@@ -6,7 +6,7 @@ import ModeDial from "@/components/ModeDial";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import MainNavigation from "@/components/MainNavigation";
-import inkMeditationIllustration from "@/assets/ink-meditation-illustration.png";
+import vibrantFuturescapeIllustration from "@/assets/vibrant-futurescape-illustration.png";
 
 const FuturescapeMode = () => {
   const navigate = useNavigate();
@@ -45,18 +45,19 @@ const FuturescapeMode = () => {
 
       {/* Hero Section - Minimal */}
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-32 h-32 mx-auto mb-12 rounded-full bg-card border border-border overflow-hidden">
+        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={inkMeditationIllustration}
-            alt="Contemplative visioning"
-            className="w-full h-full object-contain p-4 opacity-90"
+            src={vibrantFuturescapeIllustration}
+            alt="Future visioning and growth"
+            className="w-full h-full object-cover"
           />
         </div>
         <h2 className="text-3xl font-heading font-medium text-foreground mb-6 leading-tight">
-          See your possibilities
+          Identity + Growth
         </h2>
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Craft your vision and create an actionable roadmap
+          "Who Am I Becoming?" Visual map of traits, values, milestones.<br/>
+          <span className="text-sm italic">"I am curious. I take initiative. I value excellence, but not perfection."</span>
         </p>
       </div>
 
@@ -66,38 +67,38 @@ const FuturescapeMode = () => {
         {/* 1. Set Vision */}
         <div className="space-y-4">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-gray-800">Set Your Vision</h2>
-            <p className="text-gray-600">Define your ideal future state in 3-5 years</p>
+            <h2 className="text-2xl font-heading font-medium text-foreground">Your Future Self</h2>
+            <p className="text-muted-foreground">Where do you see yourself after college?</p>
           </div>
           
           <Textarea
             value={visionStatement}
             onChange={(e) => setVisionStatement(e.target.value)}
-            placeholder="Describe your vision - your role, impact, achievements, and the legacy you want to create..."
-            className="min-h-[120px] border-gray-300 focus:border-hyper-coral text-base p-4"
+            placeholder="I see myself as a leader who... making an impact through... known for my values of..."
+            className="min-h-[120px] bg-card border-border text-card-foreground focus:border-primary text-base p-4"
           />
         </div>
 
         {/* 2. Strategic Objectives */}
         <div className="space-y-4">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-gray-800">Strategic Objectives</h2>
-            <p className="text-gray-600">What are the critical outcomes you must achieve?</p>
+            <h2 className="text-2xl font-heading font-medium text-foreground">Key Milestones</h2>
+            <p className="text-muted-foreground">What achievements will define your path?</p>
           </div>
           
           <div className="space-y-3">
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Add a strategic objective..."
-                className="flex-1 p-4 border border-gray-300 rounded-lg focus:outline-none focus:border-hyper-coral text-base"
+                placeholder="e.g., Graduate summa cum laude, Start my own company..."
+                className="flex-1 p-4 bg-card border border-border rounded-lg focus:outline-none focus:border-primary text-base text-card-foreground"
                 value={newObjective}
                 onChange={(e) => setNewObjective(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleAddObjective()}
               />
               <Button 
                 onClick={handleAddObjective} 
-                className="bg-hyper-coral hover:bg-red-600 px-6"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
               >
                 Add
               </Button>

@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
-import resetSessionIllustration from "@/assets/reset-session-illustration.png";
-import emergencyResetIllustration from "@/assets/emergency-reset-illustration.png";
-import powerUpIllustration from "@/assets/power-up-illustration.png";
-import breathingTogetherIllustration from "@/assets/breathing-together-illustration.png";
-import gentlePauseIllustration from "@/assets/gentle-pause-illustration.png";
+import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
+import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
+import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
+import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
+import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
@@ -18,26 +18,26 @@ const RecalibrateMode = () => {
     {
       id: "emergency-reset",
       title: "Emergency Reset",
-      description: "3-minute grounding for overwhelming moments",
-      illustration: emergencyResetIllustration
+      description: "3-minute grounding when everything feels overwhelming",
+      illustration: vibrantExecutiveOrb
     },
     {
       id: "power-up", 
       title: "Power Up",
-      description: "1-minute energy boost for focus",
-      illustration: powerUpIllustration
+      description: "1-minute energy boost before big moments",
+      illustration: vibrantVoiceOrb
     },
     {
       id: "breathing",
-      title: "Breathe Together",
-      description: "Guided breathing for calm presence",
-      illustration: breathingTogetherIllustration
+      title: "Breathe & Center",
+      description: "Guided breathing for test anxiety and pressure",
+      illustration: vibrantBreathworkHero
     },
     {
       id: "pause",
-      title: "Gentle Pause",
-      description: "Soft sounds for micro-moments",
-      illustration: gentlePauseIllustration
+      title: "Quick Reset",
+      description: "Calming sounds for study breaks",
+      illustration: vibrantPracticeIllustration
     }
   ];
 
@@ -243,11 +243,11 @@ const RecalibrateMode = () => {
 
   const renderEmergencyReset = () => (
     <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-      <div className="w-32 h-32 mx-auto mb-12 rounded-full bg-card border border-border overflow-hidden">
+      <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
         <img 
-          src={emergencyResetIllustration} 
-          alt="Emergency reset"
-          className="w-full h-full object-cover opacity-80"
+          src={vibrantExecutiveOrb} 
+          alt="Emergency reset and grounding"
+          className="w-full h-full object-cover"
         />
       </div>
       
@@ -392,20 +392,21 @@ const RecalibrateMode = () => {
     <>
       {/* Hero Section */}
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-32 h-32 mx-auto mb-12 rounded-full bg-card border border-border overflow-hidden">
+        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={resetSessionIllustration} 
-            alt="Reset session"
-            className="w-full h-full object-cover opacity-80"
+            src={vibrantMentorIllustration} 
+            alt="Inner calibration and balance"
+            className="w-full h-full object-cover"
           />
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
-          Find your center
+          Mood Mapper
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Moments of pause and renewal
+          Tap how you feel → get matching grounding practices<br/>
+          <span className="text-sm italic">"Feeling 'tight chest + overthinking'? → Try a 3-min coherence audio"</span>
         </p>
       </div>
 
