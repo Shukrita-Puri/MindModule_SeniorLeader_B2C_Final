@@ -406,7 +406,7 @@ const RecalibrateMode = () => {
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
           Reset when you're feeling:<br/>
-          <span className="text-sm italic">Stressed • Overthinking • Need Flow State • Looking to Level Up</span>
+          <span className="text-sm italic">Stressed • Overthinking • Looking to Level Up</span>
         </p>
       </div>
 

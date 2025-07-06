@@ -32,7 +32,7 @@ const Index = () => {
     {
       id: "inner-calibration",
       title: "Inner Calibration",
-      subtitle: "Tap how you feel → get matching practices",
+      subtitle: "Reset when you're feeling: Stressed • Overthinking • Looking to Level Up",
       illustration: recalibrateIllustration,
       route: "/recalibrate"
     },
