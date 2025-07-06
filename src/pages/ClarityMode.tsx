@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import MainNavigation from "@/components/MainNavigation";
-import clarityImage from "@/assets/vibrant-growth-illustration.png";
+import clarityImage from "@/assets/vibrant-mental-clarity.png";
 
 interface Message {
   id: string;
@@ -468,38 +468,6 @@ const ClarityMode = () => {
         {/* Input Area */}
         <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-24">
           <div className="max-w-3xl mx-auto">
-            {/* Recommended Questions */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide text-center">
-                Recommended Questions
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <button
-                  onClick={() => handlePromptClick("How can I manage academic pressure better?")}
-                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
-                >
-                  How can I manage academic pressure better?
-                </button>
-                <button
-                  onClick={() => handlePromptClick("What's causing my overthinking lately?")}
-                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
-                >
-                  What's causing my overthinking lately?
-                </button>
-                <button
-                  onClick={() => handlePromptClick("How do I balance expectations and self-care?")}
-                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
-                >
-                  How do I balance expectations and self-care?
-                </button>
-                <button
-                  onClick={() => handlePromptClick("What would help me feel more confident?")}
-                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
-                >
-                  What would help me feel more confident?
-                </button>
-              </div>
-            </div>
 
             {/* Rotating Prompts */}
             <div className="text-center mb-4">
@@ -577,11 +545,11 @@ const ClarityMode = () => {
       {/* Entry Content */}
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
         {/* Circular Image */}
-        <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+        <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden">
           <img 
             src={clarityImage} 
             alt="Mental Clarity" 
-            className="w-24 h-24 object-contain"
+            className="w-full h-full object-cover"
           />
         </div>
         
