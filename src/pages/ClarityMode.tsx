@@ -164,9 +164,9 @@ const ClarityMode = () => {
 
   if (sessionStarted) {
     return (
-      <div className="relative flex min-h-screen flex-col bg-background font-editorial">
-        {/* Text-First Chat Interface - Full Screen */}
-        <div className="flex-1 h-screen">
+      <div className="fixed inset-0 bg-background font-body overflow-hidden">
+        {/* Full Screen Text-Based Conversation */}
+        <div className="h-full flex flex-col">
           <VoiceFirstChat
             title={isJournalMode ? "Journal Mode" : "Clarity Session"}
             subtitle={isJournalMode ? "Private reflection space" : "Share what's on your mind for guidance"}

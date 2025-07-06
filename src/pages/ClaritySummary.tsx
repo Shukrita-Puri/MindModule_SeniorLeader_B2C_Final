@@ -1,16 +1,18 @@
-
 import { useState } from "react";
-import { ArrowLeft, Calendar, Check, Download } from "lucide-react";
+import { ArrowLeft, Calendar, Check, Download, BookOpen, Target, Lightbulb, RefreshCw, Plus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import ModeDial from "@/components/ModeDial";
 import MainNavigation from "@/components/MainNavigation";
 
 interface CraftSection {
   title: string;
+  icon: any;
   content: string;
   actionSteps?: string[];
+  examples?: string[];
 }
 
 const ClaritySummary = () => {
@@ -19,46 +21,51 @@ const ClaritySummary = () => {
   const messages = location.state?.messages || [];
   
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
-  const [customAction, setCustomAction] = useState("");
+  const [customRitual, setCustomRitual] = useState("");
 
-  // Generate CRAFT summary from conversation
+  // Student-focused C.R.A.F.T summary
   const craftSummary: CraftSection[] = [
     {
       title: "Context",
-      content: "What was the situation or challenge you brought to this conversation?",
+      icon: BookOpen,
+      content: "Today I felt overwhelmed about balancing college applications, maintaining my GPA, and still having time for friends...",
     },
     {
       title: "Reflection", 
-      content: "What emotions, beliefs, or patterns did you discover during our dialogue?",
+      icon: Lightbulb,
+      content: "I realized I'm putting pressure on myself to be perfect at everything. My fear of disappointing my parents is making me say yes to too many commitments.",
     },
     {
-      title: "Awareness",
-      content: "What new insights or perspectives emerged about yourself or the situation?",
+      title: "Action",
+      icon: Target,
+      content: "Small steps you can take this week:",
       actionSteps: [
-        "Take 3 deep breaths before challenging conversations with friends",
-        "Set aside 15 minutes each Sunday for self-reflection",
-        "Write down your top 3 values and post them where you'll see them daily",
-        "Find a trusted adult mentor for monthly check-ins"
+        "Take 3 deep breaths before answering any new commitment requests",
+        "Block 2 hours Sunday evening for weekly planning and reflection",
+        "Write down your top 3 priorities and keep them visible on your desk",
+        "Have an honest conversation with parents about realistic expectations"
       ]
     },
     {
-      title: "Future",
-      content: "What do you want to do differently moving forward?",
-      actionSteps: [
-        "Practice saying 'no' to commitments that don't align with priorities",
-        "Create study boundaries (no phone during focused work time)",
-        "Have honest conversations about expectations with parents/teachers",
-        "Build in buffer time between activities to avoid rushing"
+      title: "Frameworks",
+      icon: BookOpen,
+      content: "Resources saved from our conversation:",
+      examples: [
+        "The Eisenhower Matrix for Priority Management",
+        "Stanford's 'Design Your Life' approach to decision-making",
+        "Cal Newport's 'Deep Work' strategies for focused study time",
+        "Brené Brown on perfectionism and vulnerability"
       ]
     },
     {
       title: "Transformation",
-      content: "What specific practices or rituals will help you embody these insights?",
+      icon: RefreshCw,
+      content: "Choose what will help these insights stick:",
       actionSteps: [
-        "Daily 5-minute morning intention setting before school",
-        "Weekly journaling on academic and social challenges",
-        "Monthly progress review with study buddy or mentor",
-        "Create seasonal goals aligned with school calendar"
+        "Set a daily 5-minute morning intention ritual before school",
+        "Weekly check-in with a trusted friend or mentor",
+        "Monthly review of goals and progress in your journal",
+        "Create seasonal goals that align with your school calendar"
       ]
     }
   ];
@@ -73,10 +80,9 @@ const ClaritySummary = () => {
 
   const handleSetReminders = () => {
     console.log("Setting reminders for:", selectedActions);
-    if (customAction) {
-      console.log("Custom action:", customAction);
+    if (customRitual) {
+      console.log("Custom ritual:", customRitual);
     }
-    // Here you would integrate with calendar API
     navigate("/clarity");
   };
 
@@ -86,127 +92,176 @@ const ClaritySummary = () => {
 
   const handleDownload = () => {
     console.log("Downloading clarity summary...");
-    // TODO: Implement download functionality
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-white font-manrope pb-20">
-      {/* Header */}
-      <div className="flex items-center bg-white p-4 py-2 justify-between border-b border-gray-100">
+    <div className="relative flex min-h-screen flex-col bg-background font-body pb-32">
+      {/* Minimal Header */}
+      <div className="flex items-center bg-background p-4 justify-between border-b border-border">
         <button
           onClick={() => navigate("/clarity")}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
-          <ArrowLeft size={24} className="text-black" />
+          <ArrowLeft size={20} className="text-foreground" />
         </button>
-        <h2 className="text-lg font-bold text-black">Clarity Summary</h2>
+        <h2 className="text-lg font-heading font-medium text-foreground">Your Clarity Journey</h2>
         <div className="relative">
           <ModeDial />
         </div>
       </div>
 
-      {/* Download Button */}
-      <div className="px-4 py-2 border-b border-gray-100">
-        <Button 
-          onClick={handleDownload}
-          variant="outline"
-          className="ml-auto flex items-center gap-2 border-hyper-coral text-hyper-coral hover:bg-red-50"
-        >
-          <Download size={16} />
-          Download Summary
-        </Button>
-      </div>
+      <div className="flex-1 px-6 sm:px-8 max-w-4xl mx-auto w-full">
+        {/* Hero Section */}
+        <div className="py-8 text-center">
+          <h1 className="text-2xl sm:text-3xl font-heading font-medium text-foreground mb-4 leading-tight">
+            Your Session Summary
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Here's what we discovered together, organized to help you move forward with clarity and confidence.
+          </p>
+        </div>
 
-      <div className="flex-1 p-4 max-w-2xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-black mb-6 text-center">
-          Your Clarity Journey
-        </h1>
-        
-        <p className="text-gray-600 mb-8 text-center">
-          Here's a structured summary of your insights using the C.R.A.F.T framework
-        </p>
+        {/* Download Action */}
+        <div className="mb-8 flex justify-center">
+          <Button 
+            onClick={handleDownload}
+            variant="outline"
+            className="flex items-center gap-2 text-sm"
+          >
+            <Download size={16} />
+            Save Summary
+          </Button>
+        </div>
 
-        {/* CRAFT Summary */}
-          <div className="space-y-6 mb-8 pb-32">
-            {craftSummary.map((section, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-hyper-coral mb-2">
-                  {section.title}
-                </h3>
-                <p className="text-gray-700 mb-3">{section.content}</p>
+        {/* C.R.A.F.T Summary - Card Layout */}
+        <div className="space-y-8 mb-12">
+          {craftSummary.map((section, index) => (
+            <Card key={index} className="border border-border shadow-sm">
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <section.icon size={16} className="text-primary" />
+                  </div>
+                  <h3 className="text-xl font-heading font-medium text-foreground">
+                    {section.title}
+                  </h3>
+                </div>
                 
-                {section.actionSteps && (
-                  <div>
-                    <h4 className="font-medium text-black mb-2">Suggested Action Steps:</h4>
-                    <div className="space-y-2">
+                <div className="space-y-6">
+                  <p className="text-foreground leading-relaxed font-body text-base">
+                    {section.content}
+                  </p>
+                  
+                  {section.actionSteps && (
+                    <div className="space-y-4">
                       {section.actionSteps.map((action, actionIndex) => (
-                        <label key={actionIndex} className="flex items-center gap-3 cursor-pointer">
+                        <label key={actionIndex} className="flex items-start gap-4 cursor-pointer group p-3 rounded-lg hover:bg-muted/50 transition-colors">
                           <input
                             type="checkbox"
                             checked={selectedActions.includes(action)}
                             onChange={() => handleActionToggle(action)}
-                            className="w-4 h-4 text-hyper-coral rounded focus:ring-hyper-coral accent-hyper-coral"
+                            className="w-5 h-5 text-primary rounded focus:ring-primary accent-primary mt-0.5 flex-shrink-0"
                           />
-                          <span className="text-sm text-gray-700">{action}</span>
+                          <span className="text-sm text-foreground leading-relaxed group-hover:text-primary transition-colors">
+                            {action}
+                          </span>
                         </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {section.examples && (
+                    <div className="space-y-3">
+                      {section.examples.map((example, exampleIndex) => (
+                        <div key={exampleIndex} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                          <BookOpen size={14} className="text-primary flex-shrink-0" />
+                          <span className="text-sm text-foreground">{example}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Add Your Own Ritual */}
+        <Card className="border border-border shadow-sm mb-8">
+          <CardContent className="p-6 sm:p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
+                <Plus size={16} className="text-accent" />
+              </div>
+              <h3 className="text-xl font-heading font-medium text-foreground">
+                Add Your Own
+              </h3>
+            </div>
+            
+            <p className="text-muted-foreground mb-4 text-sm">
+              Write your own ritual, habit, or insight from our conversation that you'd like to remember:
+            </p>
+            
+            <Textarea
+              placeholder="e.g., 'When I feel anxious about college apps, I'll remind myself that my worth isn't defined by acceptances...'"
+              value={customRitual}
+              onChange={(e) => setCustomRitual(e.target.value)}
+              className="w-full min-h-[80px] border-input focus:border-primary text-sm leading-relaxed"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="space-y-4 mb-8">
+          {/* Set Reminders */}
+          {(selectedActions.length > 0 || customRitual.trim()) && (
+            <Card className="border border-primary/20 bg-primary/5">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Calendar className="text-primary" size={20} />
+                  <h3 className="text-lg font-heading font-medium text-foreground">Set Calendar Reminders</h3>
+                </div>
+                
+                {selectedActions.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground mb-3">Selected actions:</p>
+                    <div className="space-y-2">
+                      {selectedActions.map((action, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm text-foreground">
+                          <Check size={14} className="text-primary flex-shrink-0" />
+                          <span>{action}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-
-        {/* Custom Action */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-black mb-2">Add Your Own Action or Ritual</h3>
-          <Textarea
-            placeholder="Write your own action step or ritual you'd like to be reminded about..."
-            value={customAction}
-            onChange={(e) => setCustomAction(e.target.value)}
-            className="w-full border-gray-200 focus:border-hyper-coral"
-          />
-        </div>
-
-        {/* Set Reminders Section */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="text-hyper-coral" size={24} />
-            <h3 className="text-lg font-semibold text-black">Set Calendar Reminders</h3>
-          </div>
-          <p className="text-gray-600 mb-4">
-            Would you like to set reminders for your selected action steps and rituals?
-          </p>
-          
-          {selectedActions.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-medium text-black mb-2">Selected actions:</h4>
-              <ul className="space-y-1">
-                {selectedActions.map((action, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                    <Check size={16} className="text-hyper-coral" />
-                    {action}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                
+                <Button 
+                  onClick={handleSetReminders}
+                  className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Calendar size={16} className="mr-2" />
+                  Set Reminders
+                </Button>
+              </CardContent>
+            </Card>
           )}
           
-          <div className="flex gap-3">
-            <Button 
-              onClick={handleSetReminders}
-              disabled={selectedActions.length === 0 && !customAction}
-              className="bg-hyper-coral hover:bg-red-600 text-white border-0"
-            >
-              <Calendar size={16} className="mr-2" />
-              Set Reminders
-            </Button>
+          {/* Next Steps */}
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               onClick={handleNewConversation}
               variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="flex-1 border-border text-foreground hover:bg-muted"
             >
-              Start New Conversation
+              New Conversation
+            </Button>
+            <Button 
+              onClick={() => navigate("/mind-vault")}
+              variant="secondary"
+              className="flex-1"
+            >
+              Save to Library
             </Button>
           </div>
         </div>

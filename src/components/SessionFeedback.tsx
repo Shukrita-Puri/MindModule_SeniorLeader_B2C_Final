@@ -30,8 +30,8 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="max-w-md w-full">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 pb-8">
+      <Card className="max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare size={20} className="text-hyper-coral" />
@@ -93,18 +93,18 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
               onClick={onSkip}
               variant="ghost"
-              className="flex-1"
+              className="flex-1 order-2 sm:order-1"
             >
               Skip
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!rating}
-              className="flex-1 bg-hyper-coral hover:bg-red-600 text-white"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 order-1 sm:order-2"
             >
               Submit Feedback
             </Button>

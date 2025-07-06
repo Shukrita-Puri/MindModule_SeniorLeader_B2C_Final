@@ -67,19 +67,19 @@ const Index = () => {
         <span>Secure</span>
       </div>
 
-      {/* Hero Section - Minimal */}
-      <div className="px-8 py-16 text-center max-w-2xl mx-auto">
-        <h1 className="text-3xl font-heading font-medium text-foreground mb-6 leading-tight">
+      {/* Hero Section - Mobile Optimized */}
+      <div className="px-6 py-8 sm:px-8 sm:py-16 text-center max-w-2xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-heading font-medium text-foreground mb-4 sm:mb-6 leading-tight">
           Inner Architect
         </h1>
-        <p className="text-base text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Your cognitive companion for clarity and growth
         </p>
       </div>
 
       {/* Simplified Mode Selection */}
-      <div className="flex-1 px-8 pb-32">
-        <div className="max-w-lg mx-auto space-y-8">
+      <div className="flex-1 px-6 sm:px-8 pb-32">
+        <div className="max-w-lg mx-auto space-y-6 sm:space-y-8">
           {modes.map((mode, index) => (
             <div
               key={mode.id}
@@ -88,8 +88,8 @@ const Index = () => {
               style={{ animationDelay: `${index * 200}ms` }}
             >
               {/* Ink Illustration for contemplative modes */}
-              <div className="mb-6 flex justify-center">
-                <div className="w-20 h-20 rounded-full bg-card border border-border overflow-hidden group-hover:scale-105 transition-transform duration-300">
+              <div className="mb-4 sm:mb-6 flex justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-card border border-border overflow-hidden group-hover:scale-105 transition-transform duration-300">
                   <img 
                     src={mode.illustration} 
                     alt={mode.title}
@@ -99,18 +99,18 @@ const Index = () => {
               </div>
               
               {/* Minimal Text */}
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors">
+              <div className="text-center space-y-1 sm:space-y-2">
+                <h3 className="text-lg sm:text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors">
                   {mode.title}
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground px-2">
                   {mode.subtitle}
                 </p>
               </div>
               
               {/* Subtle Divider */}
               {index < modes.length - 1 && (
-                <div className="mt-12 flex justify-center">
+                <div className="mt-8 sm:mt-12 flex justify-center">
                   <div className="w-6 h-px bg-border"></div>
                 </div>
               )}
