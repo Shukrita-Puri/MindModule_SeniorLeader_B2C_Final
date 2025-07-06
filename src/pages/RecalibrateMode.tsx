@@ -401,12 +401,12 @@ const RecalibrateMode = () => {
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
-          Mood Mapper
+          Inner Calibrate
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Tap how you feel → get matching grounding practices<br/>
-          <span className="text-sm italic">"Feeling 'tight chest + overthinking'? → Try a 3-min coherence audio"</span>
+          Reset when you're feeling:<br/>
+          <span className="text-sm italic">Stressed • Overthinking • Need Flow State • Looking to Level Up</span>
         </p>
       </div>
 

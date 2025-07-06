@@ -41,14 +41,14 @@ const Index = () => {
       title: "Social Intelligence",
       subtitle: "Practice difficult conversations before they happen",
       illustration: practiceIllustration,
-      route: "/scenario-lab"
+      route: "/social-intelligence-lab"
     },
     {
       id: "flow-state",
       title: "Flow State",
       subtitle: "Focus zones with Pomodoro and ambient visuals",
       illustration: inkFocusIllustration,
-      route: "/scenario-lab"
+      route: "/flow-state-lab"
     },
     {
       id: "identity-growth",
