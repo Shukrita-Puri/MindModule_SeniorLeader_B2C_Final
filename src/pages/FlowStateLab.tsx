@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Play, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import vibrantFocusIllustration from "@/assets/ink-focus-illustration.png";
+import vibrantFlowStateHero from "@/assets/vibrant-flow-state-hero.png";
 import { Progress } from "@/components/ui/progress";
 
 type FlowStep = 'hero' | 'choose-task' | 'choose-duration' | 'technique-selected' | 'session' | 'reflect';
@@ -17,6 +17,19 @@ const FlowStateLab = () => {
   const [sessionTimer, setSessionTimer] = useState(0);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [ambientSound, setAmbientSound] = useState(false);
+  const [focusRating, setFocusRating] = useState(0);
+  const [goalCompleted, setGoalCompleted] = useState<boolean | null>(null);
+
+  // Timer effect for session
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSessionActive && currentStep === 'session') {
+      interval = setInterval(() => {
+        setSessionTimer(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isSessionActive, currentStep]);
 
   const taskCategories = [
     {
@@ -57,10 +70,10 @@ const FlowStateLab = () => {
       case 'hero':
         return (
           <div className="text-center animate-fade-in">
-            <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+            <div className="w-64 h-40 mx-auto mb-8 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/20">
               <img 
-                src={vibrantFocusIllustration} 
-                alt="Focus and flow state"
+                src={vibrantFlowStateHero} 
+                alt="Vibrant flow state illustration"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -197,7 +210,10 @@ const FlowStateLab = () => {
             </div>
 
             <Button 
-              onClick={() => setCurrentStep('session')}
+              onClick={() => {
+                setCurrentStep('session');
+                setIsSessionActive(true);  // Start the timer immediately
+              }}
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg rounded-full"
             >
               Start Guided Session
@@ -268,7 +284,12 @@ const FlowStateLab = () => {
                   {[1, 2, 3, 4, 5].map((rating) => (
                     <button
                       key={rating}
-                      className="w-12 h-12 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-all"
+                      onClick={() => setFocusRating(rating)}
+                      className={`w-12 h-12 rounded-full border transition-all ${
+                        focusRating === rating
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border hover:border-primary hover:bg-primary/10'
+                      }`}
                     >
                       {rating}
                     </button>
@@ -281,8 +302,20 @@ const FlowStateLab = () => {
                   Did you complete your goal?
                 </h3>
                 <div className="flex justify-center gap-4">
-                  <Button variant="outline" className="px-8">Yes</Button>
-                  <Button variant="outline" className="px-8">No</Button>
+                  <Button 
+                    onClick={() => setGoalCompleted(true)}
+                    variant={goalCompleted === true ? "default" : "outline"}
+                    className="px-8"
+                  >
+                    Yes
+                  </Button>
+                  <Button 
+                    onClick={() => setGoalCompleted(false)}
+                    variant={goalCompleted === false ? "default" : "outline"}
+                    className="px-8"
+                  >
+                    No
+                  </Button>
                 </div>
               </div>
 
