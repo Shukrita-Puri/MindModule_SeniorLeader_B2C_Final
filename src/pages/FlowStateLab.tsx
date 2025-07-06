@@ -363,7 +363,7 @@ const FlowStateLab = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 px-8 py-16 max-w-4xl mx-auto">
+      <div className="flex-1 px-8 py-16 pb-32 max-w-4xl mx-auto">
         {renderCurrentStep()}
       </div>
 

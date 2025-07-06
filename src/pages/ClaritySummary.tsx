@@ -127,35 +127,35 @@ const ClaritySummary = () => {
         </p>
 
         {/* CRAFT Summary */}
-        <div className="space-y-6 mb-8">
-          {craftSummary.map((section, index) => (
-            <div key={index} className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-hyper-coral mb-2">
-                {section.title}
-              </h3>
-              <p className="text-gray-700 mb-3">{section.content}</p>
-              
-              {section.actionSteps && (
-                <div>
-                  <h4 className="font-medium text-black mb-2">Suggested Action Steps:</h4>
-                  <div className="space-y-2">
-                    {section.actionSteps.map((action, actionIndex) => (
-                      <label key={actionIndex} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedActions.includes(action)}
-                          onChange={() => handleActionToggle(action)}
-                          className="w-4 h-4 text-hyper-coral rounded focus:ring-hyper-coral accent-hyper-coral"
-                        />
-                        <span className="text-sm text-gray-700">{action}</span>
-                      </label>
-                    ))}
+          <div className="space-y-6 mb-8 pb-32">
+            {craftSummary.map((section, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-hyper-coral mb-2">
+                  {section.title}
+                </h3>
+                <p className="text-gray-700 mb-3">{section.content}</p>
+                
+                {section.actionSteps && (
+                  <div>
+                    <h4 className="font-medium text-black mb-2">Suggested Action Steps:</h4>
+                    <div className="space-y-2">
+                      {section.actionSteps.map((action, actionIndex) => (
+                        <label key={actionIndex} className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedActions.includes(action)}
+                            onChange={() => handleActionToggle(action)}
+                            className="w-4 h-4 text-hyper-coral rounded focus:ring-hyper-coral accent-hyper-coral"
+                          />
+                          <span className="text-sm text-gray-700">{action}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                )}
+              </div>
+            ))}
+          </div>
 
         {/* Custom Action */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">

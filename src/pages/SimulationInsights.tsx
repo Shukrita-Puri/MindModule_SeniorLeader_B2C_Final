@@ -13,43 +13,43 @@ const SimulationInsights = () => {
   
   const [personalNotes, setPersonalNotes] = useState("");
 
-  // Executive-focused insights
+  // Student-focused insights
   const strengths = [
-    "Maintained clear strategic thread throughout discussion",
-    "Demonstrated authentic leadership presence",
-    "Effectively navigated stakeholder objections",
-    "Balanced empathy with decisive action"
+    "Stayed calm under pressure during the conversation",
+    "Demonstrated clear thinking and reasoning",
+    "Effectively communicated your perspective",
+    "Showed genuine engagement with the challenge"
   ];
 
   const developmentAreas = [
-    "Consider pausing more before complex responses",
-    "Leverage storytelling for emotional connection",
-    "Invite more stakeholder input for buy-in",
-    "Reference specific metrics to strengthen credibility"
+    "Practice taking a breath before responding to tough questions",
+    "Use specific examples to strengthen your arguments",
+    "Ask clarifying questions when you're unsure",
+    "Reference your research or preparation to build credibility"
   ];
 
   const mentalModels = [
     {
-      title: "Jobs-to-be-Done Framework",
-      type: "Strategic Thinking",
-      description: "Focus on what stakeholders are trying to achieve, not just what they're saying",
-      application: "Use when stakeholders raise concerns - dig into their underlying objectives"
+      title: "Growth Mindset Framework",
+      type: "Learning Approach",
+      description: "View challenges as opportunities to develop your abilities",
+      application: "When facing difficult situations, ask 'What can I learn from this?'"
     },
     {
-      title: "Polyvagal Theory",
-      type: "Emotional Regulation",
-      description: "Understand nervous system states in high-pressure conversations",
-      application: "Notice when you or others shift into fight/flight - pause and breathe"
+      title: "STOP Technique",
+      type: "Stress Management",
+      description: "Stop, Take a breath, Observe, Proceed with awareness",
+      application: "Use before big conversations, tests, or when feeling overwhelmed"
     },
     {
-      title: "Hanuman Archetype",
-      type: "Ancient Wisdom",
-      description: "Devoted strength in service of higher purpose",
-      application: "Channel power through service - lead with humility and strength"
+      title: "The Confidence Paradox",
+      type: "Student Wisdom",
+      description: "True confidence comes from embracing what you don't know yet",
+      application: "It's okay to say 'I don't know, but here's how I'd approach it'"
     }
   ];
 
-  const ancientWisdom = "Pause before power. Breathe before battle. In the space between stimulus and response lies your freedom to choose.";
+  const ancientWisdom = "Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth.";
 
   const handleDownload = () => {
     // Generate and download insight deck
@@ -124,7 +124,7 @@ const SimulationInsights = () => {
             </CardHeader>
             <CardContent>
               <p className="text-foreground font-body leading-relaxed">
-                You demonstrated strong executive presence with clear strategic communication. Your ability to maintain focus while navigating complex stakeholder dynamics was particularly effective. Consider integrating more emotional storytelling and creating space for deeper stakeholder engagement to enhance influence and buy-in.
+                You showed strong communication skills and clear thinking under pressure. Your ability to stay engaged and articulate your thoughts was impressive. Consider building on this foundation by incorporating more specific examples and taking strategic pauses to enhance your confidence and impact in future conversations.
               </p>
             </CardContent>
           </Card>
@@ -132,10 +132,10 @@ const SimulationInsights = () => {
           {/* Two-column layout for strengths and development */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
-            {/* Leadership Strengths */}
+            {/* Communication Strengths */}
             <Card className="border-border bg-card">
               <CardHeader>
-                <CardTitle className="text-xl font-heading text-foreground">Leadership Strengths</CardTitle>
+                <CardTitle className="text-xl font-heading text-foreground">Communication Strengths</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -202,7 +202,7 @@ const SimulationInsights = () => {
                 <blockquote className="text-lg font-heading italic text-foreground mb-4 leading-relaxed">
                   "{ancientWisdom}"
                 </blockquote>
-                <div className="text-sm text-muted-foreground">Ancient Wisdom for Modern Leadership</div>
+                <div className="text-sm text-muted-foreground">Wisdom for Student Growth</div>
               </div>
             </CardContent>
           </Card>
@@ -281,8 +281,8 @@ const SimulationInsights = () => {
         </div>
 
         {/* Watermark */}
-        <div className="text-center py-8 text-xs text-muted-foreground opacity-50">
-          Inner Architect • Executive Simulation • Powered by Intelligence
+        <div className="text-center py-8 pb-32 text-xs text-muted-foreground opacity-50">
+          Inner Architect • Student Practice • Powered by Intelligence
         </div>
       </div>
 

@@ -164,35 +164,9 @@ const ClarityMode = () => {
 
   if (sessionStarted) {
     return (
-      <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
-        {/* Minimal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <button
-            onClick={() => navigate("/inner-architect")}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-          >
-            <ArrowLeft size={18} className="text-foreground" />
-          </button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-heading font-medium text-foreground">
-              {isJournalMode ? "Journal" : "Clarity Session"}
-            </h1>
-            <button
-              onClick={() => setIsJournalMode(!isJournalMode)}
-              className={`px-3 py-1 rounded-full text-xs transition-all ${
-                isJournalMode 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {isJournalMode ? "Journal" : "Guide"}
-            </button>
-          </div>
-          <div className="w-10"></div>
-        </div>
-
-        {/* Text-First Chat Interface */}
-        <div className="flex-1">
+      <div className="relative flex min-h-screen flex-col bg-background font-editorial">
+        {/* Text-First Chat Interface - Full Screen */}
+        <div className="flex-1 h-screen">
           <VoiceFirstChat
             title={isJournalMode ? "Journal Mode" : "Clarity Session"}
             subtitle={isJournalMode ? "Private reflection space" : "Share what's on your mind for guidance"}
@@ -205,7 +179,7 @@ const ClarityMode = () => {
             onVoiceToggle={() => {}}
             showRecommendations={!isJournalMode}
             showOrb={false}
-            hideContextInfo={false}
+            hideContextInfo={true}
           />
         </div>
 
@@ -216,14 +190,12 @@ const ClarityMode = () => {
             onSkip={handleFeedbackSkip}
           />
         )}
-
-        <MainNavigation />
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
+    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-32">
       {/* Minimal Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
@@ -239,8 +211,8 @@ const ClarityMode = () => {
       </div>
 
       {/* Hero Section */}
-      <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+      <div className="px-8 py-16 text-center max-w-2xl mx-auto">
+        <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
             src={vibrantGrowthIllustration} 
             alt="Mental clarity and growth"
@@ -248,13 +220,12 @@ const ClarityMode = () => {
           />
         </div>
         
-        <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
+        <h2 className="text-2xl font-heading font-medium text-foreground mb-6 leading-tight">
           Mental Clarity
         </h2>
         
-        <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Clear mental clutter through conversation or private journaling.<br/>
-          <span className="text-sm italic">"AP Physics test + friendship drama + debate tryouts — what's taking space?"</span>
+        <p className="text-base text-muted-foreground leading-relaxed mb-12">
+          Clear mental clutter through conversation or private journaling.
         </p>
 
         <div className="flex flex-col items-center gap-4">
@@ -267,7 +238,7 @@ const ClarityMode = () => {
                   : 'bg-muted text-foreground hover:bg-muted/80'
               }`}
             >
-              Conversation Mode
+              Conversation
             </button>
             <button
               onClick={() => setIsJournalMode(true)}
@@ -277,7 +248,7 @@ const ClarityMode = () => {
                   : 'bg-muted text-foreground hover:bg-muted/80'
               }`}
             >
-              Journal Mode
+              Journal
             </button>
           </div>
           
@@ -290,8 +261,8 @@ const ClarityMode = () => {
           
           <p className="text-sm text-muted-foreground text-center max-w-lg">
             {isJournalMode 
-              ? "Private space for your thoughts - no responses, just your reflection"
-              : "Get mental models, frameworks, research insights, and ancient wisdom during our conversation"
+              ? "Private space for your thoughts"
+              : "Get research insights and frameworks during our conversation"
             }
           </p>
         </div>
