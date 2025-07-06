@@ -1,88 +1,337 @@
 import { useState } from "react";
-import { ArrowLeft, Timer, Brain, Music, Zap } from "lucide-react";
+import { ArrowLeft, Play, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
+import BreathingAnimation from "@/components/BreathingAnimation";
 import vibrantFocusIllustration from "@/assets/ink-focus-illustration.png";
+import { Progress } from "@/components/ui/progress";
+
+type FlowStep = 'hero' | 'choose-task' | 'choose-duration' | 'prime-state' | 'technique-selected' | 'session' | 'reflect';
 
 const FlowStateLab = () => {
   const navigate = useNavigate();
-  const [selectedTechnique, setSelectedTechnique] = useState("");
-  const [duration, setDuration] = useState(25);
-  const [focusType, setFocusType] = useState("");
+  const [currentStep, setCurrentStep] = useState<FlowStep>('hero');
+  const [selectedTask, setSelectedTask] = useState("");
+  const [selectedSubtask, setSelectedSubtask] = useState("");
+  const [duration, setDuration] = useState(0);
+  const [sessionTimer, setSessionTimer] = useState(0);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [ambientSound, setAmbientSound] = useState(false);
 
-  const flowTechniques = [
+  const taskCategories = [
     {
-      id: "pomodoro-classic",
-      title: "Classic Pomodoro",
-      description: "25-min focus → 5-min break cycle",
-      icon: Timer,
-      durations: [25, 45, 60, 90]
-    },
-    {
-      id: "deep-work",
-      title: "Deep Work Mode", 
-      description: "Extended focus periods with ambient support",
-      icon: Brain,
-      durations: [60, 90, 120, 180]
-    },
-    {
-      id: "study-sprint",
-      title: "Study Sprint",
-      description: "High-intensity short bursts",
-      icon: Zap,
-      durations: [15, 20, 30, 45]
-    },
-    {
-      id: "flow-state",
-      title: "Flow State Induction",
-      description: "Optimal challenge-skill balance zones",
-      icon: Music,
-      durations: [45, 60, 90, 120]
-    }
-  ];
-
-  const focusTypes = [
-    {
-      id: "academic-focus",
+      id: "academic-work",
       title: "Academic Work",
-      scenarios: ["Math Problem Sets", "Essay Writing", "Reading Comprehension", "Test Prep"]
+      subtasks: ["Essay Writing", "Math Problem Sets", "Reading & Analysis", "Test Preparation", "Research Projects"]
     },
     {
-      id: "creative-focus", 
+      id: "creative-projects", 
       title: "Creative Projects",
-      scenarios: ["Art/Design", "Creative Writing", "Music Practice", "Brainstorming"]
+      subtasks: ["Art & Design", "Creative Writing", "Music Practice", "Video Creation", "Photography"]
     },
     {
-      id: "skill-building",
+      id: "skill-development",
       title: "Skill Development", 
-      scenarios: ["Language Learning", "Coding Practice", "Instrument Practice", "Sport Training"]
+      subtasks: ["Language Learning", "Coding Practice", "Instrument Mastery", "Sport Training", "Public Speaking"]
     },
     {
       id: "planning-organizing",
       title: "Planning & Organizing",
-      scenarios: ["College Applications", "Schedule Planning", "Room Organization", "Goal Setting"]
+      subtasks: ["College Applications", "Schedule Planning", "Room Organization", "Goal Setting", "Project Planning"]
     }
   ];
 
-  const handleTechniqueSelect = (techniqueId: string) => {
-    setSelectedTechnique(techniqueId);
+  const getFlowTechnique = () => {
+    if (duration <= 30) return { name: "Focus Sprint", rationale: "Short bursts maximize attention for quick wins" };
+    if (duration <= 60) return { name: "Pomodoro Method", rationale: "Classic 25-min cycles with strategic breaks" };
+    return { name: "Deep Work", rationale: "Extended focus periods for complex thinking" };
   };
 
-  const handleStartFlow = () => {
-    if (selectedTechnique && focusType) {
-      // Instead of scenario lab, navigate to a dedicated flow session
-      navigate('/flow-session', { 
-        state: { 
-          technique: selectedTechnique,
-          duration: duration,
-          focusType: focusType
-        } 
-      });
+  const getStepProgress = () => {
+    const steps = ['hero', 'choose-task', 'choose-duration', 'prime-state', 'technique-selected', 'session', 'reflect'];
+    return ((steps.indexOf(currentStep) + 1) / steps.length) * 100;
+  };
+
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case 'hero':
+        return (
+          <div className="text-center animate-fade-in">
+            <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+              <img 
+                src={vibrantFocusIllustration} 
+                alt="Focus and flow state"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            
+            <h1 className="text-4xl font-heading font-medium text-foreground mb-4 leading-tight">
+              The Focus Tuner: Enter Your Flow State
+            </h1>
+            
+            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+              Train your focus. Master your mind. Unlock your peak performance.
+            </p>
+
+            <Button 
+              onClick={() => setCurrentStep('choose-task')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg font-medium rounded-full shadow-lg"
+            >
+              Begin Guided Session
+            </Button>
+          </div>
+        );
+
+      case 'choose-task':
+        return (
+          <div className="animate-fade-in">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-12 text-center">
+              Choose What You'll Master Today
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {taskCategories.map((category) => (
+                <div key={category.id} className="border border-border rounded-lg p-6 transition-all hover:border-primary/50">
+                  <button
+                    onClick={() => {
+                      setSelectedTask(category.id);
+                      if (!selectedSubtask) return; // Wait for subtask selection
+                    }}
+                    className={`w-full text-left mb-4 ${
+                      selectedTask === category.id ? 'text-primary' : 'text-foreground hover:text-primary'
+                    }`}
+                  >
+                    <h3 className="text-xl font-heading font-medium mb-2">{category.title}</h3>
+                  </button>
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    {category.subtasks.map((subtask) => (
+                      <button
+                        key={subtask}
+                        onClick={() => {
+                          setSelectedTask(category.id);
+                          setSelectedSubtask(subtask);
+                        }}
+                        className={`text-left px-3 py-2 rounded text-sm transition-all ${
+                          selectedTask === category.id && selectedSubtask === subtask
+                            ? 'bg-primary/10 text-primary border border-primary/20'
+                            : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {subtask}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {selectedTask && selectedSubtask && (
+              <div className="text-center animate-fade-in">
+                <Button 
+                  onClick={() => setCurrentStep('choose-duration')}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
+                >
+                  Next: Choose Duration →
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'choose-duration':
+        return (
+          <div className="animate-fade-in">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-12 text-center">
+              Choose Your Focus Duration
+            </h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+              {[25, 45, 60, 90].map((mins) => (
+                <button
+                  key={mins}
+                  onClick={() => setDuration(mins)}
+                  className={`p-6 rounded-lg border text-center transition-all ${
+                    duration === mins
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                  }`}
+                >
+                  <div className="text-3xl font-heading font-bold mb-2">{mins}</div>
+                  <div className="text-sm text-muted-foreground">minutes</div>
+                </button>
+              ))}
+            </div>
+
+            {duration > 0 && (
+              <div className="text-center animate-fade-in">
+                <Button 
+                  onClick={() => setCurrentStep('prime-state')}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
+                >
+                  Next: Prime Your State →
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'prime-state':
+        return (
+          <div className="animate-fade-in text-center">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-8">
+              Prime Your State
+            </h2>
+            
+            <div className="max-w-2xl mx-auto mb-12">
+              <BreathingAnimation />
+            </div>
+
+            <div className="bg-card/50 rounded-lg p-8 mb-8 max-w-2xl mx-auto">
+              <p className="text-lg text-muted-foreground mb-4">
+                Close your eyes. Breathe. Visualize completing your task.
+              </p>
+              <p className="text-lg text-muted-foreground">
+                Start with one simple win — like writing a title or solving the first problem.
+              </p>
+            </div>
+
+            <Button 
+              onClick={() => setCurrentStep('technique-selected')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
+            >
+              I'm Ready →
+            </Button>
+          </div>
+        );
+
+      case 'technique-selected':
+        const technique = getFlowTechnique();
+        return (
+          <div className="animate-fade-in text-center">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-8">
+              Your Ideal Flow Technique
+            </h2>
+            
+            <div className="bg-card/50 rounded-lg p-8 mb-8 max-w-2xl mx-auto border border-primary/20">
+              <h3 className="text-2xl font-heading font-medium text-primary mb-4">
+                {technique.name}
+              </h3>
+              <p className="text-lg text-muted-foreground mb-6">
+                {technique.rationale}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                We chose {technique.name} for your {selectedSubtask} + {duration} min session.
+              </p>
+            </div>
+
+            <Button 
+              onClick={() => setCurrentStep('session')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg rounded-full"
+            >
+              Start Guided Session
+            </Button>
+          </div>
+        );
+
+      case 'session':
+        return (
+          <div className="animate-fade-in text-center">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-8">
+              Focus Session Active
+            </h2>
+            
+            <div className="max-w-md mx-auto mb-12">
+              <div className="text-6xl font-heading font-bold text-primary mb-4">
+                {Math.floor(sessionTimer / 60)}:{(sessionTimer % 60).toString().padStart(2, '0')}
+              </div>
+              <Progress value={(sessionTimer / (duration * 60)) * 100} className="mb-6" />
+              <p className="text-lg text-muted-foreground">
+                {selectedSubtask} • {getFlowTechnique().name}
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-4 mb-8">
+              <Button 
+                onClick={() => setIsSessionActive(!isSessionActive)}
+                variant={isSessionActive ? "secondary" : "default"}
+                className="px-6 py-3"
+              >
+                <Play size={20} className="mr-2" />
+                {isSessionActive ? 'Pause' : 'Start'}
+              </Button>
+              
+              <Button 
+                onClick={() => setAmbientSound(!ambientSound)}
+                variant="outline"
+                className="px-6 py-3"
+              >
+                <Volume2 size={20} className="mr-2" />
+                {ambientSound ? 'Sound On' : 'Sound Off'}
+              </Button>
+            </div>
+
+            <Button 
+              onClick={() => setCurrentStep('reflect')}
+              variant="outline"
+              className="px-8 py-3 rounded-full"
+            >
+              End Session
+            </Button>
+          </div>
+        );
+
+      case 'reflect':
+        return (
+          <div className="animate-fade-in">
+            <h2 className="text-3xl font-heading font-medium text-foreground mb-12 text-center">
+              Session Complete
+            </h2>
+            
+            <div className="max-w-2xl mx-auto space-y-8">
+              <div>
+                <h3 className="text-lg font-heading font-medium text-foreground mb-4">
+                  How focused were you?
+                </h3>
+                <div className="flex justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      className="w-12 h-12 rounded-full border border-border hover:border-primary hover:bg-primary/10 transition-all"
+                    >
+                      {rating}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-heading font-medium text-foreground mb-4">
+                  Did you complete your goal?
+                </h3>
+                <div className="flex justify-center gap-4">
+                  <Button variant="outline" className="px-8">Yes</Button>
+                  <Button variant="outline" className="px-8">No</Button>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <Button 
+                  onClick={() => navigate('/index')}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 rounded-full"
+                >
+                  Log This Session
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
-
-  const selectedTechniqueData = flowTechniques.find(t => t.id === selectedTechnique);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-24">
@@ -100,165 +349,19 @@ const FlowStateLab = () => {
         <div className="w-10"></div>
       </div>
 
-      {/* Hero Section */}
-      <div className="px-8 py-16 text-center max-w-3xl mx-auto">
-        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
-          <img 
-            src={vibrantFocusIllustration} 
-            alt="Focus and flow state"
-            className="w-full h-full object-cover"
-          />
+      {/* Progress Bar */}
+      {currentStep !== 'hero' && (
+        <div className="px-8 pt-6">
+          <Progress value={getStepProgress()} className="mb-4" />
+          <p className="text-sm text-muted-foreground text-center">
+            Step {['hero', 'choose-task', 'choose-duration', 'prime-state', 'technique-selected', 'session', 'reflect'].indexOf(currentStep)} of 6
+          </p>
         </div>
-        
-        <h2 className="text-3xl font-heading font-medium text-foreground mb-4 leading-tight">
-          Focus Tuner
-        </h2>
-        
-        <p className="text-lg text-muted-foreground mb-8">
-          Enter your optimal learning and productivity zone
-        </p>
+      )}
 
-        {/* Mental Models Section */}
-        <div className="bg-card/50 rounded-lg p-6 mb-12 border border-border">
-          <h3 className="text-lg font-heading font-medium text-foreground mb-4">Flow State Mental Models</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="bg-background/50 p-3 rounded">
-              <div className="font-medium text-primary mb-1">Challenge-Skill Balance</div>
-              <div className="text-muted-foreground">Match task difficulty to your current skill level</div>
-            </div>
-            <div className="bg-background/50 p-3 rounded">
-              <div className="font-medium text-primary mb-1">Clear Goals</div>
-              <div className="text-muted-foreground">Define specific, achievable objectives for each session</div>
-            </div>
-            <div className="bg-background/50 p-3 rounded">
-              <div className="font-medium text-primary mb-1">Immediate Feedback</div>
-              <div className="text-muted-foreground">Set up systems to track progress in real-time</div>
-            </div>
-            <div className="bg-background/50 p-3 rounded">
-              <div className="font-medium text-primary mb-1">Deep Focus</div>
-              <div className="text-muted-foreground">Eliminate distractions and merge action with awareness</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 px-8 max-w-4xl mx-auto pb-8">
-        {/* Technique Selection */}
-        <div className="mb-12">
-          <h3 className="text-2xl font-heading font-medium text-foreground mb-8 text-center">
-            Choose Your Flow Technique
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {flowTechniques.map((technique, index) => (
-              <article 
-                key={technique.id}
-                onClick={() => handleTechniqueSelect(technique.id)}
-                className={`group cursor-pointer border border-border rounded-lg p-6 transition-all animate-fade-in ${
-                  selectedTechnique === technique.id 
-                    ? 'border-primary bg-primary/5' 
-                    : 'hover:border-muted-foreground/20 hover:bg-card/50'
-                }`}
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0">
-                    <technique.icon size={20} className="text-primary" />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h4 className={`text-lg font-heading font-medium mb-2 transition-colors ${
-                      selectedTechnique === technique.id ? 'text-primary' : 'text-foreground group-hover:text-primary'
-                    }`}>
-                      {technique.title}
-                    </h4>
-                    
-                    <p className="text-sm text-muted-foreground leading-relaxed font-body">
-                      {technique.description}
-                    </p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        {/* Duration Selection */}
-        {selectedTechnique && selectedTechniqueData && (
-          <div className="mb-12 animate-fade-in">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
-              Choose Duration
-            </h3>
-            <div className="grid grid-cols-4 gap-3">
-              {selectedTechniqueData.durations.map((mins) => (
-                <button
-                  key={mins}
-                  onClick={() => setDuration(mins)}
-                  className={`p-4 rounded-lg border text-center transition-all text-sm ${
-                    duration === mins
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                  }`}
-                >
-                  <div className="text-2xl font-heading font-bold mb-1">{mins}</div>
-                  <div className="text-xs text-muted-foreground">minutes</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Focus Type Selection */}
-        {selectedTechnique && (
-          <div className="mb-12 animate-fade-in">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
-              What will you focus on?
-            </h3>
-            <div className="space-y-4">
-              {focusTypes.map((type) => (
-                <div key={type.id} className="border border-border rounded-lg p-4">
-                  <button
-                    onClick={() => setFocusType(type.id)}
-                    className={`w-full text-left transition-all ${
-                      focusType === type.id ? 'text-primary' : 'text-foreground hover:text-primary'
-                    }`}
-                  >
-                    <h4 className="font-heading font-medium mb-2">{type.title}</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {type.scenarios.map((scenario) => (
-                        <span 
-                          key={scenario}
-                          className={`text-xs px-2 py-1 rounded-full border ${
-                            focusType === type.id 
-                              ? 'border-primary/50 bg-primary/5 text-primary' 
-                              : 'border-border bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {scenario}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Start Flow Button */}
-        {selectedTechnique && focusType && (
-          <div className="py-8 text-center animate-fade-in">
-            <Button 
-              onClick={handleStartFlow}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-16 py-6 text-xl font-body rounded-full shadow-lg"
-            >
-              Enter Flow State
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4 font-body">
-              {duration} minute {selectedTechniqueData?.title.toLowerCase()} session
-            </p>
-          </div>
-        )}
+      {/* Main Content */}
+      <div className="flex-1 px-8 py-16 max-w-4xl mx-auto">
+        {renderCurrentStep()}
       </div>
 
       <MainNavigation />

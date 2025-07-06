@@ -2,14 +2,15 @@
 import { useState, useEffect } from "react";
 
 const BreathingAnimation = () => {
-  const [breathPhase, setBreathPhase] = useState<"inhale" | "hold" | "exhale">("inhale");
+  const [breathPhase, setBreathPhase] = useState<"inhale" | "hold1" | "exhale" | "hold2">("inhale");
   const [phaseTime, setPhaseTime] = useState(0);
 
-  // Breathing pattern: 4 seconds inhale, 2 seconds hold, 6 seconds exhale
+  // Box breathing pattern: 4 seconds inhale, 4 seconds hold, 4 seconds exhale, 4 seconds hold
   const breathingPattern = {
     inhale: 4,
-    hold: 2,
-    exhale: 6
+    hold1: 4,
+    exhale: 4,
+    hold2: 4
   };
 
   useEffect(() => {
@@ -18,11 +19,13 @@ const BreathingAnimation = () => {
         const currentPhaseDuration = breathingPattern[breathPhase];
         
         if (prev >= currentPhaseDuration) {
-          // Move to next phase
+          // Move to next phase in box breathing cycle
           if (breathPhase === "inhale") {
-            setBreathPhase("hold");
-          } else if (breathPhase === "hold") {
+            setBreathPhase("hold1");
+          } else if (breathPhase === "hold1") {
             setBreathPhase("exhale");
+          } else if (breathPhase === "exhale") {
+            setBreathPhase("hold2");
           } else {
             setBreathPhase("inhale");
           }
@@ -40,10 +43,12 @@ const BreathingAnimation = () => {
     
     if (breathPhase === "inhale") {
       return 0.6 + (0.4 * progress); // Scale from 0.6 to 1.0
-    } else if (breathPhase === "hold") {
-      return 1.0; // Stay at full size
-    } else {
+    } else if (breathPhase === "hold1") {
+      return 1.0; // Stay at full size during first hold
+    } else if (breathPhase === "exhale") {
       return 1.0 - (0.4 * progress); // Scale from 1.0 to 0.6
+    } else { // hold2
+      return 0.6; // Stay at minimum size during second hold
     }
   };
 
@@ -51,10 +56,12 @@ const BreathingAnimation = () => {
     switch (breathPhase) {
       case "inhale":
         return "Breathe in slowly...";
-      case "hold":
+      case "hold1":
         return "Hold your breath...";
       case "exhale":
         return "Breathe out slowly...";
+      case "hold2":
+        return "Hold empty...";
     }
   };
 
