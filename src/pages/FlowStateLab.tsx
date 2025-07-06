@@ -3,11 +3,10 @@ import { ArrowLeft, Play, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import BreathingAnimation from "@/components/BreathingAnimation";
 import vibrantFocusIllustration from "@/assets/ink-focus-illustration.png";
 import { Progress } from "@/components/ui/progress";
 
-type FlowStep = 'hero' | 'choose-task' | 'choose-duration' | 'prime-state' | 'technique-selected' | 'session' | 'reflect';
+type FlowStep = 'hero' | 'choose-task' | 'choose-duration' | 'technique-selected' | 'session' | 'reflect';
 
 const FlowStateLab = () => {
   const navigate = useNavigate();
@@ -49,7 +48,7 @@ const FlowStateLab = () => {
   };
 
   const getStepProgress = () => {
-    const steps = ['hero', 'choose-task', 'choose-duration', 'prime-state', 'technique-selected', 'session', 'reflect'];
+    const steps = ['hero', 'choose-task', 'choose-duration', 'technique-selected', 'session', 'reflect'];
     return ((steps.indexOf(currentStep) + 1) / steps.length) * 100;
   };
 
@@ -167,42 +166,13 @@ const FlowStateLab = () => {
             {duration > 0 && (
               <div className="text-center animate-fade-in">
                 <Button 
-                  onClick={() => setCurrentStep('prime-state')}
+                  onClick={() => setCurrentStep('technique-selected')}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
                 >
-                  Next: Prime Your State →
+                  Next: See Your Technique →
                 </Button>
               </div>
             )}
-          </div>
-        );
-
-      case 'prime-state':
-        return (
-          <div className="animate-fade-in text-center">
-            <h2 className="text-3xl font-heading font-medium text-foreground mb-8">
-              Prime Your State
-            </h2>
-            
-            <div className="max-w-2xl mx-auto mb-12">
-              <BreathingAnimation />
-            </div>
-
-            <div className="bg-card/50 rounded-lg p-8 mb-8 max-w-2xl mx-auto">
-              <p className="text-lg text-muted-foreground mb-4">
-                Close your eyes. Breathe. Visualize completing your task.
-              </p>
-              <p className="text-lg text-muted-foreground">
-                Start with one simple win — like writing a title or solving the first problem.
-              </p>
-            </div>
-
-            <Button 
-              onClick={() => setCurrentStep('technique-selected')}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
-            >
-              I'm Ready →
-            </Button>
           </div>
         );
 
@@ -354,7 +324,7 @@ const FlowStateLab = () => {
         <div className="px-8 pt-6">
           <Progress value={getStepProgress()} className="mb-4" />
           <p className="text-sm text-muted-foreground text-center">
-            Step {['hero', 'choose-task', 'choose-duration', 'prime-state', 'technique-selected', 'session', 'reflect'].indexOf(currentStep)} of 6
+            Step {['hero', 'choose-task', 'choose-duration', 'technique-selected', 'session', 'reflect'].indexOf(currentStep)} of 5
           </p>
         </div>
       )}
