@@ -21,6 +21,7 @@ const DailyCheckIn = () => {
   const [selectedMood, setSelectedMood] = useState<string>("");
   const [energyLevel, setEnergyLevel] = useState<number[]>([5]);
   const [focusState, setFocusState] = useState<string>("");
+  const [energyTouched, setEnergyTouched] = useState<boolean>(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const moods = [
@@ -91,7 +92,7 @@ const DailyCheckIn = () => {
     navigate('/executive-home');
   };
 
-  const isComplete = selectedMood && focusState && energyLevel[0] !== undefined;
+  const isComplete = selectedMood && focusState && energyTouched;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -153,6 +154,7 @@ const DailyCheckIn = () => {
                 value={energyLevel}
                 onValueChange={(value) => {
                   setEnergyLevel(value);
+                  setEnergyTouched(true);
                   setErrors(prev => ({ ...prev, energy: "" }));
                 }}
                 max={10}
@@ -200,11 +202,29 @@ const DailyCheckIn = () => {
           <Button
             onClick={handleComplete}
             disabled={!isComplete}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg font-medium min-h-[48px]"
+            className={`w-full py-3 text-lg font-medium min-h-[48px] transition-all duration-300 ${
+              isComplete 
+                ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-[1.02]' 
+                : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+            }`}
           >
             Start My Day
             <ArrowRight size={20} className="ml-2" />
           </Button>
+
+          {/* Progress Indicator */}
+          {!isComplete && (
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">
+                Complete all fields to start your day
+              </p>
+              <div className="flex justify-center gap-2">
+                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${selectedMood ? 'bg-accent' : 'bg-muted'}`} />
+                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${energyTouched ? 'bg-accent' : 'bg-muted'}`} />
+                <div className={`w-2 h-2 rounded-full transition-all duration-200 ${focusState ? 'bg-accent' : 'bg-muted'}`} />
+              </div>
+            </div>
+          )}
 
           {/* Skip Button - More Prominent */}
           <Button
