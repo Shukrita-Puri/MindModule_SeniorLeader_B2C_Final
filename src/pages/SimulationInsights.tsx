@@ -15,17 +15,17 @@ const SimulationInsights = () => {
 
   // Student-focused insights
   const strengths = [
-    "Stayed calm under pressure during the conversation",
-    "Demonstrated clear thinking and reasoning",
-    "Effectively communicated your perspective",
-    "Showed genuine engagement with the challenge"
+    "Maintained composure during challenging academic discussions",
+    "Articulated complex ideas clearly and logically",
+    "Showed active listening skills when engaging with professors/peers",
+    "Demonstrated curiosity and willingness to explore difficult topics"
   ];
 
   const developmentAreas = [
-    "Practice taking a breath before responding to tough questions",
-    "Use specific examples to strengthen your arguments",
-    "Ask clarifying questions when you're unsure",
-    "Reference your research or preparation to build credibility"
+    "Practice the 'pause-and-think' technique before answering in class",
+    "Use concrete examples from coursework to support your points",
+    "Don't hesitate to say 'Let me think about that' when you need a moment",
+    "Reference your readings and research to build academic credibility"
   ];
 
   const mentalModels = [
@@ -53,7 +53,7 @@ const SimulationInsights = () => {
 
   const handleDownload = () => {
     // Generate and download insight deck
-    console.log("Downloading executive insight deck...");
+    console.log("Downloading student insight deck...");
   };
 
   const handleScheduleFollowup = () => {
@@ -63,7 +63,7 @@ const SimulationInsights = () => {
 
   const handleSaveNotes = () => {
     // Save to profile library
-    console.log("Saving to executive library...");
+    console.log("Saving to learning archive...");
   };
 
   return (
@@ -78,7 +78,7 @@ const SimulationInsights = () => {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-2xl font-heading font-medium text-foreground">
-            Executive Debrief
+            Student Debrief
           </h1>
           <p className="text-sm text-muted-foreground">
             {contextType} · {sessionDuration}
@@ -117,14 +117,14 @@ const SimulationInsights = () => {
             </CardContent>
           </Card>
 
-          {/* Executive Summary */}
+          {/* Session Summary */}
           <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle className="text-xl font-heading text-foreground">Executive Summary</CardTitle>
+              <CardTitle className="text-xl font-heading text-foreground">Session Summary</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-foreground font-body leading-relaxed">
-                You showed strong communication skills and clear thinking under pressure. Your ability to stay engaged and articulate your thoughts was impressive. Consider building on this foundation by incorporating more specific examples and taking strategic pauses to enhance your confidence and impact in future conversations.
+                You demonstrated strong academic engagement and thoughtful communication during this practice session. Your ability to think critically and express complex ideas shows real intellectual maturity. Focus on incorporating specific examples from your studies and using strategic pauses to further strengthen your academic presence and confidence in classroom discussions.
               </p>
             </CardContent>
           </Card>
@@ -225,13 +225,13 @@ const SimulationInsights = () => {
                     className="min-h-[120px] border-border focus:border-primary"
                   />
                 </div>
-                <Button 
-                  onClick={handleSaveNotes}
-                  className="w-full bg-primary hover:bg-primary/90"
-                >
-                  <BookOpen size={16} className="mr-2" />
-                  Save to Executive Library
-                </Button>
+                 <Button 
+                   onClick={handleSaveNotes}
+                   className="w-full bg-primary hover:bg-primary/90"
+                 >
+                   <BookOpen size={16} className="mr-2" />
+                   Save to Learning Archive
+                 </Button>
               </div>
             </CardContent>
           </Card>
@@ -266,14 +266,14 @@ const SimulationInsights = () => {
                   <p className="text-sm text-muted-foreground">
                     Get a comprehensive PDF of your insights and frameworks
                   </p>
-                  <Button 
-                    onClick={handleDownload}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <Download size={16} className="mr-2" />
-                    Executive Summary
-                  </Button>
+                   <Button 
+                     onClick={handleDownload}
+                     variant="outline"
+                     className="w-full"
+                   >
+                     <Download size={16} className="mr-2" />
+                     Session Report
+                   </Button>
                 </div>
               </CardContent>
             </Card>

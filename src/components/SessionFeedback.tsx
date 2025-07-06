@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
 
 interface SessionFeedbackProps {
+  sessionType?: string;
   onSubmit: (feedback: {
     rating: 'positive' | 'negative';
     improvement: string;
