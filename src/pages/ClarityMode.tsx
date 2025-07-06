@@ -50,37 +50,98 @@ const ClarityMode = () => {
       return;
     }
 
-    // Simulate AI response with recommendations and educational content
+    // Simulate AI response with diverse educational content
     setTimeout(() => {
+      const responses = [
+        {
+          text: "I hear you. Let me share some frameworks and insights that might help you gain clarity on this situation...",
+          recommendations: [
+            {
+              id: "1",
+              type: "framework" as const,
+              title: "The Eisenhower Matrix",
+              description: "Separate urgent vs important to prioritize effectively. Used by presidents and CEOs worldwide.",
+              author: "Decision-Making Framework"
+            },
+            {
+              id: "2", 
+              type: "article" as const,
+              title: "Cognitive Load Theory for Students",
+              description: "Neuroscience research on managing mental bandwidth for peak academic performance.",
+              author: "Harvard Educational Review"
+            },
+            {
+              id: "3",
+              type: "podcast" as const,
+              title: "Ancient Stoic Practices for Modern Students",
+              description: "How Marcus Aurelius and Seneca dealt with overwhelming responsibilities and mental clarity.",
+              duration: "12 min",
+              author: "Philosophy for Students"
+            }
+          ]
+        },
+        {
+          text: "That sounds challenging. Here are some mental models and neuroscience insights that might help you process this...",
+          recommendations: [
+            {
+              id: "4",
+              type: "framework" as const, 
+              title: "The OODA Loop",
+              description: "Observe, Orient, Decide, Act - a decision-making framework used by fighter pilots and executives.",
+              author: "Strategic Thinking"
+            },
+            {
+              id: "5",
+              type: "article" as const,
+              title: "The Neuroscience of Stress and Focus",
+              description: "How your brain processes stress and practical techniques to maintain clarity under pressure.",
+              author: "Journal of Applied Psychology"
+            },
+            {
+              id: "6",
+              type: "video" as const,
+              title: "Buddhist Mindfulness for Academic Pressure",
+              description: "Ancient mindfulness techniques adapted for modern student challenges.",
+              duration: "8 min",
+              author: "Mindfulness Research"
+            }
+          ]
+        },
+        {
+          text: "I understand the complexity you're facing. Let me share some research-backed approaches and wisdom traditions that address this...",
+          recommendations: [
+            {
+              id: "7",
+              type: "framework" as const,
+              title: "Systems Thinking Model",
+              description: "See the interconnections in your life rather than isolated problems. Used in therapy and coaching.",
+              author: "Cognitive Behavioral Framework"
+            },
+            {
+              id: "8",
+              type: "article" as const, 
+              title: "Flow State Research for Students",
+              description: "Mihaly Csikszentmihalyi's research on optimal experience and how to achieve it during study.",
+              author: "Positive Psychology Review"
+            },
+            {
+              id: "9",
+              type: "framework" as const,
+              title: "Inner Calibration Breathing Technique",
+              description: "Quick reset technique from our Inner Calibration section - try it when overwhelmed.",
+              author: "Access Inner Calibration →"
+            }
+          ]
+        }
+      ];
+
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
       const response: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I hear you. Let me share some frameworks that might help you gain clarity on this...",
+        text: randomResponse.text,
         sender: "ai",
         timestamp: new Date(),
-        recommendations: [
-          {
-            id: "1",
-            type: "framework",
-            title: "The Eisenhower Matrix",
-            description: "Separate urgent vs important to prioritize effectively. Used by presidents and CEOs.",
-            author: "Decision-Making Framework"
-          },
-          {
-            id: "2", 
-            type: "article",
-            title: "Cognitive Load Theory for Students",
-            description: "Neuroscience research on managing mental bandwidth for academic performance.",
-            author: "Harvard Educational Review"
-          },
-          {
-            id: "3",
-            type: "podcast",
-            title: "Ancient Wisdom: Stoic Practices for Modern Students",
-            description: "How Marcus Aurelius and Seneca dealt with overwhelming responsibilities.",
-            duration: "12 min",
-            author: "Philosophy for Students"
-          }
-        ]
+        recommendations: randomResponse.recommendations
       };
       setMessages(prev => [...prev, response]);
     }, 1500);
