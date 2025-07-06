@@ -37,17 +37,17 @@ const Front = () => {
       {/* Main Title */}
       <div className="text-center mb-8">
         <h1 className="text-6xl md:text-8xl font-heading font-bold text-foreground mb-6 leading-tight">
-          Mind Module
+          Inner Architect
         </h1>
         <h2 className="text-2xl md:text-4xl font-editorial font-medium text-accent mb-8">
-          Creating the Mental Elite
+          For the Next Generation of Leaders
         </h2>
       </div>
 
       {/* Subtitle */}
       <div className="text-center mb-16 max-w-4xl">
         <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed font-body">
-          AI Powered Mind Management platform for Mental clarity, Emotion regulation and personal growth
+          AI-powered cognitive companion designed for high-achieving students. Master your mind, excel in your studies, and build the mental foundation for extraordinary success.
         </p>
       </div>
 
@@ -66,7 +66,7 @@ const Front = () => {
       {/* Optional tagline at bottom */}
       <div className="absolute bottom-8 text-center">
         <p className="text-sm text-muted-foreground font-body">
-          Your journey to mental mastery begins here
+          Designed for elite students who refuse to settle for ordinary
         </p>
       </div>
     </div>

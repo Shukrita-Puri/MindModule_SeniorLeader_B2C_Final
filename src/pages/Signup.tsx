@@ -21,13 +21,13 @@ const Signup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const validateCompanyEmail = (email: string) => {
+  const validateSchoolEmail = (email: string) => {
     const commonPersonalDomains = [
       'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 
       'icloud.com', 'aol.com', 'live.com', 'msn.com'
     ];
     const domain = email.split('@')[1];
-    return !commonPersonalDomains.includes(domain?.toLowerCase());
+    return !commonPersonalDomains.includes(domain?.toLowerCase()) || domain?.includes('.edu');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,10 +50,10 @@ const Signup = () => {
     setIsLoading(true);
 
     // Validation
-    if (!validateCompanyEmail(formData.email)) {
+    if (!validateSchoolEmail(formData.email)) {
       toast({
-        title: "Company Email Required",
-        description: "Please use your company email address for B2B access.",
+        title: "School Email Required",
+        description: "Please use your school-provided email address.",
         variant: "destructive"
       });
       setIsLoading(false);
@@ -73,8 +73,8 @@ const Signup = () => {
     // Simulate API call
     setTimeout(() => {
       toast({
-        title: "Account Created!",
-        description: "Welcome to Mind Module. Redirecting to your dashboard...",
+        title: "Welcome to Inner Architect!",
+        description: "Your cognitive companion is ready. Redirecting...",
       });
       setTimeout(() => navigate('/app'), 1500);
       setIsLoading(false);
@@ -84,7 +84,7 @@ const Signup = () => {
   const handleSocialSignup = (provider: string) => {
     toast({
       title: "Coming Soon",
-      description: `${provider} signup will be available for B2C users.`,
+      description: `${provider} signup will be available for students.`,
     });
   };
 
@@ -111,10 +111,10 @@ const Signup = () => {
             />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-            Join Mind Module
+            Join Inner Architect
           </h1>
           <p className="text-muted-foreground font-body">
-            Create your B2B account with company email
+            Create your student account with school email
           </p>
         </div>
 
@@ -169,9 +169,9 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Company Email */}
+          {/* School Email */}
           <div>
-            <Label htmlFor="email" className="text-foreground font-body">Company Email</Label>
+            <Label htmlFor="email" className="text-foreground font-body">School Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -182,17 +182,17 @@ const Signup = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="bg-card border-border text-card-foreground pl-10"
-                placeholder="john@company.com"
+                placeholder="john.doe@prestigeacademy.edu"
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Personal emails (Gmail, Yahoo, etc.) are not accepted
+              Use your school-provided email address
             </p>
           </div>
 
-          {/* Company Name */}
+          {/* School Name */}
           <div>
-            <Label htmlFor="company" className="text-foreground font-body">Company Name</Label>
+            <Label htmlFor="company" className="text-foreground font-body">School Name</Label>
             <div className="relative">
               <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -203,7 +203,7 @@ const Signup = () => {
                 value={formData.company}
                 onChange={handleInputChange}
                 className="bg-card border-border text-card-foreground pl-10"
-                placeholder="Acme Corporation"
+                placeholder="Prestige Academy"
               />
             </div>
           </div>
@@ -256,7 +256,7 @@ const Signup = () => {
         {/* Divider */}
         <div className="my-6 flex items-center">
           <div className="flex-1 border-t border-border"></div>
-          <span className="px-4 text-muted-foreground text-sm font-body">B2C Options (Coming Soon)</span>
+          <span className="px-4 text-muted-foreground text-sm font-body">Social Options (Coming Soon)</span>
           <div className="flex-1 border-t border-border"></div>
         </div>
 

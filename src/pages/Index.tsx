@@ -3,8 +3,8 @@ import MainNavigation from "@/components/MainNavigation";
 import { Shield } from "lucide-react";
 import clarityIllustration from "@/assets/clarity-illustration.png";
 import recalibrateIllustration from "@/assets/recalibrate-illustration.png";
-import mentorIllustration from "@/assets/mentor-illustration.png";
-import scenarioIllustration from "@/assets/scenario-illustration.png";
+import practiceIllustration from "@/assets/practice-session-illustration.png";
+import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
 import futurescapeIllustration from "@/assets/futurescape-illustration.png";
 
 const Index = () => {
@@ -39,15 +39,15 @@ const Index = () => {
     {
       id: "social-intelligence",
       title: "Social Intelligence",
-      subtitle: "Replay social convos and reflect on tone",
-      illustration: mentorIllustration,
-      route: "/mentor"
+      subtitle: "Practice difficult conversations before they happen",
+      illustration: practiceIllustration,
+      route: "/scenario-lab"
     },
     {
       id: "flow-state",
       title: "Flow State",
-      subtitle: "Set focus zones with ambient visuals",
-      illustration: scenarioIllustration,
+      subtitle: "Focus zones with Pomodoro and ambient visuals",
+      illustration: inkFocusIllustration,
       route: "/scenario-lab"
     },
     {
