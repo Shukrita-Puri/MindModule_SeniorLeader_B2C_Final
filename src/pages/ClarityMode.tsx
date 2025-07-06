@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import MainNavigation from "@/components/MainNavigation";
+import clarityImage from "@/assets/vibrant-growth-illustration.png";
 
 interface Message {
   id: string;
@@ -379,7 +381,7 @@ const ClarityMode = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setCurrentView("archive")}
+                onClick={() => navigate("/memory-archive")}
               >
                 <Archive size={16} />
               </Button>
@@ -464,8 +466,41 @@ const ClarityMode = () => {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-border bg-background/95 backdrop-blur p-6">
+        <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-24">
           <div className="max-w-3xl mx-auto">
+            {/* Recommended Questions */}
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide text-center">
+                Recommended Questions
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <button
+                  onClick={() => handlePromptClick("How can I manage academic pressure better?")}
+                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
+                >
+                  How can I manage academic pressure better?
+                </button>
+                <button
+                  onClick={() => handlePromptClick("What's causing my overthinking lately?")}
+                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
+                >
+                  What's causing my overthinking lately?
+                </button>
+                <button
+                  onClick={() => handlePromptClick("How do I balance expectations and self-care?")}
+                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
+                >
+                  How do I balance expectations and self-care?
+                </button>
+                <button
+                  onClick={() => handlePromptClick("What would help me feel more confident?")}
+                  className="text-left p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors font-serif"
+                >
+                  What would help me feel more confident?
+                </button>
+              </div>
+            </div>
+
             {/* Rotating Prompts */}
             <div className="text-center mb-4">
               <button
@@ -493,36 +528,29 @@ const ClarityMode = () => {
                   }}
                 />
               </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!currentInput.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Send size={16} />
-              </Button>
-            </div>
-
-            {/* Attachment Options */}
-            <div className="flex justify-center gap-4 mt-4">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                <Mail size={14} className="mr-1" />
-                Gmail
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                <Calendar size={14} className="mr-1" />
-                Calendar
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                <Image size={14} className="mr-1" />
-                Photos
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                <FileText size={14} className="mr-1" />
-                Files
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Add attachments (Gmail, Calendar, Photos, Files)"
+                >
+                  <Plus size={16} />
+                </Button>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!currentInput.trim()}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  <Send size={16} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+        
+        {/* Bottom Navigation */}
+        <MainNavigation />
       </div>
     );
   }
@@ -542,27 +570,27 @@ const ClarityMode = () => {
             Back
           </Button>
           <h1 className="text-2xl font-serif font-medium">Clarity</h1>
-          <Button
-            variant="ghost"
-            onClick={() => setCurrentView("archive")}
-            className="text-foreground hover:bg-muted"
-          >
-            <Archive size={16} className="mr-2" />
-            Archive
-          </Button>
+          <div className="w-20" />
         </div>
       </div>
 
       {/* Entry Content */}
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+        {/* Circular Image */}
+        <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+          <img 
+            src={clarityImage} 
+            alt="Mental Clarity" 
+            className="w-24 h-24 object-contain"
+          />
+        </div>
+        
         <h2 className="text-3xl font-serif font-medium text-foreground mb-6">
-          Mind Module
+          Mental Clarity
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-12">
           A space for thinking clearly, feeling grounded, and growing intentionally.
-          <br />
-          <span className="text-sm italic">ChatGPT meets The New Yorker meets inner mastery.</span>
         </p>
 
         {/* Mode Selection */}
