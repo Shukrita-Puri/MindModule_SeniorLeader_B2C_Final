@@ -105,7 +105,7 @@ const ExecutiveHome = () => {
                 Energy Check
               </h2>
               <p className="text-base text-foreground leading-relaxed font-body mb-3">
-                Let's do {getResetAction()}
+                {getEnergyInsight()}
               </p>
               <Button 
                 variant="outline" 
