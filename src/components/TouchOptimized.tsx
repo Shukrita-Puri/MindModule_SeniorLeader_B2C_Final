@@ -1,5 +1,5 @@
 
-import { ReactNode, TouchEvent, useState } from 'react';
+import { ReactNode, TouchEvent, MouseEvent, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TouchOptimizedProps {
@@ -65,10 +65,28 @@ export const TouchOptimized = ({
     }
   };
 
+  const handleClick = (e: MouseEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    if (onTap) {
+      onTap();
+    }
+  };
+
+  const handleMouseDown = () => {
+    if (disabled) return;
+    setIsPressed(true);
+  };
+
+  const handleMouseUp = () => {
+    if (disabled) return;
+    setIsPressed(false);
+  };
+
   return (
     <div
       className={cn(
-        "touch-manipulation select-none transition-all duration-150",
+        "touch-manipulation select-none transition-all duration-150 cursor-pointer",
         "min-h-[44px] min-w-[44px]", // Minimum touch target size
         isPressed && "scale-95 opacity-80",
         disabled && "opacity-50 pointer-events-none",
@@ -77,6 +95,10 @@ export const TouchOptimized = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
       role={onTap ? "button" : undefined}
       tabIndex={onTap ? 0 : undefined}
     >
