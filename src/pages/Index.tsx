@@ -23,37 +23,37 @@ const Index = () => {
 
   const modes = [
     {
-      id: "clarity",
-      title: "Clarity",
-      subtitle: "Organize thoughts",
+      id: "mental-clarity",
+      title: "Mental Clarity",
+      subtitle: "Drag mental noise into a trash zone",
       illustration: clarityIllustration,
       route: "/clarity"
     },
     {
-      id: "recalibrate",
-      title: "Reset",
-      subtitle: "Find center",
+      id: "inner-calibration",
+      title: "Inner Calibration",
+      subtitle: "Tap how you feel → get matching practices",
       illustration: recalibrateIllustration,
       route: "/recalibrate"
     },
     {
-      id: "mentor",
-      title: "Wisdom",
-      subtitle: "Learn from experience",
+      id: "social-intelligence",
+      title: "Social Intelligence",
+      subtitle: "Replay social convos and reflect on tone",
       illustration: mentorIllustration,
       route: "/mentor"
     },
     {
-      id: "scenario",
-      title: "Practice",
-      subtitle: "Rehearse with purpose",
+      id: "flow-state",
+      title: "Flow State",
+      subtitle: "Set focus zones with ambient visuals",
       illustration: scenarioIllustration,
       route: "/scenario-lab"
     },
     {
-      id: "futurescape",
-      title: "Vision",
-      subtitle: "See your possibilities",
+      id: "identity-growth",
+      title: "Identity + Growth",
+      subtitle: "Visual map of traits, values, milestones",
       illustration: futurescapeIllustration,
       route: "/futurescape"
     }

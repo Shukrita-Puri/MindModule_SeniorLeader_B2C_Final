@@ -14,59 +14,59 @@ const ScenarioLab = () => {
 
   const domains = [
     {
-      id: "cognitive-excellence",
-      title: "Decision Making",
-      description: "Strategic thinking under pressure"
+      id: "academic-performance",
+      title: "Academic Skills",
+      description: "Study strategies and test preparation"
     },
     {
-      id: "influence-communication",
-      title: "Communication", 
-      description: "Executive presence & influence"
+      id: "social-dynamics", 
+      title: "Social Navigation",
+      description: "Friend groups & peer interactions"
     },
     {
-      id: "emotional-mastery",
-      title: "Emotional Regulation",
-      description: "Composure in high-stakes moments"
+      id: "emotional-regulation",
+      title: "Stress Management",
+      description: "Handle pressure and big emotions"
     },
     {
-      id: "relational-dynamics",
-      title: "Stakeholder Dynamics",
-      description: "Navigate complex relationships"
+      id: "communication-skills",
+      title: "Communication",
+      description: "Express yourself clearly and confidently"
     },
     {
-      id: "uncertainty-navigation",
-      title: "Uncertainty",
-      description: "Leadership in ambiguous situations"
+      id: "future-planning",
+      title: "Life Planning",
+      description: "College prep and career exploration"
     }
   ];
 
   const contextTypes = {
-    "cognitive-excellence": [
-      "Board Presentation", 
-      "Strategic Planning", 
-      "Crisis Decision",
-      "Investor Pitch"
+    "academic-performance": [
+      "Big Test Coming Up", 
+      "Presentation to Class", 
+      "Group Project Drama",
+      "College Interview"
     ],
-    "influence-communication": [
-      "Stakeholder Conversation",
-      "Team Alignment", 
-      "Media Interview",
-      "Change Communication"
+    "social-dynamics": [
+      "Friend Group Conflict",
+      "Making New Friends", 
+      "Dating Situation",
+      "Standing Up for Yourself"
     ],
-    "emotional-mastery": [
-      "High-Pressure Negotiation",
-      "Conflict Resolution",
-      "Performance Feedback"
+    "emotional-regulation": [
+      "Overwhelming Stress",
+      "Family Expectations",
+      "Social Anxiety"
     ],
-    "relational-dynamics": [
-      "Partner Negotiation",
-      "Alliance Building",
-      "Customer Conversation"
+    "communication-skills": [
+      "Difficult Conversation",
+      "Asking for Help",
+      "Setting Boundaries"
     ],
-    "uncertainty-navigation": [
-      "Market Volatility",
-      "Unprecedented Challenge",
-      "Ambiguous Decision"
+    "future-planning": [
+      "College Decisions",
+      "Career Exploration",
+      "Life After Graduation"
     ]
   };
 
@@ -86,7 +86,7 @@ const ScenarioLab = () => {
           scenarioDomain: selectedDomain,
           contextType: contextType,
           scenarioContext: scenarioContext,
-          selectedPersonas: ["Executive Coach"],
+          selectedPersonas: ["Student Mentor"],
           customPersonas: "",
           isVoiceMode: isVoiceMode
         } 
@@ -119,17 +119,17 @@ const ScenarioLab = () => {
         <div className="w-40 h-40 mx-auto mb-16 rounded-full bg-card border border-border overflow-hidden">
           <img 
             src={inkMeditationIllustration} 
-            alt="Executive preparation"
+            alt="Student preparation"
             className="w-full h-full object-contain p-6 opacity-90"
           />
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-4 leading-tight">
-          What are we preparing for?
+          What situation are you preparing for?
         </h2>
         
         <p className="text-lg text-muted-foreground mb-12">
-          Voice-first rehearsal for high-stakes moments
+          Practice important conversations and situations in a safe space
         </p>
 
         {/* Voice Mode Toggle */}

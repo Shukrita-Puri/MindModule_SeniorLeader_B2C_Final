@@ -16,16 +16,16 @@ const ExecutiveHome = () => {
   const hasCheckIn = checkInData.timestamp && new Date(checkInData.timestamp).toDateString() === new Date().toDateString();
   
   const getEnergyInsight = () => {
-    if (!hasCheckIn) return "Ready to start your day with intention";
+    if (!hasCheckIn) return "Ready to tackle your day with focus";
     
     const { mood, energy, focus } = checkInData;
-    if (energy >= 7) return "Your energy is strong and steady";
-    if (energy >= 4) return "Your energy is building quietly";
-    return "Your energy needs gentle nurturing";
+    if (energy >= 7) return "You're feeling energized and ready";
+    if (energy >= 4) return "Your energy is building steadily";
+    return "Your energy could use a gentle boost";
   };
   
   const getResetAction = () => {
-    if (!hasCheckIn) return "Begin with Reset";
+    if (!hasCheckIn) return "Start with a Reset";
     const { energy, focus } = checkInData;
     if (energy < 4 || focus === 'drained') return "Reset with Breathing";
     if (focus === 'scattered') return "Ground with Reflection";
@@ -39,10 +39,10 @@ const ExecutiveHome = () => {
       {/* Minimal Header */}
       <div className="px-8 py-16 text-center">
         <h1 className="text-3xl font-heading font-medium text-foreground mb-4">
-          Good morning
+          Hey there
         </h1>
         <p className="text-lg text-muted-foreground">
-          Ready to architect your day?
+          Ready to design your day?
         </p>
       </div>
 
@@ -54,7 +54,7 @@ const ExecutiveHome = () => {
             <div className="w-20 h-20 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
               <img 
                 src={resetSessionIllustration} 
-                alt="Reset and renewal"
+                alt="Reset and recharge"
                 className="w-12 h-12 object-contain opacity-90"
               />
             </div>
@@ -84,10 +84,10 @@ const ExecutiveHome = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors mb-3">
-                Today's Focus
+                Today's Priorities
               </h2>
               <p className="text-base text-foreground leading-relaxed font-body">
-                You have 3 important meetings. Consider a clarity session at 2:30 PM.
+                AP History essay due tomorrow. Math test on Friday. Consider a clarity session before studying.
               </p>
             </div>
           </div>
@@ -101,10 +101,10 @@ const ExecutiveHome = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-heading font-medium text-foreground mb-3">
-                Building Rhythm
+                Building Momentum
               </h2>
               <p className="text-base text-foreground leading-relaxed font-body">
-                4 focused sessions this week. You're halfway to your reset streak.
+                3 focused study sessions this week. You're building a solid rhythm.
               </p>
             </div>
           </div>
@@ -122,10 +122,10 @@ const ExecutiveHome = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-heading font-medium text-foreground mb-3">
-                Evening Reflection
+                Evening Check-in
               </h2>
               <p className="text-base text-muted-foreground leading-relaxed font-body">
-                Three wins from today. What made them possible?
+                What went well today? What did you learn about yourself?
               </p>
             </div>
           </div>
