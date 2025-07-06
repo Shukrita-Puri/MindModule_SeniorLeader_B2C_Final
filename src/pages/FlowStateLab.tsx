@@ -114,10 +114,32 @@ const FlowStateLab = () => {
           Focus Tuner
         </h2>
         
-        <p className="text-lg text-muted-foreground mb-12">
-          Set focus zones with Pomodoro and ambient visuals<br/>
-          <span className="text-sm italic">"Study mode: SAT Math / Calm / Lo-fi vibe"</span>
+        <p className="text-lg text-muted-foreground mb-8">
+          Enter your optimal learning and productivity zone
         </p>
+
+        {/* Mental Models Section */}
+        <div className="bg-card/50 rounded-lg p-6 mb-12 border border-border">
+          <h3 className="text-lg font-heading font-medium text-foreground mb-4">Flow State Mental Models</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-background/50 p-3 rounded">
+              <div className="font-medium text-primary mb-1">Challenge-Skill Balance</div>
+              <div className="text-muted-foreground">Match task difficulty to your current skill level</div>
+            </div>
+            <div className="bg-background/50 p-3 rounded">
+              <div className="font-medium text-primary mb-1">Clear Goals</div>
+              <div className="text-muted-foreground">Define specific, achievable objectives for each session</div>
+            </div>
+            <div className="bg-background/50 p-3 rounded">
+              <div className="font-medium text-primary mb-1">Immediate Feedback</div>
+              <div className="text-muted-foreground">Set up systems to track progress in real-time</div>
+            </div>
+            <div className="bg-background/50 p-3 rounded">
+              <div className="font-medium text-primary mb-1">Deep Focus</div>
+              <div className="text-muted-foreground">Eliminate distractions and merge action with awareness</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Content */}

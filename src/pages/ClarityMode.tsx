@@ -188,11 +188,11 @@ const ClarityMode = () => {
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
-          Thought Unclutter
+          Mental Clarity
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Drag mental noise into a trash zone. Visualize space clearing.<br/>
+          Clear mental clutter through conversation or private journaling.<br/>
           <span className="text-sm italic">"AP Physics test + friendship drama + debate tryouts — what's taking space?"</span>
         </p>
 
@@ -206,7 +206,7 @@ const ClarityMode = () => {
                   : 'bg-muted text-foreground hover:bg-muted/80'
               }`}
             >
-              Guided Session
+              Conversation Mode
             </button>
             <button
               onClick={() => setIsJournalMode(true)}
@@ -224,13 +224,13 @@ const ClarityMode = () => {
             onClick={handleStartSession}
             className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg font-body rounded-full"
           >
-            {isJournalMode ? "Start journaling" : "Begin conversation"}
+            {isJournalMode ? "Start journaling" : "Start conversation"}
           </Button>
           
           <p className="text-sm text-muted-foreground text-center max-w-lg">
             {isJournalMode 
-              ? "Private space for your thoughts - no AI responses, just your reflection"
-              : "Get frameworks, research insights, and ancient wisdom to help clarify your thinking"
+              ? "Private space for your thoughts - no responses, just your reflection"
+              : "Get mental models, frameworks, research insights, and ancient wisdom during our conversation"
             }
           </p>
         </div>

@@ -14,17 +14,22 @@ const SocialIntelligenceLab = () => {
 
   const socialDomains = [
     {
-      id: "peer-conflicts",
+      id: "peer-relationships",
       title: "Peer Relationships",
       description: "Navigate friend group dynamics and conflicts"
     },
     {
-      id: "authority-conversations", 
+      id: "authority-figures", 
       title: "Authority Figures",
       description: "Talk to teachers, parents, counselors effectively"
     },
     {
-      id: "romantic-social",
+      id: "college-interviews",
+      title: "College/University Prep",
+      description: "Practice admissions interviews and networking"
+    },
+    {
+      id: "romantic-relationships",
       title: "Dating & Romance",
       description: "Navigate crushes, relationships, and boundaries"
     },
@@ -37,39 +42,59 @@ const SocialIntelligenceLab = () => {
       id: "difficult-conversations",
       title: "Difficult Conversations",
       description: "Handle confrontation, feedback, and tough topics"
+    },
+    {
+      id: "custom-scenario",
+      title: "Custom Scenario",
+      description: "Create your own specific social situation to practice"
     }
   ];
 
   const contextTypes = {
-    "peer-conflicts": [
+    "peer-relationships": [
       "Friend Group Drama",
       "Being Left Out", 
       "Backstabbing Situation",
-      "Choosing Sides"
+      "Choosing Sides",
+      "Custom Situation"
     ],
-    "authority-conversations": [
+    "authority-figures": [
       "Asking for Grade Change",
       "Explaining Bad Behavior",
       "Requesting Help",
-      "Challenging Unfairness"
+      "Challenging Unfairness",
+      "Custom Situation"
     ],
-    "romantic-social": [
+    "college-interviews": [
+      "Harvard Interview",
+      "Stanford Interview",
+      "MIT Interview",
+      "Alumni Networking",
+      "Custom Interview"
+    ],
+    "romantic-relationships": [
       "Asking Someone Out",
       "Setting Boundaries",
       "Ending a Relationship",
-      "Dealing with Rejection"
+      "Dealing with Rejection",
+      "Custom Situation"
     ],
     "group-leadership": [
       "Leading Group Project",
       "Resolving Team Conflict",
       "Delegating Tasks",
-      "Motivating Others"
+      "Motivating Others",
+      "Custom Leadership"
     ],
     "difficult-conversations": [
       "Giving Critical Feedback",
       "Standing Up to Bullying",
       "Apologizing Sincerely",
-      "Setting Personal Boundaries"
+      "Setting Personal Boundaries",
+      "Custom Conversation"
+    ],
+    "custom-scenario": [
+      "Describe Your Situation"
     ]
   };
 
@@ -135,29 +160,6 @@ const SocialIntelligenceLab = () => {
           Rehearse difficult conversations in a safe space before they happen
         </p>
 
-        {/* Voice Mode Toggle */}
-        <div className="flex items-center justify-center gap-3 mb-12">
-          <button
-            onClick={toggleVoiceMode}
-            className={`px-4 py-2 rounded-full text-sm transition-all ${
-              isVoiceMode 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted text-foreground hover:bg-muted/80'
-            }`}
-          >
-            Voice
-          </button>
-          <button
-            onClick={() => setIsVoiceMode(false)}
-            className={`px-4 py-2 rounded-full text-sm transition-all ${
-              !isVoiceMode 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-muted text-foreground hover:bg-muted/80'
-            }`}
-          >
-            Text
-          </button>
-        </div>
       </div>
 
       {/* Content with proper spacing */}
@@ -222,12 +224,16 @@ const SocialIntelligenceLab = () => {
         {contextType && (
           <div className="mb-12 animate-fade-in">
             <h3 className="text-lg font-heading font-medium text-foreground mb-3">
-              Add Context
+              {contextType.includes('Custom') || selectedDomain === 'custom-scenario' ? 'Describe Your Situation' : 'Add Context'}
             </h3>
             <textarea
               value={scenarioContext}
               onChange={(e) => setScenarioContext(e.target.value)}
-              placeholder="Describe the specific situation... (e.g., 'My best friend has been ignoring me since the party last weekend and I need to address it...')"
+              placeholder={
+                contextType.includes('Custom') || selectedDomain === 'custom-scenario'
+                  ? "Describe your specific social situation... (e.g., 'I need to tell my study group that I can't contribute as much time because of my internship...')"
+                  : "Add specific details about your situation... (e.g., 'My best friend has been distant since the party last weekend and I need to address it...')"
+              }
               className="w-full min-h-[100px] p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm"
             />
           </div>
@@ -243,7 +249,7 @@ const SocialIntelligenceLab = () => {
               Start Social Practice
             </Button>
             <p className="text-sm text-muted-foreground mt-4 font-body">
-              {isVoiceMode ? "Voice-based conversation practice" : "Text-based scenario practice"}
+              Text-based conversation practice with real-time coaching
             </p>
           </div>
         )}

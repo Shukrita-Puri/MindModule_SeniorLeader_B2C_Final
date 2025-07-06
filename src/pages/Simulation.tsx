@@ -238,33 +238,28 @@ const Simulation = () => {
 
   // Show conversation interface after messages start
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial">
+    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
       {/* Minimal Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      <div className="flex items-center justify-between p-6 border-b border-border">
         <button
-          onClick={() => navigate("/scenario-lab")}
+          onClick={() => navigate("/social-intelligence-lab")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
           <ArrowLeft size={18} className="text-foreground" />
         </button>
         <div className="text-center">
-          <h2 className="text-lg font-heading font-medium text-foreground">
-            Live Rehearsal
+          <h2 className="text-xl font-heading font-medium text-foreground">
+            Social Practice
           </h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {contextType}
           </p>
         </div>
-        <button
-          onClick={toggleMute}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-        >
-          {isMuted ? <VolumeX size={18} className="text-foreground" /> : <Volume2 size={18} className="text-foreground" />}
-        </button>
+        <div className="w-10"></div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-40">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[80%] rounded-lg p-3 ${
@@ -294,14 +289,14 @@ const Simulation = () => {
       </div>
 
       {/* Fixed Input Area */}
-      <div className="fixed bottom-16 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4">
+      <div className="fixed bottom-20 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-6">
         <div className="flex items-center gap-3 max-w-4xl mx-auto">
           <div className="flex-1">
             <textarea
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
-              placeholder="Your response..."
-              className="w-full min-h-[44px] max-h-24 p-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm"
+              placeholder="Type your response in this conversation..."
+              className="w-full min-h-[44px] max-h-24 p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm leading-relaxed"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -311,36 +306,22 @@ const Simulation = () => {
             />
           </div>
           
-          {isVoiceMode && (
-            <button
-              onClick={toggleRecording}
-              className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${
-                isRecording 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-              }`}
-            >
-              {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-          )}
-          
           <Button
             onClick={() => handleSendMessage(currentMessage)}
             disabled={!currentMessage.trim()}
-            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg"
           >
             Send
           </Button>
         </div>
         
-        <div className="pt-3 max-w-4xl mx-auto">
+        <div className="pt-4 max-w-4xl mx-auto">
           <Button 
             onClick={handleEndSession}
             variant="outline"
-            className="w-full"
-            size="sm"
+            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           >
-            End & Debrief
+            End Practice & Get Insights
           </Button>
         </div>
       </div>
