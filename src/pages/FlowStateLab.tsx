@@ -70,7 +70,7 @@ const FlowStateLab = () => {
       case 'hero':
         return (
           <div className="text-center animate-fade-in">
-            <div className="w-64 h-40 mx-auto mb-8 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/20">
+            <div className="w-40 h-40 mx-auto mb-8 rounded-full overflow-hidden shadow-2xl border-4 border-primary/20">
               <img 
                 src={vibrantFlowStateHero} 
                 alt="Vibrant flow state illustration"
