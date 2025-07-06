@@ -57,10 +57,10 @@ const MessageList = ({
   if (messages.length === 0) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
       {initialMessage && messages.length === 0 && (
         <div className="flex justify-start">
-          <div className="max-w-[70%] p-3 rounded-lg bg-gray-100 text-gray-800">
+          <div className="max-w-[70%] p-3 rounded-lg bg-muted text-foreground">
             <p className="text-sm">{initialMessage}</p>
           </div>
         </div>
@@ -71,8 +71,8 @@ const MessageList = ({
           <div className={`flex gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[70%] p-3 rounded-lg ${
               message.sender === 'user' 
-                ? 'bg-hyper-coral text-white' 
-                : 'bg-gray-100 text-gray-800'
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted text-foreground'
             }`}>
               <p className="text-sm">{message.text}</p>
               
@@ -92,7 +92,7 @@ const MessageList = ({
 
           {showRecommendations && message.recommendations && message.recommendations.length > 0 && (
             <div className="ml-4 space-y-2">
-              <h4 className="text-sm font-medium text-gray-700">Recommended Resources:</h4>
+              <h4 className="text-sm font-medium text-foreground">Recommended Resources:</h4>
               <div className="space-y-2">
                 {message.recommendations.map((rec) => (
                   <RecommendationCard

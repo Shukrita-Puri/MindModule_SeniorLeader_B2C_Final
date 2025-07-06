@@ -113,13 +113,13 @@ const VoiceFirstChat = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-background">
       {/* Header - only show if not hiding context info */}
       {!hideContextInfo && (
-        <div className="px-4 py-3 border-b border-gray-100 bg-white">
-          <h2 className="text-lg font-bold text-gray-800">{title}</h2>
-          <p className="text-sm text-gray-600">{subtitle}</p>
-          <div className="text-xs text-gray-500 mt-1">
+        <div className="px-4 py-3 border-b border-border bg-background">
+          <h2 className="text-lg font-bold text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <div className="text-xs text-muted-foreground mt-1">
             Conversation with: {participantName}
           </div>
         </div>

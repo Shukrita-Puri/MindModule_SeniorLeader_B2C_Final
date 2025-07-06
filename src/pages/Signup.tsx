@@ -37,13 +37,13 @@ const Signup = () => {
     });
   };
 
-  const handleSkip = () => {
-    toast({
-      title: "Entering Prototype Mode",
-      description: "You can sign up later for full access.",
-    });
-    navigate('/app');
-  };
+    const handleSkip = () => {
+      toast({
+        title: "Entering Prototype Mode",
+        description: "You can sign up later for full access.",
+      });
+      navigate('/daily-check-in');
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +76,7 @@ const Signup = () => {
         title: "Welcome to Inner Architect!",
         description: "Your cognitive companion is ready. Redirecting...",
       });
-      setTimeout(() => navigate('/app'), 1500);
+      setTimeout(() => navigate('/daily-check-in'), 1500);
       setIsLoading(false);
     }, 2000);
   };

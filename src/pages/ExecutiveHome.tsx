@@ -155,7 +155,7 @@ const ExecutiveHome = () => {
         </section>
 
         {/* Journal & Reflection */}
-        <section className="border-t border-border pt-8 animate-fade-in" style={{ animationDelay: '600ms' }}>
+        <section className="border-t border-border pt-8 pb-6 animate-fade-in" style={{ animationDelay: '600ms' }}>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
               <img 
@@ -174,7 +174,7 @@ const ExecutiveHome = () => {
               <Button 
                 variant="outline"
                 onClick={() => navigate('/clarity')}
-                className="text-sm w-full py-2"
+                className="text-sm w-full py-2 mb-2"
               >
                 Open Journal
                 <ArrowRight size={12} className="ml-2" />

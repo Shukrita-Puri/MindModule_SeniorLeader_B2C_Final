@@ -36,14 +36,14 @@ const MessageInput = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="border-t border-gray-200 p-4 bg-white">
+    <div className="border-t border-border p-4 bg-background">
       <form onSubmit={onSendMessage} className="space-y-3">
         {isTextMode && (
           <Textarea
             placeholder="Type your message..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            className="min-h-[60px] border-gray-300 focus:border-hyper-coral"
+            className="min-h-[60px] border-border focus:border-primary bg-background text-foreground"
           />
         )}
         
@@ -62,7 +62,7 @@ const MessageInput = ({
               size="sm"
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
-              className="text-gray-500 hover:text-hyper-coral"
+              className="text-muted-foreground hover:text-primary"
             >
               <Paperclip size={16} />
             </Button>
@@ -70,7 +70,7 @@ const MessageInput = ({
               type="button"
               size="sm"
               variant="ghost"
-              className="text-gray-500 hover:text-hyper-coral"
+              className="text-muted-foreground hover:text-primary"
             >
               <Link size={16} />
             </Button>
@@ -82,7 +82,7 @@ const MessageInput = ({
                 type="button"
                 onClick={onEndSession}
                 variant="outline"
-                className="border-hyper-coral text-hyper-coral hover:bg-red-50"
+                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
               >
                 End Session
               </Button>
@@ -91,7 +91,7 @@ const MessageInput = ({
               <Button 
                 type="submit" 
                 disabled={!inputMessage.trim() && attachments.length === 0}
-                className="bg-hyper-coral hover:bg-red-600 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Send size={16} />
               </Button>
