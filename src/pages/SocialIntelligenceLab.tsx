@@ -66,9 +66,9 @@ const SocialIntelligenceLab = () => {
       "Custom Situation"
     ],
     "college-interviews": [
-      "Harvard Interview",
-      "Stanford Interview",
-      "MIT Interview",
+      "College Interview",
+      "University Interview",
+      "Scholarship Interviews",
       "Alumni Networking",
       "Custom Interview"
     ],
