@@ -3,12 +3,15 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
+import PersonaSelector from "@/components/scenario/PersonaSelector";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 
 const SocialIntelligenceLab = () => {
   const navigate = useNavigate();
   const [selectedDomain, setSelectedDomain] = useState("");
   const [contextType, setContextType] = useState("");
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
+  const [customPersonas, setCustomPersonas] = useState("");
   const [scenarioContext, setScenarioContext] = useState("");
   const [isVoiceMode, setIsVoiceMode] = useState(false);
 
@@ -98,24 +101,46 @@ const SocialIntelligenceLab = () => {
     ]
   };
 
+  const availablePersonas = [
+    "Friend", "Best Friend", "Classmate", "Teacher", "Parent", 
+    "Counselor", "Coach", "Interviewer", "Romantic Interest", 
+    "Group Member", "Team Leader", "Authority Figure"
+  ];
+
   const handleDomainSelect = (domainId: string) => {
     setSelectedDomain(domainId);
     setContextType("");
+    setSelectedPersonas([]);
+    setCustomPersonas("");
   };
 
   const handleContextSelect = (context: string) => {
     setContextType(context);
+    setSelectedPersonas([]);
+    setCustomPersonas("");
+  };
+
+  const handlePersonaToggle = (persona: string) => {
+    setSelectedPersonas(prev => 
+      prev.includes(persona) 
+        ? prev.filter(p => p !== persona)
+        : [...prev, persona]
+    );
+  };
+
+  const handleCustomPersonasChange = (value: string) => {
+    setCustomPersonas(value);
   };
 
   const handleStartPractice = () => {
-    if (selectedDomain && contextType) {
+    if (selectedDomain && contextType && (selectedPersonas.length > 0 || customPersonas.trim())) {
       navigate('/simulation', { 
         state: { 
           scenarioDomain: selectedDomain,
           contextType: contextType,
           scenarioContext: scenarioContext,
-          selectedPersonas: ["Social Coach"],
-          customPersonas: "",
+          selectedPersonas: selectedPersonas,
+          customPersonas: customPersonas,
           isVoiceMode: isVoiceMode
         } 
       });
@@ -220,8 +245,45 @@ const SocialIntelligenceLab = () => {
           </div>
         )}
 
-        {/* Context Input */}
+        {/* Persona Selection */}
         {contextType && (
+          <div className="mb-12 animate-fade-in">
+            <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
+              Choose Personas Involved
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+              {availablePersonas.map((persona, index) => (
+                <button
+                  key={persona}
+                  onClick={() => handlePersonaToggle(persona)}
+                  className={`p-3 rounded-lg border text-center transition-all animate-fade-in text-sm ${
+                    selectedPersonas.includes(persona)
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                  }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {persona}
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-4">
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Custom Personas & Their Roles
+              </label>
+              <textarea
+                value={customPersonas}
+                onChange={(e) => handleCustomPersonasChange(e.target.value)}
+                placeholder="Describe any specific personas and their roles (e.g., 'Strict teacher who doesn't like being questioned' or 'Popular classmate who tends to be judgmental')"
+                className="w-full min-h-[80px] p-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Context Input */}
+        {(selectedPersonas.length > 0 || customPersonas.trim()) && (
           <div className="mb-12 animate-fade-in">
             <h3 className="text-lg font-heading font-medium text-foreground mb-3">
               {contextType.includes('Custom') || selectedDomain === 'custom-scenario' ? 'Describe Your Situation' : 'Add Context'}
@@ -240,7 +302,7 @@ const SocialIntelligenceLab = () => {
         )}
 
         {/* Start Practice Button */}
-        {contextType && (
+        {(selectedPersonas.length > 0 || customPersonas.trim()) && (
           <div className="py-8 text-center animate-fade-in">
             <Button 
               onClick={handleStartPractice}
