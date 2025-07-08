@@ -101,11 +101,59 @@ const SocialIntelligenceLab = () => {
     ]
   };
 
-  const availablePersonas = [
-    "Friend", "Best Friend", "Classmate", "Teacher", "Parent", 
-    "Counselor", "Coach", "Interviewer", "Romantic Interest", 
-    "Group Member", "Team Leader", "Authority Figure"
-  ];
+  const getRelevantPersonas = (domain: string, context: string) => {
+    const personaMap: Record<string, Record<string, string[]>> = {
+      "peer-relationships": {
+        "Friend Group Drama": ["Best Friend", "Close Friend", "Mutual Friend", "Group Leader"],
+        "Being Left Out": ["Former Friend", "Popular Classmate", "Group Member", "Bystander"],
+        "Backstabbing Situation": ["Best Friend", "Trusted Friend", "Gossiper", "Witness"],
+        "Choosing Sides": ["Best Friend", "Other Friend", "Neutral Friend", "Group Leader"],
+        "Custom Situation": ["Friend", "Best Friend", "Classmate", "Acquaintance"]
+      },
+      "authority-figures": {
+        "Asking for Grade Change": ["Teacher", "Professor", "Academic Advisor"],
+        "Explaining Bad Behavior": ["Parent", "Teacher", "Principal", "Coach"],
+        "Requesting Help": ["Teacher", "Counselor", "Mentor", "Supervisor"],
+        "Challenging Unfairness": ["Teacher", "Boss", "Authority Figure", "Parent"],
+        "Custom Situation": ["Teacher", "Parent", "Boss", "Counselor"]
+      },
+      "college-interviews": {
+        "College Interview": ["Admissions Officer", "Alumni Interviewer", "Dean"],
+        "University Interview": ["Professor", "Department Head", "Graduate Coordinator"],
+        "Scholarship Interviews": ["Scholarship Committee", "Donor Representative", "Academic Reviewer"],
+        "Alumni Networking": ["Alumni", "Professional Mentor", "Industry Expert"],
+        "Custom Interview": ["Interviewer", "Panel Member", "Industry Professional"]
+      },
+      "romantic-relationships": {
+        "Asking Someone Out": ["Crush", "Classmate", "Friend"],
+        "Setting Boundaries": ["Partner", "Date", "Romantic Interest"],
+        "Ending a Relationship": ["Boyfriend/Girlfriend", "Partner", "Ex-Partner"],
+        "Dealing with Rejection": ["Crush", "Date", "Romantic Interest"],
+        "Custom Situation": ["Partner", "Crush", "Date", "Ex-Partner"]
+      },
+      "group-leadership": {
+        "Leading Group Project": ["Team Member", "Project Partner", "Classmate"],
+        "Resolving Team Conflict": ["Conflicted Member", "Mediator", "Team Member"],
+        "Delegating Tasks": ["Team Member", "Volunteer", "Group Member"],
+        "Motivating Others": ["Unmotivated Member", "Team Member", "Peer"],
+        "Custom Leadership": ["Team Member", "Follower", "Peer Leader"]
+      },
+      "difficult-conversations": {
+        "Giving Critical Feedback": ["Friend", "Team Member", "Colleague", "Peer"],
+        "Standing Up to Bullying": ["Bully", "Bystander", "Supporter", "Authority Figure"],
+        "Apologizing Sincerely": ["Hurt Friend", "Offended Person", "Victim"],
+        "Setting Personal Boundaries": ["Pushy Friend", "Demanding Person", "Boundary Crosser"],
+        "Custom Conversation": ["Friend", "Family Member", "Colleague", "Peer"]
+      },
+      "custom-scenario": {
+        "Describe Your Situation": ["Friend", "Family Member", "Teacher", "Colleague", "Stranger"]
+      }
+    };
+
+    return personaMap[domain]?.[context] || [];
+  };
+
+  const availablePersonas = getRelevantPersonas(selectedDomain, contextType);
 
   const handleDomainSelect = (domainId: string) => {
     setSelectedDomain(domainId);
