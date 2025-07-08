@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Brain, Zap, Heart, ArrowRight, SkipForward } from "lucide-react";
+import { Heart, ArrowRight, SkipForward } from "lucide-react";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
 import TouchOptimized from "@/components/TouchOptimized";
 import ErrorMessage from "@/components/ui/error-message";
@@ -34,10 +34,10 @@ const DailyCheckIn = () => {
   ];
 
   const focusStates = [
-    { label: "Charged", value: "charged", icon: Zap, color: "text-green-600" },
-    { label: "Focused", value: "focused", icon: Brain, color: "text-blue-600" },
-    { label: "Scattered", value: "scattered", icon: Heart, color: "text-orange-600" },
-    { label: "Drained", value: "drained", icon: Heart, color: "text-red-600" }
+    { label: "Charged", value: "charged" },
+    { label: "Focused", value: "focused" },
+    { label: "Scattered", value: "scattered" },
+    { label: "UnMotivated", value: "unmotivated" }
   ];
 
   const validateForm = (): boolean => {
@@ -182,16 +182,15 @@ const DailyCheckIn = () => {
                     setErrors(prev => ({ ...prev, focus: "" }));
                   }}
                 >
-                  <div
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 flex items-center gap-2 ${
-                      focusState === state.value
-                        ? 'border-accent bg-accent/10'
-                        : 'border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    <state.icon size={16} className="text-sage" />
-                    <span className="text-sm font-body">{state.label}</span>
-                  </div>
+                   <div
+                     className={`p-3 rounded-lg border-2 transition-all duration-200 flex items-center justify-center ${
+                       focusState === state.value
+                         ? 'border-accent bg-accent/10'
+                         : 'border-border hover:border-muted-foreground'
+                     }`}
+                   >
+                     <span className="text-sm font-body">{state.label}</span>
+                   </div>
                 </TouchOptimized>
               ))}
             </div>
