@@ -37,7 +37,7 @@ const DailyCheckIn = () => {
     { label: "Charged", value: "charged" },
     { label: "Focused", value: "focused" },
     { label: "Scattered", value: "scattered" },
-    { label: "UnMotivated", value: "unmotivated" }
+    { label: "Unmotivated", value: "unmotivated" }
   ];
 
   const validateForm = (): boolean => {
