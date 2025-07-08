@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import MainNavigation from "@/components/MainNavigation";
-import clarityImage from "@/assets/vibrant-mental-clarity.png";
+const clarityImage = "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png";
 
 interface Message {
   id: string;
