@@ -111,7 +111,7 @@ const Signup = () => {
             />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-            Join Inner Architect
+            Join Mind Module
           </h1>
           <p className="text-muted-foreground font-body">
             Create your student account with school email

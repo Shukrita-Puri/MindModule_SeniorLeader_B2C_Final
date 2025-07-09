@@ -219,7 +219,7 @@ const SocialIntelligenceLab = () => {
       <div className="px-8 py-16 text-center max-w-3xl mx-auto">
         <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={vibrantPracticeIllustration} 
+            src="/lovable-uploads/67bda649-edbb-4f39-8290-175122fe99bf.png" 
             alt="Social intelligence practice"
             className="w-full h-full object-cover"
           />
