@@ -37,7 +37,7 @@ const Front = () => {
       {/* Main Title */}
       <div className="text-center mb-6 sm:mb-8">
         <h1 className="text-4xl sm:text-6xl md:text-8xl font-heading font-bold text-foreground mb-4 sm:mb-6 leading-tight">
-          Inner Architect
+          Mind Module
         </h1>
         <h2 className="text-lg sm:text-2xl md:text-4xl font-editorial font-medium text-accent mb-6 sm:mb-8">
           For the Next Generation of Leaders

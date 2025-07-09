@@ -394,7 +394,7 @@ const RecalibrateMode = () => {
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
         <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
           <img 
-            src={vibrantMentorIllustration} 
+            src="/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png" 
             alt="Inner calibration and balance"
             className="w-full h-full object-cover"
           />
