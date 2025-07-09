@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import MainNavigation from "@/components/MainNavigation";
+import SessionFeedback from "@/components/SessionFeedback";
 const clarityImage = "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png";
 
 interface Message {
@@ -48,6 +49,7 @@ const ClarityMode = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const prompts = [
     "What's been heavy lately?",
@@ -232,7 +234,18 @@ const ClarityMode = () => {
 
     setSessions(prev => [newSession, ...prev]);
     setMessages([]);
-    setCurrentView("archive");
+    setShowFeedback(true);
+  };
+
+  const handleFeedbackSubmit = (feedback: { rating: 'positive' | 'negative'; improvement: string; nextTime: string; }) => {
+    // Handle feedback submission (could be sent to backend here)
+    setShowFeedback(false);
+    navigate("/clarity-summary");
+  };
+
+  const handleFeedbackSkip = () => {
+    setShowFeedback(false);
+    navigate("/clarity-summary");
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -595,6 +608,15 @@ const ClarityMode = () => {
           Begin {mode === "conversation" ? "Conversation" : "Journaling"}
         </Button>
       </div>
+
+      {/* Session Feedback Modal */}
+      {showFeedback && (
+        <SessionFeedback
+          sessionType="clarity"
+          onSubmit={handleFeedbackSubmit}
+          onSkip={handleFeedbackSkip}
+        />
+      )}
     </div>
   );
 };
