@@ -233,18 +233,20 @@ const ClarityMode = () => {
     };
 
     setSessions(prev => [newSession, ...prev]);
-    setMessages([]);
+    // Don't clear messages yet - wait until feedback is complete
     setShowFeedback(true);
   };
 
   const handleFeedbackSubmit = (feedback: { rating: 'positive' | 'negative'; improvement: string; nextTime: string; }) => {
     // Handle feedback submission (could be sent to backend here)
     setShowFeedback(false);
+    setMessages([]); // Clear messages after feedback
     navigate("/clarity-summary");
   };
 
   const handleFeedbackSkip = () => {
     setShowFeedback(false);
+    setMessages([]); // Clear messages after skipping feedback
     navigate("/clarity-summary");
   };
 
