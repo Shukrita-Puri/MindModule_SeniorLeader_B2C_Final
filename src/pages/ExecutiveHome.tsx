@@ -26,7 +26,9 @@ const ExecutiveHome = () => {
   
   const getResetAction = () => {
     if (!hasCheckIn) return "Take Daily Check-in";
-    const { energy, focus } = checkInData;
+    const { mood, energy, focus } = checkInData;
+    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "Power Up";
+    if (energy >= 9 && mood === 'content' && focus === 'charged') return "Grounding Practice";
     if (energy < 4 || focus === 'drained') return "60-sec Power Up";
     if (focus === 'scattered') return "Inner Calibrate";
     return "Flow State Session";
@@ -34,7 +36,9 @@ const ExecutiveHome = () => {
 
   const getResetRoute = () => {
     if (!hasCheckIn) return "/daily-check-in";
-    const { energy, focus } = checkInData;
+    const { mood, energy, focus } = checkInData;
+    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate";
+    if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
     if (energy < 4 || focus === 'drained') return "/recalibrate";
     if (focus === 'scattered') return "/recalibrate";
     return "/flow-state-lab";
@@ -45,15 +49,19 @@ const ExecutiveHome = () => {
     return [
       {
         id: 1,
-        title: "AP Chemistry midterm tomorrow",
-        suggestion: "Try Mental Clarity",
-        route: "/clarity"
+        title: "Oxford College Interview",
+        subtitle: "High-pressure interview in 4 days",
+        secondSubtitle: "Scenario Simulate your practice with the assessor+",
+        suggestion: "Prepare with Social Intelligence",
+        route: "/social-intelligence-lab"
       },
       {
         id: 2, 
-        title: "Prepare for College Interview",
-        suggestion: "Use Social Intelligence to practice with the assessor",
-        route: "/social-intelligence-lab"
+        title: "Advanced Physics Exam",
+        subtitle: "Complex problem-solving needed",
+        secondSubtitle: "Enter optimal learning state",
+        suggestion: "Flow State Practice",
+        route: "/flow-state-lab"
       }
     ];
   };
@@ -65,27 +73,30 @@ const ExecutiveHome = () => {
       {/* Minimal Header */}
       <div className="px-8 py-16 text-center">
         <h1 className="text-3xl font-heading font-medium text-foreground mb-4">
-          Hey there
+          Hey, Alex
         </h1>
         <p className="text-lg text-muted-foreground">
-          Ready to design your day?
+          Ready to architect your day?
         </p>
       </div>
 
       <div className="px-4 max-w-lg mx-auto space-y-16">
         
-        {/* Building Momentum - Simple Leaderboard */}
+        {/* Building Momentum - Leaderboard Style */}
         <section className="animate-fade-in">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-              <TrendingUp size={16} className="text-primary" />
+          <h2 className="text-lg font-heading font-medium text-foreground mb-4">
+            Building Momentum
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Sessions with Mind Module */}
+            <div className="bg-card border border-border rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-primary mb-1">47</div>
+              <div className="text-xs text-muted-foreground">Sessions with Mind Module</div>
             </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-heading font-medium text-foreground mb-1">
-                Building Momentum
-              </h2>
-              <p className="text-sm text-primary font-medium">Top 10 in your class</p>
-              <p className="text-xs text-muted-foreground">3 focused clarity sessions</p>
+            {/* School/Class Score */}
+            <div className="bg-card border border-border rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-accent mb-1">#3</div>
+              <div className="text-xs text-muted-foreground">Score in school/class</div>
             </div>
           </div>
         </section>
@@ -137,8 +148,11 @@ const ExecutiveHome = () => {
                 <h3 className="font-body font-medium text-foreground mb-1 text-sm">
                   {priority.title}
                 </h3>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {priority.subtitle}
+                </p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {priority.suggestion}
+                  {priority.secondSubtitle}
                 </p>
                 <Button 
                   size="sm" 
@@ -146,7 +160,7 @@ const ExecutiveHome = () => {
                   onClick={() => navigate(priority.route)}
                   className="text-xs w-full py-1"
                 >
-                  {priority.id === 1 ? 'Mental Clarity' : 'Social Intelligence'}
+                  {priority.suggestion}
                   <ArrowRight size={10} className="ml-2" />
                 </Button>
               </div>
@@ -166,17 +180,17 @@ const ExecutiveHome = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-heading font-medium text-foreground mb-2">
-                Journal & Reflect
+                Evening Reflection
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed font-body mb-3">
-                Use clarity sessions for private reflection.
+                Three wins or things you are grateful for, from today. What made them possible?
               </p>
               <Button 
                 variant="outline"
                 onClick={() => navigate('/clarity')}
                 className="text-sm w-full py-2 mb-2"
               >
-                Open Journal
+                Journal now
                 <ArrowRight size={12} className="ml-2" />
               </Button>
             </div>

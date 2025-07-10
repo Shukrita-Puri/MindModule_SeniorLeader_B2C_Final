@@ -47,7 +47,7 @@ const Front = () => {
       {/* Subtitle */}
       <div className="text-center mb-12 sm:mb-16 max-w-4xl px-4">
         <p className="text-base sm:text-xl md:text-2xl text-muted-foreground leading-relaxed font-body">
-          AI-powered cognitive companion for high-achieving students.
+          AI-Powered Mind Management companion for High-performing students.
         </p>
       </div>
 
@@ -66,7 +66,7 @@ const Front = () => {
       {/* Optional tagline at bottom */}
       <div className="fixed bottom-20 sm:bottom-8 left-0 right-0 text-center px-4">
         <p className="text-xs sm:text-sm text-muted-foreground font-body">
-          Your cognitive companion for clarity and growth
+          Become the Mental Elite
         </p>
       </div>
     </div>
