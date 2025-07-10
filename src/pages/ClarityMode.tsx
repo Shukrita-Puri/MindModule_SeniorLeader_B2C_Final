@@ -390,18 +390,19 @@ const ClarityMode = () => {
       <div className="min-h-screen bg-background flex flex-col font-serif">
         {/* Session Header */}
         <div className="border-b border-border p-4 bg-background/95 backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Badge variant="outline" className="text-xs font-medium">
-                {mode === "journal" ? "Private Journal" : "Clarity Conversation"}
-              </Badge>
-              <div className="flex gap-1">
-                {messages.flatMap(m => m.tags || []).slice(0, 3).map((tag, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+          <ClearBackButton />
+          <div className="flex items-center justify-center">
+            <Badge variant="outline" className="text-xs font-medium">
+              {mode === "journal" ? "Private Journal" : "Clarity Conversation"}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex gap-1">
+              {messages.flatMap(m => m.tags || []).slice(0, 3).map((tag, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -572,8 +573,7 @@ const ClarityMode = () => {
             onClick={() => navigate("/inner-architect")}
             className="text-foreground hover:bg-muted"
           >
-            <ArrowLeft size={16} className="mr-2" />
-            Back
+            <ArrowLeft size={16} />
           </Button>
           <h1 className="text-2xl font-serif font-medium">Clarity</h1>
           <div className="w-20" />

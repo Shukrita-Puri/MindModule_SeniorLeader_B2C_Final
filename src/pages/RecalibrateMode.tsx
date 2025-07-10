@@ -402,7 +402,7 @@ const RecalibrateMode = () => {
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
-          Inner Calibrate
+          Inner Calibration
         </h2>
         
         <p className="text-lg text-muted-foreground leading-relaxed mb-16">
