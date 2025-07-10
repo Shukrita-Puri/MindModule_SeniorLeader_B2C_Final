@@ -183,7 +183,7 @@ const ExecutiveHome = () => {
                 Evening Reflection
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed font-body mb-3">
-                Three wins or things you are grateful for, from today. What made them possible?
+                3 wins or moments you're grateful for today? What made them possible?
               </p>
               <Button 
                 variant="outline"
