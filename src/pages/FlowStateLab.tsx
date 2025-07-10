@@ -277,11 +277,11 @@ const FlowStateLab = () => {
             </div>
             
             <h1 className="text-5xl font-heading font-medium text-foreground mb-6 leading-tight">
-              Guided Triangulation Process
+              Dial In Your Focus
             </h1>
             
             <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto">
-              Master your mind through science-backed flow techniques. Get matched with the perfect method for your task, time, and context.
+              Train your focus. Master your mind. Unlock your peak performance.
             </p>
 
             <Button 
