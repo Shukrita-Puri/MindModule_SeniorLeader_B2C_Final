@@ -76,7 +76,7 @@ const ExecutiveHome = () => {
           Hey, Alex
         </h1>
         <p className="text-lg text-muted-foreground">
-          Ready to architect your day?
+          Ready to architect your mind for the day?
         </p>
       </div>
 
@@ -95,8 +95,8 @@ const ExecutiveHome = () => {
             </div>
             {/* School/Class Score */}
             <div className="bg-card border border-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-accent mb-1">#3</div>
-              <div className="text-xs text-muted-foreground">Score in school/class</div>
+              <div className="text-2xl font-bold text-accent mb-1">15</div>
+              <div className="text-xs text-muted-foreground">days</div>
             </div>
           </div>
         </section>
