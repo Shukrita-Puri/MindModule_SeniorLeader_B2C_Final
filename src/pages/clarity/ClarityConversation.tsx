@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Send, RotateCcw, Plus, Mic, Archive, BookOpen, Lightbulb, Target, Brain } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
-// Removed RecommendationModal import - using inline modal instead
+import MainNavigation from "@/components/MainNavigation";
 
 interface Message {
   text: string;
@@ -26,7 +26,40 @@ interface Message {
 const ClarityConversation = () => {
   const navigate = useNavigate();
   useScrollToTop(); // Scroll to top when this page loads
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      text: "hey, so I'm literally dying right now. I have this chemistry test tomorrow and I've been studying for hours but it's like my brain just won't absorb anything. Every time I read about molecular structures, it's like the words just disappear 😭",
+      sender: 'user',
+      timestamp: new Date(Date.now() - 300000),
+      tags: ['anxiety', 'learning']
+    },
+    {
+      text: "Ugh, I totally get that feeling. School can be so overwhelming sometimes. Chemistry can be super tricky - all those formulas and structures. What part specifically is giving you the most trouble right now?",
+      sender: 'ai',
+      timestamp: new Date(Date.now() - 240000),
+      tags: []
+    },
+    {
+      text: "It's like everything?? The electron configurations, the bonding, the naming compounds... I understand it when my teacher explains it but then when I try to do practice problems alone, my mind just goes blank. It's so frustrating because I know I'm not stupid but I feel so dumb right now",
+      sender: 'user', 
+      timestamp: new Date(Date.now() - 180000),
+      tags: ['frustration', 'self-doubt']
+    },
+    {
+      text: "Okay so like, when I'm struggling to learn something new, I literally feel like my brain just shuts down. That mental block is SO real. Have you ever tried explaining what you're learning out loud? Like pretending you're teaching it to someone else?",
+      sender: 'ai',
+      timestamp: new Date(Date.now() - 120000),
+      tags: [],
+      recommendations: [
+        {
+          type: 'mental-model',
+          title: 'The Feynman Technique',
+          description: 'Explain it like you\'re teaching a 5-year-old',
+          icon: '🧠'
+        }
+      ]
+    }
+  ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState(0);
@@ -69,35 +102,41 @@ const ClarityConversation = () => {
   const generateAIResponse = (userMessage: string): Message => {
     const tags = autoTagMessage(userMessage);
     
+    // More realistic responses for teens struggling with learning
     const responses = [
-      "I hear you. That sounds like a significant experience. What aspect of this feels most important to you right now?",
-      "Thank you for sharing that with me. How long has this been on your mind?",
-      "That's a meaningful reflection. What do you think might be driving these feelings?",
-      "I appreciate your openness. What would it look like if this situation improved?",
-      "That sounds challenging. What resources or strengths do you already have that might help?",
-      "I can sense the importance of this for you. What's one small step that feels manageable right now?"
+      "Ugh, I totally get that feeling. School can be so overwhelming sometimes. What subject is giving you the most trouble?",
+      "That mental block sounds super frustrating. I've been there too. What usually helps you when you're stuck like this?",
+      "Okay so like, when I'm struggling to learn something new, I literally feel like my brain just shuts down. Is that kind of what you're experiencing?",
+      "That sucks that you're feeling so overwhelmed. What's making this subject feel extra hard right now?",
+      "I hear you - sometimes it feels like everyone else gets it and you're just sitting there confused. What part specifically is tripping you up?",
+      "Been there with the whole 'why can't I just understand this' thing. It's so annoying. What's worked for you before when you've felt stuck?"
     ];
 
     const recommendations = [
       {
-        type: 'practice',
-        title: 'Breathing Reset',
-        description: 'Quick 2-minute breathing exercise',
+        type: 'mental-model',
+        title: 'The Feynman Technique',
+        description: 'Explain it like you\'re teaching a 5-year-old',
+        icon: '🧠',
+        action: () => setSelectedRecommendation({
+          type: 'mental-model',
+          title: 'The Feynman Technique',
+          description: 'When you\'re stuck learning something, try explaining it out loud like you\'re teaching it to a little kid. If you can\'t explain it simply, you don\'t understand it yet - and that\'s totally okay! It just shows you where to focus.',
+          steps: ['1. Pick the concept you\'re struggling with', '2. Write it down in simple words', '3. Explain it out loud to an imaginary 5-year-old', '4. Notice where you get stuck - that\'s what to study more']
+        })
+      },
+      {
+        type: 'reset',
+        title: 'Brain Break',
+        description: 'Quick reset when overwhelmed',
         icon: '🫁',
-        action: () => navigate('/recalibrate/breathwork')
+        action: () => navigate('/recalibrate/quick-reset')
       },
       {
         type: 'reflection',
-        title: 'Explore Deeper',
-        description: 'Journal about this topic',
+        title: 'Study Journal',
+        description: 'Reflect on your learning patterns',
         icon: '📝',
-        action: () => navigate('/clarity/journal')
-      },
-      {
-        type: 'scenario',
-        title: 'Practice Response',
-        description: 'Simulate handling this situation',
-        icon: '🎭',
         action: () => navigate('/scenario-lab')
       }
     ];
@@ -460,6 +499,7 @@ const ClarityConversation = () => {
         </div>
       )}
 
+      <MainNavigation />
     </div>
   );
 };

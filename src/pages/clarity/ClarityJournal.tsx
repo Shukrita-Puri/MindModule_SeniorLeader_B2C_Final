@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, Save, Plus, Mic, Archive } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
+import MainNavigation from "@/components/MainNavigation";
 
 const ClarityJournal = () => {
   const navigate = useNavigate();
@@ -61,12 +62,12 @@ const ClarityJournal = () => {
 
   const handleFeedbackSubmit = (feedback: any) => {
     setShowFeedback(false);
-    navigate('/clarity');
+    navigate('/clarity/summary');
   };
 
   const handleFeedbackSkip = () => {
     setShowFeedback(false);
-    navigate('/clarity');
+    navigate('/clarity/summary');
   };
 
   const usePrompt = (prompt: string) => {
@@ -210,6 +211,7 @@ const ClarityJournal = () => {
         </div>
       </div>
 
+      <MainNavigation />
     </div>
   );
 };

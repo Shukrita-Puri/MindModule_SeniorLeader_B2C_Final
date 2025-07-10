@@ -266,6 +266,8 @@ const ClaritySummary = () => {
           </div>
         </div>
       </div>
+
+      <MainNavigation />
     </div>
   );
 };

@@ -31,7 +31,7 @@ const ClarityMode = () => {
       <div className="px-8 py-12 text-center">
         <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-card border border-border overflow-hidden">
           <img 
-            src="/lovable-uploads/bb994983-e35e-43b1-8cce-5cfe1f62ed76.png" 
+            src="/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png" 
             alt="Mental Clarity"
             className="w-full h-full object-cover opacity-80"
           />
