@@ -179,6 +179,15 @@ const VoiceFirstSimulation = ({
           <Badge variant="secondary" className="text-xs">
             High Intensity
           </Badge>
+          
+          <Button
+            onClick={onEndSession}
+            variant="destructive"
+            size="sm"
+            className="px-4 py-2 text-sm rounded-lg hover:scale-105 active:scale-95 transition-all duration-200"
+          >
+            End Session
+          </Button>
         </div>
         
         <div className="flex items-center gap-4">
@@ -225,7 +234,7 @@ const VoiceFirstSimulation = ({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
         {/* Initial scenario */}
         <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
           <p className="text-sm text-foreground font-medium mb-2">Scenario:</p>
@@ -271,20 +280,8 @@ const VoiceFirstSimulation = ({
         )}
       </div>
 
-      {/* Emergency End Session Button - Top Right */}
-      <div className="fixed top-4 right-4 z-50">
-        <Button
-          onClick={onEndSession}
-          variant="destructive"
-          size="lg"
-          className="min-w-[48px] min-h-[48px] px-4 py-2 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 animate-pulse-subtle"
-        >
-          Emergency Exit
-        </Button>
-      </div>
-
-      {/* Switch Mode FAB - Bottom Right Thumb Zone */}
-      <div className="fixed bottom-24 right-4 z-40">
+      {/* Switch Mode FAB - Bottom Left Thumb Zone */}
+      <div className="fixed bottom-4 left-4 z-40">
         <Button
           onClick={toggleVoiceMode}
           variant="secondary"
@@ -299,8 +296,8 @@ const VoiceFirstSimulation = ({
         </Button>
       </div>
 
-      {/* AI Avatar with Emotion */}
-      <div className="fixed bottom-96 right-4 z-40">
+      {/* AI Avatar with Emotion - Bottom Right */}
+      <div className="fixed bottom-4 right-4 z-40">
         <div className="relative">
           <Button
             onClick={() => setShowEmotionBreakdown(!showEmotionBreakdown)}
