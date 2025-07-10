@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus } from "lucide-react";
+import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus, Mic } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -492,7 +492,7 @@ const ClarityMode = () => {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-32">
+        <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-40">
           <div className="max-w-3xl mx-auto">
 
             {/* Rotating Prompts */}
@@ -505,23 +505,6 @@ const ClarityMode = () => {
               </button>
             </div>
 
-            {/* Input Options */}
-            <div className="flex gap-2 mb-4 justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                Voice Input
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                Type
-              </Button>
-            </div>
 
             {/* Input Field */}
             <div className="flex gap-3 items-end mb-8">
@@ -541,14 +524,24 @@ const ClarityMode = () => {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground"
-                  title="Add attachments (Gmail, Calendar, Photos, Files)"
-                >
-                  <Plus size={16} />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Voice input"
+                  >
+                    <Mic size={16} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Add attachments (Gmail, Calendar, Photos, Files)"
+                  >
+                    <Plus size={16} />
+                  </Button>
+                </div>
                 <Button
                   onClick={handleSendMessage}
                   disabled={!currentInput.trim()}

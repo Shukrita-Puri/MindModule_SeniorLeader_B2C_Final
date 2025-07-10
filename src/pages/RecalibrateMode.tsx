@@ -25,7 +25,7 @@ const RecalibrateMode = () => {
     {
       id: "power-up", 
       title: "Power Up",
-      description: "1-minute energy boost before big moments",
+      description: "Energy Boost Before Big moments or during Low energy moments",
       illustration: vibrantVoiceOrb
     },
     {

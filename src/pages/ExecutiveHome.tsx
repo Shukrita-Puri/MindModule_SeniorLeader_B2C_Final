@@ -41,7 +41,7 @@ const ExecutiveHome = () => {
     if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
     if (energy < 4 || focus === 'drained') return "/recalibrate?mode=power-up";
     if (focus === 'scattered') return "/recalibrate?mode=power-up";
-    return "/flow-state-lab";
+    return "/recalibrate?mode=power-up"; // Default to power-up mode
   };
 
   const getTopPriorities = () => {
