@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Smartphone, Trash2, Eye, Lock, Database, Wifi, Calendar, Mail, Watch } from "lucide-react";
+import { Shield, Smartphone, Trash2, Eye, Lock, Database, Wifi, Calendar, Mail, Watch, MessageCircle } from "lucide-react";
 
 const PrivacyDashboard = () => {
   const [dataToggles, setDataToggles] = useState({
     calendar: true,
     email: false,
     wearable: true,
+    social: false,
     documents: true
   });
 
@@ -27,6 +28,7 @@ const PrivacyDashboard = () => {
     { key: "calendar", icon: Calendar, label: "Calendar Events", description: "Meeting patterns and scheduling insights" },
     { key: "email", icon: Mail, label: "Email Data", description: "Communications, Sentiment, Tone detection" },
     { key: "wearable", icon: Watch, label: "Wearable Data", description: "Stress and activity patterns" },
+    { key: "social", icon: MessageCircle, label: "Social Data", description: "Casual/social communications, Sentiment, Tone, Real time conversations" },
     { key: "documents", icon: Database, label: "Document Access", description: "Knowledge work patterns" }
   ];
 
