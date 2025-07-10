@@ -198,7 +198,7 @@ const VoiceFirstSimulation = ({
           
           <Button
             onClick={onEndSession}
-            variant="destructive"
+            variant="default"
             size="sm"
             className="px-4 py-2 text-sm rounded-lg hover:scale-105 active:scale-95 transition-all duration-200"
           >
