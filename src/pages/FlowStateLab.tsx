@@ -151,7 +151,7 @@ const FlowStateLab = () => {
     {
       id: "academic-work",
       title: "Academic Work",
-      emoji: "📘",
+      emoji: "",
       subtasks: [
         { id: "essay-writing", name: "Essay Writing", technique: flowTechniques['time-block-micro-goal'] },
         { id: "math-problems", name: "Math Problem Sets", technique: flowTechniques['problem-looping'] },
@@ -163,7 +163,7 @@ const FlowStateLab = () => {
     {
       id: "creative-projects",
       title: "Creative Projects", 
-      emoji: "🎨",
+      emoji: "",
       subtasks: [
         { id: "art-design", name: "Art & Design", technique: flowTechniques['constraint-challenge'] },
         { id: "creative-writing", name: "Creative Writing", technique: flowTechniques['timed-freewriting'] },
@@ -175,7 +175,7 @@ const FlowStateLab = () => {
     {
       id: "skill-development",
       title: "Skill Development",
-      emoji: "⚙️", 
+      emoji: "",
       subtasks: [
         { id: "language-learning", name: "Language Learning", technique: flowTechniques['retrieval-sprints'] },
         { id: "coding-practice", name: "Coding Practice", technique: flowTechniques['problem-looping'] },
@@ -187,7 +187,7 @@ const FlowStateLab = () => {
     {
       id: "planning-organizing", 
       title: "Planning & Organizing",
-      emoji: "📅",
+      emoji: "",
       subtasks: [
         { id: "college-apps", name: "College Applications", technique: flowTechniques['time-block-micro-goal'] },
         { id: "schedule-planning", name: "Schedule Planning", technique: flowTechniques['time-block-micro-goal'] },
@@ -277,7 +277,7 @@ const FlowStateLab = () => {
             </div>
             
             <h1 className="text-5xl font-heading font-medium text-foreground mb-6 leading-tight">
-              🧩 Guided Triangulation Process
+              Guided Triangulation Process
             </h1>
             
             <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto">
@@ -297,7 +297,7 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-4 text-center">
-              🧩 Step 1: Choose What You'll Master Today
+              Step 1: Choose What You'll Master Today
             </h2>
             <p className="text-lg text-muted-foreground mb-12 text-center max-w-3xl mx-auto">
               Pick the kind of activity you're doing right now. This helps us match you with a flow technique designed for exactly that.
@@ -310,7 +310,6 @@ const FlowStateLab = () => {
                 }`}>
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-3 text-xl">
-                      <span className="text-2xl">{category.emoji}</span>
                       {category.title}
                     </CardTitle>
                   </CardHeader>
@@ -355,7 +354,7 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in max-w-2xl mx-auto">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-4 text-center">
-              🧠 Step 2: Add Context (Optional)
+              Step 2: Add Context (Optional)
             </h2>
             <p className="text-lg text-muted-foreground mb-8 text-center">
               Tell us more about what you're working on — or let us auto-sense it.
@@ -364,7 +363,7 @@ const FlowStateLab = () => {
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <span>📝</span> I'm working on...
+                  I'm working on...
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -386,7 +385,7 @@ const FlowStateLab = () => {
                     }
                   }}
                 >
-                  🔄 Use Current Life Context
+                  Use Current Life Context
                 </Button>
               </CardContent>
             </Card>
@@ -406,7 +405,7 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-4 text-center">
-              ⏱️ Step 3: Choose Your Time Commitment
+              Step 3: Choose Your Time Commitment
             </h2>
             <p className="text-lg text-muted-foreground mb-12 text-center">
               We'll match your attention span with the right flow pattern.
@@ -481,10 +480,10 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in max-w-4xl mx-auto">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-4 text-center">
-              🔍 Step 4: Your Matched Flow Technique
+              Step 4: Your Matched Flow Technique
             </h2>
             <p className="text-lg text-muted-foreground mb-8 text-center">
-              💡 Based on your task, context, and time, here's the technique we recommend:
+              Based on your task, context, and time, here's the technique we recommend:
             </p>
             
             <Card className="mb-8 border-primary/20 bg-primary/5">
@@ -493,7 +492,7 @@ const FlowStateLab = () => {
                   <Brain className="w-8 h-8 text-primary" />
                   <div>
                     <CardTitle className="text-2xl text-primary">
-                      🧩 Technique: {technique.name}
+                      Technique: {technique.name}
                     </CardTitle>
                     <CardDescription className="text-lg">
                       ({taskCategories.find(cat => cat.id === selectedTask)?.subtasks.find(sub => sub.id === selectedSubtask)?.name}, {duration} min — "{userContext || 'Ready to focus'}")
@@ -523,7 +522,7 @@ const FlowStateLab = () => {
                 onClick={startSession}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg rounded-full"
               >
-                ▶️ Step 5: Start Your Guided Flow Session
+                Step 5: Start Your Guided Flow Session
               </Button>
             </div>
           </div>
@@ -542,17 +541,17 @@ const FlowStateLab = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Timer className="w-6 h-6" />
-                  🕒 {sessionData.duration} Minutes | ✍️ {taskCategories.find(cat => cat.id === sessionData.task)?.subtasks.find(sub => sub.id === sessionData.subtask)?.name}
+                  {sessionData.duration} Minutes | {taskCategories.find(cat => cat.id === sessionData.task)?.subtasks.find(sub => sub.id === sessionData.subtask)?.name}
                 </CardTitle>
                 <CardDescription>
-                  🧠 Technique: {sessionData.technique.name}
+                  Technique: {sessionData.technique.name}
                 </CardDescription>
               </CardHeader>
             </Card>
 
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle>✅ Ready? Let's Begin:</CardTitle>
+                <CardTitle>Ready? Let's Begin:</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -565,7 +564,7 @@ const FlowStateLab = () => {
                         <div className="font-medium">{phase.name}</div>
                         <div className="text-sm text-muted-foreground">{phase.description}</div>
                         {phase.guidance && (
-                          <div className="text-xs text-primary mt-1">💡 {phase.guidance}</div>
+                          <div className="text-xs text-primary mt-1">{phase.guidance}</div>
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">
@@ -662,7 +661,7 @@ const FlowStateLab = () => {
             {isMainBlock && currentPhase === sessionData.technique.phases.findIndex(p => p.duration === 0) && !microGoal && (
               <Card className="mb-8">
                 <CardHeader>
-                  <CardTitle>🔹 Set Your Micro Goal</CardTitle>
+                  <CardTitle>Set Your Micro Goal</CardTitle>
                   <CardDescription>What's one small win you want from this block?</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -745,12 +744,12 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in max-w-2xl mx-auto">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-8 text-center">
-              🔹 Session Complete!
+              Session Complete!
             </h2>
             
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle>🔹 How did it go?</CardTitle>
+                <CardTitle>How did it go?</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -783,21 +782,21 @@ const FlowStateLab = () => {
                         variant={goalCompleted === true ? "default" : "outline"}
                         className="px-8"
                       >
-                        ✅ Yes
+                        Yes
                       </Button>
                       <Button 
                         onClick={() => setGoalCompleted(false)}
                         variant={goalCompleted === false ? "default" : "outline"}
                         className="px-8"
                       >
-                        🔄 Almost
+                        Almost
                       </Button>
                       <Button 
                         onClick={() => setGoalCompleted(null)}
                         variant={goalCompleted === null ? "default" : "outline"}
                         className="px-8"
                       >
-                        ❌ Not Quite
+                        Not Quite
                       </Button>
                     </div>
                   </div>
@@ -822,7 +821,7 @@ const FlowStateLab = () => {
                 onClick={() => setCurrentStep('flow-log')}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
               >
-                📓 View Flow Log
+                View Flow Log
               </Button>
               
               <Button 
@@ -836,7 +835,7 @@ const FlowStateLab = () => {
                 variant="outline"
                 className="px-8 py-3 rounded-full"
               >
-                🔁 Another Session
+                Another Session
               </Button>
             </div>
           </div>
@@ -848,7 +847,7 @@ const FlowStateLab = () => {
         return (
           <div className="animate-fade-in max-w-3xl mx-auto">
             <h2 className="text-4xl font-heading font-medium text-foreground mb-8 text-center">
-              📓 Your Flow Log
+              Your Flow Log
             </h2>
             
             <Card className="mb-8">
@@ -877,7 +876,7 @@ const FlowStateLab = () => {
                   <div className="flex justify-between">
                     <span className="font-medium">Outcome:</span>
                     <span>
-                      {goalCompleted === true ? '✅ Completed' : goalCompleted === false ? '🔄 Almost' : '❌ Not Quite'}
+                      {goalCompleted === true ? 'Completed' : goalCompleted === false ? 'Almost' : 'Not Quite'}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -896,7 +895,7 @@ const FlowStateLab = () => {
 
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle>🔮 AI Suggestions</CardTitle>
+                <CardTitle>AI Suggestions</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -907,13 +906,13 @@ const FlowStateLab = () => {
                   
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm">
-                      🚀 "Push My Focus Edge" → Suggest more intense technique
+                      "Push My Focus Edge" → Suggest more intense technique
                     </Button>
                     <Button variant="outline" size="sm">
-                      🌸 "Give Me Something Softer" → Match lighter ritual
+                      "Give Me Something Softer" → Match lighter ritual
                     </Button>
                     <Button variant="outline" size="sm">
-                      💾 "Save This Combo" → Favorite your flow recipe
+                      "Save This Combo" → Favorite your flow recipe
                     </Button>
                   </div>
                 </div>
