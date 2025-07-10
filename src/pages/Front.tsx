@@ -13,7 +13,7 @@ const Front = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-editorial flex flex-col items-center justify-center px-4 pb-24">
+    <div className="min-h-screen bg-background text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24">
       {/* Vibrant Hero Visual */}
       <div className="mb-8 sm:mb-12">
         <div className="relative">
