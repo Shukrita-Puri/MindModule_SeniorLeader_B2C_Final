@@ -56,9 +56,9 @@ const MemoryArchive = () => {
     },
     {
       id: 5,
-      title: "Futurescape: College Vision Board",
+      title: "Identity + Growth: College Vision Board",
       date: "2024-01-11",
-      type: "Futurescape",
+      type: "Identity + Growth",
       preview: "Mapped out college and career aspirations. Clarified vision for impact in environmental science field.",
       tags: ["college-planning", "career-vision", "environmental-science"],
       starred: true,
@@ -72,7 +72,7 @@ const MemoryArchive = () => {
       case "Scenario Lab": return "bg-gray-100 text-gray-800";
       case "Ground Mode": return "bg-red-100 text-hyper-coral";
       case "Mentor Mode": return "bg-gray-100 text-gray-800";
-      case "Futurescape": return "bg-gray-100 text-gray-800";
+      case "Identity + Growth": return "bg-gray-100 text-gray-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
