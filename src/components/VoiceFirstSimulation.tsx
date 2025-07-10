@@ -3,8 +3,9 @@ import { Mic, MicOff, MessageCircle, Timer, Zap, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import CoachingModal from "@/components/modals/CoachingModal";
+import EmotionBreakdownModal from "@/components/modals/EmotionBreakdownModal";
 
 interface Message {
   id: string;
@@ -36,6 +37,17 @@ const VoiceFirstSimulation = ({
   const [responseTimeLeft, setResponseTimeLeft] = useState(30); // 30 seconds per response
   const [isThinking, setIsThinking] = useState(false);
   const [achievements, setAchievements] = useState<string[]>([]);
+  
+  // Modal states
+  const [coachingModal, setCoachingModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    type: "coaching" | "achievement" | "blindspot";
+  }>({
+    isOpen: false,
+    message: "",
+    type: "coaching"
+  });
   
   const timerRef = useRef<NodeJS.Timeout>();
   const responseTimerRef = useRef<NodeJS.Timeout>();
@@ -128,22 +140,23 @@ const VoiceFirstSimulation = ({
       setAiEmotion(response.emotion);
       setIsThinking(false);
       
-      // Show coaching toast
+      // Show coaching modal instead of toast
       if (response.coaching) {
-        toast(response.coaching, {
-          duration: 3000,
-          action: {
-            label: "Got it",
-            onClick: () => {}
-          }
+        const modalType = response.emotion === "negative" ? "blindspot" : "coaching";
+        setCoachingModal({
+          isOpen: true,
+          message: response.coaching,
+          type: modalType
         });
       }
       
       // Check for achievements
       if (response.emotion === "excited" && !achievements.includes("excellent-response")) {
         setAchievements(prev => [...prev, "excellent-response"]);
-        toast("🎉 Achievement Unlocked: Excellent Response!", {
-          duration: 4000,
+        setCoachingModal({
+          isOpen: true,
+          message: "🎉 Achievement Unlocked: Excellent Response! You've mastered this conversation style.",
+          type: "achievement"
         });
       }
       
@@ -233,8 +246,8 @@ const VoiceFirstSimulation = ({
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-52 min-h-0">
+      {/* Messages Area - Mobile Optimized */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-40 min-h-0">
 
         {/* Messages */}
         {messages.map((message) => (
@@ -247,7 +260,7 @@ const VoiceFirstSimulation = ({
           >
             <div
               className={cn(
-                "max-w-xs lg:max-w-md xl:max-w-lg p-4 rounded-lg",
+                "max-w-[85%] p-3 rounded-lg",
                 message.sender === "user"
                   ? "bg-primary text-primary-foreground"
                   : "bg-card border border-border"
@@ -275,9 +288,9 @@ const VoiceFirstSimulation = ({
         )}
       </div>
 
-      {/* Bottom Controls Bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-4">
-        <div className="flex items-center gap-4 max-w-2xl mx-auto">
+      {/* Bottom Controls Bar - Mobile First */}
+      <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-3 pb-4">
+        <div className="flex items-center gap-3 max-w-xl mx-auto">
           {/* Text Input Area */}
           <div className="flex-1">
             {!isVoiceMode ? (
@@ -293,36 +306,36 @@ const VoiceFirstSimulation = ({
                     }
                   }}
                   placeholder="Type your response..."
-                  className="flex-1 px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
+                  className="flex-1 px-3 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground text-sm touch-manipulation"
                 />
                 <Button
                   onClick={() => handleSendMessage(currentMessage)}
                   disabled={!currentMessage.trim()}
                   size="sm"
-                  className="px-4 py-3"
+                  className="px-4 py-3 min-h-[48px] touch-manipulation"
                 >
                   Send
                 </Button>
               </div>
             ) : (
-              <div className="text-center text-muted-foreground py-3">
+              <div className="text-center text-muted-foreground py-2">
                 <Button
                   onClick={startListening}
                   disabled={isListening}
                   className={cn(
-                    "min-w-[48px] min-h-[48px] w-12 h-12 rounded-full transition-all duration-300 shadow-lg",
+                    "min-w-[56px] min-h-[56px] w-14 h-14 rounded-full transition-all duration-300 shadow-lg touch-manipulation",
                     isListening 
                       ? "bg-red-500 hover:bg-red-600 scale-110 animate-pulse" 
                       : "bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95"
                   )}
                 >
                   {isListening ? (
-                    <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>
                   ) : (
-                    <Mic size={20} />
+                    <Mic size={24} />
                   )}
                 </Button>
-                <p className="text-sm mt-2">
+                <p className="text-xs mt-1">
                   {isListening ? "Listening..." : "Tap to speak"}
                 </p>
               </div>
@@ -334,12 +347,12 @@ const VoiceFirstSimulation = ({
             onClick={toggleVoiceMode}
             variant="secondary"
             size="lg"
-            className="w-14 h-14 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+            className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
           >
             {isVoiceMode ? (
-              <MessageCircle size={24} className="text-primary" />
+              <MessageCircle size={20} className="text-primary" />
             ) : (
-              <Mic size={24} className="text-primary" />
+              <Mic size={20} className="text-primary" />
             )}
           </Button>
 
@@ -348,42 +361,31 @@ const VoiceFirstSimulation = ({
             <Button
               onClick={() => setShowEmotionBreakdown(!showEmotionBreakdown)}
               className={cn(
-                "w-14 h-14 rounded-full text-lg shadow-lg transition-all duration-300",
+                "min-w-[48px] min-h-[48px] w-12 h-12 rounded-full text-base shadow-lg transition-all duration-300 touch-manipulation",
                 emotionColors[aiEmotion]
               )}
             >
               {emotionIcons[aiEmotion]}
             </Button>
             
-            {showEmotionBreakdown && (
-              <Card className="absolute bottom-16 right-0 w-64 animate-fade-in z-50">
-                <CardContent className="p-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Emotional State</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {aiEmotion}
-                      </Badge>
-                    </div>
-                    
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>• Engagement: {aiEmotion === "positive" || aiEmotion === "excited" ? "High" : "Medium"}</p>
-                      <p>• Tension: {aiEmotion === "negative" ? "Rising" : "Stable"}</p>
-                      <p>• Receptivity: {aiEmotion === "excited" ? "Very High" : "Moderate"}</p>
-                    </div>
-                    
-                    <div className="pt-2 border-t border-border">
-                      <p className="text-xs text-muted-foreground">
-                        {messages.length} exchanges completed
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <CoachingModal
+        message={coachingModal.message}
+        type={coachingModal.type}
+        isOpen={coachingModal.isOpen}
+        onClose={() => setCoachingModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <EmotionBreakdownModal
+        emotion={aiEmotion}
+        exchangeCount={messages.length}
+        isOpen={showEmotionBreakdown}
+        onClose={() => setShowEmotionBreakdown(false)}
+      />
     </div>
   );
 };

@@ -226,9 +226,9 @@ const SocialIntelligenceLab = () => {
         <div className="w-10"></div>
       </div>
 
-      {/* Hero Section */}
-      <div className="px-8 py-16 text-center max-w-3xl mx-auto">
-        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+      {/* Hero Section - Mobile First */}
+      <div className="px-4 py-8 text-center max-w-2xl mx-auto">
+        <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden shadow-lg border-2 border-accent/20">
           <img 
             src="/lovable-uploads/67bda649-edbb-4f39-8290-175122fe99bf.png" 
             alt="Social intelligence practice"
@@ -236,36 +236,36 @@ const SocialIntelligenceLab = () => {
           />
         </div>
         
-        <h2 className="text-3xl font-heading font-medium text-foreground mb-4 leading-tight">
+        <h2 className="text-2xl font-heading font-medium text-foreground mb-3 leading-tight">
           Prepare for Real Situations
         </h2>
         
-        <p className="text-lg text-muted-foreground mb-12">
+        <p className="text-base text-muted-foreground mb-8">
           Rehearse difficult conversations in a safe space before they happen
         </p>
 
       </div>
 
-      {/* Content with proper spacing */}
-      <div className="flex-1 px-8 max-w-4xl mx-auto pb-8">
-        {/* Domain Selection */}
-        <div className="mb-12">
-          <h3 className="text-2xl font-heading font-medium text-foreground mb-8 text-center">
+      {/* Content with mobile-first spacing */}
+      <div className="flex-1 px-4 max-w-2xl mx-auto pb-8">
+        {/* Domain Selection - Mobile First */}
+        <div className="mb-8">
+          <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
             Choose Your Focus Area
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
             {socialDomains.map((domain, index) => (
               <article 
                 key={domain.id}
                 onClick={() => handleDomainSelect(domain.id)}
-                className={`group cursor-pointer border border-border rounded-lg p-6 transition-all animate-fade-in ${
+                className={`group cursor-pointer border border-border rounded-lg p-4 transition-all animate-fade-in touch-manipulation ${
                   selectedDomain === domain.id 
                     ? 'border-primary bg-primary/5' 
-                    : 'hover:border-muted-foreground/20 hover:bg-card/50'
+                    : 'hover:border-muted-foreground/20 hover:bg-card/50 active:bg-primary/5'
                 }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <h4 className={`text-lg font-heading font-medium mb-2 transition-colors ${
+                <h4 className={`text-base font-heading font-medium mb-1 transition-colors ${
                   selectedDomain === domain.id ? 'text-primary' : 'text-foreground group-hover:text-primary'
                 }`}>
                   {domain.title}
@@ -279,21 +279,21 @@ const SocialIntelligenceLab = () => {
           </div>
         </div>
 
-        {/* Scenario Selection */}
+        {/* Scenario Selection - Mobile First */}
         {selectedDomain && (
-          <div className="mb-12 animate-fade-in">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
+          <div className="mb-8 animate-fade-in">
+            <h3 className="text-lg font-heading font-medium text-foreground mb-4 text-center">
               Choose Specific Scenario
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="space-y-2">
               {contextTypes[selectedDomain as keyof typeof contextTypes]?.map((context, index) => (
                 <button
                   key={context}
                   onClick={() => handleContextSelect(context)}
-                  className={`p-3 rounded-lg border text-center transition-all animate-fade-in text-sm ${
+                  className={`w-full p-4 rounded-lg border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation ${
                     contextType === context
                       ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10'
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -304,21 +304,21 @@ const SocialIntelligenceLab = () => {
           </div>
         )}
 
-        {/* Persona Selection */}
+        {/* Persona Selection - Mobile First */}
         {contextType && (
-          <div className="mb-12 animate-fade-in">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
+          <div className="mb-8 animate-fade-in">
+            <h3 className="text-lg font-heading font-medium text-foreground mb-4 text-center">
               Choose Personas Involved
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            <div className="space-y-2 mb-4">
               {availablePersonas.map((persona, index) => (
                 <button
                   key={persona}
                   onClick={() => handlePersonaToggle(persona)}
-                  className={`p-3 rounded-lg border text-center transition-all animate-fade-in text-sm ${
+                  className={`w-full p-4 rounded-lg border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation ${
                     selectedPersonas.includes(persona)
                       ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10'
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -335,16 +335,16 @@ const SocialIntelligenceLab = () => {
                 value={customPersonas}
                 onChange={(e) => handleCustomPersonasChange(e.target.value)}
                 placeholder="Describe any specific personas and their roles (e.g., 'Strict teacher who doesn't like being questioned' or 'Popular classmate who tends to be judgmental')"
-                className="w-full min-h-[80px] p-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm"
+                className="w-full min-h-[80px] p-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm touch-manipulation"
               />
             </div>
           </div>
         )}
 
-        {/* Context Input */}
+        {/* Context Input - Mobile First */}
         {(selectedPersonas.length > 0 || customPersonas.trim()) && (
-          <div className="mb-12 animate-fade-in">
-            <h3 className="text-lg font-heading font-medium text-foreground mb-3">
+          <div className="mb-8 animate-fade-in">
+            <h3 className="text-base font-heading font-medium text-foreground mb-3">
               {contextType.includes('Custom') || selectedDomain === 'custom-scenario' ? 'Describe Your Situation' : 'Add Context'}
             </h3>
             <textarea
@@ -355,7 +355,7 @@ const SocialIntelligenceLab = () => {
                   ? "Describe your specific social situation... (e.g., 'I need to tell my study group that I can't contribute as much time because of my internship...')"
                   : "Add specific details about your situation... (e.g., 'My best friend has been distant since the party last weekend and I need to address it...')"
               }
-              className="w-full min-h-[100px] p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm mb-6"
+              className="w-full min-h-[100px] p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm mb-4 touch-manipulation"
             />
             
             {/* File Upload Section */}
@@ -368,12 +368,12 @@ const SocialIntelligenceLab = () => {
           </div>
         )}
 
-        {/* Start Practice Button */}
+        {/* Start Practice Button - Mobile First */}
         {(selectedPersonas.length > 0 || customPersonas.trim()) && (
-          <div className="py-8 text-center animate-fade-in">
+          <div className="py-6 text-center animate-fade-in">
             <Button 
               onClick={handleStartPractice}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-16 py-6 text-xl font-body rounded-full shadow-lg"
+              className="w-full max-w-xs bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-4 text-lg font-body rounded-full shadow-lg min-h-[48px] touch-manipulation"
             >
               Start Simulation Practice
             </Button>
