@@ -80,11 +80,11 @@ const FlowStateLab = () => {
             </div>
             
             <h1 className="text-4xl font-heading font-medium text-foreground mb-4 leading-tight">
-              The Focus Tuner: Enter Your Flow State
+              Dial In Your Focus
             </h1>
             
             <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Train your focus. Master your mind. Unlock your peak performance.
+              Master your mind. Crush Distractions. Hit Peak Flow.
             </p>
 
             <Button 

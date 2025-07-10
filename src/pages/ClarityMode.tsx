@@ -1,11 +1,19 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import MainNavigation from "@/components/MainNavigation";
-import clarityIllustration from "@/assets/clarity-illustration.png";
 
 const ClarityMode = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   useScrollToTop(); // Scroll to top when this page loads
+  
+  // Check if we're on a child route
+  const isChildRoute = location.pathname !== '/clarity';
+
+  // If we're on a child route, render the Outlet instead
+  if (isChildRoute) {
+    return <Outlet />;
+  }
 
   return (
     <div className="min-h-screen bg-background font-editorial flex flex-col pb-32">
@@ -23,7 +31,7 @@ const ClarityMode = () => {
       <div className="px-8 py-12 text-center">
         <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-card border border-border overflow-hidden">
           <img 
-            src={clarityIllustration} 
+            src="/lovable-uploads/bb994983-e35e-43b1-8cce-5cfe1f62ed76.png" 
             alt="Mental Clarity"
             className="w-full h-full object-cover opacity-80"
           />
@@ -44,9 +52,9 @@ const ClarityMode = () => {
           {/* Conversation Mode */}
           <button
             onClick={() => navigate('/clarity/conversation')}
-            className="w-full p-6 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
+            className="w-full p-4 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
           >
-            <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
+            <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
               Conversation
             </span>
           </button>
@@ -54,9 +62,9 @@ const ClarityMode = () => {
           {/* Journal Mode */}
           <button
             onClick={() => navigate('/clarity/journal')}
-            className="w-full p-6 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
+            className="w-full p-4 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
           >
-            <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
+            <span className="text-base font-medium text-foreground group-hover:text-primary transition-colors">
               Journal
             </span>
           </button>
