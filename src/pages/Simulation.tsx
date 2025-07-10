@@ -220,7 +220,6 @@ const Simulation = () => {
           />
         )}
 
-        <FloatingPracticeCoach messages={messages} />
         <MainNavigation />
       </div>
     );

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
-import vibrantFlowStateHero from "@/assets/vibrant-flow-state-hero.png";
+import vibrantFlowTunnel from "@/assets/vibrant-flow-tunnel.png";
 import { Progress } from "@/components/ui/progress";
 
 type FlowStep = 'hero' | 'choose-task' | 'choose-duration' | 'technique-selected' | 'session' | 'reflect';
@@ -73,8 +73,8 @@ const FlowStateLab = () => {
           <div className="text-center animate-fade-in">
             <div className="w-40 h-40 mx-auto mb-8 rounded-full overflow-hidden shadow-2xl border-4 border-primary/20">
               <img 
-                src={vibrantFlowStateHero} 
-                alt="Vibrant flow state illustration"
+                src={vibrantFlowTunnel} 
+                alt="Vibrant flow tunnel visualization"
                 className="w-full h-full object-cover"
               />
             </div>

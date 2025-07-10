@@ -44,17 +44,28 @@ const Layout = () => {
     '/inner-architect',
     '/mind-vault',
     '/scenario-lab',
-    '/simulation',
     '/mentor-chat',
     '/mentor',
-    '/clarity',
     '/recalibrate',
     '/futurescape',
     '/nudge-settings',
     '/memory-archive'
   ];
   
-  const shouldShowSidebar = pagesWithSidebar.includes(location.pathname);
+  // Exclude specific pages from showing the 3-line button/GlobalHeader
+  const excludedPages = [
+    '/clarity',
+    '/simulation'
+  ];
+  
+  // Also check if we're in a clarity conversation/journal session or simulation practice
+  const isInClaritySession = location.pathname.includes('/clarity');
+  const isInSimulation = location.pathname.includes('/simulation');
+  
+  const shouldShowSidebar = pagesWithSidebar.includes(location.pathname) && 
+    !excludedPages.includes(location.pathname) && 
+    !isInClaritySession && 
+    !isInSimulation;
 
   return (
     <>
