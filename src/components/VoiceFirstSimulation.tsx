@@ -234,12 +234,7 @@ const VoiceFirstSimulation = ({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
-        {/* Initial scenario */}
-        <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-          <p className="text-sm text-foreground font-medium mb-2">Scenario:</p>
-          <p className="text-sm text-muted-foreground">{scenarioContext}</p>
-        </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
 
         {/* Messages */}
         {messages.map((message) => (
@@ -280,116 +275,114 @@ const VoiceFirstSimulation = ({
         )}
       </div>
 
-      {/* Switch Mode FAB - Bottom Left Thumb Zone */}
-      <div className="fixed bottom-4 left-4 z-40">
-        <Button
-          onClick={toggleVoiceMode}
-          variant="secondary"
-          size="lg"
-          className="min-w-[56px] min-h-[56px] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {isVoiceMode ? (
-            <MessageCircle size={24} />
-          ) : (
-            <Mic size={24} />
-          )}
-        </Button>
-      </div>
-
-      {/* AI Avatar with Emotion - Bottom Right */}
-      <div className="fixed bottom-4 right-4 z-40">
-        <div className="relative">
-          <Button
-            onClick={() => setShowEmotionBreakdown(!showEmotionBreakdown)}
-            className={cn(
-              "w-12 h-12 rounded-full text-lg shadow-lg transition-all duration-300",
-              emotionColors[aiEmotion]
+      {/* Bottom Controls Bar */}
+      <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-4">
+        <div className="flex items-center gap-4 max-w-2xl mx-auto">
+          {/* Text Input Area */}
+          <div className="flex-1">
+            {!isVoiceMode ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(currentMessage);
+                    }
+                  }}
+                  placeholder="Type your response..."
+                  className="flex-1 px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
+                />
+                <Button
+                  onClick={() => handleSendMessage(currentMessage)}
+                  disabled={!currentMessage.trim()}
+                  size="sm"
+                  className="px-4 py-3"
+                >
+                  Send
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-3">
+                <Button
+                  onClick={startListening}
+                  disabled={isListening}
+                  className={cn(
+                    "min-w-[48px] min-h-[48px] w-12 h-12 rounded-full transition-all duration-300 shadow-lg",
+                    isListening 
+                      ? "bg-red-500 hover:bg-red-600 scale-110 animate-pulse" 
+                      : "bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95"
+                  )}
+                >
+                  {isListening ? (
+                    <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                  ) : (
+                    <Mic size={20} />
+                  )}
+                </Button>
+                <p className="text-sm mt-2">
+                  {isListening ? "Listening..." : "Tap to speak"}
+                </p>
+              </div>
             )}
-          >
-            {emotionIcons[aiEmotion]}
-          </Button>
-          
-          {showEmotionBreakdown && (
-            <Card className="absolute bottom-14 right-0 w-64 animate-fade-in">
-              <CardContent className="p-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Emotional State</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {aiEmotion}
-                    </Badge>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>• Engagement: {aiEmotion === "positive" || aiEmotion === "excited" ? "High" : "Medium"}</p>
-                    <p>• Tension: {aiEmotion === "negative" ? "Rising" : "Stable"}</p>
-                    <p>• Receptivity: {aiEmotion === "excited" ? "Very High" : "Moderate"}</p>
-                  </div>
-                  
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      {messages.length} exchanges completed
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-border pb-safe">
-        {isVoiceMode ? (
-          <div className="flex flex-col items-center space-y-4">
+          {/* Voice Mode Toggle */}
+          <Button
+            onClick={toggleVoiceMode}
+            variant="secondary"
+            size="lg"
+            className="w-14 h-14 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+          >
+            {isVoiceMode ? (
+              <MessageCircle size={24} className="text-primary" />
+            ) : (
+              <Mic size={24} className="text-primary" />
+            )}
+          </Button>
+
+          {/* AI Avatar with Emotion */}
+          <div className="relative">
             <Button
-              onClick={startListening}
-              disabled={isListening}
+              onClick={() => setShowEmotionBreakdown(!showEmotionBreakdown)}
               className={cn(
-                "min-w-[64px] min-h-[64px] w-16 h-16 rounded-full transition-all duration-300 shadow-lg",
-                isListening 
-                  ? "bg-red-500 hover:bg-red-600 scale-110 animate-pulse" 
-                  : "bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95"
+                "w-14 h-14 rounded-full text-lg shadow-lg transition-all duration-300",
+                emotionColors[aiEmotion]
               )}
             >
-              {isListening ? (
-                <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>
-              ) : (
-                <Mic size={28} />
-              )}
+              {emotionIcons[aiEmotion]}
             </Button>
             
-            <p className="text-base text-muted-foreground font-medium">
-              {isListening ? "Listening..." : "Tap to speak"}
-            </p>
+            {showEmotionBreakdown && (
+              <Card className="absolute bottom-16 right-0 w-64 animate-fade-in z-50">
+                <CardContent className="p-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Emotional State</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {aiEmotion}
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>• Engagement: {aiEmotion === "positive" || aiEmotion === "excited" ? "High" : "Medium"}</p>
+                      <p>• Tension: {aiEmotion === "negative" ? "Rising" : "Stable"}</p>
+                      <p>• Receptivity: {aiEmotion === "excited" ? "Very High" : "Moderate"}</p>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground">
+                        {messages.length} exchanges completed
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(currentMessage);
-                  }
-                }}
-                placeholder="Type your response..."
-                className="flex-1 p-4 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none min-h-[48px]"
-              />
-              <Button
-                onClick={() => handleSendMessage(currentMessage)}
-                disabled={!currentMessage.trim()}
-                size="lg"
-                className="min-w-[48px] min-h-[48px] px-6 py-3 rounded-xl hover:scale-105 active:scale-95 transition-all duration-200"
-              >
-                Send
-              </Button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

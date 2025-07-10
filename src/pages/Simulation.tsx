@@ -70,16 +70,6 @@ const Simulation = () => {
         <div className="w-10"></div>
       </div>
 
-      {/* Scenario Context Summary */}
-      <div className="p-6 flex-shrink-0">
-        <SessionContextCard 
-          scenarioDomain={scenarioDomain}
-          contextType={contextType}
-          scenarioContext={scenarioContext}
-          selectedPersonas={selectedPersonas}
-          customPersonas={customPersonas}
-        />
-      </div>
 
       {/* Voice-First Simulation */}
       <div className="flex-1 relative">
