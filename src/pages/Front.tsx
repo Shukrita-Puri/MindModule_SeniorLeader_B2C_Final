@@ -26,7 +26,7 @@ const Front = () => {
           </div>
           <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 md:-bottom-4 md:-right-4 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-accent rounded-full flex items-center justify-center shadow-lg">
             <img 
-              src="/lovable-uploads/508eb2ac-8475-4393-9cc4-b659253880f2.png"
+              src="/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png"
               alt="Network connection icon"
               className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain"
             />
