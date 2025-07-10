@@ -204,7 +204,7 @@ const SocialIntelligenceLab = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
-          onClick={() => navigate("/index")}
+          onClick={() => navigate("/inner-architect")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
           <ArrowLeft size={18} className="text-foreground" />
@@ -226,7 +226,7 @@ const SocialIntelligenceLab = () => {
         </div>
         
         <h2 className="text-3xl font-heading font-medium text-foreground mb-4 leading-tight">
-          Practice Social Situations
+          Prepare for Real Situations
         </h2>
         
         <p className="text-lg text-muted-foreground mb-12">

@@ -107,9 +107,7 @@ const ClaritySummary = () => {
           <ArrowLeft size={20} className="text-foreground" />
         </button>
         <h2 className="text-lg font-heading font-medium text-foreground">Your Clarity Journey</h2>
-        <div className="relative">
-          <ModeDial />
-        </div>
+        <div className="w-10"></div>
       </div>
 
       <div className="flex-1 px-6 sm:px-8 max-w-4xl mx-auto w-full">

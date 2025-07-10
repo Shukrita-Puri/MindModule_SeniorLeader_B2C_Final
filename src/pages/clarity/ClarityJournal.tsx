@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Save, RotateCcw, Archive, Plus, Mic } from "lucide-react";
+import { BookOpen, Save, Plus, Mic, Archive } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 
@@ -23,6 +23,9 @@ const ClarityJournal = () => {
     "What does my ideal day look like, and what's one step toward that?",
     "What boundaries do I need to set or maintain for my wellbeing?",
     "What accomplishment am I proud of, no matter how small?",
+    "What would you like to explore today?",
+    "What's weighing on your mind?",
+    "How are you feeling right now?",
     "Evening Reflection: 3 wins or moments you're grateful for today? What made them possible?"
   ];
 
@@ -90,26 +93,22 @@ const ClarityJournal = () => {
       <ClearBackButton />
       
       {/* Header */}
-      <div className="relative px-8 py-12 text-center border-b border-border">
-        <div className="bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/20 rounded-full px-8 py-4 mx-auto max-w-sm">
-          <div className="flex items-center justify-center gap-3">
-            <BookOpen size={20} className="text-secondary" />
-            <h1 className="text-lg font-medium text-foreground">
+      <div className="px-8 py-8 text-center border-b border-border relative">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-full px-6 py-3 mx-auto max-w-xs">
+          <div className="flex items-center justify-center gap-2">
+            <BookOpen size={16} className="text-primary" />
+            <h1 className="text-sm font-medium text-foreground">
               Private Journal
             </h1>
           </div>
         </div>
-        
-        {/* Memory Archive Button - Top Right */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/memory-archive")}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+        <button
+          onClick={() => navigate('/memory-archive')}
+          className="absolute top-8 right-8 flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
           title="Memory Archive"
         >
-          <Archive size={20} />
-        </Button>
+          <Archive size={18} className="text-muted-foreground hover:text-foreground" />
+        </button>
       </div>
 
       {/* Main Content */}
