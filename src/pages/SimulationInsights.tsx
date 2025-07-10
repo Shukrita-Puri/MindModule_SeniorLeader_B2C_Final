@@ -4,6 +4,7 @@ import MainNavigation from "@/components/MainNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
 import SessionSummaryCard from "@/components/simulation/SessionSummaryCard";
+import StrengthsSection from "@/components/simulation/StrengthsSection";
 import BlindSpotsSection from "@/components/simulation/BlindSpotsSection";
 import GameProgressSection from "@/components/simulation/GameProgressSection";
 import MentalModelsSection from "@/components/simulation/MentalModelsSection";
@@ -38,7 +39,7 @@ const SimulationInsights = () => {
       />
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-8 space-y-12">
+        <div className="px-4 py-6 space-y-8 max-w-none">
           <SessionContextCard 
             scenarioDomain={scenarioDomain}
             contextType={contextType}
@@ -46,6 +47,8 @@ const SimulationInsights = () => {
           />
           
           <SessionSummaryCard />
+          
+          <StrengthsSection />
           
           <BlindSpotsSection realtimeFeedback={realtimeFeedback} />
           

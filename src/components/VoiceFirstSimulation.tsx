@@ -247,7 +247,7 @@ const VoiceFirstSimulation = ({
       </div>
 
       {/* Messages Area - Mobile Optimized */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-60 min-h-0">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-80 min-h-0">
 
         {/* Messages */}
         {messages.map((message) => (
@@ -289,7 +289,7 @@ const VoiceFirstSimulation = ({
       </div>
 
       {/* Bottom Controls Bar - Mobile First */}
-      <div className="fixed bottom-20 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-3 pb-4 z-40 shadow-lg">
+      <div className="fixed bottom-24 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-3 pb-4 z-40 shadow-lg">
         <div className="flex items-center gap-3 max-w-xl mx-auto">
           {/* Text Input Area */}
           <div className="flex-1">
