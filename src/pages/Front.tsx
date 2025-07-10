@@ -19,8 +19,8 @@ const Front = () => {
         <div className="relative">
           <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
             <img 
-              src={vibrantGrowthIllustration}
-              alt="Growth and transformation"
+              src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
+              alt="Colorful artistic mind illustration"
               className="w-full h-full object-cover"
             />
           </div>
