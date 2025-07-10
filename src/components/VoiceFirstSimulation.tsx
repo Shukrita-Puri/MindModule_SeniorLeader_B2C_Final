@@ -271,8 +271,36 @@ const VoiceFirstSimulation = ({
         )}
       </div>
 
+      {/* Emergency End Session Button - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <Button
+          onClick={onEndSession}
+          variant="destructive"
+          size="lg"
+          className="min-w-[48px] min-h-[48px] px-4 py-2 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 animate-pulse-subtle"
+        >
+          Emergency Exit
+        </Button>
+      </div>
+
+      {/* Switch Mode FAB - Bottom Right Thumb Zone */}
+      <div className="fixed bottom-24 right-4 z-40">
+        <Button
+          onClick={toggleVoiceMode}
+          variant="secondary"
+          size="lg"
+          className="min-w-[56px] min-h-[56px] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {isVoiceMode ? (
+            <MessageCircle size={24} />
+          ) : (
+            <Mic size={24} />
+          )}
+        </Button>
+      </div>
+
       {/* AI Avatar with Emotion */}
-      <div className="fixed bottom-32 right-4 z-40">
+      <div className="fixed bottom-96 right-4 z-40">
         <div className="relative">
           <Button
             onClick={() => setShowEmotionBreakdown(!showEmotionBreakdown)}
@@ -314,84 +342,57 @@ const VoiceFirstSimulation = ({
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border pb-safe">
         {isVoiceMode ? (
           <div className="flex flex-col items-center space-y-4">
             <Button
               onClick={startListening}
               disabled={isListening}
               className={cn(
-                "w-16 h-16 rounded-full transition-all duration-300",
+                "min-w-[64px] min-h-[64px] w-16 h-16 rounded-full transition-all duration-300 shadow-lg",
                 isListening 
-                  ? "bg-red-500 hover:bg-red-600 scale-110" 
-                  : "bg-primary hover:bg-primary/90"
+                  ? "bg-red-500 hover:bg-red-600 scale-110 animate-pulse" 
+                  : "bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95"
               )}
             >
               {isListening ? (
                 <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>
               ) : (
-                <Mic size={24} />
+                <Mic size={28} />
               )}
             </Button>
             
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-muted-foreground">
-                {isListening ? "Listening..." : "Tap to speak"}
-              </p>
+            <p className="text-base text-muted-foreground font-medium">
+              {isListening ? "Listening..." : "Tap to speak"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(currentMessage);
+                  }
+                }}
+                placeholder="Type your response..."
+                className="flex-1 p-4 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none min-h-[48px]"
+              />
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleVoiceMode}
-                className="text-xs"
+                onClick={() => handleSendMessage(currentMessage)}
+                disabled={!currentMessage.trim()}
+                size="lg"
+                className="min-w-[48px] min-h-[48px] px-6 py-3 rounded-xl hover:scale-105 active:scale-95 transition-all duration-200"
               >
-                <MessageCircle size={14} className="mr-1" />
-                Switch to Text
+                Send
               </Button>
             </div>
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage(currentMessage);
-                }
-              }}
-              placeholder="Type your response..."
-              className="flex-1 p-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-            />
-            <Button
-              onClick={() => handleSendMessage(currentMessage)}
-              disabled={!currentMessage.trim()}
-              className="px-4 py-3"
-            >
-              Send
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleVoiceMode}
-              className="text-xs"
-            >
-              <Mic size={14} className="mr-1" />
-              Voice
-            </Button>
-          </div>
         )}
-        
-        <div className="flex justify-center mt-4">
-          <Button
-            variant="outline"
-            onClick={onEndSession}
-            className="text-sm"
-          >
-            End Session
-          </Button>
-        </div>
       </div>
     </div>
   );
