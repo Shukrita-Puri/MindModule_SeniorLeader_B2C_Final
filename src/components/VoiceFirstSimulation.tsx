@@ -118,9 +118,12 @@ const VoiceFirstSimulation = ({
     // Simulate AI response with coaching
     setTimeout(() => {
       const responses = [
+        { text: "Thank you for that response. Now, I'd like to dig deeper - you mentioned leadership experience, but I'm curious about a time when you failed as a leader. How did you handle that failure, and what did you learn about yourself?", emotion: "neutral" as const, coaching: "Strong question response! Try to be more specific about the lessons learned." },
         { text: "I understand your perspective, but I have some concerns about the timeline. How do you think we can address the resource constraints?", emotion: "neutral" as const, coaching: "Good start! Try adding a specific example to strengthen your point." },
         { text: "That's an interesting point. Let me push back a bit - what if the stakeholders aren't on board with this approach?", emotion: "negative" as const, coaching: "This answer was a bit vague. Consider adding a personal story." },
         { text: "I appreciate your enthusiasm, but I'm wondering about the potential risks. How would you handle pushback from the team?", emotion: "neutral" as const, coaching: "Great empathy! Now try to be more assertive with your solution." },
+        { text: "Interesting. Many students tell me about their successes, but I'm more interested in your struggles. Tell me about a time when you questioned your own values or beliefs. What was that experience like?", emotion: "neutral" as const, coaching: "This is a tough question - be authentic and vulnerable in your response." },
+        { text: "I see you've done community service, but that's quite common among our applicants. What makes your impact different? How do you measure whether you've actually made a difference in someone's life?", emotion: "negative" as const, coaching: "The interviewer is challenging you - provide concrete evidence and specific examples." },
         { text: "Excellent point! I can see you've really thought this through. What's your next step?", emotion: "positive" as const, coaching: "Fantastic! You're showing real confidence and clarity." },
         { text: "I'm impressed by your approach. This could really work!", emotion: "excited" as const, coaching: "Outstanding work! You've mastered this conversation style." }
       ];
