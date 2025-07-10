@@ -89,7 +89,7 @@ const Index = () => {
             >
               {/* Ink Illustration for contemplative modes */}
               <div className="mb-4 sm:mb-6 flex justify-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-card border border-border overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-card border border-border overflow-hidden group-hover:scale-105 transition-transform duration-300">
                   <img 
                     src={mode.illustration} 
                     alt={mode.title}

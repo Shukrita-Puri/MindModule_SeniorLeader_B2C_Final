@@ -37,9 +37,9 @@ const ExecutiveHome = () => {
   const getResetRoute = () => {
     if (!hasCheckIn) return "/daily-check-in";
     const { mood, energy, focus } = checkInData;
-    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate";
+    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate?mode=power-up";
     if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
-    if (energy < 4 || focus === 'drained') return "/recalibrate";
+    if (energy < 4 || focus === 'drained') return "/recalibrate?mode=power-up";
     if (focus === 'scattered') return "/recalibrate";
     return "/flow-state-lab";
   };
@@ -88,15 +88,15 @@ const ExecutiveHome = () => {
             Building Momentum
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            {/* Sessions with Mind Module */}
+            {/* Sessions Completed */}
             <div className="bg-card border border-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-primary mb-1">47</div>
-              <div className="text-xs text-muted-foreground">Sessions with Mind Module</div>
+              <div className="text-xs text-muted-foreground">Sessions Completed</div>
             </div>
-            {/* School/Class Score */}
+            {/* Days Streak */}
             <div className="bg-card border border-border rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-accent mb-1">15</div>
-              <div className="text-xs text-muted-foreground">days</div>
+              <div className="text-xs text-muted-foreground">Days Streak</div>
             </div>
           </div>
         </section>
@@ -187,7 +187,7 @@ const ExecutiveHome = () => {
               </p>
               <Button 
                 variant="outline"
-                onClick={() => navigate('/clarity')}
+                onClick={() => navigate('/clarity', { state: { mode: 'journal', autoStart: true } })}
                 className="text-sm w-full py-2 mb-2"
               >
                 Journal now

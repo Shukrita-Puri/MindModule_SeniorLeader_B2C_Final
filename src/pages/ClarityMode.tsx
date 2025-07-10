@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,8 +40,11 @@ interface Session {
 
 const ClarityMode = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentView, setCurrentView] = useState<"entry" | "session" | "archive">("entry");
-  const [mode, setMode] = useState<"conversation" | "journal">("conversation");
+  const [mode, setMode] = useState<"conversation" | "journal">(
+    location.state?.mode || "conversation"
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState("");
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
@@ -82,6 +85,13 @@ const ClarityMode = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Handle auto-start from navigation state
+  useEffect(() => {
+    if (location.state?.autoStart) {
+      setCurrentView("session");
+    }
+  }, [location.state]);
 
   const autoTagMessage = (text: string): string[] => {
     const tags: string[] = [];
@@ -619,6 +629,9 @@ const ClarityMode = () => {
           onSkip={handleFeedbackSkip}
         />
       )}
+      
+      {/* Bottom Navigation */}
+      <MainNavigation />
     </div>
   );
 };
