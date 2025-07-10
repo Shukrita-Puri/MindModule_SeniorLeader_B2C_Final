@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 
 const EmergencyResetSession = () => {
   const navigate = useNavigate();
+  useScrollToTop(); // Scroll to top when this page loads
   const [isResetting, setIsResetting] = useState(true);
 
   useEffect(() => {

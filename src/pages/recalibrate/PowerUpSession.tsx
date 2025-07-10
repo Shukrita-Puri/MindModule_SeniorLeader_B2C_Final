@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Brain, Zap, Wind, Compass } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
@@ -7,6 +8,7 @@ import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 
 const PowerUpSession = () => {
   const navigate = useNavigate();
+  useScrollToTop(); // Scroll to top when this page loads
 
   const content = [
     {

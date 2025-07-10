@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Mountain, Compass, Brain, Waves } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
@@ -6,6 +7,7 @@ import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.
 
 const QuickResetSession = () => {
   const navigate = useNavigate();
+  useScrollToTop(); // Scroll to top when this page loads
 
   const content = [
     {

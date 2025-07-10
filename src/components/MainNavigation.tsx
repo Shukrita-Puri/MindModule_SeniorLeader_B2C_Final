@@ -10,7 +10,7 @@ const MainNavigation = () => {
   const innerArchitectPages = [
     "/inner-architect",
     "/clarity",
-    "/clarity-summary", 
+    "/clarity/summary",
     "/scenario-lab",
     "/simulation",
     "/simulation-insights",

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, Save, RotateCcw } from "lucide-react";
@@ -8,6 +9,7 @@ import SessionFeedback from "@/components/SessionFeedback";
 
 const ClarityJournal = () => {
   const navigate = useNavigate();
+  useScrollToTop(); // Scroll to top when this page loads
   const [entry, setEntry] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [wordCount, setWordCount] = useState(0);

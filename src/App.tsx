@@ -161,6 +161,10 @@ const router = createBrowserRouter([
             path: "journal",
             element: <ClarityJournal />,
           },
+          {
+            path: "summary",
+            element: <ClaritySummary />,
+          },
         ],
       },
       {
@@ -177,6 +181,10 @@ const router = createBrowserRouter([
           },
           {
             path: "breathwork",
+            element: <BreathworkSession />,
+          },
+          {
+            path: "breathing", // Alias for breathwork
             element: <BreathworkSession />,
           },
           {

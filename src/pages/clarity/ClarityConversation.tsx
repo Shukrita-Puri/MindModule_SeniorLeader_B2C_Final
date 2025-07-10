@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Send, RotateCcw } from "lucide-react";
@@ -17,6 +18,7 @@ interface Message {
 
 const ClarityConversation = () => {
   const navigate = useNavigate();
+  useScrollToTop(); // Scroll to top when this page loads
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);

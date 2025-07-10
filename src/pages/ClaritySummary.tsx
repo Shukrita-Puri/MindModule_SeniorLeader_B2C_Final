@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, Calendar, Check, Download, BookOpen, Target, Lightbulb, RefreshCw, Plus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ interface CraftSection {
 const ClaritySummary = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  useScrollToTop(); // Scroll to top when this page loads
   const messages = location.state?.messages || [];
   
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -266,8 +268,6 @@ const ClaritySummary = () => {
           </div>
         </div>
       </div>
-
-      <MainNavigation />
     </div>
   );
 };

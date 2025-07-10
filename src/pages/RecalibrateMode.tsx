@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
@@ -16,6 +17,7 @@ const RecalibrateMode = () => {
   const [searchParams] = useSearchParams();
   const [selectedTool, setSelectedTool] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+  useScrollToTop(); // Scroll to top when this page loads
 
   // Check if we're on a nested route (session page)
   const isSessionPage = location.pathname !== '/recalibrate';
@@ -24,9 +26,10 @@ const RecalibrateMode = () => {
   useEffect(() => {
     if (!isSessionPage) {
       const mode = searchParams.get('mode');
-      if (mode && ['power-up', 'emergency-reset', 'breathing', 'pause'].includes(mode)) {
-        // Navigate directly to the dedicated session page
-        navigate(`/recalibrate/${mode}`);
+      if (mode && ['power-up', 'emergency-reset', 'breathing', 'breathwork', 'pause'].includes(mode)) {
+        // Normalize breathing to breathwork for the route
+        const routePath = mode === 'breathing' ? 'breathwork' : mode;
+        navigate(`/recalibrate/${routePath}`);
       }
     }
   }, [searchParams, navigate, isSessionPage]);

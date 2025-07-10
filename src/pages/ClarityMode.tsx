@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus, Mic } from "lucide-react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,7 @@ const ClarityMode = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+  useScrollToTop(); // Scroll to top when this page loads
 
   // Check if we're on a nested route (session page)
   const isSessionPage = location.pathname !== '/clarity';
@@ -255,13 +257,13 @@ const ClarityMode = () => {
     // Handle feedback submission (could be sent to backend here)
     setShowFeedback(false);
     setMessages([]); // Clear messages after feedback
-    navigate("/clarity-summary");
+    navigate("/clarity/summary");
   };
 
   const handleFeedbackSkip = () => {
     setShowFeedback(false);
     setMessages([]); // Clear messages after skipping feedback
-    navigate("/clarity-summary");
+    navigate("/clarity/summary");
   };
 
   const handlePromptClick = (prompt: string) => {
