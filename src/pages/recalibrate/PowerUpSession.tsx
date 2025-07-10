@@ -15,7 +15,7 @@ const PowerUpSession = () => {
       title: "40Hz Gamma Focus",
       subtitle: "Neural enhancement frequency",
       duration: "1 min",
-      description: "MIT research shows 40Hz stimulation enhances cognitive performance and memory consolidation",
+      description: "Boost cognitive performance with MIT-researched frequencies.",
       type: "Binaural beats with guided breathing",
       icon: Brain,
       visual: "⚡"
@@ -24,7 +24,7 @@ const PowerUpSession = () => {
       title: "Wim Hof Method",
       subtitle: "Cold exposure breathing",
       duration: "2 min",
-      description: "Dutch extreme athlete's technique proven to boost adrenaline and focus in seconds",
+      description: "Rapid adrenaline and focus boost in seconds.",
       type: "Power breathing sequence",
       icon: Zap,
       visual: "❄️"
@@ -33,7 +33,7 @@ const PowerUpSession = () => {
       title: "Pranayama Power",
       subtitle: "Ancient Vedic energizing",
       duration: "90 sec",
-      description: "Bhastrika breath technique used by Indian warriors before battle",
+      description: "Ancient warrior breathing for instant energy.",
       type: "Rapid breathing with retention",
       icon: Wind,
       visual: "🔥"
@@ -42,7 +42,7 @@ const PowerUpSession = () => {
       title: "Beta Wave Boost",
       subtitle: "13-30Hz alertness frequency",
       duration: "2 min",
-      description: "Harvard studies confirm enhanced executive function and decision-making speed",
+      description: "Harvard-backed audio for better decisions.",
       type: "Cognitive enhancement audio",
       icon: Zap,
       visual: "🧠"
@@ -51,7 +51,7 @@ const PowerUpSession = () => {
       title: "Kapalabhati Breath",
       subtitle: "Skull-shining breath technique",
       duration: "3 min",
-      description: "Ancient yogic practice increases oxygen to prefrontal cortex for mental clarity",
+      description: "Increase oxygen flow for mental clarity.",
       type: "Rapid cleansing breaths",
       icon: Wind,
       visual: "💨"
@@ -60,7 +60,7 @@ const PowerUpSession = () => {
       title: "Caffeine Alternative",
       subtitle: "Natural energy activation",
       duration: "90 sec",
-      description: "Combines tapping, movement, and breath to trigger natural dopamine release",
+      description: "Natural dopamine boost through movement and breath.",
       type: "Movement-based energizer",
       icon: Compass,
       visual: "⚡"

@@ -14,7 +14,7 @@ const BreathworkSession = () => {
       title: "Coherent Breathing",
       subtitle: "HeartMath Institute protocol",
       duration: "3 min",
-      description: "5-second inhale, 5-second exhale proven to optimize heart rate variability",
+      description: "Optimize heart rate variability with 5-second rhythms.",
       type: "Heart-brain synchronization",
       icon: Heart,
       visual: "💓"
@@ -23,7 +23,7 @@ const BreathworkSession = () => {
       title: "Box Breathing",
       subtitle: "Navy SEAL technique",
       duration: "2 min",
-      description: "4-4-4-4 pattern used by elite military for stress regulation under pressure",
+      description: "Military-grade stress regulation technique.",
       type: "Tactical breathing",
       icon: Timer,
       visual: "⬜"
@@ -32,7 +32,7 @@ const BreathworkSession = () => {
       title: "Sudarshan Kriya",
       subtitle: "Ancient Indian rhythmic breathing",
       duration: "4 min",
-      description: "Stanford research confirms reduction in cortisol and increased emotional regulation",
+      description: "Reduce cortisol with Stanford-researched method.",
       type: "Cyclical breathing patterns",
       icon: Waves,
       visual: "🌊"
@@ -41,7 +41,7 @@ const BreathworkSession = () => {
       title: "4-7-8 Technique",
       subtitle: "Dr. Andrew Weil's method",
       duration: "2 min",
-      description: "Activates parasympathetic nervous system for instant calm and clarity",
+      description: "Instant calm through nervous system activation.",
       type: "Calming breath pattern",
       icon: Heart,
       visual: "💫"
@@ -50,7 +50,7 @@ const BreathworkSession = () => {
       title: "Alternate Nostril",
       subtitle: "Nadi Shodhana pranayama",
       duration: "5 min",
-      description: "Ancient technique balances left-right brain hemisphere activity",
+      description: "Balance brain hemispheres with ancient technique.",
       type: "Brain balancing breath",
       icon: Brain,
       visual: "⚖️"
@@ -59,7 +59,7 @@ const BreathworkSession = () => {
       title: "Resonance Breathing",
       subtitle: "6 breaths per minute",
       duration: "3 min",
-      description: "Optimizes autonomic balance for peak cognitive and emotional performance",
+      description: "Peak performance through autonomic balance.",
       type: "Autonomic optimization",
       icon: Waves,
       visual: "〰️"

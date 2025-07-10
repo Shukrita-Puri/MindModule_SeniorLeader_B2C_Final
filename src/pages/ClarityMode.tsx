@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
-import { MessageCircle, BookOpen } from "lucide-react";
 import MainNavigation from "@/components/MainNavigation";
+import clarityIllustration from "@/assets/clarity-illustration.png";
 
 const ClarityMode = () => {
   const navigate = useNavigate();
@@ -21,6 +21,14 @@ const ClarityMode = () => {
       
       {/* Header */}
       <div className="px-8 py-12 text-center">
+        <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-card border border-border overflow-hidden">
+          <img 
+            src={clarityIllustration} 
+            alt="Mental Clarity"
+            className="w-full h-full object-cover opacity-80"
+          />
+        </div>
+        
         <h1 className="text-3xl font-heading font-medium text-foreground mb-4">
           Strengthen your Mental Clarity
         </h1>
@@ -38,12 +46,9 @@ const ClarityMode = () => {
             onClick={() => navigate('/clarity/conversation')}
             className="w-full p-6 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
           >
-            <div className="flex items-center justify-center gap-3">
-              <MessageCircle size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
-                Conversation
-              </span>
-            </div>
+            <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
+              Conversation
+            </span>
           </button>
 
           {/* Journal Mode */}
@@ -51,12 +56,9 @@ const ClarityMode = () => {
             onClick={() => navigate('/clarity/journal')}
             className="w-full p-6 rounded-full border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-center group"
           >
-            <div className="flex items-center justify-center gap-3">
-              <BookOpen size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
-                Journal
-              </span>
-            </div>
+            <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
+              Journal
+            </span>
           </button>
 
         </div>

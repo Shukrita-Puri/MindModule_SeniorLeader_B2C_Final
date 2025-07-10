@@ -14,7 +14,7 @@ const QuickResetSession = () => {
       title: "Forest Bathing",
       subtitle: "Japanese Shinrin-yoku",
       duration: "2 min",
-      description: "Recorded nature sounds proven to reduce cortisol by 50% in executive studies",
+      description: "Nature sounds to reduce stress by 50%.",
       type: "Immersive nature soundscape",
       icon: Mountain,
       visual: "🌲"
@@ -23,7 +23,7 @@ const QuickResetSession = () => {
       title: "Tibetan Singing Bowls",
       subtitle: "Ancient Himalayan healing",
       duration: "3 min",
-      description: "432Hz frequencies align with Earth's natural vibration for deep restoration",
+      description: "432Hz Earth frequencies for deep restoration.",
       type: "Sacred sound healing",
       icon: Compass,
       visual: "🎵"
@@ -32,7 +32,7 @@ const QuickResetSession = () => {
       title: "Alpha Wave Music",
       subtitle: "8-12Hz brain entrainment",
       duration: "90 sec",
-      description: "Neuroscience-backed frequencies for accessing calm, creative flow states",
+      description: "Access calm, creative flow states instantly.",
       type: "Brainwave synchronization",
       icon: Brain,
       visual: "∼"
@@ -41,7 +41,7 @@ const QuickResetSession = () => {
       title: "Ocean Waves",
       subtitle: "Binaural beach soundscape",
       duration: "4 min",
-      description: "Pink noise patterns mimic womb sounds, triggering deep relaxation response",
+      description: "Pink noise for deep relaxation response.",
       type: "Natural rhythm restoration",
       icon: Waves,
       visual: "🌊"
@@ -50,7 +50,7 @@ const QuickResetSession = () => {
       title: "Monastery Bells",
       subtitle: "Tibetan temple recordings",
       duration: "3 min",
-      description: "Low-frequency overtones activate vagus nerve for profound calm",
+      description: "Activate vagus nerve for profound calm.",
       type: "Sacred sound meditation",
       icon: Compass,
       visual: "🔔"
@@ -59,7 +59,7 @@ const QuickResetSession = () => {
       title: "Theta Wave Journey",
       subtitle: "4-8Hz deep meditation",
       duration: "5 min",
-      description: "Stanford research shows theta states enhance creativity and problem-solving",
+      description: "Stanford-backed creativity enhancement.",
       type: "Deep consciousness access",
       icon: Brain,
       visual: "✧"
@@ -68,7 +68,7 @@ const QuickResetSession = () => {
       title: "Rain on Leaves",
       subtitle: "Amazon rainforest recording",
       duration: "2 min",
-      description: "Natural white noise proven to lower stress hormones in C-suite executives",
+      description: "Natural white noise for stress relief.",
       type: "Tropical restoration sounds",
       icon: Mountain,
       visual: "🍃"
