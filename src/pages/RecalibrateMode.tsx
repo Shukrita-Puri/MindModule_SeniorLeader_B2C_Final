@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
+import ClearBackButton from "@/components/ClearBackButton";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
@@ -517,6 +518,7 @@ const RecalibrateMode = () => {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
+      <ClearBackButton />
       {/* Minimal Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button

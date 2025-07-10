@@ -3,6 +3,7 @@ import { ArrowLeft, Play, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
+import ClearBackButton from "@/components/ClearBackButton";
 import vibrantFlowStateHero from "@/assets/vibrant-flow-state-hero.png";
 import { Progress } from "@/components/ui/progress";
 
@@ -338,6 +339,7 @@ const FlowStateLab = () => {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-24">
+      <ClearBackButton />
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button

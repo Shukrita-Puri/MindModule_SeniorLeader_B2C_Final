@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import MainNavigation from "@/components/MainNavigation";
 import SessionFeedback from "@/components/SessionFeedback";
+import ClearBackButton from "@/components/ClearBackButton";
 const clarityImage = "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png";
 
 interface Message {
@@ -491,7 +492,7 @@ const ClarityMode = () => {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-24">
+        <div className="border-t border-border bg-background/95 backdrop-blur p-6 pb-32">
           <div className="max-w-3xl mx-auto">
 
             {/* Rotating Prompts */}
@@ -504,8 +505,26 @@ const ClarityMode = () => {
               </button>
             </div>
 
+            {/* Input Options */}
+            <div className="flex gap-2 mb-4 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                Voice Input
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                Type
+              </Button>
+            </div>
+
             {/* Input Field */}
-            <div className="flex gap-3 items-end">
+            <div className="flex gap-3 items-end mb-8">
               <div className="flex-1">
                 <Textarea
                   value={currentInput}
@@ -551,6 +570,7 @@ const ClarityMode = () => {
   // Entry Screen
   return (
     <div className="min-h-screen bg-background font-serif">
+      <ClearBackButton />
       {/* Header */}
       <div className="border-b border-border p-6">
         <div className="flex items-center justify-between">

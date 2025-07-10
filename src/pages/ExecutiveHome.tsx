@@ -40,7 +40,7 @@ const ExecutiveHome = () => {
     if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate?mode=power-up";
     if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
     if (energy < 4 || focus === 'drained') return "/recalibrate?mode=power-up";
-    if (focus === 'scattered') return "/recalibrate";
+    if (focus === 'scattered') return "/recalibrate?mode=power-up";
     return "/flow-state-lab";
   };
 
