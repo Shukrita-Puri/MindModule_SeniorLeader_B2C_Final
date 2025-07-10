@@ -13,22 +13,22 @@ const Front = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24">
+    <div className="min-h-screen bg-white text-gray-900 font-editorial flex flex-col items-center justify-center px-4 pb-24">
       {/* Vibrant Hero Visual */}
       <div className="mb-8 sm:mb-12">
         <div className="relative">
-          <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+          <div className="w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
             <img 
               src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
               alt="Colorful artistic mind illustration"
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-12 h-12 sm:w-16 sm:h-16 bg-accent rounded-full flex items-center justify-center shadow-lg">
+          <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 md:-bottom-4 md:-right-4 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-accent rounded-full flex items-center justify-center shadow-lg">
             <img 
-              src="/lovable-uploads/cc7c715b-a0d1-4464-b0e1-d338c14452a0.png"
-              alt="Mind Module Logo"
-              className="w-6 h-6 sm:w-10 sm:h-10 object-contain"
+              src="/lovable-uploads/508eb2ac-8475-4393-9cc4-b659253880f2.png"
+              alt="Network connection icon"
+              className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain"
             />
           </div>
         </div>
