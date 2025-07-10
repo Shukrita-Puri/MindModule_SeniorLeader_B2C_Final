@@ -33,6 +33,14 @@ import SimulationInsights from "./pages/SimulationInsights";
 import MentorInsights from "./pages/MentorInsights";
 import ClaritySummary from "./pages/ClaritySummary";
 
+// Import new session pages
+import ClarityConversation from "./pages/clarity/ClarityConversation";
+import ClarityJournal from "./pages/clarity/ClarityJournal";
+import PowerUpSession from "./pages/recalibrate/PowerUpSession";
+import EmergencyResetSession from "./pages/recalibrate/EmergencyResetSession";
+import BreathworkSession from "./pages/recalibrate/BreathworkSession";
+import QuickResetSession from "./pages/recalibrate/QuickResetSession";
+
 // Layout component that conditionally includes GlobalHeader
 const Layout = () => {
   const location = useLocation();
@@ -144,10 +152,38 @@ const router = createBrowserRouter([
       {
         path: "clarity",
         element: <ClarityMode />,
+        children: [
+          {
+            path: "conversation",
+            element: <ClarityConversation />,
+          },
+          {
+            path: "journal",
+            element: <ClarityJournal />,
+          },
+        ],
       },
       {
         path: "recalibrate",
         element: <RecalibrateMode />,
+        children: [
+          {
+            path: "power-up",
+            element: <PowerUpSession />,
+          },
+          {
+            path: "emergency-reset", 
+            element: <EmergencyResetSession />,
+          },
+          {
+            path: "breathwork",
+            element: <BreathworkSession />,
+          },
+          {
+            path: "pause",
+            element: <QuickResetSession />,
+          },
+        ],
       },
       {
         path: "futurescape",

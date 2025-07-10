@@ -1,6 +1,6 @@
 import { ArrowLeft, Zap, Waves, Brain, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
@@ -12,8 +12,18 @@ import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png"
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedTool, setSelectedTool] = useState("");
   const [isResetting, setIsResetting] = useState(false);
+
+  // Check for URL parameters and auto-select mode
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode && ['power-up', 'emergency-reset', 'breathing', 'pause'].includes(mode)) {
+      // Navigate directly to the dedicated session page
+      navigate(`/recalibrate/${mode}`);
+    }
+  }, [searchParams, navigate]);
 
   const tools = [
     {
@@ -417,7 +427,7 @@ const RecalibrateMode = () => {
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
-              onClick={() => handleToolSelect(tool.id)}
+              onClick={() => navigate(`/recalibrate/${tool.id}`)}
               className="group cursor-pointer border-b border-border pb-12 last:border-b-0 animate-fade-in"
               style={{ animationDelay: `${index * 150}ms` }}
             >

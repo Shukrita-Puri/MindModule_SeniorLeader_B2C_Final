@@ -7,14 +7,22 @@ const ClearBackButton = () => {
   const location = useLocation();
 
   const handleBack = () => {
-    // For sub-pages, navigate to their main page
-    if (location.pathname.includes('/breathwork') || 
+    // For recalibrate sub-pages, navigate to main recalibrate page
+    if (location.pathname.includes('/recalibrate/')) {
+      navigate('/recalibrate');
+    } 
+    // For clarity sub-pages, navigate to main clarity page
+    else if (location.pathname.includes('/clarity/')) {
+      navigate('/clarity');
+    }
+    // For older path patterns (backwards compatibility)
+    else if (location.pathname.includes('/breathwork') || 
         location.pathname.includes('/power-up') || 
         location.pathname.includes('/emergency-reset') ||
         location.pathname.includes('/pause')) {
       navigate('/recalibrate');
     } else if (location.pathname.includes('/clarity')) {
-      navigate('/inner-architect');
+      navigate('/clarity');
     } else {
       navigate(-1);
     }

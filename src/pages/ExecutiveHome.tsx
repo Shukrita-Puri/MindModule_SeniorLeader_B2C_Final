@@ -37,11 +37,11 @@ const ExecutiveHome = () => {
   const getResetRoute = () => {
     if (!hasCheckIn) return "/daily-check-in";
     const { mood, energy, focus } = checkInData;
-    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate?mode=power-up";
+    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate/power-up";
     if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
-    if (energy < 4 || focus === 'drained') return "/recalibrate?mode=power-up";
-    if (focus === 'scattered') return "/recalibrate?mode=power-up";
-    return "/recalibrate?mode=power-up"; // Default to power-up mode
+    if (energy < 4 || focus === 'drained') return "/recalibrate/power-up";
+    if (focus === 'scattered') return "/recalibrate/power-up";
+    return "/recalibrate/power-up"; // Default to power-up session
   };
 
   const getTopPriorities = () => {
@@ -187,7 +187,7 @@ const ExecutiveHome = () => {
               </p>
               <Button 
                 variant="outline"
-                onClick={() => navigate('/clarity', { state: { mode: 'journal', autoStart: true } })}
+                onClick={() => navigate('/clarity/journal')}
                 className="text-sm w-full py-2 mb-2"
               >
                 Journal now
