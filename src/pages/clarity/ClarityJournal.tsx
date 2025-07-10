@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Save, RotateCcw } from "lucide-react";
+import { BookOpen, Save, RotateCcw, Archive } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 
@@ -89,16 +89,29 @@ const ClarityJournal = () => {
       <ClearBackButton />
       
       {/* Header */}
-      <div className="px-8 py-16 text-center border-b border-border">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-card border border-border flex items-center justify-center">
-          <BookOpen size={24} className="text-primary" />
+      <div className="relative px-8 py-16 text-center border-b border-border">
+        <div className="bg-card border border-border rounded-full px-12 py-8 mx-auto max-w-md">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <BookOpen size={24} className="text-primary" />
+          </div>
+          <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
+            Private Journal
+          </h1>
+          <p className="text-muted-foreground font-body">
+            A safe space for your thoughts and reflections
+          </p>
         </div>
-        <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
-          Private Journal
-        </h1>
-        <p className="text-muted-foreground font-body">
-          A safe space for your thoughts and reflections
-        </p>
+        
+        {/* Memory Archive Button - Top Right */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/memory-archive")}
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+          title="Memory Archive"
+        >
+          <Archive size={20} />
+        </Button>
       </div>
 
       {/* Main Content */}

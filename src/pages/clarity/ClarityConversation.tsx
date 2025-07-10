@@ -169,15 +169,17 @@ const ClarityConversation = () => {
       
       {/* Header */}
       <div className="px-8 py-16 text-center border-b border-border">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-card border border-border flex items-center justify-center">
-          <MessageCircle size={24} className="text-primary" />
+        <div className="bg-card border border-border rounded-full px-12 py-8 mx-auto max-w-md">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <MessageCircle size={24} className="text-primary" />
+          </div>
+          <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
+            Clarity Conversation
+          </h1>
+          <p className="text-muted-foreground font-body">
+            Talk through what's on your mind
+          </p>
         </div>
-        <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
-          Clarity Conversation
-        </h1>
-        <p className="text-muted-foreground font-body">
-          Talk through what's on your mind
-        </p>
       </div>
 
       {/* Messages */}

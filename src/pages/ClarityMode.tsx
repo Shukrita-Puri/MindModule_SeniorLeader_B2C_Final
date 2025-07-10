@@ -616,37 +616,36 @@ const ClarityMode = () => {
 
         {/* Mode Selection */}
         <div className="flex justify-center gap-4 mb-12">
-          <Button
-            variant={mode === "conversation" ? "default" : "outline"}
-            onClick={() => setMode("conversation")}
-            className="px-8 py-4 text-base font-serif"
+          <div 
+            onClick={() => navigate('/clarity/conversation')}
+            className="bg-card border border-border rounded-full px-8 py-4 cursor-pointer hover:bg-muted/50 transition-colors group"
           >
-            Conversation
-          </Button>
-          <Button
-            variant={mode === "journal" ? "default" : "outline"}
-            onClick={() => setMode("journal")}
-            className="px-8 py-4 text-base font-serif"
+            <div className="text-center">
+              <div className="text-2xl mb-2">💬</div>
+              <h3 className="font-serif font-medium text-foreground group-hover:text-primary transition-colors">
+                Conversation
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Talk through what's on your mind
+              </p>
+            </div>
+          </div>
+          
+          <div 
+            onClick={() => navigate('/clarity/journal')}
+            className="bg-card border border-border rounded-full px-8 py-4 cursor-pointer hover:bg-muted/50 transition-colors group"
           >
-            Journal
-          </Button>
+            <div className="text-center">
+              <div className="text-2xl mb-2">📝</div>
+              <h3 className="font-serif font-medium text-foreground group-hover:text-primary transition-colors">
+                Private Journal
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Write freely in your private space
+              </p>
+            </div>
+          </div>
         </div>
-
-        <div className="text-center mb-8">
-          <p className="text-sm text-muted-foreground mb-4">
-            {mode === "conversation" 
-              ? "Share your thoughts and receive insights backed by science, wisdom traditions, and real experience."
-              : "Private writing space with optional gentle insights and mental models."
-            }
-          </p>
-        </div>
-
-        <Button
-          onClick={() => setCurrentView("session")}
-          className="px-12 py-4 text-lg font-serif bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          Begin {mode === "conversation" ? "Conversation" : "Journaling"}
-        </Button>
       </div>
 
       {/* Session Feedback Modal */}
