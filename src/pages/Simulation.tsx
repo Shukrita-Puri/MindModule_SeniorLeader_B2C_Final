@@ -55,7 +55,7 @@ const Simulation = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background font-editorial">
+    <div className="min-h-screen bg-background font-editorial flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
@@ -71,7 +71,7 @@ const Simulation = () => {
       </div>
 
       {/* Scenario Context Summary */}
-      <div className="p-6">
+      <div className="p-6 flex-shrink-0">
         <SessionContextCard 
           scenarioDomain={scenarioDomain}
           contextType={contextType}
@@ -82,7 +82,7 @@ const Simulation = () => {
       </div>
 
       {/* Voice-First Simulation */}
-      <div className="h-[calc(100vh-200px)]">
+      <div className="flex-1 relative">
         <VoiceFirstSimulation
           onEndSession={handleEndSession}
           scenarioContext={scenarioContext || "I'll play the role of someone who challenges your ideas. Try to navigate this conversation with confidence and empathy."}
