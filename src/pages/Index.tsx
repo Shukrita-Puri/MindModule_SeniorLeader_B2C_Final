@@ -11,14 +11,8 @@ const Index = () => {
   const navigate = useNavigate();
 
   const handleModeSelect = (route: string) => {
-    // Skip breathwork for Recalibrate mode - go directly
-    if (route === "/recalibrate") {
-      navigate('/recalibrate');
-      return;
-    }
-    
-    // Navigate to breathwork first, then to the actual mode for other modes
-    navigate('/recalibrate/breathwork', { state: { targetRoute: route } });
+    // Navigate directly to each mode's route
+    navigate(route);
   };
 
   const modes = [
