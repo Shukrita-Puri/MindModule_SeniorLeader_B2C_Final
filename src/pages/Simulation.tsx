@@ -4,12 +4,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import VoiceFirstSimulation from "@/components/VoiceFirstSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
+import SessionContextCard from "@/components/simulation/SessionContextCard";
 
 
 const Simulation = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { scenarioDomain, contextType, scenarioContext } = location.state || {};
+  const { scenarioDomain, contextType, scenarioContext, selectedPersonas, customPersonas } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
 
@@ -69,8 +70,19 @@ const Simulation = () => {
         <div className="w-10"></div>
       </div>
 
+      {/* Scenario Context Summary */}
+      <div className="p-6">
+        <SessionContextCard 
+          scenarioDomain={scenarioDomain}
+          contextType={contextType}
+          scenarioContext={scenarioContext}
+          selectedPersonas={selectedPersonas}
+          customPersonas={customPersonas}
+        />
+      </div>
+
       {/* Voice-First Simulation */}
-      <div className="h-[calc(100vh-80px)]">
+      <div className="h-[calc(100vh-200px)]">
         <VoiceFirstSimulation
           onEndSession={handleEndSession}
           scenarioContext={scenarioContext || "I'll play the role of someone who challenges your ideas. Try to navigate this conversation with confidence and empathy."}

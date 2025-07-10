@@ -4,7 +4,16 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import PersonaSelector from "@/components/scenario/PersonaSelector";
+import FileUploadSection from "@/components/FileUploadSection";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
+
+interface FileAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url?: string;
+}
 
 const SocialIntelligenceLab = () => {
   const navigate = useNavigate();
@@ -14,6 +23,7 @@ const SocialIntelligenceLab = () => {
   const [customPersonas, setCustomPersonas] = useState("");
   const [scenarioContext, setScenarioContext] = useState("");
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
 
   const socialDomains = [
     {
@@ -189,7 +199,8 @@ const SocialIntelligenceLab = () => {
           scenarioContext: scenarioContext,
           selectedPersonas: selectedPersonas,
           customPersonas: customPersonas,
-          isVoiceMode: isVoiceMode
+          isVoiceMode: isVoiceMode,
+          attachments: attachments
         } 
       });
     }
@@ -344,7 +355,15 @@ const SocialIntelligenceLab = () => {
                   ? "Describe your specific social situation... (e.g., 'I need to tell my study group that I can't contribute as much time because of my internship...')"
                   : "Add specific details about your situation... (e.g., 'My best friend has been distant since the party last weekend and I need to address it...')"
               }
-              className="w-full min-h-[100px] p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm"
+              className="w-full min-h-[100px] p-4 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none text-sm mb-6"
+            />
+            
+            {/* File Upload Section */}
+            <FileUploadSection
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              maxFiles={3}
+              maxFileSize={10}
             />
           </div>
         )}
@@ -358,9 +377,6 @@ const SocialIntelligenceLab = () => {
             >
               Start Simulation Practice
             </Button>
-            <p className="text-sm text-muted-foreground mt-4 font-body">
-              Text-based conversation practice with real-time coaching
-            </p>
           </div>
         )}
       </div>

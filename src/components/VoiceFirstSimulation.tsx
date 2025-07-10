@@ -176,9 +176,6 @@ const VoiceFirstSimulation = ({
       {/* Header with Timer */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-heading font-medium text-foreground">
-            Practice Simulation
-          </h1>
           <Badge variant="secondary" className="text-xs">
             High Intensity
           </Badge>
