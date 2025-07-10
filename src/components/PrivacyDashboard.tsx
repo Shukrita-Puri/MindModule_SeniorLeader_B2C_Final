@@ -11,8 +11,6 @@ const PrivacyDashboard = () => {
     calendar: true,
     email: false,
     wearable: true,
-    location: false,
-    calls: false,
     documents: true
   });
 
@@ -27,10 +25,8 @@ const PrivacyDashboard = () => {
 
   const dataSources = [
     { key: "calendar", icon: Calendar, label: "Calendar Events", description: "Meeting patterns and scheduling insights" },
-    { key: "email", icon: Mail, label: "Email Metadata", description: "Communication frequency (not content)" },
+    { key: "email", icon: Mail, label: "Email Data", description: "Communications, Sentiment, Tone detection" },
     { key: "wearable", icon: Watch, label: "Wearable Data", description: "Stress and activity patterns" },
-    { key: "location", icon: Smartphone, label: "Location Services", description: "Work-life balance insights" },
-    { key: "calls", icon: Smartphone, label: "Call Patterns", description: "Communication load analysis" },
     { key: "documents", icon: Database, label: "Document Access", description: "Knowledge work patterns" }
   ];
 
