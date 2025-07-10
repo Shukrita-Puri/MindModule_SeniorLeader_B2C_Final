@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Save, RotateCcw, Archive } from "lucide-react";
+import { BookOpen, Save, RotateCcw, Archive, Plus, Mic } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 
@@ -22,7 +22,8 @@ const ClarityJournal = () => {
     "What would I tell a friend who was in my situation?",
     "What does my ideal day look like, and what's one step toward that?",
     "What boundaries do I need to set or maintain for my wellbeing?",
-    "What accomplishment am I proud of, no matter how small?"
+    "What accomplishment am I proud of, no matter how small?",
+    "Evening Reflection: 3 wins or moments you're grateful for today? What made them possible?"
   ];
 
   const handleTextChange = (value: string) => {
@@ -89,17 +90,14 @@ const ClarityJournal = () => {
       <ClearBackButton />
       
       {/* Header */}
-      <div className="relative px-8 py-16 text-center border-b border-border">
-        <div className="bg-card border border-border rounded-full px-12 py-8 mx-auto max-w-md">
-          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-            <BookOpen size={24} className="text-primary" />
+      <div className="relative px-8 py-12 text-center border-b border-border">
+        <div className="bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/20 rounded-full px-8 py-4 mx-auto max-w-sm">
+          <div className="flex items-center justify-center gap-3">
+            <BookOpen size={20} className="text-secondary" />
+            <h1 className="text-lg font-medium text-foreground">
+              Private Journal
+            </h1>
           </div>
-          <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
-            Private Journal
-          </h1>
-          <p className="text-muted-foreground font-body">
-            A safe space for your thoughts and reflections
-          </p>
         </div>
         
         {/* Memory Archive Button - Top Right */}
@@ -130,13 +128,33 @@ const ClarityJournal = () => {
                 </div>
               </div>
               
-              <Textarea
-                value={entry}
-                onChange={(e) => handleTextChange(e.target.value)}
-                placeholder="Start writing... let your thoughts flow freely."
-                className="min-h-[400px] lg:min-h-[500px] resize-none font-body leading-relaxed"
-                autoFocus
-              />
+              <div className="relative">
+                <Textarea
+                  value={entry}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  placeholder="Start writing... let your thoughts flow freely."
+                  className="min-h-[400px] lg:min-h-[500px] resize-none font-body leading-relaxed pr-20"
+                  autoFocus
+                />
+                <div className="absolute bottom-3 right-3 flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title="Add documents"
+                  >
+                    <Plus size={16} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    title="Voice input"
+                  >
+                    <Mic size={16} />
+                  </Button>
+                </div>
+              </div>
             </div>
             
             <div className="flex gap-3 justify-center">

@@ -221,10 +221,6 @@ const router = createBrowserRouter([
         path: "mentor-insights", 
         element: <MentorInsights />,
       },
-      {
-        path: "clarity-summary",
-        element: <ClaritySummary />,
-      },
     ],
   },
 ]);

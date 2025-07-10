@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Send, RotateCcw } from "lucide-react";
+import { MessageCircle, Send, RotateCcw, Plus, Mic } from "lucide-react";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 // Removed RecommendationModal import - using inline modal instead
@@ -168,17 +168,14 @@ const ClarityConversation = () => {
       <ClearBackButton />
       
       {/* Header */}
-      <div className="px-8 py-16 text-center border-b border-border">
-        <div className="bg-card border border-border rounded-full px-12 py-8 mx-auto max-w-md">
-          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-            <MessageCircle size={24} className="text-primary" />
+      <div className="px-8 py-12 text-center border-b border-border">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-full px-8 py-4 mx-auto max-w-sm">
+          <div className="flex items-center justify-center gap-3">
+            <MessageCircle size={20} className="text-primary" />
+            <h1 className="text-lg font-medium text-foreground">
+              Clarity Conversation
+            </h1>
           </div>
-          <h1 className="text-2xl font-heading font-medium text-foreground mb-2">
-            Clarity Conversation
-          </h1>
-          <p className="text-muted-foreground font-body">
-            Talk through what's on your mind
-          </p>
         </div>
       </div>
 
@@ -229,18 +226,38 @@ const ClarityConversation = () => {
           )}
           
           <div className="flex gap-3">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Share what's on your mind..."
-              className="flex-1 min-h-[50px] resize-none"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
+            <div className="relative flex-1">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Share what's on your mind..."
+                className="min-h-[50px] resize-none pr-20"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <div className="absolute bottom-3 right-3 flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  title="Add documents"
+                >
+                  <Plus size={16} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  title="Voice input"
+                >
+                  <Mic size={16} />
+                </Button>
+              </div>
+            </div>
             <Button
               onClick={handleSendMessage}
               disabled={!input.trim() || isTyping}

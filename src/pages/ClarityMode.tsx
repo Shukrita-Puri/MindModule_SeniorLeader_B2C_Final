@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus, Mic } from "lucide-react";
+import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus, Mic, MessageCircle } from "lucide-react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
@@ -614,35 +614,29 @@ const ClarityMode = () => {
           A space for thinking clearly, feeling grounded, and growing intentionally.
         </p>
 
-        {/* Mode Selection */}
-        <div className="flex justify-center gap-4 mb-12">
+        {/* Mode Selection - Simple Sleek Ovals */}
+        <div className="flex justify-center gap-6 mb-12">
           <div 
             onClick={() => navigate('/clarity/conversation')}
-            className="bg-card border border-border rounded-full px-8 py-4 cursor-pointer hover:bg-muted/50 transition-colors group"
+            className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-full px-6 py-3 cursor-pointer hover:border-primary/40 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
           >
             <div className="text-center">
-              <div className="text-2xl mb-2">💬</div>
-              <h3 className="font-serif font-medium text-foreground group-hover:text-primary transition-colors">
+              <MessageCircle size={18} className="text-primary mx-auto mb-1" />
+              <h3 className="text-sm font-medium text-foreground">
                 Conversation
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Talk through what's on your mind
-              </p>
             </div>
           </div>
           
           <div 
             onClick={() => navigate('/clarity/journal')}
-            className="bg-card border border-border rounded-full px-8 py-4 cursor-pointer hover:bg-muted/50 transition-colors group"
+            className="bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/20 rounded-full px-6 py-3 cursor-pointer hover:border-secondary/40 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
           >
             <div className="text-center">
-              <div className="text-2xl mb-2">📝</div>
-              <h3 className="font-serif font-medium text-foreground group-hover:text-primary transition-colors">
-                Private Journal
+              <FileText size={18} className="text-secondary mx-auto mb-1" />
+              <h3 className="text-sm font-medium text-foreground">
+                Journal
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Write freely in your private space
-              </p>
             </div>
           </div>
         </div>
