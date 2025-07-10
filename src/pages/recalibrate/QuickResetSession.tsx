@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Mountain, Compass, Brain, Waves } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 
@@ -170,7 +169,6 @@ const QuickResetSession = () => {
         </div>
       </div>
 
-      <MainNavigation />
     </div>
   );
 };

@@ -18,7 +18,7 @@ const Index = () => {
     }
     
     // Navigate to breathwork first, then to the actual mode for other modes
-    navigate('/breathwork', { state: { targetRoute: route } });
+    navigate('/recalibrate/breathwork', { state: { targetRoute: route } });
   };
 
   const modes = [

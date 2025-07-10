@@ -8,11 +8,11 @@ const ClearBackButton = () => {
 
   const handleBack = () => {
     // For recalibrate sub-pages, navigate to main recalibrate page
-    if (location.pathname.includes('/recalibrate/')) {
+    if (location.pathname.startsWith('/recalibrate/')) {
       navigate('/recalibrate');
     } 
     // For clarity sub-pages, navigate to main clarity page
-    else if (location.pathname.includes('/clarity/')) {
+    else if (location.pathname.startsWith('/clarity/')) {
       navigate('/clarity');
     }
     // For older path patterns (backwards compatibility)

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, Save, RotateCcw } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 
@@ -179,7 +178,6 @@ const ClarityJournal = () => {
         </div>
       </div>
 
-      <MainNavigation />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { ArrowLeft, Zap, Waves, Brain, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
@@ -12,18 +12,24 @@ import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png"
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [selectedTool, setSelectedTool] = useState("");
   const [isResetting, setIsResetting] = useState(false);
 
-  // Check for URL parameters and auto-select mode
+  // Check if we're on a nested route (session page)
+  const isSessionPage = location.pathname !== '/recalibrate';
+
+  // Check for URL parameters and auto-select mode (only for base page)
   useEffect(() => {
-    const mode = searchParams.get('mode');
-    if (mode && ['power-up', 'emergency-reset', 'breathing', 'pause'].includes(mode)) {
-      // Navigate directly to the dedicated session page
-      navigate(`/recalibrate/${mode}`);
+    if (!isSessionPage) {
+      const mode = searchParams.get('mode');
+      if (mode && ['power-up', 'emergency-reset', 'breathing', 'pause'].includes(mode)) {
+        // Navigate directly to the dedicated session page
+        navigate(`/recalibrate/${mode}`);
+      }
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, isSessionPage]);
 
   const tools = [
     {
@@ -526,28 +532,32 @@ const RecalibrateMode = () => {
     </>
   );
 
+  // If we're on a session page, render the nested route
+  if (isSessionPage) {
+    return (
+      <div className="min-h-screen bg-background font-serif flex flex-col">
+        <Outlet />
+        <MainNavigation />
+      </div>
+    );
+  }
+
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
+    <div className="min-h-screen bg-background font-serif flex flex-col">
       <ClearBackButton />
-      {/* Minimal Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <button
-          onClick={() => navigate("/inner-architect")}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-        >
-          <ArrowLeft size={18} className="text-foreground" />
-        </button>
-        <h1 className="text-xl font-heading font-medium text-foreground">
-          Reset
-        </h1>
-        <div className="w-10"></div>
+      
+      {/* Header */}
+      <div className="border-b border-border/50 p-6 bg-background/80 backdrop-blur">
+        <div className="text-center">
+          <h1 className="text-xl font-heading font-medium text-foreground">
+            Inner Calibration
+          </h1>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1">
-        {isResetting ? renderEmergencyReset() : 
-         selectedTool && selectedTool !== "emergency-reset" ? renderContentGrid(selectedTool) : 
-         renderToolSelection()}
+        {isResetting ? renderEmergencyReset() : selectedTool ? renderContentGrid(selectedTool) : renderToolSelection()}
       </div>
 
       <MainNavigation />

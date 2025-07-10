@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Heart, Timer, Waves, Brain } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
 
@@ -161,7 +160,6 @@ const BreathworkSession = () => {
         </div>
       </div>
 
-      <MainNavigation />
     </div>
   );
 };

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Brain, Zap, Wind, Compass } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 
@@ -162,7 +161,6 @@ const PowerUpSession = () => {
         </div>
       </div>
 
-      <MainNavigation />
     </div>
   );
 };

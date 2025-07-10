@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowLeft, Archive, Tag, Search, Calendar, Pin, FileText, Mail, Image, Clock, Send, X, Plus, Mic } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +54,9 @@ const ClarityMode = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // Check if we're on a nested route (session page)
+  const isSessionPage = location.pathname !== '/clarity';
 
   const prompts = [
     "What's been heavy lately?",
@@ -556,6 +559,16 @@ const ClarityMode = () => {
         </div>
         
         {/* Bottom Navigation */}
+        <MainNavigation />
+      </div>
+    );
+  }
+
+  // If we're on a session page, render the nested route
+  if (isSessionPage) {
+    return (
+      <div className="min-h-screen bg-background font-serif flex flex-col">
+        <Outlet />
         <MainNavigation />
       </div>
     );

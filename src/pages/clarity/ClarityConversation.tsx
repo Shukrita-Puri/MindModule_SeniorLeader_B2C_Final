@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Send, RotateCcw } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import SessionFeedback from "@/components/SessionFeedback";
 // Removed RecommendationModal import - using inline modal instead
@@ -290,7 +289,6 @@ const ClarityConversation = () => {
         </div>
       )}
 
-      <MainNavigation />
     </div>
   );
 };

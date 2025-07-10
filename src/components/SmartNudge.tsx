@@ -52,11 +52,11 @@ const SmartNudge = ({
       futurescape: "/futurescape",
       mentor: "/mentor",
       sos: "/sos",
-      breathwork: "/breathwork"
+      breathwork: "/recalibrate/breathwork"
     };
     
     if (type === "breathwork") {
-      navigate("/breathwork", { state: { targetRoute: "/executive-home", moduleTitle: "Smart Nudge" } });
+      navigate("/recalibrate/breathwork", { state: { targetRoute: "/executive-home", moduleTitle: "Smart Nudge" } });
     } else {
       // Add smart nudge parameters to indicate the user came from a nudge
       navigate(`${routes[type]}?from=smart-nudge&action=${type}`);

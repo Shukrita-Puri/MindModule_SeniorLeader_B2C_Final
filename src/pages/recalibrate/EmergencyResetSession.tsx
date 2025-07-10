@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 
@@ -82,7 +81,6 @@ const EmergencyResetSession = () => {
         </Button>
       </div>
 
-      <MainNavigation />
     </div>
   );
 };
