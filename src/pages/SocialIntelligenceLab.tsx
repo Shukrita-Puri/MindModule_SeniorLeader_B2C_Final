@@ -356,7 +356,7 @@ const SocialIntelligenceLab = () => {
               onClick={handleStartPractice}
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-16 py-6 text-xl font-body rounded-full shadow-lg"
             >
-              Start Social Practice
+              Start Simulation Practice
             </Button>
             <p className="text-sm text-muted-foreground mt-4 font-body">
               Text-based conversation practice with real-time coaching

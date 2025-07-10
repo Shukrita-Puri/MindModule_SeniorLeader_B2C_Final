@@ -4,7 +4,8 @@ import MainNavigation from "@/components/MainNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
 import SessionSummaryCard from "@/components/simulation/SessionSummaryCard";
-import StrengthsAndDevelopmentSection from "@/components/simulation/StrengthsAndDevelopmentSection";
+import BlindSpotsSection from "@/components/simulation/BlindSpotsSection";
+import GameProgressSection from "@/components/simulation/GameProgressSection";
 import MentalModelsSection from "@/components/simulation/MentalModelsSection";
 import WisdomSection from "@/components/simulation/WisdomSection";
 import PersonalReflectionSection from "@/components/simulation/PersonalReflectionSection";
@@ -12,7 +13,7 @@ import ActionsSection from "@/components/simulation/ActionsSection";
 
 const SimulationInsights = () => {
   const location = useLocation();
-  const { scenarioDomain, contextType, scenarioContext, sessionDuration } = location.state || {};
+  const { scenarioDomain, contextType, scenarioContext, sessionDuration, realtimeFeedback } = location.state || {};
   
   const [personalNotes, setPersonalNotes] = useState("");
 
@@ -46,7 +47,9 @@ const SimulationInsights = () => {
           
           <SessionSummaryCard />
           
-          <StrengthsAndDevelopmentSection />
+          <BlindSpotsSection realtimeFeedback={realtimeFeedback} />
+          
+          <GameProgressSection realtimeFeedback={realtimeFeedback} />
           
           <MentalModelsSection />
           

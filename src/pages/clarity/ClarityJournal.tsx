@@ -16,6 +16,7 @@ const ClarityJournal = () => {
   const [wordCount, setWordCount] = useState(0);
 
   const prompts = [
+    "3 wins or moments you're grateful for today? What made them possible?",
     "What am I feeling right now, and what might be causing these feelings?",
     "What patterns do I notice in my thoughts or behaviors lately?",
     "What am I grateful for today, and why does it matter to me?",
@@ -26,8 +27,7 @@ const ClarityJournal = () => {
     "What accomplishment am I proud of, no matter how small?",
     "What would you like to explore today?",
     "What's weighing on your mind?",
-    "How are you feeling right now?",
-    "Evening Reflection: 3 wins or moments you're grateful for today? What made them possible?"
+    "How are you feeling right now?"
   ];
 
   const handleTextChange = (value: string) => {
