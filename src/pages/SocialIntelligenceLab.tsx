@@ -228,7 +228,7 @@ const SocialIntelligenceLab = () => {
 
       {/* Hero Section - Mobile First */}
       <div className="px-4 py-8 text-center max-w-2xl mx-auto">
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden shadow-lg border-2 border-accent/20">
+        <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden shadow-lg border-2 border-accent/20">
           <img 
             src="/lovable-uploads/67bda649-edbb-4f39-8290-175122fe99bf.png" 
             alt="Social intelligence practice"
