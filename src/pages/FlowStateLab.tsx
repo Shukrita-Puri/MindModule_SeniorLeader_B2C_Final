@@ -277,7 +277,7 @@ const FlowStateLab = () => {
             </div>
             
             <h1 className="text-5xl font-heading font-medium text-foreground mb-6 leading-tight">
-              Dial In Your Focus
+              Dial into your Flow state
             </h1>
             
             <p className="text-xl text-muted-foreground mb-12 max-w-3xl mx-auto">

@@ -7,9 +7,9 @@ const ClearBackButton = () => {
   const location = useLocation();
 
   const handleBack = () => {
-    // For recalibrate sub-pages, navigate to main recalibrate page
-    if (location.pathname.startsWith('/recalibrate/')) {
-      navigate('/recalibrate');
+    // For recalibrate pages, navigate to inner-architect
+    if (location.pathname.startsWith('/recalibrate')) {
+      navigate('/inner-architect');
     } 
     // For clarity sub-pages, navigate to main clarity page
     else if (location.pathname.startsWith('/clarity/')) {
@@ -20,7 +20,7 @@ const ClearBackButton = () => {
         location.pathname.includes('/power-up') || 
         location.pathname.includes('/emergency-reset') ||
         location.pathname.includes('/pause')) {
-      navigate('/recalibrate');
+      navigate('/inner-architect');
     } else if (location.pathname.includes('/clarity')) {
       navigate('/clarity');
     } else {

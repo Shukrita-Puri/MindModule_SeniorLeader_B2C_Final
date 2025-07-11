@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Play, Pause, RotateCcw, Volume2, VolumeX, Timer, Brain, Target } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ interface FlowSessionConfig {
 
 const FlowSession = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const stepParam = searchParams.get('step');
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0); // in seconds
@@ -130,7 +132,14 @@ const FlowSession = () => {
         {/* Minimal Header */}
         <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-30">
           <button
-            onClick={() => setSessionPhase('setup')}
+            onClick={() => {
+              const currentStep = parseInt(stepParam || '1');
+              if (currentStep === 1) {
+                navigate('/flow-state-lab');
+              } else {
+                navigate(`/flow-session?step=${currentStep - 1}`);
+              }
+            }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors"
           >
             <ArrowLeft size={18} className="text-foreground" />
