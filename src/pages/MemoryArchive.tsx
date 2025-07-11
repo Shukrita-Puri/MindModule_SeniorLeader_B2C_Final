@@ -137,29 +137,6 @@ const MemoryArchive = () => {
           </div>
         </div>
 
-        {/* Archive Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-hyper-coral">{memories.length}</p>
-              <p className="text-xs text-gray-600">Total Sessions</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-hyper-coral">{memories.filter(m => m.starred).length}</p>
-              <p className="text-xs text-gray-600">Starred</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-hyper-coral">7</p>
-              <p className="text-xs text-gray-600">This Week</p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Memory List */}
         <div className="space-y-4">

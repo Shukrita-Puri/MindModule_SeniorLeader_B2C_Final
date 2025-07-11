@@ -156,7 +156,7 @@ const FlowStateLab = () => {
         { id: "essay-writing", name: "Essay Writing", technique: flowTechniques['time-block-micro-goal'] },
         { id: "math-problems", name: "Math Problem Sets", technique: flowTechniques['problem-looping'] },
         { id: "reading-analysis", name: "Reading & Analysis", technique: flowTechniques['active-margin-tagging'] },
-        { id: "test-prep", name: "Test Preparation", technique: flowTechniques['retrieval-sprints'] },
+        { id: "test-prep", name: "Test or Exam Preparation", technique: flowTechniques['retrieval-sprints'] },
         { id: "research", name: "Research Projects", technique: flowTechniques['time-block-micro-goal'] }
       ]
     },

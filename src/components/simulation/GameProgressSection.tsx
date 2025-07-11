@@ -60,7 +60,7 @@ const GameProgressSection = ({ realtimeFeedback = [] }: GameProgressSectionProps
             </div>
             <div>
               <h3 className="text-lg font-heading font-medium text-foreground group-hover:text-primary transition-colors">
-                Gamification
+                Track Practice Progress
               </h3>
               <p className="text-sm text-muted-foreground">
                 Track your practice progress

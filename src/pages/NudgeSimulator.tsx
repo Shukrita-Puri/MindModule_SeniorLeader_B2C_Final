@@ -155,6 +155,29 @@ const NudgeSimulator = () => {
 
   const handleNudgeAction = () => {
     console.log(`Nudge ${currentNudge.id} acted upon`);
+    // Navigate to appropriate page based on nudge type
+    switch (currentNudge.type) {
+      case 'breathwork':
+        navigate('/breathwork');
+        break;
+      case 'clarity':
+        navigate('/clarity-mode');
+        break;
+      case 'futurescape':
+        navigate('/futurescape-mode');
+        break;
+      case 'scenario-lab':
+        navigate('/scenario-lab');
+        break;
+      case 'sos':
+        navigate('/recalibrate-mode');
+        break;
+      case 'mentor':
+        navigate('/mentor-mode');
+        break;
+      default:
+        navigate('/');
+    }
   };
 
   const handleNudgeDismiss = () => {
