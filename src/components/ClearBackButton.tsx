@@ -7,10 +7,14 @@ const ClearBackButton = () => {
   const location = useLocation();
 
   const handleBack = () => {
-    // For recalibrate pages, navigate to inner-architect
-    if (location.pathname.startsWith('/recalibrate')) {
+    // For recalibrate sub-pages, navigate to main recalibrate page
+    if (location.pathname.startsWith('/recalibrate/')) {
+      navigate('/recalibrate');
+    }
+    // For main recalibrate page, navigate to inner-architect
+    else if (location.pathname === '/recalibrate') {
       navigate('/inner-architect');
-    } 
+    }
     // For clarity sub-pages, navigate to main clarity page
     else if (location.pathname.startsWith('/clarity/')) {
       navigate('/clarity');
