@@ -7,8 +7,19 @@ const ClearBackButton = () => {
   const location = useLocation();
 
   const handleBack = () => {
+    // For flow session pages, handle step-by-step navigation
+    if (location.pathname === '/flow-session') {
+      const urlParams = new URLSearchParams(location.search);
+      const currentStep = parseInt(urlParams.get('step') || '1');
+      
+      if (currentStep === 1) {
+        navigate('/flow-state-lab');
+      } else {
+        navigate(`/flow-session?step=${currentStep - 1}`);
+      }
+    }
     // For recalibrate sub-pages, navigate to main recalibrate page
-    if (location.pathname.startsWith('/recalibrate/')) {
+    else if (location.pathname.startsWith('/recalibrate/')) {
       navigate('/recalibrate');
     }
     // For main recalibrate page, navigate to inner-architect
