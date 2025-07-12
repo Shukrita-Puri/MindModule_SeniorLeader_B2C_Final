@@ -1,10 +1,11 @@
 import { ArrowLeft } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const ClearBackButton = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
 
   const handleBack = () => {
     // For flow session pages, handle step-by-step navigation
@@ -15,7 +16,7 @@ const ClearBackButton = () => {
       if (currentStep === 1) {
         navigate('/flow-state-lab');
       } else {
-        navigate(`/flow-session?step=${currentStep - 1}`);
+        setSearchParams({ step: (currentStep - 1).toString() });
       }
     }
     // For recalibrate sub-pages, navigate to main recalibrate page

@@ -121,6 +121,14 @@ const FlowSession = () => {
     }, 3000);
   };
 
+  // Sync sessionPhase with URL changes
+  useEffect(() => {
+    const newPhase = getSessionPhase();
+    if (newPhase !== sessionPhase) {
+      setSessionPhase(newPhase);
+    }
+  }, [currentStep]);
+
   // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout;
