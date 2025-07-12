@@ -17,15 +17,26 @@ interface FlowSessionConfig {
 
 const FlowSession = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const stepParam = searchParams.get('step');
+  const currentStep = parseInt(stepParam || '1');
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0); // in seconds
   const [selectedConfig, setSelectedConfig] = useState<FlowSessionConfig | null>(null);
   const [showBreathing, setShowBreathing] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [sessionPhase, setSessionPhase] = useState<'setup' | 'breathing' | 'active' | 'complete'>('setup');
+  
+  // Determine session phase based on URL step
+  const getSessionPhase = (): 'setup' | 'breathing' | 'active' | 'complete' => {
+    if (currentStep === 1) return 'setup';
+    if (currentStep === 2) return 'breathing';
+    if (currentStep === 3) return 'active';
+    if (currentStep === 4) return 'complete';
+    return 'setup';
+  };
+  
+  const [sessionPhase, setSessionPhase] = useState<'setup' | 'breathing' | 'active' | 'complete'>(getSessionPhase());
 
   const flowConfigs: FlowSessionConfig[] = [
     {
@@ -62,6 +73,7 @@ const FlowSession = () => {
 
   const startSession = (config: FlowSessionConfig) => {
     setSelectedConfig(config);
+    setSearchParams({ step: '2' });
     setSessionPhase('breathing');
     setShowBreathing(true);
   };
@@ -69,6 +81,7 @@ const FlowSession = () => {
   const beginFlowSession = () => {
     if (selectedConfig) {
       setTimeRemaining(selectedConfig.duration * 60);
+      setSearchParams({ step: '3' });
       setSessionPhase('active');
       setIsActive(true);
       setShowBreathing(false);
@@ -86,11 +99,13 @@ const FlowSession = () => {
     setIsPaused(false);
     setTimeRemaining(0);
     setSelectedConfig(null);
+    setSearchParams({ step: '1' });
     setSessionPhase('setup');
     setShowBreathing(false);
   };
 
   const endSession = () => {
+    setSearchParams({ step: '4' });
     setSessionPhase('complete');
     setIsActive(false);
     
@@ -133,11 +148,11 @@ const FlowSession = () => {
         <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-30">
           <button
             onClick={() => {
-              const currentStep = parseInt(stepParam || '1');
               if (currentStep === 1) {
                 navigate('/flow-state-lab');
               } else {
-                navigate(`/flow-session?step=${currentStep - 1}`);
+                setSearchParams({ step: (currentStep - 1).toString() });
+                setSessionPhase(getSessionPhase());
               }
             }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors"

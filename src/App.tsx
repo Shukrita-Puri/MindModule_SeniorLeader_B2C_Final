@@ -15,6 +15,7 @@ import ExecutiveHome from "./pages/ExecutiveHome";
 import ScenarioLab from "./pages/ScenarioLab";
 import SocialIntelligenceLab from "./pages/SocialIntelligenceLab";
 import FlowStateLab from "./pages/FlowStateLab";
+import FlowSession from "./pages/FlowSession";
 import MentorChat from "./pages/MentorChat";
 import MindVault from "./pages/MindVault";
 import Index from "./pages/Index";
@@ -136,6 +137,10 @@ const router = createBrowserRouter([
       {
         path: "flow-state-lab",
         element: <FlowStateLab />,
+      },
+      {
+        path: "flow-session",
+        element: <FlowSession />,
       },
       {
         path: "simulation",
