@@ -463,42 +463,6 @@ const RecalibrateMode = () => {
           ))}
         </div>
 
-        {/* Quick Grounding */}
-        <div className="mt-20 pt-16 border-t border-border">
-          <div className="text-center mb-12">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-4">
-              Quick Grounding
-            </h3>
-            <p className="text-muted-foreground font-body">
-              Right now, notice
-            </p>
-          </div>
-          
-          <div className="bg-card border border-border rounded-lg p-8 space-y-4">
-            <div className="grid grid-cols-1 gap-4 text-center">
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">5</span>
-                <span className="text-muted-foreground font-body">Things you can see</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">4</span>
-                <span className="text-muted-foreground font-body">Things you can touch</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">3</span>
-                <span className="text-muted-foreground font-body">Things you can hear</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">2</span>
-                <span className="text-muted-foreground font-body">Things you can smell</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">1</span>
-                <span className="text-muted-foreground font-body">Thing you can taste</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Crisis Resources */}
         <div className="mt-16 pt-12 border-t border-border">
