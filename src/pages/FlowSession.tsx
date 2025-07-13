@@ -127,7 +127,7 @@ const FlowSession = () => {
     if (newPhase !== sessionPhase) {
       setSessionPhase(newPhase);
     }
-  }, [currentStep]);
+  }, [currentStep, sessionPhase]);
 
   // Timer logic
   useEffect(() => {

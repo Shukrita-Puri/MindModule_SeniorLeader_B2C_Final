@@ -2,9 +2,10 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import VoiceFirstSimulation from "@/components/VoiceFirstSimulation";
+import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
+import { Toaster } from "@/components/ui/toaster";
 
 
 const Simulation = () => {
@@ -71,11 +72,10 @@ const Simulation = () => {
       </div>
 
 
-      {/* Voice-First Simulation */}
+      {/* College Admissions Simulation */}
       <div className="flex-1 relative">
-        <VoiceFirstSimulation
+        <CollegeAdmissionsSimulation
           onEndSession={handleEndSession}
-          scenarioContext={scenarioContext || "I'll play the role of someone who challenges your ideas. Try to navigate this conversation with confidence and empathy."}
           sessionDuration={15}
         />
       </div>
@@ -89,6 +89,7 @@ const Simulation = () => {
       )}
 
       <MainNavigation />
+      <Toaster />
     </div>
   );
 };
