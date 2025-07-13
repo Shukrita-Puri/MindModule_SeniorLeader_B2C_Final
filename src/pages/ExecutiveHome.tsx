@@ -77,7 +77,6 @@ const ExecutiveHome = () => {
       id: 1,
       title: "Oxford College Interview",
       timeHorizon: "4 days away",
-      timeDescription: "high-pressure, identity-defining moment",
       tagType: "calendar",
       whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview. Admissions counselor emails show Oxford focus.",
       category: "Academic Performance",
@@ -93,7 +92,6 @@ const ExecutiveHome = () => {
       id: 2,
       title: "Advanced Physics Exam",
       timeHorizon: "2 days away",
-      timeDescription: "requires deep problem-solving and clarity",
       tagType: "calendar",
       whyMatters: "Focus logs show dips during demanding work. WhatsApp shows exam anxiety. Problem-solving blocks flagged.",
       category: "Academic Performance",
@@ -116,6 +114,21 @@ const ExecutiveHome = () => {
       suggestion: "Build resilience for high-demand days",
       actionLabel: "Power Up Session", 
       route: "/recalibrate/power-up",
+      urgency: "medium"
+    });
+    
+    // Always include Guided Breathing as fourth priority
+    priorities.push({
+      id: 4,
+      title: "Guided Breathing",
+      timeHorizon: "Available now",
+      tagType: "wellbeing",
+      whyMatters: "Recent stress patterns suggest nervous system regulation would optimize performance and clarity.",
+      category: "Emotional Regulation",
+      icon: Heart,
+      suggestion: "Suggest Guided breathing",
+      actionLabel: "Start Breathing Session",
+      route: "/recalibrate/breathing",
       urgency: "medium"
     });
     
@@ -264,7 +277,11 @@ const ExecutiveHome = () => {
                     size="sm" 
                     variant={priority.urgency === 'high' ? 'default' : 'outline'}
                     onClick={() => navigate(priority.route)}
-                    className="text-xs w-full py-2"
+                    className={`text-xs w-full py-2 ${
+                      priority.id === 1 ? 'bg-purple-600 hover:bg-purple-700 text-white' :
+                      priority.id === 2 ? 'bg-blue-600 hover:bg-blue-700 text-white' :
+                      ''
+                    }`}
                   >
                     {priority.actionLabel}
                     <ArrowRight size={12} className="ml-2" />
