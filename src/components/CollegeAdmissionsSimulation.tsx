@@ -164,32 +164,91 @@ const CollegeAdmissionsSimulation = ({
                                userResponse.toLowerCase().includes("failed") ||
                                userResponse.toLowerCase().includes("learned") ||
                                userResponse.toLowerCase().includes("struggle");
+    const showsEmpathy = userResponse.toLowerCase().includes("others") ||
+                        userResponse.toLowerCase().includes("team") ||
+                        userResponse.toLowerCase().includes("helped");
+    const showsAdaptability = userResponse.toLowerCase().includes("changed") ||
+                             userResponse.toLowerCase().includes("adapted") ||
+                             userResponse.toLowerCase().includes("different");
+    const showsCreativity = userResponse.toLowerCase().includes("creative") ||
+                           userResponse.toLowerCase().includes("innovative") ||
+                           userResponse.toLowerCase().includes("unique");
 
     let feedbackType: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
     let message: string;
     let suggestion: string;
 
-    // Analyze response for coaching feedback
-    if (responseLength < 50) {
-      feedbackType = "mental-clarity";
-      message = "Your response could benefit from more depth and detail.";
-      suggestion = "Try expanding with a specific example or personal story. Admissions officers want to see your thought process.";
-    } else if (!hasPersonalStory && questionNumber > 2) {
-      feedbackType = "social-intelligence";
-      message = "Consider sharing a personal experience to connect with the interviewer.";
-      suggestion = "Stories help admissions officers understand who you really are beyond your achievements.";
-    } else if (!hasSpecificDetails) {
-      feedbackType = "leadership";
-      message = "Adding concrete details would strengthen your response.";
-      suggestion = "Specific examples, numbers, or outcomes show the real impact of your actions.";
-    } else if (questionNumber > 3 && !showsVulnerability) {
-      feedbackType = "resilience";
-      message = "Great response! Consider showing more authenticity by sharing challenges or growth.";
-      suggestion = "Admissions officers value students who can reflect on their struggles and learning.";
+    // Rotate through different feedback types to show variety
+    const feedbackOptions = [
+      {
+        condition: responseLength < 50,
+        type: "mental-clarity" as const,
+        message: "Your response could benefit from more depth and structure.",
+        suggestion: "Try the STAR method: Situation, Task, Action, Result. This helps organize complex thoughts clearly."
+      },
+      {
+        condition: !showsEmpathy && questionNumber % 6 === 1,
+        type: "social-intelligence" as const,
+        message: "Consider how your response demonstrates emotional awareness and social connection.",
+        suggestion: "Share how you read the room, understood others' perspectives, or built trust with teammates."
+      },
+      {
+        condition: !showsVulnerability && questionNumber % 6 === 2,
+        type: "resilience" as const,
+        message: "Strong responses show how you bounce back from setbacks and regulate stress.",
+        suggestion: "Mention specific strategies you use to stay calm under pressure or recover from failures."
+      },
+      {
+        condition: !hasSpecificDetails && questionNumber % 6 === 3,
+        type: "leadership" as const,
+        message: "Leadership isn't just about titles - it's about influence and inspiring others.",
+        suggestion: "Describe how you motivated others, facilitated collaboration, or took initiative when no one else would."
+      },
+      {
+        condition: !showsAdaptability && questionNumber % 6 === 4,
+        type: "adaptability" as const,
+        message: "Admissions officers value students who thrive in changing environments.",
+        suggestion: "Highlight how you pivoted when plans changed, learned new skills quickly, or found creative solutions."
+      },
+      {
+        condition: !showsCreativity && questionNumber % 6 === 5,
+        type: "creative-thinking" as const,
+        message: "Show your ability to think outside conventional frameworks.",
+        suggestion: "Connect seemingly unrelated ideas, challenge assumptions, or describe unconventional approaches you've taken."
+      }
+    ];
+
+    // Find the first applicable feedback or default to positive reinforcement
+    const applicableFeedback = feedbackOptions.find(option => option.condition);
+    
+    if (applicableFeedback) {
+      feedbackType = applicableFeedback.type;
+      message = applicableFeedback.message;
+      suggestion = applicableFeedback.suggestion;
     } else {
-      feedbackType = "creative-thinking";
-      message = "Excellent response! You're demonstrating strong self-awareness.";
-      suggestion = "Keep this level of authenticity and depth throughout the interview.";
+      // Positive reinforcement with growth mindset
+      const positiveOptions = [
+        {
+          type: "mental-clarity" as const,
+          message: "Excellent clarity and structure in your response!",
+          suggestion: "Your organized thinking is evident. Consider adding one more concrete detail to make it even more compelling."
+        },
+        {
+          type: "social-intelligence" as const,
+          message: "Great demonstration of emotional intelligence and social awareness!",
+          suggestion: "You're showing strong people skills. Think about how this translates to building community on campus."
+        },
+        {
+          type: "resilience" as const,
+          message: "Your growth mindset and ability to learn from challenges really shines through!",
+          suggestion: "This resilience will serve you well in college. Consider sharing how you'll apply these lessons going forward."
+        }
+      ];
+      
+      const randomPositive = positiveOptions[questionNumber % positiveOptions.length];
+      feedbackType = randomPositive.type;
+      message = randomPositive.message;
+      suggestion = randomPositive.suggestion;
     }
 
     const pastLearning = getPastLearning(feedbackType, questionNumber);
@@ -332,12 +391,20 @@ const CollegeAdmissionsSimulation = ({
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={closeToast} />
           
           {/* Toast content */}
-          <div className="relative bg-gradient-to-br from-purple-500 to-purple-700 text-white p-6 rounded-xl shadow-2xl max-w-md mx-4 border border-purple-400">
+          <div className={cn(
+            "relative p-6 rounded-xl shadow-2xl max-w-md mx-4 border backdrop-blur-sm",
+            activeToast.type === "mental-clarity" && "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-900 border-blue-300",
+            activeToast.type === "social-intelligence" && "bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 border-emerald-300", 
+            activeToast.type === "resilience" && "bg-gradient-to-br from-orange-100 to-orange-200 text-orange-900 border-orange-300",
+            activeToast.type === "leadership" && "bg-gradient-to-br from-violet-100 to-violet-200 text-violet-900 border-violet-300",
+            activeToast.type === "adaptability" && "bg-gradient-to-br from-teal-100 to-teal-200 text-teal-900 border-teal-300",
+            activeToast.type === "creative-thinking" && "bg-gradient-to-br from-rose-100 to-rose-200 text-rose-900 border-rose-300"
+          )}>
             <button
               onClick={closeToast}
-              className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+              className="absolute top-2 right-2 p-1 hover:bg-black/10 rounded-full transition-colors"
             >
-              <X size={16} />
+              <X size={16} className="text-current" />
             </button>
             
             <div className="mb-3">
@@ -349,17 +416,17 @@ const CollegeAdmissionsSimulation = ({
             </div>
             
             <div className="space-y-3">
-              <p className="text-sm opacity-90">{activeToast.message}</p>
-              <p className="text-sm font-medium">{activeToast.suggestion}</p>
+              <p className="text-sm font-medium">{activeToast.message}</p>
+              <p className="text-sm opacity-80">{activeToast.suggestion}</p>
               
               {activeToast.pastLearning && (
-                <div className="bg-white/10 rounded-lg p-3 border border-white/20">
+                <div className="bg-black/5 rounded-lg p-3 border border-black/10">
                   <p className="text-xs font-semibold mb-1 flex items-center gap-1">
                     <Target size={12} />
-                    Mind Module Insight
+                    Mind Module Intelligence
                   </p>
-                  <p className="text-xs opacity-80 mb-2">{activeToast.pastLearning.context}</p>
-                  <p className="text-xs font-medium">{activeToast.pastLearning.insight}</p>
+                  <p className="text-xs opacity-70 mb-2 italic">Pattern from: {activeToast.pastLearning.context}</p>
+                  <p className="text-xs font-medium text-current">{activeToast.pastLearning.insight}</p>
                 </div>
               )}
             </div>
