@@ -302,6 +302,19 @@ const FlowStateLab = () => {
         { name: 'Backward Mapping', duration: 2, description: 'Work backward to identify necessary steps' },
         { name: 'Forward Execution', duration: 0, description: 'Execute your reverse-engineered action plan' }
       ]
+    },
+    'sprint-protocol': {
+      name: 'Sprint Protocol',
+      category: 'High-Performance Academic Training + Flow State Architecture',
+      whatItIs: 'An intensive 90-minute flow protocol designed for advanced academic preparation, combining focused intention-setting, confidence-building warm-ups, and sustained deep work cycles.',
+      whyItWorks: 'Optimizes cognitive performance through structured preparation, eliminates distractions, and uses proven 90-20-90 focus cycles to maximize learning retention and problem-solving capacity.',
+      phases: [
+        { name: 'Set Clear Intention', duration: 3, description: 'Define your specific focus topic and write your learning goal', guidance: 'Write: "My goal for the next 90 minutes is to master ___"' },
+        { name: 'Warm-Up with Easy Win', duration: 5, description: 'Solve 1-2 problems you can already do confidently', guidance: 'Prime your brain for problem-solving and build early momentum' },
+        { name: '90-Minute Deep Focus', duration: 90, description: 'Sustained deep work with zero distractions', guidance: 'No phone, no tabs, use noise-canceling headphones or ambient music' },
+        { name: 'Recharge Break', duration: 20, description: 'Active recovery and mental reset', guidance: 'Get up, hydrate, move, walk, or meditate - no screens' },
+        { name: 'Second 90-Minute Session', duration: 90, description: 'Continue deep work or review and consolidate', guidance: 'Option to repeat deep focus or switch to review/practice problems' }
+      ]
     }
   };
 
@@ -419,6 +432,7 @@ const FlowStateLab = () => {
       examPrep: /exam|test|final|midterm|assessment|quiz|evaluation/,
       memoryWork: /memorize|recall|remember|facts|vocabulary|definitions|terms/,
       mathContext: /\b(math|calculus|algebra|geometry|statistics|mathematical|equation|formula|theorem)\b/,
+      physicsContext: /physics|quantum|mechanics|thermodynamics|electromagnetic|relativity|hamiltonian|advanced.physics/,
       writingContext: /essay|paper|writing|draft|argument|thesis|composition/,
       creativeContext: /creative|design|brainstorm|innovative|art|visual|imagination/,
       analyticalContext: /analyze|logic|reasoning|critical|systematic|detailed/,
@@ -450,6 +464,12 @@ const FlowStateLab = () => {
     // Advanced triangulation for test preparation - prioritize test-prep techniques
     if (selectedSubtask === 'test-prep') {
       console.log('Test-prep triangulation triggered');
+      
+      // Sprint Protocol for Advanced Physics Exam + 90 minutes
+      if (duration === 90 && contextPatterns.physicsContext.test(context)) {
+        console.log('Sprint Protocol triggered for Advanced Physics Exam');
+        return flowTechniques['sprint-protocol'];
+      }
       
       if (timePreferences.short) {
         if (contextPatterns.memoryWork.test(context)) return flowTechniques['speaking-burst-recall'];
