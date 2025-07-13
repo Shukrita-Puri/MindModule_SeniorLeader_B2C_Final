@@ -155,70 +155,111 @@ const CollegeAdmissionsSimulation = ({
 
   const getCoachingFeedback = (userResponse: string, questionNumber: number) => {
     const responseLength = userResponse.length;
-    const hasPersonalStory = userResponse.toLowerCase().includes("i") && 
-                            (userResponse.includes("when") || userResponse.includes("time"));
+    const lowerResponse = userResponse.toLowerCase();
+    
+    // Enhanced response analysis
+    const hasPersonalStory = lowerResponse.includes("i") && 
+                            (lowerResponse.includes("when") || lowerResponse.includes("time") || lowerResponse.includes("once"));
     const hasSpecificDetails = userResponse.match(/\d/) || 
-                               userResponse.includes("specific") || 
-                               userResponse.includes("example");
-    const showsVulnerability = userResponse.toLowerCase().includes("mistake") ||
-                               userResponse.toLowerCase().includes("failed") ||
-                               userResponse.toLowerCase().includes("learned") ||
-                               userResponse.toLowerCase().includes("struggle");
-    const showsEmpathy = userResponse.toLowerCase().includes("others") ||
-                        userResponse.toLowerCase().includes("team") ||
-                        userResponse.toLowerCase().includes("helped");
-    const showsAdaptability = userResponse.toLowerCase().includes("changed") ||
-                             userResponse.toLowerCase().includes("adapted") ||
-                             userResponse.toLowerCase().includes("different");
-    const showsCreativity = userResponse.toLowerCase().includes("creative") ||
-                           userResponse.toLowerCase().includes("innovative") ||
-                           userResponse.toLowerCase().includes("unique");
+                               lowerResponse.includes("specific") || 
+                               lowerResponse.includes("example") ||
+                               lowerResponse.includes("exactly") ||
+                               lowerResponse.includes("particular");
+    const showsVulnerability = lowerResponse.includes("mistake") ||
+                               lowerResponse.includes("failed") ||
+                               lowerResponse.includes("learned") ||
+                               lowerResponse.includes("struggle") ||
+                               lowerResponse.includes("difficult") ||
+                               lowerResponse.includes("challenge");
+    const showsEmpathy = lowerResponse.includes("others") ||
+                        lowerResponse.includes("team") ||
+                        lowerResponse.includes("helped") ||
+                        lowerResponse.includes("understood") ||
+                        lowerResponse.includes("listened");
+    const showsAdaptability = lowerResponse.includes("changed") ||
+                             lowerResponse.includes("adapted") ||
+                             lowerResponse.includes("different") ||
+                             lowerResponse.includes("pivot") ||
+                             lowerResponse.includes("flexible");
+    const showsCreativity = lowerResponse.includes("creative") ||
+                           lowerResponse.includes("innovative") ||
+                           lowerResponse.includes("unique") ||
+                           lowerResponse.includes("original") ||
+                           lowerResponse.includes("unconventional");
+    
+    // Anxiety and confidence indicators
+    const isHesitant = lowerResponse.includes("um") || 
+                      lowerResponse.includes("well") ||
+                      lowerResponse.includes("i guess") ||
+                      lowerResponse.includes("maybe") ||
+                      lowerResponse.includes("probably");
+    const isConfident = lowerResponse.includes("definitely") ||
+                       lowerResponse.includes("absolutely") ||
+                       lowerResponse.includes("certainly") ||
+                       responseLength > 150;
+    const isVague = !hasSpecificDetails && responseLength < 80;
 
     let feedbackType: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
     let message: string;
     let suggestion: string;
 
-    // Rotate through different feedback types to show variety
+    // Intelligence-based feedback triggering (not every response gets coaching)
+    const shouldCoach = Math.random() < 0.7; // 70% chance to show coaching
+    
+    if (!shouldCoach && responseLength > 100 && hasSpecificDetails) {
+      // Skip coaching for good responses sometimes to feel more natural
+      return null;
+    }
+
+    // Prioritized feedback conditions based on response quality
     const feedbackOptions = [
+      // Critical areas first
       {
-        condition: responseLength < 50,
+        condition: responseLength < 40 || isVague,
         type: "mental-clarity" as const,
-        message: "Your response could benefit from more depth and structure.",
-        suggestion: "Try the STAR method: Situation, Task, Action, Result. This helps organize complex thoughts clearly."
+        message: "Your response needs more substance and structure to make a strong impression.",
+        suggestion: "Use the STAR method: Situation, Task, Action, Result. Admissions officers want concrete examples."
       },
       {
-        condition: !showsEmpathy && questionNumber % 6 === 1,
-        type: "social-intelligence" as const,
-        message: "Consider how your response demonstrates emotional awareness and social connection.",
-        suggestion: "Share how you read the room, understood others' perspectives, or built trust with teammates."
-      },
-      {
-        condition: !showsVulnerability && questionNumber % 6 === 2,
+        condition: isHesitant && userAnxietyLevel === "high",
         type: "resilience" as const,
-        message: "Strong responses show how you bounce back from setbacks and regulate stress.",
-        suggestion: "Mention specific strategies you use to stay calm under pressure or recover from failures."
+        message: "I can sense some nervousness. Remember, they want to see how you handle pressure.",
+        suggestion: "Take a breath and draw on your past experiences overcoming challenges. Show your grit."
+      },
+      // Content-based coaching
+      {
+        condition: !showsEmpathy && (lowerResponse.includes("lead") || lowerResponse.includes("manage")),
+        type: "social-intelligence" as const,
+        message: "You're discussing leadership but missing the people dimension.",
+        suggestion: "Share how you read emotions, built trust, or navigated interpersonal dynamics."
       },
       {
-        condition: !hasSpecificDetails && questionNumber % 6 === 3,
+        condition: !showsVulnerability && responseLength > 80,
+        type: "resilience" as const,
+        message: "Good detail, but admissions officers want to see authentic growth through adversity.",
+        suggestion: "Share a moment when you faced real difficulty and what you learned about yourself."
+      },
+      {
+        condition: !hasSpecificDetails && questionNumber > 2,
         type: "leadership" as const,
-        message: "Leadership isn't just about titles - it's about influence and inspiring others.",
-        suggestion: "Describe how you motivated others, facilitated collaboration, or took initiative when no one else would."
+        message: "Your response lacks the concrete examples that make leadership stories compelling.",
+        suggestion: "Describe specific actions you took, decisions you made, and measurable impact you created."
       },
       {
-        condition: !showsAdaptability && questionNumber % 6 === 4,
+        condition: !showsAdaptability && (lowerResponse.includes("plan") || lowerResponse.includes("goal")),
         type: "adaptability" as const,
-        message: "Admissions officers value students who thrive in changing environments.",
-        suggestion: "Highlight how you pivoted when plans changed, learned new skills quickly, or found creative solutions."
+        message: "You mention planning, but colleges value intellectual flexibility too.",
+        suggestion: "Show how you adjusted when plans failed, learned from unexpected feedback, or embraced new perspectives."
       },
       {
-        condition: !showsCreativity && questionNumber % 6 === 5,
+        condition: !showsCreativity && questionNumber > 3 && responseLength > 100,
         type: "creative-thinking" as const,
-        message: "Show your ability to think outside conventional frameworks.",
-        suggestion: "Connect seemingly unrelated ideas, challenge assumptions, or describe unconventional approaches you've taken."
+        message: "Solid response, but you could differentiate yourself with more original thinking.",
+        suggestion: "Challenge conventional wisdom, make unexpected connections, or offer a fresh angle on familiar concepts."
       }
     ];
 
-    // Find the first applicable feedback or default to positive reinforcement
+    // Find the most relevant feedback
     const applicableFeedback = feedbackOptions.find(option => option.condition);
     
     if (applicableFeedback) {
@@ -226,29 +267,33 @@ const CollegeAdmissionsSimulation = ({
       message = applicableFeedback.message;
       suggestion = applicableFeedback.suggestion;
     } else {
-      // Positive reinforcement with growth mindset
-      const positiveOptions = [
-        {
-          type: "mental-clarity" as const,
-          message: "Excellent clarity and structure in your response!",
-          suggestion: "Your organized thinking is evident. Consider adding one more concrete detail to make it even more compelling."
-        },
-        {
-          type: "social-intelligence" as const,
-          message: "Great demonstration of emotional intelligence and social awareness!",
-          suggestion: "You're showing strong people skills. Think about how this translates to building community on campus."
-        },
-        {
-          type: "resilience" as const,
-          message: "Your growth mindset and ability to learn from challenges really shines through!",
-          suggestion: "This resilience will serve you well in college. Consider sharing how you'll apply these lessons going forward."
-        }
-      ];
-      
-      const randomPositive = positiveOptions[questionNumber % positiveOptions.length];
-      feedbackType = randomPositive.type;
-      message = randomPositive.message;
-      suggestion = randomPositive.suggestion;
+      // Strategic positive reinforcement (less frequent)
+      if (Math.random() < 0.3) { // Only 30% chance for positive feedback
+        const positiveOptions = [
+          {
+            type: "mental-clarity" as const,
+            message: "Excellent structure and depth in your response!",
+            suggestion: "Your clear thinking is evident. Now leverage this clarity to tackle even more complex questions."
+          },
+          {
+            type: "social-intelligence" as const,
+            message: "Strong emotional intelligence and interpersonal awareness!",
+            suggestion: "This people-focused approach will serve you well in college communities. Keep building on it."
+          },
+          {
+            type: "leadership" as const,
+            message: "Great demonstration of authentic leadership and influence!",
+            suggestion: "You understand that leadership is about impact, not titles. Show how you'll lead on campus."
+          }
+        ];
+        
+        const randomPositive = positiveOptions[questionNumber % positiveOptions.length];
+        feedbackType = randomPositive.type;
+        message = randomPositive.message;
+        suggestion = randomPositive.suggestion;
+      } else {
+        return null; // No coaching for this response
+      }
     }
 
     const pastLearning = getPastLearning(feedbackType, questionNumber);
@@ -326,18 +371,20 @@ const CollegeAdmissionsSimulation = ({
     setResponseTimeLeft(45);
     setQuestionCount(prev => prev + 1);
     
-    // Get coaching feedback
+    // Get coaching feedback (now returns null sometimes)
     const feedback = getCoachingFeedback(message, questionCount);
     
-    // Show custom toast with coaching feedback and pause timers
-    setActiveToast({
-      id: Date.now().toString(),
-      type: feedback.type,
-      message: feedback.message,
-      suggestion: feedback.suggestion,
-      pastLearning: feedback.pastLearning
-    });
-    setIsPaused(true);
+    // Only show toast if coaching is triggered
+    if (feedback) {
+      setActiveToast({
+        id: Date.now().toString(),
+        type: feedback.type,
+        message: feedback.message,
+        suggestion: feedback.suggestion,
+        pastLearning: feedback.pastLearning
+      });
+      setIsPaused(true);
+    }
 
     setTimeout(() => {
       const response = getAdmissionsResponse(message, questionCount);
@@ -348,7 +395,7 @@ const CollegeAdmissionsSimulation = ({
         sender: "ai",
         timestamp: new Date(),
         emotion: response.emotion,
-        coachingFeedback: feedback
+        coachingFeedback: feedback || undefined
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -450,113 +497,6 @@ const CollegeAdmissionsSimulation = ({
             End Interview
           </Button>
           
-          {/* Demo Toast Buttons */}
-          <div className="flex gap-1 flex-wrap">
-            <Button
-              onClick={() => {
-                setActiveToast({
-                  id: "demo-social",
-                  type: "social-intelligence",
-                  message: "Your response shows good awareness, but consider demonstrating deeper emotional intelligence.",
-                  suggestion: "Try acknowledging the interviewer's perspective and show how you build rapport with different personality types.",
-                  pastLearning: {
-                    context: "WhatsApp analysis shows you excel at reading social cues in group chats",
-                    insight: "Apply that same social radar you use in digital conversations to face-to-face interactions"
-                  }
-                });
-                setIsPaused(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              Social
-            </Button>
-            
-            <Button
-              onClick={() => {
-                setActiveToast({
-                  id: "demo-resilience",
-                  type: "resilience",
-                  message: "Great start! Now show how you regulate stress and bounce back from setbacks.",
-                  suggestion: "Share specific techniques you use to stay calm under pressure and how you reframe challenges as growth opportunities.",
-                  pastLearning: {
-                    context: "Heart rate data shows you've improved stress management during exam periods",
-                    insight: "Use those same breathing techniques that helped you stay centered during finals"
-                  }
-                });
-                setIsPaused(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              Resilience
-            </Button>
-            
-            <Button
-              onClick={() => {
-                setActiveToast({
-                  id: "demo-leadership",
-                  type: "leadership",
-                  message: "You're touching on leadership, but dig deeper into your influence style.",
-                  suggestion: "Describe how you motivate others without formal authority and how you handle conflict within teams.",
-                  pastLearning: {
-                    context: "Calendar shows you consistently organize study groups and social events",
-                    insight: "Draw on that natural organizing ability that makes people want to follow your lead"
-                  }
-                });
-                setIsPaused(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              Leadership
-            </Button>
-            
-            <Button
-              onClick={() => {
-                setActiveToast({
-                  id: "demo-adaptability",
-                  type: "adaptability",
-                  message: "Excellent! Now showcase your cognitive flexibility and openness to change.",
-                  suggestion: "Share a time when you had to pivot quickly, learn something completely new, or challenge your own assumptions.",
-                  pastLearning: {
-                    context: "App usage shows you quickly adapt to new features and workflows",
-                    insight: "Transfer that same curiosity and quick learning you show with technology to human situations"
-                  }
-                });
-                setIsPaused(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              Adaptability
-            </Button>
-            
-            <Button
-              onClick={() => {
-                setActiveToast({
-                  id: "demo-creative",
-                  type: "creative-thinking",
-                  message: "I can sense your creativity! Push beyond conventional thinking patterns.",
-                  suggestion: "Connect seemingly unrelated concepts, challenge the premise of the question, or offer a completely fresh perspective.",
-                  pastLearning: {
-                    context: "Search history shows diverse interests from quantum physics to ancient philosophy",
-                    insight: "Use that cross-domain thinking that helps you see patterns others miss"
-                  }
-                });
-                setIsPaused(true);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              Creative
-            </Button>
-          </div>
         </div>
         
         <div className="flex items-center gap-4">
