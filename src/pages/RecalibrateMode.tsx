@@ -431,7 +431,7 @@ const RecalibrateMode = () => {
       </div>
 
       {/* Tools Selection */}
-      <div className="flex-1 px-8 max-w-2xl mx-auto pb-16">
+      <div className="flex-1 px-8 max-w-2xl mx-auto pb-32">
         <div className="space-y-12">
           {tools.map((tool, index) => (
             <article 
