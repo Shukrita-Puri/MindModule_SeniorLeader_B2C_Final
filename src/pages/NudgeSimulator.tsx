@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ArrowLeft, RefreshCw, Wifi, Battery, Signal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -12,29 +11,29 @@ const NudgeSimulator = () => {
   const mockNudges = [
     {
       id: "1",
-      title: "Pre-Test Prep",
-      message: "AP Chemistry exam tomorrow. Want to do a 3-min clarity session to reduce test anxiety?",
-      type: "breathwork" as const,
-      context: "Based on calendar: AP Chemistry exam tomorrow morning",
-      urgency: "medium" as const,
+      title: "Advanced Physics Exam",
+      message: "Advanced Physics Exam in 2 days. Shift into deep focus mode to master the material and your anxiety.",
+      type: "futurescape" as const,
+      context: "Based on calendar: Advanced Physics exam in 2 days",
+      urgency: "high" as const,
       timestamp: new Date()
     },
     {
       id: "2", 
-      title: "Weekly Reflection",
-      message: "End of the school week. 1 insight, 1 win, 1 area to improve?",
-      type: "clarity" as const,
-      context: "Friday evening reflection prompt",
-      urgency: "low" as const,
+      title: "Oxford College Interview",
+      message: "Oxford College Interview in 4 days. Practice with a simulated Oxford admissions assessor to gain an edge.",
+      type: "scenario-lab" as const,
+      context: "Oxford interview scheduled for this week",
+      urgency: "high" as const,
       timestamp: new Date()
     },
     {
       id: "3",
-      title: "Study Flow Alert", 
-      message: "Your focus window is starting. Ready to tackle that college essay draft?",
-      type: "futurescape" as const,
-      context: "Based on productivity patterns & calendar",
-      urgency: "low" as const,
+      title: "Resilience Training", 
+      message: "Feeling overwhelmed? Tap into resilience techniques used by Navy SEALs and Ancient Yogis to stay calm under pressure.",
+      type: "breathwork" as const,
+      context: "Stress levels elevated - resilience support available",
+      urgency: "medium" as const,
       timestamp: new Date()
     },
     {

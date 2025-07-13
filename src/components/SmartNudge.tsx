@@ -83,7 +83,7 @@ const SmartNudge = ({
             <Icon size={20} className="text-white" />
           </div>
           <div>
-            <h4 className="font-bold text-black text-sm">Inner Architect</h4>
+            <h4 className="font-bold text-black text-sm">Mind Module</h4>
             <p className="text-gray-500 text-xs">
               {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -115,7 +115,7 @@ const SmartNudge = ({
           <Button
             onClick={handleAction}
             size="sm"
-            className="flex-1 font-semibold text-white border-0 bg-hyper-coral hover:bg-red-600"
+            className="flex-1 font-semibold text-white border-0 bg-muted-foreground hover:bg-muted-foreground/80"
           >
             <ChevronRight size={14} className="mr-1" />
             Take Action
