@@ -127,6 +127,17 @@ const FlowStateLab = () => {
         { name: 'Review & Correct', duration: 2, description: 'Check answers and fill gaps' }
       ]
     },
+    'info-chunk-synthesis': {
+      name: 'Info Chunk + Synthesis Block',
+      category: 'Modern Productivity + Hermeneutic Circle',
+      whatItIs: 'Consume information in focused chunks, then synthesize insights through structured reflection.',
+      whyItWorks: 'Combines focused intake with deliberate processing, preventing information overload while building understanding.',
+      phases: [
+        { name: 'Chunk Preparation', duration: 1, description: 'Define what information you will process and your synthesis goal' },
+        { name: 'Focused Intake', duration: 0, description: 'Deep information processing with minimal distraction' },
+        { name: 'Synthesis Reflection', duration: 3, description: 'Connect ideas, identify patterns, and extract key insights' }
+      ]
+    },
     'constraint-challenge': {
       name: 'Constraint Challenge',
       category: 'Zen Aesthetic + Design Thinking',
@@ -148,21 +159,166 @@ const FlowStateLab = () => {
         { name: 'Free Flow Writing', duration: 0, description: 'Write without stopping or editing' },
         { name: 'Flow Review', duration: 2, description: 'Read through and highlight gems' }
       ]
+    },
+    'loop-layer': {
+      name: 'Loop + Layer',
+      category: 'Deliberate Practice + Nada Yoga',
+      whatItIs: 'Practice in focused repetitive cycles, adding complexity layers gradually.',
+      whyItWorks: 'Builds muscle memory and deep competence through mindful repetition with progressive challenge.',
+      phases: [
+        { name: 'Base Loop Setup', duration: 2, description: 'Establish your core practice pattern and rhythm' },
+        { name: 'Layered Practice', duration: 0, description: 'Repeat with incremental complexity additions' },
+        { name: 'Integration Review', duration: 2, description: 'Consolidate new layers into your practice' }
+      ]
+    },
+    'scene-flowboard': {
+      name: 'Scene Flowboard',
+      category: 'Visual Storyboarding + Agile Task Framing',
+      whatItIs: 'Create visual sequences of your work process, breaking complex tasks into scene-like segments.',
+      whyItWorks: 'Makes abstract work tangible and creates clear progression milestones that maintain motivation.',
+      phases: [
+        { name: 'Scene Mapping', duration: 3, description: 'Break your work into visual scenes or chapters' },
+        { name: 'Scene Execution', duration: 0, description: 'Work through scenes sequentially with clear transitions' },
+        { name: 'Flow Review', duration: 2, description: 'Assess scene effectiveness and adjust sequence' }
+      ]
+    },
+    'rapid-frame-challenge': {
+      name: 'Rapid Frame Challenge',
+      category: 'Mindfulness in Action + Visual Iteration',
+      whatItIs: 'Generate multiple quick visual or conceptual frames of your solution in rapid succession.',
+      whyItWorks: 'Prevents overthinking and perfectionism while building creative momentum through iterative refinement.',
+      phases: [
+        { name: 'Frame Setup', duration: 1, description: 'Define your challenge and frame parameters' },
+        { name: 'Rapid Generation', duration: 0, description: 'Create multiple solution frames quickly without judgment' },
+        { name: 'Frame Selection', duration: 2, description: 'Review and refine your strongest frames' }
+      ]
+    },
+    'speaking-burst-recall': {
+      name: 'Speaking Burst + Flash Recall',
+      category: 'Neuroscience + Vedic Repetition',
+      whatItIs: 'Alternate between speaking aloud what you know and rapid recall testing.',
+      whyItWorks: 'Verbal processing strengthens memory pathways while flash recall builds retrieval strength.',
+      phases: [
+        { name: 'Burst Preparation', duration: 1, description: 'Organize key concepts for verbal practice' },
+        { name: 'Speak-Recall Cycles', duration: 0, description: 'Alternate between explaining aloud and testing recall' },
+        { name: 'Mastery Check', duration: 2, description: 'Final fluency test and gap identification' }
+      ]
+    },
+    'code-test-explain': {
+      name: 'Code–Test–Explain',
+      category: 'Test-Driven Development + Feynman Technique',
+      whatItIs: 'Write code, test it immediately, then explain how it works in simple terms.',
+      whyItWorks: 'Combines practical application with deep understanding verification through teaching.',
+      phases: [
+        { name: 'Code Setup', duration: 2, description: 'Plan your coding approach and testing criteria' },
+        { name: 'Code-Test Cycles', duration: 0, description: 'Write, test, and iterate in short cycles' },
+        { name: 'Explain & Document', duration: 3, description: 'Explain your solution clearly and document insights' }
+      ]
+    },
+    'loop-shift-reset': {
+      name: 'Loop, Shift, Reset',
+      category: 'Bach Repetition + Somatic Tuning',
+      whatItIs: 'Practice in focused loops, shift perspective or approach, then reset to fresh awareness.',
+      whyItWorks: 'Prevents plateaus through systematic variation while maintaining focused attention.',
+      phases: [
+        { name: 'Initial Loop', duration: 0, description: 'Practice your core pattern with full attention' },
+        { name: 'Perspective Shift', duration: 2, description: 'Change your approach, tempo, or focus point' },
+        { name: 'Reset Integration', duration: 1, description: 'Return to practice with fresh awareness' }
+      ]
+    },
+    'micro-drills-peak': {
+      name: 'Micro Drills + Peak Set',
+      category: 'Sports Psychology + Warrior Tradition',
+      whatItIs: 'Practice specific micro-skills, then combine them in one peak performance set.',
+      whyItWorks: 'Builds precise competence through isolation, then integrates skills under optimal challenge.',
+      phases: [
+        { name: 'Drill Isolation', duration: 0, description: 'Practice individual skills with precision focus' },
+        { name: 'Skill Integration', duration: 2, description: 'Combine drills into flowing sequences' },
+        { name: 'Peak Performance', duration: 0, description: 'Execute your best possible integrated performance' }
+      ]
+    },
+    'segment-voice-anchor': {
+      name: 'Segment Practice + Voice Anchor',
+      category: 'Classical Rhetoric + NLP Anchoring',
+      whatItIs: 'Break content into segments, practice with vocal anchoring phrases that trigger recall.',
+      whyItWorks: 'Creates strong memory anchors through multi-sensory encoding and structured segmentation.',
+      phases: [
+        { name: 'Segment Mapping', duration: 2, description: 'Break content into logical segments with voice anchors' },
+        { name: 'Anchor Practice', duration: 0, description: 'Practice segments with consistent vocal anchoring' },
+        { name: 'Flow Integration', duration: 2, description: 'Link segments into smooth, anchored delivery' }
+      ]
+    },
+    'milestone-mapping': {
+      name: 'Milestone Mapping',
+      category: 'Project Management + Pilgrimage Pathways',
+      whatItIs: 'Map your work as a journey with meaningful milestones that create momentum and meaning.',
+      whyItWorks: 'Transforms work into a purposeful journey, maintaining motivation through meaningful progress markers.',
+      phases: [
+        { name: 'Journey Design', duration: 3, description: 'Map your work journey with meaningful milestones' },
+        { name: 'Milestone Travel', duration: 0, description: 'Work toward milestones with pilgrimage mindset' },
+        { name: 'Milestone Celebration', duration: 2, description: 'Honor achievement and prepare for next milestone' }
+      ]
+    },
+    'energy-match-blocks': {
+      name: '3–Block Energy Match',
+      category: 'Chronobiology + Ayurveda Rhythms',
+      whatItIs: 'Align three work blocks with your natural energy rhythms throughout the day.',
+      whyItWorks: 'Maximizes productivity by matching task demands with optimal energy states.',
+      phases: [
+        { name: 'Energy Assessment', duration: 2, description: 'Identify your current energy state and rhythm' },
+        { name: 'Matched Work Blocks', duration: 0, description: 'Execute tasks aligned with energy levels' },
+        { name: 'Rhythm Review', duration: 1, description: 'Note energy patterns for future optimization' }
+      ]
+    },
+    'zone-five-item': {
+      name: 'Zone + 5–Item Rule',
+      category: 'Minimalism + Zen Tidy Practice',
+      whatItIs: 'Create a focused work zone with only 5 essential items, maintaining clarity through simplicity.',
+      whyItWorks: 'Eliminates distractions and decision fatigue while creating a mindful, intentional work environment.',
+      phases: [
+        { name: 'Zone Clearing', duration: 2, description: 'Clear space and select your 5 essential items' },
+        { name: 'Focused Work', duration: 0, description: 'Work within your simplified, intentional environment' },
+        { name: 'Clarity Review', duration: 1, description: 'Assess how simplicity affected your focus' }
+      ]
+    },
+    'visual-cue-board': {
+      name: 'Visual Cue Board',
+      category: 'Vision Psychology + Sankalpa/Vow Setting',
+      whatItIs: 'Create a visual board with images and symbols that anchor your intention and progress.',
+      whyItWorks: 'Engages visual processing to reinforce goals and creates powerful subconscious anchoring.',
+      phases: [
+        { name: 'Cue Creation', duration: 3, description: 'Design visual cues that represent your goals and process' },
+        { name: 'Cue-Anchored Work', duration: 0, description: 'Work with visual cues actively guiding focus' },
+        { name: 'Vision Integration', duration: 2, description: 'Update cues based on insights and progress' }
+      ]
+    },
+    'reverse-roadmap': {
+      name: 'Reverse Roadmap',
+      category: 'Backward Design + Stoic End-Mapping',
+      whatItIs: 'Start from your desired end result and work backward to create your action path.',
+      whyItWorks: 'Clarifies essential steps by working from clarity rather than confusion, ensuring purposeful action.',
+      phases: [
+        { name: 'End Visioning', duration: 3, description: 'Clearly define and visualize your desired outcome' },
+        { name: 'Backward Mapping', duration: 2, description: 'Work backward to identify necessary steps' },
+        { name: 'Forward Execution', duration: 0, description: 'Execute your reverse-engineered action plan' }
+      ]
     }
   };
 
-  // Task categories with matched techniques
+  // Task categories with matched techniques (defaults - enhanced matching happens in getSelectedTechnique)
   const taskCategories: TaskCategory[] = [
     {
       id: "academic-work",
       title: "Academic Work",
       emoji: "",
       subtasks: [
-        { id: "essay-writing", name: "Essay Writing", technique: flowTechniques['time-block-micro-goal'] },
+        { id: "essay-writing", name: "Essay Writing", technique: flowTechniques['scene-flowboard'] },
         { id: "math-problems", name: "Math Problem Sets", technique: flowTechniques['problem-looping'] },
-        { id: "reading-analysis", name: "Reading & Analysis", technique: flowTechniques['active-margin-tagging'] },
+        { id: "reading-analysis", name: "Reading & Analysis", technique: flowTechniques['info-chunk-synthesis'] },
         { id: "test-prep", name: "Test or Exam Preparation", technique: flowTechniques['retrieval-sprints'] },
-        { id: "research", name: "Research Projects", technique: flowTechniques['time-block-micro-goal'] }
+        { id: "research", name: "Research Projects", technique: flowTechniques['info-chunk-synthesis'] },
+        { id: "memorization", name: "Memorization & Recall", technique: flowTechniques['speaking-burst-recall'] },
+        { id: "presentation-prep", name: "Presentation Preparation", technique: flowTechniques['segment-voice-anchor'] }
       ]
     },
     {
@@ -172,9 +328,10 @@ const FlowStateLab = () => {
       subtasks: [
         { id: "art-design", name: "Art & Design", technique: flowTechniques['constraint-challenge'] },
         { id: "creative-writing", name: "Creative Writing", technique: flowTechniques['timed-freewriting'] },
-        { id: "music-practice", name: "Music Practice", technique: flowTechniques['problem-looping'] },
-        { id: "video-creation", name: "Video Creation", technique: flowTechniques['constraint-challenge'] },
-        { id: "photography", name: "Photography", technique: flowTechniques['constraint-challenge'] }
+        { id: "music-practice", name: "Music Practice", technique: flowTechniques['loop-shift-reset'] },
+        { id: "video-creation", name: "Video Creation", technique: flowTechniques['scene-flowboard'] },
+        { id: "photography", name: "Photography", technique: flowTechniques['rapid-frame-challenge'] },
+        { id: "brainstorming", name: "Ideation & Brainstorming", technique: flowTechniques['rapid-frame-challenge'] }
       ]
     },
     {
@@ -182,11 +339,12 @@ const FlowStateLab = () => {
       title: "Skill Development",
       emoji: "",
       subtasks: [
-        { id: "language-learning", name: "Language Learning", technique: flowTechniques['retrieval-sprints'] },
-        { id: "coding-practice", name: "Coding Practice", technique: flowTechniques['problem-looping'] },
-        { id: "instrument-mastery", name: "Instrument Mastery", technique: flowTechniques['problem-looping'] },
-        { id: "sport-training", name: "Sport Training", technique: flowTechniques['problem-looping'] },
-        { id: "public-speaking", name: "Public Speaking", technique: flowTechniques['time-block-micro-goal'] }
+        { id: "language-learning", name: "Language Learning", technique: flowTechniques['segment-voice-anchor'] },
+        { id: "coding-practice", name: "Coding Practice", technique: flowTechniques['code-test-explain'] },
+        { id: "instrument-mastery", name: "Instrument Mastery", technique: flowTechniques['loop-shift-reset'] },
+        { id: "sport-training", name: "Sport Training", technique: flowTechniques['micro-drills-peak'] },
+        { id: "public-speaking", name: "Public Speaking", technique: flowTechniques['segment-voice-anchor'] },
+        { id: "technical-skills", name: "Technical Skills Practice", technique: flowTechniques['loop-layer'] }
       ]
     },
     {
@@ -194,11 +352,23 @@ const FlowStateLab = () => {
       title: "Planning & Organizing",
       emoji: "",
       subtasks: [
-        { id: "college-apps", name: "College Applications", technique: flowTechniques['time-block-micro-goal'] },
-        { id: "schedule-planning", name: "Schedule Planning", technique: flowTechniques['time-block-micro-goal'] },
-        { id: "room-organization", name: "Room Organization", technique: flowTechniques['constraint-challenge'] },
-        { id: "goal-setting", name: "Goal Setting", technique: flowTechniques['time-block-micro-goal'] },
-        { id: "project-planning", name: "Project Planning", technique: flowTechniques['time-block-micro-goal'] }
+        { id: "college-apps", name: "College Applications", technique: flowTechniques['milestone-mapping'] },
+        { id: "schedule-planning", name: "Schedule Planning", technique: flowTechniques['energy-match-blocks'] },
+        { id: "room-organization", name: "Room Organization", technique: flowTechniques['zone-five-item'] },
+        { id: "goal-setting", name: "Goal Setting", technique: flowTechniques['visual-cue-board'] },
+        { id: "project-planning", name: "Project Planning", technique: flowTechniques['reverse-roadmap'] },
+        { id: "life-design", name: "Life Design & Vision", technique: flowTechniques['reverse-roadmap'] }
+      ]
+    },
+    {
+      id: "focus-clarity",
+      title: "Focus & Mental Clarity",
+      emoji: "",
+      subtasks: [
+        { id: "deep-work", name: "Deep Work Sessions", technique: flowTechniques['zone-five-item'] },
+        { id: "meditation-practice", name: "Mindfulness Practice", technique: flowTechniques['energy-match-blocks'] },
+        { id: "decision-making", name: "Decision Making", technique: flowTechniques['info-chunk-synthesis'] },
+        { id: "problem-solving", name: "Complex Problem Solving", technique: flowTechniques['reverse-roadmap'] }
       ]
     }
   ];
@@ -233,9 +403,158 @@ const FlowStateLab = () => {
   }, [isSessionActive, isPaused, currentStep, sessionData, currentPhase, phaseTimer, toast]);
 
   const getSelectedTechnique = (): FlowTechnique | null => {
-    const category = taskCategories.find(cat => cat.id === selectedTask);
-    const subtask = category?.subtasks.find(sub => sub.id === selectedSubtask);
-    return subtask?.technique || null;
+    // Enhanced matching logic that triangulates based on activity, time, and context
+    const context = userContext.toLowerCase();
+    
+    // Time-based technique preferences
+    const timePreferences = {
+      short: (duration <= 15), // 15 minutes or less
+      medium: (duration > 15 && duration <= 45), // 15-45 minutes  
+      long: (duration > 45) // 45+ minutes
+    };
+    
+    // Context-based technique preferences
+    const contextKeywords = {
+      memory: /memory|recall|remember|memorize|retention/,
+      creative: /creative|design|art|innovation|brainstorm|idea/,
+      analytical: /analyz|logic|problem|math|calcul|reason/,
+      learning: /learn|study|understand|comprehend|master/,
+      writing: /write|essay|composition|draft|text/,
+      practice: /practice|drill|repeat|skill|technique/,
+      planning: /plan|organize|structure|goal|roadmap/,
+      pressure: /pressure|stress|deadline|urgent|exam/,
+      focus: /focus|concentrate|attention|clarity|distraction/,
+      energy: /energy|tired|fatigue|motivation|momentum/
+    };
+    
+    // Enhanced matching based on activity + time + context
+    const activityType = `${selectedTask}-${selectedSubtask}`;
+    
+    // Override default technique based on context clues
+    if (contextKeywords.memory.test(context) && timePreferences.short) {
+      return flowTechniques['speaking-burst-recall'];
+    }
+    
+    if (contextKeywords.memory.test(context) && (timePreferences.medium || timePreferences.long)) {
+      return flowTechniques['retrieval-sprints'];
+    }
+    
+    if (contextKeywords.creative.test(context) && timePreferences.short) {
+      return flowTechniques['rapid-frame-challenge'];
+    }
+    
+    if (contextKeywords.creative.test(context) && timePreferences.medium) {
+      return flowTechniques['constraint-challenge'];
+    }
+    
+    if (contextKeywords.analytical.test(context) && timePreferences.short) {
+      return flowTechniques['problem-looping'];
+    }
+    
+    if (contextKeywords.analytical.test(context) && timePreferences.long) {
+      return flowTechniques['info-chunk-synthesis'];
+    }
+    
+    if (contextKeywords.writing.test(context) && timePreferences.short) {
+      return flowTechniques['timed-freewriting'];
+    }
+    
+    if (contextKeywords.writing.test(context) && timePreferences.long) {
+      return flowTechniques['scene-flowboard'];
+    }
+    
+    if (contextKeywords.practice.test(context) && timePreferences.short) {
+      return flowTechniques['micro-drills-peak'];
+    }
+    
+    if (contextKeywords.practice.test(context) && timePreferences.medium) {
+      return flowTechniques['loop-layer'];
+    }
+    
+    if (contextKeywords.planning.test(context)) {
+      if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+      if (timePreferences.medium) return flowTechniques['milestone-mapping'];
+      return flowTechniques['reverse-roadmap'];
+    }
+    
+    if (contextKeywords.pressure.test(context) && timePreferences.short) {
+      return flowTechniques['time-block-micro-goal'];
+    }
+    
+    if (contextKeywords.focus.test(context)) {
+      if (timePreferences.short) return flowTechniques['zone-five-item'];
+      return flowTechniques['energy-match-blocks'];
+    }
+    
+    if (contextKeywords.energy.test(context)) {
+      return flowTechniques['energy-match-blocks'];
+    }
+    
+    // Enhanced activity-specific matching with time consideration
+    switch (activityType) {
+      case 'academic-work-essay-writing':
+        if (timePreferences.short) return flowTechniques['timed-freewriting'];
+        if (timePreferences.medium) return flowTechniques['scene-flowboard'];
+        return flowTechniques['milestone-mapping'];
+        
+      case 'academic-work-math-problems':
+        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['problem-looping'];
+        
+      case 'academic-work-reading-analysis':
+        if (timePreferences.short) return flowTechniques['active-margin-tagging'];
+        return flowTechniques['info-chunk-synthesis'];
+        
+      case 'academic-work-test-prep':
+        if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
+        return flowTechniques['retrieval-sprints'];
+        
+      case 'academic-work-research':
+        if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+        return flowTechniques['info-chunk-synthesis'];
+        
+      case 'creative-projects-art-design':
+        if (timePreferences.short) return flowTechniques['rapid-frame-challenge'];
+        return flowTechniques['constraint-challenge'];
+        
+      case 'creative-projects-creative-writing':
+        if (timePreferences.short) return flowTechniques['timed-freewriting'];
+        return flowTechniques['scene-flowboard'];
+        
+      case 'creative-projects-music-practice':
+        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['loop-shift-reset'];
+        
+      case 'creative-projects-video-creation':
+        if (timePreferences.short) return flowTechniques['scene-flowboard'];
+        return flowTechniques['milestone-mapping'];
+        
+      case 'skill-development-language-learning':
+        if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
+        return flowTechniques['segment-voice-anchor'];
+        
+      case 'skill-development-coding-practice':
+        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['code-test-explain'];
+        
+      case 'skill-development-instrument-mastery':
+        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['loop-shift-reset'];
+        
+      case 'planning-organizing-college-apps':
+        if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+        return flowTechniques['milestone-mapping'];
+        
+      case 'planning-organizing-goal-setting':
+        if (timePreferences.short) return flowTechniques['visual-cue-board'];
+        return flowTechniques['reverse-roadmap'];
+        
+      default:
+        // Fallback to time-based general recommendations
+        if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+        if (timePreferences.medium) return flowTechniques['energy-match-blocks'];
+        return flowTechniques['milestone-mapping'];
+    }
   };
 
   const startSession = () => {
