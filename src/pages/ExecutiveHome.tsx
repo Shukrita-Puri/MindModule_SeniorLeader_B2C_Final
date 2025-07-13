@@ -112,22 +112,7 @@ const ExecutiveHome = () => {
       category: "Performance Optimization",
       icon: Zap,
       suggestion: "Build resilience for high-demand days",
-      actionLabel: "Power Up Session", 
-      route: "/recalibrate/power-up",
-      urgency: "medium"
-    });
-    
-    // Always include Guided Breathing as fourth priority
-    priorities.push({
-      id: 4,
-      title: "Guided Breathing",
-      timeHorizon: "Available now",
-      tagType: "wellbeing",
-      whyMatters: "Recent stress patterns suggest nervous system regulation would optimize performance and clarity.",
-      category: "Emotional Regulation",
-      icon: Heart,
-      suggestion: "Suggest Guided breathing",
-      actionLabel: "Start Breathing Session",
+      actionLabel: "Guided Breathing", 
       route: "/recalibrate/breathing",
       urgency: "medium"
     });
@@ -277,11 +262,7 @@ const ExecutiveHome = () => {
                     size="sm" 
                     variant={priority.urgency === 'high' ? 'default' : 'outline'}
                     onClick={() => navigate(priority.route)}
-                    className={`text-xs w-full py-2 ${
-                      priority.id === 1 ? 'bg-purple-600 hover:bg-purple-700 text-white' :
-                      priority.id === 2 ? 'bg-blue-600 hover:bg-blue-700 text-white' :
-                      ''
-                    }`}
+                    className="text-xs w-full py-2"
                   >
                     {priority.actionLabel}
                     <ArrowRight size={12} className="ml-2" />
