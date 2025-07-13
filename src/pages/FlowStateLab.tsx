@@ -418,7 +418,7 @@ const FlowStateLab = () => {
       timeStress: /urgent|deadline|tomorrow|cramming|last.minute|quick|rushed/,
       examPrep: /exam|test|final|midterm|assessment|quiz|evaluation/,
       memoryWork: /memorize|recall|remember|facts|vocabulary|definitions|terms/,
-      mathContext: /math|calculus|algebra|physics|chemistry|equations|formulas|problem.solving/,
+      mathContext: /\b(math|calculus|algebra|geometry|statistics|mathematical|equation|formula|theorem)\b/,
       writingContext: /essay|paper|writing|draft|argument|thesis|composition/,
       creativeContext: /creative|design|brainstorm|innovative|art|visual|imagination/,
       analyticalContext: /analyze|logic|reasoning|critical|systematic|detailed/,
@@ -429,25 +429,46 @@ const FlowStateLab = () => {
       energyLevel: /tired|fatigue|energy|motivation|momentum|alert|fresh/
     };
     
+    // Debug logging to track triangulation
+    console.log('Flow Lab Triangulation:', {
+      selectedSubtask,
+      duration,
+      timeCategory: timePreferences.short ? 'short' : timePreferences.medium ? 'medium' : 'long',
+      context: context,
+      patterns: {
+        examPrep: contextPatterns.examPrep.test(context),
+        mathContext: contextPatterns.mathContext.test(context),
+        memoryWork: contextPatterns.memoryWork.test(context),
+        timeStress: contextPatterns.timeStress.test(context),
+        complexContext: contextPatterns.complexContext.test(context)
+      }
+    });
+    
     // Helper function to check multiple patterns
     const hasPattern = (patterns: RegExp[]) => patterns.some(pattern => pattern.test(context));
     
-    // Advanced triangulation for test preparation
+    // Advanced triangulation for test preparation - prioritize test-prep techniques
     if (selectedSubtask === 'test-prep') {
+      console.log('Test-prep triangulation triggered');
+      
       if (timePreferences.short) {
         if (contextPatterns.memoryWork.test(context)) return flowTechniques['speaking-burst-recall'];
         if (contextPatterns.timeStress.test(context)) return flowTechniques['micro-drills-peak'];
-        return flowTechniques['retrieval-sprints'];
+        return flowTechniques['speaking-burst-recall'];
       } else if (timePreferences.medium) {
-        if (contextPatterns.mathContext.test(context)) return flowTechniques['problem-looping'];
-        if (contextPatterns.complexContext.test(context)) return flowTechniques['active-margin-tagging'];
+        // For medium duration (25-45min), prioritize test-specific techniques
         if (contextPatterns.memoryWork.test(context)) return flowTechniques['segment-voice-anchor'];
         if (contextPatterns.timeStress.test(context)) return flowTechniques['retrieval-sprints'];
-        return flowTechniques['retrieval-sprints'];
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['active-margin-tagging'];
+        // Only use math techniques if it's clearly math-focused AND test prep
+        if (contextPatterns.mathContext.test(context) && context.includes('math')) return flowTechniques['problem-looping'];
+        return flowTechniques['active-margin-tagging'];
       } else {
+        // For long duration (45+ min), use comprehensive test prep techniques
         if (contextPatterns.complexContext.test(context)) return flowTechniques['info-chunk-synthesis'];
-        if (contextPatterns.mathContext.test(context)) return flowTechniques['problem-looping'];
         if (contextPatterns.memoryWork.test(context)) return flowTechniques['loop-layer'];
+        // Only use math techniques if it's clearly math-focused AND test prep
+        if (contextPatterns.mathContext.test(context) && context.includes('math')) return flowTechniques['problem-looping'];
         return flowTechniques['milestone-mapping'];
       }
     }
