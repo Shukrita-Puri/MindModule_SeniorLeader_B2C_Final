@@ -449,6 +449,114 @@ const CollegeAdmissionsSimulation = ({
           >
             End Interview
           </Button>
+          
+          {/* Demo Toast Buttons */}
+          <div className="flex gap-1 flex-wrap">
+            <Button
+              onClick={() => {
+                setActiveToast({
+                  id: "demo-social",
+                  type: "social-intelligence",
+                  message: "Your response shows good awareness, but consider demonstrating deeper emotional intelligence.",
+                  suggestion: "Try acknowledging the interviewer's perspective and show how you build rapport with different personality types.",
+                  pastLearning: {
+                    context: "WhatsApp analysis shows you excel at reading social cues in group chats",
+                    insight: "Apply that same social radar you use in digital conversations to face-to-face interactions"
+                  }
+                });
+                setIsPaused(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Social
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setActiveToast({
+                  id: "demo-resilience",
+                  type: "resilience",
+                  message: "Great start! Now show how you regulate stress and bounce back from setbacks.",
+                  suggestion: "Share specific techniques you use to stay calm under pressure and how you reframe challenges as growth opportunities.",
+                  pastLearning: {
+                    context: "Heart rate data shows you've improved stress management during exam periods",
+                    insight: "Use those same breathing techniques that helped you stay centered during finals"
+                  }
+                });
+                setIsPaused(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Resilience
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setActiveToast({
+                  id: "demo-leadership",
+                  type: "leadership",
+                  message: "You're touching on leadership, but dig deeper into your influence style.",
+                  suggestion: "Describe how you motivate others without formal authority and how you handle conflict within teams.",
+                  pastLearning: {
+                    context: "Calendar shows you consistently organize study groups and social events",
+                    insight: "Draw on that natural organizing ability that makes people want to follow your lead"
+                  }
+                });
+                setIsPaused(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Leadership
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setActiveToast({
+                  id: "demo-adaptability",
+                  type: "adaptability",
+                  message: "Excellent! Now showcase your cognitive flexibility and openness to change.",
+                  suggestion: "Share a time when you had to pivot quickly, learn something completely new, or challenge your own assumptions.",
+                  pastLearning: {
+                    context: "App usage shows you quickly adapt to new features and workflows",
+                    insight: "Transfer that same curiosity and quick learning you show with technology to human situations"
+                  }
+                });
+                setIsPaused(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Adaptability
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setActiveToast({
+                  id: "demo-creative",
+                  type: "creative-thinking",
+                  message: "I can sense your creativity! Push beyond conventional thinking patterns.",
+                  suggestion: "Connect seemingly unrelated concepts, challenge the premise of the question, or offer a completely fresh perspective.",
+                  pastLearning: {
+                    context: "Search history shows diverse interests from quantum physics to ancient philosophy",
+                    insight: "Use that cross-domain thinking that helps you see patterns others miss"
+                  }
+                });
+                setIsPaused(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Creative
+            </Button>
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
