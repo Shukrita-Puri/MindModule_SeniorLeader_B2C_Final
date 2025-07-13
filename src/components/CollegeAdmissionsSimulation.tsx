@@ -3,6 +3,7 @@ import { Mic, MicOff, MessageCircle, Timer, GraduationCap, Brain, Target, X } fr
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -49,6 +50,12 @@ const CollegeAdmissionsSimulation = ({
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout>();
   const responseTimerRef = useRef<NodeJS.Timeout>();
+  const { dismiss } = useToast();
+
+  // Clear any existing toasts when component mounts
+  useEffect(() => {
+    dismiss();
+  }, [dismiss]);
 
   const emotionIcons = {
     neutral: "🎓",
