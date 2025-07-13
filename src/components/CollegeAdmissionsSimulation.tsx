@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, MessageCircle, Timer, GraduationCap, Brain, Target } from "lucide-react";
+import { Mic, MicOff, MessageCircle, Timer, GraduationCap, Brain, Target, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -37,8 +36,17 @@ const CollegeAdmissionsSimulation = ({
   const [isThinking, setIsThinking] = useState(false);
   const [userAnxietyLevel, setUserAnxietyLevel] = useState<"low" | "medium" | "high">("low");
   const [questionCount, setQuestionCount] = useState(0);
-  
-  const { toast } = useToast();
+  const [activeToast, setActiveToast] = useState<{
+    id: string;
+    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
+    message: string;
+    suggestion: string;
+    pastLearning?: {
+      context: string;
+      insight: string;
+    };
+  } | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout>();
   const responseTimerRef = useRef<NodeJS.Timeout>();
 
@@ -75,27 +83,27 @@ const CollegeAdmissionsSimulation = ({
 
   // Session timer
   useEffect(() => {
-    if (timeRemaining > 0) {
+    if (timeRemaining > 0 && !isPaused) {
       timerRef.current = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
-    } else {
+    } else if (timeRemaining <= 0) {
       onEndSession();
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [timeRemaining, onEndSession]);
+  }, [timeRemaining, onEndSession, isPaused]);
 
   // Response timer
   useEffect(() => {
-    if (responseTimeLeft > 0 && !isThinking) {
+    if (responseTimeLeft > 0 && !isThinking && !isPaused) {
       responseTimerRef.current = setTimeout(() => {
         setResponseTimeLeft(prev => prev - 1);
       }, 1000);
     }
     
-    if (responseTimeLeft === 10) {
+    if (responseTimeLeft === 10 && !isPaused) {
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200]);
       }
@@ -104,7 +112,46 @@ const CollegeAdmissionsSimulation = ({
     return () => {
       if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
     };
-  }, [responseTimeLeft, isThinking]);
+  }, [responseTimeLeft, isThinking, isPaused]);
+
+  const getPastLearning = (feedbackType: string, questionNumber: number) => {
+    // Simulate past learning insights based on user patterns and context
+    const pastLearnings = {
+      "mental-clarity": [
+        { context: "Email patterns show you often send lengthy messages without clear structure", insight: "Practice the 'bottom line up front' approach you've been working on" },
+        { context: "Calendar analysis shows back-to-back meetings", insight: "Apply your learned pause-and-breathe technique before responding" },
+        { context: "Previous app conversations show you excel when given time to reflect", insight: "Take a moment to organize your thoughts before speaking" }
+      ],
+      "social-intelligence": [
+        { context: "WhatsApp analysis shows you're great at reading social cues in text", insight: "Trust that same intuition you use in messaging when speaking face-to-face" },
+        { context: "Your wearable data shows increased heart rate during social interactions", insight: "Remember the grounding techniques that help you stay centered" },
+        { context: "Past conversations show you connect well through shared experiences", insight: "Draw on the storytelling strength you've developed" }
+      ],
+      "resilience": [
+        { context: "Your fitness tracker shows consistent workout patterns despite busy schedule", insight: "Channel that same persistence and discipline you show in your fitness routine" },
+        { context: "Email threads show you bounce back quickly from setbacks", insight: "Apply the reframing skills you've mastered in written communication" },
+        { context: "Past app sessions show growth mindset when receiving feedback", insight: "Trust your ability to turn challenges into learning opportunities" }
+      ],
+      "leadership": [
+        { context: "Calendar shows you organize group events and meetings", insight: "Use the same organizational confidence you show in planning" },
+        { context: "Message patterns show others seek your advice frequently", insight: "Remember that people naturally trust your judgment - show that confidence here" },
+        { context: "Previous simulations show improvement when you take initiative", insight: "Lead with the same authentic authority you've been developing" }
+      ],
+      "adaptability": [
+        { context: "Schedule analysis shows you handle last-minute changes well", insight: "Apply the flexible thinking you use in daily life" },
+        { context: "App usage shows you engage with diverse content types", insight: "Use your natural curiosity to explore different angles in your response" },
+        { context: "Past conversations show creative problem-solving", insight: "Trust your ability to think outside conventional frameworks" }
+      ],
+      "creative-thinking": [
+        { context: "Your browsing patterns show interest in diverse topics", insight: "Draw connections between seemingly unrelated experiences" },
+        { context: "Previous responses show unique perspectives", insight: "Don't hold back your unconventional insights - they're your strength" },
+        { context: "App engagement shows you thrive on complex challenges", insight: "Embrace the complexity of this question rather than simplifying" }
+      ]
+    };
+
+    const learningSet = pastLearnings[feedbackType as keyof typeof pastLearnings] || [];
+    return learningSet[questionNumber % learningSet.length];
+  };
 
   const getCoachingFeedback = (userResponse: string, questionNumber: number) => {
     const responseLength = userResponse.length;
@@ -118,43 +165,40 @@ const CollegeAdmissionsSimulation = ({
                                userResponse.toLowerCase().includes("learned") ||
                                userResponse.toLowerCase().includes("struggle");
 
+    let feedbackType: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
+    let message: string;
+    let suggestion: string;
+
     // Analyze response for coaching feedback
     if (responseLength < 50) {
-      return {
-        type: "mental-clarity" as const,
-        message: "Your response could benefit from more depth and detail.",
-        suggestion: "Try expanding with a specific example or personal story. Admissions officers want to see your thought process."
-      };
+      feedbackType = "mental-clarity";
+      message = "Your response could benefit from more depth and detail.";
+      suggestion = "Try expanding with a specific example or personal story. Admissions officers want to see your thought process.";
+    } else if (!hasPersonalStory && questionNumber > 2) {
+      feedbackType = "social-intelligence";
+      message = "Consider sharing a personal experience to connect with the interviewer.";
+      suggestion = "Stories help admissions officers understand who you really are beyond your achievements.";
+    } else if (!hasSpecificDetails) {
+      feedbackType = "leadership";
+      message = "Adding concrete details would strengthen your response.";
+      suggestion = "Specific examples, numbers, or outcomes show the real impact of your actions.";
+    } else if (questionNumber > 3 && !showsVulnerability) {
+      feedbackType = "resilience";
+      message = "Great response! Consider showing more authenticity by sharing challenges or growth.";
+      suggestion = "Admissions officers value students who can reflect on their struggles and learning.";
+    } else {
+      feedbackType = "creative-thinking";
+      message = "Excellent response! You're demonstrating strong self-awareness.";
+      suggestion = "Keep this level of authenticity and depth throughout the interview.";
     }
 
-    if (!hasPersonalStory && questionNumber > 2) {
-      return {
-        type: "social-intelligence" as const,
-        message: "Consider sharing a personal experience to connect with the interviewer.",
-        suggestion: "Stories help admissions officers understand who you really are beyond your achievements."
-      };
-    }
-
-    if (!hasSpecificDetails) {
-      return {
-        type: "leadership" as const,
-        message: "Adding concrete details would strengthen your response.",
-        suggestion: "Specific examples, numbers, or outcomes show the real impact of your actions."
-      };
-    }
-
-    if (questionNumber > 3 && !showsVulnerability) {
-      return {
-        type: "resilience" as const,
-        message: "Great response! Consider showing more authenticity by sharing challenges or growth.",
-        suggestion: "Admissions officers value students who can reflect on their struggles and learning."
-      };
-    }
+    const pastLearning = getPastLearning(feedbackType, questionNumber);
 
     return {
-      type: "creative-thinking" as const,
-      message: "Excellent response! You're demonstrating strong self-awareness.",
-      suggestion: "Keep this level of authenticity and depth throughout the interview."
+      type: feedbackType,
+      message,
+      suggestion,
+      pastLearning
     };
   };
 
@@ -226,13 +270,15 @@ const CollegeAdmissionsSimulation = ({
     // Get coaching feedback
     const feedback = getCoachingFeedback(message, questionCount);
     
-    // Show toast with coaching feedback
-    toast({
-      title: `💡 ${feedback.type.split('-').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Coaching`,
-      description: `${feedback.message} ${feedback.suggestion}`,
-      duration: 8000
+    // Show custom toast with coaching feedback and pause timers
+    setActiveToast({
+      id: Date.now().toString(),
+      type: feedback.type,
+      message: feedback.message,
+      suggestion: feedback.suggestion,
+      pastLearning: feedback.pastLearning
     });
+    setIsPaused(true);
 
     setTimeout(() => {
       const response = getAdmissionsResponse(message, questionCount);
@@ -272,8 +318,54 @@ const CollegeAdmissionsSimulation = ({
 
   const responseProgress = ((45 - responseTimeLeft) / 45) * 100;
 
+  const closeToast = () => {
+    setActiveToast(null);
+    setIsPaused(false);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background relative">
+      {/* Custom Toast Overlay */}
+      {activeToast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop blur */}
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={closeToast} />
+          
+          {/* Toast content */}
+          <div className="relative bg-gradient-to-br from-purple-500 to-purple-700 text-white p-6 rounded-xl shadow-2xl max-w-md mx-4 border border-purple-400">
+            <button
+              onClick={closeToast}
+              className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+            
+            <div className="mb-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Brain size={20} />
+                {activeToast.type.split('-').map(word => 
+                  word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Coaching
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              <p className="text-sm opacity-90">{activeToast.message}</p>
+              <p className="text-sm font-medium">{activeToast.suggestion}</p>
+              
+              {activeToast.pastLearning && (
+                <div className="bg-white/10 rounded-lg p-3 border border-white/20">
+                  <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                    <Target size={12} />
+                    Mind Module Insight
+                  </p>
+                  <p className="text-xs opacity-80 mb-2">{activeToast.pastLearning.context}</p>
+                  <p className="text-xs font-medium">{activeToast.pastLearning.insight}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header with Timer */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-4">
