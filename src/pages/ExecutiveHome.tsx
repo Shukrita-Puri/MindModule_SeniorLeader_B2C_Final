@@ -78,7 +78,7 @@ const ExecutiveHome = () => {
       title: "Oxford College Interview",
       timeHorizon: "4 days away",
       tagType: "calendar",
-      whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview. Admissions counselor emails show Oxford focus.",
+      whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview last week. Admissions counsellor emails show Oxford College in focus.",
       category: "Academic Performance",
       icon: Brain,
       suggestion: "Scenario Simulate your practice with the assessor",
@@ -93,7 +93,7 @@ const ExecutiveHome = () => {
       title: "Advanced Physics Exam",
       timeHorizon: "2 days away",
       tagType: "calendar",
-      whyMatters: "Focus logs show dips during demanding work. WhatsApp shows exam anxiety. Problem-solving blocks flagged.",
+      whyMatters: "Focus logs show dips during demanding work. WhatsApp conversation with friends shows exam anxiety. Problem-solving blocks flagged in chats.",
       category: "Academic Performance",
       icon: Brain,
       suggestion: "Enter optimal learning state",
@@ -260,7 +260,7 @@ const ExecutiveHome = () => {
                   </p>
                   <Button 
                     size="sm" 
-                    variant={priority.urgency === 'high' ? 'default' : 'outline'}
+                    variant="outline"
                     onClick={() => navigate(priority.route)}
                     className="text-xs w-full py-2"
                   >
