@@ -8,8 +8,21 @@ const ClearBackButton = () => {
   const [, setSearchParams] = useSearchParams();
 
   const handleBack = () => {
+    // For flow state lab, handle step-by-step navigation
+    if (location.pathname === '/flow-state-lab') {
+      const urlParams = new URLSearchParams(location.search);
+      const currentStep = urlParams.get('step') || 'hero';
+      const stepOrder = ['hero', 'choose-task', 'add-context', 'choose-duration', 'technique-matched', 'session-setup', 'session-active', 'session-complete', 'flow-log'];
+      const currentIndex = stepOrder.indexOf(currentStep);
+      
+      if (currentIndex > 0) {
+        setSearchParams({ step: stepOrder[currentIndex - 1] });
+      } else {
+        navigate('/inner-architect');
+      }
+    }
     // For flow session pages, handle step-by-step navigation
-    if (location.pathname === '/flow-session') {
+    else if (location.pathname === '/flow-session') {
       const urlParams = new URLSearchParams(location.search);
       const currentStep = parseInt(urlParams.get('step') || '1');
       

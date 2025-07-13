@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantFlowTunnel from "@/assets/vibrant-flow-tunnel.png";
@@ -52,9 +52,14 @@ type SessionData = {
 const FlowStateLab = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  // Core state
-  const [currentStep, setCurrentStep] = useState<FlowStep>('hero');
+  // Core state - sync with URL params
+  const [currentStep, setCurrentStep] = useState<FlowStep>(() => {
+    const stepParam = searchParams.get('step');
+    const validSteps: FlowStep[] = ['hero', 'choose-task', 'add-context', 'choose-duration', 'technique-matched', 'session-setup', 'session-active', 'session-complete', 'flow-log'];
+    return validSteps.includes(stepParam as FlowStep) ? stepParam as FlowStep : 'hero';
+  });
   const [selectedTask, setSelectedTask] = useState("");
   const [selectedSubtask, setSelectedSubtask] = useState("");
   const [userContext, setUserContext] = useState("");
@@ -218,7 +223,7 @@ const FlowStateLab = () => {
             });
           } else {
             // Session complete
-            setCurrentStep('session-complete');
+            updateStep('session-complete');
             setIsSessionActive(false);
           }
         }
@@ -249,7 +254,32 @@ const FlowStateLab = () => {
     setSessionData(session);
     setCurrentPhase(0);
     setPhaseTimer(0);
-    setCurrentStep('session-setup');
+    updateStep('session-setup');
+  };
+
+  // Sync currentStep with URL
+  useEffect(() => {
+    const stepParam = searchParams.get('step');
+    const validSteps: FlowStep[] = ['hero', 'choose-task', 'add-context', 'choose-duration', 'technique-matched', 'session-setup', 'session-active', 'session-complete', 'flow-log'];
+    if (stepParam && validSteps.includes(stepParam as FlowStep) && stepParam !== currentStep) {
+      setCurrentStep(stepParam as FlowStep);
+    }
+  }, [searchParams, currentStep]);
+
+  const updateStep = (newStep: FlowStep) => {
+    setCurrentStep(newStep);
+    setSearchParams({ step: newStep });
+  };
+
+  const goBack = () => {
+    const stepOrder: FlowStep[] = ['hero', 'choose-task', 'add-context', 'choose-duration', 'technique-matched', 'session-setup', 'session-active', 'session-complete', 'flow-log'];
+    const currentIndex = stepOrder.indexOf(currentStep);
+    
+    if (currentIndex > 0) {
+      updateStep(stepOrder[currentIndex - 1]);
+    } else {
+      navigate('/inner-architect');
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -285,7 +315,7 @@ const FlowStateLab = () => {
             </p>
 
             <Button 
-              onClick={() => setCurrentStep('choose-task')}
+              onClick={() => updateStep('choose-task')}
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg font-medium rounded-full shadow-lg"
             >
               Begin Guided Session
@@ -340,7 +370,7 @@ const FlowStateLab = () => {
             {selectedTask && selectedSubtask && (
               <div className="text-center animate-fade-in">
                 <Button 
-                  onClick={() => setCurrentStep('add-context')}
+                  onClick={() => updateStep('add-context')}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
                 >
                   Next: Add Context <ChevronRight className="ml-2 w-4 h-4" />
@@ -392,7 +422,7 @@ const FlowStateLab = () => {
 
             <div className="text-center">
               <Button 
-                onClick={() => setCurrentStep('choose-duration')}
+                onClick={() => updateStep('choose-duration')}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
               >
                 Next: Choose Duration <ChevronRight className="ml-2 w-4 h-4" />
@@ -463,7 +493,7 @@ const FlowStateLab = () => {
             {duration > 0 && (
               <div className="text-center animate-fade-in">
                 <Button 
-                  onClick={() => setCurrentStep('technique-matched')}
+                  onClick={() => updateStep('technique-matched')}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
                 >
                   Next: See Your Technique <ChevronRight className="ml-2 w-4 h-4" />
@@ -608,7 +638,7 @@ const FlowStateLab = () => {
             <div className="text-center">
               <Button 
                 onClick={() => {
-                  setCurrentStep('session-active');
+                  updateStep('session-active');
                   setIsSessionActive(true);
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg rounded-full"
@@ -722,7 +752,7 @@ const FlowStateLab = () => {
               </Button>
 
               <Button 
-                onClick={() => setCurrentStep('session-complete')}
+                onClick={() => updateStep('session-complete')}
                 variant="outline"
                 className="px-6 py-3"
               >
@@ -818,7 +848,7 @@ const FlowStateLab = () => {
 
             <div className="flex justify-center gap-4">
               <Button 
-                onClick={() => setCurrentStep('flow-log')}
+                onClick={() => updateStep('flow-log')}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-full"
               >
                 View Flow Log
@@ -827,7 +857,7 @@ const FlowStateLab = () => {
               <Button 
                 onClick={() => {
                   // Reset for another session
-                  setCurrentStep('choose-task');
+                  updateStep('choose-task');
                   setCurrentPhase(0);
                   setPhaseTimer(0);
                   setMicroGoal("");
