@@ -76,9 +76,10 @@ const ExecutiveHome = () => {
     priorities.push({
       id: 1,
       title: "Oxford College Interview",
-      timeHorizon: "4 days away – high-pressure, identity-defining moment",
+      timeHorizon: "4 days away",
+      timeDescription: "high-pressure, identity-defining moment",
       tagType: "calendar",
-      whyMatters: "Your calendar shows the interview in 4 days. We detected elevated HRV during your Cambridge interview two weeks ago, and recent emails with your School Admissions Counselor highlight your recurring focus on Oxford.",
+      whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview. Admissions counselor emails show Oxford focus.",
       category: "Academic Performance",
       icon: Brain,
       suggestion: "Scenario Simulate your practice with the assessor",
@@ -91,9 +92,10 @@ const ExecutiveHome = () => {
     priorities.push({
       id: 2,
       title: "Advanced Physics Exam",
-      timeHorizon: "2 days away – requires deep problem-solving and clarity", 
+      timeHorizon: "2 days away",
+      timeDescription: "requires deep problem-solving and clarity",
       tagType: "calendar",
-      whyMatters: "Focus logs show dips during mentally demanding work. Your WhatsApp chat with friends shows anxiety about the physics exam, and you've recently flagged 'problem-solving blocks'.",
+      whyMatters: "Focus logs show dips during demanding work. WhatsApp shows exam anxiety. Problem-solving blocks flagged.",
       category: "Academic Performance",
       icon: Brain,
       suggestion: "Enter optimal learning state",
@@ -108,7 +110,7 @@ const ExecutiveHome = () => {
       title: "Busy Day Overwhelm Management",
       timeHorizon: "Today",
       tagType: "calendar", 
-      whyMatters: "Recent chats on WhatsApp flagged pressure and overwhelm.",
+      whyMatters: "Calendar shows 6 back-to-back commitments. Wearable data shows elevated stress during school hours. Recent WhatsApp chats flagged pressure and overwhelm.",
       category: "Performance Optimization",
       icon: Zap,
       suggestion: "Build resilience for high-demand days",
@@ -222,6 +224,11 @@ const ExecutiveHome = () => {
                           <Calendar size={10} className="mr-1" />
                           {priority.timeHorizon}
                         </Badge>
+                        {priority.timeDescription && (
+                          <span className="text-xs text-muted-foreground/70 font-light">
+                            {priority.timeDescription}
+                          </span>
+                        )}
                         <Badge 
                           variant="secondary" 
                           className={`text-xs px-2 py-0.5 ${
