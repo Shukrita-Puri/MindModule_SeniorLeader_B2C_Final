@@ -226,12 +226,6 @@ const CollegeAdmissionsSimulation = ({
     const allFeedbackOptions = [
       // Mental Clarity coaching
       {
-        condition: responseLength < 60 || isVague,
-        type: "mental-clarity" as const,
-        message: "Your response needs more substance and structure to make a strong impression.",
-        suggestion: "Use the STAR method: Situation, Task, Action, Result. Admissions officers want concrete examples."
-      },
-      {
         condition: responseLength > 40 && !hasSpecificDetails,
         type: "mental-clarity" as const,
         message: "You're speaking generally, but they want to understand you specifically.",
@@ -540,6 +534,55 @@ const CollegeAdmissionsSimulation = ({
 
   return (
     <div className="flex flex-col h-full bg-background relative">
+      {/* Custom Toast Overlay */}
+      {activeToast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop blur */}
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={closeToast} />
+          
+          {/* Toast content */}
+          <div className={cn(
+            "relative p-6 rounded-xl shadow-2xl max-w-md mx-4 border backdrop-blur-sm",
+            activeToast.type === "mental-clarity" && "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-900 border-blue-300",
+            activeToast.type === "social-intelligence" && "bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 border-emerald-300", 
+            activeToast.type === "resilience" && "bg-gradient-to-br from-orange-100 to-orange-200 text-orange-900 border-orange-300",
+            activeToast.type === "leadership" && "bg-gradient-to-br from-violet-100 to-violet-200 text-violet-900 border-violet-300",
+            activeToast.type === "adaptability" && "bg-gradient-to-br from-teal-100 to-teal-200 text-teal-900 border-teal-300",
+            activeToast.type === "creative-thinking" && "bg-gradient-to-br from-rose-100 to-rose-200 text-rose-900 border-rose-300"
+          )}>
+            <button
+              onClick={closeToast}
+              className="absolute top-2 right-2 p-1 hover:bg-black/10 rounded-full transition-colors"
+            >
+              <X size={16} className="text-current" />
+            </button>
+            
+            <div className="mb-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Brain size={20} />
+                {activeToast.type.split('-').map(word => 
+                  word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Coaching
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              <p className="text-sm font-medium">{activeToast.message}</p>
+              <p className="text-sm opacity-80">{activeToast.suggestion}</p>
+              
+              {activeToast.pastLearning && (
+                <div className="bg-black/5 rounded-lg p-3 border border-black/10">
+                  <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                    <Target size={12} />
+                    Mind Module Intelligence
+                  </p>
+                  <p className="text-xs opacity-70 mb-2 italic">Pattern from: {activeToast.pastLearning.context}</p>
+                  <p className="text-xs font-medium text-current">{activeToast.pastLearning.insight}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header with Timer */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-4">
