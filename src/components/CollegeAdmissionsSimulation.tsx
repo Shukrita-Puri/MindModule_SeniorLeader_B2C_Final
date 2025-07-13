@@ -153,6 +153,10 @@ const CollegeAdmissionsSimulation = ({
     return learningSet[questionNumber % learningSet.length];
   };
 
+  // Add coaching type rotation to ensure variety
+  const [lastCoachingType, setLastCoachingType] = useState<string>("");
+  const [coachingRotation, setCoachingRotation] = useState(0);
+
   const getCoachingFeedback = (userResponse: string, questionNumber: number) => {
     const responseLength = userResponse.length;
     const lowerResponse = userResponse.toLowerCase();
@@ -186,6 +190,10 @@ const CollegeAdmissionsSimulation = ({
                            lowerResponse.includes("unique") ||
                            lowerResponse.includes("original") ||
                            lowerResponse.includes("unconventional");
+    const mentionsLeadership = lowerResponse.includes("lead") || 
+                              lowerResponse.includes("manage") ||
+                              lowerResponse.includes("organize") ||
+                              lowerResponse.includes("direct");
     
     // Anxiety and confidence indicators
     const isHesitant = lowerResponse.includes("um") || 
@@ -199,39 +207,56 @@ const CollegeAdmissionsSimulation = ({
                        responseLength > 150;
     const isVague = !hasSpecificDetails && responseLength < 80;
 
-    let feedbackType: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
-    let message: string;
-    let suggestion: string;
-
-    // Intelligence-based feedback triggering (not every response gets coaching)
-    const shouldCoach = Math.random() < 0.7; // 70% chance to show coaching
+    // Intelligence-based feedback triggering - higher chance to show variety
+    const shouldCoach = Math.random() < 0.8; // 80% chance to show coaching
     
-    if (!shouldCoach && responseLength > 100 && hasSpecificDetails) {
-      // Skip coaching for good responses sometimes to feel more natural
+    if (!shouldCoach && responseLength > 120 && hasSpecificDetails) {
+      // Skip coaching for excellent responses sometimes
       return null;
     }
 
-    // Prioritized feedback conditions based on response quality
-    const feedbackOptions = [
-      // Critical areas first
+    // All coaching types with equal priority - randomized selection
+    const allFeedbackOptions = [
+      // Mental Clarity coaching
       {
-        condition: responseLength < 40 || isVague,
+        condition: responseLength < 60 || isVague,
         type: "mental-clarity" as const,
         message: "Your response needs more substance and structure to make a strong impression.",
         suggestion: "Use the STAR method: Situation, Task, Action, Result. Admissions officers want concrete examples."
       },
       {
+        condition: responseLength > 40 && !hasSpecificDetails,
+        type: "mental-clarity" as const,
+        message: "You're speaking generally, but they want to understand you specifically.",
+        suggestion: "Replace abstract statements with concrete moments that reveal your character."
+      },
+      
+      // Social Intelligence coaching
+      {
+        condition: !showsEmpathy && responseLength > 50,
+        type: "social-intelligence" as const,
+        message: "You're focused on your own actions but missing the interpersonal dimension.",
+        suggestion: "Share how you read emotions, built trust, or navigated different perspectives in this situation."
+      },
+      {
+        condition: mentionsLeadership && !showsEmpathy,
+        type: "social-intelligence" as const,
+        message: "You mention leadership but haven't shown your people skills.",
+        suggestion: "Describe how you connected with others, understood their motivations, or resolved conflicts."
+      },
+      {
+        condition: questionNumber > 1 && !lowerResponse.includes("others") && !lowerResponse.includes("team"),
+        type: "social-intelligence" as const,
+        message: "Your stories sound isolated. Colleges value collaborative intelligence.",
+        suggestion: "Show how you worked with others, influenced peers, or built meaningful relationships."
+      },
+      
+      // Resilience coaching
+      {
         condition: isHesitant && userAnxietyLevel === "high",
         type: "resilience" as const,
         message: "I can sense some nervousness. Remember, they want to see how you handle pressure.",
         suggestion: "Take a breath and draw on your past experiences overcoming challenges. Show your grit."
-      },
-      // Content-based coaching
-      {
-        condition: !showsEmpathy && (lowerResponse.includes("lead") || lowerResponse.includes("manage")),
-        type: "social-intelligence" as const,
-        message: "You're discussing leadership but missing the people dimension.",
-        suggestion: "Share how you read emotions, built trust, or navigated interpersonal dynamics."
       },
       {
         condition: !showsVulnerability && responseLength > 80,
@@ -240,68 +265,145 @@ const CollegeAdmissionsSimulation = ({
         suggestion: "Share a moment when you faced real difficulty and what you learned about yourself."
       },
       {
-        condition: !hasSpecificDetails && questionNumber > 2,
+        condition: questionNumber > 2 && !lowerResponse.includes("difficult") && !lowerResponse.includes("challenge"),
+        type: "resilience" as const,
+        message: "Your responses show success but not struggle. They want to see your resilience.",
+        suggestion: "Describe a time you failed, faced rejection, or had to persevere through real difficulty."
+      },
+      
+      // Leadership coaching
+      {
+        condition: !hasSpecificDetails && mentionsLeadership,
         type: "leadership" as const,
-        message: "Your response lacks the concrete examples that make leadership stories compelling.",
-        suggestion: "Describe specific actions you took, decisions you made, and measurable impact you created."
+        message: "You mention leadership but lack the concrete examples that make it compelling.",
+        suggestion: "Describe specific decisions you made, how you influenced others, and measurable impact you created."
       },
       {
-        condition: !showsAdaptability && (lowerResponse.includes("plan") || lowerResponse.includes("goal")),
+        condition: questionNumber > 2 && !mentionsLeadership && responseLength > 60,
+        type: "leadership" as const,
+        message: "You're showing individual capability but missing leadership potential.",
+        suggestion: "Share how you've guided others, taken initiative, or created positive change in a group setting."
+      },
+      {
+        condition: isConfident && responseLength > 100 && !mentionsLeadership,
+        type: "leadership" as const,
+        message: "Strong response, but colleges want to see your leadership readiness.",
+        suggestion: "Describe a time you stepped up when others hesitated or rallied people around a shared goal."
+      },
+      
+      // Adaptability coaching
+      {
+        condition: !showsAdaptability && questionNumber > 1,
         type: "adaptability" as const,
-        message: "You mention planning, but colleges value intellectual flexibility too.",
-        suggestion: "Show how you adjusted when plans failed, learned from unexpected feedback, or embraced new perspectives."
+        message: "Your responses show planning but not intellectual flexibility.",
+        suggestion: "Share how you adjusted when plans failed, learned from unexpected feedback, or embraced new perspectives."
       },
       {
-        condition: !showsCreativity && questionNumber > 3 && responseLength > 100,
+        condition: lowerResponse.includes("plan") && !showsAdaptability,
+        type: "adaptability" as const,
+        message: "You mention planning, but colleges value those who can pivot when needed.",
+        suggestion: "Show how you handled uncertainty, changed course when new information emerged, or thrived in ambiguity."
+      },
+      {
+        condition: questionNumber > 3 && !lowerResponse.includes("change") && responseLength > 70,
+        type: "adaptability" as const,
+        message: "You're demonstrating consistency but missing adaptability.",
+        suggestion: "Describe how you've evolved your thinking, learned from mistakes, or succeeded in unfamiliar situations."
+      },
+      
+      // Creative Thinking coaching
+      {
+        condition: !showsCreativity && questionNumber > 2,
         type: "creative-thinking" as const,
         message: "Solid response, but you could differentiate yourself with more original thinking.",
         suggestion: "Challenge conventional wisdom, make unexpected connections, or offer a fresh angle on familiar concepts."
+      },
+      {
+        condition: responseLength > 100 && !showsCreativity && questionNumber > 3,
+        type: "creative-thinking" as const,
+        message: "You're giving thoughtful answers but playing it safe. Take an intellectual risk.",
+        suggestion: "Share an unconventional insight, connect disparate ideas, or reveal how you think differently."
+      },
+      {
+        condition: questionNumber > 4 && !lowerResponse.includes("unique") && !lowerResponse.includes("different"),
+        type: "creative-thinking" as const,
+        message: "Your responses blend into the typical applicant pool. Show your unique perspective.",
+        suggestion: "Reveal an unexpected passion, an unusual connection you've made, or a creative solution you've devised."
       }
     ];
 
-    // Find the most relevant feedback
-    const applicableFeedback = feedbackOptions.find(option => option.condition);
+    // Filter applicable feedback options
+    const applicableOptions = allFeedbackOptions.filter(option => option.condition);
     
-    if (applicableFeedback) {
-      feedbackType = applicableFeedback.type;
-      message = applicableFeedback.message;
-      suggestion = applicableFeedback.suggestion;
-    } else {
-      // Strategic positive reinforcement (less frequent)
-      if (Math.random() < 0.3) { // Only 30% chance for positive feedback
-        const positiveOptions = [
-          {
-            type: "mental-clarity" as const,
-            message: "Excellent structure and depth in your response!",
-            suggestion: "Your clear thinking is evident. Now leverage this clarity to tackle even more complex questions."
-          },
-          {
-            type: "social-intelligence" as const,
-            message: "Strong emotional intelligence and interpersonal awareness!",
-            suggestion: "This people-focused approach will serve you well in college communities. Keep building on it."
-          },
-          {
-            type: "leadership" as const,
-            message: "Great demonstration of authentic leadership and influence!",
-            suggestion: "You understand that leadership is about impact, not titles. Show how you'll lead on campus."
-          }
-        ];
-        
-        const randomPositive = positiveOptions[questionNumber % positiveOptions.length];
-        feedbackType = randomPositive.type;
-        message = randomPositive.message;
-        suggestion = randomPositive.suggestion;
-      } else {
-        return null; // No coaching for this response
-      }
+    // If no specific conditions met, add fallback options based on rotation
+    if (applicableOptions.length === 0) {
+      const fallbackOptions = [
+        {
+          type: "social-intelligence" as const,
+          message: "Strong foundation - now show how you connect with and influence others.",
+          suggestion: "Share how you build relationships, read social situations, or bring people together."
+        },
+        {
+          type: "resilience" as const,
+          message: "Good start - admissions officers also want to see your perseverance.",
+          suggestion: "Describe a time you overcame a significant obstacle or bounced back from failure."
+        },
+        {
+          type: "leadership" as const,
+          message: "Solid response - now demonstrate your leadership potential.",
+          suggestion: "Share how you've influenced others, taken initiative, or created positive change."
+        },
+        {
+          type: "adaptability" as const,
+          message: "Nice work - colleges also value intellectual flexibility.",
+          suggestion: "Show how you've adapted to new situations, changed your mind, or learned from feedback."
+        },
+        {
+          type: "creative-thinking" as const,
+          message: "Good foundation - distinguish yourself with original thinking.",
+          suggestion: "Share an unconventional insight, unexpected connection, or creative approach you've taken."
+        },
+        {
+          type: "mental-clarity" as const,
+          message: "Clear communication - now add more depth and structure.",
+          suggestion: "Use specific examples with situation, action, and result to make your points more compelling."
+        }
+      ];
+      
+      // Use rotation to ensure variety
+      const selectedFallback = fallbackOptions[coachingRotation % fallbackOptions.length];
+      setCoachingRotation(prev => prev + 1);
+      
+      const pastLearning = getPastLearning(selectedFallback.type, questionNumber);
+      return {
+        type: selectedFallback.type,
+        message: selectedFallback.message,
+        suggestion: selectedFallback.suggestion,
+        pastLearning
+      };
     }
 
-    const pastLearning = getPastLearning(feedbackType, questionNumber);
+    // Smart selection: avoid repeating the same coaching type
+    let selectedFeedback;
+    if (applicableOptions.length > 1) {
+      // Filter out the last coaching type to ensure variety
+      const varietyOptions = applicableOptions.filter(option => option.type !== lastCoachingType);
+      if (varietyOptions.length > 0) {
+        selectedFeedback = varietyOptions[Math.floor(Math.random() * varietyOptions.length)];
+      } else {
+        selectedFeedback = applicableOptions[Math.floor(Math.random() * applicableOptions.length)];
+      }
+    } else {
+      selectedFeedback = applicableOptions[0];
+    }
+
+    setLastCoachingType(selectedFeedback.type);
+    const pastLearning = getPastLearning(selectedFeedback.type, questionNumber);
 
     return {
-      type: feedbackType,
-      message,
-      suggestion,
+      type: selectedFeedback.type,
+      message: selectedFeedback.message,
+      suggestion: selectedFeedback.suggestion,
       pastLearning
     };
   };
