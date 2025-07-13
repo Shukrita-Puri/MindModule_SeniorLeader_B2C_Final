@@ -403,157 +403,223 @@ const FlowStateLab = () => {
   }, [isSessionActive, isPaused, currentStep, sessionData, currentPhase, phaseTimer, toast]);
 
   const getSelectedTechnique = (): FlowTechnique | null => {
-    // Enhanced matching logic that triangulates based on activity, time, and context
+    // Enhanced triangulation logic based on activity, time, and context
     const context = userContext.toLowerCase();
     
-    // Time-based technique preferences
+    // Time categorization
     const timePreferences = {
-      short: (duration <= 15), // 15 minutes or less
-      medium: (duration > 15 && duration <= 45), // 15-45 minutes  
-      long: (duration > 45) // 45+ minutes
+      short: (duration <= 15),
+      medium: (duration > 15 && duration <= 45),
+      long: (duration > 45)
     };
     
-    // Context-based technique preferences
-    const contextKeywords = {
-      memory: /memory|recall|remember|memorize|retention/,
-      creative: /creative|design|art|innovation|brainstorm|idea/,
-      analytical: /analyz|logic|problem|math|calcul|reason/,
-      learning: /learn|study|understand|comprehend|master/,
-      writing: /write|essay|composition|draft|text/,
-      practice: /practice|drill|repeat|skill|technique/,
-      planning: /plan|organize|structure|goal|roadmap/,
-      pressure: /pressure|stress|deadline|urgent|exam/,
-      focus: /focus|concentrate|attention|clarity|distraction/,
-      energy: /energy|tired|fatigue|motivation|momentum/
+    // Enhanced context detection with specific indicators
+    const contextPatterns = {
+      timeStress: /urgent|deadline|tomorrow|cramming|last.minute|quick|rushed/,
+      examPrep: /exam|test|final|midterm|assessment|quiz|evaluation/,
+      memoryWork: /memorize|recall|remember|facts|vocabulary|definitions|terms/,
+      mathContext: /math|calculus|algebra|physics|chemistry|equations|formulas|problem.solving/,
+      writingContext: /essay|paper|writing|draft|argument|thesis|composition/,
+      creativeContext: /creative|design|brainstorm|innovative|art|visual|imagination/,
+      analyticalContext: /analyze|logic|reasoning|critical|systematic|detailed/,
+      practiceContext: /practice|drill|repeat|skill|technique|training|exercise/,
+      planningContext: /plan|organize|structure|goal|roadmap|strategy|project/,
+      complexContext: /complex|advanced|difficult|challenging|comprehensive|deep/,
+      focusNeeded: /focus|concentrate|attention|clarity|distraction|noise/,
+      energyLevel: /tired|fatigue|energy|motivation|momentum|alert|fresh/
     };
     
-    // Enhanced matching based on activity + time + context
-    const activityType = `${selectedTask}-${selectedSubtask}`;
+    // Helper function to check multiple patterns
+    const hasPattern = (patterns: RegExp[]) => patterns.some(pattern => pattern.test(context));
     
-    // Override default technique based on context clues
-    if (contextKeywords.memory.test(context) && timePreferences.short) {
-      return flowTechniques['speaking-burst-recall'];
+    // Advanced triangulation for test preparation
+    if (selectedSubtask === 'test-prep') {
+      if (timePreferences.short) {
+        if (contextPatterns.memoryWork.test(context)) return flowTechniques['speaking-burst-recall'];
+        if (contextPatterns.timeStress.test(context)) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['retrieval-sprints'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.mathContext.test(context)) return flowTechniques['problem-looping'];
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['active-margin-tagging'];
+        if (contextPatterns.memoryWork.test(context)) return flowTechniques['segment-voice-anchor'];
+        if (contextPatterns.timeStress.test(context)) return flowTechniques['retrieval-sprints'];
+        return flowTechniques['retrieval-sprints'];
+      } else {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['info-chunk-synthesis'];
+        if (contextPatterns.mathContext.test(context)) return flowTechniques['problem-looping'];
+        if (contextPatterns.memoryWork.test(context)) return flowTechniques['loop-layer'];
+        return flowTechniques['milestone-mapping'];
+      }
     }
     
-    if (contextKeywords.memory.test(context) && (timePreferences.medium || timePreferences.long)) {
-      return flowTechniques['retrieval-sprints'];
+    // Enhanced essay writing triangulation
+    if (selectedSubtask === 'essay-writing') {
+      if (timePreferences.short) {
+        if (contextPatterns.creativeContext.test(context)) return flowTechniques['rapid-frame-challenge'];
+        if (contextPatterns.timeStress.test(context)) return flowTechniques['constraint-challenge'];
+        return flowTechniques['timed-freewriting'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.analyticalContext.test(context)) return flowTechniques['scene-flowboard'];
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['info-chunk-synthesis'];
+        if (contextPatterns.creativeContext.test(context)) return flowTechniques['constraint-challenge'];
+        return flowTechniques['scene-flowboard'];
+      } else {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['reverse-roadmap'];
+        if (contextPatterns.planningContext.test(context)) return flowTechniques['milestone-mapping'];
+        return flowTechniques['scene-flowboard'];
+      }
     }
     
-    if (contextKeywords.creative.test(context) && timePreferences.short) {
-      return flowTechniques['rapid-frame-challenge'];
+    // Enhanced math problems triangulation
+    if (selectedSubtask === 'math-problems') {
+      if (timePreferences.short) {
+        if (contextPatterns.practiceContext.test(context)) return flowTechniques['micro-drills-peak'];
+        if (contextPatterns.timeStress.test(context)) return flowTechniques['speaking-burst-recall'];
+        return flowTechniques['micro-drills-peak'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['loop-shift-reset'];
+        if (contextPatterns.practiceContext.test(context)) return flowTechniques['loop-layer'];
+        return flowTechniques['problem-looping'];
+      } else {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['code-test-explain'];
+        return flowTechniques['problem-looping'];
+      }
     }
     
-    if (contextKeywords.creative.test(context) && timePreferences.medium) {
-      return flowTechniques['constraint-challenge'];
+    // Enhanced reading & analysis triangulation
+    if (selectedSubtask === 'reading-analysis') {
+      if (timePreferences.short) {
+        if (contextPatterns.focusNeeded.test(context)) return flowTechniques['zone-five-item'];
+        return flowTechniques['active-margin-tagging'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['info-chunk-synthesis'];
+        if (contextPatterns.analyticalContext.test(context)) return flowTechniques['active-margin-tagging'];
+        return flowTechniques['active-margin-tagging'];
+      } else {
+        return flowTechniques['info-chunk-synthesis'];
+      }
     }
     
-    if (contextKeywords.analytical.test(context) && timePreferences.short) {
-      return flowTechniques['problem-looping'];
+    // Creative work triangulation
+    if (selectedSubtask.includes('creative') || selectedSubtask.includes('design') || selectedSubtask.includes('art')) {
+      if (timePreferences.short) {
+        if (contextPatterns.timeStress.test(context)) return flowTechniques['constraint-challenge'];
+        return flowTechniques['rapid-frame-challenge'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.planningContext.test(context)) return flowTechniques['visual-cue-board'];
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['constraint-challenge'];
+        return flowTechniques['rapid-frame-challenge'];
+      } else {
+        return flowTechniques['visual-cue-board'];
+      }
     }
     
-    if (contextKeywords.analytical.test(context) && timePreferences.long) {
-      return flowTechniques['info-chunk-synthesis'];
+    // Coding/Programming triangulation
+    if (selectedSubtask.includes('coding') || selectedSubtask.includes('programming')) {
+      if (timePreferences.short) {
+        if (contextPatterns.practiceContext.test(context)) return flowTechniques['micro-drills-peak'];
+        return flowTechniques['time-block-micro-goal'];
+      } else if (timePreferences.medium) {
+        if (contextPatterns.complexContext.test(context)) return flowTechniques['code-test-explain'];
+        return flowTechniques['problem-looping'];
+      } else {
+        return flowTechniques['code-test-explain'];
+      }
     }
     
-    if (contextKeywords.writing.test(context) && timePreferences.short) {
-      return flowTechniques['timed-freewriting'];
-    }
-    
-    if (contextKeywords.writing.test(context) && timePreferences.long) {
-      return flowTechniques['scene-flowboard'];
-    }
-    
-    if (contextKeywords.practice.test(context) && timePreferences.short) {
-      return flowTechniques['micro-drills-peak'];
-    }
-    
-    if (contextKeywords.practice.test(context) && timePreferences.medium) {
+    // Context-first overrides (when context is very specific)
+    if (contextPatterns.memoryWork.test(context)) {
+      if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
+      if (timePreferences.medium) return flowTechniques['segment-voice-anchor'];
       return flowTechniques['loop-layer'];
     }
     
-    if (contextKeywords.planning.test(context)) {
+    if (contextPatterns.creativeContext.test(context)) {
+      if (timePreferences.short) return flowTechniques['rapid-frame-challenge'];
+      if (timePreferences.medium) return flowTechniques['constraint-challenge'];
+      return flowTechniques['visual-cue-board'];
+    }
+    
+    if (contextPatterns.timeStress.test(context)) {
+      if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+      if (timePreferences.medium) return flowTechniques['constraint-challenge'];
+      return flowTechniques['milestone-mapping'];
+    }
+    
+    if (contextPatterns.practiceContext.test(context)) {
+      if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+      if (timePreferences.medium) return flowTechniques['loop-layer'];
+      return flowTechniques['loop-shift-reset'];
+    }
+    
+    if (contextPatterns.planningContext.test(context)) {
       if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
       if (timePreferences.medium) return flowTechniques['milestone-mapping'];
       return flowTechniques['reverse-roadmap'];
     }
     
-    if (contextKeywords.pressure.test(context) && timePreferences.short) {
-      return flowTechniques['time-block-micro-goal'];
+    if (contextPatterns.complexContext.test(context)) {
+      if (timePreferences.short) return flowTechniques['zone-five-item'];
+      if (timePreferences.medium) return flowTechniques['info-chunk-synthesis'];
+      return flowTechniques['reverse-roadmap'];
     }
     
-    if (contextKeywords.focus.test(context)) {
+    if (contextPatterns.focusNeeded.test(context)) {
       if (timePreferences.short) return flowTechniques['zone-five-item'];
       return flowTechniques['energy-match-blocks'];
     }
     
-    if (contextKeywords.energy.test(context)) {
-      return flowTechniques['energy-match-blocks'];
-    }
+    // Enhanced activity-specific matching with improved triangulation
+    const activityType = `${selectedTask}-${selectedSubtask}`;
     
-    // Enhanced activity-specific matching with time consideration
     switch (activityType) {
-      case 'academic-work-essay-writing':
-        if (timePreferences.short) return flowTechniques['timed-freewriting'];
-        if (timePreferences.medium) return flowTechniques['scene-flowboard'];
-        return flowTechniques['milestone-mapping'];
-        
-      case 'academic-work-math-problems':
-        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
-        return flowTechniques['problem-looping'];
-        
-      case 'academic-work-reading-analysis':
-        if (timePreferences.short) return flowTechniques['active-margin-tagging'];
-        return flowTechniques['info-chunk-synthesis'];
-        
-      case 'academic-work-test-prep':
-        if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
-        return flowTechniques['retrieval-sprints'];
-        
       case 'academic-work-research':
         if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
+        if (timePreferences.medium) return flowTechniques['active-margin-tagging'];
         return flowTechniques['info-chunk-synthesis'];
         
-      case 'creative-projects-art-design':
-        if (timePreferences.short) return flowTechniques['rapid-frame-challenge'];
-        return flowTechniques['constraint-challenge'];
-        
-      case 'creative-projects-creative-writing':
-        if (timePreferences.short) return flowTechniques['timed-freewriting'];
-        return flowTechniques['scene-flowboard'];
+      case 'academic-work-memorization':
+        if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
+        if (timePreferences.medium) return flowTechniques['segment-voice-anchor'];
+        return flowTechniques['loop-layer'];
         
       case 'creative-projects-music-practice':
         if (timePreferences.short) return flowTechniques['micro-drills-peak'];
+        if (timePreferences.medium) return flowTechniques['loop-layer'];
         return flowTechniques['loop-shift-reset'];
-        
-      case 'creative-projects-video-creation':
-        if (timePreferences.short) return flowTechniques['scene-flowboard'];
-        return flowTechniques['milestone-mapping'];
         
       case 'skill-development-language-learning':
         if (timePreferences.short) return flowTechniques['speaking-burst-recall'];
-        return flowTechniques['segment-voice-anchor'];
-        
-      case 'skill-development-coding-practice':
-        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
-        return flowTechniques['code-test-explain'];
-        
-      case 'skill-development-instrument-mastery':
-        if (timePreferences.short) return flowTechniques['micro-drills-peak'];
-        return flowTechniques['loop-shift-reset'];
+        if (timePreferences.medium) return flowTechniques['segment-voice-anchor'];
+        return flowTechniques['loop-layer'];
         
       case 'planning-organizing-college-apps':
         if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
-        return flowTechniques['milestone-mapping'];
+        if (timePreferences.medium) return flowTechniques['milestone-mapping'];
+        return flowTechniques['reverse-roadmap'];
         
       case 'planning-organizing-goal-setting':
         if (timePreferences.short) return flowTechniques['visual-cue-board'];
+        if (timePreferences.medium) return flowTechniques['milestone-mapping'];
         return flowTechniques['reverse-roadmap'];
         
       default:
-        // Fallback to time-based general recommendations
-        if (timePreferences.short) return flowTechniques['time-block-micro-goal'];
-        if (timePreferences.medium) return flowTechniques['energy-match-blocks'];
-        return flowTechniques['milestone-mapping'];
+        // Intelligent fallback based on time and general context
+        if (timePreferences.short) {
+          if (hasPattern([contextPatterns.creativeContext])) return flowTechniques['rapid-frame-challenge'];
+          if (hasPattern([contextPatterns.memoryWork])) return flowTechniques['speaking-burst-recall'];
+          if (hasPattern([contextPatterns.practiceContext])) return flowTechniques['micro-drills-peak'];
+          return flowTechniques['time-block-micro-goal'];
+        } else if (timePreferences.medium) {
+          if (hasPattern([contextPatterns.complexContext])) return flowTechniques['info-chunk-synthesis'];
+          if (hasPattern([contextPatterns.creativeContext])) return flowTechniques['visual-cue-board'];
+          if (hasPattern([contextPatterns.planningContext])) return flowTechniques['milestone-mapping'];
+          return flowTechniques['energy-match-blocks'];
+        } else {
+          if (hasPattern([contextPatterns.complexContext])) return flowTechniques['reverse-roadmap'];
+          if (hasPattern([contextPatterns.creativeContext])) return flowTechniques['milestone-mapping'];
+          return flowTechniques['energy-match-blocks'];
+        }
     }
   };
 
