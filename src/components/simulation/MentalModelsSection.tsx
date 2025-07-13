@@ -19,6 +19,36 @@ const MentalModelsSection = () => {
       type: "Student Wisdom",
       description: "True confidence comes from embracing what you don't know yet",
       application: "It's okay to say 'I don't know, but here's how I'd approach it'"
+    },
+    {
+      title: "The Middle Way",
+      type: "Buddhist Wisdom",
+      description: "Balance between extremes leads to wise decision-making",
+      application: "When facing difficult choices, avoid all-or-nothing thinking and seek the balanced path"
+    },
+    {
+      title: "Memento Mori",
+      type: "Stoic Philosophy",
+      description: "Remembering mortality helps focus on what truly matters",
+      application: "Before stressing about small things, ask 'Will this matter in 10 years?'"
+    },
+    {
+      title: "Beginner's Mind (Shoshin)",
+      type: "Zen Teaching",
+      description: "Approach challenges with fresh perspective and openness",
+      application: "In new situations, embrace curiosity over assumption and wonder over judgment"
+    },
+    {
+      title: "Ubuntu Philosophy",
+      type: "African Wisdom",
+      description: "'I am because we are' - recognizing our interconnectedness",
+      application: "Remember that your success is connected to others' wellbeing and growth"
+    },
+    {
+      title: "Wu Wei",
+      type: "Taoist Teaching",
+      description: "Effortless action through understanding natural flow",
+      application: "When feeling forced or struggling, step back and find the path of least resistance"
     }
   ];
 
@@ -28,7 +58,7 @@ const MentalModelsSection = () => {
         <CardTitle className="text-xl font-heading text-foreground">Recommended Mental Models</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {mentalModels.map((model, index) => (
             <div key={index} className="bg-background border border-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">

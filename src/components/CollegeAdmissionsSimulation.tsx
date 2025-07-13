@@ -12,7 +12,7 @@ interface Message {
   timestamp: Date;
   emotion?: "neutral" | "positive" | "negative" | "probing";
   coachingFeedback?: {
-    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
+    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking" | "ancient-wisdom";
     message: string;
     suggestion: string;
   };
@@ -39,7 +39,7 @@ const CollegeAdmissionsSimulation = ({
   const [questionCount, setQuestionCount] = useState(0);
   const [activeToast, setActiveToast] = useState<{
     id: string;
-    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking";
+    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking" | "ancient-wisdom";
     message: string;
     suggestion: string;
     pastLearning?: {
@@ -153,6 +153,11 @@ const CollegeAdmissionsSimulation = ({
         { context: "Your browsing patterns show interest in diverse topics", insight: "Draw connections between seemingly unrelated experiences" },
         { context: "Previous responses show unique perspectives", insight: "Don't hold back your unconventional insights - they're your strength" },
         { context: "App engagement shows you thrive on complex challenges", insight: "Embrace the complexity of this question rather than simplifying" }
+      ],
+      "ancient-wisdom": [
+        { context: "Your mindfulness app shows regular meditation practice", insight: "Apply the present-moment awareness you've cultivated" },
+        { context: "Past reflections show you value philosophical thinking", insight: "Trust the wisdom traditions that resonate with your character" },
+        { context: "Your journal entries reveal deep contemplation", insight: "Channel that same inner wisdom you access in quiet moments" }
       ]
     };
 
@@ -330,6 +335,44 @@ const CollegeAdmissionsSimulation = ({
         type: "creative-thinking" as const,
         message: "Your responses blend into the typical applicant pool. Show your unique perspective.",
         suggestion: "Reveal an unexpected passion, an unusual connection you've made, or a creative solution you've devised."
+      },
+      
+      // Ancient Wisdom coaching
+      {
+        condition: isHesitant || userAnxietyLevel === "medium",
+        type: "ancient-wisdom" as const,
+        message: "Remember the Stoic teaching: 'You have power over your mind—not outside events. Realize this, and you will find strength.'",
+        suggestion: "Focus on what you can control—your response, your authenticity, your presence in this moment."
+      },
+      {
+        condition: questionNumber > 2 && !hasPersonalStory,
+        type: "ancient-wisdom" as const,
+        message: "As Lao Tzu taught: 'The wise find pleasure in water; the virtuous find pleasure in hills.' Share what brings you alive.",
+        suggestion: "Draw from your authentic experiences—what has shaped your character most deeply?"
+      },
+      {
+        condition: showsVulnerability && questionNumber > 1,
+        type: "ancient-wisdom" as const,
+        message: "Ubuntu wisdom teaches 'I am because we are.' Your struggles connect you to the human experience.",
+        suggestion: "Show how your challenges have deepened your understanding of others and your community."
+      },
+      {
+        condition: questionNumber > 3 && !showsAdaptability,
+        type: "ancient-wisdom" as const,
+        message: "Buddhist teaching reminds us: 'Nothing is permanent except change.' How have you embraced this truth?",
+        suggestion: "Share how you've learned to flow with uncertainty and find opportunity in unexpected changes."
+      },
+      {
+        condition: mentionsLeadership && questionNumber > 2,
+        type: "ancient-wisdom" as const,
+        message: "Confucius taught: 'He who exercises government by means of his virtue may be compared to the north polar star.'",
+        suggestion: "Show how your leadership comes from character and authentic values, not just position or achievement."
+      },
+      {
+        condition: isConfident && questionNumber > 4,
+        type: "ancient-wisdom" as const,
+        message: "The ancient Greeks knew: 'Know thyself.' True wisdom begins with honest self-awareness.",
+        suggestion: "Balance your achievements with genuine reflection on what you still need to learn and grow."
       }
     ];
 
@@ -368,6 +411,11 @@ const CollegeAdmissionsSimulation = ({
           type: "mental-clarity" as const,
           message: "Clear communication - now add more depth and structure.",
           suggestion: "Use specific examples with situation, action, and result to make your points more compelling."
+        },
+        {
+          type: "ancient-wisdom" as const,
+          message: "As the Zen saying goes: 'You are perfect as you are, and you could use a little improvement.'",
+          suggestion: "Share authentically from where you are now, while showing your commitment to growth."
         }
       ];
       
