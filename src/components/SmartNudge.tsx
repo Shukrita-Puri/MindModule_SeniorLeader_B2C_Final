@@ -82,11 +82,14 @@ const SmartNudge = ({
           <div className={`p-2.5 rounded-full ${getAccentColor()}`}>
             <Icon size={20} className="text-white" />
           </div>
-          <div>
-            <h4 className="font-bold text-black text-sm">Mind Module</h4>
-            <p className="text-gray-500 text-xs">
-              {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </p>
+          <div className="flex items-center gap-2">
+            <img src="/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png" alt="Mind Module" className="w-5 h-5" />
+            <div>
+              <h4 className="font-bold text-black text-base">Mind Module</h4>
+              <p className="text-gray-500 text-xs">
+                {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
           </div>
         </div>
         <button

@@ -14,7 +14,6 @@ const NudgeSimulator = () => {
       title: "Advanced Physics Exam",
       message: "Advanced Physics Exam in 2 days. Shift into deep focus mode to master the material and your anxiety.",
       type: "futurescape" as const,
-      context: "Based on calendar: Advanced Physics exam in 2 days",
       urgency: "high" as const,
       timestamp: new Date()
     },
@@ -23,7 +22,6 @@ const NudgeSimulator = () => {
       title: "Oxford College Interview",
       message: "Oxford College Interview in 4 days. Practice with a simulated Oxford admissions assessor to gain an edge.",
       type: "scenario-lab" as const,
-      context: "Oxford interview scheduled for this week",
       urgency: "high" as const,
       timestamp: new Date()
     },
@@ -32,7 +30,6 @@ const NudgeSimulator = () => {
       title: "Resilience Training", 
       message: "Feeling overwhelmed? Tap into resilience techniques used by Navy SEALs and Ancient Yogis to stay calm under pressure.",
       type: "breathwork" as const,
-      context: "Stress levels elevated - resilience support available",
       urgency: "medium" as const,
       timestamp: new Date()
     },
