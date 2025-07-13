@@ -72,107 +72,50 @@ const ExecutiveHome = () => {
     const currentDate = new Date();
     const priorities = [];
     
-    // Priority 1: Always include an academic/performance priority
-    const academicPriorities = [
-      {
-        id: 1,
-        title: "Oxford College Interview",
-        timeHorizon: "4 days away",
-        tagType: "calendar",
-        whyMatters: "Your calendar shows the interview in 4 days. Recent WhatsApp conversations with your admissions counselor show this is weighing on your mind, and we detected elevated stress patterns during your Cambridge interview simulation.",
-        category: "Academic Performance",
-        icon: Brain,
-        suggestion: "Scenario Simulate your practice with the assessor",
-        actionLabel: "Practice Social Intelligence",
-        route: "/social-intelligence-lab",
-        urgency: "high"
-      },
-      {
-        id: 2,
-        title: "Advanced Physics Exam", 
-        timeHorizon: "2 days away",
-        tagType: "calendar",
-        whyMatters: "Focus logs show concentration dips during mentally demanding work. Your recent journal entries mention 'problem-solving blocks' and friends' messages show exam anxiety.",
-        category: "Academic Performance", 
-        icon: Brain,
-        suggestion: "Enter optimal learning state for complex problem-solving",
-        actionLabel: "Practice Flow State",
-        route: "/flow-state-lab",
-        urgency: "high"
-      }
-    ];
+    // Always include Oxford College Interview as first priority
+    priorities.push({
+      id: 1,
+      title: "Oxford College Interview",
+      timeHorizon: "4 days away – high-pressure, identity-defining moment",
+      tagType: "calendar",
+      whyMatters: "Your calendar shows the interview in 4 days. We detected elevated HRV during your Cambridge interview two weeks ago, and recent emails with your School Admissions Counselor highlight your recurring focus on Oxford.",
+      category: "Academic Performance",
+      icon: Brain,
+      suggestion: "Scenario Simulate your practice with the assessor",
+      actionLabel: "Prepare with Social Intelligence",
+      route: "/social-intelligence-lab",
+      urgency: "high"
+    });
+
+    // Always include Advanced Physics Exam as second priority  
+    priorities.push({
+      id: 2,
+      title: "Advanced Physics Exam",
+      timeHorizon: "2 days away – requires deep problem-solving and clarity", 
+      tagType: "calendar",
+      whyMatters: "Focus logs show dips during mentally demanding work. Your WhatsApp chat with friends shows anxiety about the physics exam, and you've recently flagged 'problem-solving blocks'.",
+      category: "Academic Performance",
+      icon: Brain,
+      suggestion: "Enter optimal learning state",
+      actionLabel: "Practice Flow State",
+      route: "/flow-state-lab",
+      urgency: "high"
+    });
     
-    // Randomly select one academic priority
-    priorities.push(academicPriorities[Math.floor(Math.random() * academicPriorities.length)]);
-    
-    // Priority 2: Conditional Inner Calibration (if stress/low energy detected)
-    if (needsCalibration) {
-      priorities.push({
-        id: 3,
-        title: "Inner Calibration Session",
-        timeHorizon: "Available now",
-        tagType: "wellbeing",
-        whyMatters: `Your energy level is ${energy}/10 and recent patterns suggest nervous system regulation would help. ${hasStressIndicators ? 'Journal entries show stress indicators.' : ''} Taking 7 minutes to reset will optimize your performance.`,
-        category: "Emotional Regulation",
-        icon: Heart,
-        suggestion: "Shift from pressure to composure in 7 minutes",
-        actionLabel: "Start Guided Breathwork",
-        route: "/breathwork",
-        urgency: "medium"
-      });
-    }
-    
-    // Priority 3: Context-aware performance preparation
-    const performancePriorities = [
-      {
-        id: 4,
-        title: "Busy Day Overwhelm Management",
-        timeHorizon: "Today",
-        tagType: "calendar",
-        whyMatters: "Your calendar shows 6 back-to-back commitments today. Wearable data indicates elevated stress during school hours, and recent chats flagged feeling 'overwhelmed'.",
-        category: "Performance Optimization",
-        icon: Zap,
-        suggestion: "Build resilience for high-demand days",
-        actionLabel: "Power Up Session",
-        route: "/recalibrate/power-up",
-        urgency: "medium"
-      },
-      {
-        id: 5,
-        title: "Deep Work Preparation",
-        timeHorizon: "Next 2 hours",
-        tagType: "focus",
-        whyMatters: `Your focus state is '${focus}' and you have a 2-hour study block scheduled. Recent sessions show 40% better performance when you enter flow state first.`,
-        category: "Cognitive Enhancement",
-        icon: Brain,
-        suggestion: "Optimize your mind for deep, focused work",
-        actionLabel: "Enter Flow State",
-        route: "/flow-state-lab", 
-        urgency: "medium"
-      }
-    ];
-    
-    // Add performance priority if we don't already have inner calibration
-    if (!needsCalibration || priorities.length < 3) {
-      priorities.push(performancePriorities[hasConfidenceIndicators ? 1 : 0]);
-    }
-    
-    // Priority 4: Always include one growth-oriented priority
-    if (priorities.length < 4) {
-      priorities.push({
-        id: 6,
-        title: "Mental Model Enhancement",
-        timeHorizon: "15 min session",
-        tagType: "growth",
-        whyMatters: "Simulation history shows strong analytical skills but opportunities to expand perspective-taking. Building mental flexibility will enhance problem-solving across domains.",
-        category: "Cognitive Growth",
-        icon: Brain,
-        suggestion: "Expand your thinking frameworks and perspective-taking",
-        actionLabel: "Explore Mental Models",
-        route: "/scenario-lab",
-        urgency: "low"
-      });
-    }
+    // Always include Busy Day Overwhelm Management as third priority
+    priorities.push({
+      id: 3,
+      title: "Busy Day Overwhelm Management",
+      timeHorizon: "Today",
+      tagType: "calendar", 
+      whyMatters: "Recent chats on WhatsApp flagged pressure and overwhelm.",
+      category: "Performance Optimization",
+      icon: Zap,
+      suggestion: "Build resilience for high-demand days",
+      actionLabel: "Power Up Session", 
+      route: "/recalibrate/power-up",
+      urgency: "medium"
+    });
     
     return priorities.slice(0, 4); // Return max 4 priorities
   };
