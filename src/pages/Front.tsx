@@ -39,15 +39,15 @@ const Front = () => {
         <h1 className="text-4xl sm:text-6xl md:text-8xl font-heading font-bold text-foreground mb-4 sm:mb-6 leading-tight">
           Mind Module
         </h1>
-        <h2 className="text-lg sm:text-2xl md:text-4xl font-editorial font-medium text-accent mb-6 sm:mb-8">
-          For the Next Generation of Leaders
+        <h2 className="text-lg sm:text-2xl md:text-4xl font-editorial font-medium text-accent mb-4 sm:mb-6">
+          Mind Mastery for Achievers
         </h2>
       </div>
 
       {/* Subtitle */}
       <div className="text-center mb-12 sm:mb-16 max-w-4xl px-4">
         <p className="text-base sm:text-xl md:text-2xl text-muted-foreground leading-relaxed font-body">
-          AI-Powered Mind Management companion for High-performing students.
+          First Context based Thinking Partner for developing Meta Skill
         </p>
       </div>
 
@@ -58,17 +58,11 @@ const Front = () => {
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-4 h-auto font-medium shadow-lg"
         >
-          Get Started
+          Let's Go!
           <ArrowRight className="w-6 h-6 ml-2" />
         </Button>
       </div>
 
-      {/* Optional tagline at bottom */}
-      <div className="fixed bottom-20 sm:bottom-8 left-0 right-0 text-center px-4">
-        <p className="text-xs sm:text-sm text-muted-foreground font-body">
-          Become the Mental Elite
-        </p>
-      </div>
     </div>
   );
 };
