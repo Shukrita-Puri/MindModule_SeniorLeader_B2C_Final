@@ -46,11 +46,11 @@ const Signup = () => {
 
         {/* Mind Module Logo in Circle */}
         <div className="text-center mb-8">
-          <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-accent/20 shadow-xl">
+          <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-accent/20 shadow-xl bg-background flex items-center justify-center">
             <img 
-              src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
+              src="/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png"
               alt="Mind Module Logo"
-              className="w-full h-full object-cover"
+              className="w-20 h-20 object-contain"
             />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
