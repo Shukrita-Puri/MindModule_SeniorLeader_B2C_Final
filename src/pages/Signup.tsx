@@ -1,90 +1,33 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Mail, User, Lock, Chrome, Apple, ArrowRight } from "lucide-react";
+import { ArrowLeft, Chrome, Apple, Facebook, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import vibrantCelebrationIllustration from "@/assets/vibrant-celebration-illustration.png";
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    company: "",
-    password: "",
-    confirmPassword: ""
-  });
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const validateSchoolEmail = (email: string) => {
-    const commonPersonalDomains = [
-      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 
-      'icloud.com', 'aol.com', 'live.com', 'msn.com'
-    ];
-    const domain = email.split('@')[1];
-    return !commonPersonalDomains.includes(domain?.toLowerCase()) || domain?.includes('.edu');
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-    const handleSkip = () => {
-      toast({
-        title: "Entering Prototype Mode",
-        description: "You can sign up later for full access.",
-      });
-      navigate('/daily-check-in');
-    };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailAuth = () => {
     setIsLoading(true);
-
-    // Validation
-    if (!validateSchoolEmail(formData.email)) {
-      toast({
-        title: "School Email Required",
-        description: "Please use your school-provided email address.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Passwords Don't Match",
-        description: "Please ensure both passwords are identical.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    // Simulate API call
     setTimeout(() => {
       toast({
-        title: "Welcome to Inner Architect!",
-        description: "Your cognitive companion is ready. Redirecting...",
+        title: isSignUp ? "Welcome to Mind Module!" : "Welcome back!",
+        description: "Redirecting...",
       });
       setTimeout(() => navigate('/daily-check-in'), 1500);
       setIsLoading(false);
-    }, 2000);
+    }, 1000);
   };
 
-  const handleSocialSignup = (provider: string) => {
+  const handleSocialAuth = (provider: string) => {
     toast({
       title: "Coming Soon",
-      description: `${provider} signup will be available for students.`,
+      description: `${provider} authentication will be available soon.`,
     });
   };
 
@@ -101,196 +44,92 @@ const Signup = () => {
           Back
         </Button>
 
-        {/* Vibrant Header Visual */}
+        {/* Mind Module Logo in Circle */}
         <div className="text-center mb-8">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-2 border-accent/30">
+          <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-accent/20 shadow-xl">
             <img 
-              src={vibrantCelebrationIllustration}
-              alt="Welcome celebration"
+              src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
+              alt="Mind Module Logo"
               className="w-full h-full object-cover"
             />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-            Join Mind Module
+            Take the Next Quantum Leap with Mind Module
           </h1>
-          <p className="text-muted-foreground font-body">
-            Create your student account with school email
-          </p>
         </div>
 
-        {/* Skip Option for Prototype */}
-        <div className="mb-6 p-4 border border-border rounded-lg bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-card-foreground">Prototype Mode</p>
-              <p className="text-xs text-muted-foreground">Skip signup to explore the app</p>
-            </div>
-            <Button
-              onClick={handleSkip}
-              variant="outline"
-              size="sm"
-              className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-            >
-              Skip for now
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName" className="text-foreground font-body">First Name</Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                type="text"
-                required
-                value={formData.firstName}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground"
-                placeholder="John"
-              />
-            </div>
-            <div>
-              <Label htmlFor="lastName" className="text-foreground font-body">Last Name</Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                type="text"
-                required
-                value={formData.lastName}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground"
-                placeholder="Doe"
-              />
-            </div>
-          </div>
-
-          {/* School Email */}
-          <div>
-            <Label htmlFor="email" className="text-foreground font-body">School Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground pl-10"
-                placeholder="john.doe@prestigeacademy.edu"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Use your school-provided email address
+        {/* Toggle Text */}
+        <div className="text-center mb-6">
+          {!isSignUp ? (
+            <p className="text-sm text-muted-foreground font-body">
+              Don't have a Mind Module account?{" "}
+              <button 
+                onClick={() => setIsSignUp(true)}
+                className="text-muted-foreground hover:text-foreground underline"
+              >
+                Sign up
+              </button>
             </p>
-          </div>
-
-          {/* School Name */}
-          <div>
-            <Label htmlFor="company" className="text-foreground font-body">School Name</Label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="company"
-                name="company"
-                type="text"
-                required
-                value={formData.company}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground pl-10"
-                placeholder="Prestige Academy"
-              />
-            </div>
-          </div>
-
-          {/* Password Fields */}
-          <div>
-            <Label htmlFor="password" className="text-foreground font-body">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground pl-10"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="confirmPassword" className="text-foreground font-body">Confirm Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className="bg-card border-border text-card-foreground pl-10"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            loading={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-3"
-          >
-            Create Account
-          </Button>
-        </form>
-
-        {/* Divider */}
-        <div className="my-6 flex items-center">
-          <div className="flex-1 border-t border-border"></div>
-          <span className="px-4 text-muted-foreground text-sm font-body">Social Options (Coming Soon)</span>
-          <div className="flex-1 border-t border-border"></div>
+          ) : (
+            <p className="text-sm text-muted-foreground font-body">
+              Have a Mind Module account?{" "}
+              <button 
+                onClick={() => setIsSignUp(false)}
+                className="text-muted-foreground hover:text-foreground underline"
+              >
+                Log in
+              </button>
+            </p>
+          )}
         </div>
 
-        {/* Social Buttons */}
-        <div className="space-y-3">
+        {/* Auth Buttons */}
+        <div className="space-y-3 mb-6">
           <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSocialSignup('Google')}
-            className="w-full border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-            disabled
+            onClick={handleEmailAuth}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-6"
           >
-            <Chrome className="w-4 h-4 mr-2" />
-            Continue with Google
+            <Mail className="w-5 h-5 mr-2" />
+            {isSignUp ? "Continue" : "Sign in"} with Email
           </Button>
+          
           <Button
-            type="button"
             variant="outline"
-            onClick={() => handleSocialSignup('Apple')}
-            className="w-full border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-            disabled
+            onClick={() => handleSocialAuth('Facebook')}
+            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
           >
-            <Apple className="w-4 h-4 mr-2" />
-            Continue with Apple
+            <Facebook className="w-5 h-5 mr-2" />
+            {isSignUp ? "Continue" : "Sign in"} with Facebook
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => handleSocialAuth('Apple')}
+            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
+          >
+            <Apple className="w-5 h-5 mr-2" />
+            {isSignUp ? "Continue" : "Sign in"} with Apple
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => handleSocialAuth('Google')}
+            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
+          >
+            <Chrome className="w-5 h-5 mr-2" />
+            {isSignUp ? "Continue" : "Sign in"} with Google
           </Button>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-muted-foreground text-sm mt-8 font-body">
-          Already have an account?{" "}
-          <button className="text-accent hover:underline">
-            Sign In
-          </button>
-        </p>
+        {/* Terms and Privacy */}
+        {isSignUp && (
+          <p className="text-center text-xs text-muted-foreground font-body mt-6">
+            By clicking continue you agree to our{" "}
+            <button className="hover:underline">Terms</button>
+            {" "}and acknowledge that you have read our{" "}
+            <button className="hover:underline">Privacy Policy</button>
+          </p>
+        )}
       </div>
     </div>
   );
