@@ -58,6 +58,12 @@ const RecalibrateMode = () => {
       title: "Quick Reset",
       description: "Calming sounds for study breaks",
       illustration: vibrantPracticeIllustration
+    },
+    {
+      id: "flow-state",
+      title: "Flow State",
+      description: "Deep focus sessions for peak performance",
+      illustration: vibrantMentorIllustration
     }
   ];
 
@@ -254,6 +260,63 @@ const RecalibrateMode = () => {
             type: "Tropical restoration sounds",
             icon: Mountain,
             visual: "🍃"
+          }
+        ];
+      case "flow-state":
+        return [
+          {
+            title: "Deep Focus Session",
+            subtitle: "40Hz Gamma entrainment",
+            duration: "25 min",
+            description: "MIT research shows 40Hz stimulation enhances focus and cognitive performance for extended periods",
+            type: "Deep work optimization",
+            icon: Brain,
+            visual: "🎯"
+          },
+          {
+            title: "Binaural Study Flow",
+            subtitle: "Beta-Alpha bridge frequency",
+            duration: "45 min",
+            description: "Combines alertness with relaxation for optimal learning and retention",
+            type: "Study enhancement audio",
+            icon: Waves,
+            visual: "📚"
+          },
+          {
+            title: "Pomodoro Flow",
+            subtitle: "25-5 productivity cycle",
+            duration: "30 min",
+            description: "Time-tested technique with ambient focus music for sustained concentration",
+            type: "Timed focus session",
+            icon: Timer,
+            visual: "⏱️"
+          },
+          {
+            title: "Creative Flow State",
+            subtitle: "Theta-Alpha bridge",
+            duration: "20 min",
+            description: "Access creative problem-solving while maintaining mental clarity",
+            type: "Creative optimization",
+            icon: Brain,
+            visual: "✨"
+          },
+          {
+            title: "Exam Mode",
+            subtitle: "Peak performance state",
+            duration: "60 min",
+            description: "Extended focus protocol designed for high-stakes testing and performance",
+            type: "Performance optimization",
+            icon: Zap,
+            visual: "🔥"
+          },
+          {
+            title: "Library Ambience",
+            subtitle: "Productive environment sounds",
+            duration: "90 min",
+            description: "Soft background sounds proven to enhance focus in academic settings",
+            type: "Ambient focus soundscape",
+            icon: Mountain,
+            visual: "📖"
           }
         ];
       default:

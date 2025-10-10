@@ -41,6 +41,7 @@ import PowerUpSession from "./pages/recalibrate/PowerUpSession";
 import EmergencyResetSession from "./pages/recalibrate/EmergencyResetSession";
 import BreathworkSession from "./pages/recalibrate/BreathworkSession";
 import QuickResetSession from "./pages/recalibrate/QuickResetSession";
+import FlowStateSession from "./pages/recalibrate/FlowStateSession";
 
 // Layout component that conditionally includes GlobalHeader
 const Layout = () => {
@@ -195,6 +196,10 @@ const router = createBrowserRouter([
           {
             path: "pause",
             element: <QuickResetSession />,
+          },
+          {
+            path: "flow-state",
+            element: <FlowStateSession />,
           },
         ],
       },

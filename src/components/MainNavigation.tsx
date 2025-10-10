@@ -6,8 +6,9 @@ const MainNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Define all pages that should highlight the Inner Architect button
-  const innerArchitectPages = [
+  // Define all pages that should highlight the Practice button
+  const practicePages = [
+    "/social-intelligence-lab",
     "/inner-architect",
     "/clarity",
     "/clarity/summary",
@@ -17,10 +18,19 @@ const MainNavigation = () => {
     "/futurescape",
     "/mentor",
     "/mentor-chat",
-    "/recalibrate",
     "/memory-archive",
     "/nudge-settings",
     "/nudge-simulator"
+  ];
+
+  // Define all pages that should highlight the Recalibrate button
+  const recalibratePages = [
+    "/recalibrate",
+    "/recalibrate/emergency-reset",
+    "/recalibrate/power-up",
+    "/recalibrate/breathing",
+    "/recalibrate/pause",
+    "/recalibrate/flow-state"
   ];
 
   const navItems = [
@@ -33,14 +43,14 @@ const MainNavigation = () => {
     { 
       icon: User, 
       label: "Practice", 
-      route: "/inner-architect",
-      isActive: innerArchitectPages.includes(location.pathname)
+      route: "/social-intelligence-lab",
+      isActive: practicePages.includes(location.pathname)
     },
     { 
       icon: BarChart3, 
-      label: "Insights", 
-      route: "/mind-vault",
-      isActive: location.pathname === "/mind-vault"
+      label: "Recalibrate", 
+      route: "/recalibrate",
+      isActive: recalibratePages.some(path => location.pathname.startsWith(path.split('/').slice(0, 3).join('/'))) || location.pathname === "/recalibrate"
     },
   ];
 
