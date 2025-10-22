@@ -57,7 +57,7 @@ const TodaysFocusCard = () => {
       domainTitle: "Influence & Communication Leadership",
       pillarFocus: "High-Stakes Communication & Strategic Storytelling",
       action: "Prepare Communication",
-      route: "/scenario-lab",
+      route: "/practice",
       learning: {
         title: "Executive Presence Framework",
         description: "Command attention through confident body language, clear messaging, and strategic pauses",
@@ -71,7 +71,7 @@ const TodaysFocusCard = () => {
       domainTitle: "Emotional Mastery & Nervous System Intelligence",
       pillarFocus: "Emotional Intelligence & Psychological Safety",
       action: "Prepare Session",
-      route: "/mentor-chat",
+      route: "/practice",
       learning: {
         title: "Emotional Intelligence in Leadership",
         description: "Create psychological safety through active listening and empathetic responses",

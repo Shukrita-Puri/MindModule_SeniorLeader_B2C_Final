@@ -13,7 +13,7 @@ const NudgeSimulator = () => {
       id: "1",
       title: "Advanced Physics Exam",
       message: "Advanced Physics Exam in 2 days. Shift into deep focus mode to master the material and your anxiety.",
-      type: "futurescape" as const,
+      type: "recalibrate" as const,
       urgency: "high" as const,
       timestamp: new Date()
     },
@@ -21,7 +21,7 @@ const NudgeSimulator = () => {
       id: "2", 
       title: "Oxford College Interview",
       message: "Oxford College Interview in 4 days. Practice with a simulated Oxford admissions assessor to gain an edge.",
-      type: "scenario-lab" as const,
+      type: "practice" as const,
       urgency: "high" as const,
       timestamp: new Date()
     },
@@ -29,7 +29,7 @@ const NudgeSimulator = () => {
       id: "3",
       title: "Resilience Training", 
       message: "Feeling overwhelmed? Tap into resilience techniques used by Navy SEALs and Ancient Yogis to stay calm under pressure.",
-      type: "breathwork" as const,
+      type: "recalibrate" as const,
       urgency: "medium" as const,
       timestamp: new Date()
     },
@@ -37,7 +37,7 @@ const NudgeSimulator = () => {
       id: "4",
       title: "Interview Practice",
       message: "Harvard interview next week. Want to practice with Social Intelligence first?",
-      type: "scenario-lab" as const,
+      type: "practice" as const,
       context: "From your college application timeline",
       urgency: "medium" as const,
       timestamp: new Date()
@@ -45,7 +45,7 @@ const NudgeSimulator = () => {
     {
       id: "5",
       title: "Social Media Break",
-      message: "You've been scrolling for 2 hours. Time for a 5-min Inner Calibration?",
+      message: "You've been scrolling for 2 hours. Time for a 5-min recalibrate?",
       type: "sos" as const,
       context: "Based on screen time patterns",
       urgency: "high" as const,
@@ -53,91 +53,37 @@ const NudgeSimulator = () => {
     },
     {
       id: "6",
-      title: "Study Pattern Insight",
-      message: "Your focus has been shifting toward STEM subjects lately. Want to explore what's driving this interest?",
-      type: "clarity" as const,
-      context: "Monthly pattern analysis from study sessions",
-      urgency: "low" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "7",
       title: "College Prep Alignment",
-      message: "Princeton application due soon. Ready to practice your personal statement pitch or review your vision board?",
-      type: "scenario-lab" as const,
+      message: "Princeton application due soon. Ready to practice your personal statement pitch?",
+      type: "practice" as const,
       context: "Connected to college application timeline",
       urgency: "medium" as const,
       timestamp: new Date()
     },
     {
-      id: "8",
-      title: "Confidence Check",
-      message: "You've mentioned feeling 'not smart enough' in conversations this week. Want to explore this pattern?",
-      type: "mentor" as const,
-      context: "Pattern detected in peer conversations",
-      urgency: "medium" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "9",
-      title: "Academic Wisdom Connection",
-      message: "Your essay on resilience connects to Stoic philosophy we explored last month. Want to dive deeper?",
-      type: "clarity" as const,
-      context: "Connected insights from previous conversations",
-      urgency: "low" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "10",
+      id: "7",
       title: "Exam Stress Recovery",
-      message: "Midterm stress levels high. Try Inner Calibration, then Mental Clarity, then journal in the Vault?",
+      message: "Midterm stress levels high. Try a breathing session to recalibrate?",
       type: "sos" as const,
       context: "Academic calendar + stress indicators",
       urgency: "high" as const,
       timestamp: new Date()
     },
     {
-      id: "11",
+      id: "8",
       title: "Sleep Optimization",
       message: "You've been staying up late studying. Want to try some breathwork to improve sleep quality?",
-      type: "breathwork" as const,
+      type: "recalibrate" as const,
       context: "Sleep patterns + academic performance data",
       urgency: "medium" as const,
       timestamp: new Date()
     },
     {
-      id: "12",
-      title: "Social Comparison Check",
-      message: "Instagram was intense today with college acceptance posts. Want to process any comparison thoughts?",
-      type: "clarity" as const,
-      context: "Social media usage + emotional patterns",
-      urgency: "medium" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "13",
-      title: "Communication Style Shift",
-      message: "Your texts to friends have been shorter lately. Want to explore what might be behind this change?",
-      type: "clarity" as const,
-      context: "Message tone analysis + social patterns",
-      urgency: "low" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "14",
+      id: "9",
       title: "Overcommitment Alert",
       message: "You have debate practice, SAT prep, and volunteer work today. Want micro-breaks with breathing?",
-      type: "breathwork" as const,
+      type: "recalibrate" as const,
       context: "Schedule density analysis",
-      urgency: "medium" as const,
-      timestamp: new Date()
-    },
-    {
-      id: "15",
-      title: "College Decision Delay",
-      message: "You've been putting off 3 college application tasks. Want to explore what's creating the hesitation?",
-      type: "mentor" as const,
-      context: "Task completion patterns + application timeline",
       urgency: "medium" as const,
       timestamp: new Date()
     }
@@ -153,26 +99,17 @@ const NudgeSimulator = () => {
     console.log(`Nudge ${currentNudge.id} acted upon`);
     // Navigate to appropriate page based on nudge type
     switch (currentNudge.type) {
-      case 'breathwork':
-        navigate('/breathwork');
+      case 'recalibrate':
+        navigate('/recalibrate');
         break;
-      case 'clarity':
-        navigate('/clarity-mode');
-        break;
-      case 'futurescape':
-        navigate('/futurescape-mode');
-        break;
-      case 'scenario-lab':
-        navigate('/scenario-lab');
+      case 'practice':
+        navigate('/practice');
         break;
       case 'sos':
-        navigate('/recalibrate-mode');
-        break;
-      case 'mentor':
-        navigate('/mentor-mode');
+        navigate('/recalibrate');
         break;
       default:
-        navigate('/');
+        navigate('/executive-home');
     }
   };
 

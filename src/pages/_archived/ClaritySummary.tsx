@@ -5,7 +5,6 @@ import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import ModeDial from "@/components/ModeDial";
 import MainNavigation from "@/components/MainNavigation";
 
 interface CraftSection {

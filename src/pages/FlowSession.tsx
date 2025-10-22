@@ -157,7 +157,7 @@ const FlowSession = () => {
           <button
             onClick={() => {
               if (currentStep === 1) {
-                navigate('/flow-state-lab');
+                navigate('/recalibrate/flow-state');
               } else {
                 setSearchParams({ step: (currentStep - 1).toString() });
                 setSessionPhase(getSessionPhase());
@@ -313,7 +313,7 @@ const FlowSession = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
-          onClick={() => navigate("/flow-state-lab")}
+          onClick={() => navigate("/recalibrate/flow-state")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
           <ArrowLeft size={18} className="text-foreground" />

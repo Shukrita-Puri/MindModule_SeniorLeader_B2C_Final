@@ -8,7 +8,7 @@ interface SmartNudgeProps {
   id: string;
   title: string;
   message: string;
-  type: "clarity" | "scenario-lab" | "futurescape" | "mentor" | "sos" | "breathwork";
+  type: "practice" | "recalibrate" | "sos";
   context?: string;
   urgency: "low" | "medium" | "high";
   onDismiss?: () => void;
@@ -31,12 +31,9 @@ const SmartNudge = ({
 
   const getIcon = () => {
     switch (type) {
-      case "clarity": return Brain;
-      case "scenario-lab": return Users;
-      case "futurescape": return Target;
-      case "mentor": return Brain;
+      case "practice": return Users;
+      case "recalibrate": return Heart;
       case "sos": return Heart;
-      case "breathwork": return Heart;
       default: return Brain;
     }
   };
@@ -47,21 +44,12 @@ const SmartNudge = ({
 
   const handleAction = () => {
     const routes = {
-      clarity: "/clarity",
-      "scenario-lab": "/scenario-lab",
-      futurescape: "/futurescape",
-      mentor: "/mentor",
-      sos: "/sos",
-      breathwork: "/recalibrate/breathwork"
+      practice: "/practice",
+      recalibrate: "/recalibrate",
+      sos: "/recalibrate"
     };
     
-    if (type === "breathwork") {
-      navigate("/recalibrate/breathwork", { state: { targetRoute: "/executive-home", moduleTitle: "Smart Nudge" } });
-    } else {
-      // Add smart nudge parameters to indicate the user came from a nudge
-      navigate(`${routes[type]}?from=smart-nudge&action=${type}`);
-    }
-    
+    navigate(routes[type]);
     onAction?.();
   };
 

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { ArrowLeft, Download, Calendar, BookOpen, Star, Target, Lightbulb } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import ModeDial from "@/components/ModeDial";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +84,7 @@ ${sessionFeedback ? JSON.stringify(sessionFeedback, null, 2) : 'No feedback prov
           <ArrowLeft size={20} className="text-gray-700" />
         </button>
         <h1 className="text-lg font-bold text-black">MENTOR INSIGHTS</h1>
-        <ModeDial />
+        <div className="w-10"></div>
       </div>
 
       {/* Main content */}

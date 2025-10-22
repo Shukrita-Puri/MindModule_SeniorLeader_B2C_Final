@@ -68,15 +68,17 @@ const RecalibrateMode = () => {
   ];
 
   const handleToolSelect = (toolId: string) => {
-    setSelectedTool(toolId);
-    
+    // Navigate to the appropriate route for each tool
     if (toolId === "emergency-reset") {
-      setIsResetting(true);
-      // Auto-return after 3 minutes
-      setTimeout(() => {
-        setIsResetting(false);
-        setSelectedTool("");
-      }, 180000);
+      navigate('/recalibrate/emergency-reset');
+    } else if (toolId === "power-up") {
+      navigate('/recalibrate/power-up');
+    } else if (toolId === "breathing") {
+      navigate('/recalibrate/breathing');
+    } else if (toolId === "pause") {
+      navigate('/recalibrate/pause');
+    } else if (toolId === "flow-state") {
+      navigate('/recalibrate/flow-state');
     }
   };
 

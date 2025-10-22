@@ -8,51 +8,15 @@ const ClearBackButton = () => {
   const [, setSearchParams] = useSearchParams();
 
   const handleBack = () => {
-    // For flow state lab, handle step-by-step navigation
-    if (location.pathname === '/flow-state-lab') {
-      const urlParams = new URLSearchParams(location.search);
-      const currentStep = urlParams.get('step') || 'hero';
-      const stepOrder = ['hero', 'choose-task', 'add-context', 'choose-duration', 'technique-matched', 'session-setup', 'session-active', 'session-complete', 'flow-log'];
-      const currentIndex = stepOrder.indexOf(currentStep);
-      
-      if (currentIndex > 0) {
-        setSearchParams({ step: stepOrder[currentIndex - 1] });
-      } else {
-        navigate('/inner-architect');
-      }
-    }
-    // For flow session pages, handle step-by-step navigation
-    else if (location.pathname === '/flow-session') {
-      const urlParams = new URLSearchParams(location.search);
-      const currentStep = parseInt(urlParams.get('step') || '1');
-      
-      if (currentStep === 1) {
-        navigate('/flow-state-lab');
-      } else {
-        setSearchParams({ step: (currentStep - 1).toString() });
-      }
-    }
     // For recalibrate sub-pages, navigate to main recalibrate page
-    else if (location.pathname.startsWith('/recalibrate/')) {
+    if (location.pathname.startsWith('/recalibrate/')) {
       navigate('/recalibrate');
     }
-    // For main recalibrate page, navigate to inner-architect
+    // For main recalibrate page, navigate to executive-home
     else if (location.pathname === '/recalibrate') {
-      navigate('/inner-architect');
+      navigate('/executive-home');
     }
-    // For clarity sub-pages, navigate to main clarity page
-    else if (location.pathname.startsWith('/clarity/')) {
-      navigate('/clarity');
-    }
-    // For older path patterns (backwards compatibility)
-    else if (location.pathname.includes('/breathwork') || 
-        location.pathname.includes('/power-up') || 
-        location.pathname.includes('/emergency-reset') ||
-        location.pathname.includes('/pause')) {
-      navigate('/inner-architect');
-    } else if (location.pathname.includes('/clarity')) {
-      navigate('/clarity');
-    } else {
+    else {
       navigate(-1);
     }
   };

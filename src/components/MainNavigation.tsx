@@ -1,5 +1,5 @@
 
-import { Users2, Home, Zap } from "lucide-react";
+import { UsersRound, Home, Zap } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const MainNavigation = () => {
@@ -31,7 +31,7 @@ const MainNavigation = () => {
       isActive: location.pathname === "/executive-home"
     },
     { 
-      icon: Users2, 
+      icon: UsersRound, 
       label: "Practice", 
       route: "/practice",
       isActive: practicePages.includes(location.pathname)

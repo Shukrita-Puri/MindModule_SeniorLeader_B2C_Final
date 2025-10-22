@@ -3,7 +3,6 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
-import ModeDial from "@/components/ModeDial";
 import VoiceFirstChat from "@/components/VoiceFirstChat";
 import SessionFeedback from "@/components/SessionFeedback";
 
@@ -109,7 +108,7 @@ const MentorChat = () => {
           <ArrowLeft size={20} className="text-gray-700" />
         </button>
         <h1 className="text-lg font-bold text-black">MENTOR CHAT</h1>
-        <ModeDial />
+        <div className="w-10"></div>
       </div>
 
       {/* Voice-First Chat Interface */}

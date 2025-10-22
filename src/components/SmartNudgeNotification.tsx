@@ -8,7 +8,7 @@ interface SmartNudgeNotificationProps {
   id: string;
   title: string;
   message: string;
-  type: "clarity" | "scenario-lab" | "futurescape" | "mentor" | "sos";
+  type: "practice" | "recalibrate" | "sos";
   urgency: "low" | "medium" | "high";
   onDismiss?: () => void;
   onAction?: () => void;
@@ -35,10 +35,8 @@ const SmartNudgeNotification = ({
 
   const getIcon = () => {
     switch (type) {
-      case "clarity": return Brain;
-      case "scenario-lab": return Users;
-      case "futurescape": return Target;
-      case "mentor": return Brain;
+      case "practice": return Users;
+      case "recalibrate": return Heart;
       case "sos": return Heart;
       default: return Brain;
     }
@@ -55,11 +53,9 @@ const SmartNudgeNotification = ({
 
   const handleAction = () => {
     const routes = {
-      clarity: "/clarity",
-      "scenario-lab": "/scenario-lab",
-      futurescape: "/futurescape",
-      mentor: "/mentor",
-      sos: "/breathwork"
+      practice: "/practice",
+      recalibrate: "/recalibrate",
+      sos: "/recalibrate"
     };
     
     navigate(routes[type]);

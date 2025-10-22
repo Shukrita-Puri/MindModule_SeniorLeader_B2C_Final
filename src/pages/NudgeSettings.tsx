@@ -12,41 +12,25 @@ import MainNavigation from "@/components/MainNavigation";
 const NudgeSettings = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState({
-    clarity: true,
-    scenarioLab: false,
-    futurescape: true,
-    mentor: true,
+    practice: true,
+    recalibrate: false,
     sos: true,
     patterns: true
   });
 
   const nudgeTypes = [
     {
-      id: "clarity",
-      name: "Clarity Nudges",
-      description: "Reflection prompts and insight moments",
-      icon: Brain,
-      color: "text-hyper-coral"
-    },
-    {
-      id: "scenarioLab",
-      name: "Scenario Lab Nudges", 
+      id: "practice",
+      name: "Practice Nudges",
       description: "Practice opportunities before key interactions",
       icon: Zap,
       color: "text-hyper-coral"
     },
     {
-      id: "futurescape",
-      name: "Vision Alignment Nudges",
-      description: "Reminders to align actions with future goals",
-      icon: Eye,
-      color: "text-hyper-coral"
-    },
-    {
-      id: "mentor",
-      name: "Mentor Wisdom Nudges",
-      description: "Timely insights from your chosen mentors",
-      icon: Heart,
+      id: "recalibrate",
+      name: "Recalibrate Nudges", 
+      description: "Breathing and energy management reminders",
+      icon: Brain,
       color: "text-hyper-coral"
     },
     {

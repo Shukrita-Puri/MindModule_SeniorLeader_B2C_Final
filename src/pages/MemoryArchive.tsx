@@ -98,12 +98,7 @@ const MemoryArchive = () => {
             <h1 className="text-xl font-bold text-gray-900 uppercase">MEMORY ARCHIVE</h1>
             <p className="text-sm text-gray-600">Your Growth Journey Records</p>
           </div>
-          <button
-            onClick={() => navigate("/mind-vault")}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <Archive size={20} className="text-gray-600" />
-          </button>
+          <div className="w-10"></div>
         </div>
       </div>
 
