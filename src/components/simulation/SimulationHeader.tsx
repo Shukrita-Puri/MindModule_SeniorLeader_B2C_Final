@@ -14,7 +14,7 @@ const SimulationHeader = ({ contextType, sessionDuration, onDownload }: Simulati
   return (
     <div className="flex items-center justify-between p-6 border-b border-border">
       <button
-        onClick={() => navigate("/simulation")}
+        onClick={() => navigate("/practice/simulation")}
         className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
       >
         <ArrowLeft size={18} className="text-foreground" />

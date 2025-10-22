@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Target, TrendingUp, Calendar, Brain, Heart, Zap } from "lucide-react";
 import resetSessionIllustration from "@/assets/reset-session-illustration.png";
 import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
-import inkReflectionIllustration from "@/assets/ink-reflection-illustration.png";
 
 const ExecutiveHome = () => {
   const navigate = useNavigate();
@@ -83,7 +82,7 @@ const ExecutiveHome = () => {
       icon: Brain,
       suggestion: "Scenario Simulate your practice with the assessor",
       actionLabel: "Prepare with Social Intelligence",
-      route: "/social-intelligence-lab",
+      route: "/practice",
       urgency: "high"
     });
 
@@ -98,7 +97,7 @@ const ExecutiveHome = () => {
       icon: Brain,
       suggestion: "Enter optimal learning state",
       actionLabel: "Practice Flow State",
-      route: "/flow-state-lab",
+      route: "/recalibrate/flow-state",
       urgency: "high"
     });
     
@@ -273,34 +272,6 @@ const ExecutiveHome = () => {
           </div>
         </section>
 
-        {/* Journal & Reflection */}
-        <section className="border-t border-border pt-8 pb-6 animate-fade-in" style={{ animationDelay: '600ms' }}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
-              <img 
-                src={inkReflectionIllustration} 
-                alt="Evening reflection"
-                className="w-8 h-8 object-contain opacity-80"
-              />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-heading font-medium text-foreground mb-2">
-                Evening Reflection
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed font-body mb-3">
-                3 wins or moments you're grateful for today? What made them possible?
-              </p>
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/clarity/journal')}
-                className="text-sm w-full py-2 mb-2"
-              >
-                Journal now
-                <ArrowRight size={12} className="ml-2" />
-              </Button>
-            </div>
-          </div>
-        </section>
       </div>
 
       <MainNavigation />

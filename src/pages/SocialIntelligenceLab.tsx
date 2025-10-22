@@ -192,7 +192,7 @@ const SocialIntelligenceLab = () => {
 
   const handleStartPractice = () => {
     if (selectedDomain && contextType && (selectedPersonas.length > 0 || customPersonas.trim())) {
-      navigate('/simulation', { 
+      navigate('/practice/simulation', { 
         state: { 
           scenarioDomain: selectedDomain,
           contextType: contextType,
@@ -215,7 +215,7 @@ const SocialIntelligenceLab = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
-          onClick={() => navigate("/inner-architect")}
+          onClick={() => navigate("/executive-home")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
           <ArrowLeft size={18} className="text-foreground" />

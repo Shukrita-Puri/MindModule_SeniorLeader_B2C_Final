@@ -7,36 +7,33 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Front from "./pages/Front";
-import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
 import DailyCheckIn from "./pages/DailyCheckIn";
-import AppRouter from "./components/AppRouter";
 import ExecutiveHome from "./pages/ExecutiveHome";
-import ScenarioLab from "./pages/ScenarioLab";
 import SocialIntelligenceLab from "./pages/SocialIntelligenceLab";
-import FlowStateLab from "./pages/FlowStateLab";
 import FlowSession from "./pages/FlowSession";
-import MentorChat from "./pages/MentorChat";
-import MindVault from "./pages/MindVault";
-import Index from "./pages/Index";
 import GlobalHeader from "./components/GlobalHeader";
 import NudgeSettings from "./pages/NudgeSettings";
 import NudgeSimulator from "./pages/NudgeSimulator";
-import MentorMode from "./pages/MentorMode";
 import MemoryArchive from "./pages/MemoryArchive";
 import Simulation from "./pages/Simulation";
 import Breathwork from "./pages/Breathwork";
-// Import existing pages that should be available
-import ClarityMode from "./pages/ClarityMode";
 import RecalibrateMode from "./pages/RecalibrateMode";
-import FuturescapeMode from "./pages/FuturescapeMode";
 import SimulationInsights from "./pages/SimulationInsights";
-import MentorInsights from "./pages/MentorInsights";
-import ClaritySummary from "./pages/ClaritySummary";
 
-// Import new session pages
-import ClarityConversation from "./pages/clarity/ClarityConversation";
-import ClarityJournal from "./pages/clarity/ClarityJournal";
+// ARCHIVED - V2 Features (moved to src/pages/_archived/)
+// import FlowStateLab from "./pages/FlowStateLab";
+// import MentorChat from "./pages/MentorChat";
+// import MindVault from "./pages/MindVault";
+// import MentorMode from "./pages/MentorMode";
+// import ClarityMode from "./pages/ClarityMode";
+// import FuturescapeMode from "./pages/FuturescapeMode";
+// import MentorInsights from "./pages/MentorInsights";
+// import ClaritySummary from "./pages/ClaritySummary";
+// import ClarityConversation from "./pages/clarity/ClarityConversation";
+// import ClarityJournal from "./pages/clarity/ClarityJournal";
+
+// Import recalibrate session pages
 import PowerUpSession from "./pages/recalibrate/PowerUpSession";
 import EmergencyResetSession from "./pages/recalibrate/EmergencyResetSession";
 import BreathworkSession from "./pages/recalibrate/BreathworkSession";
@@ -49,32 +46,34 @@ const Layout = () => {
   
   // Pages that should show the sidebar/GlobalHeader (signed-in pages)
   const pagesWithSidebar = [
+    '/',
+    '/signup',
     '/executive-home',
-    '/index',
-    '/inner-architect',
-    '/mind-vault',
-    '/scenario-lab',
-    '/mentor-chat',
-    '/mentor',
+    '/daily-check-in',
+    '/practice',
+    '/practice/simulation',
+    '/practice/simulation-insights',
     '/recalibrate',
-    '/futurescape',
+    '/recalibrate/breathing',
+    '/recalibrate/power-up',
+    '/recalibrate/emergency-reset',
+    '/recalibrate/pause',
+    '/recalibrate/flow-state',
     '/nudge-settings',
+    '/nudge-simulator',
     '/memory-archive'
   ];
   
   // Exclude specific pages from showing the 3-line button/GlobalHeader
   const excludedPages = [
-    '/clarity',
-    '/simulation'
+    '/practice/simulation'
   ];
   
-  // Also check if we're in a clarity conversation/journal session or simulation practice
-  const isInClaritySession = location.pathname.includes('/clarity');
-  const isInSimulation = location.pathname.includes('/simulation');
+  // Also check if we're in a simulation practice
+  const isInSimulation = location.pathname.includes('/practice/simulation');
   
   const shouldShowSidebar = pagesWithSidebar.includes(location.pathname) && 
     !excludedPages.includes(location.pathname) && 
-    !isInClaritySession && 
     !isInSimulation;
 
   return (
@@ -96,10 +95,6 @@ const router = createBrowserRouter([
         element: <Front />,
       },
       {
-        path: "landing",
-        element: <Landing />,
-      },
-      {
         path: "signup",
         element: <Signup />,
       },
@@ -112,66 +107,24 @@ const router = createBrowserRouter([
         element: <Breathwork />,
       },
       {
-        path: "app",
-        element: <AppRouter />,
-      },
-      {
         path: "executive-home",
         element: <ExecutiveHome />,
-      },
-      {
-        path: "index",
-        element: <Index />,
-      },
-      {
-        path: "inner-architect",
-        element: <Index />,
-      },
-      {
-        path: "scenario-lab",
-        element: <ScenarioLab />,
-      },
-      {
-        path: "social-intelligence-lab",
-        element: <SocialIntelligenceLab />,
-      },
-      {
-        path: "flow-state-lab",
-        element: <FlowStateLab />,
       },
       {
         path: "flow-session",
         element: <FlowSession />,
       },
       {
-        path: "simulation",
+        path: "practice",
+        element: <SocialIntelligenceLab />,
+      },
+      {
+        path: "practice/simulation",
         element: <Simulation />,
       },
       {
-        path: "mentor-chat",
-        element: <MentorChat />,
-      },
-      {
-        path: "mentor",
-        element: <MentorMode />,
-      },
-      {
-        path: "clarity",
-        element: <ClarityMode />,
-        children: [
-          {
-            path: "conversation",
-            element: <ClarityConversation />,
-          },
-          {
-            path: "journal",
-            element: <ClarityJournal />,
-          },
-          {
-            path: "summary",
-            element: <ClaritySummary />,
-          },
-        ],
+        path: "practice/simulation-insights",
+        element: <SimulationInsights />,
       },
       {
         path: "recalibrate",
@@ -204,14 +157,6 @@ const router = createBrowserRouter([
         ],
       },
       {
-        path: "futurescape",
-        element: <FuturescapeMode />,
-      },
-      {
-        path: "mind-vault",
-        element: <MindVault />,
-      },
-      {
         path: "nudge-settings",
         element: <NudgeSettings />,
       },
@@ -223,14 +168,49 @@ const router = createBrowserRouter([
         path: "memory-archive",
         element: <MemoryArchive />,
       },
-      {
-        path: "simulation-insights",
-        element: <SimulationInsights />,
-      },
-      {
-        path: "mentor-insights", 
-        element: <MentorInsights />,
-      },
+      // ARCHIVED ROUTES - V2 Features
+      // {
+      //   path: "flow-state-lab",
+      //   element: <FlowStateLab />,
+      // },
+      // {
+      //   path: "mentor-chat",
+      //   element: <MentorChat />,
+      // },
+      // {
+      //   path: "mentor",
+      //   element: <MentorMode />,
+      // },
+      // {
+      //   path: "clarity",
+      //   element: <ClarityMode />,
+      //   children: [
+      //     {
+      //       path: "conversation",
+      //       element: <ClarityConversation />,
+      //     },
+      //     {
+      //       path: "journal",
+      //       element: <ClarityJournal />,
+      //     },
+      //     {
+      //       path: "summary",
+      //       element: <ClaritySummary />,
+      //     },
+      //   ],
+      // },
+      // {
+      //   path: "futurescape",
+      //   element: <FuturescapeMode />,
+      // },
+      // {
+      //   path: "mind-vault",
+      //   element: <MindVault />,
+      // },
+      // {
+      //   path: "mentor-insights", 
+      //   element: <MentorInsights />,
+      // },
     ],
   },
 ]);

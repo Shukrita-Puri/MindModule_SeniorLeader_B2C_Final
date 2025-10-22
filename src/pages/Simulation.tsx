@@ -22,7 +22,7 @@ const Simulation = () => {
   const handleFeedbackSubmit = (feedback: any) => {
     console.log("Session feedback:", feedback);
     setShowFeedback(false);
-    navigate('/simulation-insights', { 
+    navigate('/practice/simulation-insights', { 
       state: { 
         scenarioDomain, 
         contextType,
@@ -40,7 +40,7 @@ const Simulation = () => {
 
   const handleFeedbackSkip = () => {
     setShowFeedback(false);
-    navigate('/simulation-insights', { 
+    navigate('/practice/simulation-insights', { 
       state: { 
         scenarioDomain, 
         contextType,
@@ -60,7 +60,7 @@ const Simulation = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
-          onClick={() => navigate("/social-intelligence-lab")}
+          onClick={() => navigate("/practice")}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
         >
           <ArrowLeft size={18} className="text-foreground" />

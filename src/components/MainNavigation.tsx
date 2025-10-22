@@ -1,5 +1,5 @@
 
-import { User, Home, BarChart3 } from "lucide-react";
+import { Users2, Home, Zap } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const MainNavigation = () => {
@@ -8,19 +8,9 @@ const MainNavigation = () => {
 
   // Define all pages that should highlight the Practice button
   const practicePages = [
-    "/social-intelligence-lab",
-    "/inner-architect",
-    "/clarity",
-    "/clarity/summary",
-    "/scenario-lab",
-    "/simulation",
-    "/simulation-insights",
-    "/futurescape",
-    "/mentor",
-    "/mentor-chat",
-    "/memory-archive",
-    "/nudge-settings",
-    "/nudge-simulator"
+    "/practice",
+    "/practice/simulation",
+    "/practice/simulation-insights"
   ];
 
   // Define all pages that should highlight the Recalibrate button
@@ -41,13 +31,13 @@ const MainNavigation = () => {
       isActive: location.pathname === "/executive-home"
     },
     { 
-      icon: User, 
+      icon: Users2, 
       label: "Practice", 
-      route: "/social-intelligence-lab",
+      route: "/practice",
       isActive: practicePages.includes(location.pathname)
     },
     { 
-      icon: BarChart3, 
+      icon: Zap, 
       label: "Recalibrate", 
       route: "/recalibrate",
       isActive: recalibratePages.some(path => location.pathname.startsWith(path.split('/').slice(0, 3).join('/'))) || location.pathname === "/recalibrate"
