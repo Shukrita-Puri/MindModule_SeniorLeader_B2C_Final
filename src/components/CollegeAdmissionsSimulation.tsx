@@ -44,7 +44,8 @@ const CollegeAdmissionsSimulation = ({
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [userAnxietyLevel, setUserAnxietyLevel] = useState<"low" | "medium" | "high">("low");
   const [questionCount, setQuestionCount] = useState(0);
-  const [activeMetaSkills, setActiveMetaSkills] = useState<Set<string>>(new Set());
+  // Meta skills shown from the start (MVP focus areas)
+  const metaSkills = ["Social Intelligence", "Resilience", "Adaptability", "Communication"];
   const [activeToast, setActiveToast] = useState<{
     id: string;
     type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking" | "ancient-wisdom";
@@ -70,13 +71,7 @@ const CollegeAdmissionsSimulation = ({
     "ancient-wisdom": "Wisdom"
   };
 
-  // Trigger meta skill tracking
-  const triggerMetaSkill = (coachingType: string) => {
-    const skill = metaSkillMap[coachingType];
-    if (skill) {
-      setActiveMetaSkills(prev => new Set(prev).add(skill));
-    }
-  };
+  // Meta skills are shown from start, no need to track dynamically
 
   // Pause/Resume logic
   const pauseTimers = () => {
@@ -428,7 +423,6 @@ const CollegeAdmissionsSimulation = ({
     const feedback = getCoachingFeedback(message, questionCount);
     
     if (feedback) {
-      triggerMetaSkill(feedback.type);
       setActiveToast({
         id: Date.now().toString(),
         type: feedback.type,
@@ -483,7 +477,7 @@ const CollegeAdmissionsSimulation = ({
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
       {/* Floating Meta Skills - Top Right */}
       <div className="absolute top-6 right-6 z-50 flex flex-wrap gap-2 max-w-xs justify-end">
-        {Array.from(activeMetaSkills).map(skill => (
+        {metaSkills.map(skill => (
           <Badge 
             key={skill}
             variant="secondary"
@@ -503,146 +497,138 @@ const CollegeAdmissionsSimulation = ({
         End Interview
       </button>
 
-      {/* Main Split Content */}
+      {/* Main Split Content - No boxes, full page coverage */}
       <div className="flex flex-col h-screen">
-        {/* AI Persona Section - Top 50% */}
-        <div className="flex-1 flex items-center justify-center p-8 relative overflow-hidden">
-          {/* Depth layers - gradient background */}
+        {/* AI Persona Section - Top */}
+        <div className="flex-1 flex items-center justify-center py-6 px-6 relative overflow-hidden">
+          {/* Depth layer - gradient background */}
           <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-primary/10 to-transparent" />
           
-          {/* Glassmorphic card for AI */}
-          <div className="relative z-10 w-full max-w-md">
-            <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-border/50">
-              <div className="text-center space-y-6">
-                {/* Persona Name */}
-                <div className="space-y-1">
-                  <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
-                    {aiPersona.name}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {aiPersona.role}
-                  </p>
-                </div>
-
-                {/* Waveform Visualization */}
-                {(isAISpeaking || isThinking) && (
-                  <WaveformVisualizer 
-                    isActive={isAISpeaking}
-                    color="primary"
-                    className="h-20"
-                  />
-                )}
-                
-                {/* AI Thinking State */}
-                {isThinking && !isAISpeaking && (
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                    <span>Thinking...</span>
-                  </div>
-                )}
-
-                {/* Latest AI message preview */}
-                {messages.length > 0 && messages[messages.length - 1].sender === "ai" && !isThinking && (
-                  <div className="bg-muted/30 rounded-xl p-4 text-sm text-muted-foreground italic max-h-32 overflow-y-auto">
-                    "{messages[messages.length - 1].text.substring(0, 150)}{messages[messages.length - 1].text.length > 150 ? '...' : ''}"
-                  </div>
-                )}
-              </div>
+          {/* Content without card wrapper */}
+          <div className="relative z-10 w-full text-center space-y-6">
+            {/* Persona Name */}
+            <div className="space-y-1">
+              <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
+                {aiPersona.name}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {aiPersona.role}
+              </p>
             </div>
+
+            {/* Waveform Visualization */}
+            {(isAISpeaking || isThinking) && (
+              <WaveformVisualizer 
+                isActive={isAISpeaking}
+                color="primary"
+                className="h-20"
+              />
+            )}
+            
+            {/* AI Thinking State */}
+            {isThinking && !isAISpeaking && (
+              <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+                <span>Thinking...</span>
+              </div>
+            )}
+
+            {/* Latest AI message preview */}
+            {messages.length > 0 && messages[messages.length - 1].sender === "ai" && !isThinking && (
+              <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-4 text-sm text-muted-foreground italic max-h-32 overflow-y-auto mx-auto max-w-lg">
+                "{messages[messages.length - 1].text.substring(0, 150)}{messages[messages.length - 1].text.length > 150 ? '...' : ''}"
+              </div>
+            )}
           </div>
         </div>
 
-        {/* User Section - Bottom 50% */}
-        <div className="flex-1 flex items-center justify-center p-8 relative overflow-hidden">
-          {/* Depth layers - different gradient */}
+        {/* User Section - Bottom with extra padding to avoid nav bar */}
+        <div className="flex-1 flex items-center justify-center py-6 px-6 pb-28 relative overflow-hidden">
+          {/* Depth layer - different gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-accent/5 via-accent/8 to-transparent" />
           
-          {/* Glassmorphic card for User */}
-          <div className="relative z-10 w-full max-w-md">
-            <div className="bg-card/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-border/50">
-              <div className="text-center space-y-6">
-                {/* User Label */}
-                <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
-                  You
-                </h2>
+          {/* Content without card wrapper */}
+          <div className="relative z-10 w-full text-center space-y-6">
+            {/* User Label */}
+            <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
+              You
+            </h2>
 
-                {/* Waveform Visualization for User */}
-                {isListening && (
-                  <WaveformVisualizer 
-                    isActive={true}
-                    color="accent"
-                    className="h-20"
-                  />
-                )}
+            {/* Waveform Visualization for User */}
+            {isListening && (
+              <WaveformVisualizer 
+                isActive={true}
+                color="accent"
+                className="h-20"
+              />
+            )}
 
-                {/* Voice Mode Controls */}
-                {isVoiceMode ? (
-                  <div className="space-y-4">
-                    <button
-                      onClick={toggleListening}
-                      disabled={isThinking}
-                      className={cn(
-                        "w-32 h-32 md:w-36 md:h-36 rounded-full mx-auto flex items-center justify-center transition-all duration-300 shadow-xl",
-                        isListening 
-                          ? "bg-gradient-to-br from-accent to-destructive animate-pulse scale-110" 
-                          : "bg-gradient-to-br from-primary to-primary/70 hover:scale-105 active:scale-95",
-                        isThinking && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {isListening ? (
-                        <MicOff size={40} className="text-white" />
-                      ) : (
-                        <Mic size={40} className="text-white" />
-                      )}
-                    </button>
-                    
-                    <p className="text-sm text-muted-foreground">
-                      {isListening ? "Listening..." : isThinking ? "Processing..." : "Tap to speak"}
-                    </p>
+            {/* Voice Mode Controls */}
+            {isVoiceMode ? (
+              <div className="space-y-4">
+                <button
+                  onClick={toggleListening}
+                  disabled={isThinking}
+                  className={cn(
+                    "w-32 h-32 md:w-36 md:h-36 rounded-full mx-auto flex items-center justify-center transition-all duration-300 shadow-xl",
+                    isListening 
+                      ? "bg-gradient-to-br from-accent to-destructive animate-pulse scale-110" 
+                      : "bg-gradient-to-br from-primary to-primary/70 hover:scale-105 active:scale-95",
+                    isThinking && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {isListening ? (
+                    <MicOff size={40} className="text-white" />
+                  ) : (
+                    <Mic size={40} className="text-white" />
+                  )}
+                </button>
+                
+                <p className="text-sm text-muted-foreground">
+                  {isListening ? "Listening..." : isThinking ? "Processing..." : "Tap to speak"}
+                </p>
 
-                    {/* Switch to Text Mode */}
-                    <button
-                      onClick={() => setIsVoiceMode(false)}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
-                    >
-                      Switch to text
-                    </button>
-                  </div>
-                ) : (
-                  /* Text Mode Input */
-                  <div className="space-y-4">
-                    <textarea
-                      value={currentMessage}
-                      onChange={(e) => setCurrentMessage(e.target.value)}
-                      placeholder="Type your response..."
-                      className="w-full min-h-[120px] p-4 bg-muted/50 backdrop-blur-sm rounded-2xl border border-border text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isThinking}
-                    />
-                    
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        onClick={() => handleSendMessage(currentMessage)}
-                        disabled={!currentMessage.trim() || isThinking}
-                        className="w-full rounded-full"
-                      >
-                        Send Response
-                      </Button>
-                      
-                      <button
-                        onClick={() => setIsVoiceMode(true)}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
-                      >
-                        Switch to voice
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Switch to Text Mode */}
+                <button
+                  onClick={() => setIsVoiceMode(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                >
+                  Switch to text
+                </button>
               </div>
-            </div>
+            ) : (
+              /* Text Mode Input */
+              <div className="space-y-4 max-w-md mx-auto">
+                <textarea
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  placeholder="Type your response..."
+                  className="w-full min-h-[120px] p-4 bg-muted/50 backdrop-blur-sm rounded-2xl border border-border text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isThinking}
+                />
+                
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={() => handleSendMessage(currentMessage)}
+                    disabled={!currentMessage.trim() || isThinking}
+                    className="w-full rounded-full"
+                  >
+                    Send Response
+                  </Button>
+                  
+                  <button
+                    onClick={() => setIsVoiceMode(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                  >
+                    Switch to voice
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
