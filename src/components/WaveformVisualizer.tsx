@@ -24,7 +24,7 @@ const WaveformVisualizer = ({ isActive, color, className }: WaveformVisualizerPr
           )}
           style={{
             animationDelay: `${i * 0.05}s`,
-            height: isActive ? `${Math.sin(i * 0.5) * 20 + 30}px` : '8px'
+            height: isActive ? `${Math.sin(i * 0.5) * 16 + 24}px` : '8px'
           }}
         />
       ))}

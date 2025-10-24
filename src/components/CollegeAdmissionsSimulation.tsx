@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
+import WaveformDivider from "@/components/WaveformDivider";
 import CoachingToastMinimal from "@/components/CoachingToastMinimal";
 
 interface Message {
@@ -44,8 +44,6 @@ const CollegeAdmissionsSimulation = ({
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [userAnxietyLevel, setUserAnxietyLevel] = useState<"low" | "medium" | "high">("low");
   const [questionCount, setQuestionCount] = useState(0);
-  // Meta skills shown from the start (MVP focus areas)
-  const metaSkills = ["Social Intelligence", "Resilience", "Adaptability", "Communication"];
   const [activeToast, setActiveToast] = useState<{
     id: string;
     type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking" | "ancient-wisdom";
@@ -475,43 +473,39 @@ const CollegeAdmissionsSimulation = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
-      {/* Floating Meta Skills - Top Right */}
-      <div className="absolute top-6 right-6 z-50 flex flex-wrap gap-2 max-w-xs justify-end">
-        {metaSkills.map(skill => (
-          <Badge 
-            key={skill}
-            variant="secondary"
-            className="rounded-full px-4 py-1.5 text-xs font-medium bg-primary/10 backdrop-blur-sm border border-primary/20 shadow-sm"
-          >
-            {skill}
-          </Badge>
-        ))}
-      </div>
-
-      {/* End Interview - Top Left */}
+      {/* End Interview Button - Bottom Center (iPhone style) */}
       <button
         onClick={onEndSession}
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors bg-muted/50 backdrop-blur-sm rounded-full border border-border shadow-sm"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-16 h-16 rounded-full bg-destructive/95 backdrop-blur-sm border border-white/10 text-white flex items-center justify-center transition-all duration-200 hover:scale-105 hover:brightness-110 shadow-[0_8px_32px_rgba(239,68,68,0.4)]"
       >
-        <X size={16} />
-        End Interview
+        <X size={28} strokeWidth={2.5} />
       </button>
 
       {/* Main Split Content - No boxes, full page coverage */}
       <div className="flex flex-col h-screen">
         {/* AI Persona Section - Top */}
-        <div className="flex-1 flex items-center justify-center py-6 px-6 relative overflow-hidden">
-          {/* Depth layer - gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-primary/10 to-transparent" />
+        <div className={cn(
+          "flex-1 flex items-end justify-center py-2 px-6 relative overflow-hidden transition-all duration-500"
+        )}>
+          {/* Depth layer - radial gradient background with dynamic highlighting */}
+          <div className={cn(
+            "absolute inset-0 bg-[radial-gradient(ellipse_at_center_bottom,_var(--tw-gradient-stops))] transition-all duration-500",
+            isAISpeaking 
+              ? "from-primary/15 via-primary/20 to-transparent brightness-110" 
+              : "from-primary/5 via-primary/10 to-transparent"
+          )} />
+          
+          {/* Additional depth overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/5 to-background/20 pointer-events-none" />
           
           {/* Content without card wrapper */}
-          <div className="relative z-10 w-full text-center space-y-6">
+          <div className="relative z-10 w-full text-center space-y-4">
             {/* Persona Name */}
             <div className="space-y-1">
-              <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
+              <h2 className="text-3xl md:text-4xl font-heading font-semibold text-foreground drop-shadow-sm">
                 {aiPersona.name}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-muted-foreground/80">
                 {aiPersona.role}
               </p>
             </div>
@@ -521,7 +515,7 @@ const CollegeAdmissionsSimulation = ({
               <WaveformVisualizer 
                 isActive={isAISpeaking}
                 color="primary"
-                className="h-20"
+                className="h-16"
               />
             )}
             
@@ -546,15 +540,31 @@ const CollegeAdmissionsSimulation = ({
           </div>
         </div>
 
+        {/* Divider Line with Waveform */}
+        <WaveformDivider 
+          aiSpeaking={isAISpeaking} 
+          userSpeaking={isListening}
+        />
+
         {/* User Section - Bottom with extra padding to avoid nav bar */}
-        <div className="flex-1 flex items-center justify-center py-6 px-6 pb-28 relative overflow-hidden">
-          {/* Depth layer - different gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-accent/5 via-accent/8 to-transparent" />
+        <div className={cn(
+          "flex-1 flex items-start justify-center py-2 px-6 pb-24 relative overflow-hidden transition-all duration-500"
+        )}>
+          {/* Depth layer - radial gradient with dynamic highlighting */}
+          <div className={cn(
+            "absolute inset-0 bg-[radial-gradient(ellipse_at_center_top,_var(--tw-gradient-stops))] transition-all duration-500",
+            isListening 
+              ? "from-accent/15 via-accent/20 to-transparent brightness-110" 
+              : "from-accent/5 via-accent/8 to-transparent"
+          )} />
+          
+          {/* Additional depth overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-transparent via-background/5 to-background/20 pointer-events-none" />
           
           {/* Content without card wrapper */}
-          <div className="relative z-10 w-full text-center space-y-6">
+          <div className="relative z-10 w-full text-center space-y-4">
             {/* User Label */}
-            <h2 className="text-2xl md:text-3xl font-heading font-medium text-foreground">
+            <h2 className="text-3xl md:text-4xl font-heading font-semibold text-foreground drop-shadow-sm">
               You
             </h2>
 
@@ -563,7 +573,7 @@ const CollegeAdmissionsSimulation = ({
               <WaveformVisualizer 
                 isActive={true}
                 color="accent"
-                className="h-20"
+                className="h-16"
               />
             )}
 
@@ -574,28 +584,29 @@ const CollegeAdmissionsSimulation = ({
                   onClick={toggleListening}
                   disabled={isThinking}
                   className={cn(
-                    "w-32 h-32 md:w-36 md:h-36 rounded-full mx-auto flex items-center justify-center transition-all duration-300 shadow-xl",
+                    "w-20 h-20 md:w-24 md:h-24 rounded-full mx-auto flex items-center justify-center backdrop-blur-xl shadow-2xl border border-white/10 transition-all duration-300",
                     isListening 
-                      ? "bg-gradient-to-br from-accent to-destructive animate-pulse scale-110" 
-                      : "bg-gradient-to-br from-primary to-primary/70 hover:scale-105 active:scale-95",
+                      ? "bg-gradient-to-br from-accent/90 to-destructive/90 scale-110 shadow-accent/50 animate-glow" 
+                      : "bg-gradient-to-br from-primary/90 to-primary/70 hover:scale-105 active:scale-95 shadow-primary/30",
                     isThinking && "opacity-50 cursor-not-allowed"
                   )}
+                  aria-label={isListening ? "Stop speaking" : "Start speaking"}
                 >
                   {isListening ? (
-                    <MicOff size={40} className="text-white" />
+                    <MicOff size={32} className="text-white" />
                   ) : (
-                    <Mic size={40} className="text-white" />
+                    <Mic size={32} className="text-white" />
                   )}
                 </button>
                 
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground/80">
                   {isListening ? "Listening..." : isThinking ? "Processing..." : "Tap to speak"}
                 </p>
 
                 {/* Switch to Text Mode */}
                 <button
                   onClick={() => setIsVoiceMode(false)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                  className="text-xs text-muted-foreground/70 hover:text-foreground transition-colors underline"
                 >
                   Switch to text
                 </button>
@@ -607,8 +618,9 @@ const CollegeAdmissionsSimulation = ({
                   value={currentMessage}
                   onChange={(e) => setCurrentMessage(e.target.value)}
                   placeholder="Type your response..."
-                  className="w-full min-h-[120px] p-4 bg-muted/50 backdrop-blur-sm rounded-2xl border border-border text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full min-h-[120px] p-4 bg-card/40 backdrop-blur-xl rounded-2xl border border-border/50 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-lg"
                   disabled={isThinking}
+                  aria-label="Type your response"
                 />
                 
                 <div className="flex flex-col gap-3">
@@ -622,7 +634,7 @@ const CollegeAdmissionsSimulation = ({
                   
                   <button
                     onClick={() => setIsVoiceMode(true)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                    className="text-xs text-muted-foreground/70 hover:text-foreground transition-colors underline"
                   >
                     Switch to voice
                   </button>

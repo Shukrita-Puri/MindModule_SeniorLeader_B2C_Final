@@ -123,6 +123,24 @@ export default {
 					'100%': {
 						opacity: '1'
 					}
+				},
+				'wave-pulse': {
+					'0%, 100%': { 
+						transform: 'scaleY(0.8)',
+						opacity: '0.6'
+					},
+					'50%': { 
+						transform: 'scaleY(1.2)',
+						opacity: '1'
+					}
+				},
+				'glow': {
+					'0%, 100%': {
+						boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)'
+					},
+					'50%': {
+						boxShadow: '0 0 40px rgba(59, 130, 246, 0.6)'
+					}
 				}
 			},
 			animation: {
@@ -130,7 +148,9 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'waveform': 'waveform 1.2s ease-in-out infinite',
 				'slide-down': 'slide-down 0.3s ease-out',
-				'fade-in': 'fade-in 0.2s ease-out'
+				'fade-in': 'fade-in 0.2s ease-out',
+				'wave-pulse': 'wave-pulse 1.5s ease-in-out infinite',
+				'glow': 'glow 2s ease-in-out infinite'
 			}
 		}
 	},
