@@ -3,7 +3,6 @@ import { Mic, MicOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
-import WaveformDivider from "@/components/WaveformDivider";
 import CoachingToastMinimal from "@/components/CoachingToastMinimal";
 
 interface Message {
@@ -540,11 +539,6 @@ const CollegeAdmissionsSimulation = ({
           </div>
         </div>
 
-        {/* Divider Line with Waveform */}
-        <WaveformDivider 
-          aiSpeaking={isAISpeaking} 
-          userSpeaking={isListening}
-        />
 
         {/* User Section - Bottom with extra padding to avoid nav bar */}
         <div className={cn(
@@ -599,11 +593,6 @@ const CollegeAdmissionsSimulation = ({
                   )}
                 </button>
                 
-                <p className="text-xs md:text-sm text-muted-foreground/80">
-                  {isListening ? "Listening..." : isThinking ? "Processing..." : "Tap to speak"}
-                </p>
-
-                {/* Switch to Text Mode */}
                 <button
                   onClick={() => setIsVoiceMode(false)}
                   className="text-xs text-muted-foreground/70 hover:text-foreground transition-colors underline"
@@ -613,7 +602,7 @@ const CollegeAdmissionsSimulation = ({
               </div>
             ) : (
               /* Text Mode Input */
-              <div className="space-y-4 max-w-md mx-auto">
+              <div className="space-y-2 max-w-md mx-auto">
                 <textarea
                   value={currentMessage}
                   onChange={(e) => setCurrentMessage(e.target.value)}
@@ -623,7 +612,7 @@ const CollegeAdmissionsSimulation = ({
                   aria-label="Type your response"
                 />
                 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <Button
                     onClick={() => handleSendMessage(currentMessage)}
                     disabled={!currentMessage.trim() || isThinking}

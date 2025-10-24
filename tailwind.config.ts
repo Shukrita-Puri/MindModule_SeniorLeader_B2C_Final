@@ -141,6 +141,14 @@ export default {
 					'50%': {
 						boxShadow: '0 0 40px rgba(59, 130, 246, 0.6)'
 					}
+				},
+				'gentle-glow': {
+					'0%, 100%': { 
+						boxShadow: '0 0 60px hsla(var(--primary), 0.1)' 
+					},
+					'50%': { 
+						boxShadow: '0 0 100px hsla(var(--primary), 0.2)' 
+					}
 				}
 			},
 			animation: {
@@ -149,8 +157,9 @@ export default {
 				'waveform': 'waveform 1.2s ease-in-out infinite',
 				'slide-down': 'slide-down 0.3s ease-out',
 				'fade-in': 'fade-in 0.2s ease-out',
-				'wave-pulse': 'wave-pulse 1.5s ease-in-out infinite',
-				'glow': 'glow 2s ease-in-out infinite'
+        'wave-pulse': 'wave-pulse 1.5s ease-in-out infinite',
+        'glow': 'glow 2s ease-in-out infinite',
+        'gentle-glow': 'gentle-glow 3s ease-in-out infinite'
 			}
 		}
 	},

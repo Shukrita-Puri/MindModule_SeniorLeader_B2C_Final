@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Brain, ChevronDown, ChevronUp, Target } from "lucide-react";
+import { X, Lightbulb, Target, BookOpen, Brain, Users, Shield, Zap, Book } from "lucide-react";
 
 interface CoachingToastMinimalProps {
   feedback: {
@@ -15,52 +14,134 @@ interface CoachingToastMinimalProps {
 }
 
 const CoachingToastMinimal = ({ feedback, onClose }: CoachingToastMinimalProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Meta skill type mapping
+  const metaSkillLabels: Record<string, string> = {
+    "mental-clarity": "Mental Clarity",
+    "social-intelligence": "Social Intelligence",
+    "resilience": "Resilience",
+    "leadership": "Leadership",
+    "adaptability": "Adaptability",
+    "creative-thinking": "Creative Thinking",
+    "ancient-wisdom": "Ancient Wisdom",
+    "crisis-communication": "Crisis Communication"
+  };
 
-  // Auto-dismiss after 8 seconds if not expanded
-  useEffect(() => {
-    if (!isExpanded) {
-      const timer = setTimeout(onClose, 8000);
-      return () => clearTimeout(timer);
-    }
-  }, [isExpanded, onClose]);
+  // Icon mapping for each meta skill
+  const metaSkillIcons: Record<string, React.ReactNode> = {
+    "mental-clarity": <Brain size={14} className="text-primary" />,
+    "social-intelligence": <Users size={14} className="text-primary" />,
+    "resilience": <Shield size={14} className="text-primary" />,
+    "leadership": <Target size={14} className="text-primary" />,
+    "adaptability": <Zap size={14} className="text-primary" />,
+    "creative-thinking": <Lightbulb size={14} className="text-primary" />,
+    "ancient-wisdom": <Book size={14} className="text-primary" />,
+    "crisis-communication": <Lightbulb size={14} className="text-primary" />
+  };
+
+  const metaSkillKey = feedback.type || "leadership";
+  const metaSkillLabel = metaSkillLabels[metaSkillKey] || "Leadership";
+  const metaSkillIcon = metaSkillIcons[metaSkillKey] || <Target size={14} className="text-primary" />;
 
   return (
-    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] animate-slide-down">
-      <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-border p-4 max-w-md mx-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <Brain size={16} className="text-primary" />
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
+      {/* Blurred backdrop with dim effect */}
+      <div 
+        className="absolute inset-0 bg-background/60 backdrop-blur-xl"
+        onClick={onClose}
+      />
+      
+      {/* 3D Glassmorphic Card */}
+      <div className="relative z-10 w-full max-w-md md:max-w-lg bg-card/40 backdrop-blur-2xl rounded-3xl border-2 border-white/10 shadow-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] p-6 md:p-8 animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 ease-out ring-1 ring-white/5">
+        {/* Top highlight for glass effect */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-3xl" />
+        
+        {/* Gentle glow aura */}
+        <div className="absolute inset-0 rounded-3xl animate-gentle-glow pointer-events-none" />
+
+        {/* Header Section */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex-1">
+            {/* Meta Skill Label */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-2">
+              {metaSkillIcon}
+              <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Meta Skill: {metaSkillLabel}
+              </span>
+            </div>
+            
+            {/* Thinking Partner Label */}
+            <p className="text-sm text-muted-foreground/80 font-medium">
+              MM as Thinking Partner
+            </p>
           </div>
           
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground mb-1">
-              {feedback.message}
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center transition-all duration-200 hover:scale-105"
+            aria-label="Close coaching insight"
+          >
+            <X size={16} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Divider with dots */}
+        <div className="flex items-center justify-center my-6">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-border" />
+          <div className="mx-4 flex gap-1">
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+            <div className="w-1 h-1 rounded-full bg-primary/40" />
+          </div>
+          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-border" />
+        </div>
+
+        {/* Insight Quote Block */}
+        <div className="mb-6 p-6 rounded-2xl bg-muted/20 border border-border/30">
+          <blockquote className="text-lg md:text-xl font-heading text-foreground leading-relaxed mb-2">
+            "{feedback.suggestion}"
+          </blockquote>
+          
+          {feedback.pastLearning?.insight && (
+            <p className="text-sm text-muted-foreground italic">
+              — {feedback.pastLearning.insight}
+            </p>
+          )}
+        </div>
+
+        {/* Application Prompt */}
+        <div className="mb-6 p-4 rounded-xl bg-accent/5 border border-accent/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Target size={16} className="text-accent" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+              Apply Now
+            </span>
+          </div>
+          
+          <p className="text-sm text-foreground/90 leading-relaxed">
+            {feedback.pastLearning?.context || feedback.message}
+          </p>
+        </div>
+
+        {/* Source Section */}
+        <div className="flex items-start gap-3 text-xs text-muted-foreground">
+          <BookOpen size={14} className="flex-shrink-0 mt-0.5 text-primary/70" />
+          
+          <div className="flex-1 space-y-1">
+            <p className="font-medium">
+              Source: High Performer Wisdom ({metaSkillLabel})
             </p>
             
-            {isExpanded && (
-              <div className="space-y-2 text-xs text-muted-foreground animate-fade-in">
-                <p className="italic">💡 {feedback.suggestion}</p>
-                {feedback.pastLearning && (
-                  <div className="mt-2 pt-2 border-t border-border">
-                    <p className="font-medium flex items-center gap-1">
-                      <Target size={12} />
-                      Past Learning:
-                    </p>
-                    <p className="mt-1 opacity-70 italic">{feedback.pastLearning.context}</p>
-                    <p className="mt-1">{feedback.pastLearning.insight}</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <button className="text-primary hover:text-primary/80 transition-colors underline">
+                Link to page to read deeper
+              </button>
+              <span className="text-border">|</span>
+              <button className="text-primary hover:text-primary/80 transition-colors underline">
+                Save to read later
+              </button>
+            </div>
           </div>
-
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
         </div>
       </div>
     </div>
