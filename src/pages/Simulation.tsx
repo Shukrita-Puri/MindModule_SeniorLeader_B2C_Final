@@ -55,28 +55,17 @@ const Simulation = () => {
     });
   };
 
+  // Extract persona data for display
+  const aiPersona = selectedPersonas?.[0] || { name: "Interviewer", role: "Admissions Officer" };
+
   return (
     <div className="min-h-screen bg-background font-editorial flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <button
-          onClick={() => navigate("/practice")}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-        >
-          <ArrowLeft size={18} className="text-foreground" />
-        </button>
-        <h1 className="text-xl font-heading font-medium text-foreground">
-          Practice Simulation
-        </h1>
-        <div className="w-10"></div>
-      </div>
-
-
-      {/* College Admissions Simulation */}
+      {/* College Admissions Simulation - No header, direct entry */}
       <div className="flex-1 relative">
         <CollegeAdmissionsSimulation
           onEndSession={handleEndSession}
           sessionDuration={15}
+          aiPersona={aiPersona}
         />
       </div>
 
