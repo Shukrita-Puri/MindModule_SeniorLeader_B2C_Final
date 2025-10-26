@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Play, Pause, RotateCcw, Volume2, VolumeX, Timer, Brain, Target } from "lucide-react";
+import { ArrowLeft, Play, Pause, RotateCcw, Volume2, VolumeX, Timer, Focus, Target } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -281,8 +281,8 @@ const FlowSession = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex flex-col items-center justify-center font-editorial px-6">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Brain size={32} className="text-primary" />
+          <div className="w-20 h-20 bg-forest/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Focus size={32} className="text-forest" />
           </div>
           
           <h2 className="text-3xl font-heading font-medium text-foreground mb-4">
@@ -350,10 +350,10 @@ const FlowSession = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    {config.duration <= 25 ? <Timer size={16} className="text-primary" /> : 
-                     config.duration <= 45 ? <Target size={16} className="text-primary" /> : 
-                     <Brain size={16} className="text-primary" />}
+                  <div className="w-10 h-10 rounded-full bg-forest/10 flex items-center justify-center">
+                    {config.duration <= 25 ? <Timer size={16} className="text-forest" /> : 
+                     config.duration <= 45 ? <Target size={16} className="text-forest" /> : 
+                     <Focus size={16} className="text-forest" />}
                   </div>
                   <div>
                     <h3 className="font-heading font-medium text-foreground group-hover:text-primary transition-colors">

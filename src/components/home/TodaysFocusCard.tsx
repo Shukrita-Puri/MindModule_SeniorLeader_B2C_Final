@@ -1,10 +1,10 @@
 
-import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ArrowRight, ChevronLeft, ChevronRight, Brain, MessageSquare, Target, Users, Lightbulb, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, ArrowRight, ChevronLeft, ChevronRight, Compass, MessageSquare, Target, Users, Lightbulb, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const TodaysFocusCard = () => {
   const navigate = useNavigate();
@@ -12,10 +12,10 @@ const TodaysFocusCard = () => {
 
   const domainPillars = {
     "cognitive": { 
-      icon: Brain, 
-      color: "text-blue-600", 
-      bgColor: "from-blue-50 to-blue-100",
-      borderColor: "border-blue-200"
+      icon: Compass, 
+      color: "text-forest", 
+      bgColor: "from-forest/5 to-forest/10",
+      borderColor: "border-forest/20"
     },
     "influence": { 
       icon: MessageSquare, 

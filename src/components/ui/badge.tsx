@@ -16,6 +16,7 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
         metaskill: "border-gold bg-transparent text-gold hover:bg-gold/10",
+        forest: "bg-forest/10 border-forest/30 text-forest hover:bg-forest/20",
       },
     },
     defaultVariants: {

@@ -1,5 +1,5 @@
 
-import { Calendar, TrendingUp, Target, Zap, Brain, Heart } from 'lucide-react';
+import { Calendar, TrendingUp, Target, Zap, Compass, Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ const WeeklyInsights = () => {
       type: 'cognitive',
       title: 'Deep Work Optimization',
       description: 'Your peak cognitive performance window: 9-11am. 89% of breakthrough ideas emerge during this period.',
-      icon: Brain,
+      icon: Compass,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       confidence: 94,

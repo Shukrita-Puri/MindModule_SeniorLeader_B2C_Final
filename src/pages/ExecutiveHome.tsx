@@ -4,7 +4,7 @@ import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Target, TrendingUp, Calendar, Brain, Heart, Zap } from "lucide-react";
+import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap } from "lucide-react";
 import resetSessionIllustration from "@/assets/reset-session-illustration.png";
 import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
 
@@ -79,7 +79,7 @@ const ExecutiveHome = () => {
       tagType: "calendar",
       whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview last week. Admissions counsellor emails show Oxford College in focus.",
       category: "Academic Performance",
-      icon: Brain,
+      icon: BookOpen,
       suggestion: "Scenario Simulate your practice with the assessor",
       actionLabel: "Prepare with Social Intelligence",
       route: "/practice",
@@ -94,7 +94,7 @@ const ExecutiveHome = () => {
       tagType: "calendar",
       whyMatters: "Focus logs show dips during demanding work. WhatsApp conversation with friends shows exam anxiety. Problem-solving blocks flagged in chats.",
       category: "Academic Performance",
-      icon: Brain,
+      icon: Target,
       suggestion: "Enter optimal learning state",
       actionLabel: "Practice Flow State",
       route: "/recalibrate/flow-state",

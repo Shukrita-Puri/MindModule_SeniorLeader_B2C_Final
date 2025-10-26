@@ -2,7 +2,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, ChevronLeft, ChevronRight, Sun, Activity, Zap, Heart, Brain, Target, Calendar } from "lucide-react";
+import { TrendingUp, ChevronLeft, ChevronRight, Sun, Activity, Zap, Heart, Moon, Target, Calendar } from "lucide-react";
 
 const WellnessCard = () => {
   const wellnessScrollRef = useRef<HTMLDivElement>(null);
@@ -20,25 +20,13 @@ const WellnessCard = () => {
     }
   }, []);
 
-  const getMoodEmoji = (mood: string) => {
-    const moodMap: { [key: string]: string } = {
-      excited: "😊",
-      content: "🙂",
-      neutral: "😐",
-      tired: "😔",
-      stressed: "😰",
-      overwhelmed: "😤"
-    };
-    return moodMap[mood] || "😐";
-  };
-
   const wellnessData = [
     { label: "Sun Time", value: "2.5 hrs", icon: Sun, color: "text-yellow-600" },
     { label: "Movement", value: "8,247 steps", icon: Activity, color: "text-green-600" },
     { label: "Energy", value: checkInData ? `${checkInData.energy}/10` : "Good", icon: Zap, color: "text-blue-600" },
-    { label: "Emotion", value: checkInData ? `${getMoodEmoji(checkInData.mood)} ${checkInData.mood}` : "Focused", icon: Heart, color: "text-red-600" },
-    { label: "Sleep", value: "7.2 hrs", icon: Brain, color: "text-purple-600" },
-    { label: "Focus", value: checkInData ? checkInData.focus : "Low", icon: Target, color: "text-indigo-600" }
+    { label: "Emotion", value: checkInData ? checkInData.mood.charAt(0).toUpperCase() + checkInData.mood.slice(1) : "Focused", icon: Heart, color: "text-red-600" },
+    { label: "Sleep", value: "7.2 hrs", icon: Moon, color: "text-purple-600" },
+    { label: "Focus", value: checkInData ? checkInData.focus : "Low", icon: Target, color: "text-forest" }
   ];
 
   const scrollWellness = (direction: 'left' | 'right') => {

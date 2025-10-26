@@ -1,4 +1,4 @@
-import { X, Lightbulb, Target, BookOpen, Brain, Users, Shield, Zap, Book } from "lucide-react";
+import { X, Lightbulb, Target, BookOpen, Compass, Users, Shield, Zap, Book } from "lucide-react";
 
 interface CoachingToastMinimalProps {
   feedback: {
@@ -28,14 +28,14 @@ const CoachingToastMinimal = ({ feedback, onClose }: CoachingToastMinimalProps) 
 
   // Icon mapping for each meta skill
   const metaSkillIcons: Record<string, React.ReactNode> = {
-    "mental-clarity": <Brain size={14} className="text-primary" />,
-    "social-intelligence": <Users size={14} className="text-primary" />,
-    "resilience": <Shield size={14} className="text-primary" />,
-    "leadership": <Target size={14} className="text-primary" />,
-    "adaptability": <Zap size={14} className="text-primary" />,
-    "creative-thinking": <Lightbulb size={14} className="text-primary" />,
-    "ancient-wisdom": <Book size={14} className="text-primary" />,
-    "crisis-communication": <Lightbulb size={14} className="text-primary" />
+    "mental-clarity": <Compass size={14} className="text-forest" />,
+    "social-intelligence": <Users size={14} className="text-forest" />,
+    "resilience": <Shield size={14} className="text-forest" />,
+    "leadership": <Target size={14} className="text-forest" />,
+    "adaptability": <Zap size={14} className="text-forest" />,
+    "creative-thinking": <Lightbulb size={14} className="text-forest" />,
+    "ancient-wisdom": <Book size={14} className="text-forest" />,
+    "crisis-communication": <Lightbulb size={14} className="text-forest" />
   };
 
   const metaSkillKey = feedback.type || "leadership";
@@ -62,9 +62,9 @@ const CoachingToastMinimal = ({ feedback, onClose }: CoachingToastMinimalProps) 
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
             {/* Meta Skill Label */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-forest/10 border border-forest/20 mb-2">
               {metaSkillIcon}
-              <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+              <span className="text-xs font-semibold uppercase tracking-wide text-forest">
                 Meta Skill: {metaSkillLabel}
               </span>
             </div>

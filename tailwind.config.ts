@@ -63,6 +63,15 @@ export default {
 				DEFAULT: 'hsl(var(--gold))',
 				foreground: 'hsl(var(--gold-foreground))'
 			},
+			forest: {
+				DEFAULT: 'hsl(var(--forest))',
+				light: 'hsl(var(--forest-light))',
+				foreground: 'hsl(var(--forest-foreground))'
+			},
+			lavender: {
+				DEFAULT: 'hsl(var(--lavender))',
+				foreground: 'hsl(var(--lavender-foreground))'
+			},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'

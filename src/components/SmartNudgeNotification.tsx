@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { X, Brain, Users, Target, Heart } from "lucide-react";
+import { X, Bell, Users, Target, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -38,7 +38,7 @@ const SmartNudgeNotification = ({
       case "practice": return Users;
       case "recalibrate": return Heart;
       case "sos": return Heart;
-      default: return Brain;
+      default: return Bell;
     }
   };
 

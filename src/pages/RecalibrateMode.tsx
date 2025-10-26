@@ -1,4 +1,4 @@
-import { ArrowLeft, Zap, Waves, Brain, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
+import { ArrowLeft, Zap, Waves, Target, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -92,7 +92,7 @@ const RecalibrateMode = () => {
             duration: "1 min",
             description: "MIT research shows 40Hz stimulation enhances cognitive performance and memory consolidation",
             type: "Binaural beats with guided breathing",
-            icon: Brain,
+            icon: Target,
             visual: "⚡"
           },
           {
@@ -120,7 +120,7 @@ const RecalibrateMode = () => {
             description: "Harvard studies confirm enhanced executive function and decision-making speed",
             type: "Cognitive enhancement audio",
             icon: Zap,
-            visual: "🧠"
+            visual: "⚡"
           },
           {
             title: "Kapalabhati Breath",
@@ -129,7 +129,7 @@ const RecalibrateMode = () => {
             description: "Ancient yogic practice increases oxygen to prefrontal cortex for mental clarity",
             type: "Rapid cleansing breaths",
             icon: Wind,
-            visual: "💨"
+            visual: "🌬️"
           },
           {
             title: "Caffeine Alternative",
@@ -185,7 +185,7 @@ const RecalibrateMode = () => {
             duration: "5 min",
             description: "Ancient technique balances left-right brain hemisphere activity",
             type: "Brain balancing breath",
-            icon: Brain,
+            icon: Compass,
             visual: "⚖️"
           },
           {
@@ -224,7 +224,7 @@ const RecalibrateMode = () => {
             duration: "90 sec",
             description: "Neuroscience-backed frequencies for accessing calm, creative flow states",
             type: "Brainwave synchronization",
-            icon: Brain,
+            icon: Compass,
             visual: "∼"
           },
           {
@@ -251,7 +251,7 @@ const RecalibrateMode = () => {
             duration: "5 min",
             description: "Stanford research shows theta states enhance creativity and problem-solving",
             type: "Deep consciousness access",
-            icon: Brain,
+            icon: Compass,
             visual: "✧"
           },
           {
@@ -272,7 +272,7 @@ const RecalibrateMode = () => {
             duration: "25 min",
             description: "MIT research shows 40Hz stimulation enhances focus and cognitive performance for extended periods",
             type: "Deep work optimization",
-            icon: Brain,
+            icon: Target,
             visual: "🎯"
           },
           {
@@ -299,7 +299,7 @@ const RecalibrateMode = () => {
             duration: "20 min",
             description: "Access creative problem-solving while maintaining mental clarity",
             type: "Creative optimization",
-            icon: Brain,
+            icon: Compass,
             visual: "✨"
           },
           {

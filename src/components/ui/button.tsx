@@ -22,6 +22,8 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl",
         link: 
           "text-primary underline-offset-4 hover:underline decoration-gold",
+        forest:
+          "bg-forest text-forest-foreground hover:bg-forest/90 rounded-xl shadow-[0_4px_12px_rgba(61,111,95,0.15),0_8px_24px_rgba(61,111,95,0.1)] hover:shadow-[0_8px_16px_rgba(61,111,95,0.2),0_12px_32px_rgba(61,111,95,0.15)] transition-all duration-300",
       },
       size: {
         default: "h-10 px-6 py-2 text-base",

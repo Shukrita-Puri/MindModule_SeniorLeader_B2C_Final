@@ -5,15 +5,15 @@
 
 @layer base {
   :root {
-    /* Background System - Warm Aged Paper */
-    --background: 30 28% 90%;        /* #EBE0D5 - Warm Aged Cream */
+    /* Background System - Warm Aged Paper (Lighter) */
+    --background: 32 30% 93%;        /* #F2EBE3 - Lighter Warm Cream */
     --foreground: 0 0% 10%;          /* Ink Black #1A1A1A */
     
-    /* Card & Surface - Lighter Warm Cream */
-    --card: 32 30% 92%;              /* #F0E6DC - Lighter Warm Cream */
+    /* Card & Surface - Even Lighter Warm Cream */
+    --card: 32 32% 95%;              /* #F5F0E9 - Paper White */
     --card-foreground: 0 0% 10%;     /* Ink Black */
     
-    --popover: 32 30% 92%;
+    --popover: 32 32% 95%;
     --popover-foreground: 0 0% 10%;
     
     /* Primary - Deep Bordeaux */
@@ -32,6 +32,15 @@
     --accent: 10 25% 22%;
     --accent-foreground: 32 30% 92%; /* Warm Cream */
     
+    /* Forest Green - Intellectual Luxury Accent */
+    --forest: 155 35% 35%;           /* Deep Forest Green #3D6F5F */
+    --forest-light: 155 30% 55%;     /* Lighter Forest #6B9A8A */
+    --forest-foreground: 32 30% 92%; /* Warm Cream on Forest */
+    
+    /* Lavender - Secondary Accent */
+    --lavender: 270 25% 75%;         /* Soft Lavender #C5B5D4 */
+    --lavender-foreground: 0 0% 10%; /* Dark text on Lavender */
+    
     /* Dusted Gold - Antique Brass */
     --gold: 42 35% 62%;              /* #C8B377 - Antique Brass */
     --gold-foreground: 0 0% 10%;
@@ -39,7 +48,7 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 32 30% 92%; /* Warm Cream */
     
-    --border: 30 22% 82%;            /* Warm tan border */
+    --border: 30 22% 85%;            /* Lighter warm tan border */
     --input: 32 28% 88%;
     --ring: 10 25% 22%;              /* Deep Bordeaux focus rings */
     
