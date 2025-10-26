@@ -10,37 +10,31 @@ interface ModuleCardProps {
   accentColor?: 'cyan' | 'emerald' | 'fuchsia';
 }
 
-const ModuleCard = ({ title, subtitle, description, onClick, accentColor = 'cyan' }: ModuleCardProps) => {
-  const accentColors = {
-    cyan: 'bg-cyan-100',
-    emerald: 'bg-emerald-100', 
-    fuchsia: 'bg-fuchsia-100'
-  };
-
+const ModuleCard = ({ title, subtitle, description, onClick }: ModuleCardProps) => {
   return (
     <div 
-      className="relative bg-white rounded-xl p-8 hover:bg-slate-50 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md border border-slate-200 min-h-[280px] flex flex-col"
+      className="relative bg-card rounded-sm p-8 hover:bg-muted/30 transition-all duration-500 cursor-pointer border border-border min-h-[280px] flex flex-col group"
       onClick={onClick}
     >
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-3 rounded-xl overflow-hidden">
-        <div className={`absolute top-4 right-4 w-32 h-32 ${accentColors[accentColor]} rounded-full`}></div>
-        <div className="absolute bottom-4 left-4 w-24 h-24 bg-slate-100 rounded-full"></div>
-      </div>
+      {/* Dusted Gold accent line on hover */}
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gold opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       
       <div className="relative z-10 flex-1 flex flex-col">
         <div className="mb-6">
-          <h3 className="text-slate-800 text-2xl font-bold leading-tight mb-3 font-manrope">
+          <h3 className="text-foreground text-2xl font-headline font-bold leading-tight mb-3">
             {title}
           </h3>
-          <p className="text-slate-700 text-base font-normal leading-normal font-manrope mb-4">
+          <p className="text-secondary text-base font-body font-normal leading-normal mb-4">
             {subtitle}
           </p>
         </div>
-        <p className="text-slate-500 text-sm font-normal leading-relaxed font-manrope flex-1">
+        <p className="text-muted-foreground text-sm font-body leading-relaxed flex-1">
           {description}
         </p>
       </div>
+      
+      {/* Subtle lift indicator */}
+      <div className="absolute bottom-0 right-0 w-8 h-8 border-r border-b border-gold opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-sm" />
     </div>
   );
 };

@@ -5,91 +5,87 @@
 
 @layer base {
   :root {
-    /* New Yorker-inspired sophisticated palette */
-    --background: 44 13% 95%; /* Off-white parchment */
-    --foreground: 0 0% 8%; /* Deep charcoal */
-
-    --card: 44 13% 98%;
-    --card-foreground: 0 0% 8%;
-
-    --popover: 44 13% 98%;
-    --popover-foreground: 0 0% 8%;
-
-    --primary: 220 25% 25%; /* Muted navy */
-    --primary-foreground: 44 13% 95%;
-
-    --secondary: 44 8% 88%; /* Warm gray */
-    --secondary-foreground: 0 0% 15%;
-
-    --muted: 44 8% 88%;
-    --muted-foreground: 0 0% 35%;
-
-    --accent: 0 35% 35%; /* Muted burgundy */
-    --accent-foreground: 44 13% 95%;
-
-    --sage: 120 15% 45%; /* Sage accent */
-    --sage-foreground: 44 13% 95%;
-
-    --destructive: 0 65% 50%;
-    --destructive-foreground: 44 13% 95%;
-
-    --border: 44 8% 80%;
-    --input: 44 8% 85%;
-    --ring: 220 25% 25%;
-
-    --radius: 0.375rem;
-
-    --sidebar-background: 44 13% 98%;
-    --sidebar-foreground: 0 0% 15%;
-    --sidebar-primary: 220 25% 25%;
-    --sidebar-primary-foreground: 44 13% 95%;
-    --sidebar-accent: 44 8% 90%;
-    --sidebar-accent-foreground: 0 0% 15%;
-    --sidebar-border: 44 8% 80%;
-    --sidebar-ring: 220 25% 25%;
+    /* Background System - Ivory Paper */
+    --background: 44 11% 97%;        /* Ivory Paper #F8F7F4 */
+    --foreground: 0 0% 10%;          /* Ink Black #1A1A1A */
+    
+    /* Card & Surface - Matte Ivory */
+    --card: 44 11% 98%;              /* Matte Ivory (slightly lighter) */
+    --card-foreground: 0 0% 10%;     /* Ink Black */
+    
+    --popover: 44 11% 98%;
+    --popover-foreground: 0 0% 10%;
+    
+    /* Primary - Deep Bordeaux */
+    --primary: 10 25% 22%;           /* Deep Bordeaux #4A2C2A */
+    --primary-foreground: 44 11% 97%; /* Ivory */
+    
+    /* Secondary - Graphite Grey */
+    --secondary: 0 0% 24%;           /* Graphite Grey #3C3C3C */
+    --secondary-foreground: 44 11% 97%;
+    
+    /* Muted & Borders */
+    --muted: 44 8% 94%;              /* Soft Ivory */
+    --muted-foreground: 0 0% 24%;    /* Graphite for microcopy */
+    
+    /* Accent - Deep Bordeaux (same as primary for luxury coherence) */
+    --accent: 10 25% 22%;
+    --accent-foreground: 44 11% 97%;
+    
+    /* Dusted Gold - Antique Brass */
+    --gold: 42 35% 62%;              /* #C8B377 - Antique Brass */
+    --gold-foreground: 0 0% 10%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 44 11% 97%;
+    
+    --border: 44 15% 88%;            /* Subtle line borders */
+    --input: 44 11% 96%;
+    --ring: 10 25% 22%;              /* Deep Bordeaux focus rings */
+    
+    /* Border Radius - More Refined */
+    --radius: 0.25rem;               /* Smaller, more editorial */
+    
+    --sidebar-background: 44 11% 98%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 10 25% 22%;
+    --sidebar-primary-foreground: 44 11% 97%;
+    --sidebar-accent: 44 8% 94%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 44 15% 88%;
+    --sidebar-ring: 10 25% 22%;
   }
-
+  
   .dark {
-    /* Dark mode with editorial sophistication */
-    --background: 0 0% 8%; /* Deep charcoal */
-    --foreground: 44 13% 95%;
-
+    --background: 0 0% 8%;
+    --foreground: 44 11% 95%;
     --card: 0 0% 10%;
-    --card-foreground: 44 13% 95%;
-
+    --card-foreground: 44 11% 95%;
     --popover: 0 0% 10%;
-    --popover-foreground: 44 13% 95%;
-
-    --primary: 220 35% 65%; /* Lighter navy for contrast */
-    --primary-foreground: 0 0% 8%;
-
-    --secondary: 0 0% 18%;
-    --secondary-foreground: 44 13% 90%;
-
-    --muted: 0 0% 18%;
-    --muted-foreground: 44 8% 65%;
-
-    --accent: 0 45% 55%; /* Warmer burgundy */
-    --accent-foreground: 0 0% 8%;
-
-    --sage: 120 25% 55%; /* Brighter sage for dark mode */
-    --sage-foreground: 0 0% 8%;
-
-    --destructive: 0 75% 60%;
-    --destructive-foreground: 44 13% 95%;
-
+    --popover-foreground: 44 11% 95%;
+    --primary: 10 35% 45%;
+    --primary-foreground: 44 11% 97%;
+    --secondary: 0 0% 35%;
+    --secondary-foreground: 44 11% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 44 8% 70%;
+    --accent: 42 35% 62%;
+    --accent-foreground: 0 0% 10%;
+    --gold: 42 35% 62%;
+    --gold-foreground: 0 0% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 44 11% 95%;
     --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 220 35% 65%;
-
+    --input: 0 0% 15%;
+    --ring: 10 35% 45%;
     --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 44 13% 90%;
-    --sidebar-primary: 220 35% 65%;
+    --sidebar-foreground: 44 11% 90%;
+    --sidebar-primary: 10 35% 45%;
     --sidebar-primary-foreground: 0 0% 8%;
     --sidebar-accent: 0 0% 18%;
-    --sidebar-accent-foreground: 44 13% 85%;
+    --sidebar-accent-foreground: 44 11% 85%;
     --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 220 35% 65%;
+    --sidebar-ring: 10 35% 45%;
   }
 }
 
@@ -97,8 +93,43 @@
   * {
     @apply border-border;
   }
-
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" /></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.03" /></svg>');
+  }
+  
+  /* Headline Styles */
+  h1, h2, h3 {
+    @apply font-headline text-foreground;
+  }
+  
+  /* Body Text */
+  p {
+    @apply font-body text-foreground leading-relaxed;
+  }
+  
+  /* Microcopy / Hints */
+  .hint {
+    @apply font-hint italic text-sm text-muted-foreground;
+  }
+  
+  /* Editorial Drop Cap */
+  .drop-cap::first-letter {
+    @apply float-left text-7xl font-editorial text-primary leading-none pr-2 pt-1;
+  }
+}
+
+@layer utilities {
+  .section-spacing {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+  
+  .content-spacing {
+    @apply space-y-6 md:space-y-8 lg:space-y-12;
+  }
+  
+  .editorial-margin {
+    @apply my-8 md:my-12 lg:my-16;
   }
 }

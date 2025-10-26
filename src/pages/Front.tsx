@@ -13,40 +13,41 @@ const Front = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24">
-      {/* Vibrant Hero Visual */}
-      <div className="mb-8 sm:mb-12">
-        <div className="relative">
-          <div className="w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+    <div className="min-h-screen bg-background text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24 section-spacing">
+      {/* Hero Illustration - Editorial Layout */}
+      <div className="mb-12 editorial-margin">
+        <div className="relative max-w-md mx-auto">
+          <div className="w-full aspect-[4/5] rounded-sm border border-gold/20 overflow-hidden shadow-[0_4px_6px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.06)]">
             <img 
               src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
-              alt="Colorful artistic mind illustration"
+              alt="Watercolor mind illustration"
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 md:-bottom-4 md:-right-4 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
+          {/* Small accent illustration */}
+          <div className="absolute -bottom-6 -right-6 w-20 h-20 sm:w-24 sm:h-24 bg-card rounded-sm border border-gold/30 flex items-center justify-center shadow-lg">
             <img 
               src="/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png"
               alt="Network connection icon"
-              className="w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain"
+              className="w-12 h-12 sm:w-14 sm:h-14 object-contain opacity-80"
             />
           </div>
         </div>
       </div>
 
       {/* Main Title */}
-      <div className="text-center mb-6 sm:mb-8">
-        <h1 className="text-4xl sm:text-6xl md:text-8xl font-heading font-bold text-foreground mb-4 sm:mb-6 leading-tight">
+      <div className="text-center mb-8">
+        <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline font-bold text-foreground mb-6 leading-tight">
           Mind Module
         </h1>
-        <h2 className="text-lg sm:text-2xl md:text-4xl font-editorial font-medium text-accent mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-editorial font-medium text-primary mb-6 italic">
           Mind Mastery for Achievers
         </h2>
       </div>
 
       {/* Subtitle */}
-      <div className="text-center mb-12 sm:mb-16 max-w-4xl px-4">
-        <p className="text-base sm:text-xl md:text-2xl text-muted-foreground leading-relaxed font-body">
+      <div className="text-center mb-16 max-w-2xl px-4">
+        <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed font-body">
           First Context based Thinking Partner for developing Meta Skill
         </p>
       </div>
@@ -56,13 +57,12 @@ const Front = () => {
         <Button 
           onClick={handleGetStarted}
           size="lg"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-4 h-auto font-medium shadow-lg"
+          className="text-base sm:text-lg font-medium"
         >
           Let's Go!
-          <ArrowRight className="w-6 h-6 ml-2" />
+          <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
       </div>
-
     </div>
   );
 };

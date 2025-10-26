@@ -6,24 +6,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transform hover:scale-105 active:scale-95 hover:shadow-md active:shadow-sm",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
+        default: 
+          "bg-primary text-primary-foreground hover:bg-background hover:text-primary border-2 border-transparent hover:border-gold rounded-sm shadow-sm hover:shadow-md",
+        secondary: 
+          "bg-secondary text-secondary-foreground border border-gold rounded-sm hover:bg-background hover:text-primary transition-colors",
+        ghost: 
+          "bg-transparent text-primary hover:text-primary/80 hover:underline decoration-gold decoration-1 underline-offset-4",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70",
-        ghost: "hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
-        link: "text-primary underline-offset-4 hover:underline hover:no-underline",
+          "border border-gold bg-background text-primary hover:bg-primary hover:text-primary-foreground rounded-sm",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        link: 
+          "text-primary underline-offset-4 hover:underline decoration-gold",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
+        default: "h-10 px-6 py-2 text-base",
+        sm: "h-8 rounded-sm px-4 text-sm",
+        lg: "h-12 rounded-sm px-10 text-lg",
         icon: "h-10 w-10",
       },
     },
