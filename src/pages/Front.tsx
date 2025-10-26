@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import vibrantGrowthIllustration from "@/assets/vibrant-growth-illustration.png";
 
+import { GoldDivider } from "@/components/ui/divider";
+
 const Front = () => {
   const navigate = useNavigate();
 
@@ -25,11 +27,11 @@ const Front = () => {
             />
           </div>
           {/* Small accent illustration */}
-          <div className="absolute -bottom-6 -right-6 w-20 h-20 sm:w-24 sm:h-24 bg-card rounded-sm border border-gold/30 flex items-center justify-center shadow-lg">
+          <div className="absolute -bottom-6 -right-6 w-20 h-20 sm:w-24 sm:h-24 bg-card rounded-xl border border-gold/30 flex items-center justify-center shadow-lg aspect-[4/5] overflow-hidden">
             <img 
               src="/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png"
               alt="Network connection icon"
-              className="w-12 h-12 sm:w-14 sm:h-14 object-contain opacity-80"
+              className="w-full h-full object-cover"
             />
           </div>
         </div>
@@ -46,11 +48,13 @@ const Front = () => {
       </div>
 
       {/* Subtitle */}
-      <div className="text-center mb-16 max-w-2xl px-4">
+      <div className="text-center mb-12 max-w-2xl px-4">
         <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed font-body">
           First Context based Thinking Partner for developing Meta Skill
         </p>
       </div>
+
+      <GoldDivider />
 
       {/* CTA Button */}
       <div className="text-center">

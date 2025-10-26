@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Chrome, Apple, Facebook, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { GoldDivider } from "@/components/ui/divider";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -44,17 +45,17 @@ const Signup = () => {
           Back
         </Button>
 
-        {/* Mind Module Logo in Circle */}
+        {/* Mind Module Logo in Rectangle */}
         <div className="text-center mb-8">
-          <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-accent/20 shadow-xl bg-primary/5 flex items-center justify-center">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden border-4 border-accent/20 shadow-xl bg-primary/5 flex items-center justify-center">
             <img 
               src="/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png"
               alt="Mind Module M Logo"
-              className="w-20 h-20 object-contain"
+              className="w-16 h-16 object-contain"
               key="m-logo-signup"
             />
           </div>
-          <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
+          <h1 className="text-3xl font-headline font-bold text-foreground mb-2">
             Take the Next Quantum Leap with Mind Module
           </h1>
         </div>
@@ -83,6 +84,8 @@ const Signup = () => {
             </p>
           )}
         </div>
+
+        <GoldDivider />
 
         {/* Auth Buttons */}
         <div className="space-y-3 mb-6">

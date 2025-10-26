@@ -26,19 +26,19 @@ const MainNavigation = () => {
   const navItems = [
     { 
       icon: Home, 
-      label: "Home", 
+      label: "Mind Atelier", 
       route: "/executive-home",
       isActive: location.pathname === "/executive-home"
     },
     { 
       icon: UsersRound, 
-      label: "Practice", 
+      label: "Dialogue", 
       route: "/practice",
       isActive: practicePages.includes(location.pathname)
     },
     { 
       icon: Zap, 
-      label: "Recalibrate", 
+      label: "Sanctuary", 
       route: "/recalibrate",
       isActive: recalibratePages.some(path => location.pathname.startsWith(path.split('/').slice(0, 3).join('/'))) || location.pathname === "/recalibrate"
     },

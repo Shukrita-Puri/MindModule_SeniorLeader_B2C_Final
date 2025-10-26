@@ -25,12 +25,12 @@ const DailyCheckIn = () => {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const moods = [
-    { emoji: "😊", label: "Excited", value: "excited" },
-    { emoji: "🙂", label: "Content", value: "content" },
-    { emoji: "😐", label: "Neutral", value: "neutral" },
-    { emoji: "😔", label: "Tired", value: "tired" },
-    { emoji: "😰", label: "Stressed", value: "stressed" },
-    { emoji: "😤", label: "Overwhelmed", value: "overwhelmed" }
+    { label: "Excited", value: "excited", color: "text-green-600" },
+    { label: "Content", value: "content", color: "text-blue-600" },
+    { label: "Neutral", value: "neutral", color: "text-gray-600" },
+    { label: "Tired", value: "tired", color: "text-yellow-600" },
+    { label: "Stressed", value: "stressed", color: "text-orange-600" },
+    { label: "Overwhelmed", value: "overwhelmed", color: "text-red-600" }
   ];
 
   const focusStates = [
@@ -129,14 +129,13 @@ const DailyCheckIn = () => {
                   }}
                 >
                   <div
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-center ${
+                    className={`p-4 rounded-xl border-2 transition-all duration-300 text-center ${
                       selectedMood === mood.value
                         ? 'border-accent bg-accent/10'
                         : 'border-border hover:border-muted-foreground'
                     }`}
                   >
-                    <div className="text-2xl mb-1">{mood.emoji}</div>
-                    <div className="text-xs text-muted-foreground">{mood.label}</div>
+                    <div className={`text-sm font-body font-medium ${mood.color}`}>{mood.label}</div>
                   </div>
                 </TouchOptimized>
               ))}
