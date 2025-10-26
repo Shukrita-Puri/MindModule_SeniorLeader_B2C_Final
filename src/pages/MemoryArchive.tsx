@@ -84,7 +84,7 @@ const MemoryArchive = () => {
   );
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen pb-20">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="flex items-center justify-between p-4">

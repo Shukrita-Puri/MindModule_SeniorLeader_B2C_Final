@@ -120,7 +120,7 @@ const ExecutiveHome = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background font-body pb-32">
+    <div className="min-h-screen font-body pb-32">
       <SecurityWatermark />
       
       {/* Minimal Header */}

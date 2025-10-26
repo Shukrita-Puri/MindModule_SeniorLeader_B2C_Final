@@ -21,7 +21,7 @@ const EmergencyResetSession = () => {
 
   if (!isResetting) {
     return (
-      <div className="min-h-screen bg-background font-body pb-32 flex items-center justify-center">
+      <div className="min-h-screen font-body pb-32 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-headline font-medium text-foreground mb-8">
             Reset Complete
@@ -38,7 +38,7 @@ const EmergencyResetSession = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background font-body pb-32">
+    <div className="min-h-screen font-body pb-32">
       <ClearBackButton />
       
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">

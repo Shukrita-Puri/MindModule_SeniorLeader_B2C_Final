@@ -7,7 +7,7 @@ const FlowStateSession = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen font-body">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button

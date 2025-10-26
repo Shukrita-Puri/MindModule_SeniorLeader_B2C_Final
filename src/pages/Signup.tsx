@@ -33,7 +33,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-editorial flex items-center justify-center px-4">
+    <div className="min-h-screen text-foreground font-editorial flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
         <Button

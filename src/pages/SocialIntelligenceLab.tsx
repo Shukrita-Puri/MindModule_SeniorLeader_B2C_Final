@@ -211,7 +211,7 @@ const SocialIntelligenceLab = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-body pb-24">
+    <div className="relative flex min-h-screen flex-col font-body pb-24">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button

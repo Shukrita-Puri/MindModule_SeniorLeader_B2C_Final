@@ -31,7 +31,7 @@ const SimulationInsights = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-20">
+    <div className="relative flex min-h-screen flex-col font-editorial pb-20">
       <SimulationHeader 
         contextType={contextType}
         sessionDuration={sessionDuration}

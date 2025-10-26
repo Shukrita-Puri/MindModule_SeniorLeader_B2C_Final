@@ -123,7 +123,7 @@ const NudgeSimulator = () => {
   const dateString = currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-gray-900 font-manrope">
+    <div className="relative flex min-h-screen flex-col font-manrope">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
         <button

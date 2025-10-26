@@ -575,7 +575,7 @@ const RecalibrateMode = () => {
   // If we're on a session page, render the nested route
   if (isSessionPage) {
     return (
-      <div className="min-h-screen bg-background font-body flex flex-col">
+      <div className="min-h-screen font-body flex flex-col">
         <Outlet />
         <MainNavigation />
       </div>
@@ -583,7 +583,7 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background font-body flex flex-col">
+    <div className="min-h-screen font-body flex flex-col">
       <ClearBackButton />
       
       {/* Header */}

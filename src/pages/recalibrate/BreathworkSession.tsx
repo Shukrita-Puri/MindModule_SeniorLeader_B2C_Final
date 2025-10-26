@@ -67,7 +67,7 @@ const BreathworkSession = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background font-body pb-32">
+    <div className="min-h-screen font-body pb-32">
       <ClearBackButton />
       
       <div className="px-8 py-12 max-w-4xl mx-auto">

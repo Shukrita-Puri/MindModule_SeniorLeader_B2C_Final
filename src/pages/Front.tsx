@@ -15,7 +15,7 @@ const Front = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24 section-spacing">
+    <div className="min-h-screen text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24 section-spacing">
       {/* Hero Illustration - Editorial Layout */}
       <div className="mb-12 editorial-margin">
         <div className="relative max-w-md mx-auto">
