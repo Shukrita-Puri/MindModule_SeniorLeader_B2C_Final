@@ -5,54 +5,54 @@
 
 @layer base {
   :root {
-    /* Background System - Ivory Paper */
-    --background: 44 11% 97%;        /* Ivory Paper #F8F7F4 */
+    /* Background System - Warm Aged Paper */
+    --background: 30 28% 90%;        /* #EBE0D5 - Warm Aged Cream */
     --foreground: 0 0% 10%;          /* Ink Black #1A1A1A */
     
-    /* Card & Surface - Matte Ivory */
-    --card: 44 11% 98%;              /* Matte Ivory (slightly lighter) */
+    /* Card & Surface - Lighter Warm Cream */
+    --card: 32 30% 92%;              /* #F0E6DC - Lighter Warm Cream */
     --card-foreground: 0 0% 10%;     /* Ink Black */
     
-    --popover: 44 11% 98%;
+    --popover: 32 30% 92%;
     --popover-foreground: 0 0% 10%;
     
     /* Primary - Deep Bordeaux */
     --primary: 10 25% 22%;           /* Deep Bordeaux #4A2C2A */
-    --primary-foreground: 44 11% 97%; /* Ivory */
+    --primary-foreground: 32 30% 92%; /* Warm Cream */
     
     /* Secondary - Graphite Grey */
     --secondary: 0 0% 24%;           /* Graphite Grey #3C3C3C */
-    --secondary-foreground: 44 11% 97%;
+    --secondary-foreground: 32 30% 92%; /* Warm Cream */
     
-    /* Muted & Borders */
-    --muted: 44 8% 94%;              /* Soft Ivory */
+    /* Muted & Borders - Warmer */
+    --muted: 30 25% 86%;             /* Warm Soft Cream */
     --muted-foreground: 0 0% 24%;    /* Graphite for microcopy */
     
-    /* Accent - Deep Bordeaux (same as primary for luxury coherence) */
+    /* Accent - Deep Bordeaux */
     --accent: 10 25% 22%;
-    --accent-foreground: 44 11% 97%;
+    --accent-foreground: 32 30% 92%; /* Warm Cream */
     
     /* Dusted Gold - Antique Brass */
     --gold: 42 35% 62%;              /* #C8B377 - Antique Brass */
     --gold-foreground: 0 0% 10%;
     
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 44 11% 97%;
+    --destructive-foreground: 32 30% 92%; /* Warm Cream */
     
-    --border: 44 15% 88%;            /* Subtle line borders */
-    --input: 44 11% 96%;
+    --border: 30 22% 82%;            /* Warm tan border */
+    --input: 32 28% 88%;
     --ring: 10 25% 22%;              /* Deep Bordeaux focus rings */
     
-    /* Border Radius - More Refined */
-    --radius: 0.25rem;               /* Smaller, more editorial */
+    /* Border Radius - Consistently Rounded */
+    --radius: 1rem;                  /* 16px for smooth, rounded design */
     
-    --sidebar-background: 44 11% 98%;
+    --sidebar-background: 32 30% 92%;
     --sidebar-foreground: 0 0% 10%;
     --sidebar-primary: 10 25% 22%;
-    --sidebar-primary-foreground: 44 11% 97%;
-    --sidebar-accent: 44 8% 94%;
+    --sidebar-primary-foreground: 32 30% 92%;
+    --sidebar-accent: 30 25% 86%;
     --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 44 15% 88%;
+    --sidebar-border: 30 22% 82%;
     --sidebar-ring: 10 25% 22%;
   }
   

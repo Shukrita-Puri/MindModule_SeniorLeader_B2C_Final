@@ -11,22 +11,22 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 
-          "bg-primary text-primary-foreground hover:bg-background hover:text-primary border-2 border-transparent hover:border-gold rounded-sm shadow-[0_4px_12px_rgba(74,44,42,0.15),0_8px_24px_rgba(74,44,42,0.1)] hover:shadow-[0_8px_20px_rgba(74,44,42,0.2),0_12px_32px_rgba(74,44,42,0.15)]",
+          "bg-primary text-primary-foreground hover:bg-background hover:text-primary border-2 border-transparent hover:border-gold rounded-xl shadow-[0_4px_12px_rgba(74,44,42,0.15),0_8px_24px_rgba(74,44,42,0.1)] hover:shadow-[0_8px_20px_rgba(74,44,42,0.2),0_12px_32px_rgba(74,44,42,0.15)]",
         secondary: 
-          "bg-secondary text-secondary-foreground border border-gold rounded-sm hover:bg-background hover:text-primary transition-colors",
+          "bg-secondary text-secondary-foreground border border-gold rounded-xl hover:bg-background hover:text-primary transition-colors",
         ghost: 
           "bg-transparent text-primary hover:text-primary/80 hover:underline decoration-gold decoration-1 underline-offset-4",
         outline:
-          "border border-gold bg-background text-primary hover:bg-primary hover:text-primary-foreground rounded-sm",
+          "border border-gold bg-background text-primary hover:bg-primary hover:text-primary-foreground rounded-xl",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl",
         link: 
           "text-primary underline-offset-4 hover:underline decoration-gold",
       },
       size: {
         default: "h-10 px-6 py-2 text-base",
-        sm: "h-8 rounded-sm px-4 text-sm",
-        lg: "h-12 rounded-sm px-10 text-lg",
+        sm: "h-8 rounded-xl px-4 text-sm",
+        lg: "h-12 rounded-xl px-10 text-lg",
         icon: "h-10 w-10",
       },
     },

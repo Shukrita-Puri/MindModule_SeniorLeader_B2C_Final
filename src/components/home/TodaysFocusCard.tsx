@@ -91,7 +91,7 @@ const TodaysFocusCard = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-r from-gray-900 to-black text-white border-0 hover:shadow-xl transition-all duration-300">
+    <Card className="bg-gradient-to-r from-gray-900 to-black text-white border-0">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2 text-white">
@@ -130,7 +130,7 @@ const TodaysFocusCard = () => {
             const Icon = pillar.icon;
             
             return (
-              <div key={index} className={`min-w-[340px] bg-gradient-to-r ${pillar.bgColor} rounded-lg p-4 border ${pillar.borderColor}`}>
+              <div key={index} className={`min-w-[340px] bg-gradient-to-r ${pillar.bgColor} rounded-2xl p-4 border ${pillar.borderColor}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="font-bold text-base text-black">{item.title}</h3>
@@ -139,7 +139,7 @@ const TodaysFocusCard = () => {
                   <Badge className="bg-hyper-coral text-white animate-pulse">Priority</Badge>
                 </div>
                 
-                <div className="mb-3 p-2 bg-white/70 rounded-lg border border-gray-100">
+                <div className="mb-3 p-2 bg-white/70 rounded-xl border border-gray-100">
                   <div className="flex items-center gap-2 mb-1">
                     <Icon size={14} className={pillar.color} />
                     <h4 className="font-medium text-xs text-gray-800">{item.domainTitle}</h4>
@@ -147,7 +147,7 @@ const TodaysFocusCard = () => {
                   <p className="text-xs text-gray-700 font-medium">{item.pillarFocus}</p>
                 </div>
                 
-                <div className="mb-4 p-3 bg-white/70 rounded-lg border border-gray-100">
+                <div className="mb-4 p-3 bg-white/70 rounded-xl border border-gray-100">
                   <div className="flex items-start gap-2 mb-2">
                     <Lightbulb size={14} className="text-hyper-coral mt-0.5" />
                     <div>

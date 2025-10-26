@@ -36,7 +36,7 @@ const PowerUpCard = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-r from-hyper-coral/10 to-red-100 border-hyper-coral/20 border-0 shadow-sm hover:shadow-lg transition-all duration-300">
+    <Card className="bg-gradient-to-r from-hyper-coral/10 to-red-100 border-hyper-coral/20 border-0">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Zap size={20} className="text-hyper-coral" />
