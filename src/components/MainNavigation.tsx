@@ -45,18 +45,21 @@ const MainNavigation = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-gold/20 z-50 shadow-lg">
       <div className="flex justify-around items-center py-6 px-4 max-w-md mx-auto">
         {navItems.map((item, index) => (
           <button
             key={index}
             onClick={() => navigate(item.route)}
-            className={`flex flex-col items-center gap-2 py-3 px-4 rounded-xl transition-all duration-300 ${
+            className={`relative flex flex-col items-center gap-2 py-3 px-4 rounded-xl transition-all duration-300 ${
               item.isActive 
                 ? "text-primary" 
-                : "text-muted-foreground hover:text-foreground"
+                : "text-secondary hover:text-primary"
             }`}
           >
+            {item.isActive && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gold rounded-full" />
+            )}
             <div className={`transition-transform duration-200 ${item.isActive ? 'scale-110' : ''}`}>
               <item.icon 
                 size={20} 

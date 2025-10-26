@@ -120,12 +120,12 @@ const ExecutiveHome = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background font-editorial pb-32">
+    <div className="min-h-screen bg-background font-body pb-32">
       <SecurityWatermark />
       
       {/* Minimal Header */}
       <div className="px-8 py-16 text-center">
-        <h1 className="text-3xl font-heading font-medium text-foreground mb-4">
+        <h1 className="text-3xl font-headline font-medium text-foreground mb-4">
           Hey, Alex
         </h1>
         <p className="text-lg text-muted-foreground">
@@ -137,18 +137,18 @@ const ExecutiveHome = () => {
         
         {/* Building Momentum - Leaderboard Style */}
         <section className="animate-fade-in">
-          <h2 className="text-lg font-heading font-medium text-foreground mb-4">
+          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
             Building Momentum
           </h2>
           <div className="grid grid-cols-2 gap-4">
             {/* Sessions Completed */}
-            <div className="bg-card border border-border rounded-lg p-4 text-center">
+            <div className="bg-card border border-border rounded-sm p-4 text-center hover:border-gold/30 transition-all">
               <div className="text-2xl font-bold text-primary mb-1">47</div>
               <div className="text-xs text-muted-foreground">Sessions Completed</div>
             </div>
             {/* Days Streak */}
-            <div className="bg-card border border-border rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-accent mb-1">15</div>
+            <div className="bg-card border border-border rounded-sm p-4 text-center hover:border-gold/30 transition-all">
+              <div className="text-2xl font-bold text-gold mb-1">15</div>
               <div className="text-xs text-muted-foreground">Days Streak</div>
             </div>
           </div>
@@ -165,7 +165,7 @@ const ExecutiveHome = () => {
               />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-heading font-medium text-foreground group-hover:text-primary transition-colors mb-2">
+              <h2 className="text-lg font-headline font-medium text-foreground group-hover:text-primary transition-colors mb-2">
                 Energy Check
               </h2>
               <p className="text-base text-foreground leading-relaxed font-body mb-3">
@@ -189,7 +189,7 @@ const ExecutiveHome = () => {
               <Target size={16} className="text-accent" />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-heading font-medium text-foreground mb-3">
+              <h2 className="text-lg font-headline font-medium text-foreground mb-3">
                 Today's Priorities
               </h2>
             </div>
@@ -197,7 +197,7 @@ const ExecutiveHome = () => {
           
           <div className="space-y-4">
             {getIntelligentPriorities().map((priority) => (
-              <div key={priority.id} className="bg-card border border-border rounded-lg p-4 hover:bg-accent/5 transition-colors">
+              <div key={priority.id} className="bg-card border border-border rounded-sm p-4 hover:bg-primary/5 hover:border-gold/30 transition-all shadow-sm">
                 {/* Priority Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">

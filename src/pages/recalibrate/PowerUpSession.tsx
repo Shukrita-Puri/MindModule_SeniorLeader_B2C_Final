@@ -68,13 +68,13 @@ const PowerUpSession = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background font-editorial pb-32">
+    <div className="min-h-screen bg-background font-body pb-32">
       <ClearBackButton />
       
       <div className="px-8 py-12 max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-card border border-border overflow-hidden">
+          <div className="w-28 h-28 mx-auto mb-8 rounded-sm bg-card border border-gold/20 overflow-hidden shadow-md">
             <img 
               src={vibrantVoiceOrb} 
               alt="Power Up"
@@ -82,7 +82,7 @@ const PowerUpSession = () => {
             />
           </div>
           
-          <h2 className="text-2xl font-heading font-medium text-foreground mb-4 leading-tight">
+          <h2 className="text-2xl font-headline font-medium text-foreground mb-4 leading-tight">
             Power Up
           </h2>
           
@@ -107,7 +107,7 @@ const PowerUpSession = () => {
                   
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors">
+                      <h3 className="text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors">
                         {item.title}
                       </h3>
                       <span className="px-3 py-1 bg-muted rounded-full text-xs font-body text-muted-foreground">
@@ -138,7 +138,8 @@ const PowerUpSession = () => {
               
               <div className="pt-6 border-t border-border">
                 <Button 
-                  className="w-full bg-background border border-border text-foreground hover:bg-muted rounded-full py-3 font-body"
+                  variant="secondary"
+                  className="w-full rounded-full py-3 font-body border-gold hover:bg-primary hover:text-primary-foreground"
                   onClick={(e) => {
                     e.stopPropagation();
                     console.log(`Playing: ${item.title}`);
@@ -152,7 +153,7 @@ const PowerUpSession = () => {
         </div>
         
         {/* Back to tools */}
-        <div className="text-center mt-16 pt-12 border-t border-border">
+        <div className="text-center mt-16 pt-12 border-t border-gold/20">
           <Button 
             variant="ghost"
             onClick={() => navigate('/recalibrate')}

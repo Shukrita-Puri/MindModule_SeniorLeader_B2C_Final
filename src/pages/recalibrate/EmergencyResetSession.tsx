@@ -21,9 +21,9 @@ const EmergencyResetSession = () => {
 
   if (!isResetting) {
     return (
-      <div className="min-h-screen bg-background font-editorial pb-32 flex items-center justify-center">
+      <div className="min-h-screen bg-background font-body pb-32 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-heading font-medium text-foreground mb-8">
+          <h2 className="text-2xl font-headline font-medium text-foreground mb-8">
             Reset Complete
           </h2>
           <Button
@@ -38,7 +38,7 @@ const EmergencyResetSession = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background font-editorial pb-32">
+    <div className="min-h-screen bg-background font-body pb-32">
       <ClearBackButton />
       
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
@@ -50,21 +50,21 @@ const EmergencyResetSession = () => {
           />
         </div>
         
-        <h2 className="text-2xl font-heading font-medium text-foreground mb-12">
+        <h2 className="text-2xl font-headline font-medium text-foreground mb-12">
           Emergency Reset Active
         </h2>
         
-        <div className="bg-card border border-border rounded-lg p-12 mb-16 text-left">
+        <div className="bg-card border border-gold/20 rounded-sm p-12 mb-16 text-left shadow-md">
           <div className="space-y-8">
             <div>
-              <h3 className="font-heading font-medium text-foreground mb-4 text-lg">Present Moment</h3>
+              <h3 className="font-headline font-medium text-foreground mb-4 text-lg">Present Moment</h3>
               <p className="text-muted-foreground font-body leading-relaxed">
                 Notice: You are here, now, in this moment. You are safe.
               </p>
             </div>
             
             <div>
-              <h3 className="font-heading font-medium text-foreground mb-4 text-lg">Body Reset</h3>
+              <h3 className="font-headline font-medium text-foreground mb-4 text-lg">Body Reset</h3>
               <div className="space-y-3 text-muted-foreground font-body leading-relaxed">
                 <p>Drop your shoulders</p>
                 <p>Relax your jaw</p>
@@ -78,7 +78,7 @@ const EmergencyResetSession = () => {
         {/* Quick Grounding */}
         <div className="mt-16">
           <div className="text-center mb-12">
-            <h3 className="text-xl font-heading font-medium text-foreground mb-4">
+            <h3 className="text-xl font-headline font-medium text-foreground mb-4">
               Quick Grounding
             </h3>
             <p className="text-muted-foreground font-body">
@@ -86,10 +86,10 @@ const EmergencyResetSession = () => {
             </p>
           </div>
           
-          <div className="bg-card border border-border rounded-lg p-8 space-y-4">
+          <div className="bg-card border border-gold/20 rounded-sm p-8 space-y-4 shadow-md">
             <div className="grid grid-cols-1 gap-4 text-center">
               <div className="flex items-center justify-between">
-                <span className="text-lg font-heading font-medium text-foreground">5</span>
+                <span className="text-lg font-headline font-medium text-foreground">5</span>
                 <span className="text-muted-foreground font-body">Things you can see</span>
               </div>
               <div className="flex items-center justify-between">

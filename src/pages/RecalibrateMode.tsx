@@ -477,7 +477,7 @@ const RecalibrateMode = () => {
     <>
       {/* Hero Section */}
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+        <div className="w-full max-w-sm aspect-square mx-auto mb-12 rounded-sm border border-gold/20 overflow-hidden shadow-lg">
           <img 
             src="/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png" 
             alt="Inner calibration and balance"
@@ -485,7 +485,7 @@ const RecalibrateMode = () => {
           />
         </div>
         
-        <h2 className="text-3xl font-heading font-medium text-foreground mb-8 leading-tight">
+        <h2 className="text-3xl font-headline font-medium text-foreground mb-8 leading-tight">
           Inner Calibration
         </h2>
         
@@ -502,11 +502,11 @@ const RecalibrateMode = () => {
             <article 
               key={tool.id}
               onClick={() => navigate(`/recalibrate/${tool.id}`)}
-              className="group cursor-pointer border-b border-border pb-12 last:border-b-0 animate-fade-in"
+              className="group cursor-pointer border-b border-gold/20 pb-12 last:border-b-0 animate-fade-in hover:bg-primary/5 transition-all"
               style={{ animationDelay: `${index * 150}ms` }}
             >
               <div className="flex items-start gap-8">
-                <div className="w-20 h-20 rounded-full bg-card border border-border overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-20 h-20 rounded-sm bg-card border border-gold/20 overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
@@ -515,7 +515,7 @@ const RecalibrateMode = () => {
                 </div>
                 
                 <div className="flex-1 min-w-0 pt-2">
-                  <h3 className="text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors mb-3">
+                  <h3 className="text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors mb-3">
                     {tool.title}
                   </h3>
                   
@@ -530,17 +530,17 @@ const RecalibrateMode = () => {
 
 
         {/* Crisis Resources */}
-        <div className="mt-16 pt-12 border-t border-border">
+        <div className="mt-16 pt-12 border-t border-gold/20">
           <div className="text-center mb-8">
-            <h3 className="text-lg font-heading font-medium text-foreground mb-4">
+            <h3 className="text-lg font-headline font-medium text-foreground mb-4">
               Need immediate support?
             </h3>
           </div>
           
-          <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+          <div className="bg-card border border-gold/20 rounded-sm p-8 space-y-6 shadow-md">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground font-body">Crisis Line</span>
-              <a href="tel:988" className="text-xl font-heading font-medium text-primary hover:underline">
+              <a href="tel:988" className="text-xl font-headline font-medium text-primary hover:underline">
                 988
               </a>
             </div>
@@ -554,7 +554,7 @@ const RecalibrateMode = () => {
             <div className="w-full h-px bg-border"></div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground font-body">Emergency</span>
-              <a href="tel:911" className="text-xl font-heading font-medium text-primary hover:underline">
+              <a href="tel:911" className="text-xl font-headline font-medium text-primary hover:underline">
                 911
               </a>
             </div>
@@ -567,7 +567,7 @@ const RecalibrateMode = () => {
   // If we're on a session page, render the nested route
   if (isSessionPage) {
     return (
-      <div className="min-h-screen bg-background font-serif flex flex-col">
+      <div className="min-h-screen bg-background font-body flex flex-col">
         <Outlet />
         <MainNavigation />
       </div>
@@ -575,13 +575,13 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background font-serif flex flex-col">
+    <div className="min-h-screen bg-background font-body flex flex-col">
       <ClearBackButton />
       
       {/* Header */}
       <div className="border-b border-border/50 p-6 bg-background/80 backdrop-blur">
         <div className="text-center">
-          <h1 className="text-xl font-heading font-medium text-foreground">
+          <h1 className="text-xl font-headline font-medium text-foreground">
             Inner Calibration
           </h1>
         </div>

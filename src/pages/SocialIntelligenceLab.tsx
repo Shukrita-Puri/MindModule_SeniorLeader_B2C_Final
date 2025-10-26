@@ -211,7 +211,7 @@ const SocialIntelligenceLab = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background font-editorial pb-24">
+    <div className="relative flex min-h-screen flex-col bg-background font-body pb-24">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border">
         <button
@@ -220,7 +220,7 @@ const SocialIntelligenceLab = () => {
         >
           <ArrowLeft size={18} className="text-foreground" />
         </button>
-        <h1 className="text-xl font-heading font-medium text-foreground">
+        <h1 className="text-xl font-headline font-medium text-foreground">
           Practice
         </h1>
         <div className="w-10"></div>
@@ -228,7 +228,7 @@ const SocialIntelligenceLab = () => {
 
       {/* Hero Section - Mobile First */}
       <div className="px-4 py-8 text-center max-w-2xl mx-auto">
-        <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden shadow-lg border-2 border-accent/20">
+        <div className="w-full max-w-xs aspect-square mx-auto mb-6 rounded-sm border border-gold/20 overflow-hidden shadow-lg">
           <img 
             src="/lovable-uploads/67bda649-edbb-4f39-8290-175122fe99bf.png" 
             alt="Social intelligence practice"
@@ -236,7 +236,7 @@ const SocialIntelligenceLab = () => {
           />
         </div>
         
-        <h2 className="text-2xl font-heading font-medium text-foreground mb-3 leading-tight">
+        <h2 className="text-2xl font-headline font-medium text-foreground mb-3 leading-tight">
           Prepare for Real Situations
         </h2>
         
@@ -250,7 +250,7 @@ const SocialIntelligenceLab = () => {
       <div className="flex-1 px-4 max-w-2xl mx-auto pb-8">
         {/* Domain Selection - Mobile First */}
         <div className="mb-8">
-          <h3 className="text-xl font-heading font-medium text-foreground mb-6 text-center">
+          <h3 className="text-xl font-headline font-medium text-foreground mb-6 text-center">
             Choose Your Focus Area
           </h3>
           <div className="space-y-3">
@@ -258,14 +258,14 @@ const SocialIntelligenceLab = () => {
               <article 
                 key={domain.id}
                 onClick={() => handleDomainSelect(domain.id)}
-                className={`group cursor-pointer border border-border rounded-lg p-4 transition-all animate-fade-in touch-manipulation ${
+                className={`group cursor-pointer border border-border rounded-sm p-4 transition-all animate-fade-in touch-manipulation hover:border-gold/30 ${
                   selectedDomain === domain.id 
                     ? 'border-primary bg-primary/5' 
-                    : 'hover:border-muted-foreground/20 hover:bg-card/50 active:bg-primary/5'
+                    : 'hover:bg-card/50 active:bg-primary/5'
                 }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <h4 className={`text-base font-heading font-medium mb-1 transition-colors ${
+                <h4 className={`text-base font-headline font-medium mb-1 transition-colors ${
                   selectedDomain === domain.id ? 'text-primary' : 'text-foreground group-hover:text-primary'
                 }`}>
                   {domain.title}
@@ -282,7 +282,7 @@ const SocialIntelligenceLab = () => {
         {/* Scenario Selection - Mobile First */}
         {selectedDomain && (
           <div className="mb-8 animate-fade-in">
-            <h3 className="text-lg font-heading font-medium text-foreground mb-4 text-center">
+            <h3 className="text-lg font-headline font-medium text-foreground mb-4 text-center">
               Choose Specific Scenario
             </h3>
             <div className="space-y-2">
@@ -290,10 +290,10 @@ const SocialIntelligenceLab = () => {
                 <button
                   key={context}
                   onClick={() => handleContextSelect(context)}
-                  className={`w-full p-4 rounded-lg border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation ${
+                  className={`w-full p-4 rounded-sm border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation hover:border-gold/40 ${
                     contextType === context
                       ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10'
+                      : 'border-border hover:bg-primary/5 active:bg-primary/10'
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -307,7 +307,7 @@ const SocialIntelligenceLab = () => {
         {/* Persona Selection - Mobile First */}
         {contextType && (
           <div className="mb-8 animate-fade-in">
-            <h3 className="text-lg font-heading font-medium text-foreground mb-4 text-center">
+            <h3 className="text-lg font-headline font-medium text-foreground mb-4 text-center">
               Choose Personas Involved
             </h3>
             <div className="space-y-2 mb-4">
@@ -315,10 +315,10 @@ const SocialIntelligenceLab = () => {
                 <button
                   key={persona}
                   onClick={() => handlePersonaToggle(persona)}
-                  className={`w-full p-4 rounded-lg border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation ${
+                  className={`w-full p-4 rounded-sm border text-left transition-all animate-fade-in text-sm min-h-[48px] touch-manipulation hover:border-gold/40 ${
                     selectedPersonas.includes(persona)
                       ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5 active:bg-primary/10'
+                      : 'border-border hover:bg-primary/5 active:bg-primary/10'
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -344,7 +344,7 @@ const SocialIntelligenceLab = () => {
         {/* Context Input - Mobile First */}
         {(selectedPersonas.length > 0 || customPersonas.trim()) && (
           <div className="mb-8 animate-fade-in">
-            <h3 className="text-base font-heading font-medium text-foreground mb-3">
+            <h3 className="text-base font-headline font-medium text-foreground mb-3">
               {contextType.includes('Custom') || selectedDomain === 'custom-scenario' ? 'Describe Your Situation' : 'Add Context'}
             </h3>
             <textarea

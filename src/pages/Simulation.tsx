@@ -59,7 +59,7 @@ const Simulation = () => {
   const aiPersona = selectedPersonas?.[0] || { name: "Interviewer", role: "Admissions Officer" };
 
   return (
-    <div className="min-h-screen bg-background font-editorial flex flex-col">
+    <div className="min-h-screen bg-background font-body flex flex-col">
       {/* College Admissions Simulation - No header, direct entry */}
       <div className="flex-1 relative">
         <CollegeAdmissionsSimulation

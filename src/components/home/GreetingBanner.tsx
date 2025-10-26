@@ -13,10 +13,10 @@ const GreetingBanner = ({ userName = "Alex" }: GreetingBannerProps) => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-gray-900 to-gray-700 text-white">
+    <div className="bg-card border-b border-gold/20">
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-2">{getGreeting()}</h1>
-        <p className="text-gray-300">Your mental espresso is ready</p>
+        <h1 className="text-2xl font-headline text-foreground mb-2">{getGreeting()}</h1>
+        <p className="text-base text-muted-foreground font-body">Your mental espresso is ready</p>
       </div>
     </div>
   );

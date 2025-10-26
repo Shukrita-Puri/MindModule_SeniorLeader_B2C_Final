@@ -96,7 +96,10 @@
   
   body {
     @apply bg-background text-foreground font-body;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" /></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.03" /></svg>');
+    background-image: url('/textures/ivory-paper-texture.jpg');
+    background-repeat: repeat;
+    background-size: 600px 600px;
+    background-attachment: fixed;
   }
   
   /* Headline Styles */
