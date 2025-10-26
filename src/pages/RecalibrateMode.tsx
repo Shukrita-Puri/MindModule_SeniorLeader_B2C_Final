@@ -328,7 +328,7 @@ const RecalibrateMode = () => {
 
   const renderEmergencyReset = () => (
     <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-      <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">
+      <div className="w-full max-w-md aspect-[4/5] mx-auto mb-12 rounded-sm border border-gold/20 overflow-hidden shadow-lg">
         <img 
           src={vibrantExecutiveOrb} 
           alt="Emergency reset and grounding"
@@ -336,21 +336,21 @@ const RecalibrateMode = () => {
         />
       </div>
       
-      <h2 className="text-2xl font-heading font-medium text-foreground mb-12">
+      <h2 className="text-2xl font-headline font-medium text-foreground mb-12">
         Emergency Reset Active
       </h2>
       
-      <div className="bg-card border border-border rounded-lg p-12 mb-16 text-left">
+      <div className="bg-card border border-gold/20 rounded-sm p-12 mb-16 text-left shadow-lg">
         <div className="space-y-8">
           <div>
-            <h3 className="font-heading font-medium text-foreground mb-4 text-lg">Present Moment</h3>
+            <h3 className="font-headline font-medium text-foreground mb-4 text-lg">Present Moment</h3>
             <p className="text-muted-foreground font-body leading-relaxed">
               Notice: You are here, now, in this moment. You are safe.
             </p>
           </div>
           
           <div>
-            <h3 className="font-heading font-medium text-foreground mb-4 text-lg">Body Reset</h3>
+            <h3 className="font-headline font-medium text-foreground mb-4 text-lg">Body Reset</h3>
             <div className="space-y-3 text-muted-foreground font-body leading-relaxed">
               <p>Drop your shoulders</p>
               <p>Relax your jaw</p>
@@ -362,11 +362,12 @@ const RecalibrateMode = () => {
       </div>
 
       <Button
+        variant="default"
         onClick={() => {
           setIsResetting(false);
           setSelectedTool("");
         }}
-        className="bg-primary text-primary-foreground hover:bg-primary/90 px-12 py-4 text-lg font-body rounded-full"
+        className="px-12 py-4 text-lg font-body rounded-sm"
       >
         I'm ready to continue
       </Button>
@@ -389,7 +390,7 @@ const RecalibrateMode = () => {
             />
           </div>
           
-          <h2 className="text-2xl font-heading font-medium text-foreground mb-4 leading-tight">
+          <h2 className="text-2xl font-headline font-medium text-foreground mb-4 leading-tight">
             {tool?.title}
           </h2>
           
@@ -403,18 +404,18 @@ const RecalibrateMode = () => {
           {content.map((item, index) => (
             <article 
               key={index}
-              className="group cursor-pointer bg-card border border-border rounded-lg p-8 hover:border-primary/20 transition-all animate-fade-in hover:shadow-lg"
+              className="group cursor-pointer bg-card border border-border rounded-sm p-8 hover:border-gold/30 transition-all duration-300 animate-fade-in hover:shadow-lg hover:-translate-y-1"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0">
-                    <item.icon size={20} className="text-primary" />
+                  <div className="w-12 h-12 rounded-full bg-muted/30 border border-border flex items-center justify-center flex-shrink-0 group-hover:border-gold/40 group-hover:bg-primary/5 transition-all duration-300">
+                    <item.icon size={20} className="text-secondary group-hover:text-primary transition-colors duration-300" strokeWidth={1.5} />
                   </div>
                   
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-heading font-medium text-foreground group-hover:text-primary transition-colors">
+                      <h3 className="text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors">
                         {item.title}
                       </h3>
                       <span className="px-3 py-1 bg-muted rounded-full text-xs font-body text-muted-foreground">
@@ -445,7 +446,8 @@ const RecalibrateMode = () => {
               
               <div className="pt-6 border-t border-border">
                 <Button 
-                  className="w-full bg-background border border-border text-foreground hover:bg-muted rounded-full py-3 font-body"
+                  variant="default"
+                  className="w-full rounded-sm py-3 font-body"
                   onClick={(e) => {
                     e.stopPropagation();
                     // Here you would integrate with audio player
@@ -460,11 +462,14 @@ const RecalibrateMode = () => {
         </div>
         
         {/* Back to tools */}
-        <div className="text-center mt-16 pt-12 border-t border-border">
+        <div className="text-center mt-16">
+          {/* Gold Divider */}
+          <div className="w-full h-px bg-gold/20 mb-12"></div>
+          
           <Button 
             variant="ghost"
             onClick={() => setSelectedTool("")}
-            className="text-muted-foreground hover:text-foreground font-body"
+            className="text-muted-foreground hover:text-primary font-body"
           >
             Choose different tool
           </Button>
@@ -530,28 +535,31 @@ const RecalibrateMode = () => {
 
 
         {/* Crisis Resources */}
-        <div className="mt-16 pt-12 border-t border-gold/20">
+        <div className="mt-16">
+          {/* Gold Divider */}
+          <div className="w-full h-px bg-gold/20 mb-12"></div>
+          
           <div className="text-center mb-8">
             <h3 className="text-lg font-headline font-medium text-foreground mb-4">
               Need immediate support?
             </h3>
           </div>
           
-          <div className="bg-card border border-gold/20 rounded-sm p-8 space-y-6 shadow-md">
+          <div className="bg-card border border-gold/20 rounded-sm p-8 space-y-6 shadow-lg">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground font-body">Crisis Line</span>
               <a href="tel:988" className="text-xl font-headline font-medium text-primary hover:underline">
                 988
               </a>
             </div>
-            <div className="w-full h-px bg-border"></div>
+            <div className="w-full h-px bg-gold/20"></div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground font-body">Crisis Text</span>
               <span className="text-foreground font-body">
                 Text HOME to <span className="font-mono text-primary">741741</span>
               </span>
             </div>
-            <div className="w-full h-px bg-border"></div>
+            <div className="w-full h-px bg-gold/20"></div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground font-body">Emergency</span>
               <a href="tel:911" className="text-xl font-headline font-medium text-primary hover:underline">

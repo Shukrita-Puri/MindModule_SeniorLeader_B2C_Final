@@ -94,13 +94,13 @@
     @apply border-border;
   }
   
-  body {
-    @apply bg-background text-foreground font-body;
-    background-image: url('/textures/ivory-paper-texture.jpg');
-    background-repeat: repeat;
-    background-size: 600px 600px;
-    background-attachment: fixed;
-  }
+body {
+  @apply bg-background text-foreground font-body;
+  background-image: url('/textures/ivory-paper-texture.jpg?v=2');
+  background-repeat: repeat;
+  background-size: 600px 600px;
+  background-attachment: fixed;
+}
   
   /* Headline Styles */
   h1, h2, h3 {

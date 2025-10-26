@@ -104,13 +104,13 @@ const QuickResetSession = () => {
           {content.map((item, index) => (
             <article 
               key={index}
-              className="group cursor-pointer bg-card border border-border rounded-lg p-8 hover:border-primary/20 transition-all animate-fade-in hover:shadow-lg"
+              className="group cursor-pointer bg-card border border-border rounded-sm p-8 hover:border-gold/30 transition-all duration-300 animate-fade-in hover:shadow-lg hover:-translate-y-1"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0">
-                    <item.icon size={20} className="text-primary" />
+                  <div className="w-12 h-12 rounded-full bg-muted/30 border border-border flex items-center justify-center flex-shrink-0 group-hover:border-gold/40 group-hover:bg-primary/5 transition-all duration-300">
+                    <item.icon size={20} className="text-secondary group-hover:text-primary transition-colors duration-300" strokeWidth={1.5} />
                   </div>
                   
                   <div className="flex-1">
@@ -146,8 +146,8 @@ const QuickResetSession = () => {
               
               <div className="pt-6 border-t border-border">
                 <Button 
-                  variant="secondary"
-                  className="w-full rounded-full py-3 font-body border-gold hover:bg-primary hover:text-primary-foreground"
+                  variant="default"
+                  className="w-full rounded-sm py-3 font-body"
                   onClick={(e) => {
                     e.stopPropagation();
                     console.log(`Playing: ${item.title}`);
