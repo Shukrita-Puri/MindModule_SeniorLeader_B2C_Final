@@ -96,10 +96,6 @@
   
 body {
   @apply bg-background text-foreground font-body;
-  background-image: url('/textures/ivory-paper-luxury.jpg?v=3');
-  background-repeat: repeat;
-  background-size: 600px 600px;
-  background-attachment: fixed;
 }
   
   /* Headline Styles */
