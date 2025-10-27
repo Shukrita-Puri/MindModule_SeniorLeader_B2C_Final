@@ -23,8 +23,11 @@ const SocialIntelligenceLab = () => {
             {/* Gradient backdrop - tone-on-tone cream-to-taupe */}
             <div className="absolute inset-0 bg-gradient-to-b from-[#F5F0E9]/60 via-[#E8DFD3]/50 to-[#DDD0C0]/40 rounded-2xl" />
             
-            {/* Title with dark charcoal color */}
-            <h1 className="relative text-3xl md:text-5xl font-headline font-medium text-[#3C3C3C] text-center z-10">
+            {/* Title with forest green color, bold, larger size, text shadow */}
+            <h1 
+              className="relative text-4xl md:text-6xl font-headline font-bold text-forest text-center z-10"
+              style={{ textShadow: '0 2px 12px rgba(0, 0, 0, 0.3), 0 4px 24px rgba(0, 0, 0, 0.15)' }}
+            >
               Dialogue Room
             </h1>
           </div>
@@ -59,16 +62,12 @@ const SocialIntelligenceLab = () => {
                 Your AI counterpart is composed, perceptive, and meticulously attuned to your voice.
               </p>
 
-              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                This is where <span className="text-forest font-medium">precision meets empathy</span>.
+              <p className="text-sm md:text-base text-gold font-bold leading-relaxed">
+                This is where precision meets empathy. Where confidence is not performed, but practiced.
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Where confidence is not performed, but practiced.
-              </p>
-
-              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                <strong>Step inside. Shape the conversation before it shapes you.</strong>
+                Step inside. Shape the conversation before it shapes you.
               </p>
             </div>
 
