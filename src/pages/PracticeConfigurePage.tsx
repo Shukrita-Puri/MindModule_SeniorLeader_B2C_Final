@@ -35,14 +35,19 @@ const PracticeConfigurePage = () => {
 
   const getMetaSkills = (scenario: string): string[] => {
     const skillMap: Record<string, string[]> = {
-      'uncertainty': ['Adaptability', 'Decision-Making', 'Influence'],
-      'balance-change': ['Adaptability', 'Resilience', 'Focus'],
-      'conflict': ['Adaptability', 'Emotional Intelligence', 'Diplomacy'],
+      // Moments of Change
+      'navigating-uncertainty': ['Adaptability', 'Decision-Making', 'Influence'],
+      'balance-change-stability': ['Adaptability', 'Resilience', 'Focus'],
+      'navigating-conflict': ['Adaptability', 'Emotional Intelligence', 'Diplomacy'],
+      // Difficult Conversations
       'influence-disagree': ['Communication', 'Persuasion', 'Empathy'],
-      'hidden-tensions': ['Communication', 'Power Dynamics', 'Self-Regulation'],
-      'public-questions': ['Communication', 'Composure', 'Influence'],
-      'difficult-convo': ['Communication', 'Emotional Regulation', 'Courage'],
+      'managing-tensions': ['Communication', 'Power Dynamics', 'Self-Regulation'],
+      'difficult-conversation': ['Communication', 'Emotional Regulation', 'Courage'],
+      'subtle-negotiations': ['Influence', 'Diplomacy', 'Strategic Thinking'],
+      // High-Pressure Situations
+      'public-unexpected': ['Communication', 'Composure', 'Influence'],
       'staying-composed': ['Self-Regulation', 'Emotional Control', 'Confidence'],
+      // Recovery & Resilience
       'bouncing-back': ['Resilience', 'Growth Mindset', 'Reflection'],
       'sustaining-energy': ['Self-Regulation', 'Energy Management', 'Boundaries'],
     };
@@ -168,25 +173,38 @@ const PracticeConfigurePage = () => {
                   <SelectValue placeholder="Select a scenario" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  {scenarioCategory === 'college-admissions' && (
+                  {scenarioCategory === 'change' && (
                     <>
-                      <SelectItem value="ivy-league-interview">Ivy League Interview Simulation</SelectItem>
-                      <SelectItem value="scholarship-discussion">Scholarship Discussion</SelectItem>
-                      <SelectItem value="college-essay-pitch">College Essay Pitch</SelectItem>
+                      <SelectItem value="navigating-uncertainty">Navigating Through Uncertainty</SelectItem>
+                      <SelectItem value="balance-change-stability">Balancing Change and Stability</SelectItem>
+                      <SelectItem value="navigating-conflict">Navigating Conflict</SelectItem>
                     </>
                   )}
-                  {scenarioCategory === 'internship' && (
+                  {scenarioCategory === 'difficult' && (
                     <>
-                      <SelectItem value="technical-interview">Technical Interview</SelectItem>
-                      <SelectItem value="behavioral-questions">Behavioral Questions</SelectItem>
-                      <SelectItem value="case-study-presentation">Case Study Presentation</SelectItem>
+                      <SelectItem value="influence-disagree">Influencing Someone Who Disagrees</SelectItem>
+                      <SelectItem value="managing-tensions">Managing Hidden Tensions</SelectItem>
+                      <SelectItem value="difficult-conversation">Having a Difficult Conversation</SelectItem>
+                      <SelectItem value="subtle-negotiations">Subtle Negotiations: Finding Win-Win</SelectItem>
                     </>
                   )}
-                  {scenarioCategory === 'personal' && (
+                  {scenarioCategory === 'pressure' && (
                     <>
-                      <SelectItem value="difficult-conversation">Difficult Conversation with Friend/Family</SelectItem>
-                      <SelectItem value="boundary-setting">Setting Boundaries</SelectItem>
-                      <SelectItem value="conflict-resolution">Conflict Resolution</SelectItem>
+                      <SelectItem value="public-unexpected">Handling Public Conversations & Unexpected Questions</SelectItem>
+                      <SelectItem value="staying-composed">Staying Composed Under Pressure</SelectItem>
+                    </>
+                  )}
+                  {scenarioCategory === 'recovery' && (
+                    <>
+                      <SelectItem value="bouncing-back">Bouncing Back After a Setback</SelectItem>
+                      <SelectItem value="sustaining-energy">Sustaining Energy Under Long-Term Pressure</SelectItem>
+                    </>
+                  )}
+                  {scenarioCategory === 'leadership' && (
+                    <>
+                      <SelectItem value="leading-through-change">Leading Through Change</SelectItem>
+                      <SelectItem value="inspiring-alignment">Inspiring Team Alignment</SelectItem>
+                      <SelectItem value="elevating-others">Elevating Others' Performance</SelectItem>
                     </>
                   )}
                   <SelectItem value="custom">Customise Scenario</SelectItem>
