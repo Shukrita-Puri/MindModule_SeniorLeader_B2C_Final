@@ -11,6 +11,7 @@ import Signup from "./pages/Signup";
 import DailyCheckIn from "./pages/DailyCheckIn";
 import ExecutiveHome from "./pages/ExecutiveHome";
 import SocialIntelligenceLab from "./pages/SocialIntelligenceLab";
+import PracticeConfigurePage from "./pages/PracticeConfigurePage";
 import FlowSession from "./pages/FlowSession";
 import GlobalHeader from "./components/GlobalHeader";
 import NudgeSettings from "./pages/NudgeSettings";
@@ -51,6 +52,7 @@ const Layout = () => {
     '/executive-home',
     '/daily-check-in',
     '/practice',
+    '/practice/configure',
     '/practice/simulation',
     '/practice/simulation-insights',
     '/recalibrate',
@@ -114,14 +116,18 @@ const router = createBrowserRouter([
         path: "flow-session",
         element: <FlowSession />,
       },
-      {
-        path: "practice",
-        element: <SocialIntelligenceLab />,
-      },
-      {
-        path: "practice/simulation",
-        element: <Simulation />,
-      },
+            {
+              path: "practice",
+              element: <SocialIntelligenceLab />,
+            },
+            {
+              path: "practice/configure",
+              element: <PracticeConfigurePage />,
+            },
+            {
+              path: "practice/simulation",
+              element: <Simulation />,
+            },
       {
         path: "practice/simulation-insights",
         element: <SimulationInsights />,
