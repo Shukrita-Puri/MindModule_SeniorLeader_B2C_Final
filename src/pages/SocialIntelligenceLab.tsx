@@ -39,7 +39,7 @@ const SocialIntelligenceLab = () => {
           <div className="bg-[rgba(245,240,233,0.75)] backdrop-blur-[12px] rounded-[20px] px-6 md:px-8 py-6 md:py-8">
             {/* First Line - Bold and Bigger */}
             <p className="text-center font-bold text-foreground text-xl md:text-2xl mb-4">
-              Rehearse the conversations that define you— before they unfold.
+              Rehearse the conversations that define you.
             </p>
 
             {/* Body Copy - Centered with minimal spacing */}
@@ -49,19 +49,15 @@ const SocialIntelligenceLab = () => {
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Enter a private chamber of preparation, where mastery begins in quiet.
+                Hone your influence with an AI counterpart, exquisitely attuned.
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Refine your influence with an AI that listens as keenly as it speaks.
+                Where <span className="font-bold text-forest">Precision meets empathy. Confidence is cultivated.</span>
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Where <span className="font-bold">precision meets empathy, and confidence is cultivated, not performed</span>.
-              </p>
-
-              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Step in. Shape the conversation before it shapes you.
+                Enter a private chamber of preparation. Shape the conversation before it shapes you.
               </p>
             </div>
 
