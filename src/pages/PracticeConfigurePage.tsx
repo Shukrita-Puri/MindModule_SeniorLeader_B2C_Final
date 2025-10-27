@@ -144,179 +144,211 @@ const PracticeConfigurePage = () => {
           </Card>
 
           {/* Step 2: Specific Scenario */}
-          {scenarioCategory && (
-            <Card className="p-5 animate-fade-in shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-              <h3 className="text-base font-medium text-foreground mb-3">
-                Step 2: Choose Specific Scenario
-              </h3>
-              <Select value={specificScenario} onValueChange={setSpecificScenario}>
-                <SelectTrigger className="h-14 bg-card border-border">
-                  <SelectValue placeholder="Choose a Specific Scenario" />
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="specific-scenario" className="text-base font-medium text-foreground">
+                  Step 2: Choose a Specific Scenario
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  What situation do you want to prepare for?
+                </p>
+              </div>
+
+              <Select
+                value={specificScenario}
+                onValueChange={(value) => {
+                  setSpecificScenario(value);
+                  if (value !== 'custom') {
+                    setCustomScenario('');
+                  }
+                }}
+              >
+                <SelectTrigger id="specific-scenario" className="bg-background">
+                  <SelectValue placeholder="Select a scenario" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectLabel className="text-forest font-medium">Navigating Uncertainty & Change</SelectLabel>
-                  <SelectItem value="uncertainty">Navigating Through Uncertainty</SelectItem>
-                  <SelectItem value="balance-change">Balancing Change and Stability</SelectItem>
-                  <SelectItem value="conflict">Navigating Conflict</SelectItem>
-                  
-                  <SelectSeparator className="my-2" />
-                  
-                  <SelectLabel className="text-forest font-medium">Conversations That Matter</SelectLabel>
-                  <SelectItem value="influence-disagree">Influencing Someone Who Disagrees</SelectItem>
-                  <SelectItem value="hidden-tensions">Managing Hidden Tensions and Egos</SelectItem>
-                  <SelectItem value="difficult-convo">Having a Difficult Conversation</SelectItem>
-                  
-                  <SelectSeparator className="my-2" />
-                  
-                  <SelectLabel className="text-forest font-medium">Performing Under Pressure</SelectLabel>
-                  <SelectItem value="public-questions">Handling Public Conversations & Unexpected Questions</SelectItem>
-                  <SelectItem value="staying-composed">Staying Composed Under Pressure</SelectItem>
-                  
-                  <SelectSeparator className="my-2" />
-                  
-                  <SelectLabel className="text-forest font-medium">Recovery & Renewal</SelectLabel>
-                  <SelectItem value="bouncing-back">Bouncing Back After a Setback</SelectItem>
-                  <SelectItem value="sustaining-energy">Sustaining Energy Under Long-Term Pressure</SelectItem>
-                  
-                  <SelectSeparator className="my-2" />
-                  
-                  <SelectItem value="custom">✨ Customise Scenario</SelectItem>
+                <SelectContent className="bg-background z-50">
+                  {scenarioCategory === 'college-admissions' && (
+                    <>
+                      <SelectItem value="ivy-league-interview">Ivy League Interview Simulation</SelectItem>
+                      <SelectItem value="scholarship-discussion">Scholarship Discussion</SelectItem>
+                      <SelectItem value="college-essay-pitch">College Essay Pitch</SelectItem>
+                    </>
+                  )}
+                  {scenarioCategory === 'internship' && (
+                    <>
+                      <SelectItem value="technical-interview">Technical Interview</SelectItem>
+                      <SelectItem value="behavioral-questions">Behavioral Questions</SelectItem>
+                      <SelectItem value="case-study-presentation">Case Study Presentation</SelectItem>
+                    </>
+                  )}
+                  {scenarioCategory === 'personal' && (
+                    <>
+                      <SelectItem value="difficult-conversation">Difficult Conversation with Friend/Family</SelectItem>
+                      <SelectItem value="boundary-setting">Setting Boundaries</SelectItem>
+                      <SelectItem value="conflict-resolution">Conflict Resolution</SelectItem>
+                    </>
+                  )}
+                  <SelectItem value="custom">Customise Scenario</SelectItem>
                 </SelectContent>
               </Select>
 
               {specificScenario === 'custom' && (
-                <div className="animate-fade-in space-y-3 mt-4">
-                  <Label className="text-foreground font-medium">Describe Your Scenario</Label>
+                <div className="animate-fade-in">
                   <Textarea
+                    placeholder="Describe your custom scenario..."
                     value={customScenario}
                     onChange={(e) => setCustomScenario(e.target.value)}
-                    placeholder="Describe the specific situation you want to practice... (e.g., 'Board disagreement on M&A decision requiring consensus-building')"
-                    className="min-h-[120px] bg-card border-border"
+                    className="min-h-[100px] bg-background"
                   />
                 </div>
               )}
-            </Card>
-          )}
+            </div>
+          </Card>
 
           {/* Step 3: Persona Type */}
-          {specificScenario && (
-            <Card className="p-5 animate-fade-in shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-              <h3 className="text-base font-medium text-foreground mb-3">
-                Step 3: Choose Persona
-              </h3>
-              <Select value={personaType} onValueChange={setPersonaType}>
-                <SelectTrigger className="h-14 bg-card border-border">
-                  <SelectValue placeholder="Choose a Persona" />
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="persona-type" className="text-base font-medium text-foreground">
+                  Step 3: Who Are You Speaking With?
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Select the type of person you'll be conversing with
+                </p>
+              </div>
+
+              <Select
+                value={personaType}
+                onValueChange={(value) => {
+                  setPersonaType(value);
+                  if (value !== 'custom') {
+                    setCustomPersona('');
+                  }
+                }}
+              >
+                <SelectTrigger id="persona-type" className="bg-background">
+                  <SelectValue placeholder="Select a persona" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="board-member">Board Member</SelectItem>
-                  <SelectItem value="board-chair">Board Chair</SelectItem>
-                  <SelectItem value="colleague">Colleague</SelectItem>
-                  <SelectItem value="team-member">Team Member</SelectItem>
-                  <SelectItem value="self">Self (Inner Voice)</SelectItem>
-                  <SelectSeparator className="my-2" />
-                  <SelectItem value="custom">✨ Customise Persona</SelectItem>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="interviewer">Interviewer / Admissions Officer</SelectItem>
+                  <SelectItem value="mentor">Mentor / Advisor</SelectItem>
+                  <SelectItem value="peer">Peer / Colleague</SelectItem>
+                  <SelectItem value="authority">Authority Figure</SelectItem>
+                  <SelectItem value="custom">Customise Persona</SelectItem>
                 </SelectContent>
               </Select>
 
               {personaType === 'custom' && (
-                <div className="animate-fade-in space-y-3 mt-4">
-                  <Label className="text-foreground font-medium">Describe Custom Persona</Label>
+                <div className="animate-fade-in">
                   <Textarea
+                    placeholder="Describe the person you'll be speaking with..."
                     value={customPersona}
                     onChange={(e) => setCustomPersona(e.target.value)}
-                    placeholder="Describe the persona and their role (e.g., 'CFO who is skeptical of new tech investments and prefers proven ROI models')"
-                    className="min-h-[100px] bg-card border-border"
+                    className="min-h-[80px] bg-background"
                   />
                 </div>
               )}
-            </Card>
-          )}
+            </div>
+          </Card>
 
           {/* Step 4: Personality Style */}
-          {personaType && (
-            <Card className="p-5 animate-fade-in shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-              <h3 className="text-base font-medium text-foreground mb-3">
-                Step 4: Choose Personality Style
-              </h3>
-              <Select value={personalityStyle} onValueChange={setPersonalityStyle}>
-                <SelectTrigger className="h-14 bg-card border-border">
-                  <SelectValue placeholder="Choose a Personality Style" />
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="personality-style" className="text-base font-medium text-foreground">
+                  Step 4: Their Personality Style
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  How would you describe their communication style?
+                </p>
+              </div>
+
+              <Select
+                value={personalityStyle}
+                onValueChange={(value) => {
+                  setPersonalityStyle(value);
+                  if (value !== 'custom') {
+                    setCustomPersonality('');
+                  }
+                }}
+              >
+                <SelectTrigger id="personality-style" className="bg-background">
+                  <SelectValue placeholder="Select a personality style" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="supportive">Supportive — encouraging, collaborative, empathetic</SelectItem>
-                  <SelectItem value="demanding">Demanding — high standards, results-driven</SelectItem>
-                  <SelectItem value="challenging">Challenging — analytical, skeptical, probing</SelectItem>
-                  <SelectItem value="aggressive">Aggressive — confrontational, blunt, dominating</SelectItem>
-                  <SelectItem value="competitive">Competitive — seeks to win, compares constantly</SelectItem>
-                  <SelectItem value="collaborative">Collaborative — seeks joint solutions</SelectItem>
-                  <SelectItem value="passive">Passive — withdrawn, non-committal</SelectItem>
-                  <SelectItem value="anxious">Anxious — nervous, easily overwhelmed</SelectItem>
-                  <SelectSeparator className="my-2" />
-                  <SelectItem value="custom">✨ Customise Personality</SelectItem>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="warm-supportive">Warm & Supportive</SelectItem>
+                  <SelectItem value="analytical-direct">Analytical & Direct</SelectItem>
+                  <SelectItem value="challenging-probing">Challenging & Probing</SelectItem>
+                  <SelectItem value="neutral-professional">Neutral & Professional</SelectItem>
+                  <SelectItem value="custom">Customise Personality</SelectItem>
                 </SelectContent>
               </Select>
 
               {personalityStyle === 'custom' && (
-                <div className="animate-fade-in space-y-3 mt-4">
-                  <Label className="text-foreground font-medium">Describe Personality Traits</Label>
+                <div className="animate-fade-in">
                   <Textarea
+                    placeholder="Describe their personality and communication style..."
                     value={customPersonality}
                     onChange={(e) => setCustomPersonality(e.target.value)}
-                    placeholder="Describe specific personality traits and communication style..."
-                    className="min-h-[80px] bg-card border-border"
+                    className="min-h-[80px] bg-background"
                   />
                 </div>
               )}
-            </Card>
-          )}
+            </div>
+          </Card>
 
           {/* Step 5: Voice Preference */}
-          {personalityStyle && (
-            <Card className="p-5 animate-fade-in shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-              <h3 className="text-base font-medium text-foreground mb-3">
-                Step 5: Choose Voice
-              </h3>
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="voice-preference" className="text-base font-medium text-foreground">
+                  Step 5: Voice Preference
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Would you like the AI to speak aloud?
+                </p>
+              </div>
+
               <Select value={voicePreference} onValueChange={setVoicePreference}>
-                <SelectTrigger className="h-14 bg-card border-border">
-                  <SelectValue placeholder="Choose Voice" />
+                <SelectTrigger id="voice-preference" className="bg-background">
+                  <SelectValue placeholder="Select voice option" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="feminine">Feminine Tone</SelectItem>
-                  <SelectItem value="masculine">Masculine Tone</SelectItem>
-                  <SelectItem value="neutral">Neutral Tone</SelectItem>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="text-only">Text Only</SelectItem>
+                  <SelectItem value="voice-enabled">Voice Enabled</SelectItem>
                 </SelectContent>
               </Select>
-            </Card>
-          )}
+            </div>
+          </Card>
 
           {/* Step 6: Additional Context */}
-          {voicePreference && (
-            <Card className="p-5 animate-fade-in shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-              <h3 className="text-base font-medium text-foreground mb-3">
-                Step 6: Add Additional Context (Optional)
-              </h3>
-              <div className="space-y-3">
-                <Label className="text-foreground font-medium">Additional Context</Label>
-                <Textarea
-                  value={additionalContext}
-                  onChange={(e) => setAdditionalContext(e.target.value)}
-                  placeholder="Add any specific details about the situation, relationships, or background..."
-                  className="min-h-[100px] bg-card border-border"
-                />
-
-                {/* File Upload */}
-                <FileUploadSection
-                  attachments={attachments}
-                  onAttachmentsChange={setAttachments}
-                  maxFiles={3}
-                  maxFileSize={10}
-                />
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="additional-context" className="text-base font-medium text-foreground">
+                  Step 6: Additional Context (Optional)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Any specific details, background, or goals for this conversation?
+                </p>
               </div>
-            </Card>
-          )}
+
+              <Textarea
+                id="additional-context"
+                placeholder="E.g., 'I want to emphasize my leadership experience' or 'I'm nervous about discussing my GPA'"
+                value={additionalContext}
+                onChange={(e) => setAdditionalContext(e.target.value)}
+                className="min-h-[120px] bg-background"
+              />
+
+              {/* File Attachments */}
+              <FileUploadSection
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+              />
+            </div>
+          </Card>
 
           {/* Auto-tagged meta skills */}
           {specificScenario && autoTaggedSkills.length > 0 && (
