@@ -527,8 +527,8 @@ const PracticeConfigurePage = () => {
               </h3>
               
               {/* Explanation of Meta Skills */}
-              <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed">
-                Meta skills are the elevated cognitive and interpersonal capacities that transcend domain-specific expertise—they represent the architecture of exceptional performance across contexts.
+              <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed italic">
+                Meta Skills are higher-order cognitive and interpersonal abilities that enable excellence across any domain:
               </p>
               
               {/* Meta-Skills in one row - Gold pill badges */}
@@ -545,8 +545,8 @@ const PracticeConfigurePage = () => {
               </div>
               
               {/* Explanation of Sub-Skills */}
-              <p className="text-xs font-body text-muted-foreground mb-2 leading-relaxed">
-                Sub-skills are the refined dimensions within each meta skill—the specific capabilities you'll cultivate through deliberate practice.
+              <p className="text-xs font-body text-muted-foreground mb-2 leading-relaxed italic">
+                Sub-skills are focused abilities within each meta skill, built through intentional practice:
               </p>
               
               {/* Sub-Skills as hashtags */}
@@ -554,7 +554,7 @@ const PracticeConfigurePage = () => {
                 {Array.from(new Set(autoTaggedSkills.flatMap(skill => skill.subSkills))).map(subSkill => (
                   <span 
                     key={subSkill} 
-                    className="text-xs font-medium text-muted-foreground"
+                    className="text-xs font-medium text-indigo-900 dark:text-indigo-300"
                   >
                     #{subSkill.replace(/\s+/g, '')}
                   </span>
