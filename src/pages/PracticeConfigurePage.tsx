@@ -521,40 +521,43 @@ const PracticeConfigurePage = () => {
 
           {/* Auto-tagged meta skills */}
           {specificScenario && autoTaggedSkills.length > 0 && (
-            <Card className="p-6 bg-gradient-to-br from-gold/5 via-background to-forest/5 border-gold/20 animate-fade-in">
-              <h3 className="text-lg font-headline font-semibold text-foreground mb-5">
-                Meta-Skills this Scenario Develops
+            <Card className="p-5 bg-gradient-to-br from-gold/5 via-background to-forest/5 border-gold/20 animate-fade-in">
+              <h3 className="text-base font-headline font-semibold text-foreground mb-2">
+                Meta skills this dialogue will develop
               </h3>
-              <div className="space-y-5">
+              
+              {/* Explanation of Meta Skills */}
+              <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed">
+                Meta skills are the elevated cognitive and interpersonal capacities that transcend domain-specific expertise—they represent the architecture of exceptional performance across contexts.
+              </p>
+              
+              {/* Meta-Skills in one row - Gold pill badges */}
+              <div className="flex flex-wrap gap-2 mb-3">
                 {autoTaggedSkills.map((skillData, index) => (
-                  <div key={index} className="space-y-3">
-                    {/* Cluster Headline - Deep Indigo */}
-                    <p className="text-sm font-headline font-medium text-indigo-900 dark:text-indigo-300">
-                      {skillData.cluster}
-                    </p>
-                    
-                    {/* Meta-Skill Badge - Gold capsule with bold, larger text */}
-                    <div>
-                      <Badge 
-                        variant="metaskill" 
-                        className="bg-gold/10 border-gold text-gold px-4 py-2 text-base font-bold"
-                      >
-                        {skillData.metaSkill}
-                      </Badge>
-                    </div>
-                    
-                    {/* Sub-Skills - Hashtag style, smaller font, charcoal */}
-                    <div className="flex flex-wrap gap-2 ml-2">
-                      {skillData.subSkills.map(subSkill => (
-                        <span 
-                          key={subSkill} 
-                          className="text-xs font-medium text-gray-700 dark:text-gray-400"
-                        >
-                          #{subSkill.replace(/\s+/g, '')}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <Badge 
+                    key={index}
+                    variant="metaskill" 
+                    className="bg-gold/10 border-gold text-gold px-3 py-1 text-xs font-semibold"
+                  >
+                    {skillData.metaSkill}
+                  </Badge>
+                ))}
+              </div>
+              
+              {/* Explanation of Sub-Skills */}
+              <p className="text-xs font-body text-muted-foreground mb-2 leading-relaxed">
+                Sub-skills are the refined dimensions within each meta skill—the specific capabilities you'll cultivate through deliberate practice.
+              </p>
+              
+              {/* Sub-Skills as hashtags */}
+              <div className="flex flex-wrap gap-2">
+                {Array.from(new Set(autoTaggedSkills.flatMap(skill => skill.subSkills))).map(subSkill => (
+                  <span 
+                    key={subSkill} 
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    #{subSkill.replace(/\s+/g, '')}
+                  </span>
                 ))}
               </div>
             </Card>
