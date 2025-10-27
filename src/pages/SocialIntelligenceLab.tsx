@@ -63,13 +63,13 @@ const SocialIntelligenceLab = () => {
 
               <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed mb-3">
                 <span className="text-foreground font-normal">This is where </span>
-                <span className="text-gold font-bold text-lg md:text-xl lg:text-2xl">precision meets empathy</span>
+                <span className="text-forest font-bold text-lg md:text-xl lg:text-2xl">precision meets empathy</span>
                 <span className="text-foreground font-normal">.</span>
               </p>
 
               <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed">
                 <span className="text-foreground font-normal">Where </span>
-                <span className="text-gold font-bold text-lg md:text-xl lg:text-2xl">confidence is not performed, but practiced</span>
+                <span className="text-forest font-bold text-lg md:text-xl lg:text-2xl">confidence is not performed, but practiced</span>
                 <span className="text-foreground font-normal">.</span>
               </p>
 
