@@ -100,8 +100,8 @@ const PracticeConfigurePage = () => {
   return (
     <div className={`min-h-screen transition-colors duration-700 ${getBackgroundGradient(scenarioCategory)}`}>
       {/* Header with back button */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur">
-        <div className="flex h-16 items-center px-4">
+      <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-4">
           <Button
             variant="ghost"
             size="icon"
@@ -111,17 +111,17 @@ const PracticeConfigurePage = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-headline font-medium text-forest">
+            <h1 className="text-lg font-headline font-medium text-forest">
               Configure Your Dialogue
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mb-2">
               Set up your practice scenario
             </p>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-12 pb-24">
+      <div className="container mx-auto px-4 py-4 pb-24">
         {/* Configuration Form */}
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Step 1: Scenario Category */}
@@ -298,25 +298,25 @@ const PracticeConfigurePage = () => {
             </div>
           </Card>
 
-          {/* Step 5: Voice Preference */}
+          {/* Step 5: Voice Style Preference */}
           <Card className="p-5">
             <div className="space-y-3">
               <div>
                 <Label htmlFor="voice-preference" className="text-base font-medium text-foreground">
-                  Step 5: Voice Preference
+                  Step 5: Voice Style Preference
                 </Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Would you like the AI to speak aloud?
+                  Choose the voice style for the AI persona
                 </p>
               </div>
 
               <Select value={voicePreference} onValueChange={setVoicePreference}>
                 <SelectTrigger id="voice-preference" className="bg-background">
-                  <SelectValue placeholder="Select voice option" />
+                  <SelectValue placeholder="Select voice style" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="text-only">Text Only</SelectItem>
-                  <SelectItem value="voice-enabled">Voice Enabled</SelectItem>
+                  <SelectItem value="masculine">Masculine</SelectItem>
+                  <SelectItem value="feminine">Feminine</SelectItem>
                 </SelectContent>
               </Select>
             </div>

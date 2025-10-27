@@ -19,7 +19,7 @@ const SocialIntelligenceLab = () => {
         
         {/* Layered Title with Translucent Backdrop */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-background/90 backdrop-blur-md rounded-2xl border-2 border-forest/20 shadow-[0_16px_48px_rgba(61,111,95,0.25)] px-8 py-6 mx-4">
+          <div className="bg-white/60 backdrop-blur-lg rounded-2xl border-2 border-forest/20 shadow-[0_16px_48px_rgba(61,111,95,0.25)] px-8 py-6 mx-4">
             <h1 className="text-4xl md:text-6xl font-headline font-medium text-forest text-center">
               Dialogue Room
             </h1>
@@ -31,27 +31,28 @@ const SocialIntelligenceLab = () => {
       <div className="container mx-auto px-4 pb-24">
         <div className="max-w-3xl mx-auto -mt-20 relative z-10">
           <div className="bg-card/95 backdrop-blur-sm rounded-3xl border-2 border-forest/15 shadow-[0_24px_64px_rgba(74,44,42,0.12)] p-8 md:p-12">
-            {/* Tagline */}
-            <p className="text-center italic text-muted-foreground text-lg md:text-xl mb-8">
-              Rehearse the conversations in a private space, refine your influence, before they matter
+            {/* First Line - Bold */}
+            <p className="text-center font-semibold text-foreground text-lg md:text-xl mb-6">
+              Rehearse important conversations in private—refine your influence before it counts.
+            </p>
+
+            {/* Second Line - Italic, Smaller */}
+            <p className="text-center italic text-muted-foreground text-base md:text-lg mb-6">
+              Every word carries weight. Every tone, a ripple.
             </p>
 
             {/* Copy with Typography Hierarchy - All Centered */}
             <div className="space-y-4 text-center mb-8">
-              <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
-                Every word carries weight. Every tone, a ripple.
-              </p>
-
-              <p className="text-base md:text-lg text-foreground/90 leading-relaxed">
+              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
                 Here, you practice the conversations that shape outcomes — <strong>before they unfold</strong>.
               </p>
 
-              <p className="text-base md:text-lg text-foreground/90 leading-relaxed">
+              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
                 Step inside a reflective simulation where <span className="text-forest font-medium">precision meets empathy</span>.
               </p>
 
-              <p className="text-base md:text-lg text-foreground/90 leading-relaxed">
-                Your AI dialogue partner is adaptive, calm, and built to <span className="text-forest font-medium">sharpen your edge</span>.
+              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
+                Your AI dialogue partner is adaptive, will stretch you, and built to <span className="text-forest font-medium">sharpen your edge</span>.
               </p>
             </div>
 

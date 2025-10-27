@@ -174,6 +174,10 @@ export default {
 			'gold-shimmer': {
 				'0%, 100%': { opacity: '0.3' },
 				'50%': { opacity: '0.6' }
+			},
+			'slide': {
+				'0%, 100%': { transform: 'translateX(0)' },
+				'50%': { transform: 'translateX(calc(12rem - 4rem))' }
 			}
 			},
 			animation: {
@@ -187,7 +191,8 @@ export default {
         'gentle-glow': 'gentle-glow 3s ease-in-out infinite',
 				'fade-in-slow': 'fade-in-slow 0.6s ease-out',
 				'lift': 'lift 0.4s ease-out forwards',
-				'gold-shimmer': 'gold-shimmer 3s ease-in-out infinite'
+				'gold-shimmer': 'gold-shimmer 3s ease-in-out infinite',
+				'slide': 'slide 1.5s ease-in-out infinite'
 			}
 		}
 	},

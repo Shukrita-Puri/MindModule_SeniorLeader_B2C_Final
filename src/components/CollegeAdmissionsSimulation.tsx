@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, X } from "lucide-react";
+import { Mic, MicOff, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import WaveformVisualizer from "@/components/WaveformVisualizer";
+import SleekLineAnimation from "@/components/SleekLineAnimation";
 import CoachingToastMinimal from "@/components/CoachingToastMinimal";
 
 interface Message {
@@ -472,14 +472,6 @@ const CollegeAdmissionsSimulation = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
-      {/* End Interview Button - Bottom Center (iPhone style) */}
-      <button
-        onClick={onEndSession}
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-16 h-16 rounded-full bg-destructive/95 backdrop-blur-sm border border-white/10 text-white flex items-center justify-center transition-all duration-200 hover:scale-105 hover:brightness-110 shadow-[0_8px_32px_rgba(239,68,68,0.4)]"
-      >
-        <X size={28} strokeWidth={2.5} />
-      </button>
-
       {/* Main Split Content - No boxes, full page coverage */}
       <div className="flex flex-col h-screen">
         {/* AI Persona Section - Top */}
@@ -509,14 +501,11 @@ const CollegeAdmissionsSimulation = ({
               </p>
             </div>
 
-            {/* Waveform Visualization */}
-            {(isAISpeaking || isThinking) && (
-              <WaveformVisualizer 
-                isActive={isAISpeaking}
-                color="primary"
-                className="h-16"
-              />
-            )}
+            {/* Sleek moving line animation */}
+            <SleekLineAnimation 
+              isActive={isAISpeaking}
+              color="primary"
+            />
             
             {/* AI Thinking State */}
             {isThinking && !isAISpeaking && (
@@ -562,23 +551,30 @@ const CollegeAdmissionsSimulation = ({
               You
             </h2>
 
-            {/* Waveform Visualization for User */}
-            {isListening && (
-              <WaveformVisualizer 
-                isActive={true}
-                color="accent"
-                className="h-16"
-              />
-            )}
+            {/* Sleek moving line for user speaking */}
+            <SleekLineAnimation 
+              isActive={isListening}
+              color="accent"
+            />
 
-            {/* Voice Mode Controls */}
+            {/* Voice Mode Controls - iPhone Style 3-icon layout */}
             {isVoiceMode ? (
-              <div className="space-y-4">
+              <div className="flex items-center justify-center gap-8 mt-6">
+                {/* Switch to Text Icon */}
+                <button
+                  onClick={() => setIsVoiceMode(false)}
+                  className="w-14 h-14 rounded-full bg-muted/60 backdrop-blur-sm border border-white/10 flex items-center justify-center transition-all duration-200 hover:scale-105 hover:bg-muted/80"
+                  aria-label="Switch to text mode"
+                >
+                  <MessageSquare size={24} className="text-foreground" />
+                </button>
+
+                {/* Microphone Icon (Center, Primary) */}
                 <button
                   onClick={toggleListening}
                   disabled={isThinking}
                   className={cn(
-                    "w-20 h-20 md:w-24 md:h-24 rounded-full mx-auto flex items-center justify-center backdrop-blur-xl shadow-2xl border border-white/10 transition-all duration-300",
+                    "w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl shadow-2xl border border-white/10 transition-all duration-300",
                     isListening 
                       ? "bg-gradient-to-br from-accent/90 to-destructive/90 scale-110 shadow-accent/50 animate-glow" 
                       : "bg-gradient-to-br from-primary/90 to-primary/70 hover:scale-105 active:scale-95 shadow-primary/30",
@@ -587,17 +583,19 @@ const CollegeAdmissionsSimulation = ({
                   aria-label={isListening ? "Stop speaking" : "Start speaking"}
                 >
                   {isListening ? (
-                    <MicOff size={32} className="text-white" />
+                    <MicOff size={28} className="text-white" />
                   ) : (
-                    <Mic size={32} className="text-white" />
+                    <Mic size={28} className="text-white" />
                   )}
                 </button>
-                
+
+                {/* End Session Icon */}
                 <button
-                  onClick={() => setIsVoiceMode(false)}
-                  className="text-xs text-muted-foreground/70 hover:text-foreground transition-colors underline"
+                  onClick={onEndSession}
+                  className="w-14 h-14 rounded-full bg-destructive/80 backdrop-blur-sm border border-white/10 text-white flex items-center justify-center transition-all duration-200 hover:scale-105 hover:bg-destructive/90"
+                  aria-label="End session"
                 >
-                  Switch to text
+                  <X size={24} />
                 </button>
               </div>
             ) : (
