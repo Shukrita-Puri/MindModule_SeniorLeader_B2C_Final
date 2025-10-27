@@ -11,7 +11,13 @@ import { Toaster } from "@/components/ui/toaster";
 const Simulation = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { scenarioDomain, contextType, scenarioContext, selectedPersonas, customPersonas } = location.state || {};
+  const { 
+    scenarioDomain, 
+    contextType, 
+    scenarioContext, 
+    aiPersona,
+    additionalContext 
+  } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
 
@@ -55,8 +61,15 @@ const Simulation = () => {
     });
   };
 
-  // Extract persona data for display
-  const aiPersona = selectedPersonas?.[0] || { name: "Interviewer", role: "Admissions Officer" };
+  // Build persona display from user configuration
+  const displayPersona = aiPersona ? {
+    name: aiPersona.type || "Conversation Partner",
+    role: `${aiPersona.personality || "Professional"} - ${aiPersona.voicePreference || "Neutral"} Voice`,
+    fullContext: additionalContext
+  } : { 
+    name: "Conversation Partner", 
+    role: "Professional" 
+  };
 
   return (
     <div className="min-h-screen font-body flex flex-col">
@@ -65,7 +78,7 @@ const Simulation = () => {
         <CollegeAdmissionsSimulation
           onEndSession={handleEndSession}
           sessionDuration={15}
-          aiPersona={aiPersona}
+          aiPersona={displayPersona}
         />
       </div>
 

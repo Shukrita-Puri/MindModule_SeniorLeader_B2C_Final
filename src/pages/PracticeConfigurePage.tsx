@@ -90,9 +90,11 @@ const PracticeConfigurePage = () => {
       state: {
         scenarioCategory,
         specificScenario: specificScenario === 'custom' ? customScenario : specificScenario,
-        personaType: personaType === 'custom' ? customPersona : personaType,
-        personalityStyle: personalityStyle === 'custom' ? customPersonality : personalityStyle,
-        voicePreference,
+        aiPersona: {
+          type: personaType === 'custom' ? customPersona : personaType,
+          personality: personalityStyle === 'custom' ? customPersonality : personalityStyle,
+          voicePreference: voicePreference,
+        },
         additionalContext,
         metaSkills: autoTaggedSkills,
         attachments,

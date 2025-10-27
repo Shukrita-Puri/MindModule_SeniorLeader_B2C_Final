@@ -24,13 +24,14 @@ interface CollegeAdmissionsSimulationProps {
   aiPersona?: {
     name: string;
     role: string;
+    fullContext?: string;
   };
 }
 
 const CollegeAdmissionsSimulation = ({ 
   onEndSession, 
   sessionDuration = 15,
-  aiPersona = { name: "Interviewer", role: "Admissions Officer" }
+  aiPersona = { name: "Conversation Partner", role: "Professional" }
 }: CollegeAdmissionsSimulationProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isVoiceMode, setIsVoiceMode] = useState(true);
