@@ -145,7 +145,7 @@ const WeeklyInsights = () => {
       <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Brain size={20} className="text-purple-600" />
+            <Compass size={20} className="text-forest" />
             Inner Architect Recommendations
           </CardTitle>
         </CardHeader>
