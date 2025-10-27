@@ -21,105 +21,96 @@ const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps)
         <TooltipTrigger asChild>
           <div className={`relative ${className}`}>
             <svg
-              width="140"
-              height="140"
-              viewBox="0 0 140 140"
-              className="drop-shadow-xl"
+              width="100"
+              height="120"
+              viewBox="0 0 100 120"
+              className="drop-shadow-lg"
             >
-              {/* Dark background circle */}
-              <circle
-                cx="70"
-                cy="70"
-                r="55"
-                fill="rgba(0, 0, 0, 0.85)"
-                className="transition-all duration-300"
-              />
-              
-              {/* Outer gold ring */}
-              <circle
-                cx="70"
-                cy="70"
-                r="58"
-                fill="none"
-                stroke="hsl(var(--gold))"
-                strokeWidth="1.5"
-                opacity="0.6"
-              />
-
               {/* Left laurel branch */}
-              <g transform="translate(25, 45)">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
+              <g transform="translate(10, 20)">
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
                   <ellipse
                     key={`left-${i}`}
-                    cx={i * 3}
+                    cx={i * 2.5}
                     cy={i * 8}
-                    rx="6"
-                    ry="10"
+                    rx="5"
+                    ry="9"
                     fill="hsl(var(--gold))"
-                    opacity="0.85"
-                    transform={`rotate(${-30 + i * 10} ${i * 3} ${i * 8})`}
+                    opacity="0.9"
+                    transform={`rotate(${-35 + i * 12} ${i * 2.5} ${i * 8})`}
                   />
                 ))}
               </g>
 
               {/* Right laurel branch */}
-              <g transform="translate(97, 45)">
-                {[0, 1, 2, 3, 4, 5].map((i) => (
+              <g transform="translate(73, 20)">
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
                   <ellipse
                     key={`right-${i}`}
-                    cx={i * 3}
+                    cx={i * 2.5}
                     cy={i * 8}
-                    rx="6"
-                    ry="10"
+                    rx="5"
+                    ry="9"
                     fill="hsl(var(--gold))"
-                    opacity="0.85"
-                    transform={`rotate(${30 - i * 10} ${i * 3} ${i * 8})`}
+                    opacity="0.9"
+                    transform={`rotate(${35 - i * 12} ${i * 2.5} ${i * 8})`}
                   />
                 ))}
               </g>
 
-              {/* Bottom star decoration */}
+              {/* Bottom ribbon decoration */}
               <path
-                d="M 70 110 L 72 115 L 77 115 L 73 118 L 75 123 L 70 120 L 65 123 L 67 118 L 63 115 L 68 115 Z"
+                d="M 35 78 Q 50 82 65 78"
+                fill="none"
+                stroke="hsl(var(--gold))"
+                strokeWidth="2"
+                opacity="0.8"
+              />
+              <path
+                d="M 38 80 L 35 88 L 40 82"
                 fill="hsl(var(--gold))"
-                opacity="0.9"
+                opacity="0.8"
+              />
+              <path
+                d="M 62 80 L 65 88 L 60 82"
+                fill="hsl(var(--gold))"
+                opacity="0.8"
               />
 
-              {/* Center count/text */}
+              {/* Center count - PROMINENT */}
               <text
-                x="70"
-                y="75"
+                x="50"
+                y="52"
                 textAnchor="middle"
                 className="font-headline font-bold"
-                fontSize="32"
+                fontSize="40"
                 fill="hsl(var(--gold))"
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
               >
                 {count}
               </text>
 
-              {/* "Meta Skills" curved text at top */}
-              <defs>
-                <path
-                  id="curve"
-                  d="M 20,70 A 50,50 0 0,1 120,70"
-                  fill="none"
-                />
-              </defs>
-              <text className="font-body text-[10px] tracking-wider" fill="hsl(var(--gold))" opacity="0.8">
-                <textPath href="#curve" startOffset="50%" textAnchor="middle">
-                  META SKILLS
-                </textPath>
+              {/* "Meta Skills" text at bottom */}
+              <text
+                x="50"
+                y="105"
+                textAnchor="middle"
+                className="font-body text-[9px] tracking-widest uppercase"
+                fill="hsl(var(--gold))"
+                opacity="0.85"
+              >
+                Meta Skills
               </text>
 
-              {/* Glow effect */}
+              {/* Subtle glow effect */}
               <circle
-                cx="70"
-                cy="70"
-                r="55"
+                cx="50"
+                cy="50"
+                r="35"
                 fill="none"
                 stroke="hsl(var(--gold))"
                 strokeWidth="0.5"
-                opacity="0.3"
+                opacity="0.2"
                 className="animate-pulse"
               />
             </svg>
