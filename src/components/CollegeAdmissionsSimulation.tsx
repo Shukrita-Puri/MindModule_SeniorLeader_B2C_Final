@@ -573,13 +573,13 @@ const CollegeAdmissionsSimulation = ({
                 <button
                   onClick={toggleListening}
                   disabled={isThinking}
-                  className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl shadow-2xl border border-white/10 transition-all duration-300",
-                    isListening 
-                      ? "bg-gradient-to-br from-accent/90 to-destructive/90 scale-110 shadow-accent/50 animate-glow" 
-                      : "bg-gradient-to-br from-primary/90 to-primary/70 hover:scale-105 active:scale-95 shadow-primary/30",
-                    isThinking && "opacity-50 cursor-not-allowed"
-                  )}
+              className={cn(
+                "w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl shadow-2xl border border-white/10 transition-all duration-300",
+                isListening 
+                  ? "bg-gradient-to-br from-accent/90 to-destructive/90 scale-110 shadow-accent/50 animate-glow" 
+                  : "bg-gradient-to-br from-forest/90 to-forest/70 hover:scale-105 active:scale-95 shadow-forest/30",
+                isThinking && "opacity-50 cursor-not-allowed"
+              )}
                   aria-label={isListening ? "Stop speaking" : "Start speaking"}
                 >
                   {isListening ? (

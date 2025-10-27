@@ -371,9 +371,9 @@ const PracticeConfigurePage = () => {
               disabled={!isFormComplete}
               variant="forest"
               size="lg"
-              className="w-full max-w-md text-lg shadow-[0_8px_24px_rgba(61,111,95,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full max-w-md text-base shadow-[0_8px_24px_rgba(61,111,95,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start the Dialogue
+              Engage with Intention
             </Button>
           </div>
         </div>
