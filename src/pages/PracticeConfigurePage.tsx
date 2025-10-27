@@ -170,16 +170,18 @@ const PracticeConfigurePage = () => {
                     setCustomScenario('');
                   }
                 }}
+                disabled={!scenarioCategory}
               >
-                <SelectTrigger id="specific-scenario" className="bg-background">
-                  <SelectValue placeholder="Select a scenario" />
+                <SelectTrigger id="specific-scenario" className="bg-card border-border">
+                  <SelectValue placeholder={!scenarioCategory ? "First select a category above" : "Select a scenario"} />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent className="bg-card border-border z-[100]">
                   {scenarioCategory === 'change' && (
                     <>
                       <SelectItem value="navigating-uncertainty">Navigating Through Uncertainty</SelectItem>
                       <SelectItem value="balance-change-stability">Balancing Change and Stability</SelectItem>
                       <SelectItem value="navigating-conflict">Navigating Conflict</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
                   {scenarioCategory === 'difficult' && (
@@ -188,18 +190,21 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="managing-tensions">Managing Hidden Tensions</SelectItem>
                       <SelectItem value="difficult-conversation">Having a Difficult Conversation</SelectItem>
                       <SelectItem value="subtle-negotiations">Subtle Negotiations: Finding Win-Win</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
                   {scenarioCategory === 'pressure' && (
                     <>
                       <SelectItem value="public-unexpected">Handling Public Conversations & Unexpected Questions</SelectItem>
                       <SelectItem value="staying-composed">Staying Composed Under Pressure</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
                   {scenarioCategory === 'recovery' && (
                     <>
                       <SelectItem value="bouncing-back">Bouncing Back After a Setback</SelectItem>
                       <SelectItem value="sustaining-energy">Sustaining Energy Under Long-Term Pressure</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
                   {scenarioCategory === 'leadership' && (
@@ -207,9 +212,10 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="leading-through-change">Leading Through Change</SelectItem>
                       <SelectItem value="inspiring-alignment">Inspiring Team Alignment</SelectItem>
                       <SelectItem value="elevating-others">Elevating Others' Performance</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
-                  <SelectItem value="custom">Customise Scenario</SelectItem>
+                  {scenarioCategory && <SelectItem value="custom">Customise Scenario</SelectItem>}
                 </SelectContent>
               </Select>
 
