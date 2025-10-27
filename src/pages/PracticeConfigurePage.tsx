@@ -114,7 +114,7 @@ const PracticeConfigurePage = () => {
             <h1 className="text-lg font-headline font-medium text-forest">
               Configure Your Dialogue
             </h1>
-            <p className="text-xs text-muted-foreground mb-2">
+            <p className="text-xs font-headline text-muted-foreground mb-2">
               Set up your practice scenario
             </p>
           </div>
@@ -126,7 +126,7 @@ const PracticeConfigurePage = () => {
         <div className="space-y-6 max-w-2xl mx-auto">
           {/* Step 1: Scenario Category */}
           <Card className="p-5 shadow-[0_8px_24px_rgba(74,44,42,0.08)]">
-            <h3 className="text-base font-medium text-foreground mb-3">
+            <h3 className="text-base font-headline font-medium text-foreground mb-3">
               Step 1: Choose Scenario Category
             </h3>
             <Select value={scenarioCategory} onValueChange={setScenarioCategory}>
@@ -147,10 +147,10 @@ const PracticeConfigurePage = () => {
           <Card className="p-5">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="specific-scenario" className="text-base font-medium text-foreground">
+                <Label htmlFor="specific-scenario" className="text-base font-headline font-medium text-foreground">
                   Step 2: Choose a Specific Scenario
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs font-headline text-muted-foreground mt-1">
                   What situation do you want to prepare for?
                 </p>
               </div>
@@ -210,10 +210,10 @@ const PracticeConfigurePage = () => {
           <Card className="p-5">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="persona-type" className="text-base font-medium text-foreground">
+                <Label htmlFor="persona-type" className="text-base font-headline font-medium text-foreground">
                   Step 3: Who Are You Speaking With?
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs font-headline text-muted-foreground mt-1">
                   Select the type of person you'll be conversing with
                 </p>
               </div>
@@ -256,10 +256,10 @@ const PracticeConfigurePage = () => {
           <Card className="p-5">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="personality-style" className="text-base font-medium text-foreground">
+                <Label htmlFor="personality-style" className="text-base font-headline font-medium text-foreground">
                   Step 4: Their Personality Style
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs font-headline text-muted-foreground mt-1">
                   How would you describe their communication style?
                 </p>
               </div>
@@ -302,10 +302,10 @@ const PracticeConfigurePage = () => {
           <Card className="p-5">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="voice-preference" className="text-base font-medium text-foreground">
+                <Label htmlFor="voice-preference" className="text-base font-headline font-medium text-foreground">
                   Step 5: Voice Style Preference
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs font-headline text-muted-foreground mt-1">
                   Choose the voice style for the AI persona
                 </p>
               </div>
@@ -326,10 +326,10 @@ const PracticeConfigurePage = () => {
           <Card className="p-5">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="additional-context" className="text-base font-medium text-foreground">
+                <Label htmlFor="additional-context" className="text-base font-headline font-medium text-foreground">
                   Step 6: Additional Context (Optional)
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs font-headline text-muted-foreground mt-1">
                   Any specific details, background, or goals for this conversation?
                 </p>
               </div>
@@ -353,7 +353,7 @@ const PracticeConfigurePage = () => {
           {/* Auto-tagged meta skills */}
           {specificScenario && autoTaggedSkills.length > 0 && (
             <Card className="p-5 bg-forest/5 border-forest/20 animate-fade-in">
-              <p className="text-sm text-muted-foreground mb-3">This scenario develops:</p>
+              <p className="text-sm font-headline text-muted-foreground mb-3">This scenario develops:</p>
               <div className="flex flex-wrap gap-2">
                 {autoTaggedSkills.map(skill => (
                   <Badge key={skill} variant="outline" className="bg-forest/10 border-forest/30 text-forest">
@@ -371,7 +371,7 @@ const PracticeConfigurePage = () => {
               disabled={!isFormComplete}
               variant="forest"
               size="lg"
-              className="w-full max-w-md text-base shadow-[0_8px_24px_rgba(61,111,95,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full max-w-md text-base font-headline shadow-[0_8px_24px_rgba(61,111,95,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Engage with Intention
             </Button>
