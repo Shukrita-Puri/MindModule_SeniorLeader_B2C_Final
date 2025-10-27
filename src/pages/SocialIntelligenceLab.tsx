@@ -36,45 +36,32 @@ const SocialIntelligenceLab = () => {
       {/* Content Box - Overlaps Hero Image */}
       <div className="container mx-auto px-4 pb-24">
         <div className="max-w-3xl mx-auto -mt-20 relative z-10">
-          <div className="bg-[rgba(245,240,233,0.75)] backdrop-blur-[12px] rounded-[20px] px-6 md:px-8 py-8 md:py-10">
-            {/* First Line - Bold */}
-            <p className="text-center font-semibold text-foreground text-lg md:text-xl mb-6">
-              Rehearse the conversations that matter — before they do.
+          <div className="bg-[rgba(245,240,233,0.75)] backdrop-blur-[12px] rounded-[20px] px-6 md:px-8 py-6 md:py-8">
+            {/* First Line - Bold and Bigger */}
+            <p className="text-center font-bold text-foreground text-xl md:text-2xl mb-4">
+              Rehearse the conversations that define you— before they unfold.
             </p>
 
-            {/* Second Line - Italic, Smaller */}
-            <p className="text-center italic text-muted-foreground text-base md:text-lg mb-6">
-              Every word carries weight. Every tone, a ripple through perception.
-            </p>
-
-            {/* Copy with Typography Hierarchy - All Centered */}
-            <div className="space-y-4 text-center mb-8">
+            {/* Body Copy - Centered with minimal spacing */}
+            <div className="space-y-3 text-center mb-6">
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Here, you enter a private chamber of preparation — a reflective space where mastery begins in silence.
+                Every word matters. Every tone resonates.
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Refine your influence within a dialogue that listens as deeply as it speaks.
+                Enter a private chamber of preparation, where mastery begins in quiet.
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Your AI counterpart is composed, perceptive, and meticulously attuned to your voice.
-              </p>
-
-              <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed mb-3">
-                <span className="text-foreground font-normal">This is where </span>
-                <span className="text-forest font-bold text-lg md:text-xl lg:text-2xl">precision meets empathy</span>
-                <span className="text-foreground font-normal">.</span>
-              </p>
-
-              <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed">
-                <span className="text-foreground font-normal">Where </span>
-                <span className="text-forest font-bold text-lg md:text-xl lg:text-2xl">confidence is not performed, but practiced</span>
-                <span className="text-foreground font-normal">.</span>
+                Refine your influence with an AI that listens as keenly as it speaks.
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
-                Step inside. Shape the conversation before it shapes you.
+                Where <span className="font-bold">precision meets empathy, and confidence is cultivated, not performed</span>.
+              </p>
+
+              <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
+                Step in. Shape the conversation before it shapes you.
               </p>
             </div>
 
