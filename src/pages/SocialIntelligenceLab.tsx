@@ -17,20 +17,16 @@ const SocialIntelligenceLab = () => {
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         
-        {/* Layered Title with Gradient Backdrop */}
+        {/* Hero Title - No box, pure text shadow luxury */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative px-8 py-6 mx-4">
-            {/* Gradient backdrop - tone-on-tone cream-to-taupe */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#F5F0E9]/60 via-[#E8DFD3]/50 to-[#DDD0C0]/40 rounded-2xl" />
-            
-            {/* Title with forest green color, bold, larger size, text shadow */}
-            <h1 
-              className="relative text-4xl md:text-6xl font-headline font-bold text-forest text-center z-10"
-              style={{ textShadow: '0 2px 12px rgba(0, 0, 0, 0.3), 0 4px 24px rgba(0, 0, 0, 0.15)' }}
-            >
-              Dialogue Room
-            </h1>
-          </div>
+          <h1 
+            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold text-forest text-center px-6"
+            style={{ 
+              textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 8px 40px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(61, 111, 95, 0.4)' 
+            }}
+          >
+            Dialogue Room
+          </h1>
         </div>
       </div>
 
@@ -62,8 +58,16 @@ const SocialIntelligenceLab = () => {
                 Your AI counterpart is composed, perceptive, and meticulously attuned to your voice.
               </p>
 
-              <p className="text-sm md:text-base text-gold font-bold leading-relaxed">
-                This is where precision meets empathy. Where confidence is not performed, but practiced.
+              <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed mb-3">
+                <span className="text-foreground font-normal">This is where </span>
+                <span className="text-gold font-bold text-lg md:text-xl lg:text-2xl">precision meets empathy</span>
+                <span className="text-foreground font-normal">.</span>
+              </p>
+
+              <p className="text-base md:text-lg lg:text-xl text-center leading-relaxed">
+                <span className="text-foreground font-normal">Where </span>
+                <span className="text-gold font-bold text-lg md:text-xl lg:text-2xl">confidence is not performed, but practiced</span>
+                <span className="text-foreground font-normal">.</span>
               </p>
 
               <p className="text-sm md:text-base text-foreground/90 leading-relaxed">
