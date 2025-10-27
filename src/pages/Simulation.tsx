@@ -5,6 +5,7 @@ import MainNavigation from "@/components/MainNavigation";
 import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
+import MetaSkillsWreath from "@/components/MetaSkillsWreath";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -16,7 +17,8 @@ const Simulation = () => {
     contextType, 
     scenarioContext, 
     aiPersona,
-    additionalContext 
+    additionalContext,
+    metaSkills
   } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
@@ -75,6 +77,11 @@ const Simulation = () => {
     <div className="min-h-screen font-body flex flex-col">
       {/* College Admissions Simulation - No header, direct entry */}
       <div className="flex-1 relative">
+        {metaSkills && metaSkills.length > 0 && (
+          <div className="absolute top-4 right-4 z-50">
+            <MetaSkillsWreath metaSkills={metaSkills} />
+          </div>
+        )}
         <CollegeAdmissionsSimulation
           onEndSession={handleEndSession}
           sessionDuration={15}
