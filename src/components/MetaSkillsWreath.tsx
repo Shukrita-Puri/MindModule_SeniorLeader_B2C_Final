@@ -22,65 +22,14 @@ const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps)
           <div className={`relative ${className}`}>
             <svg
               width="100"
-              height="120"
-              viewBox="0 0 100 120"
+              height="80"
+              viewBox="0 0 100 80"
               className="drop-shadow-lg"
             >
-              {/* Left laurel branch */}
-              <g transform="translate(10, 20)">
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                  <ellipse
-                    key={`left-${i}`}
-                    cx={i * 2.5}
-                    cy={i * 8}
-                    rx="5"
-                    ry="9"
-                    fill="hsl(var(--gold))"
-                    opacity="0.9"
-                    transform={`rotate(${-35 + i * 12} ${i * 2.5} ${i * 8})`}
-                  />
-                ))}
-              </g>
-
-              {/* Right laurel branch */}
-              <g transform="translate(73, 20)">
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                  <ellipse
-                    key={`right-${i}`}
-                    cx={i * 2.5}
-                    cy={i * 8}
-                    rx="5"
-                    ry="9"
-                    fill="hsl(var(--gold))"
-                    opacity="0.9"
-                    transform={`rotate(${35 - i * 12} ${i * 2.5} ${i * 8})`}
-                  />
-                ))}
-              </g>
-
-              {/* Bottom ribbon decoration */}
-              <path
-                d="M 35 78 Q 50 82 65 78"
-                fill="none"
-                stroke="hsl(var(--gold))"
-                strokeWidth="2"
-                opacity="0.8"
-              />
-              <path
-                d="M 38 80 L 35 88 L 40 82"
-                fill="hsl(var(--gold))"
-                opacity="0.8"
-              />
-              <path
-                d="M 62 80 L 65 88 L 60 82"
-                fill="hsl(var(--gold))"
-                opacity="0.8"
-              />
-
               {/* Center count - PROMINENT */}
               <text
                 x="50"
-                y="52"
+                y="45"
                 textAnchor="middle"
                 className="font-headline font-bold"
                 fontSize="40"
@@ -93,7 +42,7 @@ const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps)
               {/* "Meta Skills" text at bottom */}
               <text
                 x="50"
-                y="105"
+                y="70"
                 textAnchor="middle"
                 className="font-body text-[9px] tracking-widest uppercase"
                 fill="hsl(var(--gold))"
@@ -101,18 +50,6 @@ const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps)
               >
                 Meta Skills
               </text>
-
-              {/* Subtle glow effect */}
-              <circle
-                cx="50"
-                cy="50"
-                r="35"
-                fill="none"
-                stroke="hsl(var(--gold))"
-                strokeWidth="0.5"
-                opacity="0.2"
-                className="animate-pulse"
-              />
             </svg>
           </div>
         </TooltipTrigger>
