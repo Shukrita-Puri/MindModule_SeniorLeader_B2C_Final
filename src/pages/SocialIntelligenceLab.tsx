@@ -17,10 +17,14 @@ const SocialIntelligenceLab = () => {
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         
-        {/* Layered Title with Translucent Backdrop */}
+        {/* Layered Title with Gradient Backdrop */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-[0_16px_48px_rgba(61,111,95,0.25)] px-6 py-4 mx-4">
-            <h1 className="text-3xl md:text-5xl font-headline font-medium text-forest text-center">
+          <div className="relative px-8 py-6 mx-4">
+            {/* Gradient backdrop - tone-on-tone cream-to-taupe */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#F5F0E9]/60 via-[#E8DFD3]/50 to-[#DDD0C0]/40 rounded-2xl" />
+            
+            {/* Title with dark charcoal color */}
+            <h1 className="relative text-3xl md:text-5xl font-headline font-medium text-[#3C3C3C] text-center z-10">
               Dialogue Room
             </h1>
           </div>
@@ -30,7 +34,7 @@ const SocialIntelligenceLab = () => {
       {/* Content Box - Overlaps Hero Image */}
       <div className="container mx-auto px-4 pb-24">
         <div className="max-w-3xl mx-auto -mt-20 relative z-10">
-          <div className="bg-card/95 backdrop-blur-sm rounded-3xl border-2 border-forest/15 shadow-[0_24px_64px_rgba(74,44,42,0.12)] p-8 md:p-12">
+          <div className="bg-[rgba(245,240,233,0.75)] backdrop-blur-[12px] rounded-[20px] px-6 md:px-8 py-8 md:py-10">
             {/* First Line - Bold */}
             <p className="text-center font-semibold text-foreground text-lg md:text-xl mb-6">
               Rehearse the conversations that matter — before they do.
