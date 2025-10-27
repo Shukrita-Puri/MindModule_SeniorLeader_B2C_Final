@@ -31,27 +31,170 @@ const PracticeConfigurePage = () => {
   const [voicePreference, setVoicePreference] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const [autoTaggedSkills, setAutoTaggedSkills] = useState<string[]>([]);
+  interface MetaSkillData {
+    cluster: string;
+    metaSkill: string;
+    subSkills: string[];
+  }
 
-  const getMetaSkills = (scenario: string): string[] => {
-    const skillMap: Record<string, string[]> = {
-      // Moments of Change
-      'navigating-uncertainty': ['Adaptability', 'Decision-Making', 'Influence'],
-      'balance-change-stability': ['Adaptability', 'Resilience', 'Focus'],
-      'navigating-conflict': ['Adaptability', 'Emotional Intelligence', 'Diplomacy'],
-      // Difficult Conversations
-      'influence-disagree': ['Communication', 'Persuasion', 'Empathy'],
-      'managing-tensions': ['Communication', 'Power Dynamics', 'Self-Regulation'],
-      'difficult-conversation': ['Communication', 'Emotional Regulation', 'Courage'],
-      'subtle-negotiations': ['Influence', 'Diplomacy', 'Strategic Thinking'],
-      // High-Pressure Situations
-      'public-unexpected': ['Communication', 'Composure', 'Influence'],
-      'staying-composed': ['Self-Regulation', 'Emotional Control', 'Confidence'],
-      // Recovery & Resilience
-      'bouncing-back': ['Resilience', 'Growth Mindset', 'Reflection'],
-      'sustaining-energy': ['Self-Regulation', 'Energy Management', 'Boundaries'],
+  const [autoTaggedSkills, setAutoTaggedSkills] = useState<MetaSkillData[]>([]);
+
+  const getMetaSkills = (scenario: string): MetaSkillData[] => {
+    const skillMap: Record<string, MetaSkillData[]> = {
+      'navigating-uncertainty': [
+        {
+          cluster: "Cognitive Mastery",
+          metaSkill: "Adaptability & Agility",
+          subSkills: ["Decision-Making", "Ambiguity Navigation", "Adaptability"]
+        }
+      ],
+      'balance-change-stability': [
+        {
+          cluster: "Cognitive Mastery",
+          metaSkill: "Adaptability & Agility",
+          subSkills: ["Cognitive Flexibility", "Adaptability", "Grit"]
+        },
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Self-Regulation", "Purpose Alignment"]
+        }
+      ],
+      'navigating-conflict': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Collaboration & Group Dynamics",
+          subSkills: ["Conflict Resolution", "Active Listening", "Perspective-Taking"]
+        }
+      ],
+      'influence-disagree': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Social Intelligence",
+          subSkills: ["Influence", "Persuasion", "Empathy"]
+        }
+      ],
+      'managing-tensions': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Power Dynamics", "Influence", "Communication Leadership"]
+        },
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Self-Regulation", "Emotional Mastery"]
+        }
+      ],
+      'difficult-conversation': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Communication Leadership", "Stakeholder Management", "Influence"]
+        },
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Emotional Intelligence",
+          subSkills: ["Emotional Regulation", "Self-Awareness", "Resilience"]
+        }
+      ],
+      'subtle-negotiations': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Social Intelligence",
+          subSkills: ["Influence", "Persuasion", "Trust-Building"]
+        },
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Negotiation", "Stakeholder Management"]
+        },
+        {
+          cluster: "Strategic Mastery",
+          metaSkill: "Strategic Planning & Vision",
+          subSkills: ["Strategic Prioritization", "Vision vs. Viability"]
+        }
+      ],
+      'public-unexpected': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Leadership Presence", "Communication Leadership", "Decision-Making under Pressure"]
+        },
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Self-Regulation", "Self-Mastery"]
+        }
+      ],
+      'staying-composed': [
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Self-Regulation", "Self-Mastery", "Integrity"]
+        },
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Emotional Intelligence",
+          subSkills: ["Emotional Regulation", "Resilience", "Self-Compassion"]
+        }
+      ],
+      'bouncing-back': [
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Resilience", "Growth Mindset", "Purpose Alignment"]
+        },
+        {
+          cluster: "Cognitive Mastery",
+          metaSkill: "Adaptability & Agility",
+          subSkills: ["Adaptability", "Grit", "Decision-Making"]
+        }
+      ],
+      'sustaining-energy': [
+        {
+          cluster: "Self Mastery",
+          metaSkill: "Self-Regulation & Motivation",
+          subSkills: ["Self-Regulation", "Purpose Alignment", "Self-Mastery"]
+        }
+      ],
+      'leading-through-change': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Change Management", "Narrative Leadership", "Empowerment"]
+        },
+        {
+          cluster: "Strategic Mastery",
+          metaSkill: "Strategic Planning & Vision",
+          subSkills: ["Strategic Vision", "Long-term Planning"]
+        }
+      ],
+      'inspiring-alignment': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Narrative Leadership", "Persuasive Storytelling", "Leadership Presence"]
+        },
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Collaboration & Group Dynamics",
+          subSkills: ["Shared Goal Alignment", "Team Facilitation"]
+        }
+      ],
+      'elevating-others': [
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Leadership & Execution",
+          subSkills: ["Coaching", "Empowerment", "Talent Development"]
+        },
+        {
+          cluster: "Social Mastery",
+          metaSkill: "Collaboration & Group Dynamics",
+          subSkills: ["Mentorship", "Psychological Safety", "Inclusive Leadership"]
+        }
+      ],
     };
-
     return skillMap[scenario] || [];
   };
 
@@ -378,13 +521,40 @@ const PracticeConfigurePage = () => {
 
           {/* Auto-tagged meta skills */}
           {specificScenario && autoTaggedSkills.length > 0 && (
-            <Card className="p-5 bg-forest/5 border-forest/20 animate-fade-in">
-              <p className="text-sm font-headline text-muted-foreground mb-3">This scenario develops:</p>
-              <div className="flex flex-wrap gap-2">
-                {autoTaggedSkills.map(skill => (
-                  <Badge key={skill} variant="outline" className="bg-forest/10 border-forest/30 text-forest">
-                    {skill}
-                  </Badge>
+            <Card className="p-6 bg-gradient-to-br from-gold/5 via-background to-forest/5 border-gold/20 animate-fade-in">
+              <h3 className="text-lg font-headline font-semibold text-foreground mb-5">
+                Meta-Skills this Scenario Develops
+              </h3>
+              <div className="space-y-5">
+                {autoTaggedSkills.map((skillData, index) => (
+                  <div key={index} className="space-y-3">
+                    {/* Cluster Headline - Deep Indigo */}
+                    <p className="text-sm font-headline font-medium text-indigo-900 dark:text-indigo-300">
+                      {skillData.cluster}
+                    </p>
+                    
+                    {/* Meta-Skill Badge - Gold capsule with bold, larger text */}
+                    <div>
+                      <Badge 
+                        variant="metaskill" 
+                        className="bg-gold/10 border-gold text-gold px-4 py-2 text-base font-bold"
+                      >
+                        {skillData.metaSkill}
+                      </Badge>
+                    </div>
+                    
+                    {/* Sub-Skills - Hashtag style, smaller font, charcoal */}
+                    <div className="flex flex-wrap gap-2 ml-2">
+                      {skillData.subSkills.map(subSkill => (
+                        <span 
+                          key={subSkill} 
+                          className="text-xs font-medium text-gray-700 dark:text-gray-400"
+                        >
+                          #{subSkill.replace(/\s+/g, '')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </Card>
