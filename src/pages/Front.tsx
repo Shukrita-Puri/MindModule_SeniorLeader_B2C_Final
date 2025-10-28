@@ -11,7 +11,7 @@ const Front = () => {
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    navigate('/signup');
+    navigate('/onboarding');
   };
 
   return (

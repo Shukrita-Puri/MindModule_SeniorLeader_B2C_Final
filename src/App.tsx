@@ -41,6 +41,16 @@ import BreathworkSession from "./pages/recalibrate/BreathworkSession";
 import QuickResetSession from "./pages/recalibrate/QuickResetSession";
 import FlowStateSession from "./pages/recalibrate/FlowStateSession";
 
+// Onboarding pages
+import OnboardingFlow from "./pages/onboarding/OnboardingFlow";
+import Stage1Welcome from "./pages/onboarding/stages/Stage1Welcome";
+import Stage2Identity from "./pages/onboarding/stages/Stage2Identity";
+import Stage3Behavioral from "./pages/onboarding/stages/Stage3Behavioral";
+import Stage4SelfAssessment from "./pages/onboarding/stages/Stage4SelfAssessment";
+import Stage5Results from "./pages/onboarding/stages/Stage5Results";
+import Stage6Payment from "./pages/onboarding/stages/Stage6Payment";
+import Stage8PracticeSetup from "./pages/onboarding/stages/Stage8PracticeSetup";
+
 // Layout component that conditionally includes GlobalHeader
 const Layout = () => {
   const location = useLocation();
@@ -173,6 +183,19 @@ const router = createBrowserRouter([
       {
         path: "memory-archive",
         element: <MemoryArchive />,
+      },
+      {
+        path: "onboarding",
+        element: <OnboardingFlow />,
+        children: [
+          { index: true, element: <Stage1Welcome /> },
+          { path: "identity", element: <Stage2Identity /> },
+          { path: "behavioral", element: <Stage3Behavioral /> },
+          { path: "self-assessment", element: <Stage4SelfAssessment /> },
+          { path: "results", element: <Stage5Results /> },
+          { path: "payment", element: <Stage6Payment /> },
+          { path: "practice-setup", element: <Stage8PracticeSetup /> },
+        ],
       },
       // ARCHIVED ROUTES - V2 Features
       // {
