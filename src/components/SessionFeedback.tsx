@@ -98,7 +98,7 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-[hsl(var(--gold))]/8 via-background/98 to-muted/30 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-[hsl(var(--gold))]/25 shadow-2xl">
+      <div className="bg-background/95 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-border shadow-2xl">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 space-y-1">
           <h2 className="text-xl font-semibold tracking-tight">Dialogue Reflection</h2>
