@@ -11,22 +11,19 @@ const MentalModelsSection = () => {
       title: "Growth Mindset",
       attribution: "Jeff Bezos's Practice",
       description: "View challenges as opportunities to develop your abilities",
-      application: "When facing difficult situations, ask 'What can I learn from this?' rather than 'Why is this happening to me?'",
-      icon: "🚀"
+      application: "When facing difficult situations, ask 'What can I learn from this?' rather than 'Why is this happening to me?'"
     },
     {
       title: "The Middle Way",
       attribution: "Ancient Buddhist Wisdom",
       description: "Balance between extremes leads to wise decision-making",
-      application: "When facing difficult choices, avoid all-or-nothing thinking and seek the balanced path that honors multiple perspectives",
-      icon: "⚖️"
+      application: "When facing difficult choices, avoid all-or-nothing thinking and seek the balanced path that honors multiple perspectives"
     },
     {
       title: "STOP Technique",
       attribution: "Navy SEAL Practice",
       description: "Stop, Take a breath, Observe, Proceed with awareness",
-      application: "Use before big conversations, tests, or when feeling overwhelmed to regain composure and clarity",
-      icon: "🎯"
+      application: "Use before big conversations, tests, or when feeling overwhelmed to regain composure and clarity"
     }
   ];
 
@@ -34,12 +31,12 @@ const MentalModelsSection = () => {
     <div className="space-y-6">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between cursor-pointer group border-b border-gold/20 pb-3">
+          <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
-              <h3 className="text-2xl font-heading font-medium text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">
+              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">
                 Mental Studio Frameworks to Apply
               </h3>
-              <p className="text-sm text-muted-foreground font-body">
+              <p className="text-xs md:text-sm text-muted-foreground font-body">
                 Time-tested wisdom from high performers and ancient traditions
               </p>
             </div>
@@ -54,25 +51,31 @@ const MentalModelsSection = () => {
             {mentalModels.map((model, index) => (
               <div 
                 key={index}
-                className="group bg-gradient-to-br from-background via-muted/10 to-background rounded-lg p-6 border border-border/10 hover:border-gold/30 transition-all duration-300 hover:shadow-lg hover:shadow-gold/10 animate-fade-in"
+                className="group space-y-3 animate-fade-in"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="text-3xl mb-3">{model.icon}</div>
-                <h4 className="font-heading font-medium text-foreground mb-1 text-lg">
-                  {model.title}
-                </h4>
-                <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gold/10 border border-gold/20 mb-3">
-                  <Brain size={12} className="text-gold" />
-                  <span className="text-xs text-gold font-medium">{model.attribution}</span>
+                {/* Placeholder for horizontal ink/pencil banner */}
+                <div className="w-full h-20 bg-gradient-to-r from-muted/30 via-muted/50 to-muted/30 rounded border border-gold/20 flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground font-body italic">Visual banner placeholder</span>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3 font-body leading-relaxed">
-                  {model.description}
-                </p>
-                <div className="pt-3 border-t border-gold/20">
-                  <p className="text-xs font-medium text-foreground mb-1">Application:</p>
-                  <p className="text-xs text-muted-foreground font-body leading-relaxed">
-                    {model.application}
+                
+                <div className="border-l-2 border-gold/40 pl-4 hover:border-gold/60 transition-colors">
+                  <h4 className="font-heading font-medium text-foreground mb-1 text-base">
+                    {model.title}
+                  </h4>
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gold/10 border border-gold/20 mb-2">
+                    <Brain size={10} className="text-gold" />
+                    <span className="text-xs text-gold font-medium font-body">{model.attribution}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2 font-body leading-relaxed">
+                    {model.description}
                   </p>
+                  <div className="pt-2 border-t border-gold/20">
+                    <p className="text-xs font-medium text-foreground mb-1 font-body">Application:</p>
+                    <p className="text-xs text-muted-foreground font-body leading-relaxed">
+                      {model.application}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}

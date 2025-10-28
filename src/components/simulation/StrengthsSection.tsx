@@ -1,5 +1,3 @@
-import { Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const StrengthsSection = () => {
@@ -28,30 +26,28 @@ const StrengthsSection = () => {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-gold/20 pb-3">
-        <h3 className="text-2xl font-heading font-medium text-foreground mb-1">
+      <div className="pb-3">
+        <h3 className="text-lg md:text-xl font-heading font-medium text-foreground mb-1">
           Your Strengths
         </h3>
-        <p className="text-sm text-muted-foreground font-body">
+        <p className="text-xs md:text-sm text-muted-foreground font-body">
           What you did exceptionally well
         </p>
       </div>
 
       <TooltipProvider>
-        <div className="flex flex-wrap gap-4">
+        <div className="space-y-6">
           {strengths.map((item, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
-                <div className="group cursor-pointer">
-                  <Badge 
-                    variant="forest"
-                    className="px-4 py-3 text-sm font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-forest/20 animate-fade-in"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <Sparkles size={14} className="mr-2 animate-pulse" />
+                <div 
+                  className="border-l-2 border-gold/40 pl-4 cursor-pointer hover:border-gold/60 transition-colors animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <h4 className="text-sm font-medium text-foreground font-body mb-1">
                     {item.category}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground mt-2 max-w-[200px] leading-relaxed">
+                  </h4>
+                  <p className="text-sm text-muted-foreground font-body leading-relaxed">
                     {item.strength}
                   </p>
                 </div>

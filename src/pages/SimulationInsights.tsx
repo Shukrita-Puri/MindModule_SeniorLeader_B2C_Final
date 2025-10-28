@@ -36,18 +36,26 @@ const SimulationInsights = () => {
       />
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-8 space-y-12 max-w-5xl mx-auto pb-32">
+        <div className="px-5 md:px-8 py-8 space-y-8 max-w-5xl mx-auto pb-32">
           <SessionContextCard 
             scenarioDomain={scenarioDomain}
             contextType={contextType}
             scenarioContext={scenarioContext}
           />
           
+          <div className="border-t border-gold/40" />
+          
           <StrengthsSection />
+          
+          <div className="border-t border-gold/40" />
           
           <BlindSpotsSection realtimeFeedback={realtimeFeedback} />
           
+          <div className="border-t border-gold/40" />
+          
           <MentalModelsSection />
+          
+          <div className="border-t border-gold/40" />
           
           <PersonalReflectionSection 
             personalNotes={personalNotes}

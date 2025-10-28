@@ -22,10 +22,10 @@ const SimulationHeader = ({ contextType, sessionDuration, onDownload, onSchedule
         <ArrowLeft size={18} className="text-foreground" />
       </button>
       <div className="flex-1 text-center">
-        <h1 className="text-3xl font-heading font-medium text-foreground mb-1">
+        <h1 className="text-xl md:text-2xl font-heading font-medium text-foreground mb-1">
           Dialogue Debrief
         </h1>
-        <p className="text-sm text-muted-foreground font-body">
+        <p className="text-xs md:text-sm text-muted-foreground font-body">
           Curated reflection from your dialogue practice where insight meets mastery
         </p>
       </div>

@@ -11,12 +11,12 @@ interface PersonalReflectionSectionProps {
 
 const PersonalReflectionSection = ({ personalNotes, setPersonalNotes, onSaveNotes }: PersonalReflectionSectionProps) => {
   return (
-    <div className="bg-gradient-to-br from-background to-muted/20 rounded-lg p-6 border border-border/10 shadow-sm">
-      <div className="border-b border-gold/20 pb-3 mb-6">
-        <h3 className="text-2xl font-heading font-medium text-foreground mb-1">
+    <div className="space-y-4">
+      <div className="pb-3">
+        <h3 className="text-lg md:text-xl font-heading font-medium text-foreground mb-1">
           Your Reflection
         </h3>
-        <p className="text-sm text-muted-foreground font-body">
+        <p className="text-xs md:text-sm text-muted-foreground font-body">
           What insights will you carry forward?
         </p>
       </div>
@@ -25,7 +25,7 @@ const PersonalReflectionSection = ({ personalNotes, setPersonalNotes, onSaveNote
           value={personalNotes}
           onChange={(e) => setPersonalNotes(e.target.value)}
           placeholder="Capture your key learnings, commitments, and next actions..."
-          className="min-h-[120px] border-border/20 focus:border-forest bg-background/50 font-body"
+          className="min-h-[120px] border-gold/40 focus:border-gold bg-background/50 font-body text-sm"
         />
         <Button 
           onClick={onSaveNotes}
