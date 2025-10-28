@@ -11,33 +11,31 @@ interface PersonalReflectionSectionProps {
 
 const PersonalReflectionSection = ({ personalNotes, setPersonalNotes, onSaveNotes }: PersonalReflectionSectionProps) => {
   return (
-    <Card className="border-border bg-card">
-      <CardHeader>
-        <CardTitle className="text-xl font-heading text-foreground">Your Reflection</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              What insights will you carry forward?
-            </label>
-            <Textarea
-              value={personalNotes}
-              onChange={(e) => setPersonalNotes(e.target.value)}
-              placeholder="Capture your key learnings, commitments, and next actions..."
-              className="min-h-[120px] border-border focus:border-primary"
-            />
-          </div>
-          <Button 
-            onClick={onSaveNotes}
-            className="w-full bg-primary hover:bg-primary/90"
-          >
-            <BookOpen size={16} className="mr-2" />
-            Save to Learning Archive
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="bg-gradient-to-br from-background to-muted/20 rounded-lg p-6 border border-border/10 shadow-sm">
+      <div className="border-b border-gold/20 pb-3 mb-6">
+        <h3 className="text-2xl font-heading font-medium text-foreground mb-1">
+          Your Reflection
+        </h3>
+        <p className="text-sm text-muted-foreground font-body">
+          What insights will you carry forward?
+        </p>
+      </div>
+      <div className="space-y-4">
+        <Textarea
+          value={personalNotes}
+          onChange={(e) => setPersonalNotes(e.target.value)}
+          placeholder="Capture your key learnings, commitments, and next actions..."
+          className="min-h-[120px] border-border/20 focus:border-forest bg-background/50 font-body"
+        />
+        <Button 
+          onClick={onSaveNotes}
+          className="w-full bg-forest hover:bg-forest/90 text-white"
+        >
+          <BookOpen size={16} className="mr-2" />
+          Save to Learning Archive
+        </Button>
+      </div>
+    </div>
   );
 };
 

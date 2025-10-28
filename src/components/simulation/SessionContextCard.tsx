@@ -34,37 +34,35 @@ const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, sele
   };
 
   return (
-    <Card className="border-border bg-card">
-      <CardHeader>
-        <CardTitle className="text-lg font-heading text-foreground">Session Context</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <div className="bg-gradient-to-br from-background to-muted/20 rounded-lg p-6 border border-border/10 shadow-sm">
+      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 font-heading">Session Context</h4>
+      <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-medium text-muted-foreground">Domain:</span>
-            <p className="text-foreground">{formatDomainName(scenarioDomain || "")}</p>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Domain</span>
+            <p className="text-foreground font-body mt-1">{formatDomainName(scenarioDomain || "")}</p>
           </div>
           <div>
-            <span className="font-medium text-muted-foreground">Scenario:</span>
-            <p className="text-foreground">{contextType}</p>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scenario</span>
+            <p className="text-foreground font-body mt-1">{contextType}</p>
           </div>
         </div>
         
         {personasText() && (
           <div>
-            <span className="font-medium text-muted-foreground">Personas:</span>
-            <p className="text-foreground text-sm">{personasText()}</p>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Personas</span>
+            <p className="text-foreground text-sm font-body mt-1">{personasText()}</p>
           </div>
         )}
         
         {scenarioContext && (
-          <div>
-            <span className="font-medium text-muted-foreground">Context:</span>
-            <p className="text-foreground text-sm leading-relaxed">{scenarioContext}</p>
+          <div className="pt-4 border-t border-gold/20">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Custom Context</span>
+            <p className="text-foreground text-sm leading-relaxed font-body mt-2">{scenarioContext}</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
