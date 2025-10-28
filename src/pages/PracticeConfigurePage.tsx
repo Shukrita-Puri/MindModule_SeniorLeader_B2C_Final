@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -249,27 +249,19 @@ const PracticeConfigurePage = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${getBackgroundGradient(scenarioCategory)}`}>
-      {/* Header with back button */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/practice')}
-            className="mr-4"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-lg font-headline font-medium text-forest">
-              Configure Your Dialogue
-            </h1>
-            <p className="text-xs font-headline text-muted-foreground mb-2">
-              Set up your practice scenario
-            </p>
-          </div>
+      <TopNavigation backPath="/practice" />
+      
+      {/* Page Title */}
+      <div className="pt-20 px-4 pb-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <h1 className="text-lg font-headline font-medium text-forest">
+            Configure Your Dialogue
+          </h1>
+          <p className="text-xs font-headline text-muted-foreground">
+            Set up your practice scenario
+          </p>
         </div>
-      </header>
+      </div>
 
       <div className="container mx-auto px-4 py-4 pb-24">
         {/* Configuration Form */}

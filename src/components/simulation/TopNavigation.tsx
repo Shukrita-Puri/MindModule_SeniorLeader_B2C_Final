@@ -5,9 +5,21 @@ import ProfileSidebar from "@/components/ProfileSidebar";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const TopNavigation = () => {
+interface TopNavigationProps {
+  backPath?: string;
+}
+
+const TopNavigation = ({ backPath }: TopNavigationProps) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const handleBack = () => {
+    if (backPath) {
+      navigate(backPath);
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-gold/20 shadow-sm">
@@ -16,7 +28,7 @@ const TopNavigation = () => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate("/practice/simulation")}
+          onClick={handleBack}
           className="hover:bg-muted/50"
         >
           <ArrowLeft size={20} className="text-foreground" />

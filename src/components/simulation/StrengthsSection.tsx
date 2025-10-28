@@ -50,13 +50,13 @@ const StrengthsSection = () => {
 
         <CollapsibleContent className="mt-4">
 
-      <TooltipProvider>
-        <div className="space-y-6">
+      <div className="border-l-2 border-gold/40 pl-4 space-y-6">
+        <TooltipProvider>
           {strengths.map((item, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div 
-                  className="border-l-2 border-gold/40 pl-4 cursor-pointer hover:border-gold/60 transition-colors animate-fade-in"
+                  className="cursor-pointer hover:border-gold/60 transition-colors animate-fade-in"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <h4 className="text-sm font-medium text-foreground font-body mb-1">
@@ -74,8 +74,8 @@ const StrengthsSection = () => {
               </TooltipContent>
             </Tooltip>
           ))}
-        </div>
-      </TooltipProvider>
+        </TooltipProvider>
+      </div>
         </CollapsibleContent>
       </Collapsible>
     </div>

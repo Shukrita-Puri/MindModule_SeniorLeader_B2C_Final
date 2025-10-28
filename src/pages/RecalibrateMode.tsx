@@ -1,9 +1,9 @@
-import { ArrowLeft, Zap, Waves, Target, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
+import { Zap, Waves, Target, Heart, Wind, Mountain, Compass, Timer } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
-import ClearBackButton from "@/components/ClearBackButton";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
@@ -584,10 +584,10 @@ const RecalibrateMode = () => {
 
   return (
     <div className="min-h-screen font-body flex flex-col">
-      <ClearBackButton />
+      <TopNavigation backPath="/executive-home" />
       
       {/* Header */}
-      <div className="border-b border-border/50 p-6 bg-background/80 backdrop-blur">
+      <div className="border-b border-border/50 p-6 bg-background/80 backdrop-blur pt-20">
         <div className="text-center">
           <h1 className="text-xl font-headline font-medium text-foreground">
             Inner Calibration

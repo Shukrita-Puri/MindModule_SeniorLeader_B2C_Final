@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap } from "lucide-react";
@@ -121,10 +122,11 @@ const ExecutiveHome = () => {
 
   return (
     <div className="min-h-screen font-body pb-32">
+      <TopNavigation backPath="/signup" />
       <SecurityWatermark />
       
       {/* Minimal Header */}
-      <div className="px-8 py-16 text-center">
+      <div className="px-8 py-20 text-center">
         <h1 className="text-3xl font-headline font-medium text-foreground mb-4">
           Hey, Alex
         </h1>

@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Mountain, Compass, Brain, Waves } from "lucide-react";
-import ClearBackButton from "@/components/ClearBackButton";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 
 const QuickResetSession = () => {
@@ -77,9 +77,9 @@ const QuickResetSession = () => {
 
   return (
     <div className="min-h-screen font-body pb-32">
-      <ClearBackButton />
+      <TopNavigation backPath="/recalibrate" />
       
-      <div className="px-8 py-12 max-w-4xl mx-auto">
+      <div className="px-8 py-20 max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
           <div className="w-28 h-28 mx-auto mb-8 rounded-sm bg-card border border-gold/20 overflow-hidden shadow-md">

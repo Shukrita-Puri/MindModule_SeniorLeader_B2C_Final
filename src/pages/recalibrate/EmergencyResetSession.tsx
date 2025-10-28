@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
-import ClearBackButton from "@/components/ClearBackButton";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import vibrantExecutiveOrb from "@/assets/vibrant-executive-orb.png";
 
 const EmergencyResetSession = () => {
@@ -22,6 +22,7 @@ const EmergencyResetSession = () => {
   if (!isResetting) {
     return (
       <div className="min-h-screen font-body pb-32 flex items-center justify-center">
+        <TopNavigation backPath="/recalibrate" />
         <div className="text-center">
           <h2 className="text-2xl font-headline font-medium text-foreground mb-8">
             Reset Complete
@@ -39,7 +40,7 @@ const EmergencyResetSession = () => {
 
   return (
     <div className="min-h-screen font-body pb-32">
-      <ClearBackButton />
+      <TopNavigation backPath="/recalibrate" />
       
       <div className="px-8 py-20 text-center max-w-2xl mx-auto">
         <div className="w-40 h-40 mx-auto mb-12 rounded-full overflow-hidden shadow-xl border-4 border-accent/20">

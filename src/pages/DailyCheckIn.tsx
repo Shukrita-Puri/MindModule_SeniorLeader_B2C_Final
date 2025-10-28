@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Heart, ArrowRight, SkipForward } from "lucide-react";
@@ -96,6 +97,7 @@ const DailyCheckIn = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
+      <TopNavigation backPath="/executive-home" />
       <SecurityWatermark />
       
       <Card className="w-full max-w-md bg-card border border-border shadow-lg">

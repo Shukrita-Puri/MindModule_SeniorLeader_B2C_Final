@@ -57,21 +57,10 @@ const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, sele
             {scenarioDomain && (
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground font-body">
-                  Session Domain
+                  Dialogue Category
                 </p>
                 <p className="text-sm text-muted-foreground font-body">
                   {formatDomainName(scenarioDomain)}
-                </p>
-              </div>
-            )}
-
-            {contextType && (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground font-body">
-                  Context Type
-                </p>
-                <p className="text-sm text-muted-foreground font-body">
-                  {contextType}
                 </p>
               </div>
             )}
@@ -90,7 +79,7 @@ const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, sele
             {scenarioContext && (
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground font-body">
-                  Session Scenario
+                  Dialogue Scenario
                 </p>
                 <p className="text-sm text-muted-foreground font-body leading-relaxed">
                   {scenarioContext}

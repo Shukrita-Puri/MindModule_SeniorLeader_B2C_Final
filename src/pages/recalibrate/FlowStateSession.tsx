@@ -1,6 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png";
 
 const FlowStateSession = () => {
@@ -8,22 +8,10 @@ const FlowStateSession = () => {
 
   return (
     <div className="min-h-screen font-body">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <button
-          onClick={() => navigate("/recalibrate")}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors"
-        >
-          <ArrowLeft size={18} className="text-foreground" />
-        </button>
-        <h1 className="text-xl font-headline font-medium text-foreground">
-          Flow State
-        </h1>
-        <div className="w-10"></div>
-      </div>
+      <TopNavigation backPath="/recalibrate" />
 
       {/* Content */}
-      <div className="px-8 py-12 max-w-2xl mx-auto">
+      <div className="px-8 py-20 max-w-2xl mx-auto">
         <div className="text-center mb-12">
           <div className="w-full max-w-sm aspect-square mx-auto mb-8 rounded-sm border border-gold/20 overflow-hidden shadow-lg">
             <img 

@@ -30,7 +30,7 @@ const SimulationInsights = () => {
 
   return (
     <div className="relative flex min-h-screen flex-col font-editorial pb-20">
-      <TopNavigation />
+      <TopNavigation backPath="/practice/simulation" />
       
       <SimulationHeader 
         contextType={contextType}

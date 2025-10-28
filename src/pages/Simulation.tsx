@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
 import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
@@ -73,8 +73,10 @@ const Simulation = () => {
 
   return (
     <div className="min-h-screen font-body flex flex-col">
-      {/* College Admissions Simulation - No header, direct entry */}
-      <div className="flex-1 relative">
+      <TopNavigation backPath="/practice/configure" />
+      
+      {/* College Admissions Simulation */}
+      <div className="flex-1 relative pt-16">
         <CollegeAdmissionsSimulation
           onEndSession={handleEndSession}
           sessionDuration={15}
