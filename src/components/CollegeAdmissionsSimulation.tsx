@@ -3,7 +3,6 @@ import { Mic, MicOff, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import SleekLineAnimation from "@/components/SleekLineAnimation";
-import CoachingToastMinimal from "@/components/CoachingToastMinimal";
 
 interface Message {
   id: string;
@@ -44,16 +43,6 @@ const CollegeAdmissionsSimulation = ({
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [userAnxietyLevel, setUserAnxietyLevel] = useState<"low" | "medium" | "high">("low");
   const [questionCount, setQuestionCount] = useState(0);
-  const [activeToast, setActiveToast] = useState<{
-    id: string;
-    type: "mental-clarity" | "social-intelligence" | "resilience" | "leadership" | "adaptability" | "creative-thinking" | "ancient-wisdom";
-    message: string;
-    suggestion: string;
-    pastLearning?: {
-      context: string;
-      insight: string;
-    };
-  } | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout>();
   const responseTimerRef = useRef<NodeJS.Timeout>();
@@ -417,18 +406,6 @@ const CollegeAdmissionsSimulation = ({
     setIsThinking(true);
     setResponseTimeLeft(45);
     setQuestionCount(prev => prev + 1);
-    
-    const feedback = getCoachingFeedback(message, questionCount);
-    
-    if (feedback) {
-      setActiveToast({
-        id: Date.now().toString(),
-        type: feedback.type,
-        message: feedback.message,
-        suggestion: feedback.suggestion,
-        pastLearning: feedback.pastLearning
-      });
-    }
 
     setTimeout(() => {
       const response = getAdmissionsResponse(message, questionCount);
@@ -438,8 +415,7 @@ const CollegeAdmissionsSimulation = ({
         text: response.text,
         sender: "ai",
         timestamp: new Date(),
-        emotion: response.emotion,
-        coachingFeedback: feedback || undefined
+        emotion: response.emotion
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -465,10 +441,6 @@ const CollegeAdmissionsSimulation = ({
     } else {
       setIsListening(true);
     }
-  };
-
-  const closeToast = () => {
-    setActiveToast(null);
   };
 
   return (
@@ -632,14 +604,6 @@ const CollegeAdmissionsSimulation = ({
           </div>
         </div>
       </div>
-
-      {/* Coaching Toast Overlay - Top Center */}
-      {activeToast && (
-        <CoachingToastMinimal
-          feedback={activeToast}
-          onClose={closeToast}
-        />
-      )}
     </div>
   );
 };
