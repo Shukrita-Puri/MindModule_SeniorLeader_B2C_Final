@@ -32,35 +32,42 @@ const nextFocusOptions = [
   { id: 'apply', label: 'Apply to real scenario', icon: Settings },
 ];
 
-const placeholders = [
-  "Sharper emotional lens",
-  "More pressure-testing",
-  "Deeper counterpoint"
+const betterNextTimePlaceholders = [
+  "More specific examples",
+  "Deeper analysis",
+  "Sharper emotional lens"
+];
+
+const discussNextTimePlaceholders = [
+  "Follow-up on today's insights",
+  "New challenges",
+  "Continue this thread"
 ];
 
 const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
   const [resonance, setResonance] = useState<ResonanceType | null>(null);
-  const [deeperFocus, setDeeperFocus] = useState("");
-  const [nextSessionFocus, setNextSessionFocus] = useState<string[]>([]);
-  const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
+  const [betterNextTime, setBetterNextTime] = useState("");
+  const [discussNextTime, setDiscussNextTime] = useState("");
+  const [currentBetterPlaceholder, setCurrentBetterPlaceholder] = useState(0);
+  const [currentDiscussPlaceholder, setCurrentDiscussPlaceholder] = useState(0);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Rotate placeholders
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentPlaceholder((prev) => (prev + 1) % placeholders.length);
+    const betterInterval = setInterval(() => {
+      setCurrentBetterPlaceholder((prev) => (prev + 1) % betterNextTimePlaceholders.length);
     }, 3000);
-    return () => clearInterval(interval);
+    const discussInterval = setInterval(() => {
+      setCurrentDiscussPlaceholder((prev) => (prev + 1) % discussNextTimePlaceholders.length);
+    }, 3500);
+    return () => {
+      clearInterval(betterInterval);
+      clearInterval(discussInterval);
+    };
   }, []);
 
   const handleResonanceSelect = (id: ResonanceType) => {
     setResonance(id);
-  };
-
-  const toggleNextFocus = (id: string) => {
-    setNextSessionFocus(prev => 
-      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
-    );
   };
 
   const handleSubmit = () => {
@@ -69,8 +76,8 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
       setTimeout(() => {
         onSubmit({
           resonance,
-          deeperFocus: deeperFocus || undefined,
-          nextSessionFocus: nextSessionFocus.length > 0 ? nextSessionFocus : undefined
+          deeperFocus: betterNextTime || undefined,
+          nextSessionFocus: discussNextTime ? [discussNextTime] : undefined
         });
       }, 2000);
     }
@@ -79,7 +86,7 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
   if (showConfirmation) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-gradient-to-b from-background to-muted/20 rounded-2xl p-8 max-w-md w-full text-center animate-in fade-in zoom-in duration-300">
+        <div className="bg-gradient-to-br from-[hsl(var(--gold))]/5 via-background/95 to-background/90 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full text-center animate-in fade-in zoom-in duration-300 border border-[hsl(var(--gold))]/10">
           <div className="text-4xl mb-3">💡</div>
           <p className="text-sm text-muted-foreground">
             Reflection saved. Your input sharpens future calibrations.
@@ -91,18 +98,18 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-b from-background via-background to-muted/20 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-[hsl(var(--gold))]/20 shadow-2xl">
+      <div className="bg-gradient-to-br from-[hsl(var(--gold))]/8 via-background/98 to-muted/30 backdrop-blur-md rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto border border-[hsl(var(--gold))]/25 shadow-2xl">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Session Reflection</h2>
+        <div className="px-5 pt-5 pb-3 space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">Dialogue Reflection</h2>
           <p className="text-xs text-muted-foreground animate-in fade-in duration-700">
             Take 5 seconds to tune the next conversation.
           </p>
         </div>
 
         {/* Core Feedback */}
-        <div className="px-6 pb-5 space-y-3">
-          <p className="text-sm text-foreground/80">How did this session land for you?</p>
+        <div className="px-5 pb-4 space-y-2.5">
+          <p className="text-sm text-foreground/80">How did this dialogue land for you?</p>
           <div className="grid grid-cols-3 gap-2">
             {resonanceOptions.map((option) => {
               const Icon = option.icon;
@@ -132,46 +139,30 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
           </div>
         </div>
 
-        {/* Micro Feedback */}
-        <div className="px-6 pb-5 space-y-2">
-          <p className="text-sm text-foreground/80">Where could we go deeper next time?</p>
+        {/* Question 2 */}
+        <div className="px-5 pb-3 space-y-1.5">
+          <p className="text-sm text-foreground/80">What could be better next time? <span className="text-xs text-muted-foreground">(optional)</span></p>
           <Textarea
-            value={deeperFocus}
-            onChange={(e) => setDeeperFocus(e.target.value)}
-            placeholder={placeholders[currentPlaceholder]}
-            className="min-h-[50px] text-sm resize-none transition-all duration-300"
+            value={betterNextTime}
+            onChange={(e) => setBetterNextTime(e.target.value)}
+            placeholder={betterNextTimePlaceholders[currentBetterPlaceholder]}
+            className="min-h-[45px] text-sm resize-none transition-all duration-300"
           />
         </div>
 
-        {/* Forward Signal */}
-        <div className="px-6 pb-5 space-y-2">
-          <p className="text-sm text-foreground/80">Next Session Focus</p>
-          <div className="flex flex-wrap gap-2">
-            {nextFocusOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = nextSessionFocus.includes(option.id);
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => toggleNextFocus(option.id)}
-                  className={`
-                    flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all duration-300 border
-                    ${isSelected
-                      ? 'bg-[hsl(var(--gold))]/10 border-[hsl(var(--gold))] text-[hsl(var(--gold))]'
-                      : 'bg-muted/50 border-border text-muted-foreground hover:border-[hsl(var(--gold))]/50'
-                    }
-                  `}
-                >
-                  <Icon size={12} />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
+        {/* Question 3 */}
+        <div className="px-5 pb-4 space-y-1.5">
+          <p className="text-sm text-foreground/80">What would you like to discuss next time? <span className="text-xs text-muted-foreground">(optional)</span></p>
+          <Textarea
+            value={discussNextTime}
+            onChange={(e) => setDiscussNextTime(e.target.value)}
+            placeholder={discussNextTimePlaceholders[currentDiscussPlaceholder]}
+            className="min-h-[45px] text-sm resize-none transition-all duration-300"
+          />
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-6 flex gap-3">
+        <div className="px-5 pb-5 flex gap-3">
           <Button
             onClick={onSkip}
             variant="ghost"
@@ -187,7 +178,7 @@ const SessionFeedback = ({ onSubmit, onSkip }: SessionFeedbackProps) => {
               ${resonance ? 'animate-pulse' : ''}
             `}
           >
-            ✅ Done
+            Submit
           </Button>
         </div>
       </div>
