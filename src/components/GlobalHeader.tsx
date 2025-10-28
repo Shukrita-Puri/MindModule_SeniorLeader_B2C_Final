@@ -19,7 +19,7 @@ const GlobalHeader = () => {
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[400px] sm:w-[540px] p-0">
+        <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0">
           <ProfileSidebar />
         </SheetContent>
       </Sheet>
