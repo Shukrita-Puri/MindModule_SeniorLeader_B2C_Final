@@ -1,6 +1,5 @@
 
 import { Button } from "@/components/ui/button";
-import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Shield, BookOpen, Archive, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -11,12 +10,12 @@ const ProfileSidebar = () => {
 
   return (
     <>
-      <SheetHeader className="p-6 border-b">
-        <SheetTitle className="flex items-center gap-2">
+      <div className="p-6 border-b">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
           <User size={20} />
           Profile & Settings
-        </SheetTitle>
-      </SheetHeader>
+        </h2>
+      </div>
       
       <Tabs defaultValue="privacy" className="flex-1">
         <TabsList className="grid w-full grid-cols-3 m-4 mb-0">
