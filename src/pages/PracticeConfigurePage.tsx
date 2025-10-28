@@ -243,8 +243,9 @@ const PracticeConfigurePage = () => {
         attachments,
         contextType: specificScenario,
         scenarioDomain: scenarioCategory,
-        personaType: personaType === 'custom' ? customPersona : personaType,
-        customPersona: personaType === 'custom' ? customPersona : '',
+        scenarioContext: specificScenario === 'custom' ? customScenario : (additionalContext || specificScenario),
+        personaType: personaType,
+        customPersona: customPersona,
       }
     });
   };

@@ -35,8 +35,8 @@ const Simulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
-        selectedPersonas: personaType ? [personaType] : [],
-        customPersonas: customPersona || '',
+        selectedPersonas: personaType && personaType !== 'custom' ? [personaType] : [],
+        customPersonas: personaType === 'custom' ? customPersona : '',
         feedback,
         sessionDuration: "15 minutes",
         realtimeFeedback: [
@@ -55,8 +55,8 @@ const Simulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
-        selectedPersonas: personaType ? [personaType] : [],
-        customPersonas: customPersona || '',
+        selectedPersonas: personaType && personaType !== 'custom' ? [personaType] : [],
+        customPersonas: personaType === 'custom' ? customPersona : '',
         sessionDuration: "15 minutes",
         realtimeFeedback: [
           { type: "coaching", message: "Great empathy! Try being more assertive with your solution.", timestamp: new Date() },
