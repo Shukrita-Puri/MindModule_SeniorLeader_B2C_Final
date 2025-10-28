@@ -64,6 +64,8 @@ const Layout = () => {
   
   // Exclude specific pages from showing the 3-line button/GlobalHeader
   const excludedPages = [
+    '/',
+    '/signup',
     '/practice',
     '/practice/configure',
     '/practice/simulation'
