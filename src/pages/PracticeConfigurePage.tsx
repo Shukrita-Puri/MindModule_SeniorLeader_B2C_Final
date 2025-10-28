@@ -243,6 +243,8 @@ const PracticeConfigurePage = () => {
         attachments,
         contextType: specificScenario,
         scenarioDomain: scenarioCategory,
+        personaType: personaType === 'custom' ? customPersona : personaType,
+        customPersona: personaType === 'custom' ? customPersona : '',
       }
     });
   };
@@ -254,7 +256,7 @@ const PracticeConfigurePage = () => {
       {/* Page Title */}
       <div className="pt-20 px-4 pb-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-lg font-headline font-medium text-forest">
+          <h1 className="text-lg font-headline font-medium text-foreground">
             Configure Your Dialogue
           </h1>
           <p className="text-xs font-headline text-muted-foreground">
@@ -272,7 +274,7 @@ const PracticeConfigurePage = () => {
               Step 1: Choose Scenario Category
             </h3>
             <Select value={scenarioCategory} onValueChange={setScenarioCategory}>
-              <SelectTrigger className="h-14 bg-card border-border">
+              <SelectTrigger className="h-11 bg-card border-border">
                 <SelectValue placeholder="Choose a Scenario Category" />
               </SelectTrigger>
               <SelectContent>

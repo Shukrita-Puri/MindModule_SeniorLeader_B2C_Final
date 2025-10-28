@@ -12,7 +12,7 @@ import PersonalReflectionSection from "@/components/simulation/PersonalReflectio
 
 const SimulationInsights = () => {
   const location = useLocation();
-  const { scenarioDomain, contextType, scenarioContext, sessionDuration, realtimeFeedback } = location.state || {};
+  const { scenarioDomain, contextType, scenarioContext, sessionDuration, realtimeFeedback, selectedPersonas, customPersonas } = location.state || {};
   
   const [personalNotes, setPersonalNotes] = useState("");
 
@@ -45,6 +45,8 @@ const SimulationInsights = () => {
             scenarioDomain={scenarioDomain}
             contextType={contextType}
             scenarioContext={scenarioContext}
+            selectedPersonas={selectedPersonas}
+            customPersonas={customPersonas}
           />
           
           <div className="border-t border-gold/40 my-8" />

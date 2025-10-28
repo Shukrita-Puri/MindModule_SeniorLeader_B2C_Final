@@ -16,7 +16,9 @@ const Simulation = () => {
     contextType, 
     scenarioContext, 
     aiPersona,
-    additionalContext
+    additionalContext,
+    personaType,
+    customPersona
   } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
@@ -33,6 +35,8 @@ const Simulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
+        selectedPersonas: personaType ? [personaType] : [],
+        customPersonas: customPersona || '',
         feedback,
         sessionDuration: "15 minutes",
         realtimeFeedback: [
@@ -51,6 +55,8 @@ const Simulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
+        selectedPersonas: personaType ? [personaType] : [],
+        customPersonas: customPersona || '',
         sessionDuration: "15 minutes",
         realtimeFeedback: [
           { type: "coaching", message: "Great empathy! Try being more assertive with your solution.", timestamp: new Date() },

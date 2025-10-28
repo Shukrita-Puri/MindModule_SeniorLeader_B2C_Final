@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import dialogueHeroImage from "@/assets/dialogue-room-hero.jpg";
 
 const SocialIntelligenceLab = () => {
@@ -8,8 +9,10 @@ const SocialIntelligenceLab = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <TopNavigation backPath="/executive-home" />
+      
       {/* Hero Section with Full-Width Image */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden mt-16">
         {/* Background Hero Image */}
         <img 
           src={dialogueHeroImage}
