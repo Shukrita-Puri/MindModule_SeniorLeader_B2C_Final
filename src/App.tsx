@@ -51,10 +51,6 @@ const Layout = () => {
     '/signup',
     '/executive-home',
     '/daily-check-in',
-    '/practice',
-    '/practice/configure',
-    '/practice/simulation',
-    '/practice/simulation-insights',
     '/recalibrate',
     '/recalibrate/breathing',
     '/recalibrate/power-up',
@@ -68,6 +64,8 @@ const Layout = () => {
   
   // Exclude specific pages from showing the 3-line button/GlobalHeader
   const excludedPages = [
+    '/practice',
+    '/practice/configure',
     '/practice/simulation'
   ];
   

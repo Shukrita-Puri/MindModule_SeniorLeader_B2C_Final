@@ -41,7 +41,7 @@ const TopNavigation = ({ backPath }: TopNavigationProps) => {
               <Menu size={20} className="text-foreground" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-full sm:max-w-md">
+          <SheetContent side="left" className="w-[400px] sm:max-w-[540px] p-0">
             <ProfileSidebar />
           </SheetContent>
         </Sheet>
