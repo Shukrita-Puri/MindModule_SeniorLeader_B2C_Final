@@ -1,6 +1,11 @@
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const StrengthsSection = () => {
+  const [isExpanded, setIsExpanded] = useState(true);
   const strengths = [
     {
       category: "Communication",
@@ -26,14 +31,24 @@ const StrengthsSection = () => {
 
   return (
     <div className="space-y-6">
-      <div className="pb-3">
-        <h3 className="text-lg md:text-xl font-heading font-medium text-foreground mb-1">
-          Your Strengths
-        </h3>
-        <p className="text-xs md:text-sm text-muted-foreground font-body">
-          What you did exceptionally well
-        </p>
-      </div>
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between cursor-pointer group pb-3">
+            <div>
+              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200 mb-1">
+                Your Strengths
+              </h3>
+              <p className="text-xs md:text-sm text-muted-foreground font-body">
+                What you did exceptionally well
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-forest">
+              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </Button>
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="mt-4">
 
       <TooltipProvider>
         <div className="space-y-6">
@@ -61,6 +76,8 @@ const StrengthsSection = () => {
           ))}
         </div>
       </TooltipProvider>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

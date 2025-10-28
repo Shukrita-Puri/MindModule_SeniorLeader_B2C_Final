@@ -1,4 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface SessionContextCardProps {
   scenarioDomain?: string;
@@ -9,6 +12,8 @@ interface SessionContextCardProps {
 }
 
 const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, selectedPersonas, customPersonas }: SessionContextCardProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  
   const formatDomainName = (domain: string) => {
     const domainMap: Record<string, string> = {
       "peer-relationships": "Peer Relationships",
@@ -34,50 +39,67 @@ const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, sele
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground font-body mb-1">
-          Session Domain
-        </p>
-        <p className="text-sm font-medium text-foreground font-body">
-          {formatDomainName(scenarioDomain || "")}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between cursor-pointer group pb-3">
+            <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200">
+              Session Context
+            </h3>
+            <Button variant="ghost" size="sm" className="text-forest">
+              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </Button>
+          </div>
+        </CollapsibleTrigger>
 
-      {contextType && (
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-body mb-1">
-            Context Type
-          </p>
-          <p className="text-sm font-medium text-foreground font-body">
-            {contextType}
-          </p>
-        </div>
-      )}
+        <CollapsibleContent>
+          <div className="space-y-4 mt-4">
+            {scenarioDomain && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground font-body">
+                  Session Domain
+                </p>
+                <p className="text-sm text-muted-foreground font-body">
+                  {formatDomainName(scenarioDomain)}
+                </p>
+              </div>
+            )}
 
-      {personasText() && (
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-body mb-1">
-            Dialogue Participants
-          </p>
-          <p className="text-sm font-medium text-foreground font-body">
-            {personasText()}
-          </p>
-        </div>
-      )}
+            {contextType && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground font-body">
+                  Context Type
+                </p>
+                <p className="text-sm text-muted-foreground font-body">
+                  {contextType}
+                </p>
+              </div>
+            )}
 
-      {scenarioContext && (
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-body mb-1">
-            Scenario Context
-          </p>
-          <p className="text-sm text-muted-foreground font-body leading-relaxed">
-            {scenarioContext}
-          </p>
-        </div>
-      )}
-      
-      <div className="border-t border-gold/40 mt-6" />
+            {personasText() && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground font-body">
+                  Dialogue Participants
+                </p>
+                <p className="text-sm text-muted-foreground font-body">
+                  {personasText()}
+                </p>
+              </div>
+            )}
+
+            {scenarioContext && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground font-body">
+                  Session Scenario
+                </p>
+                <p className="text-sm text-muted-foreground font-body leading-relaxed">
+                  {scenarioContext}
+                </p>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

@@ -33,11 +33,11 @@ const MentalModelsSection = () => {
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
-              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">
-                Mental Studio Frameworks to Apply
+              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200 mb-1">
+                Mental Studio Frameworks
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground font-body">
-                Time-tested wisdom from high performers and ancient traditions
+                Timeless mental models applied to your session
               </p>
             </div>
             <Button variant="ghost" size="sm" className="text-forest">

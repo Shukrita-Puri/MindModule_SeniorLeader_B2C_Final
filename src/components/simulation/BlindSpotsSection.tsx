@@ -15,11 +15,12 @@ const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) =>
   const [isExpanded, setIsExpanded] = useState(true);
 
   const blindSpots = [
-    { text: "Practice strategic pauses before responding under pressure" },
-    { text: "Use 'I feel…' statements to express emotions clearly" },
-    { text: "Begin responses with 'I believe…' rather than tentative phrasing" },
-    { text: "Maintain composure; avoid absorbing others' stress" },
-    { text: "Trust instincts in challenging conversations" }
+    "Practice strategic pauses before responding under pressure",
+    "Use 'I feel…' statements to express emotions clearly",
+    "Begin responses with 'I believe…' rather than tentative phrasing",
+    "Maintain composure; avoid absorbing others' stress",
+    "Trust instincts in challenging conversations",
+    "Ask clarifying questions to avoid assumptions"
   ];
 
   const clarifyingQuestions = [
@@ -35,7 +36,7 @@ const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) =>
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
-              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">
+              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200 mb-1">
                 Blind Spots & Development Areas
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground font-body">
@@ -49,36 +50,25 @@ const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) =>
         </CollapsibleTrigger>
 
         <CollapsibleContent className="mt-6">
-          <div className="space-y-5">
+          <div className="border-l-2 border-gold/40 pl-4 hover:border-gold/60 transition-colors space-y-3">
             {blindSpots.map((spot, index) => (
-              <div 
+              <p 
                 key={index}
-                className="border-l-2 border-gold/40 pl-4 hover:border-gold/60 transition-colors animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="text-sm text-foreground font-body leading-relaxed animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <p className="text-sm text-foreground font-body leading-relaxed flex items-start gap-2">
-                  <span className="text-gold mt-0.5">•</span>
-                  <span>{spot.text}</span>
-                </p>
-              </div>
+                {spot}
+              </p>
             ))}
             
-            <div 
-              className="border-l-2 border-gold/40 pl-4 hover:border-gold/60 transition-colors animate-fade-in"
-              style={{ animationDelay: `${blindSpots.length * 100}ms` }}
-            >
-              <p className="text-sm text-foreground font-body leading-relaxed flex items-start gap-2 mb-3">
-                <span className="text-gold mt-0.5">•</span>
-                <span>Ask clarifying questions to avoid assumptions</span>
+            <div className="mt-6 pt-4 border-t border-gold/20">
+              <p className="text-sm font-medium text-foreground font-body mb-3">
+                Clarifying questions to ask
               </p>
-              <div className="ml-5 space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground font-body mb-2">
-                  Clarifying questions to ask:
-                </p>
+              <div className="ml-4 space-y-2 bg-muted/20 rounded-md p-3">
                 {clarifyingQuestions.map((question, idx) => (
-                  <p key={idx} className="text-sm text-muted-foreground font-body leading-relaxed flex items-start gap-2">
-                    <span className="text-gold/60 mt-0.5">•</span>
-                    <span>"{question}"</span>
+                  <p key={idx} className="text-sm text-muted-foreground font-body leading-relaxed italic">
+                    "{question}"
                   </p>
                 ))}
               </div>

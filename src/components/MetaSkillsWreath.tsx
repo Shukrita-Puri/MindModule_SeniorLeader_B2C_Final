@@ -8,12 +8,13 @@ interface MetaSkillData {
 
 interface MetaSkillsWreathProps {
   metaSkills: MetaSkillData[];
+  growthPercentage?: number;
   className?: string;
 }
 
-const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps) => {
+const MetaSkillsWreath = ({ metaSkills, growthPercentage = 0, className = "" }: MetaSkillsWreathProps) => {
   const count = metaSkills.length;
-  const uniqueClusters = [...new Set(metaSkills.map(skill => skill.cluster))];
+  const displayText = growthPercentage > 0 ? `${growthPercentage}%` : count.toString();
 
   return (
     <TooltipProvider>
@@ -21,34 +22,54 @@ const MetaSkillsWreath = ({ metaSkills, className = "" }: MetaSkillsWreathProps)
         <TooltipTrigger asChild>
           <div className={`relative ${className}`}>
             <svg
-              width="100"
-              height="80"
-              viewBox="0 0 100 80"
+              width="120"
+              height="100"
+              viewBox="0 0 120 100"
               className="drop-shadow-lg"
             >
-              {/* Center count - PROMINENT */}
+              {/* Gold wreath circle */}
+              <circle
+                cx="60"
+                cy="50"
+                r="45"
+                fill="none"
+                stroke="hsl(var(--gold))"
+                strokeWidth="3"
+                opacity="0.4"
+              />
+              <circle
+                cx="60"
+                cy="50"
+                r="38"
+                fill="none"
+                stroke="hsl(var(--gold))"
+                strokeWidth="1.5"
+                opacity="0.2"
+              />
+              
+              {/* Center percentage or count - PROMINENT */}
               <text
-                x="50"
-                y="45"
+                x="60"
+                y="58"
                 textAnchor="middle"
                 className="font-headline font-bold"
-                fontSize="40"
+                fontSize={growthPercentage > 0 ? "32" : "40"}
                 fill="hsl(var(--gold))"
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
               >
-                {count}
+                {displayText}
               </text>
 
-              {/* "Meta Skills" text at bottom */}
+              {/* "Meta Skills" or "Growth" text at bottom */}
               <text
-                x="50"
-                y="70"
+                x="60"
+                y="88"
                 textAnchor="middle"
                 className="font-body text-[9px] tracking-widest uppercase"
                 fill="hsl(var(--gold))"
                 opacity="0.85"
               >
-                Meta Skills
+                {growthPercentage > 0 ? "Growth" : "Meta Skills"}
               </text>
             </svg>
           </div>
