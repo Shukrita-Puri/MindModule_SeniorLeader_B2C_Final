@@ -5,6 +5,7 @@ import MainNavigation from "@/components/MainNavigation";
 import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
+import ObservatoryModal from "@/components/ObservatoryModal";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -22,6 +23,15 @@ const Simulation = () => {
   } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showObservatory, setShowObservatory] = useState(false);
+
+  // Demo: Show observatory after 5 seconds (you can adjust trigger logic)
+  useState(() => {
+    const timer = setTimeout(() => {
+      setShowObservatory(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  });
 
   const handleEndSession = () => {
     setShowFeedback(true);
@@ -97,6 +107,17 @@ const Simulation = () => {
           onSkip={handleFeedbackSkip}
         />
       )}
+
+      {/* Mind Module: The Observatory Modal */}
+      <ObservatoryModal
+        isOpen={showObservatory}
+        onClose={() => setShowObservatory(false)}
+        variant="mirror"
+        signal="You're perceiving links between logic, emotion, and timing."
+        lens="From this altitude, patterns reveal themselves."
+        application="What principle connects these insights — trust, timing, or truth?"
+        ctaText="Synthesize"
+      />
 
       <MainNavigation />
       <Toaster />
