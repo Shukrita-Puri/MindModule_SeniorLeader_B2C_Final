@@ -588,7 +588,7 @@ const RecalibrateMode = () => {
       <TopNavigation backPath="/executive-home" />
       
       {/* Hero Banner with Watercolor */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden -mx-4 sm:mx-0">
         {/* Background Image */}
         <img 
           src={recalibrateBanner} 
@@ -602,16 +602,16 @@ const RecalibrateMode = () => {
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
           <h1 
-            className="text-4xl md:text-5xl font-headline font-medium text-foreground mb-4"
+            className="text-4xl md:text-5xl lg:text-6xl font-headline font-medium text-foreground mb-3"
             style={{ textShadow: '0 2px 12px rgba(255, 240, 230, 0.8), 0 4px 20px rgba(0, 0, 0, 0.2)' }}
           >
-            Inner Calibration
+            Sanctuary Studio
           </h1>
           <p 
-            className="text-lg md:text-xl text-foreground/90"
+            className="text-base md:text-lg text-foreground/80 font-body"
             style={{ textShadow: '0 2px 8px rgba(255, 240, 230, 0.8)' }}
           >
-            Reset • Recalibrate • Rise
+            Your space to reset and restore
           </p>
         </div>
       </div>
