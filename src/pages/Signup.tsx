@@ -20,7 +20,7 @@ const Signup = () => {
         title: isSignUp ? "Welcome to Mind Module!" : "Welcome back!",
         description: "Redirecting...",
       });
-      setTimeout(() => navigate('/daily-check-in'), 1500);
+      setTimeout(() => navigate('/onboarding/results'), 1500);
       setIsLoading(false);
     }, 1000);
   };

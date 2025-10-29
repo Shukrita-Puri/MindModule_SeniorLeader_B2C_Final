@@ -12,10 +12,9 @@ const STAGE_ROUTES = [
   "/onboarding/results",
   "/onboarding/payment",
   "/onboarding/context-connection",
-  "/onboarding/practice-setup",
 ];
 
-const TIME_ESTIMATES = [0.5, 1, 2.5, 0.5, 1, 1, 2, 2, 0.5];
+const TIME_ESTIMATES = [0.5, 1, 2.5, 0.5, 1, 1, 2, 2];
 
 export default function OnboardingFlow() {
   const navigate = useNavigate();
@@ -48,14 +47,14 @@ export default function OnboardingFlow() {
     updateSession({ currentStage });
   }, [currentStage]);
 
-  const hideProgress = [5, 6, 7].includes(currentStage) || location.pathname.includes('/signup');
+  const hideProgress = [5, 6, 7, 8].includes(currentStage) || location.pathname.includes('/signup');
 
   return (
     <div className="min-h-screen bg-background">
       {!hideProgress && (
         <ProgressIndicator
           currentStage={currentStage}
-          totalStages={9}
+          totalStages={8}
           estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
         />
       )}

@@ -81,7 +81,13 @@ export default function Stage6Payment() {
             <Button 
               className="w-full" 
               variant={idx === 1 ? "default" : "outline"}
-              onClick={() => navigate("/onboarding/practice-setup")}
+              onClick={() => {
+                if (plan.name.includes('Super Pro')) {
+                  navigate("/onboarding/context-connection");
+                } else {
+                  navigate("/executive-home");
+                }
+              }}
             >
               Start {plan.name.split(' ')[0]} Plan
             </Button>

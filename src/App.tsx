@@ -49,7 +49,7 @@ import Stage3Behavioral from "./pages/onboarding/stages/Stage3Behavioral";
 import Stage4SelfAssessment from "./pages/onboarding/stages/Stage4SelfAssessment";
 import Stage5Results from "./pages/onboarding/stages/Stage5Results";
 import Stage6Payment from "./pages/onboarding/stages/Stage6Payment";
-import Stage8PracticeSetup from "./pages/onboarding/stages/Stage8PracticeSetup";
+import Stage7ContextConnection from "./pages/onboarding/stages/Stage7ContextConnection";
 
 // Layout component that conditionally includes GlobalHeader
 const Layout = () => {
@@ -194,7 +194,7 @@ const router = createBrowserRouter([
           { path: "self-assessment", element: <Stage4SelfAssessment /> },
           { path: "results", element: <Stage5Results /> },
           { path: "payment", element: <Stage6Payment /> },
-          { path: "practice-setup", element: <Stage8PracticeSetup /> },
+          { path: "context-connection", element: <Stage7ContextConnection /> },
         ],
       },
       // ARCHIVED ROUTES - V2 Features
