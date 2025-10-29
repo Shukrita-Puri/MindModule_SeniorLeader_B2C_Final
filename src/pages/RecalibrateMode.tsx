@@ -481,28 +481,8 @@ const RecalibrateMode = () => {
 
   const renderToolSelection = () => (
     <>
-      {/* Hero Section */}
-      <div className="px-8 py-20 text-center max-w-2xl mx-auto">
-        <div className="w-full max-w-sm aspect-square mx-auto mb-12 rounded-sm border border-gold/20 overflow-hidden shadow-lg">
-          <img 
-            src="/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png" 
-            alt="Inner calibration and balance"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        
-        <h2 className="text-3xl font-headline font-medium text-foreground mb-8 leading-tight">
-          Inner Calibration
-        </h2>
-        
-        <p className="text-lg text-muted-foreground leading-relaxed mb-16">
-          Reset when you're feeling:<br/>
-          <span className="text-sm italic">Stressed • Overthinking • Looking to Level Up</span>
-        </p>
-      </div>
-
       {/* Tools Selection */}
-      <div className="flex-1 px-8 max-w-2xl mx-auto pb-32">
+      <div className="flex-1 px-8 max-w-2xl mx-auto pb-32 pt-16">
         <div className="space-y-12">
           {tools.map((tool, index) => (
             <article 
