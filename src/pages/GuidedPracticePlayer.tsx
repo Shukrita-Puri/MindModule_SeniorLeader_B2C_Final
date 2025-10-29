@@ -1,0 +1,526 @@
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  ArrowLeft, 
+  Play, 
+  Pause,
+  ChevronRight,
+  ChevronLeft,
+  CheckCircle2,
+  Sparkles,
+  Clock,
+  TrendingUp,
+  Lightbulb
+} from "lucide-react";
+import { toast } from "sonner";
+import BreathingAnimation from "@/components/BreathingAnimation";
+
+interface PracticeStep {
+  stepNumber: number;
+  title: string;
+  instruction: string;
+  duration: number;
+  breathingPattern?: string;
+  wisdomNote?: string;
+}
+
+interface PracticeData {
+  id: string;
+  title: string;
+  category: string;
+  totalDuration: number;
+  difficulty: string;
+  origin: string;
+  fullStory: string;
+  whatYouNeed: string[];
+  expectedOutcomes: string[];
+  usedBy: string;
+  steps: PracticeStep[];
+  completionMessage: string;
+}
+
+const practiceData: Record<string, PracticeData> = {
+  "box-breathing": {
+    id: "box-breathing",
+    title: "Box Breathing Reset",
+    category: "High Performer Protocol",
+    totalDuration: 300,
+    difficulty: "Beginner",
+    origin: "Navy SEAL Tactical Protocol",
+    fullStory: "Box breathing, also known as square breathing or four-square breathing, is a powerful stress management technique used by Navy SEALs, police officers, nurses, and anyone in high-pressure situations. The practice involves breathing in a pattern of four equal parts: inhale for 4 counts, hold for 4 counts, exhale for 4 counts, hold for 4 counts. This creates a 'box' pattern that brings the nervous system into balance, reduces cortisol, and enhances focus. Studies show it can lower blood pressure, improve emotional regulation, and increase cognitive performance under stress.",
+    whatYouNeed: ["Quiet space", "Comfortable seated position", "5 minutes of uninterrupted time"],
+    expectedOutcomes: [
+      "Immediate stress reduction",
+      "Enhanced mental clarity",
+      "Improved emotional control",
+      "Lowered heart rate and blood pressure"
+    ],
+    usedBy: "Navy SEALs, Surgeons, First Responders, Athletes",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Find Your Center",
+        instruction: "Sit comfortably with your spine straight but not rigid. Rest your hands on your lap or knees. Close your eyes or soften your gaze downward. Take a few natural breaths to settle in.",
+        duration: 30,
+        wisdomNote: "The Navy SEALs begin every mission brief with this centering practice. Composure precedes action."
+      },
+      {
+        stepNumber: 2,
+        title: "Inhale for 4",
+        instruction: "Breathe in slowly through your nose for a count of 4. Feel your lungs fill completely, expanding your belly first, then your chest. Count: 1... 2... 3... 4.",
+        duration: 60,
+        breathingPattern: "Inhale",
+        wisdomNote: "Fill your body with oxygen like fuel entering a high-performance engine."
+      },
+      {
+        stepNumber: 3,
+        title: "Hold for 4",
+        instruction: "Hold your breath at the top of the inhale for 4 counts. Keep your body relaxed—no tension in your shoulders or jaw. Count: 1... 2... 3... 4.",
+        duration: 60,
+        breathingPattern: "Hold",
+        wisdomNote: "In this pause, your body absorbs oxygen and your mind finds stillness."
+      },
+      {
+        stepNumber: 4,
+        title: "Exhale for 4",
+        instruction: "Slowly exhale through your mouth for a count of 4. Release all the air from your lungs, feeling your belly and chest naturally contract. Count: 1... 2... 3... 4.",
+        duration: 60,
+        breathingPattern: "Exhale",
+        wisdomNote: "With the out-breath, release tension, stress, and mental noise."
+      },
+      {
+        stepNumber: 5,
+        title: "Hold Empty for 4",
+        instruction: "Hold your breath at the bottom of the exhale for 4 counts. Stay calm and present in this empty space. Count: 1... 2... 3... 4.",
+        duration: 60,
+        breathingPattern: "Hold",
+        wisdomNote: "Emptiness is not absence—it's spaciousness. Here lies your power."
+      },
+      {
+        stepNumber: 6,
+        title: "Continue the Box",
+        instruction: "Repeat this cycle: Inhale (4) → Hold (4) → Exhale (4) → Hold (4). Let the pattern become automatic. Your mind and body are now in sync, operating as one integrated system.",
+        duration: 30,
+        wisdomNote: "Three minutes of box breathing before high-stakes moments creates unshakeable composure."
+      }
+    ],
+    completionMessage: "You've mastered the breath. You've mastered the moment."
+  },
+  "tonglen-breathing": {
+    id: "tonglen-breathing",
+    title: "Tonglen Compassion Practice",
+    category: "Ancient Wisdom",
+    totalDuration: 720,
+    difficulty: "Intermediate",
+    origin: "Buddhist Meditation | Tibet, 9th Century",
+    fullStory: "Tonglen (Tibetan for 'sending and taking') is a profound practice from Tibetan Buddhism that reverses our instinctive patterns. Instead of avoiding pain and grasping at pleasure, we breathe in suffering and breathe out relief. This counterintuitive approach develops compassion, dissolves self-centeredness, and creates emotional resilience. Neuroscience research at Stanford shows that Tonglen practice activates brain regions associated with empathy and emotional regulation, literally rewiring our capacity for compassion.",
+    whatYouNeed: ["Quiet space", "Open heart", "Willingness to face discomfort", "10-15 minutes"],
+    expectedOutcomes: [
+      "Increased compassion for self and others",
+      "Reduced fear of difficult emotions",
+      "Greater emotional resilience",
+      "Sense of connection and purpose"
+    ],
+    usedBy: "Therapists, Caregivers, Spiritual Practitioners",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Establish Your Seat",
+        instruction: "Sit in a dignified posture. Feel the ground beneath you. Place one hand on your heart. Take several deep breaths, arriving fully in this moment.",
+        duration: 60,
+        wisdomNote: "You are safe. You are held. You have the capacity to hold suffering without being destroyed by it."
+      },
+      {
+        stepNumber: 2,
+        title: "Connect with Your Own Suffering",
+        instruction: "Bring to mind a difficulty you're facing—nothing overwhelming, just a genuine challenge. Feel where it lives in your body. Notice the sensation without trying to fix it.",
+        duration: 90,
+        wisdomNote: "Your own pain is the gateway to understanding all pain."
+      },
+      {
+        stepNumber: 3,
+        title: "Breathe In Your Suffering",
+        instruction: "As you inhale, imagine breathing in the dark, heavy quality of your difficulty. You're not making it worse—you're acknowledging it, accepting it, making space for it.",
+        duration: 120,
+        breathingPattern: "Inhale",
+        wisdomNote: "What you resist persists. What you accept transforms."
+      },
+      {
+        stepNumber: 4,
+        title: "Breathe Out Relief",
+        instruction: "As you exhale, imagine breathing out light, spaciousness, and relief. Send this ease to yourself, to the part of you that's struggling. Give yourself what you most need.",
+        duration: 120,
+        breathingPattern: "Exhale",
+        wisdomNote: "You deserve your own compassion."
+      },
+      {
+        stepNumber: 5,
+        title: "Extend to Others",
+        instruction: "Now think of someone else facing a similar struggle. As you breathe in, take in their suffering alongside yours. As you breathe out, send relief to both of you, and to all beings facing this challenge.",
+        duration: 210,
+        wisdomNote: "We suffer together. We heal together. Your liberation is bound to mine."
+      },
+      {
+        stepNumber: 6,
+        title: "Rest in Spaciousness",
+        instruction: "Let go of the technique. Simply breathe naturally. Notice the space that's been created in your heart. Rest here for a few moments in open awareness.",
+        duration: 120,
+        wisdomNote: "Compassion is not exhausting—it's liberating. You've just touched the source of infinite strength."
+      }
+    ],
+    completionMessage: "May all beings be free from suffering. May all beings know peace. Starting with you."
+  }
+};
+
+const GuidedPracticePlayer = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [view, setView] = useState<"intro" | "practice" | "complete">("intro");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [stepTimeLeft, setStepTimeLeft] = useState(0);
+  const intervalRef = useRef<number | null>(null);
+
+  const practice = id ? practiceData[id] : null;
+
+  useEffect(() => {
+    if (isPlaying && view === "practice" && practice) {
+      const currentStepData = practice.steps[currentStep];
+      
+      if (stepTimeLeft === 0) {
+        setStepTimeLeft(currentStepData.duration);
+      }
+
+      intervalRef.current = window.setInterval(() => {
+        setStepTimeLeft((prev) => {
+          if (prev <= 1) {
+            // Move to next step or complete
+            if (currentStep < practice.steps.length - 1) {
+              setCurrentStep(currentStep + 1);
+              return practice.steps[currentStep + 1].duration;
+            } else {
+              setIsPlaying(false);
+              setView("complete");
+              return 0;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPlaying, view, currentStep, stepTimeLeft, practice]);
+
+  if (!practice) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Practice not found</p>
+          <Button onClick={() => navigate("/guided-practices")}>
+            Return to Library
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Intro View
+  if (view === "intro") {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/guided-practices")}
+            className="mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Library
+          </Button>
+
+          <div className="space-y-8">
+            {/* Header */}
+            <div>
+              <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
+                {practice.title}
+              </h1>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="h-4 w-4 text-gold" />
+                  {practice.origin}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  {Math.floor(practice.totalDuration / 60)} min
+                </span>
+                <span>{practice.difficulty}</span>
+              </div>
+            </div>
+
+            {/* Origin Story */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-xl font-semibold text-gold">Origin & History</h2>
+                <p className="text-muted-foreground leading-relaxed">
+                  {practice.fullStory}
+                </p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Used by: {practice.usedBy}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* What You'll Need */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-xl font-semibold text-gold">What You'll Need</h2>
+                <ul className="space-y-2">
+                  {practice.whatYouNeed.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2 text-muted-foreground">
+                      <span className="text-gold mt-1">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Expected Outcomes */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-xl font-semibold text-gold">Expected Outcomes</h2>
+                <ul className="space-y-2">
+                  {practice.expectedOutcomes.map((outcome, index) => (
+                    <li key={index} className="flex items-start gap-2 text-muted-foreground">
+                      <CheckCircle2 className="h-4 w-4 text-gold mt-1" />
+                      <span>{outcome}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Step Preview */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-xl font-semibold text-gold">Practice Journey</h2>
+                <p className="text-muted-foreground">
+                  {practice.steps.length} steps • {Math.floor(practice.totalDuration / 60)} minutes
+                </p>
+                <div className="space-y-2">
+                  {practice.steps.map((step, index) => (
+                    <div key={index} className="flex items-center gap-3 text-sm">
+                      <span className="text-gold font-mono">{index + 1}</span>
+                      <span className="text-muted-foreground">{step.title}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatTime(step.duration)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Begin Button */}
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => {
+                setView("practice");
+                setStepTimeLeft(practice.steps[0].duration);
+                toast.success("Practice started");
+              }}
+            >
+              Begin Practice
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Practice View
+  if (view === "practice") {
+    const currentStepData = practice.steps[currentStep];
+    const overallProgress = ((currentStep) / practice.steps.length) * 100;
+    const stepProgress = ((currentStepData.duration - stepTimeLeft) / currentStepData.duration) * 100;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
+        {/* Header */}
+        <div className="p-6 flex items-center justify-between border-b border-border">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsPlaying(false);
+              setView("intro");
+              setCurrentStep(0);
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Exit
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Step {currentStep + 1} of {practice.steps.length}
+          </span>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="px-6 py-4">
+          <Progress value={overallProgress} className="h-2" />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-3xl mx-auto">
+          {/* Step Title */}
+          <h2 className="text-3xl md:text-4xl font-serif text-center mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+            {currentStepData.title}
+          </h2>
+
+          {/* Breathing Visual */}
+          {currentStepData.breathingPattern && (
+            <div className="my-8">
+              <BreathingAnimation />
+            </div>
+          )}
+
+          {/* Instruction */}
+          <Card className="w-full mb-6">
+            <CardContent className="pt-6">
+              <p className="text-lg leading-relaxed text-center">
+                {currentStepData.instruction}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Wisdom Note */}
+          {currentStepData.wisdomNote && (
+            <div className="flex items-start gap-3 bg-gold/5 border border-gold/20 rounded-lg p-4 mb-6 max-w-2xl">
+              <Lightbulb className="h-5 w-5 text-gold flex-shrink-0 mt-0.5" />
+              <p className="text-sm italic text-muted-foreground">
+                {currentStepData.wisdomNote}
+              </p>
+            </div>
+          )}
+
+          {/* Timer */}
+          <div className="text-center mb-8">
+            <p className="text-5xl font-mono font-light text-gold">
+              {formatTime(stepTimeLeft)}
+            </p>
+            <Progress value={stepProgress} className="w-64 mx-auto mt-4 h-1" />
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-6">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                if (currentStep > 0) {
+                  setCurrentStep(currentStep - 1);
+                  setStepTimeLeft(practice.steps[currentStep - 1].duration);
+                  setIsPlaying(false);
+                }
+              }}
+              disabled={currentStep === 0}
+              className="h-12 w-12"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Button>
+
+            <Button
+              size="icon"
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="h-16 w-16 rounded-full"
+            >
+              {isPlaying ? (
+                <Pause className="h-8 w-8" />
+              ) : (
+                <Play className="h-8 w-8 ml-1" />
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                if (currentStep < practice.steps.length - 1) {
+                  setCurrentStep(currentStep + 1);
+                  setStepTimeLeft(practice.steps[currentStep + 1].duration);
+                  setIsPlaying(false);
+                } else {
+                  setView("complete");
+                }
+              }}
+              className="h-12 w-12"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Completion View
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-6">
+      <div className="max-w-2xl text-center space-y-6">
+        <CheckCircle2 className="h-20 w-20 text-gold mx-auto" />
+        <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+          Practice Complete
+        </h1>
+        
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-xl italic text-muted-foreground">
+              {practice.completionMessage}
+            </p>
+            
+            <div className="pt-4 border-t border-border text-sm text-muted-foreground space-y-2">
+              <p>Practice: {practice.title}</p>
+              <p>Duration: {Math.floor(practice.totalDuration / 60)} minutes</p>
+              <p>Steps completed: {practice.steps.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-4 justify-center flex-wrap">
+          <Button onClick={() => {
+            setView("practice");
+            setCurrentStep(0);
+            setStepTimeLeft(practice.steps[0].duration);
+          }}>
+            Practice Again
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/guided-practices")}>
+            Explore More
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/executive-home")}>
+            Return Home
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GuidedPracticePlayer;

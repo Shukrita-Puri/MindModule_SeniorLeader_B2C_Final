@@ -23,6 +23,8 @@ import RecalibrateMode from "./pages/RecalibrateMode";
 import SimulationInsights from "./pages/SimulationInsights";
 import Soundscapes from "./pages/Soundscapes";
 import SoundscapePlayer from "./pages/SoundscapePlayer";
+import GuidedPracticesLibrary from "./pages/GuidedPracticesLibrary";
+import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
 
 // ARCHIVED - V2 Features (moved to src/pages/_archived/)
 // import FlowStateLab from "./pages/FlowStateLab";
@@ -193,6 +195,14 @@ const router = createBrowserRouter([
       {
         path: "soundscapes/:id",
         element: <SoundscapePlayer />,
+      },
+      {
+        path: "guided-practices",
+        element: <GuidedPracticesLibrary />,
+      },
+      {
+        path: "guided-practices/:id",
+        element: <GuidedPracticePlayer />,
       },
       {
         path: "onboarding",

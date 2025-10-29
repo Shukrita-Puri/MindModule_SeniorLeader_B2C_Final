@@ -38,30 +38,44 @@ const RecalibrateMode = () => {
       id: "power-up", 
       title: "Power Up",
       description: "Energy boost before big moments or during low energy moments",
-      illustration: vibrantVoiceOrb
+      illustration: vibrantVoiceOrb,
+      path: "/recalibrate/power-up"
     },
     {
       id: "pause",
       title: "Pause",
       description: "Breathing exercises and calming sounds for reset and restoration",
-      illustration: vibrantPracticeIllustration
+      illustration: vibrantPracticeIllustration,
+      path: "/recalibrate/pause"
     },
     {
       id: "presence",
       title: "Presence",
       description: "Deep focus sessions and soundscapes for peak performance",
-      illustration: vibrantMentorIllustration
+      illustration: vibrantMentorIllustration,
+      path: "/recalibrate/presence"
+    },
+    {
+      id: "soundscapes",
+      title: "Soundscapes",
+      description: "Curated sonic experiences from ancient wisdom and modern science",
+      illustration: vibrantBreathworkHero,
+      path: "/soundscapes"
+    },
+    {
+      id: "guided-practices",
+      title: "Guided Practices",
+      description: "Step-by-step journeys combining ancient wisdom and high-performer protocols",
+      illustration: vibrantExecutiveOrb,
+      path: "/guided-practices"
     }
   ];
 
   const handleToolSelect = (toolId: string) => {
-    // Navigate to the appropriate route for each tool
-    if (toolId === "power-up") {
-      navigate('/recalibrate/power-up');
-    } else if (toolId === "pause") {
-      navigate('/recalibrate/pause');
-    } else if (toolId === "presence") {
-      navigate('/recalibrate/presence');
+    // Get the tool path
+    const tool = tools.find(t => t.id === toolId);
+    if (tool?.path) {
+      navigate(tool.path);
     }
   };
 
@@ -466,7 +480,12 @@ const RecalibrateMode = () => {
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
-              onClick={() => navigate(`/recalibrate/${tool.id}`)}
+              onClick={() => {
+                const toolPath = tools.find(t => t.id === tool.id)?.path;
+                if (toolPath) {
+                  navigate(toolPath);
+                }
+              }}
               className="group cursor-pointer border-b border-gold/20 pb-12 last:border-b-0 animate-fade-in hover:bg-primary/5 transition-all"
               style={{ animationDelay: `${index * 150}ms` }}
             >
