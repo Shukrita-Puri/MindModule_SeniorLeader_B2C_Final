@@ -21,6 +21,8 @@ import Simulation from "./pages/Simulation";
 import Breathwork from "./pages/Breathwork";
 import RecalibrateMode from "./pages/RecalibrateMode";
 import SimulationInsights from "./pages/SimulationInsights";
+import Soundscapes from "./pages/Soundscapes";
+import SoundscapePlayer from "./pages/SoundscapePlayer";
 
 // ARCHIVED - V2 Features (moved to src/pages/_archived/)
 // import FlowStateLab from "./pages/FlowStateLab";
@@ -183,6 +185,14 @@ const router = createBrowserRouter([
       {
         path: "memory-archive",
         element: <MemoryArchive />,
+      },
+      {
+        path: "soundscapes",
+        element: <Soundscapes />,
+      },
+      {
+        path: "soundscapes/:id",
+        element: <SoundscapePlayer />,
       },
       {
         path: "onboarding",
