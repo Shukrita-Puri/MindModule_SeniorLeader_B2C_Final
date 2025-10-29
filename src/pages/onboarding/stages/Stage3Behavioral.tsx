@@ -47,9 +47,11 @@ export default function Stage3Behavioral() {
   };
 
   const handleContinue = () => {
-    const responseKey = `q${currentQuestion}_${
-      currentQuestion === 1 ? "setback" : currentQuestion === 2 ? "pressure" : "communication"
-    }_response`;
+    const responseKey = currentQuestion === 1 
+      ? "q1_setback_response" 
+      : currentQuestion === 2 
+      ? "q2_pressure_response" 
+      : "q3_communication_style";
     const responseValue = currentQuestion === 1 ? q1 : currentQuestion === 2 ? q2 : q3;
 
     saveResponse(responseKey, responseValue);
