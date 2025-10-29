@@ -1,15 +1,12 @@
 interface ProgressIndicatorProps {
-  currentStage: number;
-  totalStages: number;
+  percentage: number;
   estimatedTimeRemaining: number;
 }
 
 export const ProgressIndicator = ({
-  currentStage,
-  totalStages,
+  percentage,
   estimatedTimeRemaining,
 }: ProgressIndicatorProps) => {
-  const percentage = Math.round((currentStage / totalStages) * 100);
 
   return (
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3">

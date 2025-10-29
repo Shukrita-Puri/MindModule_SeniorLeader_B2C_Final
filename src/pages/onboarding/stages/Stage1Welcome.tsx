@@ -28,7 +28,7 @@ export default function Stage1Welcome() {
         </p>
         
         <p className="text-base text-foreground/90 leading-relaxed font-medium">
-          Answer a few questions (7 minutes). You'll discover:
+          Answer a few questions (~5 minutes). You'll discover:
         </p>
 
         <ul className="space-y-3">

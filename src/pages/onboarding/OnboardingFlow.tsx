@@ -14,7 +14,19 @@ const STAGE_ROUTES = [
   "/onboarding/context-connection",
 ];
 
-const TIME_ESTIMATES = [0.5, 1, 2.5, 0.5, 1, 1, 2, 2];
+// Only tracking time for questionnaire stages (1-4)
+const TIME_ESTIMATES = [0.5, 0.75, 2.5, 0.5];
+
+// Weighted progress calculation for questionnaire stages
+const calculateWeightedProgress = (stageIndex: number): number => {
+  const weights = {
+    0: 10,   // Welcome - 10%
+    1: 30,   // Identity - 30%
+    2: 80,   // Behavioral (heaviest) - 80%
+    3: 100,  // Self-Assessment - 100%
+  };
+  return weights[stageIndex as keyof typeof weights] || 0;
+};
 
 export default function OnboardingFlow() {
   const navigate = useNavigate();
@@ -38,23 +50,26 @@ export default function OnboardingFlow() {
   );
   const currentStage = currentStageIndex >= 0 ? currentStageIndex + 1 : 1;
 
-  const estimatedTimeRemaining = TIME_ESTIMATES.slice(currentStageIndex).reduce(
-    (sum, time) => sum + time,
-    0
-  );
+  // Calculate weighted progress percentage for questionnaire stages
+  const percentage = calculateWeightedProgress(currentStageIndex);
+
+  // Calculate time remaining only for questionnaire stages
+  const estimatedTimeRemaining = currentStageIndex <= 3 
+    ? TIME_ESTIMATES.slice(currentStageIndex).reduce((sum, time) => sum + time, 0)
+    : 0;
 
   useEffect(() => {
     updateSession({ currentStage });
   }, [currentStage]);
 
-  const hideProgress = [5, 6, 7, 8].includes(currentStage) || location.pathname.includes('/signup');
+  // Hide progress bar after questionnaire stages (index > 3)
+  const hideProgress = currentStageIndex > 3 || location.pathname.includes('/signup');
 
   return (
     <div className="min-h-screen bg-background">
       {!hideProgress && (
         <ProgressIndicator
-          currentStage={currentStage}
-          totalStages={8}
+          percentage={percentage}
           estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
         />
       )}
