@@ -15,16 +15,13 @@ export default function Stage5Results() {
       const responses = getAllResponses();
       const behavioralAnswers = {
         q1_setback_response: responses.q1_setback_response,
-        q2_performance_gap: responses.q2_performance_gap,
-        q3_pressure_response: responses.q3_pressure_response,
-        q4_communication_style: responses.q4_communication_style,
-        q5_consistency_pattern: responses.q5_consistency_pattern,
-        q6_emotional_awareness: responses.q6_emotional_awareness || [],
+        q2_pressure_response: responses.q2_pressure_response,
+        q3_communication_style: responses.q3_communication_style,
       };
 
       const scoringResult = calculateMetaSkillScores(behavioralAnswers);
       const alignment = determineAlignment(
-        responses.q7_self_assessed_strength,
+        responses.q4_self_assessed_strength,
         scoringResult.scores
       );
 
@@ -63,9 +60,9 @@ export default function Stage5Results() {
         <h3 className="font-semibold mb-4">Your Scores</h3>
         <div className="space-y-4">
           {[
-            { key: 'ALA', label: 'Adaptability & Learning Agility', score: scores.ALA },
-            { key: 'CSI', label: 'Communication & Social Intelligence', score: scores.CSI },
-            { key: 'SRR', label: 'Self-Regulation & Resilience', score: scores.SRR },
+            { key: 'adaptability_learning', label: 'Adaptability & Learning Agility', score: scores.adaptability_learning },
+            { key: 'communication_social', label: 'Communication & Social Intelligence', score: scores.communication_social },
+            { key: 'self_regulation', label: 'Self-Regulation & Resilience', score: scores.self_regulation },
           ].map(skill => (
             <div key={skill.key}>
               <div className="flex justify-between mb-1">
