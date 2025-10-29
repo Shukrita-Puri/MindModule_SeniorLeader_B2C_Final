@@ -26,9 +26,9 @@ const SocialIntelligenceLab = () => {
         {/* Hero Title - No box, pure text shadow luxury */}
         <div className="absolute inset-0 flex items-center justify-center">
           <h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold text-gold text-center px-6"
+            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold text-center px-6 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
             style={{ 
-              textShadow: '0 4px 20px rgba(0, 0, 0, 0.6), 0 8px 40px rgba(0, 0, 0, 0.4), 0 2px 12px rgba(200, 179, 119, 0.5)' 
+              filter: 'drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6)) drop-shadow(0 8px 40px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 12px rgba(139, 105, 20, 0.5))' 
             }}
           >
             Dialogue Room
