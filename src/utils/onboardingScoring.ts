@@ -1,18 +1,15 @@
-// Scoring algorithm based on Meta Skill assessment
+// Streamlined scoring for 3 behavioral questions
 
 export interface BehavioralAnswers {
   q1_setback_response: string;
-  q2_performance_gap: string;
-  q3_pressure_response: string;
-  q4_communication_style: string;
-  q5_consistency_pattern: string;
-  q6_emotional_awareness: string[];
+  q2_pressure_response: string;
+  q3_communication_style: string;
 }
 
 export interface MetaSkillScores {
-  ALA: number; // Adaptability & Learning Agility
-  CSI: number; // Communication & Social Intelligence
-  SRR: number; // Self-Regulation & Resilience
+  adaptability_learning: number;
+  communication_social: number;
+  self_regulation: number;
 }
 
 export interface ScoringResult {
@@ -21,101 +18,68 @@ export interface ScoringResult {
   profileDescription: string;
 }
 
-// Scoring matrices
+// Scoring matrices for 3 questions (max 3 points per skill per question)
 const Q1_SCORES = {
-  analyzed: { ALA: 3, CSI: 1, SRR: 2 },
-  discouraged: { ALA: 1, CSI: 0, SRR: 3 },
-  questioned: { ALA: 0, CSI: 0, SRR: 0 },
-  threw_back: { ALA: 1, CSI: 0, SRR: 1 },
+  analyzed_adjusted: { ALA: 3, SRR: 2, CSI: 1 },
+  took_break: { SRR: 3, ALA: 1, CSI: 0 },
+  pushed_through: { SRR: 1, ALA: 1, CSI: 0 },
+  questioned_path: { ALA: 0, CSI: 0, SRR: 0 },
 };
 
 const Q2_SCORES = {
-  naturally_talented: { ALA: 0, CSI: 0, SRR: 0 },
-  learn_differently: { ALA: 3, CSI: 3, SRR: 2 },
-  work_harder: { ALA: 1, CSI: 0, SRR: 1 },
-  built_for_it: { ALA: 0, CSI: 0, SRR: 0 },
+  pause_collect: { SRR: 3, CSI: 2, ALA: 1 },
+  stay_calm: { SRR: 3, CSI: 1, ALA: 1 },
+  defend_explain: { CSI: 1, SRR: 0, ALA: 0 },
+  flustered: { ALA: 0, CSI: 0, SRR: 0 },
 };
 
 const Q3_SCORES = {
-  pause: { ALA: 2, CSI: 2, SRR: 3 },
-  defend: { ALA: 0, CSI: 0, SRR: 0 },
-  flustered: { ALA: 0, CSI: 0, SRR: 0 },
-  calm: { ALA: 1, CSI: 1, SRR: 3 },
-};
-
-const Q4_SCORES = {
-  logic_steps: { ALA: 0, CSI: 0, SRR: 0 },
-  ask_questions: { ALA: 2, CSI: 3, SRR: 1 },
-  story_analogy: { ALA: 2, CSI: 3, SRR: 1 },
+  ask_questions: { CSI: 3, ALA: 2, SRR: 1 },
+  find_analogy: { CSI: 3, ALA: 2, SRR: 1 },
+  walk_through_logic: { CSI: 1, ALA: 0, SRR: 0 },
   frustrated: { ALA: 0, CSI: 0, SRR: 0 },
 };
 
-const Q5_SCORES = {
-  focused_goals: { ALA: 1, CSI: 0, SRR: 2 },
-  shifted_learned: { ALA: 3, CSI: 1, SRR: 1 },
-  several_paths: { ALA: 3, CSI: 2, SRR: 0 },
-  core_experiment: { ALA: 2, CSI: 1, SRR: 2 },
-};
-
-const Q6_SCORES = {
-  own_emotions: { ALA: 1, CSI: 0, SRR: 2 },
-  own_why: { ALA: 1, CSI: 1, SRR: 3 },
-  others_emotions: { ALA: 2, CSI: 3, SRR: 2 },
-  social_undercurrents: { ALA: 2, CSI: 3, SRR: 3 },
-  content_focus: { ALA: 0, CSI: 0, SRR: 0 },
-};
-
-const MAX_POSSIBLE_SCORE = 18; // 6 questions × 3 max points
-
-export function calculateMetaSkillScores(answers: BehavioralAnswers): ScoringResult {
-  let rawScores: MetaSkillScores = { ALA: 0, CSI: 0, SRR: 0 };
+export function calculateMetaSkillScores(
+  answers: BehavioralAnswers
+): ScoringResult {
+  // Initialize raw scores
+  let rawALA = 0;
+  let rawCSI = 0;
+  let rawSRR = 0;
 
   // Q1: Setback Response
-  const q1Scores = Q1_SCORES[answers.q1_setback_response as keyof typeof Q1_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-  rawScores.ALA += q1Scores.ALA;
-  rawScores.CSI += q1Scores.CSI;
-  rawScores.SRR += q1Scores.SRR;
+  const q1Key = answers.q1_setback_response as keyof typeof Q1_SCORES;
+  if (Q1_SCORES[q1Key]) {
+    rawALA += Q1_SCORES[q1Key].ALA;
+    rawCSI += Q1_SCORES[q1Key].CSI;
+    rawSRR += Q1_SCORES[q1Key].SRR;
+  }
 
-  // Q2: Performance Gap
-  const q2Scores = Q2_SCORES[answers.q2_performance_gap as keyof typeof Q2_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-  rawScores.ALA += q2Scores.ALA;
-  rawScores.CSI += q2Scores.CSI;
-  rawScores.SRR += q2Scores.SRR;
+  // Q2: Pressure Response
+  const q2Key = answers.q2_pressure_response as keyof typeof Q2_SCORES;
+  if (Q2_SCORES[q2Key]) {
+    rawALA += Q2_SCORES[q2Key].ALA;
+    rawCSI += Q2_SCORES[q2Key].CSI;
+    rawSRR += Q2_SCORES[q2Key].SRR;
+  }
 
-  // Q3: Pressure Response
-  const q3Scores = Q3_SCORES[answers.q3_pressure_response as keyof typeof Q3_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-  rawScores.ALA += q3Scores.ALA;
-  rawScores.CSI += q3Scores.CSI;
-  rawScores.SRR += q3Scores.SRR;
+  // Q3: Communication Style
+  const q3Key = answers.q3_communication_style as keyof typeof Q3_SCORES;
+  if (Q3_SCORES[q3Key]) {
+    rawALA += Q3_SCORES[q3Key].ALA;
+    rawCSI += Q3_SCORES[q3Key].CSI;
+    rawSRR += Q3_SCORES[q3Key].SRR;
+  }
 
-  // Q4: Communication Style
-  const q4Scores = Q4_SCORES[answers.q4_communication_style as keyof typeof Q4_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-  rawScores.ALA += q4Scores.ALA;
-  rawScores.CSI += q4Scores.CSI;
-  rawScores.SRR += q4Scores.SRR;
-
-  // Q5: Consistency Pattern
-  const q5Scores = Q5_SCORES[answers.q5_consistency_pattern as keyof typeof Q5_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-  rawScores.ALA += q5Scores.ALA;
-  rawScores.CSI += q5Scores.CSI;
-  rawScores.SRR += q5Scores.SRR;
-
-  // Q6: Emotional Awareness (multi-select - sum all selected)
-  answers.q6_emotional_awareness.forEach(selection => {
-    const q6Scores = Q6_SCORES[selection as keyof typeof Q6_SCORES] || { ALA: 0, CSI: 0, SRR: 0 };
-    rawScores.ALA += q6Scores.ALA;
-    rawScores.CSI += q6Scores.CSI;
-    rawScores.SRR += q6Scores.SRR;
-  });
-
-  // Normalize to 0-10 scale (rounded to 1 decimal)
+  // Normalize to 0-10 scale (max raw score is 9 per skill)
   const normalizedScores: MetaSkillScores = {
-    ALA: Math.round((rawScores.ALA / MAX_POSSIBLE_SCORE) * 10 * 10) / 10,
-    CSI: Math.round((rawScores.CSI / MAX_POSSIBLE_SCORE) * 10 * 10) / 10,
-    SRR: Math.round((rawScores.SRR / MAX_POSSIBLE_SCORE) * 10 * 10) / 10,
+    adaptability_learning: Math.round((rawALA / 9) * 100) / 10,
+    communication_social: Math.round((rawCSI / 9) * 100) / 10,
+    self_regulation: Math.round((rawSRR / 9) * 100) / 10,
   };
 
-  // Generate profile
+  // Generate profile based on scores
   const { profileType, profileDescription } = generateProfile(normalizedScores);
 
   return {
@@ -125,51 +89,65 @@ export function calculateMetaSkillScores(answers: BehavioralAnswers): ScoringRes
   };
 }
 
-function generateProfile(scores: MetaSkillScores): { profileType: string; profileDescription: string } {
-  // Sort scores to find top 2
-  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const topSkill = sorted[0][0];
-  const secondSkill = sorted[1][0];
+function generateProfile(scores: MetaSkillScores): {
+  profileType: string;
+  profileDescription: string;
+} {
+  const sortedSkills = [
+    { name: "ALA", score: scores.adaptability_learning },
+    { name: "CSI", score: scores.communication_social },
+    { name: "SRR", score: scores.self_regulation },
+  ].sort((a, b) => b.score - a.score);
 
-  // Check if all scores are within 0.5 points (balanced)
-  const scoreDiff = Math.max(...Object.values(scores)) - Math.min(...Object.values(scores));
-  if (scoreDiff <= 0.5) {
+  const highest = sortedSkills[0];
+  const secondHighest = sortedSkills[1];
+
+  // If top two are within 0.5 points, consider it balanced
+  if (Math.abs(highest.score - secondHighest.score) < 0.5) {
     return {
-      profileType: 'Balanced Developer',
-      profileDescription: 'You show consistent capability across all three Meta Skills—Adaptability, Communication, and Self-Regulation. This balanced foundation allows you to flex between different challenges without a dominant pattern limiting you. Your development path focuses on situational mastery: knowing which skill to deploy when.',
+      profileType: "Balanced Developer",
+      profileDescription:
+        "You show balanced capability across all three Meta Skills. This versatility is valuable—you can adapt your approach based on what each situation demands. Your development path will focus on deepening your strongest area while maintaining this balance.",
     };
   }
 
-  // Profile combinations based on top 2 skills
+  // Generate profile based on top two skills
+  const combo = `${highest.name}-${secondHighest.name}`;
+
   const profiles: Record<string, { type: string; description: string }> = {
-    'ALA-CSI': {
-      type: 'Adaptive Communicator',
-      description: 'You naturally pivot well under changing conditions and read social dynamics effectively. You learn fast and adjust your communication style to different audiences. Your development edge is in stress regulation—building the capacity to stay centered when pressure spikes or emotions run high.',
+    "ALA-CSI": {
+      type: "Adaptive Communicator",
+      description:
+        "You excel at reading situations and adjusting your communication approach. You're likely strongest when navigating change while keeping people aligned. Your development path will focus on maintaining composure when both adaptation and influence are needed simultaneously.",
     },
-    'ALA-SRR': {
-      type: 'Adaptive Regulator',
-      description: 'You combine quick learning with strong emotional composure. When conditions shift, you adapt while staying grounded. Your development edge is in social influence—reading others\' perspectives deeply and adjusting your communication to bridge different mental models.',
+    "ALA-SRR": {
+      type: "Adaptive Regulator",
+      description:
+        "You combine flexibility with composure—able to shift direction while staying centered. You're likely strongest when facing unexpected challenges that require both quick thinking and emotional steadiness. Your development path will focus on bringing others along as you adapt.",
     },
-    'CSI-ALA': {
-      type: 'Social Adapter',
-      description: 'You excel at reading people and adjusting your approach based on what you learn. You combine social intelligence with a learning mindset. Your development edge is in self-regulation—managing your own stress and energy when social dynamics become demanding.',
+    "CSI-ALA": {
+      type: "Social Adapter",
+      description:
+        "You lead with connection and reading the room, backed by mental flexibility. You're likely strongest in situations requiring influence through changing circumstances. Your development path will focus on maintaining your calm center when both relationship dynamics and plans are shifting.",
     },
-    'CSI-SRR': {
-      type: 'Empathic Regulator',
-      description: 'You read others well and manage your own emotional state effectively. You stay composed in difficult conversations and track what\'s happening beneath the surface. Your development edge is in adaptability—pivoting strategy when new information emerges or assumptions prove wrong.',
+    "CSI-SRR": {
+      type: "Empathic Regulator",
+      description:
+        "You combine social awareness with emotional steadiness—able to read others while staying composed yourself. You're likely strongest in high-stakes interpersonal situations. Your development path will focus on maintaining this balance when circumstances change rapidly.",
     },
-    'SRR-ALA': {
-      type: 'Centered Adapter',
-      description: 'You stay composed under pressure and learn quickly from experience. You regulate stress while remaining open to new approaches. Your development edge is in social intelligence—reading interpersonal dynamics and influencing others when perspectives differ.',
+    "SRR-ALA": {
+      type: "Centered Adapter",
+      description:
+        "You lead with composure and add mental agility when needed. You're likely strongest when facing pressure that requires both staying calm and thinking differently. Your development path will focus on reading social dynamics while maintaining this centered flexibility.",
     },
-    'SRR-CSI': {
-      type: 'Centered Communicator',
-      description: 'You manage your own state well and communicate effectively with others. You stay grounded in difficult conversations and read social cues accurately. Your development edge is in learning agility—pivoting strategy quickly when conditions change or new patterns emerge.',
+    "SRR-CSI": {
+      type: "Centered Communicator",
+      description:
+        "You combine emotional regulation with social intelligence—staying composed while reading others. You're likely strongest in tense interpersonal situations. Your development path will focus on maintaining this balance when rapid adaptation is also required.",
     },
   };
 
-  const profileKey = `${topSkill}-${secondSkill}`;
-  const profile = profiles[profileKey] || profiles['ALA-CSI'];
+  const profile = profiles[combo] || profiles["ALA-CSI"];
 
   return {
     profileType: profile.type,
@@ -181,56 +159,71 @@ export function determineAlignment(
   selfAssessedStrength: string,
   scores: MetaSkillScores
 ): {
-  status: 'MATCH' | 'UNDERESTIMATE' | 'OVERESTIMATE';
+  status: "MATCH" | "UNDERESTIMATE" | "OVERESTIMATE";
   message: string;
   actualHighest: string;
 } {
-  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const actualHighest = sorted[0][0];
-  const actualHighestScore = sorted[0][1];
+  // Map self-assessment to skill names
+  const skillMap: Record<string, keyof MetaSkillScores> = {
+    ALA: "adaptability_learning",
+    CSI: "communication_social",
+    SRR: "self_regulation",
+  };
 
-  if (selfAssessedStrength === 'none') {
+  const skillNameMap: Record<keyof MetaSkillScores, string> = {
+    adaptability_learning: "Adaptability & Learning Agility",
+    communication_social: "Communication & Social Intelligence",
+    self_regulation: "Self-Regulation & Resilience",
+  };
+
+  // Find actual highest score
+  const scoresArray = [
+    { skill: "adaptability_learning", score: scores.adaptability_learning },
+    { skill: "communication_social", score: scores.communication_social },
+    { skill: "self_regulation", score: scores.self_regulation },
+  ];
+
+  const highest = scoresArray.reduce((prev, current) =>
+    current.score > prev.score ? current : prev
+  );
+
+  const actualHighestSkill = highest.skill as keyof MetaSkillScores;
+  const actualHighestName = skillNameMap[actualHighestSkill];
+
+  // Handle "none" self-assessment
+  if (selfAssessedStrength === "none") {
     return {
-      status: 'UNDERESTIMATE',
-      actualHighest,
-      message: `You selected "none" as your current strength, but your behaviors show meaningful capability in ${getSkillDisplayName(actualHighest)} (${actualHighestScore}/10). This suggests you may be underestimating yourself—a common pattern in high achievers. This hidden strength becomes leverage for faster growth.`,
+      status: "UNDERESTIMATE",
+      message: `You're being modest! Your responses show clear strength in ${actualHighestName}. This self-awareness gap is common—Mind Module will help you recognize and leverage your natural capabilities.`,
+      actualHighest: actualHighestName,
     };
   }
 
-  const selfAssessedScore = scores[selfAssessedStrength as keyof MetaSkillScores] || 0;
-  const scoreDifference = actualHighestScore - selfAssessedScore;
+  const selfAssessedSkill = skillMap[selfAssessedStrength];
+  const selfAssessedScore = scores[selfAssessedSkill];
+  const actualHighestScore = highest.score;
 
-  // MATCH: within ±1.0 points
-  if (Math.abs(scoreDifference) <= 1.0) {
+  const difference = actualHighestScore - selfAssessedScore;
+
+  if (Math.abs(difference) <= 1.0) {
     return {
-      status: 'MATCH',
-      actualHighest,
-      message: `Your self-perception aligns with your behavioral patterns. You accurately identified ${getSkillDisplayName(selfAssessedStrength)} as a strength area, and your responses confirm this (${selfAssessedScore}/10). This self-awareness accelerates development—you know where you stand and can practice deliberately from here.`,
+      status: "MATCH",
+      message: `Your self-perception aligns with your behavioral patterns! ${actualHighestName} is indeed your strongest area. This accurate self-awareness is a valuable meta-skill itself.`,
+      actualHighest: actualHighestName,
     };
   }
 
-  // UNDERESTIMATE: actual is >1.5 points higher
-  if (scoreDifference > 1.5) {
+  if (difference > 1.5) {
     return {
-      status: 'UNDERESTIMATE',
-      actualHighest,
-      message: `Your behaviors show more capability in ${getSkillDisplayName(actualHighest)} (${actualHighestScore}/10) than you give yourself credit for. You self-assessed ${getSkillDisplayName(selfAssessedStrength)} as your strength (${selfAssessedScore}/10), but you're actually stronger in ${getSkillDisplayName(actualHighest)}. This is common in high achievers—you may be stronger than you realize. This hidden strength becomes leverage for faster growth.`,
+      status: "UNDERESTIMATE",
+      message: `Interesting insight: Your responses reveal ${actualHighestName} as your strongest area, but you identified ${skillNameMap[selfAssessedSkill]}. This hidden strength is worth exploring—Mind Module will help you recognize and leverage it more intentionally.`,
+      actualHighest: actualHighestName,
     };
   }
 
-  // OVERESTIMATE: self-assessed is >1.5 points higher
   return {
-    status: 'OVERESTIMATE',
-    actualHighest,
-    message: `You highly value ${getSkillDisplayName(selfAssessedStrength)}, and your behaviors show room to grow here (${selfAssessedScore}/10 vs. ${actualHighestScore}/10 in ${getSkillDisplayName(actualHighest)}). This awareness is powerful—it means you're ready to develop deliberately. Mind Module will help you close this gap through targeted practice.`,
+    status: "OVERESTIMATE",
+    message: `Valuable insight: While you identified ${skillNameMap[selfAssessedSkill]} as your strength, your responses show ${actualHighestName} is currently your strongest pattern. Mind Module will help you develop ${skillNameMap[selfAssessedSkill]} through targeted practice.`,
+    actualHighest: actualHighestName,
   };
-}
-
-function getSkillDisplayName(skill: string): string {
-  const names: Record<string, string> = {
-    ALA: 'Adaptability & Learning Agility',
-    CSI: 'Communication & Social Intelligence',
-    SRR: 'Self-Regulation & Resilience',
-  };
-  return names[skill] || skill;
 }

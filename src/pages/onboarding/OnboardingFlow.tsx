@@ -15,7 +15,7 @@ const STAGE_ROUTES = [
   "/onboarding/practice-setup",
 ];
 
-const TIME_ESTIMATES = [0.5, 2, 4, 1.5, 1, 1, 2, 2, 0.5];
+const TIME_ESTIMATES = [0.5, 1, 2.5, 0.5, 1, 1, 2, 2, 0.5];
 
 export default function OnboardingFlow() {
   const navigate = useNavigate();
