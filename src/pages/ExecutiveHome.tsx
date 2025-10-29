@@ -141,7 +141,7 @@ const ExecutiveHome = () => {
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
           <h1 
-            className="text-4xl md:text-5xl font-headline font-medium mb-4 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
+            className="text-5xl md:text-7xl lg:text-8xl font-headline font-medium mb-4 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
             style={{ filter: 'drop-shadow(0 2px 12px rgba(139, 105, 20, 0.4)) drop-shadow(0 4px 20px rgba(0, 0, 0, 0.2))' }}
           >
             Hey, Alex
