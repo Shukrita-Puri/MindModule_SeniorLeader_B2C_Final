@@ -23,7 +23,7 @@ const TopNavigation = ({ backPath }: TopNavigationProps) => {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-gold/20 shadow-sm">
-      <div className="flex items-center justify-between px-5 md:px-8 py-3">
+      <div className="flex items-center justify-between px-5 md:px-8 py-2">
         {/* Left: Back Arrow */}
         <Button
           variant="ghost"

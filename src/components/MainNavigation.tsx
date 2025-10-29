@@ -46,7 +46,7 @@ const MainNavigation = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-xl border-t border-gold/20 z-50 shadow-lg">
-      <div className="flex justify-around items-center py-6 px-4 max-w-md mx-auto">
+      <div className="flex justify-around items-center py-3 px-4 max-w-md mx-auto">
         {navItems.map((item, index) => (
           <button
             key={index}
