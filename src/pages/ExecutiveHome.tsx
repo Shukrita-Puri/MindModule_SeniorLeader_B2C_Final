@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap } from "lucide-react";
 import resetSessionIllustration from "@/assets/reset-session-illustration.png";
 import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
+import executiveHomeBanner from "@/assets/executive-home-banner.png";
 
 const ExecutiveHome = () => {
   const navigate = useNavigate();
@@ -125,14 +126,28 @@ const ExecutiveHome = () => {
       <TopNavigation backPath="/signup" />
       <SecurityWatermark />
       
-      {/* Minimal Header */}
-      <div className="px-8 py-20 text-center">
-        <h1 className="text-3xl font-headline font-medium text-foreground mb-4">
-          Hey, Alex
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          Ready to architect your mind for the day?
-        </p>
+      {/* Hero Banner with Watercolor */}
+      <div className="relative overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img 
+            src={executiveHomeBanner} 
+            alt=""
+            className="w-full h-full object-cover"
+          />
+          {/* Warm Tint Overlay */}
+          <div className="absolute inset-0 bg-[rgba(255,240,230,0.1)]" />
+        </div>
+        
+        {/* Content */}
+        <div className="relative px-8 py-20 text-center">
+          <h1 className="text-3xl font-headline font-medium text-foreground mb-4">
+            Hey, Alex
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Ready to architect your mind for the day?
+          </p>
+        </div>
       </div>
 
       <div className="px-4 max-w-lg mx-auto space-y-16">
