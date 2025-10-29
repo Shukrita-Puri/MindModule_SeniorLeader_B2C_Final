@@ -10,6 +10,7 @@ import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png";
+import recalibrateBanner from "@/assets/recalibrate-banner.png";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
@@ -586,12 +587,32 @@ const RecalibrateMode = () => {
     <div className="min-h-screen font-body flex flex-col">
       <TopNavigation backPath="/executive-home" />
       
-      {/* Header */}
-      <div className="border-b border-border/50 p-6 bg-background/80 backdrop-blur pt-20">
-        <div className="text-center">
-          <h1 className="text-xl font-headline font-medium text-foreground">
+      {/* Hero Banner with Watercolor */}
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
+        {/* Background Image */}
+        <img 
+          src={recalibrateBanner} 
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        
+        {/* Stronger Warm Overlay for text visibility */}
+        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
+        
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+          <h1 
+            className="text-4xl md:text-5xl font-headline font-medium text-foreground mb-4"
+            style={{ textShadow: '0 2px 12px rgba(255, 240, 230, 0.8), 0 4px 20px rgba(0, 0, 0, 0.2)' }}
+          >
             Inner Calibration
           </h1>
+          <p 
+            className="text-lg md:text-xl text-foreground/90"
+            style={{ textShadow: '0 2px 8px rgba(255, 240, 230, 0.8)' }}
+          >
+            Reset • Recalibrate • Rise
+          </p>
         </div>
       </div>
 
