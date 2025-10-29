@@ -27,59 +27,41 @@ const RecalibrateMode = () => {
   useEffect(() => {
     if (!isSessionPage) {
       const mode = searchParams.get('mode');
-      if (mode && ['power-up', 'emergency-reset', 'breathing', 'breathwork', 'pause'].includes(mode)) {
-        // Normalize breathing to breathwork for the route
-        const routePath = mode === 'breathing' ? 'breathwork' : mode;
-        navigate(`/recalibrate/${routePath}`);
+      if (mode && ['power-up', 'pause', 'presence'].includes(mode)) {
+        navigate(`/recalibrate/${mode}`);
       }
     }
   }, [searchParams, navigate, isSessionPage]);
 
   const tools = [
     {
-      id: "emergency-reset",
-      title: "Emergency Reset",
-      description: "3-minute grounding when everything feels overwhelming",
-      illustration: vibrantExecutiveOrb
-    },
-    {
       id: "power-up", 
       title: "Power Up",
-      description: "Energy Boost Before Big moments or during Low energy moments",
+      description: "Energy boost before big moments or during low energy moments",
       illustration: vibrantVoiceOrb
     },
     {
-      id: "breathing",
-      title: "Breathe & Center",
-      description: "Guided breathing for test anxiety and pressure",
-      illustration: vibrantBreathworkHero
-    },
-    {
       id: "pause",
-      title: "Quick Reset",
-      description: "Calming sounds for study breaks",
+      title: "Pause",
+      description: "Breathing exercises and calming sounds for reset and restoration",
       illustration: vibrantPracticeIllustration
     },
     {
-      id: "flow-state",
-      title: "Flow State",
-      description: "Deep focus sessions for peak performance",
+      id: "presence",
+      title: "Presence",
+      description: "Deep focus sessions and soundscapes for peak performance",
       illustration: vibrantMentorIllustration
     }
   ];
 
   const handleToolSelect = (toolId: string) => {
     // Navigate to the appropriate route for each tool
-    if (toolId === "emergency-reset") {
-      navigate('/recalibrate/emergency-reset');
-    } else if (toolId === "power-up") {
+    if (toolId === "power-up") {
       navigate('/recalibrate/power-up');
-    } else if (toolId === "breathing") {
-      navigate('/recalibrate/breathing');
     } else if (toolId === "pause") {
       navigate('/recalibrate/pause');
-    } else if (toolId === "flow-state") {
-      navigate('/recalibrate/flow-state');
+    } else if (toolId === "presence") {
+      navigate('/recalibrate/presence');
     }
   };
 
@@ -142,7 +124,7 @@ const RecalibrateMode = () => {
             visual: "⚡"
           }
         ];
-      case "breathing":
+      case "pause":
         return [
           {
             title: "Coherent Breathing",
@@ -197,10 +179,7 @@ const RecalibrateMode = () => {
             type: "Autonomic optimization",
             icon: Waves,
             visual: "〰️"
-          }
-        ];
-      case "pause":
-        return [
+          },
           {
             title: "Forest Bathing",
             subtitle: "Japanese Shinrin-yoku",
@@ -265,7 +244,7 @@ const RecalibrateMode = () => {
             visual: "🍃"
           }
         ];
-      case "flow-state":
+      case "presence":
         return [
           {
             title: "Deep Focus Session",
@@ -512,42 +491,6 @@ const RecalibrateMode = () => {
               </div>
             </article>
           ))}
-        </div>
-
-
-        {/* Crisis Resources */}
-        <div className="mt-16">
-          {/* Gold Divider */}
-          <div className="w-full h-px bg-gold/20 mb-12"></div>
-          
-          <div className="text-center mb-8">
-            <h3 className="text-lg font-headline font-medium text-foreground mb-4">
-              Need immediate support?
-            </h3>
-          </div>
-          
-          <div className="bg-card border border-gold/20 rounded-sm p-8 space-y-6 shadow-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground font-body">Crisis Line</span>
-              <a href="tel:988" className="text-xl font-headline font-medium text-primary hover:underline">
-                988
-              </a>
-            </div>
-            <div className="w-full h-px bg-gold/20"></div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground font-body">Crisis Text</span>
-              <span className="text-foreground font-body">
-                Text HOME to <span className="font-mono text-primary">741741</span>
-              </span>
-            </div>
-            <div className="w-full h-px bg-gold/20"></div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground font-body">Emergency</span>
-              <a href="tel:911" className="text-xl font-headline font-medium text-primary hover:underline">
-                911
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </>
