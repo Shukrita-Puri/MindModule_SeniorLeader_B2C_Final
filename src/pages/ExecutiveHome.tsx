@@ -127,24 +127,29 @@ const ExecutiveHome = () => {
       <SecurityWatermark />
       
       {/* Hero Banner with Watercolor */}
-      <div className="relative overflow-hidden">
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
         {/* Background Image */}
-        <div className="absolute inset-0">
-          <img 
-            src={executiveHomeBanner} 
-            alt=""
-            className="w-full h-full object-cover"
-          />
-          {/* Warm Tint Overlay */}
-          <div className="absolute inset-0 bg-[rgba(255,240,230,0.1)]" />
-        </div>
+        <img 
+          src={executiveHomeBanner} 
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        
+        {/* Stronger Warm Overlay for text visibility */}
+        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
         
         {/* Content */}
-        <div className="relative px-8 py-20 text-center">
-          <h1 className="text-3xl font-headline font-medium text-foreground mb-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+          <h1 
+            className="text-4xl md:text-5xl font-headline font-medium text-foreground mb-4"
+            style={{ textShadow: '0 2px 12px rgba(255, 240, 230, 0.8), 0 4px 20px rgba(0, 0, 0, 0.2)' }}
+          >
             Hey, Alex
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p 
+            className="text-lg md:text-xl text-foreground/90"
+            style={{ textShadow: '0 2px 8px rgba(255, 240, 230, 0.8)' }}
+          >
             Ready to architect your mind for the day?
           </p>
         </div>
