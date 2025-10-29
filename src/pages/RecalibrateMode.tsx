@@ -10,7 +10,7 @@ import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
 import vibrantBreathworkHero from "@/assets/vibrant-breathwork-hero.png";
 import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
 import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png";
-import recalibrateBanner from "@/assets/recalibrate-banner.png";
+import sanctuaryBanner from "@/assets/sanctuary-watercolor-banner.jpg";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
@@ -514,25 +514,29 @@ const RecalibrateMode = () => {
       <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden -mx-4 sm:mx-0">
         {/* Background Image */}
         <img 
-          src={recalibrateBanner} 
+          src={sanctuaryBanner} 
           alt=""
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         
-        {/* Stronger Warm Overlay for text visibility */}
-        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
+        {/* Stronger overlay for text visibility */}
+        <div className="absolute inset-0 bg-black/40" />
         
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
           <h1 
-            className="text-4xl md:text-5xl lg:text-6xl font-headline font-medium text-foreground mb-3"
-            style={{ textShadow: '0 2px 12px rgba(255, 240, 230, 0.8), 0 4px 20px rgba(0, 0, 0, 0.2)' }}
+            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold text-gold mb-4"
+            style={{ 
+              textShadow: '0 4px 20px rgba(0, 0, 0, 0.6), 0 8px 40px rgba(0, 0, 0, 0.4), 0 2px 12px rgba(200, 179, 119, 0.5)' 
+            }}
           >
             Sanctuary Studio
           </h1>
           <p 
-            className="text-base md:text-lg text-foreground/80 font-body"
-            style={{ textShadow: '0 2px 8px rgba(255, 240, 230, 0.8)' }}
+            className="text-lg md:text-xl text-gold/90 font-body"
+            style={{ 
+              textShadow: '0 4px 20px rgba(0, 0, 0, 0.6), 0 2px 12px rgba(200, 179, 119, 0.5)' 
+            }}
           >
             Your space to reset and restore
           </p>
