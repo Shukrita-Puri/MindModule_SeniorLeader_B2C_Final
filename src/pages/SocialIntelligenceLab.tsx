@@ -12,7 +12,7 @@ const SocialIntelligenceLab = () => {
       <TopNavigation backPath="/executive-home" />
       
       {/* Hero Section with Full-Width Image */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden mt-16">
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
         {/* Background Hero Image */}
         <img 
           src={dialogueHeroImage}
@@ -21,7 +21,7 @@ const SocialIntelligenceLab = () => {
         />
         
         {/* Translucent overlay for text visibility */}
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
         
         {/* Hero Title - No box, pure text shadow luxury */}
         <div className="absolute inset-0 flex items-center justify-center">

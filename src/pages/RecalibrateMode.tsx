@@ -511,7 +511,7 @@ const RecalibrateMode = () => {
       <TopNavigation backPath="/executive-home" />
       
       {/* Hero Banner with Watercolor */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden -mx-4 sm:mx-0">
+      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
         {/* Background Image */}
         <img 
           src={sanctuaryBanner} 
@@ -520,7 +520,7 @@ const RecalibrateMode = () => {
         />
         
         {/* Stronger overlay for text visibility */}
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-[rgba(245,225,210,0.30)]" />
         
         {/* Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
