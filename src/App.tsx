@@ -38,11 +38,12 @@ import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
 // import ClarityConversation from "./pages/clarity/ClarityConversation";
 // import ClarityJournal from "./pages/clarity/ClarityJournal";
 
-// Import recalibrate session pages
-import PowerUpSession from "./pages/recalibrate/PowerUpSession";
+// Import recalibrate outcome pages
+import PowerUpOutcomePage from "./pages/recalibrate/PowerUpOutcomePage";
+import PauseOutcomePage from "./pages/recalibrate/PauseOutcomePage";
+import PresenceOutcomePage from "./pages/recalibrate/PresenceOutcomePage";
 import EmergencyResetSession from "./pages/recalibrate/EmergencyResetSession";
 import BreathworkSession from "./pages/recalibrate/BreathworkSession";
-import QuickResetSession from "./pages/recalibrate/QuickResetSession";
 import FlowStateSession from "./pages/recalibrate/FlowStateSession";
 
 // Onboarding pages
@@ -152,7 +153,15 @@ const router = createBrowserRouter([
         children: [
           {
             path: "power-up",
-            element: <PowerUpSession />,
+            element: <PowerUpOutcomePage />,
+          },
+          {
+            path: "pause",
+            element: <PauseOutcomePage />,
+          },
+          {
+            path: "presence",
+            element: <PresenceOutcomePage />,
           },
           {
             path: "emergency-reset", 
@@ -165,10 +174,6 @@ const router = createBrowserRouter([
           {
             path: "breathing", // Alias for breathwork
             element: <BreathworkSession />,
-          },
-          {
-            path: "pause",
-            element: <QuickResetSession />,
           },
           {
             path: "flow-state",
