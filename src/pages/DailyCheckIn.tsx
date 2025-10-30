@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Waves, Target, Home } from "lucide-react";
+import { Zap, Waves, Target, Home, Sparkles } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { getAllResponses } from "@/utils/onboardingStorage";
 
-type Outcome = "pause" | "power-up" | "presence" | "calm";
+type Outcome = "pause" | "power-up" | "presence" | "calm" | "ready";
 
 interface CheckInData {
   outcome: Outcome;
@@ -51,6 +51,12 @@ const DailyCheckIn = () => {
       icon: Waves,
       title: "I'm anxious or tense",
       borderColor: "border-muted hover:border-muted"
+    },
+    {
+      value: "ready" as Outcome,
+      icon: Sparkles,
+      title: "I am motivated and ready",
+      borderColor: "border-primary hover:border-primary"
     }
   ];
 
@@ -84,6 +90,12 @@ const DailyCheckIn = () => {
         { label: "I can't stop worrying", value: "worry" },
         { label: "I feel physically tense", value: "restless" },
         { label: "I'm facing uncertainty", value: "uncertainty" }
+      ],
+      "ready": [
+        ...(hasCalendar ? [{ label: "I have important goals today", value: "goals_today" }] : []),
+        { label: "I want to maximize my day", value: "maximize_day" },
+        { label: "I'm building momentum", value: "building_momentum" },
+        { label: "I'm in a good flow", value: "good_flow" }
       ]
     };
     
@@ -124,7 +136,8 @@ const DailyCheckIn = () => {
       "pause": "/recalibrate/emergency-reset",
       "power-up": "/recalibrate/power-up",
       "presence": "/recalibrate/flow-state",
-      "calm": "/recalibrate/breathwork"
+      "calm": "/recalibrate/breathwork",
+      "ready": "/executive-home"
     };
     
     navigate(routeMap[selectedOutcome]);
