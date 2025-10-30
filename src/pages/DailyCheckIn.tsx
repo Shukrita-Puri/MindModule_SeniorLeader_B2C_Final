@@ -9,7 +9,7 @@ import { Zap, Waves, Target, Home } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { getAllResponses } from "@/utils/onboardingStorage";
 
-type Outcome = "pause" | "power-up" | "presence";
+type Outcome = "pause" | "power-up" | "presence" | "calm";
 
 interface CheckInData {
   outcome: Outcome;
@@ -29,22 +29,28 @@ const DailyCheckIn = () => {
 
   const outcomes = [
     {
-      value: "power-up" as Outcome,
-      icon: Zap,
-      title: "I need energy",
+      value: "pause" as Outcome,
+      icon: Waves,
+      title: "I'm stressed or overwhelmed",
       borderColor: "border-accent hover:border-accent"
     },
     {
-      value: "pause" as Outcome,
-      icon: Waves,
-      title: "I need calm",
+      value: "power-up" as Outcome,
+      icon: Zap,
+      title: "I'm drained or tired",
       borderColor: "border-primary hover:border-primary"
     },
     {
       value: "presence" as Outcome,
       icon: Target,
-      title: "I need focus",
+      title: "I'm scattered or unfocused",
       borderColor: "border-gold hover:border-gold"
+    },
+    {
+      value: "calm" as Outcome,
+      icon: Waves,
+      title: "I'm anxious or tense",
+      borderColor: "border-muted hover:border-muted"
     }
   ];
 
@@ -52,24 +58,32 @@ const DailyCheckIn = () => {
   const onboardingResponses = getAllResponses();
   
   const getContextOptions = (outcome: Outcome) => {
-    const pressureResponse = onboardingResponses.q2_pressure_response;
-    const setbackResponse = onboardingResponses.q1_setback_response;
+    const hasCalendar = onboardingResponses?.calendarAccess === true;
+    const hasWearables = onboardingResponses?.wearablesAccess === true;
     
     const contextMap: Record<Outcome, Array<{label: string; value: string}>> = {
       "pause": [
-        { label: "High-stakes decision ahead", value: "high_stakes_decision" },
-        { label: "Managing stress & energy", value: "managing_stress" },
-        { label: "Just need to reset", value: "quick_reset" }
+        ...(hasCalendar ? [{ label: "My calendar looks packed today", value: "calendar_heavy" }] : []),
+        { label: "I have something important coming up", value: "big_event" },
+        { label: "I have too much on my plate", value: "too_much" },
+        { label: "I'm feeling pressure to perform", value: "pressure" }
       ],
       "power-up": [
-        { label: "Low energy this morning", value: "low_energy_morning" },
-        { label: "Need sustainable energy", value: "sustainable_energy" },
-        { label: "Quick boost needed", value: "quick_boost" }
+        ...(hasWearables ? [{ label: "I didn't sleep well", value: "sleep_poor" }] : []),
+        { label: "I'm starting my day", value: "morning" },
+        { label: "I hit an energy dip", value: "afternoon_slump" },
+        { label: "I've been pushing too hard", value: "burnout" }
       ],
       "presence": [
-        { label: "Big task ahead", value: "big_task_ahead" },
-        { label: "Need deep concentration", value: "deep_concentration" },
-        { label: "Enter flow state", value: "flow_state" }
+        { label: "I have too many things pulling my attention", value: "distracted" },
+        { label: "I'm avoiding something I need to do", value: "procrastinating" },
+        { label: "I'm not sure where to start", value: "unclear" }
+      ],
+      "calm": [
+        ...(hasWearables ? [{ label: "My body feels on edge", value: "elevated_hr" }] : []),
+        { label: "I can't stop worrying", value: "worry" },
+        { label: "I feel physically tense", value: "restless" },
+        { label: "I'm facing uncertainty", value: "uncertainty" }
       ]
     };
     
@@ -107,9 +121,10 @@ const DailyCheckIn = () => {
     
     // Navigate to the outcome page
     const routeMap: Record<Outcome, string> = {
-      "pause": "/recalibrate/pause",
+      "pause": "/recalibrate/emergency-reset",
       "power-up": "/recalibrate/power-up",
-      "presence": "/recalibrate/presence"
+      "presence": "/recalibrate/flow-state",
+      "calm": "/recalibrate/breathwork"
     };
     
     navigate(routeMap[selectedOutcome]);
@@ -137,10 +152,10 @@ const DailyCheckIn = () => {
           {/* Header */}
           <div className="text-center">
             <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-              How are you showing up today?
+              How are you feeling right now?
             </h1>
             <p className="text-muted-foreground font-body">
-              Choose what you need right now
+              Be honest with yourself
             </p>
           </div>
 
@@ -204,10 +219,10 @@ const DailyCheckIn = () => {
             {SelectedIcon && <SelectedIcon className="w-10 h-10 text-foreground" />}
           </div>
           <h2 className="text-2xl font-heading font-bold text-foreground mb-2">
-            Quick context <span className="text-muted-foreground font-normal">(optional)</span>
+            Tell me more...
           </h2>
           <p className="text-sm text-muted-foreground font-body">
-            Is this related to...
+            What's going on for you?
           </p>
         </div>
 
