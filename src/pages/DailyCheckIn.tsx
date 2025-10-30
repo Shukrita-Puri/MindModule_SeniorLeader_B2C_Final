@@ -31,35 +31,20 @@ const DailyCheckIn = () => {
     {
       value: "power-up" as Outcome,
       icon: Zap,
-      emoji: "⚡",
       title: "I need energy",
-      subtitle: "Power Up",
-      description: "Activate & Energize",
-      gradient: "from-orange-500/10 to-red-500/10",
-      borderColor: "border-orange-500/30 hover:border-orange-500/60",
-      bgHover: "hover:bg-orange-500/5"
+      borderColor: "border-accent hover:border-accent"
     },
     {
       value: "pause" as Outcome,
       icon: Waves,
-      emoji: "🌊",
       title: "I need calm",
-      subtitle: "Pause",
-      description: "Reset & Restore",
-      gradient: "from-blue-500/10 to-indigo-500/10",
-      borderColor: "border-blue-500/30 hover:border-blue-500/60",
-      bgHover: "hover:bg-blue-500/5"
+      borderColor: "border-primary hover:border-primary"
     },
     {
       value: "presence" as Outcome,
       icon: Target,
-      emoji: "🎯",
       title: "I need focus",
-      subtitle: "Presence",
-      description: "Deep Focus & Flow",
-      gradient: "from-purple-500/10 to-pink-500/10",
-      borderColor: "border-purple-500/30 hover:border-purple-500/60",
-      bgHover: "hover:bg-purple-500/5"
+      borderColor: "border-gold hover:border-gold"
     }
   ];
 
@@ -161,36 +146,31 @@ const DailyCheckIn = () => {
           </div>
 
           {/* Outcome Cards */}
-          <div className="space-y-4">
-            {outcomes.map((outcome) => (
-              <TouchOptimized
-                key={outcome.value}
-                onTap={() => handleOutcomeSelect(outcome.value)}
-              >
-                <Card 
-                  className={`border-2 transition-all duration-300 cursor-pointer ${outcome.borderColor} ${outcome.bgHover} bg-gradient-to-br ${outcome.gradient}`}
+          <div className="space-y-3">
+            {outcomes.map((outcome) => {
+              const IconComponent = outcome.icon;
+              return (
+                <TouchOptimized
+                  key={outcome.value}
+                  onTap={() => handleOutcomeSelect(outcome.value)}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-card border-2 border-border flex items-center justify-center flex-shrink-0">
-                        <span className="text-3xl">{outcome.emoji}</span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-heading font-semibold text-foreground mb-1">
+                  <Card 
+                    className={`border-2 transition-all duration-300 cursor-pointer hover:bg-card/50 ${outcome.borderColor}`}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-background border border-border flex items-center justify-center flex-shrink-0">
+                          <IconComponent className="w-6 h-6 text-foreground" />
+                        </div>
+                        <h3 className="text-base font-body font-medium text-foreground">
                           {outcome.title}
                         </h3>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">
-                          {outcome.subtitle}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {outcome.description}
-                        </p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TouchOptimized>
-            ))}
+                    </CardContent>
+                  </Card>
+                </TouchOptimized>
+              );
+            })}
           </div>
 
           {/* Skip to Home */}
@@ -210,6 +190,7 @@ const DailyCheckIn = () => {
   // Render context selection
   const selectedOutcomeData = outcomes.find(o => o.value === selectedOutcome);
   const contextOptions = selectedOutcome ? getContextOptions(selectedOutcome) : [];
+  const SelectedIcon = selectedOutcomeData?.icon;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -219,8 +200,8 @@ const DailyCheckIn = () => {
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Header with selected outcome */}
         <div className="text-center">
-          <div className="w-20 h-20 rounded-full bg-card border-2 border-border flex items-center justify-center mx-auto mb-4">
-            <span className="text-4xl">{selectedOutcomeData?.emoji}</span>
+          <div className="w-20 h-20 rounded-full bg-background border-2 border-border flex items-center justify-center mx-auto mb-4">
+            {SelectedIcon && <SelectedIcon className="w-10 h-10 text-foreground" />}
           </div>
           <h2 className="text-2xl font-heading font-bold text-foreground mb-2">
             Quick context <span className="text-muted-foreground font-normal">(optional)</span>

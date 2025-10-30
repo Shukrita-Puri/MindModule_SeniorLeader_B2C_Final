@@ -5,7 +5,7 @@ import SecurityWatermark from "@/components/home/SecurityWatermark";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap } from "lucide-react";
+import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap, Waves } from "lucide-react";
 import resetSessionIllustration from "@/assets/reset-session-illustration.png";
 import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
@@ -233,9 +233,9 @@ const ExecutiveHome = () => {
           <div className="px-4 max-w-lg mx-auto -mt-8 mb-8 animate-fade-in">
             <div className="bg-card/90 backdrop-blur-sm border border-gold/20 rounded-lg p-3 flex items-center gap-3 shadow-lg">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/20 to-gold/10 flex items-center justify-center">
-                {checkInData.outcome === 'pause' && <span className="text-xl">🌊</span>}
-                {checkInData.outcome === 'power-up' && <span className="text-xl">⚡</span>}
-                {checkInData.outcome === 'presence' && <span className="text-xl">🎯</span>}
+                {checkInData.outcome === 'pause' && <Waves className="w-5 h-5 text-primary" />}
+                {checkInData.outcome === 'power-up' && <Zap className="w-5 h-5 text-accent" />}
+                {checkInData.outcome === 'presence' && <Target className="w-5 h-5 text-gold" />}
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
@@ -275,10 +275,10 @@ const ExecutiveHome = () => {
           
           <div className="relative flex items-center gap-4 mb-4 p-4 rounded-lg border border-border bg-card/80 backdrop-blur-sm">
             {/* Outcome Icon */}
-            <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
-              {checkInData.outcome === 'pause' && <span className="text-2xl">🌊</span>}
-              {checkInData.outcome === 'power-up' && <span className="text-2xl">⚡</span>}
-              {checkInData.outcome === 'presence' && <span className="text-2xl">🎯</span>}
+            <div className="w-12 h-12 rounded-full bg-background border border-border flex items-center justify-center flex-shrink-0">
+              {checkInData.outcome === 'pause' && <Waves className="w-6 h-6 text-primary" />}
+              {checkInData.outcome === 'power-up' && <Zap className="w-6 h-6 text-accent" />}
+              {checkInData.outcome === 'presence' && <Target className="w-6 h-6 text-gold" />}
               {!checkInData.outcome && <Heart className="w-6 h-6 text-accent" />}
             </div>
             
