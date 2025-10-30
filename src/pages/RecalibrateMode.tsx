@@ -50,30 +50,34 @@ const RecalibrateMode = () => {
   const renderToolSelection = () => (
     <>
       {/* Tools Selection */}
-      <div className="flex-1 px-8 max-w-2xl mx-auto pb-32 pt-16">
-        <div className="space-y-12">
+      <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-24">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
               onClick={() => handleToolSelect(tool.id)}
-              className="group cursor-pointer border-b border-gold/20 pb-12 last:border-b-0 animate-fade-in hover:bg-primary/5 transition-all"
-              style={{ animationDelay: `${index * 150}ms` }}
+              className="group cursor-pointer animate-fade-in"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="flex items-start gap-8">
-                <div className="w-20 h-20 rounded-sm bg-card border border-gold/20 overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+              <div className="bg-card border border-gold/10 rounded-lg overflow-hidden shadow-sm hover:shadow-xl hover:border-gold/30 transition-all duration-500">
+                {/* Image Container */}
+                <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-background to-muted">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
-                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
                   />
+                  {/* Subtle overlay gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
                 
-                <div className="flex-1 min-w-0 pt-2">
-                  <h3 className="text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors mb-3">
+                {/* Content */}
+                <div className="p-8 space-y-3">
+                  <h3 className="text-2xl font-headline font-medium text-foreground group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
                   
-                  <p className="text-base text-muted-foreground leading-relaxed font-body">
+                  <p className="text-sm text-muted-foreground leading-relaxed font-body">
                     {tool.description}
                   </p>
                 </div>
