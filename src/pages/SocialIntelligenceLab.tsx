@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import dialogueHeroImage from "@/assets/dialogue-room-hero.jpg";
@@ -8,27 +7,23 @@ const SocialIntelligenceLab = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background font-body flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <TopNavigation backPath="/executive-home" />
       
-      {/* Hero Section with Full-Width Image */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
-        {/* Background Hero Image */}
+      {/* Hero Section */}
+      <div className="relative w-full h-[50vh] md:h-[65vh] overflow-hidden">
         <img 
           src={dialogueHeroImage}
-          alt="Dialogue Room"
+          alt=""
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
+        <div className="absolute inset-0 bg-[rgba(255,240,230,0.25)]" />
         
-        {/* Translucent overlay for text visibility */}
-        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
-        
-        {/* Hero Title */}
         <div className="absolute inset-0 flex items-center justify-center">
           <h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold text-center px-6 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
+            className="text-6xl md:text-8xl lg:text-9xl font-editorial font-normal tracking-tight text-center px-8 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
             style={{ 
-              filter: 'drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6)) drop-shadow(0 8px 40px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 12px rgba(139, 105, 20, 0.5))' 
+              filter: 'drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6)) drop-shadow(0 8px 40px rgba(0, 0, 0, 0.4))' 
             }}
           >
             Dialogue Room
@@ -36,46 +31,50 @@ const SocialIntelligenceLab = () => {
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="flex-1 px-6 md:px-8 max-w-4xl mx-auto pb-32 pt-20">
-        <div className="bg-card border border-gold/10 rounded-lg shadow-sm hover:shadow-xl transition-all duration-500 p-10 md:p-14">
-          {/* Headline */}
-          <h2 className="text-center font-headline font-medium text-foreground text-2xl md:text-3xl mb-10 leading-tight">
-            Rehearse the conversations that define you.
+      {/* Editorial Content */}
+      <div className="flex-1 py-24 md:py-32">
+        <div className="max-w-3xl mx-auto px-8 md:px-12">
+          
+          {/* Deck / Subheading */}
+          <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-tight text-center mb-16 tracking-tight">
+            Rehearse the conversations<br className="hidden md:block" /> that define you.
           </h2>
 
-          {/* Body Copy */}
-          <div className="space-y-6 text-center mb-12 max-w-2xl mx-auto">
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed font-body">
+          {/* Editorial Divider */}
+          <div className="flex items-center justify-center mb-16">
+            <div className="w-12 h-px bg-gold/40"></div>
+          </div>
+
+          {/* Body Copy - Magazine Editorial Style */}
+          <div className="space-y-8 mb-20">
+            <p className="font-body text-base md:text-lg text-muted-foreground leading-relaxed text-center">
               Every word matters. Every tone resonates.
             </p>
 
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed font-body">
+            <p className="font-body text-base md:text-lg text-muted-foreground leading-relaxed text-center">
               Hone your influence with an AI counterpart, exquisitely attuned.
             </p>
 
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed font-body">
-              Where <span className="font-medium text-primary">Precision meets empathy. Confidence is cultivated.</span>
+            <p className="font-body text-base md:text-lg text-foreground leading-relaxed text-center">
+              Where precision meets empathy. <span className="italic">Confidence is cultivated.</span>
             </p>
 
-            <p className="text-base md:text-lg text-muted-foreground leading-relaxed font-body">
-              Enter a private chamber of preparation. Shape the conversation before it shapes you.
+            <p className="font-body text-base md:text-lg text-muted-foreground leading-relaxed text-center">
+              Enter a private chamber of preparation.<br className="hidden md:block" /> Shape the conversation before it shapes you.
             </p>
           </div>
 
-          {/* Subtle Divider */}
-          <div className="w-24 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mx-auto mb-10"></div>
-
-          {/* CTA Button */}
+          {/* Refined CTA */}
           <div className="flex justify-center">
-            <Button
+            <button
               onClick={() => navigate('/practice/configure')}
-              size="lg"
-              className="px-12 py-6 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+              className="group relative px-10 py-4 text-base md:text-lg font-body font-medium text-foreground border border-foreground/20 hover:border-foreground/40 transition-all duration-500 tracking-wide"
             >
-              Enter the Dialogue Room
-            </Button>
+              <span className="relative z-10">Enter the Dialogue Room</span>
+              <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/5 transition-all duration-500"></div>
+            </button>
           </div>
+
         </div>
       </div>
 
