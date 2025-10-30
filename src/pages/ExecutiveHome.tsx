@@ -5,7 +5,7 @@ import SecurityWatermark from "@/components/home/SecurityWatermark";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap, Waves } from "lucide-react";
+import { ArrowRight, Target, TrendingUp, Calendar, BookOpen, Heart, Zap, Waves, Sparkles } from "lucide-react";
 import resetSessionIllustration from "@/assets/reset-session-illustration.png";
 import inkFocusIllustration from "@/assets/ink-focus-illustration.png";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
@@ -233,18 +233,19 @@ const ExecutiveHome = () => {
           <div className="px-4 max-w-lg mx-auto -mt-8 mb-8 animate-fade-in">
             <div className="bg-card/90 backdrop-blur-sm border border-gold/20 rounded-lg p-3 flex items-center gap-3 shadow-lg">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/20 to-gold/10 flex items-center justify-center">
-                {checkInData.outcome === 'pause' && <Waves className="w-5 h-5 text-primary" />}
-                {checkInData.outcome === 'power-up' && <Zap className="w-5 h-5 text-accent" />}
-                {checkInData.outcome === 'presence' && <Target className="w-5 h-5 text-gold" />}
+                {(checkInData.displayOutcome === 'pause' || checkInData.displayOutcome === 'calm') && <Waves className="w-5 h-5 text-primary" />}
+                {checkInData.displayOutcome === 'power-up' && <Zap className="w-5 h-5 text-accent" />}
+                {(checkInData.displayOutcome === 'presence' || checkInData.displayOutcome === 'ready') && <Target className="w-5 h-5 text-gold" />}
+                {checkInData.displayOutcome === 'ready' && <Sparkles className="w-5 h-5 text-gold" />}
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Today's Focus
                 </p>
                 <p className="text-sm font-headline font-medium text-foreground">
-                  {checkInData.outcome === 'pause' && "Pause & Reset"}
-                  {checkInData.outcome === 'power-up' && "Power Up & Energize"}
-                  {checkInData.outcome === 'presence' && "Presence & Focus"}
+                  {(checkInData.displayOutcome === 'pause' || checkInData.displayOutcome === 'calm') && "Pause & Reset"}
+                  {checkInData.displayOutcome === 'power-up' && "Power Up & Energize"}
+                  {(checkInData.displayOutcome === 'presence' || checkInData.displayOutcome === 'ready') && "Presence & Focus"}
                 </p>
               </div>
               <Button 
@@ -261,9 +262,8 @@ const ExecutiveHome = () => {
 
         {/* Energy Check - Show Outcome */}
         <section 
-          className="group cursor-pointer animate-fade-in relative overflow-hidden" 
-          style={{ animationDelay: '200ms' }} 
-          onClick={() => navigate(getResetRoute())}
+          className="group animate-fade-in relative overflow-hidden" 
+          style={{ animationDelay: '200ms' }}
         >
           {/* Background gradient based on outcome */}
           <div className={`absolute inset-0 transition-opacity duration-500 ${
@@ -271,14 +271,15 @@ const ExecutiveHome = () => {
             checkInData.outcome === 'power-up' ? 'bg-gradient-to-br from-orange-500/10 to-red-500/10' :
             checkInData.outcome === 'presence' ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10' :
             'bg-card'
-          } opacity-40 group-hover:opacity-60 rounded-lg`} />
+          } opacity-40 rounded-lg`} />
           
           <div className="relative flex items-center gap-4 mb-4 p-4 rounded-lg border border-border bg-card/80 backdrop-blur-sm">
             {/* Outcome Icon */}
             <div className="w-12 h-12 rounded-full bg-background border border-border flex items-center justify-center flex-shrink-0">
-              {checkInData.outcome === 'pause' && <Waves className="w-6 h-6 text-primary" />}
-              {checkInData.outcome === 'power-up' && <Zap className="w-6 h-6 text-accent" />}
-              {checkInData.outcome === 'presence' && <Target className="w-6 h-6 text-gold" />}
+              {(checkInData.displayOutcome === 'pause' || checkInData.displayOutcome === 'calm') && <Waves className="w-6 h-6 text-primary" />}
+              {checkInData.displayOutcome === 'power-up' && <Zap className="w-6 h-6 text-accent" />}
+              {checkInData.displayOutcome === 'presence' && <Target className="w-6 h-6 text-gold" />}
+              {checkInData.displayOutcome === 'ready' && <Sparkles className="w-6 h-6 text-gold" />}
               {!checkInData.outcome && <Heart className="w-6 h-6 text-accent" />}
             </div>
             
