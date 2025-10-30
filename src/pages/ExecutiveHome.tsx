@@ -18,62 +18,112 @@ const ExecutiveHome = () => {
   const hasCheckIn = checkInData.timestamp && new Date(checkInData.timestamp).toDateString() === new Date().toDateString();
   
   const getEnergyInsight = () => {
-    if (!hasCheckIn) return "Ready to tackle your day with focus";
+    if (!hasCheckIn || checkInData.skipped) {
+      return "Ready to tackle your day with focus";
+    }
     
-    const { mood, energy, focus } = checkInData;
-    if (energy >= 7) return "You're feeling energized and ready";
-    if (energy >= 4) return "Your energy is building steadily";
-    return "Your energy could use a gentle boost";
+    const { outcome } = checkInData;
+    
+    const insightMap = {
+      "pause": "You're seeking calm and restoration today",
+      "power-up": "You're building energy and activation",
+      "presence": "You're entering deep focus and flow"
+    };
+    
+    return insightMap[outcome as keyof typeof insightMap] || "Ready to tackle your day with focus";
   };
   
   const getResetAction = () => {
-    if (!hasCheckIn) return "Take Daily Check-in";
-    const { mood, energy, focus } = checkInData;
-    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "Power Up";
-    if (energy >= 9 && mood === 'content' && focus === 'charged') return "Grounding Practice";
-    if (energy < 4 || focus === 'drained') return "60-sec Power Up";
-    if (focus === 'scattered') return "Inner Calibrate";
-    return "Flow State Session";
+    if (!hasCheckIn || checkInData.skipped) {
+      return "Take Daily Check-in";
+    }
+    
+    const { outcome, context } = checkInData;
+    
+    const actionMap: Record<string, Record<string, string>> = {
+      "pause": {
+        "high_stakes_decision": "8-min Box Breathing",
+        "managing_stress": "Stress Relief Practice",
+        "quick_reset": "Quick Pause Reset",
+        "default": "Pause Practice"
+      },
+      "power-up": {
+        "low_energy_morning": "Wim Hof Power-Up",
+        "sustainable_energy": "Energy Building Practice",
+        "quick_boost": "3-min Energy Boost",
+        "default": "Power-Up Practice"
+      },
+      "presence": {
+        "big_task_ahead": "Pre-Performance Flow",
+        "deep_concentration": "Focus Meditation",
+        "flow_state": "Flow State Session",
+        "default": "Presence Practice"
+      }
+    };
+    
+    const outcomeActions = actionMap[outcome] || actionMap["power-up"];
+    return outcomeActions[context] || outcomeActions["default"];
   };
 
   const getResetRoute = () => {
-    if (!hasCheckIn) return "/daily-check-in";
-    const { mood, energy, focus } = checkInData;
-    if (mood === 'tired' && energy <= 3 && focus === 'scattered') return "/recalibrate/power-up";
-    if (energy >= 9 && mood === 'content' && focus === 'charged') return "/breathwork";
-    if (energy < 4 || focus === 'drained') return "/recalibrate/power-up";
-    if (focus === 'scattered') return "/recalibrate/power-up";
-    return "/recalibrate/power-up"; // Default to power-up session
+    if (!hasCheckIn || checkInData.skipped) {
+      return "/daily-check-in";
+    }
+    
+    const { outcome } = checkInData;
+    
+    const routeMap: Record<string, string> = {
+      "pause": "/recalibrate/pause",
+      "power-up": "/recalibrate/power-up",
+      "presence": "/recalibrate/presence"
+    };
+    
+    return routeMap[outcome] || "/recalibrate";
   };
 
   // Enhanced intelligent priority generator with data triangulation
   const getIntelligentPriorities = () => {
     const journalEntries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
     const simulationHistory = JSON.parse(localStorage.getItem('simulationHistory') || '[]');
-    const navigationHistory = JSON.parse(localStorage.getItem('navigationHistory') || '[]');
     
-    // Analyze recent journal entries for emotional patterns
-    const recentEntries = journalEntries.slice(-5);
-    const stressKeywords = ['stressed', 'overwhelmed', 'pressure', 'anxious', 'worried', 'nervous'];
-    const confidenceKeywords = ['confident', 'ready', 'prepared', 'excited', 'motivated'];
-    const hasStressIndicators = recentEntries.some(entry => 
-      stressKeywords.some(keyword => entry.content?.toLowerCase().includes(keyword))
-    );
-    const hasConfidenceIndicators = recentEntries.some(entry => 
-      confidenceKeywords.some(keyword => entry.content?.toLowerCase().includes(keyword))
-    );
-    
-    // Analyze current energy and focus state
-    const { mood, energy = 5, focus = 'steady' } = checkInData;
-    const isLowEnergy = energy < 4;
-    const isHighStress = mood === 'tired' || focus === 'scattered' || hasStressIndicators;
-    const needsCalibration = isLowEnergy || isHighStress;
-    
-    // Mock realistic calendar and context data
-    const currentDate = new Date();
+    const { outcome, context } = checkInData;
     const priorities = [];
     
-    // Always include Oxford College Interview as first priority
+    // If user checked in as "power-up", add energy priority first
+    if (outcome === "power-up" && context === "low_energy_morning") {
+      priorities.push({
+        id: 0,
+        title: "Morning Energy Protocol",
+        timeHorizon: "Start now",
+        tagType: "wellbeing",
+        whyMatters: "You indicated low energy this morning. Research shows breathwork can increase alertness by 40% within 3 minutes.",
+        category: "Energy Management",
+        icon: Zap,
+        suggestion: "Build sustainable energy for your day",
+        actionLabel: "3-min Power-Up",
+        route: "/recalibrate/power-up",
+        urgency: "high"
+      });
+    }
+    
+    // If user checked in as "presence" with big task context
+    if (outcome === "presence" && context === "big_task_ahead") {
+      priorities.push({
+        id: 0,
+        title: "Pre-Task Flow State",
+        timeHorizon: "Before your task",
+        tagType: "performance",
+        whyMatters: "You have important work ahead. Studies show 8 minutes of focused breathing improves concentration by 35%.",
+        category: "Performance Optimization",
+        icon: Target,
+        suggestion: "Enter optimal state before diving in",
+        actionLabel: "Flow State Prep",
+        route: "/recalibrate/presence",
+        urgency: "high"
+      });
+    }
+    
+    // Always include Oxford College Interview
     priorities.push({
       id: 1,
       title: "Oxford College Interview",
@@ -82,13 +132,15 @@ const ExecutiveHome = () => {
       whyMatters: "Calendar shows interview in 4 days. Elevated HRV detected during Cambridge interview last week. Admissions counsellor emails show Oxford College in focus.",
       category: "Academic Performance",
       icon: BookOpen,
-      suggestion: "Scenario Simulate your practice with the assessor",
+      suggestion: outcome === "pause" 
+        ? "Take a gentle approach - manage pre-interview stress first"
+        : "Scenario Simulate your practice with the assessor",
       actionLabel: "Prepare with Social Intelligence",
       route: "/practice",
-      urgency: "high"
+      urgency: outcome === "pause" ? "medium" : "high"
     });
 
-    // Always include Advanced Physics Exam as second priority  
+    // Always include Advanced Physics Exam
     priorities.push({
       id: 2,
       title: "Advanced Physics Exam",
@@ -103,7 +155,7 @@ const ExecutiveHome = () => {
       urgency: "high"
     });
     
-    // Always include Busy Day Overwhelm Management as third priority
+    // Always include Busy Day Overwhelm Management
     priorities.push({
       id: 3,
       title: "Busy Day Overwhelm Management",
@@ -176,26 +228,87 @@ const ExecutiveHome = () => {
           </div>
         </section>
 
-        {/* Energy Check - Show Outcome */}
-        <section className="group cursor-pointer animate-fade-in" style={{ animationDelay: '200ms' }} onClick={() => navigate(getResetRoute())}>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
-              <img 
-                src={resetSessionIllustration} 
-                alt="Reset and recharge"
-                className="w-8 h-8 object-contain opacity-90"
-              />
+        {/* Check-in Badge */}
+        {hasCheckIn && !checkInData.skipped && (
+          <div className="px-4 max-w-lg mx-auto -mt-8 mb-8 animate-fade-in">
+            <div className="bg-card/90 backdrop-blur-sm border border-gold/20 rounded-lg p-3 flex items-center gap-3 shadow-lg">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/20 to-gold/10 flex items-center justify-center">
+                {checkInData.outcome === 'pause' && <span className="text-xl">🌊</span>}
+                {checkInData.outcome === 'power-up' && <span className="text-xl">⚡</span>}
+                {checkInData.outcome === 'presence' && <span className="text-xl">🎯</span>}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Today's Focus
+                </p>
+                <p className="text-sm font-headline font-medium text-foreground">
+                  {checkInData.outcome === 'pause' && "Pause & Reset"}
+                  {checkInData.outcome === 'power-up' && "Power Up & Energize"}
+                  {checkInData.outcome === 'presence' && "Presence & Focus"}
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate('/daily-check-in')}
+                className="text-xs text-primary hover:text-primary/80"
+              >
+                Update
+              </Button>
             </div>
+          </div>
+        )}
+
+        {/* Energy Check - Show Outcome */}
+        <section 
+          className="group cursor-pointer animate-fade-in relative overflow-hidden" 
+          style={{ animationDelay: '200ms' }} 
+          onClick={() => navigate(getResetRoute())}
+        >
+          {/* Background gradient based on outcome */}
+          <div className={`absolute inset-0 transition-opacity duration-500 ${
+            checkInData.outcome === 'pause' ? 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10' :
+            checkInData.outcome === 'power-up' ? 'bg-gradient-to-br from-orange-500/10 to-red-500/10' :
+            checkInData.outcome === 'presence' ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10' :
+            'bg-card'
+          } opacity-40 group-hover:opacity-60 rounded-lg`} />
+          
+          <div className="relative flex items-center gap-4 mb-4 p-4 rounded-lg border border-border bg-card/80 backdrop-blur-sm">
+            {/* Outcome Icon */}
+            <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0">
+              {checkInData.outcome === 'pause' && <span className="text-2xl">🌊</span>}
+              {checkInData.outcome === 'power-up' && <span className="text-2xl">⚡</span>}
+              {checkInData.outcome === 'presence' && <span className="text-2xl">🎯</span>}
+              {!checkInData.outcome && <Heart className="w-6 h-6 text-accent" />}
+            </div>
+            
             <div className="flex-1">
               <h2 className="text-lg font-headline font-medium text-foreground group-hover:text-primary transition-colors mb-2">
-                Energy Check
+                {hasCheckIn && !checkInData.skipped ? "Your Path Today" : "Set Your Intention"}
               </h2>
+              
+              {/* Personalized insight */}
               <p className="text-base text-foreground leading-relaxed font-body mb-3">
                 {getEnergyInsight()}
               </p>
+              
+              {/* Contextual sub-message if context was provided */}
+              {checkInData.context && (
+                <p className="text-xs text-muted-foreground italic mb-3">
+                  {checkInData.context === "high_stakes_decision" && "Navigating your important decision"}
+                  {checkInData.context === "managing_stress" && "Managing stress & energy"}
+                  {checkInData.context === "low_energy_morning" && "Building your morning momentum"}
+                  {checkInData.context === "big_task_ahead" && "Preparing for peak performance"}
+                  {checkInData.context === "deep_concentration" && "Entering deep focus"}
+                </p>
+              )}
+              
+              {/* Action button */}
               <Button 
                 variant="outline" 
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full text-sm py-2"
+                className={`border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full text-sm py-2 ${
+                  checkInData.outcome ? 'border-2' : ''
+                }`}
               >
                 {getResetAction()}
                 <ArrowRight size={14} className="ml-2" />
