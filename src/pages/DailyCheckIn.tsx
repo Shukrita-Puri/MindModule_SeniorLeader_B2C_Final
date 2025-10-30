@@ -3,9 +3,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import TopNavigation from "@/components/simulation/TopNavigation";
+import MainNavigation from "@/components/MainNavigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Waves, Target, Home } from "lucide-react";
-import SecurityWatermark from "@/components/home/SecurityWatermark";
 import TouchOptimized from "@/components/TouchOptimized";
 import { getAllResponses } from "@/utils/onboardingStorage";
 
@@ -130,9 +130,8 @@ const DailyCheckIn = () => {
   // Render outcome selection
   if (stage === "outcome") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 pb-32">
         <TopNavigation backPath="/executive-home" />
-        <SecurityWatermark />
         
         <div className="w-full max-w-md space-y-6 animate-fade-in">
           {/* Header */}
@@ -180,9 +179,11 @@ const DailyCheckIn = () => {
             className="w-full text-muted-foreground hover:text-foreground py-3"
           >
             <Home size={16} className="mr-2" />
-            I'm good, take me home
+            I am good, take me to my Mind Atelier
           </Button>
         </div>
+        
+        <MainNavigation />
       </div>
     );
   }
@@ -193,9 +194,8 @@ const DailyCheckIn = () => {
   const SelectedIcon = selectedOutcomeData?.icon;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 pb-32">
       <TopNavigation backPath="/daily-check-in" />
-      <SecurityWatermark />
       
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Header with selected outcome */}
@@ -242,6 +242,8 @@ const DailyCheckIn = () => {
           Skip this question →
         </Button>
       </div>
+      
+      <MainNavigation />
     </div>
   );
 };
