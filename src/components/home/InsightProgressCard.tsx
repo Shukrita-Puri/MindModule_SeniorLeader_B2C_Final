@@ -1,31 +1,32 @@
 import { useState } from 'react';
 import { TrendingUp, Flame, Target, ChevronDown, ChevronUp } from 'lucide-react';
-import { calculateMentalFitnessScore, getLatestQuickWin, detectUserPatterns } from '@/utils/intelligenceEngine';
+import { calculateMentalFitnessScore, getLatestQuickWin, detectUserPatterns, getWinVerbatim } from '@/utils/intelligenceEngine';
 
 const InsightProgressCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const quickWinOrInsight = getLatestQuickWin();
+  const winVerbatim = getLatestQuickWin();
   const mentalFitness = calculateMentalFitnessScore();
   const patterns = detectUserPatterns();
   
-  // Get streak and scenarios from localStorage
+  // Get streak and practices from localStorage (includes both Dialogue and Sanctuary)
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');
-  const scenariosCompleted = practiceHistory.filter((p: any) => p.type === 'dialogue').length;
+  const recalibrateHistory = JSON.parse(localStorage.getItem('recalibrateHistory') || '[]');
+  const allPractices = practiceHistory.length + recalibrateHistory.length;
   const streak = getUserStreak();
   
   return (
     <div className="bg-card border border-gold/20 rounded-lg shadow-md">
       {/* Collapsed View - Always Visible */}
       <div className="p-4">
-        {/* Quick Win or Latest Insight */}
-        {quickWinOrInsight && (
+        {/* Win Verbatim or Latest Insight */}
+        {winVerbatim && (
           <div className="mb-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
-              {quickWinOrInsight.type === 'quick-win' ? 'Quick Win Yesterday 👏' : 'Latest Insight'}
+              {winVerbatim.type === 'quick-win' ? 'Quick Win Yesterday 👏' : 'Latest Insight'}
             </p>
             <p className="text-sm font-body leading-relaxed text-foreground">
-              "{quickWinOrInsight.text}"
+              "{winVerbatim.text}"
             </p>
           </div>
         )}
@@ -44,13 +45,13 @@ const InsightProgressCard = () => {
             <p className="text-xs text-muted-foreground">Mental Fitness</p>
           </div>
           
-          {/* Scenarios Mastered */}
+          {/* Practices Completed */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Target size={16} className="text-primary" />
-              <span className="text-2xl font-bold text-foreground">{scenariosCompleted}</span>
+              <span className="text-2xl font-bold text-foreground">{allPractices}</span>
             </div>
-            <p className="text-xs text-muted-foreground">Scenarios</p>
+            <p className="text-xs text-muted-foreground">Practices</p>
           </div>
           
           {/* Practice Streak */}

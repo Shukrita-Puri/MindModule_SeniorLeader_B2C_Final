@@ -6,6 +6,7 @@ import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulatio
 import SessionFeedback from "@/components/SessionFeedback";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
 import ObservatoryModal from "@/components/ObservatoryModal";
+import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { Toaster } from "@/components/ui/toaster";
 
 
@@ -119,6 +120,7 @@ const Simulation = () => {
         ctaText="Synthesize"
       />
 
+      <PrivacyFooter />
       <MainNavigation />
       <Toaster />
     </div>

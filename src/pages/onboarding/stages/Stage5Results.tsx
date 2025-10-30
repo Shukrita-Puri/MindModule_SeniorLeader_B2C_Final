@@ -94,6 +94,20 @@ export default function Stage5Results() {
         <p className="text-muted-foreground">Here's what your patterns reveal</p>
       </div>
 
+      {/* Mental Fitness Score Preview */}
+      <div className="bg-gradient-to-br from-primary/10 to-gold/10 border border-gold/20 rounded-xl p-6">
+        <div className="text-center mb-4">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground mb-2">Your Starting Point</h3>
+          <div className="text-5xl font-bold text-gold mb-1">0/100</div>
+          <p className="text-xs text-muted-foreground">Mental Fitness Score</p>
+        </div>
+        <div className="border-t border-border pt-4 text-center">
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            Your score builds across <span className="font-semibold">Dialogue Room practices</span> (real scenarios) + <span className="font-semibold">Sanctuary sessions</span> (pause/power-up/presence). Track progress toward 100 as you master meta-skills.
+          </p>
+        </div>
+      </div>
+
       {/* Triangle Chart */}
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="h-[300px]">

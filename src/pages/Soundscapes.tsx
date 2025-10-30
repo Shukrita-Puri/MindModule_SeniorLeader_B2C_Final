@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Sparkles } from "lucide-react";
 import GlobalHeader from "@/components/GlobalHeader";
 import MainNavigation from "@/components/MainNavigation";
+import PrivacyFooter from "@/components/home/PrivacyFooter";
 
 interface Soundscape {
   id: string;
@@ -204,6 +205,7 @@ const Soundscapes = () => {
         </div>
       </div>
 
+      <PrivacyFooter />
       <MainNavigation />
     </div>
   );

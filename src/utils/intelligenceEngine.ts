@@ -39,20 +39,34 @@ export interface IntelligentPriority {
   ctaLabel: string;
 }
 
-// Calculate Mental Fitness Score
+// Get Win Verbatim (Yesterday's achievement)
+export function getWinVerbatim(): string | null {
+  const quickWins = JSON.parse(localStorage.getItem('quickWins') || '[]');
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const yesterdayWin = quickWins.find((win: QuickWin) => 
+    sameDay(new Date(win.date), yesterday)
+  );
+  
+  return yesterdayWin ? `Yesterday you achieved: ${yesterdayWin.win}` : null;
+}
+
+// Calculate Mental Fitness Score (includes both Dialogue and Sanctuary)
 export function calculateMentalFitnessScore(): MentalFitnessScore {
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');
   const recalibrateHistory = JSON.parse(localStorage.getItem('recalibrateHistory') || '[]');
   const quickWins = JSON.parse(localStorage.getItem('quickWins') || '[]');
   const previousScore = JSON.parse(localStorage.getItem('mentalFitnessScore') || '{}').currentScore || 0;
 
-  // Scenarios completed (40% weight) - max 100 scenarios
-  const scenariosCompleted = practiceHistory.filter((p: any) => p.type === 'dialogue').length;
-  const scenariosScore = Math.min(scenariosCompleted, 100);
+  // ALL practices completed (40% weight) - Dialogue + Sanctuary
+  const allPractices = practiceHistory.length + recalibrateHistory.length;
+  const practicesScore = Math.min(allPractices, 100);
 
   // Practice consistency (30% weight) - based on streak and frequency
   const streak = getUserStreak();
-  const practicesLast30Days = practiceHistory.filter((p: any) => 
+  const practicesLast30Days = [...practiceHistory, ...recalibrateHistory].filter((p: any) => 
     withinLast30Days(p.timestamp)
   ).length;
   const consistencyScore = Math.min((streak * 2) + (practicesLast30Days * 2), 100);
@@ -66,7 +80,7 @@ export function calculateMentalFitnessScore(): MentalFitnessScore {
 
   // Calculate weighted score
   const currentScore = Math.round(
-    (scenariosScore * 0.4) +
+    (practicesScore * 0.4) +
     (consistencyScore * 0.3) +
     (breakthroughsScore * 0.2) +
     (activeDaysScore * 0.1)
@@ -80,7 +94,7 @@ export function calculateMentalFitnessScore(): MentalFitnessScore {
     previousScore: currentScore,
     change,
     breakdown: {
-      scenariosCompleted,
+      scenariosCompleted: allPractices,
       practiceConsistency: consistencyScore,
       breakthroughs: quickWins.length,
       activeDays
@@ -185,57 +199,88 @@ export function detectUserPatterns(): Pattern[] {
   return patterns.slice(0, 3); // Max 3 patterns
 }
 
-// Generate intelligent priorities (max 2)
+// Generate intelligent priorities (max 2) with rich context
 export function generateIntelligentPriorities(): IntelligentPriority[] {
   const priorities: IntelligentPriority[] = [];
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');
   const patterns = detectUserPatterns();
   const metaSkills = getMetaSkillGrowth();
+  const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
   
   // Priority 1: Yesterday's Practice Follow-Up (if exists)
   const yesterday = practiceHistory.find((p: any) => wasYesterday(p.timestamp));
   
   if (yesterday && yesterday.insight) {
+    const missedOpportunity = yesterday.blindSpot || yesterday.insight;
     priorities.push({
       type: 'practice-followup',
       title: "Yesterday's Practice 💭",
       subtitle: `Scenario: ${yesterday.scenario || 'Difficult conversation'}`,
       icon: 'MessageSquare',
-      whyThisMatters: `You identified: ${yesterday.insight}. "${yesterday.userReflection || 'This would have gone badly without the pause practice'}"`,
+      whyThisMatters: `Yesterday you missed ${missedOpportunity}. Practice it today to perfect it. Your brain is primed to integrate this—make it your secret weapon.`,
       route: '/practice',
       ctaLabel: 'Practice Similar Scenario'
     });
   }
   
-  // Priority 2: Context-Based Recommendation
+  // Priority 2: Context-Based Recommendation (Calendar/Patterns/Memory)
   const calendarConnected = localStorage.getItem('calendarConnected') === 'true';
   
-  if (calendarConnected) {
+  if (calendarConnected && calendarEvents.length > 0) {
     const nextEvent = getUpcomingHighStakesEvent();
     if (nextEvent) {
       const lowestSkill = getLowestMetaSkill();
-      const bestTimePattern = patterns.find(p => p.text.includes('7am'));
+      const bestTimePattern = patterns.find(p => p.text.includes('am'));
+      const previousEventData = wearableData.lastBoardMeeting || {};
+      
+      let contextRich = `Tomorrow ${nextEvent.title} per your calendar. `;
+      
+      // Add wearable data context if available
+      if (previousEventData.highHRV) {
+        contextRich += `You showed high HRV during last ${nextEvent.type}—leverage that composure. `;
+      }
+      
+      // Add pattern context
+      if (bestTimePattern) {
+        contextRich += `${bestTimePattern.text}. `;
+      }
+      
+      // Add meta-skill focus
+      contextRich += `Your ${lowestSkill.displayName} is one you want to work on. Practice makes it your unfair advantage.`;
       
       priorities.push({
         type: 'calendar-event',
         title: nextEvent.title,
         timeHorizon: `${nextEvent.daysAway} days away`,
         icon: 'BookOpen',
-        whyThisMatters: `Your ${lowestSkill.displayName} is developing (${metaSkills[lowestSkill.key]?.current || 'N/A'} this week). ${bestTimePattern?.text || 'Practice builds this muscle'}. ${nextEvent.title} in ${nextEvent.daysAway} days—simulate pressure now.`,
+        whyThisMatters: contextRich,
         metaSkillFocus: lowestSkill.key,
         route: '/practice',
         ctaLabel: 'Practice with Assessor'
       });
     }
   } else {
-    // Pro: Use lowest meta-skill as focus
+    // Pro: Pattern-based recommendation
     const lowestSkill = getLowestMetaSkill();
+    const practicePattern = detectPracticePattern(practiceHistory);
+    
+    let whyMatters = '';
+    
+    if (practicePattern.doingWellAt) {
+      whyMatters = `Seeing patterns: you're doing more scenarios where you're naturally good at ${practicePattern.doingWellAt}. How about you try ${lowestSkill.displayName}? `;
+    } else {
+      whyMatters = `Your ${lowestSkill.displayName} is one you identified wanting to work on. `;
+    }
+    
+    whyMatters += `Practice builds this into your secret weapon.`;
+    
     priorities.push({
       type: 'skill-gap',
       title: `Build ${lowestSkill.displayName}`,
       timeHorizon: 'Today',
       icon: 'Target',
-      whyThisMatters: `Your ${lowestSkill.displayName} is developing. You wanted to improve under pressure. Practice builds this muscle.`,
+      whyThisMatters: whyMatters,
       metaSkillFocus: lowestSkill.key,
       route: '/practice',
       ctaLabel: 'Start Practice'
@@ -243,6 +288,33 @@ export function generateIntelligentPriorities(): IntelligentPriority[] {
   }
   
   return priorities.slice(0, 2); // Max 2 priorities
+}
+
+// Detect practice pattern (what user is naturally good at)
+function detectPracticePattern(practiceHistory: any[]) {
+  if (practiceHistory.length < 5) return { doingWellAt: null };
+  
+  const recentPractices = practiceHistory.slice(0, 10);
+  const metaSkillCounts: Record<string, number> = {};
+  
+  recentPractices.forEach(p => {
+    if (p.metaSkillsFocused) {
+      p.metaSkillsFocused.forEach((skill: string) => {
+        metaSkillCounts[skill] = (metaSkillCounts[skill] || 0) + 1;
+      });
+    }
+  });
+  
+  const mostPracticed = Object.entries(metaSkillCounts)
+    .sort(([, a], [, b]) => b - a)[0];
+  
+  if (mostPracticed && mostPracticed[1] > 5) {
+    const skillName = mostPracticed[0] === 'communication_social' ? 'Communication' :
+                     mostPracticed[0] === 'adaptability_learning' ? 'Adaptability' : 'Self-Regulation';
+    return { doingWellAt: skillName };
+  }
+  
+  return { doingWellAt: null };
 }
 
 // Daily Ritual Recommendation
