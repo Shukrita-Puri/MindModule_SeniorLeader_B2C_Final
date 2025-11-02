@@ -133,6 +133,21 @@ export const allContent: PracticeOrSoundscape[] = [
     thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png",
     steps: 7
   },
+  {
+    id: "zazen-stone-garden",
+    type: "practice",
+    title: "Zazen in the Stone Garden",
+    subtitle: "Japanese Zen Meditation",
+    category: "pause",
+    duration: "15 min",
+    difficulty: "beginner",
+    origin: "Japanese Zen Buddhism | 12th-13th Century",
+    storyHook: "The heart of Zen Buddhism—'just sitting' meditation refined in Japanese monasteries, where monks sit for hours to achieve mushin (no-mind).",
+    usedBy: "Zen Monks, Samurai Warriors, Mindfulness Practitioners",
+    description: "Pure shikantaza practice in a traditional stone garden setting, cultivating profound stillness and spacious awareness",
+    thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png",
+    steps: 7
+  },
   
   // POWER-UP - Soundscapes
   {

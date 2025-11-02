@@ -254,6 +254,89 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "You have restored Ma'at. You have touched the eternal Nile. Hotep—peace be with you."
+  },
+  "zazen-stone-garden": {
+    id: "zazen-stone-garden",
+    title: "Zazen in the Stone Garden",
+    category: "Zen Wisdom",
+    totalDuration: 900,
+    difficulty: "Beginner",
+    origin: "Japanese Zen Buddhism | 12th-13th Century",
+    fullStory: "Zazen, meaning 'seated meditation' in Japanese, is the heart of Zen Buddhism, brought to Japan from China in the 12th-13th centuries by monks Eisai and Dogen. However, its roots extend back to the Buddha himself, who achieved enlightenment through seated meditation 2,500 years ago. The practice was refined in Japanese Zen monasteries, particularly at Eiheiji Temple (founded 1244 CE) and within the Rinzai and Soto Zen schools. Unlike goal-oriented meditation, Zazen embodies the radical principle of 'shikantaza'—'just sitting.' There is no object of meditation, no mantra, no visualization. You simply sit, allowing thoughts to arise and dissolve like clouds passing through an empty sky. This version is set in a traditional Japanese Zen garden (karesansui or 'dry landscape garden'), where monks have practiced for centuries. These gardens of raked gravel, carefully placed stones, and minimal vegetation are designed as three-dimensional expressions of Zen philosophy: Ma (間) - the concept of meaningful emptiness and space between things; Wabi-sabi (侘寂) - finding beauty in imperfection, impermanence, and incompleteness; Fukinsei (不均整) - asymmetry and irregularity as more natural than perfect balance. The practice includes kinhin (walking meditation) as traditionally practiced between sitting periods in Zen monasteries. During Japan's feudal period, even samurai warriors practiced Zazen to cultivate mental clarity and fearlessness before battle.",
+    whatYouNeed: [
+      "Quiet space where you can sit undisturbed for 15 minutes",
+      "Zafu (round meditation cushion) or firm cushion that elevates hips above knees",
+      "Alternatively: Seiza bench or chair with firm seat",
+      "Loose, comfortable clothing",
+      "Optional: Japanese incense (sandalwood, cedar, or temple incense)",
+      "Optional: Face a blank wall or simple object (rock, single flower)",
+      "Best practiced: Early morning (4-6 AM), evening before sleep, or during transitions"
+    ],
+    expectedOutcomes: [
+      "Profound stillness and spaciousness in the mind",
+      "Sense of being 'unhurried' even as thoughts arise",
+      "Physical grounding and centered presence",
+      "Clarity without trying to be clear",
+      "Deep acceptance of what is",
+      "Reduced anxiety and mental reactivity (with regular practice)",
+      "Enhanced ability to observe thoughts without identification",
+      "Improved posture and body awareness",
+      "Increased creativity and spontaneous insight",
+      "Natural emergence of compassion and wisdom"
+    ],
+    usedBy: "Zen Monks, Samurai Warriors, Mindfulness Practitioners",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Entering the Garden",
+        instruction: "Visualize yourself entering a traditional Zen temple garden at dawn. The raked gravel patterns flow like water around carefully placed stones. Morning mist still clings to moss-covered rocks. You walk mindfully to your seat—a zafu cushion facing a simple stone wall. Upon arriving, perform three prostrations (or simply bow three times from the heart) to honor the practice, the teachers who came before, and your own Buddha nature.",
+        duration: 60,
+        wisdomNote: "The entrance to the zendo (meditation hall) is sacred threshold. Monks bow upon entering and leaving, acknowledging the transformation that happens within."
+      },
+      {
+        stepNumber: 2,
+        title: "Taking the Posture",
+        instruction: "Sit on your cushion with your sitting bones elevated above your knees, creating a stable tripod base. Cross your legs in half-lotus, full-lotus, or simply cross-legged (Burmese position). Rock gently side to side, then front to back, finding your center of gravity. Lengthen your spine upward as if a string pulls from the crown of your head. Tuck your chin slightly. Place your hands in the cosmic mudra: left hand resting in right palm, thumbs barely touching to form an oval. Rest hands on your lap. Let your shoulders relax. This posture is dignified, alert, yet at ease.",
+        duration: 120,
+        wisdomNote: "Dogen taught that the posture itself is enlightenment. You are not sitting to become Buddha—you are sitting as Buddha. Form and essence are one."
+      },
+      {
+        stepNumber: 3,
+        title: "The Gaze & Breath",
+        instruction: "Rather than closing your eyes completely, lower your gaze to about 45 degrees, resting softly on the floor or wall about three feet in front of you. Eyes are half-open, not focusing on anything in particular—this is called 'just seeing.' Now bring attention to your breath. Do not control it. Do not count it. Simply notice the natural rhythm—the belly rising on the inhale, falling on the exhale. The breath breathes itself.",
+        duration: 60,
+        wisdomNote: "Half-open eyes prevent drowsiness and dreams. You remain present to reality as it is. Zen is not about escaping the world—it's about being fully here."
+      },
+      {
+        stepNumber: 4,
+        title: "Shikantaza - Just Sitting",
+        instruction: "Now, just sit. Shikantaza means 'nothing but precisely sitting.' No counting breaths. No mantra. No visualization. Simply be completely present with whatever arises. Thoughts will come—let them. They are like clouds passing through the vast sky of awareness. Don't grasp them. Don't push them away. Notice them arising, notice them passing. You are the sky, not the clouds. When you realize you've been caught in thought, gently return to the physical sensation of sitting—the weight of your body, the flow of breath, the sounds around you. Again and again, return. This is the practice.",
+        duration: 420,
+        wisdomNote: "This is the most challenging and most profound form of meditation. It requires nothing yet demands everything—total presence without agenda. Suzuki Roshi said: 'The most important thing is remembering the most important thing.'"
+      },
+      {
+        stepNumber: 5,
+        title: "Kinhin - Walking Meditation",
+        instruction: "When you're ready, slowly stand, bringing the same quality of awareness into movement. Form the shashu hand position: left hand in a fist at heart level, right hand covering it. Walk very slowly—one full breath per half-step. Your gaze remains lowered. Feel the weight shift from heel to toe, the engagement of muscles, the contact with the ground. Walk in a circle or back and forth. This is not walking to get anywhere—it's walking to walk, fully alive in each step.",
+        duration: 120,
+        wisdomNote: "Kinhin prevents stiffness and demonstrates that Zen practice extends to all activities. Monks walk mindfully between sits, understanding that meditation is not confined to stillness."
+      },
+      {
+        stepNumber: 6,
+        title: "Return to Stillness",
+        instruction: "Return to your seat and settle back into zazen posture. Take a moment to feel the contrast—movement and stillness, sound and silence, effort and ease. All of it arising in the same awareness. Sit again, completely present. Let everything be exactly as it is. Nothing to fix. Nothing to achieve. Nothing to become. You are already whole. Just this. Just sitting. Just breath. Just being.",
+        duration: 90,
+        wisdomNote: "The second sit often goes deeper, as body and mind have now settled. Notice how stillness feels more natural now, less forced."
+      },
+      {
+        stepNumber: 7,
+        title: "Closing Bows",
+        instruction: "When you're ready, bring your hands together at your heart in gassho (prayer position). Bow deeply from this seated position—honoring the practice, your effort, all beings who seek peace. Slowly stand and perform three final bows. As you prepare to leave the garden, know that you carry this quality of presence with you. Every moment is an opportunity for zazen—washing dishes, walking to your car, listening to a friend. This is the Way.",
+        duration: 30,
+        wisdomNote: "Zen Master Thich Nhat Hanh taught: 'The practice of Zen is forgetting the self in the act of uniting with something.' You have touched this in zazen. Now live it."
+      }
+    ],
+    completionMessage: "The practice of Zen is forgetting the self. You have touched your true nature. Carry this presence into every moment."
   }
 };
 
