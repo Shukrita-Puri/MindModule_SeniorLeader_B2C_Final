@@ -45,10 +45,14 @@ export default function OnboardingFlow() {
     }
   }, []);
 
-  const currentStageIndex = STAGE_ROUTES.findIndex(route => 
-    location.pathname.startsWith(route)
-  );
-  const currentStage = currentStageIndex >= 0 ? currentStageIndex + 1 : 1;
+  // Match routes from longest to shortest to avoid "/onboarding" matching before "/onboarding/behavioral"
+  const currentStageIndex = [...STAGE_ROUTES]
+    .map((route, index) => ({ route, index }))
+    .reverse()
+    .find(({ route }) => location.pathname === route || location.pathname.startsWith(route + "/"))
+    ?.index ?? 0;
+  
+  const currentStage = currentStageIndex + 1;
 
   // Calculate weighted progress percentage for questionnaire stages
   const percentage = calculateWeightedProgress(currentStageIndex);
