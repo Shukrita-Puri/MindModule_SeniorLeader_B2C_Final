@@ -12,7 +12,8 @@ import {
   Volume2, 
   VolumeX,
   BookOpen,
-  CheckCircle2
+  CheckCircle2,
+  Repeat
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
@@ -162,30 +163,26 @@ const SoundscapePlayer = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const intervalRef = useRef<number | null>(null);
+  const [isLooping, setIsLooping] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const soundscape = id ? soundscapeData[id] : null;
 
+  // Sync audio state on mount
   useEffect(() => {
-    if (isPlaying && soundscape) {
-      intervalRef.current = window.setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= soundscape.duration) {
-            setIsPlaying(false);
-            setIsComplete(true);
-            return soundscape.duration;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100;
+      audioRef.current.muted = isMuted;
     }
+  }, []);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isPlaying, soundscape]);
+  // Update audio volume and mute state
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100;
+      audioRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted]);
 
   if (!soundscape) {
     return (
@@ -207,23 +204,74 @@ const SoundscapePlayer = () => {
   };
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-    if (!isPlaying) {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(err => {
+        toast.error("Failed to play audio");
+        console.error("Audio play error:", err);
+      });
+      setIsPlaying(true);
       toast.success(isComplete ? "Replaying soundscape" : "Soundscape started");
       if (isComplete) {
-        setCurrentTime(0);
         setIsComplete(false);
       }
     }
   };
 
   const handleSkip = (seconds: number) => {
-    setCurrentTime((prev) => Math.max(0, Math.min(prev + seconds, soundscape.duration)));
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.max(
+      0, 
+      Math.min(audioRef.current.currentTime + seconds, audioRef.current.duration || soundscape.duration)
+    );
   };
 
   const handleVolumeChange = (value: number[]) => {
     setVolume(value[0]);
+    if (audioRef.current) {
+      audioRef.current.volume = value[0] / 100;
+    }
     if (value[0] > 0 && isMuted) setIsMuted(false);
+  };
+
+  const handleMuteToggle = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    if (audioRef.current) {
+      audioRef.current.muted = newMutedState;
+    }
+  };
+
+  const handleAudioEnded = () => {
+    if (isLooping && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => {
+        console.error("Audio loop error:", err);
+        setIsPlaying(false);
+      });
+    } else {
+      setIsPlaying(false);
+      setIsComplete(true);
+    }
+  };
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    setCurrentTime(Math.floor(e.currentTarget.currentTime));
+  };
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    // Audio duration is now available if needed
+    console.log("Audio loaded, duration:", e.currentTarget.duration);
+  };
+
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    toast.error("Failed to load audio file");
+    console.error("Audio error:", e);
+    setIsPlaying(false);
   };
 
   const progress = (currentTime / soundscape.duration) * 100;
@@ -354,7 +402,7 @@ const SoundscapePlayer = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={handleMuteToggle}
           >
             {isMuted || volume === 0 ? (
               <VolumeX className="h-5 w-5" />
@@ -369,7 +417,27 @@ const SoundscapePlayer = () => {
             step={1}
             className="flex-1"
           />
+          <Button
+            variant={isLooping ? "default" : "ghost"}
+            size="icon"
+            onClick={() => setIsLooping(!isLooping)}
+            title={isLooping ? "Loop enabled" : "Enable loop"}
+            className={isLooping ? "bg-gold/20 text-gold hover:bg-gold/30" : ""}
+          >
+            <Repeat className="h-5 w-5" />
+          </Button>
         </div>
+
+        {/* Hidden Audio Element */}
+        <audio
+          ref={audioRef}
+          src={`/soundscapes/${id}.wav`}
+          onLoadedMetadata={handleLoadedMetadata}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={handleAudioEnded}
+          onError={handleAudioError}
+          preload="metadata"
+        />
 
         {/* Storytelling Panel */}
         <div className="w-full max-w-2xl">
