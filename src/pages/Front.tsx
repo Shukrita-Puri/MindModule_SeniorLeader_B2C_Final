@@ -1,11 +1,13 @@
 import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { clearSession } from "@/utils/onboardingStorage";
 
 const Front = () => {
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
+    clearSession();
     navigate('/onboarding');
   };
 
