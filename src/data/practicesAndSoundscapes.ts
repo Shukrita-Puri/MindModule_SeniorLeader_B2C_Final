@@ -71,6 +71,19 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Ancient sound vibrations for deep relaxation and nervous system reset",
     thumbnail: "/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png"
   },
+  {
+    id: "himalayan-monastery",
+    type: "soundscape",
+    title: "Himalayan Mountain Monastery",
+    subtitle: "Monk Chant + Chimes",
+    category: "pause",
+    duration: "1 min 22 sec",
+    origin: "Tibetan Buddhist Monasteries",
+    storyHook: "High upon a snow-laden summit stands a monastery carved from volcanic stone—where sound becomes devotion.",
+    creator: "Mystical monastic atmosphere composition",
+    description: "Sacred confluence of monastic chant, ethereal chime, and resonant void for transcendental calm",
+    thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png"
+  },
   
   // PAUSE - Practices
   {

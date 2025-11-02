@@ -133,6 +133,23 @@ const soundscapeData: Record<string, SoundscapeData> = {
       "Balances left and right brain hemispheres"
     ],
     completionQuote: "The self is not heard but is the hearer; not seen but is the seer; not known but is the knower."
+  },
+  "himalayan-monastery": {
+    id: "himalayan-monastery",
+    title: "Himalayan Mountain Monastery",
+    category: "pause",
+    duration: 82,
+    origin: "Tibetan Buddhist Monasteries",
+    fullStory: "High upon a snow-laden summit, where silence reigns supreme and the air itself feels sacred, there stands a monastery carved from volcanic stone—austere, eternal, unyielding. Within its echoing chambers, sound becomes devotion. This soundbath is a study in reverence—a confluence of monastic chant, ethereal chime, and resonant void. It evokes a sanctified stillness, a gravity beyond words, where each vibration carries the weight of prayer. The tonality is ascetic yet sumptuous—a ritual in frequency, composed not for entertainment but for elevation. Every element—from the solemn voices to the mystic timepiece pulse—was sculpted with intention, not assembled from loops. The atmosphere recalls ancient orders and forgotten vows, an auditory architecture of faith and frost.",
+    creator: "Mystical monastic atmosphere composition",
+    technique: "Enter this space as one enters a temple: slowly, without thought. Allow the chants to unfurl across your awareness, the chimes to mark the passage of invisible hours. The frequencies align with alpha waves, guiding consciousness toward the lucid threshold between thought and stillness. There is no melody to follow, only resonance—a continuous unfolding of tone that invites the listener to dissolve.",
+    benefits: [
+      "Transcendental Calm — The layered voices and harmonic gongs induce a monastic serenity, emptying the mind of noise",
+      "Cognitive Clarity — Alpha-wave entrainment refines perception, expanding awareness into luminous focus",
+      "Somatic Resonance — The frequencies move through the body like ritual smoke, loosening the architecture of tension",
+      "Temporal Suspension — Time becomes circular, like prayer beads—infinite, patient, absolute"
+    ],
+    completionQuote: "This is not a song; it is a sanctuary."
   }
 };
 
