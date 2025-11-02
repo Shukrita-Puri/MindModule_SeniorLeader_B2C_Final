@@ -280,6 +280,21 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Vedic sound meditation for deep focus, mental clarity, and instant flow states",
     thumbnail: "/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png",
     steps: 6
+  },
+  {
+    id: "trataka-flame-gaze",
+    type: "practice",
+    title: "Trataka - The Steady Flame Gaze",
+    subtitle: "Ancient Yogic Focus Meditation",
+    category: "presence",
+    duration: "8 min",
+    difficulty: "beginner",
+    origin: "Ancient Yogic Practice | Hatha Yoga Pradipika",
+    storyHook: "For thousands of years, yogis have gazed at flames to develop superhuman focus—training the eyes trains the mind, leading to instant flow states.",
+    usedBy: "Yogis, Meditators, High Performers",
+    description: "Ancient one-pointed concentration technique for instant mental clarity and flow",
+    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
+    steps: 6
   }
 ];
 

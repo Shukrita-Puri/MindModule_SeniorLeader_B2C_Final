@@ -414,6 +414,82 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "You have touched the ancient sound of Nada. You have entered the hive of consciousness. Carry this resonance with you."
+  },
+  "trataka-flame-gaze": {
+    id: "trataka-flame-gaze",
+    title: "Trataka - The Steady Flame Gaze",
+    category: "Ancient Focus",
+    totalDuration: 480,
+    difficulty: "Beginner",
+    origin: "Ancient Yogic Practice | Hatha Yoga Pradipika",
+    fullStory: "Trataka is one of the six purification practices (Shatkarma) described in the Hatha Yoga Pradipika, a 15th-century Sanskrit text, though the practice itself dates back much earlier to tantric traditions of ancient India. The word 'Trataka' comes from Sanskrit, meaning 'to gaze steadily.' Unlike ordinary seeing, Trataka involves focused, unwavering attention on a single point—traditionally a candle flame, though it can be practiced with a black dot, a symbol (yantra), the moon, or even a still body of water. Ancient yogis discovered that the eyes are the gateway to the mind. By training the eyes to remain perfectly still, the mind naturally follows into deep concentration. This practice was considered essential preparation for meditation, as it develops Ekagrata—one-pointed attention—the foundation of all yogic and flow states. The flame was chosen as the ideal object because fire has a mesmerizing, magnetic quality that naturally draws attention, the flickering creates enough movement to maintain interest without overwhelming, the afterimage created when closing the eyes stimulates the Ajna chakra (third eye), and fire represents consciousness itself in Vedic philosophy. Tantric texts describe Trataka as a direct path to stilling the 'monkey mind' and achieving instant access to meditative absorption. Modern research confirms this: studies show that Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
+    whatYouNeed: [
+      "One candle (any size, unscented works best to avoid distraction)",
+      "Matches or lighter",
+      "Stable surface at eye level when seated (table, altar, or shelf)",
+      "Comfortable seated position 3-4 feet from the candle",
+      "Optional: Eye drops if your eyes are sensitive",
+      "Safety: Ensure candle is on stable, fire-safe surface with no drafts",
+      "Best practiced: Before deep work, in the morning, or when feeling scattered"
+    ],
+    expectedOutcomes: [
+      "Profound mental clarity and focus",
+      "Complete cessation of mental chatter",
+      "Sense of absorption where time disappears",
+      "Slight tingling or pressure at the third eye center",
+      "Instant entry into flow state",
+      "Dramatically improved concentration (with regular practice)",
+      "Ability to enter flow states at will",
+      "Enhanced visualization abilities",
+      "Greater emotional stability and mental resilience"
+    ],
+    usedBy: "Yogis, Meditators, High Performers, Creative Professionals",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Sacred Setup",
+        instruction: "Light your candle and place it on a stable surface at eye level, about 3-4 feet away from where you'll sit. Ensure the room is dim or dark, with no other light sources. Sit comfortably with your spine upright—on a cushion or chair. Take three deep breaths. Set your intention: 'I dedicate this practice to developing unwavering focus and inner clarity.' Feel the reverence of this ancient ritual.",
+        duration: 60,
+        wisdomNote: "Fire has been humanity's meditation object for millennia. You are joining an unbroken lineage of seekers gazing into flames."
+      },
+      {
+        stepNumber: 2,
+        title: "Soft Gazing Preparation",
+        instruction: "Look at the flame with soft, relaxed eyes. Don't stare harshly—imagine you're looking at someone you love. Let your eyes rest naturally on the brightest part of the flame, just above the wick where it glows most intensely. Your eyes should feel comfortable, not strained. Blink naturally a few times, then allow the blinks to slow down. Breathe normally through your nose.",
+        duration: 60,
+        wisdomNote: "Trataka is not about forcing—it's about magnetism. Let the flame draw your attention naturally, like falling in love."
+      },
+      {
+        stepNumber: 3,
+        title: "First Gaze Cycle",
+        instruction: "Now gaze at the flame without blinking for 30 seconds. Keep your eyes soft but steady. The flame is the only thing that exists. When your eyes begin to water (which is natural and purifying), gently close them. With eyes closed, observe the afterimage of the flame—it will appear in your inner vision, usually as a glowing shape at your forehead center. Watch it shift colors, move, fade. Don't try to hold it; simply observe. After 30 seconds, open your eyes again.",
+        duration: 90,
+        wisdomNote: "The afterimage is your third eye awakening. Ancient yogis called this 'inner fire'—the light of consciousness itself."
+      },
+      {
+        stepNumber: 4,
+        title: "Deep Immersion Cycles",
+        instruction: "Begin three rounds of deeper gazing. Each round: gaze steadily at the flame for 45 seconds without blinking, then close your eyes for 30 seconds to observe the afterimage. With each round, feel yourself sinking deeper into absorption. Your mind becomes quieter. The boundary between you and the flame begins to dissolve. There is just seeing. Just presence. Just this. If your mind wanders, the flame gently calls it back. If thoughts arise, watch them dissolve in the fire.",
+        duration: 210,
+        breathingPattern: "Natural",
+        wisdomNote: "Hatha Yoga Pradipika states: 'By practicing Trataka, all eye diseases vanish and clairvoyance is induced.' The ancient yogis were mapping consciousness itself."
+      },
+      {
+        stepNumber: 5,
+        title: "Final Extended Gaze",
+        instruction: "For this final minute, gaze at the flame with complete, unwavering attention. You are not trying anymore—you are simply absorbed. The flame is not separate from you. You are the witness of the flame. You are the flame witnessing itself. Let time disappear. Let the room disappear. Let everything dissolve into this single point of light. When tears come, let them flow—they are purifying. When the minute ends, close your eyes one last time.",
+        duration: 60,
+        wisdomNote: "This is Ekagrata—one-pointed absorption. You've just experienced what athletes call 'the zone,' what mystics call Samadhi."
+      },
+      {
+        stepNumber: 6,
+        title: "Integration",
+        instruction: "Sit with eyes closed for 30 seconds, feeling the afterimage fade. Rub your palms together vigorously until they're warm, then place them gently over your closed eyes (called 'palming'). Feel the warmth soothing your eyes. Take three deep breaths. When ready, open your eyes slowly. Bow to the flame in gratitude, then safely extinguish it. Notice how the world looks sharper, clearer, more vivid.",
+        duration: 30,
+        wisdomNote: "The practice ends, but the focus remains. You can return to this state at will now—the neural pathway has been carved."
+      }
+    ],
+    completionMessage: "You have trained the eyes. You have stilled the mind. You have touched the eternal flame within. Carry this focus into your work."
   }
 };
 
