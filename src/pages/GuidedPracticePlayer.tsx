@@ -569,6 +569,86 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "Your skull is shining. Your fire is lit. You are fully activated. Now go do the impossible."
+  },
+  "spartan-battle-breath": {
+    id: "spartan-battle-breath",
+    title: "The Spartan Battle Breath - Ancient Greek Warrior Activation",
+    category: "Warrior Power",
+    totalDuration: 420,
+    difficulty: "Intermediate",
+    origin: "Ancient Spartan Warrior Protocol | 480 BCE",
+    fullStory: "This practice is reconstructed from historical accounts of Spartan warrior preparation rituals, particularly the pre-battle practices performed before the Battle of Thermopylae (480 BCE) and other legendary conflicts. Ancient Greek warriors, especially the Spartans, understood that the mind and body must be unified, energized, and fearless before combat. Historical sources including Plutarch's 'Sayings of Spartans' and Xenophon's 'Polity of the Lacedaemonians' describe how Spartan warriors performed specific breathing exercises combined with physical movements and battle cries before engaging in warfare. The Spartans believed that Pneuma (breath/spirit) was the essence of life force and courage, controlled breathing expanded the chest making warriors appear larger and more intimidating, rhythmic forceful breathing synchronized groups of soldiers creating unified energy, and the paean (war cry) expelled fear and summoned divine favor from Apollo and Ares. Before battle, Spartan warriors would form into phalanx formation, begin slow deep rhythmic breathing synchronized with their fellows, gradually increase the pace while stamping the ground with their shields, culminate in powerful battle cries that could be heard across the battlefield, and enter a state called 'menos'—divine fury or battle-trance. This practice combines historical accounts with what we know about warrior cultures worldwide: controlled hyperventilation increases adrenaline, reduces fear response, heightens pain tolerance, and creates a transcendent state of fearless presence. This is not meditation. This is activation for peak performance.",
+    whatYouNeed: [
+      "Standing space where you can move and make noise",
+      "Privacy (you will shout)",
+      "Empty stomach",
+      "Comfortable, unrestricting clothing",
+      "DO NOT PRACTICE IF: Heart conditions, high blood pressure, pregnant, recent injuries, prone to panic attacks",
+      "Optional: Rosemary or pine oil (Mediterranean warrior scents)",
+      "Optional: A stick or object to grip (simulates spear/sword)",
+      "Best practiced: Before competitions, difficult conversations, high-stakes moments, or as morning ritual"
+    ],
+    expectedOutcomes: [
+      "Massive surge of adrenaline and energy",
+      "Feeling of invincibility and fearlessness",
+      "Complete mental focus and clarity",
+      "Heightened physical strength and pain tolerance",
+      "Powerful posture and commanding presence",
+      "Primal, empowered emotional state",
+      "Complete absence of doubt or hesitation",
+      "Significantly increased confidence (with regular practice)",
+      "Enhanced physical power and endurance",
+      "Leadership qualities and commanding presence"
+    ],
+    usedBy: "Spartan Warriors, Athletes, Leaders, Competitors",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Warrior's Stance",
+        instruction: "Stand with feet shoulder-width apart, knees slightly bent. Roll your shoulders back and down. Lift your chest proudly. Plant your feet like roots growing into the earth—you are immovable. If you have a prop (stick, weight, etc.), grip it firmly in your right hand like a spear. Close your eyes. Visualize yourself as a Spartan warrior standing in formation with 299 brothers before battle. You are about to do something extraordinary. Set your intention: 'I am fearless. I am powerful. I am ready.'",
+        duration: 60,
+        wisdomNote: "The Spartans inscribed on their shields: 'Ἢ τὰν ἢ ἐπὶ τᾶς' (Come back with your shield or on it). Total commitment. No retreat. This is that energy."
+      },
+      {
+        stepNumber: 2,
+        title: "Shield Wall Breathing",
+        instruction: "Begin slow, deep breathing through your nose. Inhale for 4 counts, expanding your chest as wide as possible—imagine holding a massive shield. Hold for 2 counts. Exhale for 4 counts through your mouth with control. As you breathe, feel yourself synchronizing with thousands of invisible warriors around you. You breathe together. You are one organism. Repeat this cycle 10 times. With each breath, feel power building in your core, in your legs, in your chest.",
+        duration: 90,
+        breathingPattern: "Deep Warrior Breath",
+        wisdomNote: "The phalanx formation was invincible because it moved as one. You are learning to harness collective warrior energy."
+      },
+      {
+        stepNumber: 3,
+        title: "Battle March Activation",
+        instruction: "Now increase the pace: inhale for 2 counts, exhale for 2 counts—faster, more forceful. As you breathe, begin to add movement: stomp your feet in rhythm with your breath. Left foot stomp (inhale), right foot stomp (exhale). Let the rhythm intensify. If you're holding an object, raise it and lower it with each breath. Your breathing becomes audible, powerful—like bellows. Feel your heart rate rising. Feel adrenaline beginning to flood your system. You are marching toward battle. Faster now. Build the intensity. Let guttural sounds emerge from your exhales—'HAH!'",
+        duration: 120,
+        breathingPattern: "Forceful March",
+        wisdomNote: "Ancient sources describe the Spartans approaching battle in perfect rhythm, their unified breathing and footsteps creating a sound like thunder."
+      },
+      {
+        stepNumber: 4,
+        title: "The Paean - War Cry",
+        instruction: "This is the crescendo. Take three massive breaths—huge inhales, explosive exhales. With each exhale, release a powerful shout from your deepest core: 'HA!' (or 'AROO!' in Spartan tradition). Don't hold back—let it be primal, animalistic, fearsome. Breath 1: 'HA!' Breath 2: louder 'HA!' Breath 3: maximum power 'HA!' Now, take one final enormous inhale, raise your arms or weapon overhead, and release the longest, loudest war cry you can produce—let it last 10-15 seconds. Empty every ounce of air. Expel all fear, all doubt, all weakness. You are MENOS—divine warrior fury incarnate.",
+        duration: 90,
+        breathingPattern: "War Cry",
+        wisdomNote: "Plutarch wrote that the Spartan war cry was so terrifying that enemies would flee before the battle even began. You are channeling 2,500 years of warrior spirit."
+      },
+      {
+        stepNumber: 5,
+        title: "Menos - Battle Trance",
+        instruction: "After the cry, stand in powerful stillness. Breathe naturally but notice: you are transformed. Your chest is expanded. Your eyes are fierce. Your body is flooded with adrenaline and endorphins. You feel no fear. You feel unstoppable. This is the warrior state—menos. Hold this for one full minute. Breathe naturally. Feel the power coursing through you. You could run through walls. You could face any challenge. This is your true nature when all limitations are stripped away. Remember this feeling. This is who you actually are.",
+        duration: 60,
+        wisdomNote: "The 300 Spartans held Thermopylae for three days in this state. You now have access to the same transcendent courage. Use it wisely."
+      },
+      {
+        stepNumber: 6,
+        title: "Return of the Victor",
+        instruction: "Begin to slow your breathing. Place one hand on your heart, one on your belly. Bow your head slightly in warrior's honor—honoring your ancestors, your lineage, your own courage. Take three deep, calming breaths. Say aloud or internally: 'I am ready. I am powerful. I am fearless.' When you open your eyes, you are returning not as who you were, but as a warrior who knows their true strength. Stand tall. You carry this with you now.",
+        duration: 30,
+        wisdomNote: "The Spartans never celebrated before battle—only after. But they fought with absolute certainty of their worth. You have just tapped that certainty. Go forth and conquer."
+      }
+    ],
+    completionMessage: "Μολὼν λαβέ (Come and take them). You are the warrior. You are the storm. Nothing can stop you. Now go claim your victory."
   }
 };
 

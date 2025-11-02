@@ -208,6 +208,21 @@ export const allContent: PracticeOrSoundscape[] = [
     thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
     steps: 6
   },
+  {
+    id: "spartan-battle-breath",
+    type: "practice",
+    title: "The Spartan Battle Breath",
+    subtitle: "Ancient Greek Warrior Activation",
+    category: "power-up",
+    duration: "7 min",
+    difficulty: "intermediate",
+    origin: "Ancient Spartan Warrior Protocol | 480 BCE",
+    storyHook: "Before Thermopylae, 300 Spartans performed this ritual to enter 'menos'—divine battle-trance. Now access that fearless warrior state for any challenge.",
+    usedBy: "Spartan Warriors, Athletes, Leaders",
+    description: "Ancient Greek warrior breathing ritual for fearless courage, peak power, and commanding presence",
+    thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png",
+    steps: 6
+  },
   
   // PRESENCE - Soundscapes
   {
