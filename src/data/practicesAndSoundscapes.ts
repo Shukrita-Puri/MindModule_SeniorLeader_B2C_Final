@@ -118,6 +118,21 @@ export const allContent: PracticeOrSoundscape[] = [
     thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png",
     steps: 5
   },
+  {
+    id: "nile-sunset-meditation",
+    type: "practice",
+    title: "Nile Sunset Pause Meditation",
+    subtitle: "Ancient Egyptian Temple Practice",
+    category: "pause",
+    duration: "18 min",
+    difficulty: "beginner",
+    origin: "Ancient Egyptian Temple Practice",
+    storyHook: "Temple priests performed sunset rituals to honor Ra's journey, using liminal moments to restore Ma'at—cosmic balance and harmony.",
+    usedBy: "Temple Priests, Contemplatives, Balance Seekers",
+    description: "Sacred Nile temple meditation combining breath work, lotus visualization, and sunset contemplation for deep restoration",
+    thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png",
+    steps: 7
+  },
   
   // POWER-UP - Soundscapes
   {

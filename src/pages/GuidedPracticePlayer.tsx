@@ -172,6 +172,88 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "May all beings be free from suffering. May all beings know peace. Starting with you."
+  },
+  "nile-sunset-meditation": {
+    id: "nile-sunset-meditation",
+    title: "Nile Sunset Pause Meditation",
+    category: "Ancient Restoration",
+    totalDuration: 1080,
+    difficulty: "Beginner",
+    origin: "Ancient Egyptian Temple Practice",
+    fullStory: "The ancient Egyptians developed sophisticated meditation practices centered around the Nile River, which they considered the source of all life. Temple priests and priestesses performed sunset rituals to honor Ra's journey into the underworld, using these moments to restore Ma'at—the cosmic balance of truth, justice, and harmony. This practice draws from temple reliefs at Karnak and Luxor showing seated meditation postures, papyrus texts describing breath work (ankh breathing), and archaeological evidence of lotus flower use in contemplative rituals. The Egyptians believed that sunset was a liminal time when the veil between worlds thinned, making it ideal for inner work and divine communication. The practice combines several ritual elements: purifying with sacred water, anointing with temple oils, breath synchronization with natural rhythms, and visualization of the eternal Nile. These weren't separate practices but an integrated system for achieving hotep—deep peace and contentment.",
+    whatYouNeed: [
+      "Quiet space where you can sit comfortably for 18 minutes",
+      "Ability to play audio through speakers or headphones (speakers recommended)",
+      "Optional: Blue lotus, frankincense, or jasmine essential oil",
+      "Optional: A candle or small bowl of water to focus on",
+      "Comfortable cushion or chair with straight spine support",
+      "Best practiced at sunset, but effective any time you need balance"
+    ],
+    expectedOutcomes: [
+      "Deep sense of calm and groundedness",
+      "Slower, more regulated breathing",
+      "Release of daily tension and mental clutter",
+      "Connection to something ancient and vast",
+      "Feeling of emotional and spiritual balance (Ma'at)",
+      "Improved ability to transition from stress to rest (with regular practice)",
+      "Enhanced visualization and focus skills",
+      "Deeper appreciation for cyclical rhythms in life",
+      "Reduced anxiety about endings"
+    ],
+    usedBy: "Temple Priests, Contemplatives, Those Seeking Balance",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Arrival & Preparation",
+        instruction: "Settle into your chosen space. Sit with your spine straight, hands resting on your lap or knees. Close your eyes or soften your gaze. Begin breathing consciously—long, slow breaths through your nose. Feel yourself arriving fully in this present moment.",
+        duration: 120,
+        wisdomNote: "The ancient Egyptians believed that conscious arrival at sacred practice was half the journey. Let the modern world fall away."
+      },
+      {
+        stepNumber: 2,
+        title: "Purification Ritual",
+        instruction: "Visualize yourself standing before the great Nile at sunset. Imagine cupping sacred water in your hands and bringing it to your forehead, your heart, your belly. With each touch, feel the water washing away the tensions and concerns of the day. Set your intention: 'I restore Ma'at within myself—truth, balance, harmony.'",
+        duration: 120,
+        wisdomNote: "Water from the Nile was considered divine. This visualization activates the same neural pathways as actual ritual cleansing."
+      },
+      {
+        stepNumber: 3,
+        title: "Descent to the Nile",
+        instruction: "In your mind's eye, walk slowly down smooth limestone steps toward the river's edge. With each step down, feel yourself descending deeper into stillness. Count: 10... 9... 8... down to 1. At the bottom, stand at the water's edge and face west, where the sun is setting.",
+        duration: 180,
+        wisdomNote: "The descent into sacred space mirrors the descent into deeper consciousness. Each step is a release."
+      },
+      {
+        stepNumber: 4,
+        title: "Lotus Breath Work (Ankh Breathing)",
+        instruction: "Visualize a blue lotus flower floating on the Nile before you. As you inhale, imagine the lotus opening, petals spreading wide. Hold your breath gently at the top. As you exhale, see the lotus closing softly. Repeat this cycle 7 times—the sacred number of Egypt. Breathe in: lotus opens (count 4). Hold (count 4). Breathe out: lotus closes (count 6).",
+        duration: 180,
+        breathingPattern: "Lotus Pattern",
+        wisdomNote: "The ankh symbol represented eternal life. This breath pattern mirrors the ankh's shape—balance between intake and release."
+      },
+      {
+        stepNumber: 5,
+        title: "Sunset Contemplation",
+        instruction: "Watch the sun descend toward the horizon in your mind's eye. As it touches the water, visualize all your burdens, worries, and struggles being carried away with Ra's golden barque into the underworld. Know that they will be transformed in the night and return renewed. Place your hand on your heart and feel it being weighed against the feather of Ma'at. Feel yourself in perfect balance.",
+        duration: 240,
+        wisdomNote: "The weighing of the heart ceremony wasn't just about death—it was a daily practice of self-evaluation and balance."
+      },
+      {
+        stepNumber: 6,
+        title: "Sacred Stillness (Heron Meditation)",
+        instruction: "Become completely still like the sacred heron standing in the shallows at dusk. Don't move a muscle. Simply be. Listen to the sounds around you as if they were the sounds of the ancient Nile—the wind, distant birds, the water's gentle movement. Rest in pure presence. You are held. You are part of the eternal flow.",
+        duration: 180,
+        wisdomNote: "The heron was sacred to Thoth, god of wisdom. In perfect stillness, wisdom arises naturally."
+      },
+      {
+        stepNumber: 7,
+        title: "Return & Integration",
+        instruction: "When you're ready, begin climbing back up the limestone steps. With each step up, count from 1 to 10, bringing yourself back to ordinary awareness. But you are not the same person who descended. You carry hotep—deep peace—within you. Place both hands on your heart and bow slightly, honoring the practice. Open your eyes slowly.",
+        duration: 60,
+        wisdomNote: "The Egyptians knew that sacred practices must be sealed with gratitude. What you honor, you strengthen."
+      }
+    ],
+    completionMessage: "You have restored Ma'at. You have touched the eternal Nile. Hotep—peace be with you."
   }
 };
 
