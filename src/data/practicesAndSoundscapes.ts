@@ -265,6 +265,21 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Ancient technique for developing compassion and emotional presence",
     thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png",
     steps: 5
+  },
+  {
+    id: "bhramari-pranayama",
+    type: "practice",
+    title: "Bhramari Pranayama",
+    subtitle: "The Humming Bee Breath",
+    category: "presence",
+    duration: "12 min",
+    difficulty: "beginner",
+    origin: "Ancient Vedic Meditation | 5000 years",
+    storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
+    usedBy: "Yogis, Meditators, Focus Seekers",
+    description: "Vedic sound meditation for deep focus, mental clarity, and instant flow states",
+    thumbnail: "/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png",
+    steps: 6
   }
 ];
 

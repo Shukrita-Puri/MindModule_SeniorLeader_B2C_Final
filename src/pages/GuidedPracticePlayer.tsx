@@ -337,6 +337,83 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "The practice of Zen is forgetting the self. You have touched your true nature. Carry this presence into every moment."
+  },
+  "bhramari-pranayama": {
+    id: "bhramari-pranayama",
+    title: "Bhramari Pranayama - The Humming Bee Breath",
+    category: "Ancient Flow",
+    totalDuration: 720,
+    difficulty: "Beginner",
+    origin: "Ancient Vedic Meditation | 5000 years",
+    fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara—the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana—the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
+    whatYouNeed: [
+      "Quiet space where you can sit comfortably for 12 minutes",
+      "Ability to hum without disturbing others (or practice during private time)",
+      "Chair or cushion for upright seated position",
+      "Optional: Earplugs or finger position to close ears (enhances internal sound)",
+      "Optional: Sandalwood, lotus, or jasmine incense/oil",
+      "Optional: Dim lighting or eye mask to reduce visual distraction",
+      "Best practiced: During mid-day energy dips, before creative work, or when feeling scattered"
+    ],
+    expectedOutcomes: [
+      "Profound mental stillness and clarity",
+      "Sensation of pleasant vibration in the skull and face",
+      "Immediate reduction in mental chatter and anxiety",
+      "Feeling of being 'centered' and present",
+      "Instant access to focused attention state",
+      "Enhanced ability to drop into flow states quickly (with regular practice)",
+      "Improved concentration and sustained attention",
+      "Better emotional regulation",
+      "Relief from tension headaches"
+    ],
+    usedBy: "Yogis, Meditators, Focus Seekers, Creative Professionals",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Sacred Arrival",
+        instruction: "Find a comfortable seated position with your spine naturally upright. Close your eyes gently. Take three deep breaths, feeling your body settle into the earth. Allow your shoulders to soften, your jaw to release. Bring your awareness to the natural rhythm of your breath—no need to change it yet, simply observe.",
+        duration: 90,
+        wisdomNote: "The ancient yogis taught that how you arrive at practice determines its depth. Come with reverence, as if entering a sacred temple."
+      },
+      {
+        stepNumber: 2,
+        title: "Pranayama Preparation",
+        instruction: "Raise your hands to your face. Place your thumbs gently in your ears to close them, or rest your index fingers on the tragus (the small cartilage flap) and press gently to seal the ear canal. Your remaining fingers rest lightly on your face. This is Shanmukhi Mudra—sealing the six gates of perception. Feel the immediate shift into inner space.",
+        duration: 90,
+        wisdomNote: "When the outer sound disappears, the inner sound becomes audible. This is where transformation happens."
+      },
+      {
+        stepNumber: 3,
+        title: "First Humming Cycle",
+        instruction: "Take a deep breath in through your nose. As you exhale, keep your mouth gently closed and create a smooth, steady humming sound—'mmmmmmm'—like a contented bee. Feel the vibration in your skull, face, and throat. The pitch doesn't matter; choose what feels natural. Complete three rounds: inhale deeply, exhale with the hum for as long as comfortable. Between rounds, take a normal breath and observe the resonance still vibrating within you.",
+        duration: 120,
+        breathingPattern: "Bee Breath",
+        wisdomNote: "The bee doesn't force its hum—it arises naturally from its being. Let your sound be effortless, arising from your center."
+      },
+      {
+        stepNumber: 4,
+        title: "Deep Immersion Rounds",
+        instruction: "Now begin 12 continuous rounds of Bhramari. Inhale slowly and deeply through your nose. Exhale with the bee breath, letting the hum be smooth and steady for the entire length of your exhale. Don't rush—quality over quantity. With each round, feel the vibration deepening, resonating in new places: your third eye, the crown of your head, your entire skull becoming a resonance chamber. Let your mind be absorbed completely in the sound. If thoughts arise, let them dissolve into the humming. The sound is your anchor, your home.",
+        duration: 300,
+        breathingPattern: "Deep Bhramari",
+        wisdomNote: "Ancient texts say: 'The yogi who practices Bhramari becomes lord of his mind, just as the bee is lord of its hive.'"
+      },
+      {
+        stepNumber: 5,
+        title: "Silent Absorption",
+        instruction: "After your final hum, gently lower your hands to your lap. Keep your eyes closed. Sit in complete stillness. Notice the profound silence that follows the practice—it feels different than ordinary silence. There's a spaciousness, a clarity, a vibration still echoing. This is the fruit of practice. Simply rest here, absorbed in presence.",
+        duration: 90,
+        wisdomNote: "The silence after Bhramari is called 'Nada'—the inner cosmic sound. Ancient yogis would meditate on this sound for hours, using it as a gateway to higher consciousness."
+      },
+      {
+        stepNumber: 6,
+        title: "Return & Integration",
+        instruction: "Begin to deepen your breath. Wiggle your fingers and toes. When you're ready, gently open your eyes. Take a moment to bow inwardly to the practice, to the ancient lineage that preserved it, and to your own commitment to inner work. Carry this clarity forward into whatever comes next.",
+        duration: 30,
+        wisdomNote: "The practice ends, but its effects continue. You've trained your nervous system to access this state—it will become easier each time."
+      }
+    ],
+    completionMessage: "You have touched the ancient sound of Nada. You have entered the hive of consciousness. Carry this resonance with you."
   }
 };
 
