@@ -66,20 +66,25 @@ export default function OnboardingFlow() {
     updateSession({ currentStage });
   }, [currentStage]);
 
-  // Hide progress bar after questionnaire stages (index > 3)
-  const hideProgress = currentStageIndex > 3 || location.pathname.includes('/signup');
+  // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
+  const hideProgress = currentStageIndex === 0 || currentStageIndex > 3 || location.pathname.includes('/signup');
 
   return (
-    <div className="min-h-screen bg-background">
-      {!hideProgress && (
-        <ProgressIndicator
-          percentage={percentage}
-          estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
-        />
-      )}
+    <div className="min-h-screen bg-background relative">
+      {/* Radial gradient overlay for visual consistency */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-gold/5 via-transparent to-transparent pointer-events-none" />
+      
+      <div className="relative z-10">
+        {!hideProgress && (
+          <ProgressIndicator
+            percentage={percentage}
+            estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
+          />
+        )}
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <Outlet />
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <Outlet />
+        </div>
       </div>
     </div>
   );

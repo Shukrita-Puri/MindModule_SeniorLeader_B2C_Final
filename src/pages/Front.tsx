@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -5,14 +6,18 @@ import { clearSession } from "@/utils/onboardingStorage";
 
 const Front = () => {
   const navigate = useNavigate();
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleGetStarted = () => {
-    clearSession();
-    navigate('/onboarding');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      clearSession();
+      navigate('/onboarding');
+    }, 300);
   };
 
   return (
-    <div className="relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden">
+    <div className={`relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Subtle background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
