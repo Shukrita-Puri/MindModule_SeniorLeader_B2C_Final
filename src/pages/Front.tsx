@@ -28,7 +28,7 @@ const Front = () => {
         
         {/* Tagline */}
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">
-          Mind Mastery for Achievers
+          Mind Mastery for High Performers
         </h2>
         
         {/* Gold Divider */}
