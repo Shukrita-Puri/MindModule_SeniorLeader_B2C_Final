@@ -22,7 +22,7 @@ const Front = () => {
       <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-8">
         
         {/* LOGO - THE HERO */}
-        <h1 className="text-7xl sm:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
+        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND<br/>MODULE
         </h1>
         
