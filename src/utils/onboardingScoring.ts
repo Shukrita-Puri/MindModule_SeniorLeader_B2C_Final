@@ -171,9 +171,9 @@ export function determineAlignment(
   };
 
   const skillNameMap: Record<keyof MetaSkillScores, string> = {
-    adaptability_learning: "Adaptability & Learning Agility",
-    communication_social: "Communication & Social Intelligence",
-    self_regulation: "Self-Regulation & Resilience",
+    adaptability_learning: "Adaptive Capacity",
+    communication_social: "Social Intelligence",
+    self_regulation: "Self-Regulation",
   };
 
   // Find actual highest score

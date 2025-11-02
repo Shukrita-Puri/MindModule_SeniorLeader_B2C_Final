@@ -188,8 +188,8 @@ export function detectUserPatterns(): Pattern[] {
     .sort(([, a]: any, [, b]: any) => b.weeklyGrowth - a.weeklyGrowth)[0];
   
   if (fastestGrowingSkill && fastestGrowingSkill[1].weeklyGrowth > 0.1) {
-    const skillName = fastestGrowingSkill[0] === 'communication_social' ? 'CSI' :
-                     fastestGrowingSkill[0] === 'adaptability_learning' ? 'ALA' : 'SRR';
+    const skillName = fastestGrowingSkill[0] === 'social_intelligence' ? 'Social Intelligence' :
+                     fastestGrowingSkill[0] === 'adaptive_capacity' ? 'Adaptive Capacity' : 'Self-Regulation';
     patterns.push({
       text: `${skillName} grows fastest with 2x/week practice`,
       effectiveness: fastestGrowingSkill[1].weeklyGrowth * 10
@@ -309,8 +309,8 @@ function detectPracticePattern(practiceHistory: any[]) {
     .sort(([, a], [, b]) => b - a)[0];
   
   if (mostPracticed && mostPracticed[1] > 5) {
-    const skillName = mostPracticed[0] === 'communication_social' ? 'Communication' :
-                     mostPracticed[0] === 'adaptability_learning' ? 'Adaptability' : 'Self-Regulation';
+    const skillName = mostPracticed[0] === 'social_intelligence' ? 'Social Intelligence' :
+                     mostPracticed[0] === 'adaptive_capacity' ? 'Adaptive Capacity' : 'Self-Regulation';
     return { doingWellAt: skillName };
   }
   
@@ -442,8 +442,8 @@ function formatRelativeDate(timestamp: string): string {
 function getMetaSkillGrowth() {
   // Placeholder - would calculate from actual practice history
   return {
-    adaptability_learning: { baseline: 6.7, current: 6.9, weeklyGrowth: 0.2 },
-    communication_social: { baseline: 8.9, current: 8.9, weeklyGrowth: 0.0 },
+    adaptive_capacity: { baseline: 6.7, current: 6.9, weeklyGrowth: 0.2 },
+    social_intelligence: { baseline: 8.9, current: 8.9, weeklyGrowth: 0.0 },
     self_regulation: { baseline: 5.6, current: 5.8, weeklyGrowth: 0.2 }
   };
 }
@@ -455,9 +455,9 @@ function getLowestMetaSkill() {
   
   return {
     key: lowest[0],
-    displayName: lowest[0] === 'communication_social' ? 'Communication & Social Intelligence' :
-                 lowest[0] === 'adaptability_learning' ? 'Adaptability & Learning Agility' :
-                 'Self-Regulation & Resilience'
+    displayName: lowest[0] === 'social_intelligence' ? 'Social Intelligence' :
+                 lowest[0] === 'adaptive_capacity' ? 'Adaptive Capacity' :
+                 'Self-Regulation'
   };
 }
 

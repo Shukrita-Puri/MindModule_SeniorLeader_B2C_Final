@@ -2,25 +2,25 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, Lightbulb, Target, Scale, HelpCircle, X as XIcon, Repeat, Puzzle, Feather, Settings } from "lucide-react";
+import { Heart, Lightbulb, Target, Zap, HelpCircle, X as XIcon, Repeat, Puzzle, Feather, Settings } from "lucide-react";
 
 interface SessionFeedbackProps {
   sessionType?: string;
   onSubmit: (feedback: {
-    resonance: 'loved' | 'clarifying' | 'insightful' | 'balanced' | 'unclear' | 'missed';
+    resonance: 'loved' | 'clarifying' | 'insightful' | 'aha' | 'unclear' | 'missed';
     deeperFocus?: string;
     nextSessionFocus?: string[];
   }) => void;
   onSkip: () => void;
 }
 
-type ResonanceType = 'loved' | 'clarifying' | 'insightful' | 'balanced' | 'unclear' | 'missed';
+type ResonanceType = 'loved' | 'clarifying' | 'insightful' | 'aha' | 'unclear' | 'missed';
 
 const resonanceOptions = [
   { id: 'loved' as ResonanceType, label: 'Loved it', icon: Heart },
   { id: 'clarifying' as ResonanceType, label: 'Clarifying', icon: Lightbulb },
   { id: 'insightful' as ResonanceType, label: 'Insightful', icon: Target },
-  { id: 'balanced' as ResonanceType, label: 'Balanced', icon: Scale },
+  { id: 'aha' as ResonanceType, label: 'Aha!', icon: Zap },
   { id: 'unclear' as ResonanceType, label: 'Unclear', icon: HelpCircle },
   { id: 'missed' as ResonanceType, label: 'Missed the Mark', icon: XIcon },
 ];

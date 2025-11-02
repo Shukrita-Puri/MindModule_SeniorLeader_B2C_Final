@@ -518,43 +518,48 @@ const PracticeConfigurePage = () => {
           {specificScenario && autoTaggedSkills.length > 0 && (
             <Card className="p-5 bg-gradient-to-br from-gold/5 via-background to-forest/5 border-gold/20 animate-fade-in">
               <h3 className="text-base font-headline font-semibold text-foreground mb-2">
-                Meta skills this dialogue will develop
+                Meta-Skills You'll Practice
               </h3>
               
-              {/* Explanation of Meta Skills */}
-              <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed italic">
-                <span className="font-bold">Meta skills</span> are higher-order cognitive and interpersonal abilities that enable excellence across any domain:
+              {/* Explanation */}
+              <p className="text-xs font-body text-muted-foreground mb-4 leading-relaxed">
+                This dialogue will develop these core mental capabilities:
               </p>
               
-              {/* Meta-Skills in one row - Gold pill badges */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                {autoTaggedSkills.map((skillData, index) => (
-                  <Badge 
-                    key={index}
-                    variant="metaskill" 
-                    className="bg-gold/10 border-gold text-gold px-3 py-1 text-xs font-semibold"
-                  >
-                    {skillData.metaSkill}
-                  </Badge>
-                ))}
+              {/* Meta-Skills with standard naming */}
+              <div className="space-y-3 mb-4">
+                {autoTaggedSkills.map((skillData, index) => {
+                  // Map to standard naming
+                  const standardName = 
+                    skillData.metaSkill.includes('Adaptability') ? '⚡ Adaptive Capacity' :
+                    skillData.metaSkill.includes('Social') || skillData.metaSkill.includes('Communication') ? '🤝 Social Intelligence' :
+                    skillData.metaSkill.includes('Self-Regulation') ? '🎯 Self-Regulation' :
+                    skillData.metaSkill.includes('Thinking') || skillData.metaSkill.includes('Strategic') ? '🧠 Thinking Clarity' :
+                    skillData.metaSkill;
+                    
+                  return (
+                    <div key={index} className="flex items-start gap-2">
+                      <span className="text-sm font-semibold text-gold">{standardName}</span>
+                      <div className="flex-1">
+                        <div className="flex flex-wrap gap-1.5">
+                          {skillData.subSkills.map(subSkill => (
+                            <span 
+                              key={subSkill} 
+                              className="text-xs text-muted-foreground"
+                            >
+                              #{subSkill.replace(/\s+/g, '')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               
-              {/* Explanation of Sub-Skills */}
-              <p className="text-xs font-body text-muted-foreground mb-2 leading-relaxed italic">
-                <span className="font-bold">Sub-skills</span> are focused abilities within each meta skill, built through intentional practice:
+              <p className="text-xs text-muted-foreground/70 italic">
+                Practice strengthens these meta-skills across all life domains
               </p>
-              
-              {/* Sub-Skills as hashtags */}
-              <div className="flex flex-wrap gap-2">
-                {Array.from(new Set(autoTaggedSkills.flatMap(skill => skill.subSkills))).map(subSkill => (
-                  <span 
-                    key={subSkill} 
-                    className="text-xs font-medium text-indigo-700 dark:text-indigo-400"
-                  >
-                    #{subSkill.replace(/\s+/g, '')}
-                  </span>
-                ))}
-              </div>
             </Card>
           )}
 

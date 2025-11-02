@@ -51,15 +51,15 @@ export default function Stage5Results() {
   const AlignmentIcon = alignmentIcon;
 
   const radarData = [
-    { skill: 'Adaptability', score: scores.adaptability_learning },
-    { skill: 'Communication', score: scores.communication_social },
+    { skill: 'Adaptive Capacity', score: scores.adaptability_learning },
+    { skill: 'Social Intelligence', score: scores.communication_social },
     { skill: 'Self-Regulation', score: scores.self_regulation }
   ];
 
   const lowestSkill = Object.entries(scores).reduce((a, b) => a[1] < b[1] ? a : b);
-  const lowestSkillName = lowestSkill[0] === 'adaptability_learning' ? 'Adaptability & Learning Agility' :
-                          lowestSkill[0] === 'communication_social' ? 'Communication & Social Intelligence' :
-                          'Self-Regulation & Resilience';
+  const lowestSkillName = lowestSkill[0] === 'adaptability_learning' ? 'Adaptive Capacity' :
+                          lowestSkill[0] === 'communication_social' ? 'Social Intelligence' :
+                          'Self-Regulation';
 
   const getPatternInsight = (questionKey: string, answer: string) => {
     const insights: Record<string, Record<string, string>> = {
@@ -94,19 +94,7 @@ export default function Stage5Results() {
         <p className="text-muted-foreground">Here's what your patterns reveal</p>
       </div>
 
-      {/* Mental Fitness Score Preview */}
-      <div className="bg-gradient-to-br from-primary/10 to-gold/10 border border-gold/20 rounded-xl p-6">
-        <div className="text-center mb-4">
-          <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground mb-2">Your Starting Point</h3>
-          <div className="text-5xl font-bold text-gold mb-1">0/100</div>
-          <p className="text-xs text-muted-foreground">Mental Fitness Score</p>
-        </div>
-        <div className="border-t border-border pt-4 text-center">
-          <p className="text-sm text-foreground/80 leading-relaxed">
-            Your score builds across <span className="font-semibold">Dialogue Room practices</span> (real scenarios) + <span className="font-semibold">Sanctuary sessions</span> (pause/power-up/presence). Track progress toward 100 as you master meta-skills.
-          </p>
-        </div>
-      </div>
+      {/* Mental Fitness Score removed - introduced after first practice */}
 
       {/* Triangle Chart */}
       <div className="bg-card border border-border rounded-xl p-6">
@@ -145,15 +133,15 @@ export default function Stage5Results() {
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="text-center">
             <div className="text-2xl font-bold text-gold">{scores.adaptability_learning.toFixed(1)}/10</div>
-            <div className="text-xs text-muted-foreground">Adaptability & Learning Agility</div>
+            <div className="text-xs text-muted-foreground">Adaptive Capacity</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-gold">{scores.communication_social.toFixed(1)}/10</div>
-            <div className="text-xs text-muted-foreground">Communication & Social Intelligence</div>
+            <div className="text-xs text-muted-foreground">Social Intelligence</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-gold">{scores.self_regulation.toFixed(1)}/10</div>
-            <div className="text-xs text-muted-foreground">Self-Regulation & Resilience</div>
+            <div className="text-xs text-muted-foreground">Self-Regulation</div>
           </div>
         </div>
       </div>
@@ -246,7 +234,7 @@ export default function Stage5Results() {
               {lowestSkill[0] === 'adaptability_learning' 
                 ? "You'll benefit most from scenarios that challenge you to pivot quickly and learn from feedback. Practice will focus on flexible thinking, rapid adjustment, and treating setbacks as data."
                 : lowestSkill[0] === 'communication_social'
-                ? "You have strong adaptability and self-regulation—now build the social intelligence to leverage them. Practice will focus on reading room dynamics, navigating stakeholder conflict, and influencing when perspectives differ."
+                ? "You have strong adaptive capacity and self-regulation—now build the social intelligence to leverage them. Practice will focus on reading room dynamics, navigating stakeholder conflict, and influencing when perspectives differ."
                 : "You'll benefit most from techniques that help you stay composed under pressure and recover from setbacks faster. Practice will focus on emotional regulation, stress management, and building resilience."}
             </p>
           </div>

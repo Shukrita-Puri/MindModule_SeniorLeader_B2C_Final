@@ -122,7 +122,8 @@ const Simulation = () => {
 
       <PrivacyFooter />
       <MainNavigation />
-      <Toaster />
+      {/* Only show toaster during active conversation, not when feedback modal is open */}
+      {!showFeedback && <Toaster />}
     </div>
   );
 };
