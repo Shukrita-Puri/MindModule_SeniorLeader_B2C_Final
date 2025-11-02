@@ -1,11 +1,6 @@
-
-import { useState } from "react";
-import { Brain, ArrowRight } from "lucide-react";
+import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import vibrantGrowthIllustration from "@/assets/vibrant-growth-illustration.png";
-
-import { GoldDivider } from "@/components/ui/divider";
 
 const Front = () => {
   const navigate = useNavigate();
@@ -15,58 +10,72 @@ const Front = () => {
   };
 
   return (
-    <div className="min-h-screen text-foreground font-editorial flex flex-col items-center justify-center px-4 pb-24 section-spacing">
-      {/* Hero Illustration - Editorial Layout */}
-      <div className="mb-12 editorial-margin">
-        <div className="relative max-w-md mx-auto">
-          <div className="w-full aspect-[4/5] rounded-sm border border-gold/20 overflow-hidden shadow-[0_4px_6px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.06)]">
-            <img 
-              src="/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png"
-              alt="Watercolor mind illustration"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          {/* Small accent illustration */}
-          <div className="absolute -bottom-6 -right-6 w-20 h-20 sm:w-24 sm:h-24 bg-card rounded-xl border border-gold/30 flex items-center justify-center shadow-lg aspect-[4/5] overflow-hidden">
-            <img 
-              src="/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png"
-              alt="Network connection icon"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Title */}
-      <div className="text-center mb-8">
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline font-bold text-foreground mb-6 leading-tight">
-          Mind Module
+    <div className="relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden">
+      
+      {/* Subtle background gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
+      
+      {/* Top decorative gold line */}
+      <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-24 h-px bg-gold/40" />
+      
+      {/* Main Hero Content */}
+      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-8">
+        
+        {/* LOGO - THE HERO */}
+        <h1 className="text-7xl sm:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
+          MIND<br/>MODULE
         </h1>
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-editorial font-medium text-primary mb-6 italic">
+        
+        {/* Tagline */}
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">
           Mind Mastery for Achievers
         </h2>
-      </div>
-
-      {/* Subtitle */}
-      <div className="text-center mb-12 max-w-2xl px-4">
-        <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed font-body">
-          First Context based Thinking Partner for developing Meta Skill
+        
+        {/* Gold Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-6" />
+        
+        {/* Description */}
+        <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
+          First Context-based Thinking Partner for developing Meta Skills
         </p>
-      </div>
-
-      <GoldDivider />
-
-      {/* CTA Button */}
-      <div className="text-center">
+        
+        {/* CTA Button */}
         <Button 
           onClick={handleGetStarted}
           size="lg"
-          className="text-base sm:text-lg font-medium"
+          className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 mt-8"
         >
-          Let's Go!
-          <ArrowRight className="w-5 h-5 ml-2" />
+          Begin Your Journey
+          <ArrowRight className="w-5 h-5 ml-3" />
         </Button>
+        
+        {/* Privacy Trust Badge */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-muted-foreground mt-8 pt-8 border-t border-gold/10 w-full">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-gold" />
+            <span className="font-body tracking-wide">Privacy by Design</span>
+          </div>
+          <span className="hidden sm:inline text-gold/40">•</span>
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-gold" />
+            <span className="font-body tracking-wide">Local-First Architecture</span>
+          </div>
+        </div>
       </div>
+      
+      {/* Bottom decorative gold line */}
+      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-24 h-px bg-gold/40" />
+      
+      {/* Enhanced Privacy Footer */}
+      <div className="absolute bottom-8 left-0 right-0 text-center">
+        <button 
+          onClick={() => navigate('/privacy')}
+          className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide"
+        >
+          Learn about our Privacy by Design commitment →
+        </button>
+      </div>
+      
     </div>
   );
 };
