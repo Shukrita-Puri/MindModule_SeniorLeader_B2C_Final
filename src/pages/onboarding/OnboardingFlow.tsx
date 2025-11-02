@@ -17,13 +17,13 @@ const STAGE_ROUTES = [
 // Only tracking time for questionnaire stages (1-4)
 const TIME_ESTIMATES = [0.5, 0.75, 2.5, 0.5];
 
-// Weighted progress calculation for questionnaire stages
+// Weighted progress calculation - shows completion of PREVIOUS stages
 const calculateWeightedProgress = (stageIndex: number): number => {
   const weights = {
-    0: 10,   // Welcome - 10%
-    1: 30,   // Identity - 30%
-    2: 80,   // Behavioral (heaviest) - 80%
-    3: 100,  // Self-Assessment - 100%
+    0: 0,    // Welcome - 0% (just starting)
+    1: 10,   // Identity - 10% (welcome completed)
+    2: 30,   // Behavioral - 30% (identity completed)
+    3: 80,   // Self-Assessment - 80% (behavioral completed)
   };
   return weights[stageIndex as keyof typeof weights] || 0;
 };
