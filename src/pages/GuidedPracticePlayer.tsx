@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import BreathingAnimation from "@/components/BreathingAnimation";
+import GlobalHeader from "@/components/GlobalHeader";
 
 interface PracticeStep {
   stepNumber: number;
@@ -696,6 +697,14 @@ const GuidedPracticePlayer = () => {
     };
   }, [isPlaying, view, currentStep, stepTimeLeft, practice]);
 
+  const getCategoryPath = () => {
+    const category = (location.state as any)?.category;
+    if (category === 'pause') return '/recalibrate/pause';
+    if (category === 'power-up') return '/recalibrate/power-up';
+    if (category === 'presence') return '/recalibrate/presence';
+    return '/guided-practices';
+  };
+
   if (!practice) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -723,11 +732,10 @@ const GuidedPracticePlayer = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate("/guided-practices")}
+            onClick={() => navigate(getCategoryPath())}
             className="mb-6"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Library
+            <ArrowLeft className="h-4 w-4" />
           </Button>
 
           <div className="space-y-8">
@@ -854,9 +862,12 @@ const GuidedPracticePlayer = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Exit
           </Button>
-          <span className="text-sm text-muted-foreground">
-            Step {currentStep + 1} of {practice.steps.length}
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Step {currentStep + 1} of {practice.steps.length}
+            </span>
+            <GlobalHeader />
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -988,7 +999,7 @@ const GuidedPracticePlayer = () => {
           }}>
             Practice Again
           </Button>
-          <Button variant="outline" onClick={() => navigate("/guided-practices")}>
+          <Button variant="outline" onClick={() => navigate(getCategoryPath())}>
             Explore More
           </Button>
           <Button variant="outline" onClick={() => navigate("/executive-home")}>

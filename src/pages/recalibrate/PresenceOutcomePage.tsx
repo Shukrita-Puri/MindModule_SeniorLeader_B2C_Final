@@ -15,9 +15,9 @@ const PresenceOutcomePage = () => {
 
   const handleItemClick = (item: typeof content[0]) => {
     if (item.type === 'soundscape') {
-      navigate(`/soundscapes/${item.id}`);
+      navigate(`/soundscapes/${item.id}`, { state: { category: 'presence' } });
     } else {
-      navigate(`/guided-practices/${item.id}`);
+      navigate(`/guided-practices/${item.id}`, { state: { category: 'presence' } });
     }
   };
 

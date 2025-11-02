@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
+import GlobalHeader from "@/components/GlobalHeader";
 import { toast } from "sonner";
 
 interface SoundscapeData {
@@ -157,6 +158,7 @@ const soundscapeData: Record<string, SoundscapeData> = {
 const SoundscapePlayer = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(70);
@@ -167,6 +169,14 @@ const SoundscapePlayer = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const soundscape = id ? soundscapeData[id] : null;
+
+  const getCategoryPath = () => {
+    const category = (location.state as any)?.category;
+    if (category === 'pause') return '/recalibrate/pause';
+    if (category === 'power-up') return '/recalibrate/power-up';
+    if (category === 'presence') return '/recalibrate/presence';
+    return '/soundscapes';
+  };
 
   // Sync audio state on mount
   useEffect(() => {
@@ -318,17 +328,17 @@ const SoundscapePlayer = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
-      {/* Header */}
-      <div className="p-6 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/soundscapes")}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Library
-        </Button>
+        {/* Header */}
+        <div className="p-6 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(getCategoryPath())}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <GlobalHeader />
       </div>
 
       {/* Main Player Area */}
