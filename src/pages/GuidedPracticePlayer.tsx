@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  ArrowLeft, 
   Play, 
   Pause,
   ChevronRight,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import BreathingAnimation from "@/components/BreathingAnimation";
-import GlobalHeader from "@/components/GlobalHeader";
+import TopNavigation from "@/components/simulation/TopNavigation";
 
 interface PracticeStep {
   stepNumber: number;
@@ -656,6 +655,7 @@ const practiceData: Record<string, PracticeData> = {
 const GuidedPracticePlayer = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [view, setView] = useState<"intro" | "practice" | "complete">("intro");
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -699,6 +699,7 @@ const GuidedPracticePlayer = () => {
 
   const getCategoryPath = () => {
     const category = (location.state as any)?.category;
+    
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
@@ -728,17 +729,9 @@ const GuidedPracticePlayer = () => {
   if (view === "intro") {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background">
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(getCategoryPath())}
-            className="mb-6"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-
-          <div className="space-y-8">
+        <TopNavigation backPath={getCategoryPath()} />
+        
+        <div className="max-w-4xl mx-auto px-6 py-8 pt-20">
             {/* Header */}
             <div>
               <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
@@ -835,7 +828,6 @@ const GuidedPracticePlayer = () => {
               Begin Practice
             </Button>
           </div>
-        </div>
       </div>
     );
   }
@@ -848,30 +840,17 @@ const GuidedPracticePlayer = () => {
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
-        {/* Header */}
-        <div className="p-6 flex items-center justify-between border-b border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setIsPlaying(false);
-              setView("intro");
-              setCurrentStep(0);
-            }}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Exit
-          </Button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Step {currentStep + 1} of {practice.steps.length}
-            </span>
-            <GlobalHeader />
-          </div>
+        <TopNavigation backPath={getCategoryPath()} />
+        
+        {/* Step Counter */}
+        <div className="fixed top-16 right-6 z-40">
+          <span className="text-sm text-muted-foreground bg-card/80 backdrop-blur-sm px-3 py-1 rounded-full border border-gold/20">
+            Step {currentStep + 1} of {practice.steps.length}
+          </span>
         </div>
 
         {/* Progress Bar */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 pt-20">
           <Progress value={overallProgress} className="h-2" />
         </div>
 

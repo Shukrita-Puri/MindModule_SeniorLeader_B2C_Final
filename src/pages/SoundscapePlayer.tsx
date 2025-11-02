@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { 
-  ArrowLeft, 
   Play, 
   Pause, 
   SkipBack, 
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
-import GlobalHeader from "@/components/GlobalHeader";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import { toast } from "sonner";
 
 interface SoundscapeData {
@@ -171,7 +170,9 @@ const SoundscapePlayer = () => {
   const soundscape = id ? soundscapeData[id] : null;
 
   const getCategoryPath = () => {
-    const category = (location.state as any)?.category;
+    const locationState = location.state as { category?: string } | null;
+    const category = locationState?.category;
+    
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
@@ -328,21 +329,10 @@ const SoundscapePlayer = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
-        {/* Header */}
-        <div className="p-6 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(getCategoryPath())}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <GlobalHeader />
-      </div>
+      <TopNavigation backPath={getCategoryPath()} />
 
       {/* Main Player Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12 pt-20">
         {/* Title */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
