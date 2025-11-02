@@ -490,6 +490,85 @@ const practiceData: Record<string, PracticeData> = {
       }
     ],
     completionMessage: "You have trained the eyes. You have stilled the mind. You have touched the eternal flame within. Carry this focus into your work."
+  },
+  "kapalabhati-pranayama": {
+    id: "kapalabhati-pranayama",
+    title: "Kapalabhati Pranayama - Skull Shining Breath",
+    category: "Ancient Power",
+    totalDuration: 360,
+    difficulty: "Intermediate",
+    origin: "Ancient Yogic Practice | Hatha Yoga",
+    fullStory: "Kapalabhati, literally meaning 'skull shining' or 'forehead luster' in Sanskrit, is one of the six classical cleansing techniques (Shatkarma) described in ancient yogic texts including the Hatha Yoga Pradipika (15th century) and Gheranda Samhita (17th century). This practice dates back thousands of years to the early development of Hatha Yoga in India, where yogis discovered that rapid, forceful exhalations could purify the nadis (energy channels), expel stale air and toxins from the lungs, and generate immediate vitality and mental clarity. The technique was traditionally practiced at dawn, after cleansing rituals, to prepare the body and mind for meditation. Ancient yogis believed that Kapalabhati clears the frontal brain region (bringing luminosity to the mind), activates the manipura chakra (solar plexus - the seat of personal power), balances the three doshas in Ayurvedic medicine, and increases prana (life force) throughout the entire system. Unlike gentle breathing practices, Kapalabhati is vigorous and heating. The rapid diaphragmatic pumping creates an internal massage of the organs, stimulates the sympathetic nervous system, and floods the body with oxygen and energy. Modern studies show it increases metabolic rate, improves lung capacity, and triggers the release of endorphins. This is not a meditation—it's an activation. Warriors and yogis alike used this technique before battle, intense practice, or any situation requiring peak physical and mental performance.",
+    whatYouNeed: [
+      "Empty stomach (at least 2 hours after eating) - CRITICAL",
+      "Comfortable seated position with straight spine",
+      "Box of tissues nearby (practice clears the sinuses)",
+      "Water to drink afterward",
+      "DO NOT PRACTICE IF: Pregnant, high blood pressure, heart conditions, hernia, menstruating, epilepsy, or if you feel dizzy",
+      "Optional: Peppermint or eucalyptus oil for invigoration",
+      "Best practiced: First thing in morning, before workouts, or mid-afternoon energy slumps"
+    ],
+    expectedOutcomes: [
+      "Surge of energy and vitality",
+      "Complete mental clarity and alertness",
+      "Feeling of internal heat and activation",
+      "Tingling sensations throughout the body",
+      "Completely clear sinuses and lungs",
+      "Euphoric, empowered feeling",
+      "Significantly increased energy levels (with regular practice)",
+      "Improved lung capacity and respiratory health",
+      "Stronger core muscles",
+      "Reduced need for caffeine"
+    ],
+    usedBy: "Yogis, Warriors, Athletes, High Performers",
+    steps: [
+      {
+        stepNumber: 1,
+        title: "Preparation & Technique",
+        instruction: "Sit upright with your spine straight—on a cushion or chair. Place your hands on your knees or belly. Close your eyes. Take three natural breaths. Now learn the technique: the exhale is sharp, forceful, and active—pull your belly in toward your spine like a quick pump. The inhale is passive and automatic—just release your belly and air flows in naturally. Practice 10 slow pumps now to get the rhythm: sharp exhale (belly in), passive inhale (belly out). Don't force the inhale; let it happen naturally.",
+        duration: 60,
+        wisdomNote: "The ancient yogis called this 'bellows breath'—like a blacksmith pumping bellows to stoke fire. You are stoking your inner fire."
+      },
+      {
+        stepNumber: 2,
+        title: "First Activation Round",
+        instruction: "Take a deep breath in and let it out. Now begin: 30 rapid breaths at the pace of about 1 per second. Sharp exhales, passive inhales. Pump from your belly. Let your body find its rhythm. After 30 breaths, take one final deep inhale, fill your lungs completely, and hold for as long as comfortable (aim for 15-30 seconds). When you need to breathe, exhale slowly and return to normal breathing. Notice the energy flowing through you.",
+        duration: 60,
+        breathingPattern: "Rapid Pumping",
+        wisdomNote: "You've just expelled stale air that's been sitting in your lungs. Fresh prana is flooding your system."
+      },
+      {
+        stepNumber: 3,
+        title: "Second Power Round",
+        instruction: "Take a moment to feel the effects—tingling, warmth, clarity. When ready, take another deep breath and begin: 50 rapid breaths this time, slightly faster than before. Let the rhythm become automatic—your belly pumping like a powerful engine. Sharp exhales, passive inhales. After 50, take one final massive inhale, hold it for 20-40 seconds or as long as comfortable. Feel the pressure building in your skull—this is the 'skull shining.' Exhale slowly. Breathe normally for a few breaths.",
+        duration: 90,
+        breathingPattern: "Intense Pumping",
+        wisdomNote: "The Sanskrit texts describe this feeling as 'tejas'—radiant inner fire. Your manipura chakra is awakening."
+      },
+      {
+        stepNumber: 4,
+        title: "Peak Performance Round",
+        instruction: "This is the peak round. Take a deep breath. Begin: 70-100 rapid breaths, as fast as you can maintain with control. Let yourself become the breath—there's no you anymore, just this pumping rhythm. Your core is on fire. Your mind is crystal clear. Every cell is alive. After your count, take one final enormous inhale, hold it as long as you possibly can (aim for 30-60 seconds). Feel the pressure at your third eye. When you absolutely must breathe, exhale slowly through your mouth with a sigh. Rest in stillness.",
+        duration: 120,
+        breathingPattern: "Maximum Power",
+        wisdomNote: "Warriors used this before battle. You've just accessed your primal power. This is what you're capable of."
+      },
+      {
+        stepNumber: 5,
+        title: "Integration Breath",
+        instruction: "Return to normal, natural breathing. Don't try to control it—just observe. Notice the profound effects: your heart rate, the energy coursing through your limbs, the clarity in your mind, the warmth in your body. You may feel slightly euphoric, empowered, invincible. This is your natural state when obstacles are cleared. Sit with this for 30 seconds, just breathing and feeling.",
+        duration: 30,
+        wisdomNote: "The ancient texts promise: 'By this practice, one becomes radiant, diseases are destroyed, and perfect health is attained.'"
+      },
+      {
+        stepNumber: 6,
+        title: "Seal & Rise",
+        instruction: "Place both hands on your belly, feeling the power center you've just activated. Set your intention: 'I carry this fire into my day. I am energized, focused, unstoppable.' Take three deep breaths. When ready, open your eyes slowly. Stand up mindfully. Drink water. Go conquer your day.",
+        duration: 30,
+        wisdomNote: "You've just done what yogis have done for 5,000 years to access superhuman energy. This is your birthright. Practice daily."
+      }
+    ],
+    completionMessage: "Your skull is shining. Your fire is lit. You are fully activated. Now go do the impossible."
   }
 };
 

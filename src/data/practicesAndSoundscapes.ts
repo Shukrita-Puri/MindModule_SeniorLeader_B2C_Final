@@ -193,6 +193,21 @@ export const allContent: PracticeOrSoundscape[] = [
     thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
     steps: 6
   },
+  {
+    id: "kapalabhati-pranayama",
+    type: "practice",
+    title: "Kapalabhati Pranayama",
+    subtitle: "Skull Shining Breath",
+    category: "power-up",
+    duration: "6 min",
+    difficulty: "intermediate",
+    origin: "Ancient Yogic Practice | Hatha Yoga",
+    storyHook: "For thousands of years, yogis have used this rapid-fire breathing to generate instant energy and mental clarity—ancient alternative to caffeine.",
+    usedBy: "Yogis, Warriors, High Performers",
+    description: "Ancient energizing breath technique for instant vitality, mental sharpness, and internal fire",
+    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
+    steps: 6
+  },
   
   // PRESENCE - Soundscapes
   {
