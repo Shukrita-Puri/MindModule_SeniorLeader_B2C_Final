@@ -277,6 +277,19 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Soft background sounds proven to enhance focus in academic settings",
     thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png"
   },
+  {
+    id: "cathedral-choir-flow",
+    type: "soundscape",
+    title: "Cathedral Choir Flow",
+    subtitle: "Resonance for Healing & Focus",
+    category: "presence",
+    duration: "20 min",
+    origin: "Sacred Cathedral Resonance",
+    storyHook: "Step into a grand cathedral, where sunlight spills across vaulted ceilings and every stone resonates with history. Within this vast space, sound takes on dimension: a choir of voices rises and falls, interwoven with bells, subtle percussion, and reverberant harmonics.",
+    creator: "Sacred harmonic composition",
+    description: "Layered harmonics and rhythmic pulses sharpen attention, foster mindful presence, and create energetic alignment through cathedral-inspired resonance",
+    thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png"
+  },
   
   // PRESENCE - Practices
   {

@@ -152,6 +152,23 @@ const soundscapeData: Record<string, SoundscapeData> = {
       "Temporal Suspension — Time becomes circular, like prayer beads—infinite, patient, absolute"
     ],
     completionQuote: "This is not a song; it is a sanctuary."
+  },
+  "cathedral-choir-flow": {
+    id: "cathedral-choir-flow",
+    title: "Cathedral Choir Flow",
+    category: "presence",
+    duration: 1200,
+    origin: "Sacred Cathedral Resonance",
+    fullStory: "Step into a grand cathedral, where sunlight spills across vaulted ceilings and every stone resonates with history. Within this vast space, sound takes on dimension: a choir of voices rises and falls, interwoven with bells, subtle percussion, and reverberant harmonics. This soundbath captures the interplay of clarity and calm. Each note carries intention, creating a sonic environment that encourages focus, mindfulness, and rejuvenation. Movement and stillness coexist here—the architecture of sound itself becomes a guide for alignment, energy, and presence.",
+    creator: "Sacred harmonic composition",
+    technique: "Sit or move comfortably. Allow the choir's harmonics to wash over you, expanding your awareness without effort. The sustained tones of the instruments anchor your attention, while gentle rhythmic elements create a natural pulse for meditation, stretching, or mindful flow. This is flow in sound: a space to cultivate focus, clarity, and a calm, centered energy. Let the vibrations guide your breathing and your attention, bringing body and mind into alignment.",
+    benefits: [
+      "Enhanced Focus — Layered harmonics and rhythmic pulses sharpen attention and support deep concentration",
+      "Mindful Presence — Sustained tones create a sense of spatial and mental clarity, ideal for meditation or contemplative work",
+      "Energetic Alignment — Resonances move through the body, encouraging balance and subtle energetic flow",
+      "Flow Induction — The gentle interplay of voices and instruments fosters a natural state of ease and continuity"
+    ],
+    completionQuote: "This soundbath is a sanctuary of resonance. It is not performance, but presence. A space where listening cultivates calm, energy, and sustained focus."
   }
 };
 
@@ -441,7 +458,7 @@ const SoundscapePlayer = () => {
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={`/soundscapes/${id === 'tibetan-bowls' ? 'tibetan-bowls.mp3' : `${id}.wav`}`}
+          src={`/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' ? `${id}.mp3` : `${id}.wav`}`}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleAudioEnded}
