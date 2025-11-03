@@ -290,6 +290,19 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Layered harmonics and rhythmic pulses sharpen attention, foster mindful presence, and create energetic alignment through cathedral-inspired resonance",
     thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png"
   },
+  {
+    id: "ina-night-fields",
+    type: "soundscape",
+    title: "Ina Night Fields (Tsukiyomi)",
+    subtitle: "Evening Crickets and Night Ambience",
+    category: "presence",
+    duration: "4 min 2 sec",
+    origin: "Nagano Countryside, Japan",
+    storyHook: "In the quiet heart of Nagano's countryside, where the land folds gently into mist and memory, night hums in perfect rhythm. Through the open window of a farmhouse in Ina, the living orchestra of the fields begins.",
+    creator: "Natural field recording",
+    description: "Authentic Japanese countryside soundscape for lucid stillness, textural awareness, and organic focus through cricket rhythms",
+    thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png"
+  },
   
   // PRESENCE - Practices
   {

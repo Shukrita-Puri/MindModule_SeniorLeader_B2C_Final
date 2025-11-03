@@ -169,6 +169,23 @@ const soundscapeData: Record<string, SoundscapeData> = {
       "Flow Induction — The gentle interplay of voices and instruments fosters a natural state of ease and continuity"
     ],
     completionQuote: "This soundbath is a sanctuary of resonance. It is not performance, but presence. A space where listening cultivates calm, energy, and sustained focus."
+  },
+  "ina-night-fields": {
+    id: "ina-night-fields",
+    title: "Ina Night Fields (Tsukiyomi)",
+    category: "presence",
+    duration: 242,
+    origin: "Nagano Countryside, Japan",
+    fullStory: "In the quiet heart of Nagano's countryside, where the land folds gently into mist and memory, night hums in perfect rhythm. Through the open window of a farmhouse in Ina—wooden beams breathing the scent of cedar and cool earth—the living orchestra of the fields begins. This soundscape is not composed; it is discovered. The world performs itself here—crickets tracing invisible constellations in the dark, cicadas pulsing like a heartbeat beneath the sky. Every sound is a brushstroke in a landscape of restraint and reverence, painted in tones of dew, soil, and starlight. It is a portrait of solitude, but never loneliness—the still vitality of a night that listens back.",
+    creator: "Natural field recording",
+    technique: "Sit as though beside that farmhouse window. Do not seek melody or meaning—let the field speak for itself. The crickets' dialogue is subtle yet precise, an organic metronome for the attentive mind. Their rhythm invites a state of soft focus, where thought dissolves into perception. The beauty lies not in the sound itself, but in the space it reveals.",
+    benefits: [
+      "Lucid Stillness — The ambient field tones foster calm concentration, grounding attention in the present moment",
+      "Textural Awareness — Layers of natural resonance awaken sensory detail—wind, timber, wing, breath",
+      "Organic Focus — The steady pulse of insect song becomes a meditative anchor for creative or contemplative work",
+      "Temporal Drift — Minutes expand into a gentle continuum; productivity becomes peace"
+    ],
+    completionQuote: "No instruments. No synthesis. Only the night itself—ancient in rhythm, immediate in presence."
   }
 };
 
@@ -293,13 +310,11 @@ const SoundscapePlayer = () => {
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const newTime = Math.floor(e.currentTarget.currentTime);
     setCurrentTime(newTime);
-    console.log("Time update:", newTime, "Duration:", displayDuration, "Progress:", progress);
   };
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const duration = Math.floor(e.currentTarget.duration);
     setActualDuration(duration);
-    console.log("Audio loaded, duration:", duration);
   };
 
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -458,7 +473,7 @@ const SoundscapePlayer = () => {
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={`/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' ? `${id}.mp3` : `${id}.wav`}`}
+          src={`/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleAudioEnded}
