@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
+import { GradientProgress } from "@/components/ui/gradient-progress";
+import { GoldCard } from "@/components/ui/gold-card";
 import { 
   Play, 
   Pause, 
@@ -337,99 +338,103 @@ const SoundscapePlayer = () => {
       {/* Main Player Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12 pt-20">
         {/* Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
             {soundscape.title}
           </h1>
           <p className="text-muted-foreground">{soundscape.origin}</p>
         </div>
 
-        {/* Visual Element */}
-        <div className="mb-12">
-          <div className="relative w-64 h-64 flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-gold/20 via-primary/20 to-accent/20 rounded-full blur-3xl animate-pulse" />
-            <div className="relative">
-              <WaveformVisualizer 
-                isActive={isPlaying} 
-                color="primary" 
-                className="scale-150"
-              />
+        <GoldCard variant="glowing" className="w-full max-w-2xl p-6 md:p-8 mb-8">
+          {/* Visual Element */}
+          <div className="mb-8">
+            <div className="relative w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-gold/20 via-primary/20 to-accent/20 rounded-full blur-3xl animate-pulse" />
+              <div className="relative">
+                <WaveformVisualizer 
+                  isActive={isPlaying} 
+                  color="primary" 
+                  className="scale-150"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Timer and Progress */}
-        <div className="w-full max-w-md space-y-4 mb-8">
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(displayDuration)}</span>
+          {/* Timer and Progress */}
+          <div className="w-full space-y-3 mb-8">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(displayDuration)}</span>
+            </div>
+            <GradientProgress value={progress} className="h-2 md:h-2.5" />
           </div>
-          <Progress value={progress} className="h-2" />
-        </div>
 
-        {/* Playback Controls */}
-        <div className="flex items-center gap-6 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleSkip(-15)}
-            className="h-12 w-12"
-          >
-            <SkipBack className="h-6 w-6" />
-          </Button>
-          
-          <Button
-            size="icon"
-            onClick={handlePlayPause}
-            className="h-16 w-16 rounded-full"
-          >
-            {isPlaying ? (
-              <Pause className="h-8 w-8" />
-            ) : (
-              <Play className="h-8 w-8 ml-1" />
-            )}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleSkip(15)}
-            className="h-12 w-12"
-          >
-            <SkipForward className="h-6 w-6" />
-          </Button>
-        </div>
+          {/* Playback Controls */}
+          <div className="flex items-center justify-center gap-6 mb-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSkip(-15)}
+              className="h-12 w-12 rounded-full"
+            >
+              <SkipBack className="h-5 w-5" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePlayPause}
+              className="h-16 w-16 rounded-full bg-primary/10 hover:bg-primary/20"
+            >
+              {isPlaying ? (
+                <Pause className="h-6 w-6" />
+              ) : (
+                <Play className="h-6 w-6 ml-0.5" />
+              )}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSkip(15)}
+              className="h-12 w-12 rounded-full"
+            >
+              <SkipForward className="h-5 w-5" />
+            </Button>
+          </div>
 
-        {/* Volume Control */}
-        <div className="w-full max-w-xs flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleMuteToggle}
-          >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
-          </Button>
-          <Slider
-            value={[isMuted ? 0 : volume]}
-            onValueChange={handleVolumeChange}
-            max={100}
-            step={1}
-            className="flex-1"
-          />
-          <Button
-            variant={isLooping ? "default" : "ghost"}
-            size="icon"
-            onClick={() => setIsLooping(!isLooping)}
-            title={isLooping ? "Loop enabled" : "Enable loop"}
-            className={isLooping ? "bg-gold/20 text-gold hover:bg-gold/30" : ""}
-          >
-            <Repeat className="h-5 w-5" />
-          </Button>
-        </div>
+          {/* Volume Control */}
+          <div className="w-full max-w-sm mx-auto flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleMuteToggle}
+              className="h-10 w-10 rounded-full shrink-0"
+            >
+              {isMuted || volume === 0 ? (
+                <VolumeX className="h-4 w-4" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
+            </Button>
+            <Slider
+              value={[isMuted ? 0 : volume]}
+              onValueChange={handleVolumeChange}
+              max={100}
+              step={1}
+              className="flex-1"
+            />
+            <Button
+              variant={isLooping ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setIsLooping(!isLooping)}
+              title={isLooping ? "Loop enabled" : "Enable loop"}
+              className={isLooping ? "bg-gold/20 text-gold hover:bg-gold/30 h-10 w-10 rounded-full shrink-0" : "h-10 w-10 rounded-full shrink-0"}
+            >
+              <Repeat className="h-4 w-4" />
+            </Button>
+          </div>
+        </GoldCard>
 
         {/* Hidden Audio Element */}
         <audio
@@ -446,13 +451,16 @@ const SoundscapePlayer = () => {
         <div className="w-full max-w-2xl">
           <Collapsible open={isStoryOpen} onOpenChange={setIsStoryOpen}>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <BookOpen className="h-4 w-4 mr-2" />
+              <Button 
+                variant="outline" 
+                className="w-full rounded-full h-10 text-xs md:text-sm font-medium border-gold/30 hover:border-gold/60 hover:bg-gold/10 hover:scale-[1.02] transition-all duration-300 ease-out shadow-sm hover:shadow-md"
+              >
+                <BookOpen className="h-3.5 w-3.5 mr-2 text-gold" />
                 {isStoryOpen ? "Hide" : "Show"} Origin Story
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-4">
-              <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-gold/20 space-y-4">
+              <GoldCard variant="subtle" className="p-6 space-y-4">
                 <div>
                   <h3 className="text-gold font-semibold mb-2">Origin & History</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">
@@ -482,7 +490,7 @@ const SoundscapePlayer = () => {
                 <p className="text-xs text-muted-foreground italic pt-4 border-t border-border">
                   {soundscape.creator}
                 </p>
-              </div>
+              </GoldCard>
             </CollapsibleContent>
           </Collapsible>
         </div>
