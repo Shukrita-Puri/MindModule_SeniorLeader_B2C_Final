@@ -274,7 +274,9 @@ const SoundscapePlayer = () => {
   };
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-    setCurrentTime(Math.floor(e.currentTarget.currentTime));
+    const newTime = Math.floor(e.currentTarget.currentTime);
+    setCurrentTime(newTime);
+    console.log("Time update:", newTime, "Duration:", displayDuration, "Progress:", progress);
   };
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -453,9 +455,8 @@ const SoundscapePlayer = () => {
             <CollapsibleTrigger asChild>
               <Button 
                 variant="outline" 
-                className="w-full rounded-full h-10 text-xs md:text-sm font-medium border-gold/30 hover:border-gold/60 hover:bg-gold/10 hover:scale-[1.02] transition-all duration-300 ease-out shadow-sm hover:shadow-md"
+                className="w-full rounded-full h-11 text-sm md:text-base font-medium border-gold/30 hover:border-gold/60 hover:bg-gold/10 hover:scale-[1.02] transition-all duration-300 ease-out shadow-sm hover:shadow-md"
               >
-                <BookOpen className="h-3.5 w-3.5 mr-2 text-gold" />
                 {isStoryOpen ? "Hide" : "Show"} Origin Story
               </Button>
             </CollapsibleTrigger>
