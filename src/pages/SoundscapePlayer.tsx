@@ -186,6 +186,74 @@ const soundscapeData: Record<string, SoundscapeData> = {
       "Temporal Drift — Minutes expand into a gentle continuum; productivity becomes peace"
     ],
     completionQuote: "No instruments. No synthesis. Only the night itself—ancient in rhythm, immediate in presence."
+  },
+  "earth-resonance-power": {
+    id: "earth-resonance-power",
+    title: "Earth Resonance",
+    category: "power-up",
+    duration: 145,
+    origin: "Ancient Sound Traditions",
+    fullStory: "Morning hums awake—the first breath of a living street. Between the rustle of canvas stalls and the pulse of passing footsteps, a single vibration begins to bloom. The didgeridoo exhales, low and molten, stirring the ground beneath your awareness. Its drone is elemental—an ancient frequency of life-force and motion. Around it, singing bowls emerge like light on water—luminous, crystalline, harmonizing the earthbound tone with higher resonance. What begins as a street performance becomes something else: a spontaneous alignment of rhythm, breath, and intention. The marketplace becomes a temple; the listener becomes a participant. This soundbath is an energize and flow practice—a transition from root to crown, from kinetic activation to focused presence.",
+    creator: "Street performance meets sacred ritual",
+    technique: "Phase I — Energize: Begin upright. Feel your spine like a column of sound. The didgeridoo's breath ignites movement—sway, stretch, or pulse in time with its resonance. Let the vibrations gather in your lower body, awakening dormant strength and vitality. This is the sound of grounding—primal, circular, continuous. As the bowls begin to shimmer through the drone, imagine energy rising—not rushed, but inevitable—a slow ignition of the inner current. Phase II — Flow / Focus: Allow stillness to return. Breathe with the bowls now—light, deliberate, clear. Their tones become a bridge between motion and mind. Here, attention sharpens without effort. Focus is no longer forced—it flows.",
+    benefits: [
+      "Energizing Resonance — Didgeridoo frequencies awaken the body's core, stimulating breath and circulation",
+      "Dynamic Grounding — Low drones anchor physical presence, fostering strength and stability before focus",
+      "Cognitive Flow — Singing bowls elevate awareness into a tranquil yet alert state, ideal for creative work",
+      "Spatial Clarity — The binaural field enhances immersion, engaging both hemispheres for unified attention"
+    ],
+    completionQuote: "From earth to sky, from stillness to motion—you are the instrument through which all frequencies flow."
+  },
+  "earth-resonance-presence": {
+    id: "earth-resonance-presence",
+    title: "Earth Resonance",
+    category: "presence",
+    duration: 145,
+    origin: "Ancient Sound Traditions",
+    fullStory: "Morning hums awake—the first breath of a living street. Between the rustle of canvas stalls and the pulse of passing footsteps, a single vibration begins to bloom. The didgeridoo exhales, low and molten, stirring the ground beneath your awareness. Its drone is elemental—an ancient frequency of life-force and motion. Around it, singing bowls emerge like light on water—luminous, crystalline, harmonizing the earthbound tone with higher resonance. What begins as a street performance becomes something else: a spontaneous alignment of rhythm, breath, and intention. The marketplace becomes a temple; the listener becomes a participant. This soundbath is an energize and flow practice—a transition from root to crown, from kinetic activation to focused presence.",
+    creator: "Street performance meets sacred ritual",
+    technique: "Phase I — Energize: Begin upright. Feel your spine like a column of sound. The didgeridoo's breath ignites movement—sway, stretch, or pulse in time with its resonance. Let the vibrations gather in your lower body, awakening dormant strength and vitality. This is the sound of grounding—primal, circular, continuous. As the bowls begin to shimmer through the drone, imagine energy rising—not rushed, but inevitable—a slow ignition of the inner current. Phase II — Flow / Focus: Allow stillness to return. Breathe with the bowls now—light, deliberate, clear. Their tones become a bridge between motion and mind. Here, attention sharpens without effort. Focus is no longer forced—it flows.",
+    benefits: [
+      "Energizing Resonance — Didgeridoo frequencies awaken the body's core, stimulating breath and circulation",
+      "Dynamic Grounding — Low drones anchor physical presence, fostering strength and stability before focus",
+      "Cognitive Flow — Singing bowls elevate awareness into a tranquil yet alert state, ideal for creative work",
+      "Spatial Clarity — The binaural field enhances immersion, engaging both hemispheres for unified attention"
+    ],
+    completionQuote: "From earth to sky, from stillness to motion—you are the instrument through which all frequencies flow."
+  },
+  "warrior-drums-power": {
+    id: "warrior-drums-power",
+    title: "Ancestral Pulse",
+    category: "power-up",
+    duration: 240,
+    origin: "Ancient Warrior Traditions",
+    fullStory: "There is a moment before every battle—ancient or modern—when silence is no longer calm, but charged. The air thickens with intent. Muscles remember what they were made for. The heartbeat becomes a weapon. Warrior Drums captures that moment—the breath before impact, the gathering of courage before stepping into the unknown. Built with elemental simplicity, these drums are not performance but invocation: a primal pulse designed to awaken the archetype of the warrior within. Each strike echoes across time—not from the field of medieval conquest, but from the inner arena of the present day: pre-exam, pre-stage, pre-meeting, pre-challenge. Wherever courage is needed, this rhythm becomes your ally. The sound is pure percussion—no melody, no distraction—only movement, weight, and purpose.",
+    creator: "Ritual of preparation and power",
+    technique: "Stand tall. Breathe deep into the belly. Let the first rhythm set your pulse—slow, grounded, deliberate. With each beat, shed hesitation. The drums are your spine now, your heart's external voice. As the tempo builds, feel the energy rise through your core—focus sharpening, blood alive, mind narrowing to a single, unwavering point. This is your pre-war ritual: Not for destruction, but for precision. Not for rage, but for power under control. When the final strikes fade, you are not exhausted—you are aligned. Centered. Electric. Ready.",
+    benefits: [
+      "Primal Activation — Deep drum resonance stimulates the body's natural rhythm, awakening strength and alertness",
+      "Focus Under Pressure — The repetition induces a trance-like state, enhancing concentration and reaction time",
+      "Controlled Aggression — The sound invites power without chaos—intensity tempered by clarity",
+      "Embodied Confidence — The drums anchor attention in the body, grounding anxiety into physical readiness"
+    ],
+    completionQuote: "This is the sound of preparation—of the mind sharpening its blade, of fear transforming into fuel. No armies. No banners. Just you—and the drums."
+  },
+  "warrior-drums-presence": {
+    id: "warrior-drums-presence",
+    title: "Ancestral Pulse",
+    category: "presence",
+    duration: 240,
+    origin: "Ancient Warrior Traditions",
+    fullStory: "There is a moment before every battle—ancient or modern—when silence is no longer calm, but charged. The air thickens with intent. Muscles remember what they were made for. The heartbeat becomes a weapon. Warrior Drums captures that moment—the breath before impact, the gathering of courage before stepping into the unknown. Built with elemental simplicity, these drums are not performance but invocation: a primal pulse designed to awaken the archetype of the warrior within. Each strike echoes across time—not from the field of medieval conquest, but from the inner arena of the present day: pre-exam, pre-stage, pre-meeting, pre-challenge. Wherever courage is needed, this rhythm becomes your ally. The sound is pure percussion—no melody, no distraction—only movement, weight, and purpose.",
+    creator: "Ritual of preparation and power",
+    technique: "Stand tall. Breathe deep into the belly. Let the first rhythm set your pulse—slow, grounded, deliberate. With each beat, shed hesitation. The drums are your spine now, your heart's external voice. As the tempo builds, feel the energy rise through your core—focus sharpening, blood alive, mind narrowing to a single, unwavering point. This is your pre-war ritual: Not for destruction, but for precision. Not for rage, but for power under control. When the final strikes fade, you are not exhausted—you are aligned. Centered. Electric. Ready.",
+    benefits: [
+      "Primal Activation — Deep drum resonance stimulates the body's natural rhythm, awakening strength and alertness",
+      "Focus Under Pressure — The repetition induces a trance-like state, enhancing concentration and reaction time",
+      "Controlled Aggression — The sound invites power without chaos—intensity tempered by clarity",
+      "Embodied Confidence — The drums anchor attention in the body, grounding anxiety into physical readiness"
+    ],
+    completionQuote: "This is the sound of preparation—of the mind sharpening its blade, of fear transforming into fuel. No armies. No banners. Just you—and the drums."
   }
 };
 
@@ -473,7 +541,13 @@ const SoundscapePlayer = () => {
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={`/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`}
+          src={
+            id === 'earth-resonance-power' || id === 'earth-resonance-presence' 
+              ? '/soundscapes/earth-resonance.mp3'
+              : id === 'warrior-drums-power' || id === 'warrior-drums-presence'
+              ? '/soundscapes/warrior-drums.mp3'
+              : `/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`
+          }
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleAudioEnded}

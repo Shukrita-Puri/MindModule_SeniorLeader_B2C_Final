@@ -148,6 +148,32 @@ export const allContent: PracticeOrSoundscape[] = [
     description: "Pre-competition energizing audio for peak performance states",
     thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png"
   },
+  {
+    id: "earth-resonance-power",
+    type: "soundscape",
+    title: "Earth Resonance",
+    subtitle: "Didgeridoo & Singing Bowls",
+    category: "power-up",
+    duration: "2 min 25 sec",
+    origin: "Ancient Sound Traditions",
+    storyHook: "A fusion of ancient sound traditions designed to awaken focus and presence before high-energy moments—didgeridoo's primal frequency meets crystalline singing bowls.",
+    creator: "Street performance meets sacred ritual",
+    description: "Didgeridoo drones ignite grounding energy while singing bowls elevate awareness—transition from root activation to focused flow state",
+    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png"
+  },
+  {
+    id: "warrior-drums-power",
+    type: "soundscape",
+    title: "Ancestral Pulse",
+    subtitle: "Viking Warrior Drums",
+    category: "power-up",
+    duration: "4 min",
+    origin: "Ancient Warrior Traditions",
+    storyHook: "The breath before impact—primal percussion invoking the warrior archetype for modern challenges. Pure drums, no melody, only courage and readiness.",
+    creator: "Ritual of preparation and power",
+    description: "Rhythmic invocation awakening courage and focus through elemental percussion—transforming fear into fuel before decisive moments",
+    thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png"
+  },
   
   // POWER-UP - Practices
   {
@@ -194,6 +220,32 @@ export const allContent: PracticeOrSoundscape[] = [
     creator: "Sacred harmonic composition",
     description: "Layered harmonics and rhythmic pulses sharpen attention, foster mindful presence, and create energetic alignment through cathedral-inspired resonance",
     thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png"
+  },
+  {
+    id: "earth-resonance-presence",
+    type: "soundscape",
+    title: "Earth Resonance",
+    subtitle: "Didgeridoo & Singing Bowls",
+    category: "presence",
+    duration: "2 min 25 sec",
+    origin: "Ancient Sound Traditions",
+    storyHook: "A fusion of ancient sound traditions designed to awaken focus and presence before high-energy moments—didgeridoo's primal frequency meets crystalline singing bowls.",
+    creator: "Street performance meets sacred ritual",
+    description: "Didgeridoo drones ignite grounding energy while singing bowls elevate awareness—transition from root activation to focused flow state",
+    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png"
+  },
+  {
+    id: "warrior-drums-presence",
+    type: "soundscape",
+    title: "Ancestral Pulse",
+    subtitle: "Viking Warrior Drums",
+    category: "presence",
+    duration: "4 min",
+    origin: "Ancient Warrior Traditions",
+    storyHook: "The breath before impact—primal percussion invoking the warrior archetype for modern challenges. Pure drums, no melody, only courage and readiness.",
+    creator: "Ritual of preparation and power",
+    description: "Rhythmic invocation awakening courage and focus through elemental percussion—transforming fear into fuel before decisive moments",
+    thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png"
   },
   {
     id: "ina-night-fields",
