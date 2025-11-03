@@ -431,7 +431,7 @@ const SoundscapePlayer = () => {
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={`/soundscapes/${id}.wav`}
+          src={`/soundscapes/${id === 'tibetan-bowls' ? 'tibetan-bowls.mp3' : `${id}.wav`}`}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleAudioEnded}
