@@ -165,9 +165,11 @@ const SoundscapePlayer = () => {
   const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
+  const [actualDuration, setActualDuration] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const soundscape = id ? soundscapeData[id] : null;
+  const displayDuration = actualDuration || soundscape?.duration || 0;
 
   const getCategoryPath = () => {
     const locationState = location.state as { category?: string } | null;
@@ -237,7 +239,7 @@ const SoundscapePlayer = () => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = Math.max(
       0, 
-      Math.min(audioRef.current.currentTime + seconds, audioRef.current.duration || soundscape.duration)
+      Math.min(audioRef.current.currentTime + seconds, audioRef.current.duration || displayDuration)
     );
   };
 
@@ -275,8 +277,9 @@ const SoundscapePlayer = () => {
   };
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-    // Audio duration is now available if needed
-    console.log("Audio loaded, duration:", e.currentTarget.duration);
+    const duration = Math.floor(e.currentTarget.duration);
+    setActualDuration(duration);
+    console.log("Audio loaded, duration:", duration);
   };
 
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -285,7 +288,7 @@ const SoundscapePlayer = () => {
     setIsPlaying(false);
   };
 
-  const progress = (currentTime / soundscape.duration) * 100;
+  const progress = displayDuration > 0 ? (currentTime / displayDuration) * 100 : 0;
 
   if (isComplete) {
     return (
@@ -303,7 +306,7 @@ const SoundscapePlayer = () => {
             
             <div className="space-y-4 text-sm text-muted-foreground">
               <p>Session: {soundscape.title}</p>
-              <p>Duration: {formatTime(soundscape.duration)}</p>
+              <p>Duration: {formatTime(displayDuration)}</p>
             </div>
           </div>
 
@@ -359,7 +362,7 @@ const SoundscapePlayer = () => {
         <div className="w-full max-w-md space-y-4 mb-8">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(soundscape.duration)}</span>
+            <span>{formatTime(displayDuration)}</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
