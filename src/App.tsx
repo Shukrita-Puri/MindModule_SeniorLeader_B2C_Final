@@ -18,7 +18,6 @@ import NudgeSettings from "./pages/NudgeSettings";
 import NudgeSimulator from "./pages/NudgeSimulator";
 import MemoryArchive from "./pages/MemoryArchive";
 import Simulation from "./pages/Simulation";
-import Breathwork from "./pages/Breathwork";
 import RecalibrateMode from "./pages/RecalibrateMode";
 import SimulationInsights from "./pages/SimulationInsights";
 import Soundscapes from "./pages/Soundscapes";
@@ -42,9 +41,6 @@ import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
 import PowerUpOutcomePage from "./pages/recalibrate/PowerUpOutcomePage";
 import PauseOutcomePage from "./pages/recalibrate/PauseOutcomePage";
 import PresenceOutcomePage from "./pages/recalibrate/PresenceOutcomePage";
-import EmergencyResetSession from "./pages/recalibrate/EmergencyResetSession";
-import BreathworkSession from "./pages/recalibrate/BreathworkSession";
-import FlowStateSession from "./pages/recalibrate/FlowStateSession";
 
 // Onboarding pages
 import OnboardingFlow from "./pages/onboarding/OnboardingFlow";
@@ -67,11 +63,9 @@ const Layout = () => {
     '/executive-home',
     '/daily-check-in',
     '/recalibrate',
-    '/recalibrate/breathing',
     '/recalibrate/power-up',
-    '/recalibrate/emergency-reset',
     '/recalibrate/pause',
-    '/recalibrate/flow-state',
+    '/recalibrate/presence',
     '/nudge-settings',
     '/nudge-simulator',
     '/memory-archive'
@@ -120,10 +114,6 @@ const router = createBrowserRouter([
         element: <DailyCheckIn />,
       },
       {
-        path: "breathwork",
-        element: <Breathwork />,
-      },
-      {
         path: "executive-home",
         element: <ExecutiveHome />,
       },
@@ -162,22 +152,6 @@ const router = createBrowserRouter([
           {
             path: "presence",
             element: <PresenceOutcomePage />,
-          },
-          {
-            path: "emergency-reset", 
-            element: <EmergencyResetSession />,
-          },
-          {
-            path: "breathwork",
-            element: <BreathworkSession />,
-          },
-          {
-            path: "breathing", // Alias for breathwork
-            element: <BreathworkSession />,
-          },
-          {
-            path: "flow-state",
-            element: <FlowStateSession />,
           },
         ],
       },

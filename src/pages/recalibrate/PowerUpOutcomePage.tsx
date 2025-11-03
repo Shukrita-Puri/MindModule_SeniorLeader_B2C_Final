@@ -119,19 +119,10 @@ const PowerUpOutcomePage = () => {
                   className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
                   style={{ backgroundImage: `url('${item.thumbnail}')` }}
                 >
-                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4 justify-between">
+                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
                     <Badge className="bg-accent/10 text-accent border-accent/30">
                       Practice
                     </Badge>
-                    {item.difficulty && (
-                      <span className={`text-xs font-semibold ${
-                        item.difficulty === 'beginner' ? 'text-green-600' :
-                        item.difficulty === 'intermediate' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {item.difficulty.toUpperCase()}
-                      </span>
-                    )}
                   </div>
                 </div>
                 
