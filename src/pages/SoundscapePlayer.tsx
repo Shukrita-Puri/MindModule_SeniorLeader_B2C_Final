@@ -157,7 +157,7 @@ const soundscapeData: Record<string, SoundscapeData> = {
     id: "cathedral-choir-flow",
     title: "Cathedral Choir Flow",
     category: "presence",
-    duration: 1200,
+    duration: 198,
     origin: "Sacred Cathedral Resonance",
     fullStory: "Step into a grand cathedral, where sunlight spills across vaulted ceilings and every stone resonates with history. Within this vast space, sound takes on dimension: a choir of voices rises and falls, interwoven with bells, subtle percussion, and reverberant harmonics. This soundbath captures the interplay of clarity and calm. Each note carries intention, creating a sonic environment that encourages focus, mindfulness, and rejuvenation. Movement and stillness coexist here—the architecture of sound itself becomes a guide for alignment, energy, and presence.",
     creator: "Sacred harmonic composition",

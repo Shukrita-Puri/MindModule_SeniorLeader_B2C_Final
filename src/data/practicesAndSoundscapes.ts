@@ -283,7 +283,7 @@ export const allContent: PracticeOrSoundscape[] = [
     title: "Cathedral Choir Flow",
     subtitle: "Resonance for Healing & Focus",
     category: "presence",
-    duration: "20 min",
+    duration: "3 min 18 sec",
     origin: "Sacred Cathedral Resonance",
     storyHook: "Step into a grand cathedral, where sunlight spills across vaulted ceilings and every stone resonates with history. Within this vast space, sound takes on dimension: a choir of voices rises and falls, interwoven with bells, subtle percussion, and reverberant harmonics.",
     creator: "Sacred harmonic composition",
