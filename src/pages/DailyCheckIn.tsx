@@ -102,7 +102,7 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 pb-32">
+    <div className="min-h-screen flex items-center justify-center p-4 pt-20 pb-32">
       <TopNavigation backPath="/executive-home" />
       
       <div className="w-full max-w-md space-y-6 animate-fade-in">
