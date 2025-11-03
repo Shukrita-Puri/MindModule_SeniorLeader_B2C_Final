@@ -231,7 +231,7 @@ const GuidedPracticesLibrary = () => {
         </div>
 
         {/* Practices Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredPractices.map((practice) => (
             <Card
               key={practice.id}
@@ -252,30 +252,30 @@ const GuidedPracticesLibrary = () => {
                 </div>
               </div>
               
-              <CardHeader>
-                <CardTitle className="text-xl">{practice.title}</CardTitle>
-                <CardDescription className="flex items-center gap-2 text-gold">
-                  <Sparkles className="h-4 w-4" />
-                  {practice.origin}
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">{practice.title}</CardTitle>
+                <div className="flex items-center gap-2 text-xs text-gold/80">
+                  <Sparkles className="h-3 w-3" />
+                  <span className="text-xs">{practice.origin}</span>
+                </div>
               </CardHeader>
               
               <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground line-clamp-2">
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                   {practice.storySnippet}
                 </p>
                 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
                   <TrendingUp className="h-3 w-3" />
-                  <span>{practice.usedBy}</span>
+                  <span className="text-[10px]">{practice.usedBy}</span>
                 </div>
                 
-                <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{practice.duration} min</span>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="text-xs">{practice.duration}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground/70">
                     {practice.steps} steps
                   </span>
                 </div>

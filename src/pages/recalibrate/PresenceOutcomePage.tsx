@@ -50,11 +50,11 @@ const PresenceOutcomePage = () => {
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Soundscapes Section */}
         <section className="mb-12">
-          <h2 className="text-3xl font-serif text-foreground mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
             <span>Focus Soundscapes</span>
             <Badge variant="outline" className="text-xs">{soundscapes.length} soundscapes</Badge>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {soundscapes.map((item) => (
               <Card
                 key={item.id}
@@ -72,9 +72,9 @@ const PresenceOutcomePage = () => {
                   </div>
                 </div>
                 
-                <CardHeader>
-                  <CardTitle className="text-xl">{item.title}</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground mb-1">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">{item.title}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     {item.subtitle}
                   </CardDescription>
                   <div className="flex items-center gap-2 text-xs text-gold/80">
@@ -83,18 +83,18 @@ const PresenceOutcomePage = () => {
                   </div>
                 </CardHeader>
                 
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {item.storyHook}
                   </p>
                   
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>{item.duration}</span>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{item.duration.replace(' min', '').replace(' sec', '')}</span>
                     </div>
                     {item.creator && (
-                      <span className="text-xs text-muted-foreground italic">
+                      <span className="text-[10px] text-muted-foreground/70 text-right italic max-w-[50%] leading-tight">
                         {item.creator}
                       </span>
                     )}
@@ -107,11 +107,11 @@ const PresenceOutcomePage = () => {
 
         {/* Guided Practices Section */}
         <section>
-          <h2 className="text-3xl font-serif text-foreground mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
             <span>Mindful Presence</span>
             <Badge variant="outline" className="text-xs">{practices.length} practices</Badge>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {practices.map((item) => (
               <Card
                 key={item.id}
@@ -129,9 +129,9 @@ const PresenceOutcomePage = () => {
                   </div>
                 </div>
                 
-                <CardHeader>
-                  <CardTitle className="text-xl">{item.title}</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground mb-1">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">{item.title}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     {item.subtitle}
                   </CardDescription>
                   <div className="flex items-center gap-2 text-xs text-gold/80">
@@ -141,24 +141,24 @@ const PresenceOutcomePage = () => {
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {item.storyHook}
                   </p>
                   
                   {item.usedBy && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
                       <TrendingUp className="h-3 w-3" />
-                      <span>{item.usedBy}</span>
+                      <span className="text-[10px]">{item.usedBy}</span>
                     </div>
                   )}
                   
-                  <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>{item.duration}</span>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{item.duration.replace(' min', '').replace(' sec', '')}</span>
                     </div>
                     {item.steps && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[10px] text-muted-foreground/70">
                         {item.steps} steps
                       </span>
                     )}
