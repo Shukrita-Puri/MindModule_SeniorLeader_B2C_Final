@@ -74,10 +74,13 @@ const PresenceOutcomePage = () => {
                 
                 <CardHeader>
                   <CardTitle className="text-xl">{item.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-2 text-gold">
-                    <Sparkles className="h-4 w-4" />
-                    {item.origin}
+                  <CardDescription className="text-sm text-muted-foreground mb-1">
+                    {item.subtitle}
                   </CardDescription>
+                  <div className="flex items-center gap-2 text-xs text-gold/80">
+                    <Sparkles className="h-3 w-3" />
+                    {item.origin}
+                  </div>
                 </CardHeader>
                 
                 <CardContent>
@@ -128,10 +131,13 @@ const PresenceOutcomePage = () => {
                 
                 <CardHeader>
                   <CardTitle className="text-xl">{item.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-2 text-gold">
-                    <Sparkles className="h-4 w-4" />
-                    {item.origin}
+                  <CardDescription className="text-sm text-muted-foreground mb-1">
+                    {item.subtitle}
                   </CardDescription>
+                  <div className="flex items-center gap-2 text-xs text-gold/80">
+                    <Sparkles className="h-3 w-3" />
+                    {item.origin}
+                  </div>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
