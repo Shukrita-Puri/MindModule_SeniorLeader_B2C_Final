@@ -12,20 +12,15 @@ export const GradientProgress = ({ value, className }: GradientProgressProps) =>
       className
     )}>
       <div
-        className="h-full transition-all duration-300 ease-out rounded-full"
+        className="h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r from-gold via-accent to-primary"
         style={{
-          width: `${value}%`,
-          background: `linear-gradient(to right, 
-            hsl(var(--gold)) 0%, 
-            hsl(var(--gold-light)) 50%, 
-            hsl(var(--primary)) 100%)`
+          width: `${value}%`
         }}
       />
       <div
-        className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300"
+        className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300 bg-gold/30"
         style={{
-          left: `${Math.max(0, value - 10)}%`,
-          background: `radial-gradient(circle, hsl(var(--gold)) 0%, transparent 70%)`
+          left: `${Math.max(0, value - 10)}%`
         }}
       />
     </div>
