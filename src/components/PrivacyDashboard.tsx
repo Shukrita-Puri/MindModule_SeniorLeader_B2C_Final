@@ -1,36 +1,90 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Smartphone, Trash2, Eye, Lock, Database, Wifi, Calendar, Mail, Watch, MessageCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Shield, Smartphone, Lock, Database, Calendar, Mail, Watch, MessageCircle, FileText, User } from "lucide-react";
+import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
+import { toast } from "@/hooks/use-toast";
+
+interface DataConnection {
+  enabled: boolean;
+  provider: string | null;
+}
 
 const PrivacyDashboard = () => {
-  const [dataToggles, setDataToggles] = useState({
-    calendar: true,
-    email: false,
-    wearable: true,
-    social: false,
-    documents: true
+  const [connections, setConnections] = useState({
+    calendar: { enabled: false, provider: null } as DataConnection,
+    wearable: { enabled: false, provider: null } as DataConnection,
   });
 
   const [biometricLock, setBiometricLock] = useState(true);
+  const [personalInfo, setPersonalInfo] = useState({
+    fullName: "",
+    email: "",
+    preferredName: "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
 
-  const handleToggle = (key: string) => {
-    setDataToggles(prev => ({
+  useEffect(() => {
+    const stored = localStorage.getItem('contextConnections');
+    if (stored) {
+      const data = JSON.parse(stored);
+      setConnections({
+        calendar: data.calendar || { enabled: false, provider: null },
+        wearable: data.wearable || { enabled: false, provider: null }
+      });
+    }
+
+    const storedInfo = localStorage.getItem('personalInfo');
+    if (storedInfo) {
+      setPersonalInfo(JSON.parse(storedInfo));
+    }
+  }, []);
+
+  const handleConnectionToggle = (key: 'calendar' | 'wearable', checked: boolean) => {
+    setConnections(prev => ({
       ...prev,
-      [key]: !prev[key as keyof typeof prev]
+      [key]: { ...prev[key], enabled: checked }
     }));
+    
+    const updated = {
+      ...connections,
+      [key]: { ...connections[key], enabled: checked }
+    };
+    localStorage.setItem('contextConnections', JSON.stringify(updated));
+    
+    toast({
+      title: checked ? "Integration Enabled" : "Integration Disabled",
+      description: checked 
+        ? `Select your ${key} provider to continue setup.`
+        : `You can re-enable this anytime.`,
+    });
   };
 
-  const dataSources = [
-    { key: "calendar", icon: Calendar, label: "Calendar Events", description: "Meeting patterns and scheduling insights" },
-    { key: "email", icon: Mail, label: "Email Data", description: "Communications, Sentiment, Tone detection" },
-    { key: "wearable", icon: Watch, label: "Wearable Data", description: "Stress and activity patterns" },
-    { key: "social", icon: MessageCircle, label: "Social Data", description: "Casual/social communications, Sentiment, Tone, Real time conversations" },
-    { key: "documents", icon: Database, label: "Document Access", description: "Knowledge work patterns" }
-  ];
+  const handleProviderSelect = (key: 'calendar' | 'wearable', provider: string) => {
+    setConnections(prev => ({
+      ...prev,
+      [key]: { enabled: true, provider }
+    }));
+    
+    const updated = {
+      ...connections,
+      [key]: { enabled: true, provider }
+    };
+    localStorage.setItem('contextConnections', JSON.stringify(updated));
+  };
+
+  const handleSavePersonalInfo = () => {
+    localStorage.setItem('personalInfo', JSON.stringify(personalInfo));
+    toast({
+      title: "Profile Updated",
+      description: "Your personal information has been saved.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -82,70 +136,173 @@ const PrivacyDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Data Source Controls */}
+      {/* Personal Information */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Database size={20} className="text-gray-800" />
+            <User size={20} />
+            Personal Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name</Label>
+            <Input
+              id="fullName"
+              value={personalInfo.fullName}
+              onChange={(e) => setPersonalInfo(prev => ({ ...prev, fullName: e.target.value }))}
+              placeholder="Enter your full name"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={personalInfo.email}
+              onChange={(e) => setPersonalInfo(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="your.email@example.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="preferredName">Preferred Name</Label>
+            <Input
+              id="preferredName"
+              value={personalInfo.preferredName}
+              onChange={(e) => setPersonalInfo(prev => ({ ...prev, preferredName: e.target.value }))}
+              placeholder="How should we greet you?"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="timezone">Timezone</Label>
+            <Input
+              id="timezone"
+              value={personalInfo.timezone}
+              readOnly
+              className="bg-muted"
+            />
+          </div>
+
+          <Button onClick={handleSavePersonalInfo} className="w-full">
+            Save Changes
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Data Sources */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <Database size={20} />
             Data Sources
             <Badge variant="outline" className="ml-2">Full Control</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {dataSources.map((source) => {
-              const Icon = source.icon;
-              const isEnabled = dataToggles[source.key as keyof typeof dataToggles];
-              
-              return (
-                <div key={source.key} className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <Icon size={18} className={isEnabled ? "text-blue-600" : "text-gray-400"} />
-                    <div>
-                      <p className="font-medium text-sm">{source.label}</p>
-                      <p className="text-xs text-gray-600">{source.description}</p>
-                    </div>
-                  </div>
-                  <Switch 
-                    checked={isEnabled} 
-                    onCheckedChange={() => handleToggle(source.key)}
-                  />
+        <CardContent className="space-y-6">
+          {/* Calendar - Available */}
+          <div className="p-4 rounded-lg border">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-gold" />
+                <div>
+                  <p className="font-medium text-sm">Calendar</p>
+                  <p className="text-xs text-muted-foreground">Meeting patterns and scheduling insights</p>
                 </div>
-              );
-            })}
+              </div>
+              <Switch 
+                checked={connections.calendar.enabled} 
+                onCheckedChange={(checked) => handleConnectionToggle('calendar', checked)}
+              />
+            </div>
+            {connections.calendar.enabled && (
+              <div className="mt-3">
+                <ProviderSelector 
+                  type="calendar"
+                  selectedProvider={connections.calendar.provider}
+                  onSelect={(provider) => handleProviderSelect('calendar', provider)}
+                />
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Data Management */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Eye size={20} className="text-gray-800" />
-            Transparency & Control
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full justify-start">
-            <Database size={16} className="mr-2" />
-            View All Collected Data
-          </Button>
-          
-          <Button variant="outline" className="w-full justify-start">
-            <Wifi size={16} className="mr-2" />
-            Export Data (JSON)
-          </Button>
-          
-          <Button variant="destructive" className="w-full justify-start">
-            <Trash2 size={16} className="mr-2" />
-            Delete All Data
-          </Button>
-          
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-600">
-              <strong>Instant Deletion:</strong> Your data can be completely removed at any time with no delays or explanations required. 
-              All processing happens locally on your device.
-            </p>
+          {/* Wearable - Available */}
+          <div className="p-4 rounded-lg border">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <Watch className="h-5 w-5 text-gold" />
+                <div>
+                  <p className="font-medium text-sm">Wearable Data</p>
+                  <p className="text-xs text-muted-foreground">Biometric and activity patterns</p>
+                </div>
+              </div>
+              <Switch 
+                checked={connections.wearable.enabled} 
+                onCheckedChange={(checked) => handleConnectionToggle('wearable', checked)}
+              />
+            </div>
+            {connections.wearable.enabled && (
+              <div className="mt-3">
+                <ProviderSelector 
+                  type="wearable"
+                  selectedProvider={connections.wearable.provider}
+                  onSelect={(provider) => handleProviderSelect('wearable', provider)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Email - Coming Soon */}
+          <div className="p-4 rounded-lg border border-dashed opacity-60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm flex items-center gap-2">
+                    Email Data
+                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Sentiment and tone detection</p>
+                </div>
+              </div>
+              <Switch disabled />
+            </div>
+          </div>
+
+          {/* Social - Coming Soon */}
+          <div className="p-4 rounded-lg border border-dashed opacity-60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm flex items-center gap-2">
+                    Social Data
+                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Communications and sentiment analysis</p>
+                </div>
+              </div>
+              <Switch disabled />
+            </div>
+          </div>
+
+          {/* Documents - Coming Soon */}
+          <div className="p-4 rounded-lg border border-dashed opacity-60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm flex items-center gap-2">
+                    Document Access
+                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Knowledge work patterns</p>
+                </div>
+              </div>
+              <Switch disabled />
+            </div>
           </div>
         </CardContent>
       </Card>

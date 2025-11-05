@@ -1,20 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
-import TopNavigation from "@/components/simulation/TopNavigation";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
-import DailyRitualCard from "@/components/home/DailyRitualCard";
-import IntelligentPriorityCard from "@/components/home/IntelligentPriorityCard";
+import EnergyStateHeader from "@/components/home/EnergyStateHeader";
+import RecommendedPlan from "@/components/home/RecommendedPlan";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
-import { ResumeOnboardingBanner } from "@/components/onboarding/ResumeOnboardingBanner";
-import { generateIntelligentPriorities } from "@/utils/intelligenceEngine";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 
 const ExecutiveHome = () => {
   const navigate = useNavigate();
-  
-  // Generate intelligent priorities (max 2)
-  const priorities = generateIntelligentPriorities();
   
   // Get greeting based on time
   const getGreeting = () => {
@@ -33,7 +28,7 @@ const ExecutiveHome = () => {
 
   return (
     <div className="min-h-screen font-body pb-32">
-      <TopNavigation backPath="/signup" />
+      <UnifiedTopBar backPath="/signup" />
       <SecurityWatermark />
       
       {/* SECTION 1: Hero - Compressed to 30vh */}
@@ -70,41 +65,34 @@ const ExecutiveHome = () => {
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
         
-        {/* Resume Onboarding Banner - only shows if incomplete */}
-        <ResumeOnboardingBanner />
-        
-        {/* SECTION 2: Insights & Progress */}
+        {/* SECTION 2: Energy State Today */}
         <section className="animate-fade-in mb-8">
+          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
+            Your Energy State Today
+          </h2>
+          <EnergyStateHeader />
+        </section>
+        
+        {/* Gold Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        
+        {/* SECTION 3: Recommended for You */}
+        <section className="animate-fade-in mb-8" style={{ animationDelay: '200ms' }}>
+          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
+            Recommended for You
+          </h2>
+          <RecommendedPlan />
+        </section>
+        
+        {/* Gold Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        
+        {/* SECTION 4: Your Intelligence */}
+        <section className="animate-fade-in mb-8" style={{ animationDelay: '400ms' }}>
           <h2 className="text-lg font-headline font-medium text-foreground mb-4">
             Your Intelligence
           </h2>
           <InsightProgressCard />
-        </section>
-        
-        {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
-        
-        {/* SECTION 3: Recommended Plan */}
-        <section className="animate-fade-in mb-8" style={{ animationDelay: '200ms' }}>
-          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
-            Your Plan Today
-          </h2>
-          <DailyRitualCard />
-        </section>
-        
-        {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
-        
-        {/* SECTION 4: Your Path Today */}
-        <section className="animate-fade-in mb-8" style={{ animationDelay: '400ms' }}>
-          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
-            Your Path Today
-          </h2>
-          <div className="space-y-4">
-            {priorities.map((priority, idx) => (
-              <IntelligentPriorityCard key={idx} priority={priority} />
-            ))}
-          </div>
         </section>
         
         {/* Privacy Footer */}

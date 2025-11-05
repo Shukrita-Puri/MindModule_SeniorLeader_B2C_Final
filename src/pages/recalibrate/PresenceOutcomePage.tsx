@@ -12,12 +12,15 @@ const PresenceOutcomePage = () => {
   const content = getContentByCategory('presence');
   const soundscapes = content.filter(item => item.contentType === 'soundbath');
   const practices = content.filter(item => item.contentType === 'guided-practice');
+  const microPractices = content.filter(item => item.contentType === 'micro-practice');
 
   const handleItemClick = (item: typeof content[0]) => {
     if (item.contentType === 'soundbath') {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'presence' } });
-    } else {
+    } else if (item.contentType === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'presence' } });
+    } else {
+      navigate(`/micro-practice/${item.id}`, { state: { category: 'presence' } });
     }
   };
 
@@ -162,6 +165,39 @@ const PresenceOutcomePage = () => {
                         {item.steps} steps
                       </span>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* Micro Practices Section */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
+            <span>Quick Focus Tools</span>
+            <Badge variant="outline" className="text-xs">{microPractices.length} practices</Badge>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {microPractices.map((item) => (
+              <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
+                <div className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url('${item.thumbnail}')` }}>
+                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
+                    <Badge className="bg-gold/10 text-gold border-gold/30">Micro</Badge>
+                  </div>
+                </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">{item.title}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">{item.creator}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{item.duration} min</span>
+                    </div>
+                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
                   </div>
                 </CardContent>
               </Card>
