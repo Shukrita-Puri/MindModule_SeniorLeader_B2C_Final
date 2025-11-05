@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Shield, BookOpen, Archive, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PrivacyDashboard from "./PrivacyDashboard";
+import IntegrationSettings from "./IntegrationSettings";
 
 const ProfileSidebar = () => {
   const navigate = useNavigate();
@@ -39,7 +40,9 @@ const ProfileSidebar = () => {
           </TabsContent>
           
           <TabsContent value="tools" className="mt-0 space-y-4">
-            <div className="space-y-4">
+            <IntegrationSettings />
+            
+            <div className="space-y-4 pt-6 border-t border-border">
               <h3 className="font-medium">Personal Tools</h3>
               
               {/* Memory Archive */}
