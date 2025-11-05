@@ -90,9 +90,9 @@ const PauseOutcomePage = () => {
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">{item.duration.replace(' min', '').replace(' sec', '')}</span>
-                    </div>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-xs">{item.duration}</span>
+                </div>
                     {item.creator && (
                       <span className="text-[10px] text-muted-foreground/70 text-right italic max-w-[50%] leading-tight">
                         {item.creator}
@@ -154,9 +154,9 @@ const PauseOutcomePage = () => {
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">{item.duration.replace(' min', '').replace(' sec', '')}</span>
-                    </div>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-xs">{item.duration}</span>
+                </div>
                     {item.steps && (
                       <span className="text-[10px] text-muted-foreground/70">
                         {item.steps} steps

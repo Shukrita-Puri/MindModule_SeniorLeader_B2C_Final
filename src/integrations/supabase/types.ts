@@ -14,7 +14,288 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      calendar_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_sync: string | null
+          provider: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          provider: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          provider?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          attendees_count: number | null
+          created_at: string
+          end_time: string
+          event_metadata: Json | null
+          external_id: string
+          id: string
+          is_organizer: boolean | null
+          is_recurring: boolean | null
+          start_time: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          attendees_count?: number | null
+          created_at?: string
+          end_time: string
+          event_metadata?: Json | null
+          external_id: string
+          id?: string
+          is_organizer?: boolean | null
+          is_recurring?: boolean | null
+          start_time: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          attendees_count?: number | null
+          created_at?: string
+          end_time?: string
+          event_metadata?: Json | null
+          external_id?: string
+          id?: string
+          is_organizer?: boolean | null
+          is_recurring?: boolean | null
+          start_time?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      energy_snapshots: {
+        Row: {
+          calendar_density: number | null
+          computed_data: Json | null
+          created_at: string
+          dominant_state: string | null
+          energy_balance: number | null
+          id: string
+          oura_readiness: number | null
+          pause_percentage: number | null
+          powerup_percentage: number | null
+          presence_percentage: number | null
+          snapshot_date: string
+          total_sessions: number | null
+          user_id: string
+        }
+        Insert: {
+          calendar_density?: number | null
+          computed_data?: Json | null
+          created_at?: string
+          dominant_state?: string | null
+          energy_balance?: number | null
+          id?: string
+          oura_readiness?: number | null
+          pause_percentage?: number | null
+          powerup_percentage?: number | null
+          presence_percentage?: number | null
+          snapshot_date: string
+          total_sessions?: number | null
+          user_id: string
+        }
+        Update: {
+          calendar_density?: number | null
+          computed_data?: Json | null
+          created_at?: string
+          dominant_state?: string | null
+          energy_balance?: number | null
+          id?: string
+          oura_readiness?: number | null
+          pause_percentage?: number | null
+          powerup_percentage?: number | null
+          presence_percentage?: number | null
+          snapshot_date?: string
+          total_sessions?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      oura_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_sync: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      oura_daily_data: {
+        Row: {
+          activity_score: number | null
+          created_at: string
+          hrv: number | null
+          id: string
+          raw_data: Json | null
+          readiness_score: number | null
+          resting_heart_rate: number | null
+          sleep_score: number | null
+          summary_date: string
+          user_id: string
+        }
+        Insert: {
+          activity_score?: number | null
+          created_at?: string
+          hrv?: number | null
+          id?: string
+          raw_data?: Json | null
+          readiness_score?: number | null
+          resting_heart_rate?: number | null
+          sleep_score?: number | null
+          summary_date: string
+          user_id: string
+        }
+        Update: {
+          activity_score?: number | null
+          created_at?: string
+          hrv?: number | null
+          id?: string
+          raw_data?: Json | null
+          readiness_score?: number | null
+          resting_heart_rate?: number | null
+          sleep_score?: number | null
+          summary_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sanctuary_events: {
+        Row: {
+          category: string
+          content_id: string
+          content_type: string
+          context_data: Json | null
+          created_at: string
+          duration_seconds: number | null
+          effectiveness_rating: number | null
+          event_type: string
+          id: string
+          tags: string[] | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          content_id: string
+          content_type: string
+          context_data?: Json | null
+          created_at?: string
+          duration_seconds?: number | null
+          effectiveness_rating?: number | null
+          event_type: string
+          id?: string
+          tags?: string[] | null
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          content_id?: string
+          content_type?: string
+          context_data?: Json | null
+          created_at?: string
+          duration_seconds?: number | null
+          effectiveness_rating?: number | null
+          event_type?: string
+          id?: string
+          tags?: string[] | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          effective_content_types: Json | null
+          energy_patterns: Json | null
+          favorite_content_ids: string[] | null
+          id: string
+          last_updated: string
+          preferred_times: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          effective_content_types?: Json | null
+          energy_patterns?: Json | null
+          favorite_content_ids?: string[] | null
+          id?: string
+          last_updated?: string
+          preferred_times?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          effective_content_types?: Json | null
+          energy_patterns?: Json | null
+          favorite_content_ids?: string[] | null
+          id?: string
+          last_updated?: string
+          preferred_times?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
