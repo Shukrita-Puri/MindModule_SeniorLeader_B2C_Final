@@ -1,35 +1,151 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Chrome, Apple, Facebook, Mail } from "lucide-react";
+import { ArrowLeft, Chrome, Apple, Mail, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { GoldDivider } from "@/components/ui/divider";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const emailSchema = z.string().email("Invalid email address");
+const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+const nameSchema = z.string().min(2, "Name must be at least 2 characters");
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleEmailAuth = () => {
+  const handleEmailSignUp = async () => {
+    try {
+      // Validate inputs
+      emailSchema.parse(email);
+      passwordSchema.parse(password);
+      nameSchema.parse(fullName);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      toast({
-        title: isSignUp ? "Welcome to Mind Module!" : "Welcome back!",
-        description: "Redirecting...",
-      });
-      setTimeout(() => navigate('/onboarding/results'), 1500);
-      setIsLoading(false);
-    }, 1000);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/executive-home`,
+        data: {
+          full_name: fullName
+        }
+      }
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        toast({
+          title: "Email Already Registered",
+          description: "Try signing in instead.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Sign Up Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+
+    toast({
+      title: "Check Your Email",
+      description: "We sent you a verification link to complete signup.",
+    });
+    setShowEmailForm(false);
   };
 
-  const handleSocialAuth = (provider: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${provider} authentication will be available soon.`,
+  const handleEmailSignIn = async () => {
+    try {
+      emailSchema.parse(email);
+      passwordSchema.parse(password);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     });
+
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: "Sign In Failed",
+        description: "Invalid email or password",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    navigate('/executive-home');
+  };
+
+  const handleGoogleAuth = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/executive-home`
+      }
+    });
+
+    if (error) {
+      toast({
+        title: "Authentication Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAppleAuth = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/executive-home`
+      }
+    });
+
+    if (error) {
+      toast({
+        title: "Authentication Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -87,43 +203,97 @@ const Signup = () => {
 
         <GoldDivider />
 
-        {/* Auth Buttons */}
-        <div className="space-y-3 mb-6">
-          <Button
-            onClick={handleEmailAuth}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-6"
-          >
-            <Mail className="w-5 h-5 mr-2" />
-            {isSignUp ? "Continue" : "Sign in"} with Email
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => handleSocialAuth('Facebook')}
-            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
-          >
-            <Facebook className="w-5 h-5 mr-2" />
-            {isSignUp ? "Continue" : "Sign in"} with Facebook
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => handleSocialAuth('Apple')}
-            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
-          >
-            <Apple className="w-5 h-5 mr-2" />
-            {isSignUp ? "Continue" : "Sign in"} with Apple
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => handleSocialAuth('Google')}
-            className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
-          >
-            <Chrome className="w-5 h-5 mr-2" />
-            {isSignUp ? "Continue" : "Sign in"} with Google
-          </Button>
-        </div>
+        {/* Email Form */}
+        {showEmailForm ? (
+          <div className="space-y-4 mb-6">
+            {isSignUp && (
+              <div>
+                <Label htmlFor="name" className="text-foreground">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Enter your name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            )}
+            <div>
+              <Label htmlFor="email" className="text-foreground">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <Button
+              onClick={isSignUp ? handleEmailSignUp : handleEmailSignIn}
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-6"
+            >
+              {isLoading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowEmailForm(false)}
+              className="w-full"
+            >
+              Back to options
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3 mb-6">
+            <Button
+              onClick={() => setShowEmailForm(true)}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-6"
+            >
+              <Mail className="w-5 h-5 mr-2" />
+              {isSignUp ? "Continue" : "Sign in"} with Email
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleAppleAuth}
+              className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
+            >
+              <Apple className="w-5 h-5 mr-2" />
+              {isSignUp ? "Continue" : "Sign in"} with Apple
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleGoogleAuth}
+              className="w-full border-border text-foreground hover:bg-accent/10 font-medium py-6"
+            >
+              <Chrome className="w-5 h-5 mr-2" />
+              {isSignUp ? "Continue" : "Sign in"} with Google
+            </Button>
+          </div>
+        )}
 
         {/* Terms and Privacy */}
         {isSignUp && (

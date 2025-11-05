@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Front from "./pages/Front";
 import Signup from "./pages/Signup";
 import DailyCheckIn from "./pages/DailyCheckIn";
@@ -107,19 +108,19 @@ const router = createBrowserRouter([
       },
       {
         path: "daily-check-in",
-        element: <DailyCheckIn />,
+        element: <ProtectedRoute><DailyCheckIn /></ProtectedRoute>,
       },
       {
         path: "executive-home",
-        element: <ExecutiveHome />,
+        element: <ProtectedRoute><ExecutiveHome /></ProtectedRoute>,
       },
       {
         path: "flow-session",
-        element: <FlowSession />,
+        element: <ProtectedRoute><FlowSession /></ProtectedRoute>,
       },
       {
         path: "recalibrate",
-        element: <RecalibrateMode />,
+        element: <ProtectedRoute><RecalibrateMode /></ProtectedRoute>,
         children: [
           {
             path: "power-up",
@@ -137,39 +138,39 @@ const router = createBrowserRouter([
       },
       {
         path: "nudge-settings",
-        element: <NudgeSettings />,
+        element: <ProtectedRoute><NudgeSettings /></ProtectedRoute>,
       },
       {
         path: "nudge-simulator",
-        element: <NudgeSimulator />,
+        element: <ProtectedRoute><NudgeSimulator /></ProtectedRoute>,
       },
       {
         path: "memory-archive",
-        element: <MemoryArchive />,
+        element: <ProtectedRoute><MemoryArchive /></ProtectedRoute>,
       },
       {
         path: "soundscapes",
-        element: <Soundscapes />,
+        element: <ProtectedRoute><Soundscapes /></ProtectedRoute>,
       },
       {
         path: "soundscapes/:id",
-        element: <SoundscapePlayer />,
+        element: <ProtectedRoute><SoundscapePlayer /></ProtectedRoute>,
       },
       {
         path: "guided-practices",
-        element: <GuidedPracticesLibrary />,
+        element: <ProtectedRoute><GuidedPracticesLibrary /></ProtectedRoute>,
       },
       {
         path: "guided-practices/:id",
-        element: <GuidedPracticePlayer />,
+        element: <ProtectedRoute><GuidedPracticePlayer /></ProtectedRoute>,
       },
       {
         path: "micro-practices",
-        element: <div>Coming soon</div>, // Placeholder for MicroPracticesLibrary
+        element: <ProtectedRoute><div>Coming soon</div></ProtectedRoute>,
       },
       {
         path: "micro-practice/:id",
-        element: <div>Coming soon</div>, // Placeholder for MicroPracticePlayer
+        element: <ProtectedRoute><div>Coming soon</div></ProtectedRoute>,
       },
       {
         path: "onboarding",
