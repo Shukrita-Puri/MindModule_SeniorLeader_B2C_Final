@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { initializeSession, getSession, updateSession } from "@/utils/onboardingStorage";
+import { getResumeRoute } from "@/utils/onboardingStatus";
 
 const STAGE_ROUTES = [
   "/onboarding",
@@ -37,11 +38,9 @@ export default function OnboardingFlow() {
     console.log("Onboarding session initialized:", sessionId);
 
     const session = getSession();
-    if (session && session.currentStage > 1) {
-      const resumeRoute = STAGE_ROUTES[session.currentStage - 1];
-      if (location.pathname !== resumeRoute && !location.pathname.includes('/signup')) {
-        navigate(resumeRoute);
-      }
+    const resumeRoute = getResumeRoute();
+    if (location.pathname !== resumeRoute && !location.pathname.includes('/signup')) {
+      navigate(resumeRoute);
     }
   }, []);
 

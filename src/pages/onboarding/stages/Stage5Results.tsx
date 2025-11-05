@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { getAllResponses } from "@/utils/onboardingStorage";
+import { getAllResponses, saveResponse } from "@/utils/onboardingStorage";
 import { calculateMetaSkillScores, determineAlignment } from "@/utils/onboardingScoring";
 import { ArrowRight, CheckCircle2, AlertCircle, Target, TrendingUp, Lightbulb, Brain } from "lucide-react";
 import { ResponsiveRadar } from '@nivo/radar';
@@ -25,6 +25,11 @@ export default function Stage5Results() {
         responses.q4_self_assessed_strength,
         scoringResult.scores
       );
+
+      // Save the scores for progress tracking
+      saveResponse('metaSkillScores', scoringResult.scores);
+      saveResponse('profileType', scoringResult.profileType);
+      saveResponse('alignment', alignment);
 
       setResults({ ...scoringResult, alignment, responses });
       setLoading(false);

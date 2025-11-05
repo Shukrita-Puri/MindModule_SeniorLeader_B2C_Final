@@ -1,6 +1,4 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,6 +8,9 @@ import { GoldDivider } from "@/components/ui/divider";
 import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
 import { IntegrationPreviewCard } from "@/components/onboarding/IntegrationPreviewCard";
 import { toast } from "@/hooks/use-toast";
+import { getSession } from "@/utils/onboardingStorage";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
@@ -61,6 +62,14 @@ export default function Stage7ContextConnection() {
       onboardingCompletedAt: new Date().toISOString(),
       plan: 'super-pro'
     }));
+    
+    // Mark onboarding as complete
+    const session = getSession();
+    if (session) {
+      session.responses.onboardingCompleted = true;
+      session.responses.completedAt = new Date().toISOString();
+      localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
+    }
     
     navigate("/daily-check-in");
   };

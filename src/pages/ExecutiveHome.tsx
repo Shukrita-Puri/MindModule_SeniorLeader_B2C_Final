@@ -6,6 +6,7 @@ import InsightProgressCard from "@/components/home/InsightProgressCard";
 import DailyRitualCard from "@/components/home/DailyRitualCard";
 import IntelligentPriorityCard from "@/components/home/IntelligentPriorityCard";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
+import { ResumeOnboardingBanner } from "@/components/onboarding/ResumeOnboardingBanner";
 import { generateIntelligentPriorities } from "@/utils/intelligenceEngine";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 
@@ -68,6 +69,9 @@ const ExecutiveHome = () => {
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        
+        {/* Resume Onboarding Banner - only shows if incomplete */}
+        <ResumeOnboardingBanner />
         
         {/* SECTION 2: Insights & Progress */}
         <section className="animate-fade-in mb-8">

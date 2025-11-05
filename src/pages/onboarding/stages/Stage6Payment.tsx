@@ -82,6 +82,9 @@ export default function Stage6Payment() {
               className="w-full" 
               variant={idx === 1 ? "default" : "outline"}
               onClick={() => {
+                // Save selected plan
+                localStorage.setItem('selectedPlan', plan.name);
+                
                 if (plan.name.includes('Super Pro')) {
                   navigate("/onboarding/context-connection");
                 } else {
