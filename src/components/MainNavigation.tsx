@@ -31,12 +31,6 @@ const MainNavigation = () => {
       isActive: location.pathname === "/executive-home"
     },
     { 
-      icon: UsersRound, 
-      label: "Dialogue", 
-      route: "/practice",
-      isActive: practicePages.includes(location.pathname)
-    },
-    { 
       icon: Zap, 
       label: "Sanctuary", 
       route: "/recalibrate",

@@ -80,10 +80,10 @@ const ExecutiveHome = () => {
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
         
-        {/* SECTION 3: Daily Ritual */}
+        {/* SECTION 3: Recommended Plan */}
         <section className="animate-fade-in mb-8" style={{ animationDelay: '200ms' }}>
           <h2 className="text-lg font-headline font-medium text-foreground mb-4">
-            Daily Ritual
+            Your Plan Today
           </h2>
           <DailyRitualCard />
         </section>

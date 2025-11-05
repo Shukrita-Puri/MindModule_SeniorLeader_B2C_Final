@@ -10,11 +10,11 @@ import { getContentByCategory } from "@/data/practicesAndSoundscapes";
 const PowerUpOutcomePage = () => {
   const navigate = useNavigate();
   const content = getContentByCategory('power-up');
-  const soundscapes = content.filter(item => item.type === 'soundscape');
-  const practices = content.filter(item => item.type === 'practice');
+  const soundscapes = content.filter(item => item.contentType === 'soundbath');
+  const practices = content.filter(item => item.contentType === 'guided-practice');
 
   const handleItemClick = (item: typeof content[0]) => {
-    if (item.type === 'soundscape') {
+    if (item.contentType === 'soundbath') {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'power-up' } });
     } else {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'power-up' } });
@@ -75,7 +75,7 @@ const PowerUpOutcomePage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">{item.title}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground">
-                    {item.subtitle}
+                    {item.creator}
                   </CardDescription>
                   <div className="flex items-center gap-2 text-xs text-gold/80">
                     <Sparkles className="h-3 w-3" />
@@ -132,7 +132,7 @@ const PowerUpOutcomePage = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">{item.title}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground">
-                    {item.subtitle}
+                    {item.creator}
                   </CardDescription>
                   <div className="flex items-center gap-2 text-xs text-gold/80">
                     <Sparkles className="h-3 w-3" />

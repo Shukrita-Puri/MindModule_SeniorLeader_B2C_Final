@@ -164,6 +164,14 @@ const router = createBrowserRouter([
         element: <GuidedPracticePlayer />,
       },
       {
+        path: "micro-practices",
+        element: <div>Coming soon</div>, // Placeholder for MicroPracticesLibrary
+      },
+      {
+        path: "micro-practice/:id",
+        element: <div>Coming soon</div>, // Placeholder for MicroPracticePlayer
+      },
+      {
         path: "onboarding",
         element: <OnboardingFlow />,
         children: [

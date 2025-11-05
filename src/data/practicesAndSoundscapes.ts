@@ -337,6 +337,10 @@ export const sanctuaryContent: SanctuaryContent[] = [
 ];
 
 // Helper functions
+export const getAllContent = (): SanctuaryContent[] => {
+  return sanctuaryContent;
+};
+
 export const getContentByType = (type: ContentType): SanctuaryContent[] => {
   return sanctuaryContent.filter(c => c.contentType === type);
 };
