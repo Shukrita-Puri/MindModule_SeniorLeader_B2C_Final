@@ -62,7 +62,7 @@ export default function Stage7ContextConnection() {
       plan: 'super-pro'
     }));
     
-    navigate("/executive-home");
+    navigate("/daily-check-in");
   };
 
   const getButtonText = () => {

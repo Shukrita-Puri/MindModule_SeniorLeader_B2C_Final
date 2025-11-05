@@ -14,7 +14,7 @@ export default function Stage4SelfAssessment() {
 
   const handleContinue = () => {
     saveResponse("q4_self_assessed_strength", answer);
-    navigate("/signup");
+    navigate("/onboarding/signup-step");
   };
 
   return (

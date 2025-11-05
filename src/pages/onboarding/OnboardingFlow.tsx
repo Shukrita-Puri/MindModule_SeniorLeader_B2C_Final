@@ -8,7 +8,7 @@ const STAGE_ROUTES = [
   "/onboarding/identity",
   "/onboarding/behavioral",
   "/onboarding/self-assessment",
-  "/signup",
+  "/onboarding/signup-step",
   "/onboarding/results",
   "/onboarding/payment",
   "/onboarding/context-connection",

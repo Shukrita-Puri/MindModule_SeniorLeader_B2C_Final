@@ -180,6 +180,7 @@ const router = createBrowserRouter([
           { path: "identity", element: <Stage2Identity /> },
           { path: "behavioral", element: <Stage3Behavioral /> },
           { path: "self-assessment", element: <Stage4SelfAssessment /> },
+          { path: "signup-step", element: <Signup /> },
           { path: "results", element: <Stage5Results /> },
           { path: "payment", element: <Stage6Payment /> },
           { path: "context-connection", element: <Stage7ContextConnection /> },

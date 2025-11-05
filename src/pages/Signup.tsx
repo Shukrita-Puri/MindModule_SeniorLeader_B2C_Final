@@ -42,11 +42,16 @@ const Signup = () => {
     }
 
     setIsLoading(true);
+    const isOnboardingFlow = window.location.pathname.includes('/onboarding');
+    const redirectUrl = isOnboardingFlow 
+      ? `${window.location.origin}/onboarding/results`
+      : `${window.location.origin}/executive-home`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/executive-home`,
+        emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName
         }
@@ -72,11 +77,12 @@ const Signup = () => {
       return;
     }
 
-    toast({
-      title: "Check Your Email",
-      description: "We sent you a verification link to complete signup.",
-    });
-    setShowEmailForm(false);
+    // Auto-confirm is enabled, so redirect immediately
+    if (isOnboardingFlow) {
+      navigate('/onboarding/results');
+    } else {
+      navigate('/executive-home');
+    }
   };
 
   const handleEmailSignIn = async () => {
@@ -111,14 +117,24 @@ const Signup = () => {
       return;
     }
 
-    navigate('/executive-home');
+    const isOnboardingFlow = window.location.pathname.includes('/onboarding');
+    if (isOnboardingFlow) {
+      navigate('/onboarding/results');
+    } else {
+      navigate('/executive-home');
+    }
   };
 
   const handleGoogleAuth = async () => {
+    const isOnboardingFlow = window.location.pathname.includes('/onboarding');
+    const redirectUrl = isOnboardingFlow 
+      ? `${window.location.origin}/onboarding/results`
+      : `${window.location.origin}/executive-home`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/executive-home`
+        redirectTo: redirectUrl
       }
     });
 
@@ -132,10 +148,15 @@ const Signup = () => {
   };
 
   const handleAppleAuth = async () => {
+    const isOnboardingFlow = window.location.pathname.includes('/onboarding');
+    const redirectUrl = isOnboardingFlow 
+      ? `${window.location.origin}/onboarding/results`
+      : `${window.location.origin}/executive-home`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: `${window.location.origin}/executive-home`
+        redirectTo: redirectUrl
       }
     });
 
