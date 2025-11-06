@@ -49,7 +49,7 @@ const RecalibrateMode = () => {
   const renderToolSelection = () => (
     <>
       {/* Tools Selection */}
-      <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-24">
+      <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {tools.map((tool, index) => (
             <article 
@@ -103,7 +103,7 @@ const RecalibrateMode = () => {
       <TopNavigation backPath="/executive-home" />
       
       {/* Hero Banner - Architectural Style */}
-      <div className="relative h-[30vh] overflow-hidden">
+      <div className="relative h-auto py-12 overflow-hidden">
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         

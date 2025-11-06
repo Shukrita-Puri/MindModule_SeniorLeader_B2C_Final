@@ -28,31 +28,23 @@ const PresenceOutcomePage = () => {
     <div className="min-h-screen bg-background pb-24">
       <GlobalHeader />
       
-      {/* Hero Banner */}
-      <div className="relative h-64 overflow-hidden">
-        <img 
-          src="/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png"
-          alt="Presence"
-          className="absolute inset-0 w-full h-full object-cover img-hero"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/20 to-background" />
-        <div className="relative h-full flex flex-col justify-center px-6 max-w-4xl mx-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/recalibrate')}
-            className="absolute top-4 left-4"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
-            Presence
-          </h1>
-          <p className="text-muted-foreground text-base font-body">Deep focus and mindfulness for sustained attention</p>
-        </div>
+      {/* Minimal Header */}
+      <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/recalibrate')}
+          className="absolute top-4 left-4"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
+          Presence
+        </h1>
+        <p className="text-muted-foreground text-base font-body">Deep focus and mindfulness for sustained attention</p>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-4">
         {/* Soundscapes Section */}
         <section className="mb-12">
           <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
