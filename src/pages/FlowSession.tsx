@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import MainNavigation from "@/components/MainNavigation";
 import BreathingAnimation from "@/components/BreathingAnimation";
-import vibrantFocusIllustration from "@/assets/ink-focus-illustration.png";
+import architecturalFlow from "@/assets/architectural-flow.jpg";
 
 interface FlowSessionConfig {
   duration: number; // in minutes
@@ -328,9 +328,9 @@ const FlowSession = () => {
       <div className="px-8 py-12 text-center max-w-2xl mx-auto">
         <div className="w-32 h-32 mx-auto mb-8 rounded-full overflow-hidden shadow-lg border-4 border-primary/10">
           <img 
-            src={vibrantFocusIllustration} 
+            src={architecturalFlow} 
             alt="Flow state focus"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover img-card"
           />
         </div>
         

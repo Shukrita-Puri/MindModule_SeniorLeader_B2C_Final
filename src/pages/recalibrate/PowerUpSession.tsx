@@ -3,7 +3,7 @@ import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Brain, Zap, Wind, Compass } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
+import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
 
 const PowerUpSession = () => {
   const navigate = useNavigate();
@@ -73,11 +73,11 @@ const PowerUpSession = () => {
       <div className="px-8 py-20 max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="w-28 h-28 mx-auto mb-8 rounded-sm bg-card border border-gold/20 overflow-hidden shadow-md">
+          <div className="w-28 h-28 mx-auto mb-8 rounded-sm bg-card border border-border overflow-hidden shadow-md">
             <img 
-              src={vibrantVoiceOrb} 
+              src={architecturalPowerUp} 
               alt="Power Up"
-              className="w-full h-full object-cover opacity-80"
+              className="w-full h-full object-cover img-card"
             />
           </div>
           

@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/button";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import useScrollToTop from "@/hooks/useScrollToTop";
-import vibrantVoiceOrb from "@/assets/vibrant-voice-orb.png";
-import vibrantPracticeIllustration from "@/assets/vibrant-practice-illustration.png";
-import vibrantMentorIllustration from "@/assets/vibrant-mentor-illustration.png";
-import sanctuaryBanner from "@/assets/sanctuary-watercolor-banner.jpg";
+import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
+import architecturalPause from "@/assets/architectural-pause.jpg";
+import architecturalPresence from "@/assets/architectural-presence.jpg";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
@@ -21,21 +20,21 @@ const RecalibrateMode = () => {
       id: "power-up", 
       title: "Power Up",
       description: "Energy boost before big moments or during low energy moments",
-      illustration: vibrantVoiceOrb,
+      illustration: architecturalPowerUp,
       path: "/recalibrate/power-up"
     },
     {
       id: "pause",
       title: "Pause",
       description: "Breathing exercises and calming sounds for reset and restoration",
-      illustration: vibrantPracticeIllustration,
+      illustration: architecturalPause,
       path: "/recalibrate/pause"
     },
     {
       id: "presence",
       title: "Presence",
       description: "Deep focus sessions and soundscapes for peak performance",
-      illustration: vibrantMentorIllustration,
+      illustration: architecturalPresence,
       path: "/recalibrate/presence"
     }
   ];
@@ -61,17 +60,14 @@ const RecalibrateMode = () => {
             >
               <div className="bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500">
                 {/* Image Container */}
-                <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-card to-background">
+                <div className="relative w-full aspect-square overflow-hidden bg-card">
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
-                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
-                    style={{ filter: 'brightness(0.7) contrast(1.2)' }}
+                    className="w-full h-full object-cover img-card group-hover:scale-105 transition-all duration-700"
                   />
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
-                  {/* Glow on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  {/* Subtle gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-transparent" />
                 </div>
                 
                 {/* Content */}
