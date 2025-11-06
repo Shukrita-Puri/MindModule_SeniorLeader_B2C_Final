@@ -272,8 +272,32 @@ const SoundscapePlayer = () => {
   const [actualDuration, setActualDuration] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Practice Queue State
+  const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [isInQueue, setIsInQueue] = useState(false);
+
   const soundscape = id ? soundscapeData[id] : null;
   const displayDuration = actualDuration || soundscape?.duration || 0;
+
+  useEffect(() => {
+    // Check if this is part of a practice queue
+    const queue = localStorage.getItem('practiceQueue');
+    if (queue) {
+      try {
+        const parsed = JSON.parse(queue);
+        setPracticeQueue(parsed);
+        // Find current index
+        const index = parsed.findIndex((p: any) => p.id === id);
+        if (index !== -1) {
+          setCurrentQueueIndex(index);
+          setIsInQueue(true);
+        }
+      } catch (e) {
+        console.error('Error parsing practice queue:', e);
+      }
+    }
+  }, [id]);
 
   const getCategoryPath = () => {
     const locationState = location.state as { category?: string } | null;
@@ -373,6 +397,60 @@ const SoundscapePlayer = () => {
     } else {
       setIsPlaying(false);
       setIsComplete(true);
+      
+      // If in queue, auto-navigate to next after 2 seconds
+      if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+        setTimeout(() => handleQueueComplete(), 2000);
+      }
+    }
+  };
+
+  // Queue Handlers
+  const handleQueueSkip = () => {
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    }
+  };
+
+  const handleQueuePause = () => {
+    // Clear queue and return home
+    localStorage.removeItem('practiceQueue');
+    toast.success('Ritual paused');
+    navigate('/executive-home');
+  };
+
+  const handleQueueComplete = () => {
+    // Store completion
+    const history = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
+    history.push({
+      id: soundscape?.id,
+      title: soundscape?.title,
+      type: "soundbath",
+      outcome: soundscape?.category,
+      completedAt: new Date().toISOString(),
+      duration: Math.floor(displayDuration / 60)
+    });
+    localStorage.setItem("practiceHistory", JSON.stringify(history));
+
+    // Navigate to next or complete ritual
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    } else {
+      // Ritual complete
+      localStorage.removeItem('practiceQueue');
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+    }
+  };
+
+  const navigateToNext = () => {
+    const next = practiceQueue[currentQueueIndex + 1];
+    if (next.contentType === 'soundbath') {
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category } });
+    } else if (next.contentType === 'guided-practice') {
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category } });
+    } else if (next.contentType === 'micro-practice') {
+      navigate(`/micro-practice/${next.id}`, { state: { category: next.category } });
     }
   };
 
@@ -437,6 +515,18 @@ const SoundscapePlayer = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
       <TopNavigation backPath={getCategoryPath()} />
+
+      {/* Practice Queue Progress */}
+      {isInQueue && (
+        <PracticeQueueProgress
+          currentIndex={currentQueueIndex}
+          totalCount={practiceQueue.length}
+          queue={practiceQueue}
+          onSkip={handleQueueSkip}
+          onPause={handleQueuePause}
+          onComplete={handleQueueComplete}
+        />
+      )}
 
       {/* Main Player Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12 pt-20">

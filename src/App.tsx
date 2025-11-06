@@ -24,6 +24,7 @@ import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
 import MicroPracticesLibrary from "./pages/MicroPracticesLibrary";
 import MicroPracticePlayer from "./pages/MicroPracticePlayer";
 import InsightsDashboard from "./pages/InsightsDashboard";
+import HRVInsightsDashboard from "./pages/HRVInsightsDashboard";
 
 // ARCHIVED - V2 Features (moved to src/pages/_archived/)
 // import FlowStateLab from "./pages/FlowStateLab";
@@ -173,6 +174,10 @@ const router = createBrowserRouter([
       {
         path: "insights-dashboard",
         element: <ProtectedRoute><InsightsDashboard /></ProtectedRoute>,
+      },
+      {
+        path: "hrv-insights",
+        element: <ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute>,
       },
       {
         path: "onboarding",
