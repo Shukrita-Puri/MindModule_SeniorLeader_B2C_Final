@@ -12,6 +12,7 @@ import {
   type CalendarEvent,
   type MeetingGap
 } from '@/utils/historicalPatternEngine';
+import { analyzeEventHRVPattern } from '@/utils/historicalHRVTracking';
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
 
 interface MicroIntervention {
@@ -73,13 +74,29 @@ const MicroInterventions = () => {
         const minutesUntil = Math.floor((eventStart.getTime() - Date.now()) / (1000 * 60));
         const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
         
+        // Check historical HRV pattern for this event
+        const hrvAnalysis = analyzeEventHRVPattern(
+          event.title,
+          event.eventType || 'meeting'
+        );
+        
+        let reasoning = 'Get into the zone for tough conversations. This practice will help you stay grounded and present.';
+        
+        if (hrvAnalysis.hasPattern && hrvAnalysis.elevated) {
+          reasoning = `Your HRV averaged ${hrvAnalysis.avgHRV} during past ${event.title} meetings, indicating stress. ${
+            hrvAnalysis.trend === 'improving' 
+              ? 'Your pattern is improving, but a grounding practice will help maintain that progress.' 
+              : 'This pre-emptive practice will help you manage stress proactively.'
+          }`;
+        }
+        
         detectedInterventions.push({
           id: `highstakes-${index}`,
           type: 'pre-performance',
           trigger: `${event.title} at ${formatTime(eventStart)}`,
           content: groundingContent[0],
           timing: `Recommended: ${formatTime(recommendedTime)} (30 min before)`,
-          reasoning: `Get into the zone for tough conversations. This practice will help you stay grounded and present.`,
+          reasoning,
           icon: 'target'
         });
       }

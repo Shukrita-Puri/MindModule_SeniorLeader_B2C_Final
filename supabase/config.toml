@@ -1,1 +1,16 @@
 project_id = "ibrvatszexahdqwejahc"
+
+[functions.track-sanctuary-event]
+verify_jwt = true
+
+[functions.sync-practice-data]
+verify_jwt = true
+
+[functions.sync-oura]
+verify_jwt = true
+
+[functions.calendar-auth]
+verify_jwt = false
+
+[functions.sync-calendar]
+verify_jwt = false

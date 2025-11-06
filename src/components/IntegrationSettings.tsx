@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
 import { IntegrationPreviewCard } from "@/components/onboarding/IntegrationPreviewCard";
+import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
 import { toast } from "@/hooks/use-toast";
 
 interface ContextConnections {
@@ -96,58 +97,8 @@ export default function IntegrationSettings() {
         </p>
       </div>
 
-      {/* Calendar Integration */}
-      <Card className={`p-5 transition-all ${
-        connections.calendar.enabled ? 'border-gold/40' : ''
-      }`}>
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex gap-3 flex-1">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-gold/20 to-primary/20 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-6 h-6 text-gold" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="font-semibold">Calendar</h4>
-                {connections.calendar.setupCompletedAt && (
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {connections.calendar.provider 
-                  ? `Connected to ${connections.calendar.provider === 'google' ? 'Google Calendar' : connections.calendar.provider}`
-                  : 'Get context-aware practice suggestions based on your schedule'
-                }
-              </p>
-            </div>
-          </div>
-          <Switch 
-            checked={connections.calendar.enabled} 
-            onCheckedChange={handleCalendarToggle}
-          />
-        </div>
-
-        {connections.calendar.enabled && (
-          <div className="space-y-4">
-            <ProviderSelector 
-              type="calendar"
-              selectedProvider={connections.calendar.provider}
-              onSelect={(provider) => 
-                setConnections(prev => ({
-                  ...prev,
-                  calendar: { 
-                    ...prev.calendar, 
-                    provider,
-                    setupCompletedAt: new Date().toISOString()
-                  }
-                }))
-              }
-            />
-            {connections.calendar.provider && (
-              <IntegrationPreviewCard type="calendar" />
-            )}
-          </div>
-        )}
-      </Card>
+      {/* Calendar Integration with OAuth */}
+      <CalendarConnectionSettings />
 
       {/* Wearable Integration */}
       <Card className={`p-5 transition-all ${

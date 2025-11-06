@@ -18,6 +18,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
+import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { toast } from "sonner";
 
 interface SoundscapeData {

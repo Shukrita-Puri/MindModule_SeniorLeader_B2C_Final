@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,72 +12,160 @@ serve(async (req) => {
   }
 
   try {
+    const { userId, provider } = await req.json();
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
-
     // Get calendar connection
-    const { data: connection, error: connError } = await supabaseClient
+    const { data: connection, error: connectionError } = await supabaseClient
       .from('calendar_connections')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
+      .eq('provider', provider)
       .eq('is_active', true)
       .single();
 
-    if (connError || !connection) {
-      throw new Error('No active calendar connection found');
+    if (connectionError || !connection) {
+      throw new Error('Calendar connection not found');
     }
 
-    // Fetch calendar events from Google/Microsoft API
-    // This is a placeholder - actual implementation depends on OAuth flow
+    let events: any[] = [];
     const now = new Date();
-    const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days ahead
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // TODO: Implement actual API calls to Google/Microsoft Calendar
-    // For now, return success
-    
+    if (provider === 'google') {
+      // Fetch Google Calendar events
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${nextWeek.toISOString()}&singleEvents=true&orderBy=startTime`,
+        {
+          headers: {
+            Authorization: `Bearer ${connection.access_token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.items) {
+        events = data.items.map((event: any) => ({
+          external_id: event.id,
+          title: event.summary || 'Untitled Event',
+          start_time: event.start.dateTime || event.start.date,
+          end_time: event.end.dateTime || event.end.date,
+          is_organizer: event.organizer?.self || false,
+          attendees_count: event.attendees?.length || 0,
+          is_recurring: !!event.recurringEventId,
+          event_metadata: {
+            location: event.location,
+            description: event.description,
+            hangoutLink: event.hangoutLink,
+          },
+        }));
+      }
+    } else if (provider === 'outlook') {
+      // Fetch Outlook Calendar events
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${nextWeek.toISOString()}&$orderby=start/dateTime`,
+        {
+          headers: {
+            Authorization: `Bearer ${connection.access_token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.value) {
+        events = data.value.map((event: any) => ({
+          external_id: event.id,
+          title: event.subject || 'Untitled Event',
+          start_time: event.start.dateTime,
+          end_time: event.end.dateTime,
+          is_organizer: event.isOrganizer || false,
+          attendees_count: event.attendees?.length || 0,
+          is_recurring: !!event.recurrence,
+          event_metadata: {
+            location: event.location?.displayName,
+            body: event.bodyPreview,
+            webLink: event.webLink,
+          },
+        }));
+      }
+    }
+
+    // Classify events automatically
+    const classifiedEvents = events.map(event => {
+      const title = event.title.toLowerCase();
+      let eventType = 'meeting';
+      let isHighStakes = false;
+      
+      // Auto-classification logic
+      if (title.includes('board') || title.includes('executive')) {
+        eventType = 'board-meeting';
+        isHighStakes = true;
+      } else if (title.includes('presentation') || title.includes('demo') || title.includes('pitch')) {
+        eventType = 'presentation';
+        isHighStakes = true;
+      } else if (title.includes('client') || title.includes('customer')) {
+        eventType = 'client-call';
+        isHighStakes = event.attendees_count > 5;
+      } else if (title.includes('interview')) {
+        eventType = 'interview';
+        isHighStakes = true;
+      } else if (title.includes('1:1') || title.includes('one-on-one')) {
+        eventType = 'one-on-one';
+      } else if (title.includes('focus') || title.includes('deep work')) {
+        eventType = 'deep-work';
+      }
+
+      return {
+        ...event,
+        user_id: userId,
+        event_metadata: {
+          ...event.event_metadata,
+          eventType,
+          isHighStakes,
+        },
+      };
+    });
+
+    // Delete existing events for this user
+    await supabaseClient
+      .from('calendar_events')
+      .delete()
+      .eq('user_id', userId);
+
+    // Insert new events
+    const { error: insertError } = await supabaseClient
+      .from('calendar_events')
+      .insert(classifiedEvents);
+
+    if (insertError) {
+      console.error('Error inserting events:', insertError);
+      throw insertError;
+    }
+
+    // Update last_sync timestamp
     await supabaseClient
       .from('calendar_connections')
       .update({ last_sync: new Date().toISOString() })
-      .eq('id', connection.id);
+      .eq('user_id', userId)
+      .eq('provider', provider);
 
-    console.log('Calendar sync completed for user:', user.id);
+    console.log(`Synced ${classifiedEvents.length} events for user ${userId}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Calendar sync initiated',
-        note: 'Full OAuth implementation required'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      JSON.stringify({ success: true, eventCount: classifiedEvents.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in sync-calendar:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Calendar sync error:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
