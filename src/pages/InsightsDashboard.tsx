@@ -17,6 +17,8 @@ const InsightsDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [energyState, setEnergyState] = useState<any>(null);
   const [fitnessScore, setFitnessScore] = useState<number>(0);
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "quarter">("week");
+  const [comparisonMode, setComparisonMode] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -76,10 +78,42 @@ const InsightsDashboard = () => {
             </h1>
             <p className="text-muted-foreground">Your mental performance analytics</p>
           </div>
-          <Button onClick={handleExport} variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-lg p-1">
+              <Button
+                onClick={() => setTimeRange("week")}
+                variant={timeRange === "week" ? "default" : "ghost"}
+                size="sm"
+              >
+                Week
+              </Button>
+              <Button
+                onClick={() => setTimeRange("month")}
+                variant={timeRange === "month" ? "default" : "ghost"}
+                size="sm"
+              >
+                Month
+              </Button>
+              <Button
+                onClick={() => setTimeRange("quarter")}
+                variant={timeRange === "quarter" ? "default" : "ghost"}
+                size="sm"
+              >
+                Quarter
+              </Button>
+            </div>
+            <Button
+              onClick={() => setComparisonMode(!comparisonMode)}
+              variant={comparisonMode ? "default" : "outline"}
+              size="sm"
+            >
+              Compare
+            </Button>
+            <Button onClick={handleExport} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
         {/* Section 1: Weekly Energy Summary */}
@@ -90,7 +124,7 @@ const InsightsDashboard = () => {
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <EnergyGauge currentBalance={energyState?.overallBalance || 50} />
-            <EnergyDistributionChart />
+            <EnergyDistributionChart timeRange={timeRange} comparisonMode={comparisonMode} />
           </div>
         </section>
 
@@ -100,7 +134,7 @@ const InsightsDashboard = () => {
             <Clock className="h-5 w-5 text-gold" />
             Your Natural Rhythms
           </h2>
-          <CircadianGraph />
+          <CircadianGraph timeRange={timeRange} />
         </section>
 
         {/* Section 3: Alignment Timeline */}
@@ -109,7 +143,7 @@ const InsightsDashboard = () => {
             <Calendar className="h-5 w-5 text-gold" />
             Alignment Over Time
           </h2>
-          <AlignmentTimeline />
+          <AlignmentTimeline timeRange={timeRange} comparisonMode={comparisonMode} />
         </section>
 
         {/* Section 4: Elemental Balance */}
@@ -121,7 +155,7 @@ const InsightsDashboard = () => {
         {/* Section 5: Decision Quality Trends */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-6">Decision Quality Over Time</h2>
-          <DecisionQualityChart />
+          <DecisionQualityChart timeRange={timeRange} comparisonMode={comparisonMode} />
         </section>
 
         {/* Mental Fitness Score */}

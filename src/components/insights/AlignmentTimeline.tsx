@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 interface AlignmentPoint {
   date: string;
@@ -7,46 +9,72 @@ interface AlignmentPoint {
   practices: number;
 }
 
-const AlignmentTimeline = () => {
+interface AlignmentTimelineProps {
+  timeRange?: "week" | "month" | "quarter";
+  comparisonMode?: boolean;
+}
+
+const AlignmentTimeline = ({ 
+  timeRange = "week",
+  comparisonMode = false
+}: AlignmentTimelineProps) => {
   const [data, setData] = useState<AlignmentPoint[]>([]);
+  const [comparisonData, setComparisonData] = useState<AlignmentPoint[]>([]);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   useEffect(() => {
+    const processTimeline = (history: any[], daysBack: number) => {
+      const dailyData: Record<string, { totalScore: number; count: number }> = {};
+      
+      history.forEach((entry: any) => {
+        const date = new Date(entry.completedAt).toLocaleDateString();
+        if (!dailyData[date]) {
+          dailyData[date] = { totalScore: 0, count: 0 };
+        }
+        
+        const outcomeScore: Record<string, number> = {
+          "power-up": 85,
+          "ready": 80,
+          "presence": 75,
+          "calm": 70,
+          "pause": 65
+        };
+        
+        dailyData[date].totalScore += outcomeScore[entry.outcome] || 50;
+        dailyData[date].count += 1;
+      });
+      
+      return Object.entries(dailyData)
+        .map(([date, stats]) => ({
+          date,
+          score: Math.round(stats.totalScore / stats.count),
+          practices: stats.count
+        }))
+        .slice(-daysBack);
+    };
+
     // Load practice history
     const practiceHistory = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
+    const now = new Date();
+    const daysToShow = timeRange === "week" ? 7 : timeRange === "month" ? 30 : 90;
+    const cutoffDate = new Date(now.getTime() - daysToShow * 24 * 60 * 60 * 1000);
     
-    // Group by date and calculate alignment score
-    const dailyData: Record<string, { totalScore: number; count: number }> = {};
+    const currentPeriod = practiceHistory.filter((entry: any) => 
+      new Date(entry.completedAt) >= cutoffDate
+    );
     
-    practiceHistory.forEach((entry: any) => {
-      const date = new Date(entry.completedAt).toLocaleDateString();
-      if (!dailyData[date]) {
-        dailyData[date] = { totalScore: 0, count: 0 };
-      }
-      
-      // Calculate alignment based on outcome and time
-      const outcomeScore: Record<string, number> = {
-        "power-up": 85,
-        "ready": 80,
-        "presence": 75,
-        "calm": 70,
-        "pause": 65
-      };
-      
-      dailyData[date].totalScore += outcomeScore[entry.outcome] || 50;
-      dailyData[date].count += 1;
-    });
+    setData(processTimeline(currentPeriod, daysToShow));
     
-    // Convert to timeline format (last 14 days)
-    const timeline = Object.entries(dailyData)
-      .map(([date, stats]) => ({
-        date,
-        score: Math.round(stats.totalScore / stats.count),
-        practices: stats.count
-      }))
-      .slice(-14);
-    
-    setData(timeline);
-  }, []);
+    if (comparisonMode) {
+      const previousCutoffDate = new Date(cutoffDate.getTime() - daysToShow * 24 * 60 * 60 * 1000);
+      const previousPeriod = practiceHistory.filter((entry: any) => {
+        const date = new Date(entry.completedAt);
+        return date >= previousCutoffDate && date < cutoffDate;
+      });
+      setComparisonData(processTimeline(previousPeriod, daysToShow));
+    }
+  }, [timeRange, comparisonMode]);
 
   const maxScore = Math.max(...data.map(d => d.score), 1);
   const avgScore = data.length > 0 
@@ -56,12 +84,39 @@ const AlignmentTimeline = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>14-Day Alignment</span>
-          <span className="text-sm font-normal text-muted-foreground">
-            Avg: <span className="text-gold font-semibold">{avgScore}</span>
-          </span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Alignment Timeline</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Avg: <span className="text-gold font-semibold">{avgScore}</span>
+              {comparisonMode && comparisonData.length > 0 && (
+                <span className="ml-2">
+                  vs Previous: <span className="text-primary font-semibold">
+                    {Math.round(comparisonData.reduce((sum, d) => sum + d.score, 0) / comparisonData.length)}
+                  </span>
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
+              disabled={zoomLevel <= 0.5}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setZoomLevel(Math.min(2, zoomLevel + 0.25))}
+              disabled={zoomLevel >= 2}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -69,8 +124,13 @@ const AlignmentTimeline = () => {
             Complete practices over multiple days to see your alignment timeline
           </p>
         ) : (
-          <div className="relative h-48">
-            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <div className="relative overflow-x-auto" style={{ height: `${192 * zoomLevel}px` }}>
+            <svg 
+              className="w-full h-full" 
+              viewBox="0 0 100 100" 
+              preserveAspectRatio="none"
+              style={{ minWidth: `${100 * zoomLevel}%` }}
+            >
               {/* Grid lines */}
               {[0, 25, 50, 75, 100].map((y) => (
                 <line
@@ -98,19 +158,46 @@ const AlignmentTimeline = () => {
                 className="text-gold"
               />
               
+              {/* Comparison line */}
+              {comparisonMode && comparisonData.length > 0 && (
+                <polyline
+                  points={comparisonData.map((point, i) => {
+                    const x = (i / (comparisonData.length - 1)) * 100;
+                    const y = 100 - (point.score / maxScore) * 100;
+                    return `${x},${y}`;
+                  }).join(" ")}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.5"
+                  strokeDasharray="2,2"
+                  className="text-muted-foreground"
+                />
+              )}
+              
               {/* Points */}
               {data.map((point, i) => {
                 const x = (i / (data.length - 1)) * 100;
                 const y = 100 - (point.score / maxScore) * 100;
                 return (
-                  <circle
-                    key={i}
-                    cx={x}
-                    cy={y}
-                    r="1"
-                    fill="currentColor"
-                    className="text-gold"
-                  />
+                  <g key={i}>
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={hoveredPoint === i ? "2" : "1"}
+                      fill="currentColor"
+                      className="text-gold cursor-pointer transition-all"
+                      onMouseEnter={() => setHoveredPoint(i)}
+                      onMouseLeave={() => setHoveredPoint(null)}
+                    />
+                    {hoveredPoint === i && (
+                      <foreignObject x={x - 25} y={y - 35} width="50" height="30">
+                        <div className="bg-popover border border-border rounded px-2 py-1 text-xs text-center shadow-lg">
+                          <p className="font-semibold text-foreground">{point.score}</p>
+                          <p className="text-muted-foreground text-[10px]">{point.practices} sessions</p>
+                        </div>
+                      </foreignObject>
+                    )}
+                  </g>
                 );
               })}
             </svg>
