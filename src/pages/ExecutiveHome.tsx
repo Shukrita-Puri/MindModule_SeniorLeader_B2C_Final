@@ -4,7 +4,8 @@ import SecurityWatermark from "@/components/home/SecurityWatermark";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
 import EnergyStateHeader from "@/components/home/EnergyStateHeader";
-import RecommendedPlan from "@/components/home/RecommendedPlan";
+import DailyRitual from "@/components/home/DailyRitual";
+import MicroInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,10 +59,27 @@ const ExecutiveHome = () => {
         {/* Divider */}
         <div className="h-px bg-black/[0.08]" />
 
-        {/* Recommended Section */}
+        {/* Recommended for You - Split into TWO sub-sections */}
         <section>
           <h2 className="text-2xl font-headline mb-4 text-foreground">Recommended for You</h2>
-          <RecommendedPlan />
+          
+          {/* Sub-section 1: Daily Ritual */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Your Daily Ritual</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Based on your energy state, calendar load, and recovery data
+            </p>
+            <DailyRitual />
+          </div>
+
+          {/* Sub-section 2: Micro Interventions */}
+          <div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Micro Interventions</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Personalized for your calendar events today
+            </p>
+            <MicroInterventions />
+          </div>
         </section>
 
         {/* Divider */}
