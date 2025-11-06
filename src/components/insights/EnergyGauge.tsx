@@ -15,11 +15,7 @@ const EnergyGauge = ({ currentBalance }: EnergyGaugeProps) => {
   };
 
   const getBalanceColor = (balance: number) => {
-    if (balance < 30) return "text-red-500";
-    if (balance < 50) return "text-orange-500";
-    if (balance < 70) return "text-green-500";
-    if (balance < 85) return "text-blue-500";
-    return "text-gold";
+    return "text-saffron"; // Critical element - always saffron
   };
 
   return (
@@ -29,10 +25,13 @@ const EnergyGauge = ({ currentBalance }: EnergyGaugeProps) => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="text-center">
-          <div className={`text-6xl font-bold mb-2 ${getBalanceColor(currentBalance)}`}>
-            {Math.round(currentBalance)}
+          <div className="flex items-center justify-center gap-1">
+            <div className={`text-6xl font-bold ${getBalanceColor(currentBalance)}`}>
+              {Math.round(currentBalance)}
+            </div>
+            <span className="text-2xl text-muted-foreground">/100</span>
           </div>
-          <p className="text-sm text-muted-foreground">{getBalanceLabel(currentBalance)}</p>
+          <p className="text-sm text-muted-foreground mt-2">{getBalanceLabel(currentBalance)}</p>
         </div>
         
         <GradientProgress value={currentBalance} className="h-3" />

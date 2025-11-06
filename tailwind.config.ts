@@ -62,6 +62,16 @@ export default {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
         },
+        taupe: {
+          DEFAULT: "hsl(var(--taupe))",
+          highlight: "hsl(var(--taupe-highlight))",
+          rich: "hsl(var(--taupe-rich))",
+          foreground: "hsl(var(--taupe-foreground))",
+        },
+        saffron: {
+          DEFAULT: "hsl(var(--saffron))",
+          foreground: "hsl(var(--saffron-foreground))",
+        },
         forest: {
           DEFAULT: "hsl(var(--forest))",
           light: "hsl(var(--forest-light))",

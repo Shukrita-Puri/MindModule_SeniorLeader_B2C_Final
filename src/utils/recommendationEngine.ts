@@ -73,8 +73,8 @@ export async function generateRecommendations(): Promise<{
   const microPractices = allContent.filter(c => c.contentType === 'micro-practice');
   
   // Generate reasoning
-  let reasoning = `Based on your ${checkInOutcome} check-in (${energyState.balance}% energy balance)`;
-  if (ouraReadiness < 60) reasoning += `, low recovery state (${ouraReadiness}% readiness)`;
+  let reasoning = `Based on your daily check-in (${checkInOutcome}: ${energyState.balance}/100)`;
+  if (ouraReadiness > 0 && ouraReadiness < 60) reasoning += `, low recovery state (${ouraReadiness}/100)`;
   if (upcomingEvent) reasoning += `, and upcoming ${upcomingEvent.title}`;
   reasoning += ` — here's your personalized plan:`;
   

@@ -74,8 +74,8 @@ const InsightsDashboard = () => {
         <div className="relative z-10 max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-headline mb-2 text-foreground tracking-tight">Your Intelligence</h1>
-              <p className="text-muted-foreground font-body">Track your cognitive performance</p>
+              <h1 className="text-4xl font-headline mb-2 text-foreground tracking-tight">Your Energy Intelligence</h1>
+              <p className="text-muted-foreground font-body">Understand your cognitive energy performance</p>
             </div>
           </div>
 

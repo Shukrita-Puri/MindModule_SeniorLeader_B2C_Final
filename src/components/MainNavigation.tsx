@@ -38,7 +38,7 @@ const MainNavigation = () => {
     },
     { 
       icon: BarChart3, 
-      label: "Insights", 
+      label: "Intelligence", 
       route: "/insights-dashboard",
       isActive: location.pathname === "/insights-dashboard"
     },
@@ -59,14 +59,14 @@ const MainNavigation = () => {
           >
             {/* Active Indicator Line - Taupe color */}
             {item.isActive && (
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 taupe-gradient-shine rounded-full" />
             )}
             
             <item.icon 
               size={item.isActive ? 26 : 24}
               className={`mb-1 transition-all duration-300 ${
                 item.isActive 
-                  ? "text-foreground" 
+                  ? "text-taupe-rich" 
                   : "text-muted-foreground"
               }`}
             />

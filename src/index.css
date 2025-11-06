@@ -59,6 +59,16 @@
     --ring: 25 15% 55%;              /* Taupe focus ring */
     
     --radius: 1rem;                  /* Refined radius */
+
+    /* Elevated Warm Taupe System */
+    --taupe: 35 27 23;               /* #9B8B7E base */
+    --taupe-highlight: 40 33 28;     /* #B8A89B lighter */
+    --taupe-rich: 30 23 19;          /* #8B7A6E darker */
+    --taupe-foreground: 0 0% 100%;
+    
+    /* Saffron Accent (Critical Elements) */
+    --saffron: 24 85 63;             /* #FF8C42 */
+    --saffron-foreground: 0 0% 100%;
     
     /* Subtle Gradients */
     --gradient-subtle: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.03) 100%);
@@ -118,6 +128,43 @@ body {
   
   .img-card {
     filter: grayscale(100%) contrast(1.1) brightness(1.05);
+  }
+
+  .img-taupe-overlay {
+    filter: sepia(20%) contrast(110%) brightness(95%);
+    mix-blend-mode: multiply;
+  }
+
+  /* Elevated Taupe Effects */
+  .taupe-gradient {
+    background: linear-gradient(135deg, hsl(var(--taupe)) 0%, hsl(var(--taupe-highlight)) 50%, hsl(var(--taupe)) 100%);
+  }
+
+  .taupe-gradient-shine {
+    background: linear-gradient(135deg, hsl(var(--taupe-rich)) 0%, hsl(var(--taupe)) 50%, hsl(var(--taupe-highlight)) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .taupe-gloss {
+    background: linear-gradient(135deg, hsl(var(--taupe)) 0%, hsl(var(--taupe-highlight)) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .taupe-gloss::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shine 3s infinite;
+  }
+
+  @keyframes shine {
+    0% { left: -100%; }
+    50%, 100% { left: 100%; }
   }
 }
 

@@ -12,13 +12,13 @@ export const GradientProgress = ({ value, className }: GradientProgressProps) =>
       className
     )}>
       <div
-        className="h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r from-gold via-accent to-primary"
+        className="h-full transition-all duration-300 ease-out rounded-full taupe-gradient"
         style={{
           width: `${value}%`
         }}
       />
       <div
-        className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300 bg-gold/30"
+        className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300 bg-taupe/30"
         style={{
           left: `${Math.max(0, value - 10)}%`
         }}
