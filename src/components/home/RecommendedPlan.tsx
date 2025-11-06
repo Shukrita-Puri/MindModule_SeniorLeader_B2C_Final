@@ -57,7 +57,7 @@ const RecommendedPlan = () => {
     <div className="space-y-4">
       {/* Reasoning */}
       <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-        <Sparkles className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
+        <Sparkles className="w-4 h-4 text-saffron flex-shrink-0 mt-0.5" />
         <p className="leading-relaxed">{recommendations.reasoning}</p>
       </div>
 
@@ -100,7 +100,7 @@ const RecommendedPlan = () => {
       <Button
         variant="ghost"
         size="sm"
-        className="w-full text-gold hover:text-gold"
+        className="w-full text-saffron hover:text-saffron"
         onClick={() => navigate('/recalibrate')}
       >
         View All Sanctuary Content →

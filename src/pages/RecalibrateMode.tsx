@@ -64,7 +64,7 @@ const RecalibrateMode = () => {
                   <img 
                     src={tool.illustration} 
                     alt={tool.title}
-                    className="w-full h-full object-cover img-card group-hover:scale-105 transition-all duration-700"
+                    className="w-full h-full object-cover img-card img-taupe-overlay group-hover:scale-105 transition-all duration-700"
                   />
                   {/* Subtle gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-transparent" />

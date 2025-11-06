@@ -49,6 +49,7 @@ const Front = () => {
         {/* CTA Button */}
         <Button 
           onClick={handleGetStarted}
+          variant="critical"
           size="lg"
           className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 mt-8"
         >

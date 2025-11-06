@@ -7,16 +7,21 @@ import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import RecommendedPlan from "@/components/home/RecommendedPlan";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const ExecutiveHome = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const fullName = user?.user_metadata?.full_name || user?.email || 'there';
+  const firstName = fullName.split(' ')[0];
   
   // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning, Alex";
-    if (hour < 18) return "Hey, Alex";
-    return "Evening, Alex";
+    if (hour < 12) return `Good morning, ${firstName}`;
+    if (hour < 18) return `Hey, ${firstName}`;
+    return `Evening, ${firstName}`;
   };
   
   const getSubtitle = () => {

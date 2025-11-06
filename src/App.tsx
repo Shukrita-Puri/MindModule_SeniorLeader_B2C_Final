@@ -176,7 +176,7 @@ const router = createBrowserRouter([
         element: <ProtectedRoute><MicroPracticePlayer /></ProtectedRoute>,
       },
       {
-        path: "insights",
+        path: "insights-dashboard",
         element: <ProtectedRoute><InsightsDashboard /></ProtectedRoute>,
       },
       {

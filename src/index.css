@@ -61,13 +61,13 @@
     --radius: 1rem;                  /* Refined radius */
 
     /* Elevated Warm Taupe System */
-    --taupe: 35 27 23;               /* #9B8B7E base */
-    --taupe-highlight: 40 33 28;     /* #B8A89B lighter */
-    --taupe-rich: 30 23 19;          /* #8B7A6E darker */
+    --taupe: 25 15% 55%;             /* #9B8B7E base */
+    --taupe-highlight: 25 20% 63%;   /* #B8A89B lighter */
+    --taupe-rich: 25 12% 48%;        /* #8B7A6E darker */
     --taupe-foreground: 0 0% 100%;
     
     /* Saffron Accent (Critical Elements) */
-    --saffron: 24 85 63;             /* #FF8C42 */
+    --saffron: 24 85% 63%;           /* #FF8C42 */
     --saffron-foreground: 0 0% 100%;
     
     /* Subtle Gradients */

@@ -170,17 +170,19 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="mb-8 text-muted-foreground hover:text-taupe"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+    <>
+      {/* Fixed Top Bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08]">
+        <div className="flex items-center justify-between px-4 py-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <ArrowLeft size={20} />
+          </Button>
+          <div /> {/* Spacer - no menu icon */}
+        </div>
+      </div>
+
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-12 pt-28">
+        <div className="w-full max-w-md">
 
         {/* Mind Module Logo - Simplified */}
         <div className="text-center mb-12">
@@ -326,8 +328,9 @@ const Signup = () => {
             <button className="hover:underline">Privacy Policy</button>
           </p>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
