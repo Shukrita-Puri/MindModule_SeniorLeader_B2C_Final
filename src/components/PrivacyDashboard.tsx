@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GoldCard } from "@/components/ui/gold-card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, Smartphone, Lock, Database, Calendar, Mail, Watch, MessageCircle, FileText, User } from "lucide-react";
 import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from '@/hooks/useAuth';
 
 interface DataConnection {
   enabled: boolean;
@@ -16,6 +18,7 @@ interface DataConnection {
 }
 
 const PrivacyDashboard = () => {
+  const { user } = useAuth();
   const [connections, setConnections] = useState({
     calendar: { enabled: false, provider: null } as DataConnection,
     wearable: { enabled: false, provider: null } as DataConnection,
@@ -30,6 +33,7 @@ const PrivacyDashboard = () => {
   });
 
   useEffect(() => {
+    // Load connection data
     const stored = localStorage.getItem('contextConnections');
     if (stored) {
       const data = JSON.parse(stored);
@@ -39,11 +43,20 @@ const PrivacyDashboard = () => {
       });
     }
 
+    // Load personal info or populate from auth user
     const storedInfo = localStorage.getItem('personalInfo');
     if (storedInfo) {
       setPersonalInfo(JSON.parse(storedInfo));
+    } else if (user) {
+      // Auto-populate from Supabase auth
+      setPersonalInfo({
+        fullName: user.user_metadata?.full_name || '',
+        email: user.email || '',
+        preferredName: user.user_metadata?.full_name?.split(' ')[0] || '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
     }
-  }, []);
+  }, [user]);
 
   const handleConnectionToggle = (key: 'calendar' | 'wearable', checked: boolean) => {
     setConnections(prev => ({
@@ -89,132 +102,142 @@ const PrivacyDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Local Processing Status */}
-      <Card className="border-green-200 bg-green-50">
+      <GoldCard variant="glowing" className="bg-gradient-to-br from-green-50/80 to-card/80 backdrop-blur-md">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-green-800">
-            <Smartphone size={20} />
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Smartphone size={20} className="text-saffron" />
             Local-First Architecture
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-green-700">Your data stays on this device</span>
+              <div className="w-2 h-2 bg-saffron rounded-full"></div>
+              <span className="text-sm text-foreground">Your data stays on this device</span>
             </div>
             <div className="flex items-center gap-2">
-              <Lock size={16} className="text-green-600" />
-              <span className="text-sm text-green-700">End-to-end encrypted insights</span>
+              <Lock size={16} className="text-taupe" />
+              <span className="text-sm text-foreground">End-to-end encrypted insights</span>
             </div>
             <div className="flex items-center gap-2">
-              <Shield size={16} className="text-green-600" />
-              <span className="text-sm text-green-700">No cloud storage of personal data</span>
+              <Shield size={16} className="text-taupe" />
+              <span className="text-sm text-foreground">No cloud storage of personal data</span>
             </div>
           </div>
         </CardContent>
-      </Card>
+      </GoldCard>
 
       {/* Biometric Security */}
-      <Card>
+      <GoldCard variant="subtle">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Lock size={20} className="text-gray-800" />
+            <Lock size={20} className="text-taupe" />
             Security Settings
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Biometric Lock</p>
-              <p className="text-sm text-gray-600">Require Face ID/Touch ID to access insights</p>
+              <p className="font-medium text-foreground">Biometric Lock</p>
+              <p className="text-sm text-muted-foreground">Require Face ID/Touch ID to access insights</p>
             </div>
             <Switch 
               checked={biometricLock} 
               onCheckedChange={setBiometricLock}
+              className="data-[state=checked]:bg-taupe"
             />
           </div>
         </CardContent>
-      </Card>
+      </GoldCard>
 
       {/* Personal Information */}
-      <Card>
+      <GoldCard variant="subtle">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <User size={20} />
+            <User size={20} className="text-taupe" />
             Personal Information
+            {user && <Badge variant="outline" className="text-xs border-taupe/30 text-taupe">Synced with auth</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
+            <Label htmlFor="fullName" className="text-foreground">Full Name</Label>
             <Input
               id="fullName"
               value={personalInfo.fullName}
               onChange={(e) => setPersonalInfo(prev => ({ ...prev, fullName: e.target.value }))}
               placeholder="Enter your full name"
+              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-foreground">Email</Label>
             <Input
               id="email"
               type="email"
               value={personalInfo.email}
               onChange={(e) => setPersonalInfo(prev => ({ ...prev, email: e.target.value }))}
               placeholder="your.email@example.com"
+              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
+              readOnly={!!user?.email}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="preferredName">Preferred Name</Label>
+            <Label htmlFor="preferredName" className="text-foreground">Preferred Name</Label>
             <Input
               id="preferredName"
               value={personalInfo.preferredName}
               onChange={(e) => setPersonalInfo(prev => ({ ...prev, preferredName: e.target.value }))}
               placeholder="How should we greet you?"
+              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
+            <Label htmlFor="timezone" className="text-foreground">Timezone</Label>
             <Input
               id="timezone"
               value={personalInfo.timezone}
               readOnly
-              className="bg-muted"
+              className="bg-muted/40 backdrop-blur-xl border-taupe/20"
             />
           </div>
 
-          <Button onClick={handleSavePersonalInfo} className="w-full">
+          <Button 
+            onClick={handleSavePersonalInfo} 
+            className="w-full bg-white/30 backdrop-blur-xl border border-taupe/30 hover:bg-white/50 text-foreground taupe-gradient-shine"
+          >
             Save Changes
           </Button>
         </CardContent>
-      </Card>
+      </GoldCard>
 
       {/* Data Sources */}
-      <Card>
+      <GoldCard variant="prominent">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Database size={20} />
+            <Database size={20} className="text-taupe" />
             Data Sources
-            <Badge variant="outline" className="ml-2">Full Control</Badge>
+            <Badge variant="outline" className="ml-2 border-taupe/30 text-taupe">Full Control</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Calendar - Available */}
-          <div className="p-4 rounded-lg border">
+          <div className="p-4 rounded-lg bg-white/30 backdrop-blur-xl border border-taupe/20">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-gold" />
+                <Calendar className="h-5 w-5 text-saffron" />
                 <div>
-                  <p className="font-medium text-sm">Calendar</p>
+                  <p className="font-medium text-sm text-foreground">Calendar</p>
                   <p className="text-xs text-muted-foreground">Meeting patterns and scheduling insights</p>
                 </div>
               </div>
               <Switch 
                 checked={connections.calendar.enabled} 
                 onCheckedChange={(checked) => handleConnectionToggle('calendar', checked)}
+                className="data-[state=checked]:bg-taupe"
               />
             </div>
             {connections.calendar.enabled && (
@@ -229,18 +252,19 @@ const PrivacyDashboard = () => {
           </div>
 
           {/* Wearable - Available */}
-          <div className="p-4 rounded-lg border">
+          <div className="p-4 rounded-lg bg-white/30 backdrop-blur-xl border border-taupe/20">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <Watch className="h-5 w-5 text-gold" />
+                <Watch className="h-5 w-5 text-saffron" />
                 <div>
-                  <p className="font-medium text-sm">Wearable Data</p>
+                  <p className="font-medium text-sm text-foreground">Wearable Data</p>
                   <p className="text-xs text-muted-foreground">Biometric and activity patterns</p>
                 </div>
               </div>
               <Switch 
                 checked={connections.wearable.enabled} 
                 onCheckedChange={(checked) => handleConnectionToggle('wearable', checked)}
+                className="data-[state=checked]:bg-taupe"
               />
             </div>
             {connections.wearable.enabled && (
@@ -255,12 +279,12 @@ const PrivacyDashboard = () => {
           </div>
 
           {/* Email - Coming Soon */}
-          <div className="p-4 rounded-lg border border-dashed opacity-60">
+          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium text-sm flex items-center gap-2">
+                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
                     Email Data
                     <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                   </p>
@@ -272,12 +296,12 @@ const PrivacyDashboard = () => {
           </div>
 
           {/* Social - Coming Soon */}
-          <div className="p-4 rounded-lg border border-dashed opacity-60">
+          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium text-sm flex items-center gap-2">
+                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
                     Social Data
                     <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                   </p>
@@ -289,12 +313,12 @@ const PrivacyDashboard = () => {
           </div>
 
           {/* Documents - Coming Soon */}
-          <div className="p-4 rounded-lg border border-dashed opacity-60">
+          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium text-sm flex items-center gap-2">
+                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
                     Document Access
                     <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                   </p>
@@ -305,7 +329,7 @@ const PrivacyDashboard = () => {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </GoldCard>
     </div>
   );
 };
