@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, Zap } from "lucide-react";
-import GlobalHeader from "@/components/GlobalHeader";
+import { Clock, Zap } from "lucide-react";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import MainNavigation from "@/components/MainNavigation";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 
@@ -18,20 +17,11 @@ const MicroPracticesLibrary = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <GlobalHeader />
+      <UnifiedTopBar backPath="/recalibrate" />
       
       {/* Hero */}
-      <div className="relative bg-gradient-to-br from-mocha via-mocha/60 to-background border-b border-gold/20 py-12">
+      <div className="relative bg-gradient-to-br from-mocha via-mocha/60 to-background border-b border-gold/20 py-12 mt-14">
         <div className="max-w-4xl mx-auto px-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/recalibrate')}
-            className="mb-4 text-cream hover:text-gold"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Sanctuary
-          </Button>
           <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
             Micro Practices
           </h1>

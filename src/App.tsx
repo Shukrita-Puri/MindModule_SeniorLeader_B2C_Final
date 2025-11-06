@@ -21,6 +21,9 @@ import Soundscapes from "./pages/Soundscapes";
 import SoundscapePlayer from "./pages/SoundscapePlayer";
 import GuidedPracticesLibrary from "./pages/GuidedPracticesLibrary";
 import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
+import MicroPracticesLibrary from "./pages/MicroPracticesLibrary";
+import MicroPracticePlayer from "./pages/MicroPracticePlayer";
+import InsightsDashboard from "./pages/InsightsDashboard";
 
 // ARCHIVED - V2 Features (moved to src/pages/_archived/)
 // import FlowStateLab from "./pages/FlowStateLab";
@@ -166,11 +169,15 @@ const router = createBrowserRouter([
       },
       {
         path: "micro-practices",
-        element: <ProtectedRoute><div>Coming soon</div></ProtectedRoute>,
+        element: <ProtectedRoute><MicroPracticesLibrary /></ProtectedRoute>,
       },
       {
         path: "micro-practice/:id",
-        element: <ProtectedRoute><div>Coming soon</div></ProtectedRoute>,
+        element: <ProtectedRoute><MicroPracticePlayer /></ProtectedRoute>,
+      },
+      {
+        path: "insights",
+        element: <ProtectedRoute><InsightsDashboard /></ProtectedRoute>,
       },
       {
         path: "onboarding",

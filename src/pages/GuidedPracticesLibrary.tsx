@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, Sparkles, TrendingUp } from "lucide-react";
-import GlobalHeader from "@/components/GlobalHeader";
+import { Clock, Sparkles, TrendingUp } from "lucide-react";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import MainNavigation from "@/components/MainNavigation";
 
 interface Practice {
@@ -126,23 +126,15 @@ const GuidedPracticesLibrary = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <GlobalHeader />
+      <UnifiedTopBar backPath="/recalibrate" />
       
       {/* Hero Banner */}
       <div 
-        className="relative h-64 bg-cover bg-center"
+        className="relative h-64 bg-cover bg-center mt-14"
         style={{ backgroundImage: `url('/lovable-uploads/4ed33e6d-77b9-47f9-9981-bab218507307.png')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-mocha/60 via-mocha/40 to-background" />
         <div className="relative h-full flex flex-col justify-center px-6 max-w-4xl mx-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="absolute top-4 left-4 text-cream hover:text-gold"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <h1 className="text-5xl md:text-6xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
             Guided Practices
           </h1>
