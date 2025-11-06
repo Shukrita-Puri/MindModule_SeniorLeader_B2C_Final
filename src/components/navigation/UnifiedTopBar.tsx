@@ -25,14 +25,13 @@ const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/10">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-between px-4 py-2">
         {/* Left: Back Button */}
         <Button
           variant="glass"
           size="sm"
           onClick={handleBack}
-          className="hover:bg-white/10"
         >
           <ArrowLeft size={20} />
         </Button>
@@ -40,11 +39,11 @@ const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
         {/* Right: Menu (Profile & Settings) */}
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="glass" size="sm" className="hover:bg-white/10">
+            <Button variant="glass" size="sm">
               <Menu size={20} />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[400px] sm:max-w-[540px] p-0 bg-card/95 backdrop-blur-xl border-white/10">
+          <SheetContent side="right" className="w-[400px] sm:max-w-[540px] p-0 bg-white/95 backdrop-blur-[30px] border-black/[0.08]">
             <ProfileSidebar />
           </SheetContent>
         </Sheet>

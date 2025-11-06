@@ -66,66 +66,69 @@ const InsightsDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-20">
       <UnifiedTopBar backPath="/executive-home" />
       
-      {/* Header with Radial Glow */}
-      <div className="pt-16 px-6 max-w-7xl mx-auto">
-        <div className="relative mb-12">
-          {/* Radial Glow Background */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_center,_rgba(0,217,255,0.15)_0%,_transparent_50%)] -z-10" />
-          
-          <div className="flex items-center justify-between mb-8">
+      {/* Header Section - Clean and minimal */}
+      <div className="relative pt-16 pb-8 px-4">
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl md:text-5xl font-headline font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-2">
-                Intelligence Dashboard
-              </h1>
-              <p className="text-muted-foreground">Your mental performance analytics</p>
+              <h1 className="text-4xl font-headline mb-2 text-foreground tracking-tight">Your Intelligence</h1>
+              <p className="text-muted-foreground font-body">Track your cognitive performance</p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="flex items-center gap-1 bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-1">
-                <Button
-                  onClick={() => setTimeRange("week")}
-                  variant={timeRange === "week" ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-xl"
-                >
-                  Week
-                </Button>
-                <Button
-                  onClick={() => setTimeRange("month")}
-                  variant={timeRange === "month" ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-xl"
-                >
-                  Month
-                </Button>
-                <Button
-                  onClick={() => setTimeRange("quarter")}
-                  variant={timeRange === "quarter" ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-xl"
-                >
-                  Quarter
-                </Button>
-              </div>
+          </div>
+
+          {/* Time Range & Export Section */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex gap-2">
               <Button
-                onClick={() => setComparisonMode(!comparisonMode)}
-                variant={comparisonMode ? "default" : "glass"}
+                variant={timeRange === "week" ? "default" : "outline"}
                 size="sm"
+                onClick={() => setTimeRange("week")}
               >
-                Compare
+                Week
               </Button>
-              <Button onClick={handleExport} variant="glass" size="sm">
-                <Download className="h-4 w-4 mr-2" />
+              <Button
+                variant={timeRange === "month" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeRange("month")}
+              >
+                Month
+              </Button>
+              <Button
+                variant={timeRange === "quarter" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeRange("quarter")}
+              >
+                Quarter
+              </Button>
+            </div>
+            
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+              >
+                <Download size={16} className="mr-1" />
                 Export
+              </Button>
+              <Button
+                variant={comparisonMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setComparisonMode(!comparisonMode)}
+              >
+                <TrendingUp size={16} className="mr-1" />
+                Compare
               </Button>
             </div>
           </div>
         </div>
+      </div>
 
         {/* Section 1: Weekly Energy Summary */}
-        <section className="mb-12">
+        <section className="mb-12 max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
             <TrendingUp className="h-5 w-5 text-primary" />
             Weekly Energy Summary
@@ -137,10 +140,10 @@ const InsightsDashboard = () => {
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-12" />
+        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
 
         {/* Section 2: Circadian Pattern Analysis */}
-        <section className="mb-12">
+        <section className="mb-12 max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
             <Clock className="h-5 w-5 text-primary" />
             Your Natural Rhythms
@@ -149,10 +152,10 @@ const InsightsDashboard = () => {
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-12" />
+        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
 
         {/* Section 3: Alignment Timeline */}
-        <section className="mb-12">
+        <section className="mb-12 max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
             <Calendar className="h-5 w-5 text-primary" />
             Alignment Over Time
@@ -161,41 +164,42 @@ const InsightsDashboard = () => {
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-12" />
+        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
 
         {/* Section 4: Elemental Balance */}
-        <section className="mb-12">
+        <section className="mb-12 max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-headline font-semibold mb-6 tracking-tight">Elemental Balance</h2>
           <ElementalMandala />
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-12" />
+        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
 
         {/* Section 5: Decision Quality Trends */}
-        <section className="mb-12">
+        <section className="mb-12 max-w-7xl mx-auto px-6">
           <h2 className="text-2xl font-headline font-semibold mb-6 tracking-tight">Decision Quality Over Time</h2>
           <DecisionQualityChart timeRange={timeRange} comparisonMode={comparisonMode} />
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent mb-12" />
+        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
 
         {/* Mental Fitness Score */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="text-2xl">Mental Fitness Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">{fitnessScore}</div>
-              <div className="text-sm text-muted-foreground">
-                <p>Based on practice consistency, breakthroughs, and active days</p>
+        <div className="mb-8 max-w-7xl mx-auto px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl">Mental Fitness Score</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="text-6xl font-bold text-foreground">{fitnessScore}</div>
+                <div className="text-sm text-muted-foreground">
+                  <p>Based on practice consistency, breakthroughs, and active days</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
 
       <MainNavigation />
     </div>

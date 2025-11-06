@@ -103,39 +103,27 @@ const RecalibrateMode = () => {
   }
 
   return (
-    <div className="min-h-screen font-body flex flex-col bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <TopNavigation backPath="/executive-home" />
       
-      {/* Hero Banner with Violet Glow */}
-      <div className="relative w-full h-[400px] md:h-[60vh] overflow-hidden">
-        {/* Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(139,92,246,0.2)_0%,_transparent_70%)]" />
+      {/* Hero Banner - Architectural Style */}
+      <div className="relative h-[30vh] overflow-hidden">
+        {/* Subtle gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         
-        {/* Animated Mesh Gradient */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-accent/30 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-rose/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }} />
-        </div>
-        
-        {/* Content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center z-10">
-          <h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold mb-4 bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent"
-          >
-            Sanctuary Studio
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10">
+          <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
+            Sanctuary
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground font-body">
-            Your space to reset and restore
+          <p className="text-lg font-subheadline italic text-muted-foreground">
+            Reset. Restore. Refocus.
           </p>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1">
-        {renderToolSelection()}
-      </div>
-
+      {/* Tool Selection */}
+      {renderToolSelection()}
+      
       <MainNavigation />
     </div>
   );

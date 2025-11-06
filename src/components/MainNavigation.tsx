@@ -39,32 +39,38 @@ const MainNavigation = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-xl border-t border-white/10 z-50 shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
-      <div className="flex justify-around items-center py-3 px-4 max-w-md mx-auto">
-        {navItems.map((item, index) => (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-[40px] border-t border-black/[0.08] shadow-[0_-2px_16px_rgba(0,0,0,0.06)]">
+      <div className="flex justify-around items-center py-2 px-4 max-w-md mx-auto">
+        {navItems.map((item) => (
           <button
-            key={index}
+            key={item.route}
             onClick={() => navigate(item.route)}
-            className={`relative flex flex-col items-center gap-2 py-3 px-4 rounded-xl transition-all duration-300 ${
+            className={`flex flex-col items-center justify-center min-w-[60px] py-2 px-3 rounded-lg transition-all duration-300 relative ${
               item.isActive 
-                ? "text-primary" 
-                : "text-muted-foreground hover:text-foreground"
+                ? "" 
+                : "opacity-60 hover:opacity-100 hover:bg-black/[0.03]"
             }`}
           >
+            {/* Active Indicator Line - Taupe color */}
             {item.isActive && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(0,217,255,0.6)]" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
             )}
-            <div className={`transition-transform duration-200 ${item.isActive ? 'scale-110' : ''}`}>
-              <item.icon 
-                size={20} 
-                fill={item.isActive ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth={item.isActive ? 2 : 1.5}
-              />
-            </div>
-            <span className={`text-xs font-body transition-all duration-200 ${
-              item.isActive ? 'font-semibold' : ''
-            }`}>
+            
+            <item.icon 
+              size={item.isActive ? 26 : 24}
+              className={`mb-1 transition-all duration-300 ${
+                item.isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground"
+              }`}
+            />
+            <span 
+              className={`text-xs transition-all duration-300 ${
+                item.isActive 
+                  ? "font-semibold text-foreground" 
+                  : "text-muted-foreground"
+              }`}
+            >
               {item.label}
             </span>
           </button>

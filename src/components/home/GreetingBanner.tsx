@@ -4,19 +4,11 @@ interface GreetingBannerProps {
 }
 
 const GreetingBanner = ({ userName = "Alex" }: GreetingBannerProps) => {
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    
-    if (hour < 12) return `Good morning, ${userName}`;
-    if (hour < 17) return `Good afternoon, ${userName}`;
-    return `Good evening, ${userName}`;
-  };
-
   return (
-    <div className="bg-card border-b border-gold/20">
-      <div className="p-6">
-        <h1 className="text-2xl font-headline text-foreground mb-2">{getGreeting()}</h1>
-        <p className="text-base text-muted-foreground font-body">Your mental espresso is ready</p>
+    <div className="bg-card border-b border-black/[0.08]">
+      <div className="p-6 text-center">
+        <h1 className="text-3xl font-headline text-foreground mb-1 tracking-tight">Mind Atelier</h1>
+        <p className="text-base font-subheadline italic text-muted-foreground">Your daily practice</p>
       </div>
     </div>
   );
