@@ -41,13 +41,9 @@ serve(async (req) => {
       let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
 
       if (provider === 'google') {
-        clientId = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
+        clientId = Deno.env.get('GoogleAuthClientID') ?? '';
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&state=${user.id}`;
-      } else if (provider === 'outlook') {
-        clientId = Deno.env.get('OUTLOOK_CLIENT_ID') ?? '';
-        const scope = 'Calendars.Read offline_access';
-        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${user.id}`;
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${user.id}`;
       }
 
       return new Response(
@@ -70,12 +66,8 @@ serve(async (req) => {
 
       if (provider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
-        clientId = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
-        clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
-      } else if (provider === 'outlook') {
-        tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
-        clientId = Deno.env.get('OUTLOOK_CLIENT_ID') ?? '';
-        clientSecret = Deno.env.get('OUTLOOK_CLIENT_SECRET') ?? '';
+        clientId = Deno.env.get('GoogleAuthClientID') ?? '';
+        clientSecret = Deno.env.get('GoogleAuthClientSecret') ?? '';
       }
 
       // Exchange code for tokens
