@@ -29,31 +29,33 @@ const PresenceOutcomePage = () => {
       <GlobalHeader />
       
       {/* Hero Banner */}
-      <div 
-        className="relative h-64 bg-cover bg-center"
-        style={{ backgroundImage: `url('/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png')` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-mocha/60 via-mocha/40 to-background" />
+      <div className="relative h-64 overflow-hidden">
+        <img 
+          src="/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png"
+          alt="Presence"
+          className="absolute inset-0 w-full h-full object-cover img-hero"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/20 to-background" />
         <div className="relative h-full flex flex-col justify-center px-6 max-w-4xl mx-auto">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('/recalibrate')}
-            className="absolute top-4 left-4 text-cream hover:text-gold"
+            className="absolute top-4 left-4"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-5xl md:text-6xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
-            Presence: Deep Focus & Flow
+          <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
+            Presence
           </h1>
-          <p className="text-cream/80 text-lg">Extended focus sessions and mindfulness practices for sustained attention and peak performance</p>
+          <p className="text-muted-foreground text-base font-body">Deep focus and mindfulness for sustained attention</p>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Soundscapes Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
             <span>Focus Soundscapes</span>
             <Badge variant="outline" className="text-xs">{soundscapes.length} soundscapes</Badge>
           </h2>
@@ -64,12 +66,15 @@ const PresenceOutcomePage = () => {
                 className="cursor-pointer group overflow-hidden"
                 onClick={() => handleItemClick(item)}
               >
-                <div 
-                  className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${item.thumbnail}')` }}
-                >
-                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
-                    <Badge className="bg-forest/10 text-forest border-forest/30">
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
+                  <div className="absolute bottom-4 left-4">
+                    <Badge className="bg-background/50 text-foreground border-border">
                       Soundscape
                     </Badge>
                   </div>
@@ -110,7 +115,7 @@ const PresenceOutcomePage = () => {
 
         {/* Guided Practices Section */}
         <section>
-          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
             <span>Mindful Presence</span>
             <Badge variant="outline" className="text-xs">{practices.length} practices</Badge>
           </h2>
@@ -121,12 +126,15 @@ const PresenceOutcomePage = () => {
                 className="cursor-pointer group overflow-hidden"
                 onClick={() => handleItemClick(item)}
               >
-                <div 
-                  className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${item.thumbnail}')` }}
-                >
-                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
-                    <Badge className="bg-forest/10 text-forest border-forest/30">
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
+                  <div className="absolute bottom-4 left-4">
+                    <Badge className="bg-background/50 text-foreground border-border">
                       Practice
                     </Badge>
                   </div>
@@ -174,16 +182,22 @@ const PresenceOutcomePage = () => {
 
         {/* Micro Practices Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-serif text-foreground mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
             <span>Quick Focus Tools</span>
             <Badge variant="outline" className="text-xs">{microPractices.length} practices</Badge>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {microPractices.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
-                <div className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url('${item.thumbnail}')` }}>
-                  <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
-                    <Badge className="bg-gold/10 text-gold border-gold/30">Micro</Badge>
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
+                  <div className="absolute bottom-4 left-4">
+                    <Badge className="bg-background/50 text-foreground border-border">Micro</Badge>
                   </div>
                 </div>
                 <CardHeader className="pb-3">
