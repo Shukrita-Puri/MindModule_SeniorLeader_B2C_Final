@@ -62,7 +62,7 @@ const PowerUpOutcomePage = () => {
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
@@ -122,7 +122,7 @@ const PowerUpOutcomePage = () => {
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
@@ -185,7 +185,7 @@ const PowerUpOutcomePage = () => {
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover img-card transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">

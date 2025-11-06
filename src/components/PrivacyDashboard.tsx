@@ -1,335 +1,377 @@
-
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { GoldCard } from "@/components/ui/gold-card";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, Smartphone, Lock, Database, Calendar, Mail, Watch, MessageCircle, FileText, User } from "lucide-react";
-import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from '@/hooks/useAuth';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, Lock, Watch, Activity, Calendar, Share2, Sparkles, Copy, Check } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface DataConnection {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
   enabled: boolean;
-  provider: string | null;
+  status: 'connected' | 'not-connected';
 }
 
 const PrivacyDashboard = () => {
   const { user } = useAuth();
-  const [connections, setConnections] = useState({
-    calendar: { enabled: false, provider: null } as DataConnection,
-    wearable: { enabled: false, provider: null } as DataConnection,
-  });
+  const [preferredName, setPreferredName] = useState("");
+  const [biometricLock, setBiometricLock] = useState(false);
+  const [copied, setCopied] = useState(false);
+  
+  // Collapsible section states
+  const [personalInfoOpen, setPersonalInfoOpen] = useState(() => 
+    localStorage.getItem('account-section-personalInfo-open') !== 'false'
+  );
+  const [dataSourcesOpen, setDataSourcesOpen] = useState(() => 
+    localStorage.getItem('account-section-dataSources-open') !== 'false'
+  );
+  const [privacyOpen, setPrivacyOpen] = useState(() => 
+    localStorage.getItem('account-section-privacy-open') !== 'false'
+  );
+  const [whatsNewOpen, setWhatsNewOpen] = useState(() => 
+    localStorage.getItem('account-section-whatsNew-open') !== 'false'
+  );
+  const [referOpen, setReferOpen] = useState(() => 
+    localStorage.getItem('account-section-refer-open') !== 'false'
+  );
 
-  const [biometricLock, setBiometricLock] = useState(true);
-  const [personalInfo, setPersonalInfo] = useState({
-    fullName: "",
-    email: "",
-    preferredName: "",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  });
+  const [connections, setConnections] = useState<DataConnection[]>([
+    {
+      id: 'apple-watch',
+      name: 'Apple Watch',
+      icon: <Watch className="h-4 w-4" />,
+      enabled: false,
+      status: 'not-connected'
+    },
+    {
+      id: 'oura-ring',
+      name: 'Oura Ring',
+      icon: <Activity className="h-4 w-4" />,
+      enabled: false,
+      status: 'not-connected'
+    },
+    {
+      id: 'google-calendar',
+      name: 'Google Calendar',
+      icon: <Calendar className="h-4 w-4" />,
+      enabled: false,
+      status: 'not-connected'
+    }
+  ]);
+
+  // Load saved settings
+  useEffect(() => {
+    const savedConnections = localStorage.getItem('dataConnections');
+    if (savedConnections) {
+      setConnections(JSON.parse(savedConnections));
+    }
+
+    const savedBiometric = localStorage.getItem('biometricLock');
+    if (savedBiometric) {
+      setBiometricLock(savedBiometric === 'true');
+    }
+
+    const savedPreferredName = localStorage.getItem('preferredName');
+    if (savedPreferredName) {
+      setPreferredName(savedPreferredName);
+    }
+  }, []);
+
+  // Save collapsible states
+  useEffect(() => {
+    localStorage.setItem('account-section-personalInfo-open', personalInfoOpen.toString());
+  }, [personalInfoOpen]);
 
   useEffect(() => {
-    // Load connection data
-    const stored = localStorage.getItem('contextConnections');
-    if (stored) {
-      const data = JSON.parse(stored);
-      setConnections({
-        calendar: data.calendar || { enabled: false, provider: null },
-        wearable: data.wearable || { enabled: false, provider: null }
-      });
-    }
+    localStorage.setItem('account-section-dataSources-open', dataSourcesOpen.toString());
+  }, [dataSourcesOpen]);
 
-    // Load personal info or populate from auth user
-    const storedInfo = localStorage.getItem('personalInfo');
-    if (storedInfo) {
-      setPersonalInfo(JSON.parse(storedInfo));
-    } else if (user) {
-      // Auto-populate from Supabase auth
-      setPersonalInfo({
-        fullName: user.user_metadata?.full_name || '',
-        email: user.email || '',
-        preferredName: user.user_metadata?.full_name?.split(' ')[0] || '',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-    }
-  }, [user]);
+  useEffect(() => {
+    localStorage.setItem('account-section-privacy-open', privacyOpen.toString());
+  }, [privacyOpen]);
 
-  const handleConnectionToggle = (key: 'calendar' | 'wearable', checked: boolean) => {
-    setConnections(prev => ({
-      ...prev,
-      [key]: { ...prev[key], enabled: checked }
-    }));
+  useEffect(() => {
+    localStorage.setItem('account-section-whatsNew-open', whatsNewOpen.toString());
+  }, [whatsNewOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('account-section-refer-open', referOpen.toString());
+  }, [referOpen]);
+
+  const handleConnectionToggle = (id: string) => {
+    const updatedConnections = connections.map(conn =>
+      conn.id === id 
+        ? { 
+            ...conn, 
+            enabled: !conn.enabled,
+            status: !conn.enabled ? 'connected' : 'not-connected' as 'connected' | 'not-connected'
+          } 
+        : conn
+    );
+    setConnections(updatedConnections);
+    localStorage.setItem('dataConnections', JSON.stringify(updatedConnections));
     
-    const updated = {
-      ...connections,
-      [key]: { ...connections[key], enabled: checked }
-    };
-    localStorage.setItem('contextConnections', JSON.stringify(updated));
-    
-    toast({
-      title: checked ? "Integration Enabled" : "Integration Disabled",
-      description: checked 
-        ? `Select your ${key} provider to continue setup.`
-        : `You can re-enable this anytime.`,
-    });
+    const connection = connections.find(c => c.id === id);
+    toast.success(`${connection?.name} ${!connection?.enabled ? 'connected' : 'disconnected'}`);
   };
 
-  const handleProviderSelect = (key: 'calendar' | 'wearable', provider: string) => {
-    setConnections(prev => ({
-      ...prev,
-      [key]: { enabled: true, provider }
-    }));
-    
-    const updated = {
-      ...connections,
-      [key]: { enabled: true, provider }
-    };
-    localStorage.setItem('contextConnections', JSON.stringify(updated));
+  const handleSavePreferredName = () => {
+    localStorage.setItem('preferredName', preferredName);
+    toast.success("Preferred name saved");
   };
 
-  const handleSavePersonalInfo = () => {
-    localStorage.setItem('personalInfo', JSON.stringify(personalInfo));
-    toast({
-      title: "Profile Updated",
-      description: "Your personal information has been saved.",
-    });
+  const handleCopyReferralLink = () => {
+    const referralLink = `https://mindatelier.app/ref/${user?.id || 'demo'}`;
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    toast.success("Referral link copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="space-y-6">
-      {/* Local Processing Status */}
-      <GoldCard variant="glowing" className="bg-gradient-to-br from-green-50/80 to-card/80 backdrop-blur-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Smartphone size={20} className="text-saffron" />
-            Local-First Architecture
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-saffron rounded-full"></div>
-              <span className="text-sm text-foreground">Your data stays on this device</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Lock size={16} className="text-taupe" />
-              <span className="text-sm text-foreground">End-to-end encrypted insights</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-taupe" />
-              <span className="text-sm text-foreground">No cloud storage of personal data</span>
-            </div>
-          </div>
-        </CardContent>
-      </GoldCard>
-
-      {/* Biometric Security */}
-      <GoldCard variant="subtle">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Lock size={20} className="text-taupe" />
-            Security Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-foreground">Biometric Lock</p>
-              <p className="text-sm text-muted-foreground">Require Face ID/Touch ID to access insights</p>
-            </div>
-            <Switch 
-              checked={biometricLock} 
-              onCheckedChange={setBiometricLock}
-              className="data-[state=checked]:bg-taupe"
-            />
-          </div>
-        </CardContent>
-      </GoldCard>
-
-      {/* Personal Information */}
-      <GoldCard variant="subtle">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <User size={20} className="text-taupe" />
-            Personal Information
-            {user && <Badge variant="outline" className="text-xs border-taupe/30 text-taupe">Synced with auth</Badge>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fullName" className="text-foreground">Full Name</Label>
-            <Input
-              id="fullName"
-              value={personalInfo.fullName}
-              onChange={(e) => setPersonalInfo(prev => ({ ...prev, fullName: e.target.value }))}
-              placeholder="Enter your full name"
-              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
-            />
-          </div>
+      {/* Personal Information Section */}
+      <Collapsible open={personalInfoOpen} onOpenChange={setPersonalInfoOpen}>
+        <GoldCard variant="subtle" className="overflow-hidden">
+          <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
+            <h3 className="text-xl font-semibold text-foreground">Personal Information</h3>
+            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${personalInfoOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
           
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-foreground">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={personalInfo.email}
-              onChange={(e) => setPersonalInfo(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="your.email@example.com"
-              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
-              readOnly={!!user?.email}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="preferredName" className="text-foreground">Preferred Name</Label>
-            <Input
-              id="preferredName"
-              value={personalInfo.preferredName}
-              onChange={(e) => setPersonalInfo(prev => ({ ...prev, preferredName: e.target.value }))}
-              placeholder="How should we greet you?"
-              className="bg-white/40 backdrop-blur-xl border-taupe/20 focus:border-taupe"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="timezone" className="text-foreground">Timezone</Label>
-            <Input
-              id="timezone"
-              value={personalInfo.timezone}
-              readOnly
-              className="bg-muted/40 backdrop-blur-xl border-taupe/20"
-            />
-          </div>
-
-          <Button 
-            onClick={handleSavePersonalInfo} 
-            className="w-full bg-white/30 backdrop-blur-xl border border-taupe/30 hover:bg-white/50 text-foreground taupe-gradient-shine"
-          >
-            Save Changes
-          </Button>
-        </CardContent>
-      </GoldCard>
-
-      {/* Data Sources */}
-      <GoldCard variant="prominent">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Database size={20} className="text-taupe" />
-            Data Sources
-            <Badge variant="outline" className="ml-2 border-taupe/30 text-taupe">Full Control</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Calendar - Available */}
-          <div className="p-4 rounded-lg bg-white/30 backdrop-blur-xl border border-taupe/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-saffron" />
-                <div>
-                  <p className="font-medium text-sm text-foreground">Calendar</p>
-                  <p className="text-xs text-muted-foreground">Meeting patterns and scheduling insights</p>
-                </div>
-              </div>
-              <Switch 
-                checked={connections.calendar.enabled} 
-                onCheckedChange={(checked) => handleConnectionToggle('calendar', checked)}
-                className="data-[state=checked]:bg-taupe"
-              />
-            </div>
-            {connections.calendar.enabled && (
-              <div className="mt-3">
-                <ProviderSelector 
-                  type="calendar"
-                  selectedProvider={connections.calendar.provider}
-                  onSelect={(provider) => handleProviderSelect('calendar', provider)}
+          <CollapsibleContent>
+            <div className="px-6 pb-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-muted-foreground">Full Name</Label>
+                <Input 
+                  id="fullName" 
+                  value={user?.user_metadata?.full_name || user?.email || ''} 
+                  readOnly 
+                  className="bg-muted/30"
                 />
               </div>
-            )}
-          </div>
-
-          {/* Wearable - Available */}
-          <div className="p-4 rounded-lg bg-white/30 backdrop-blur-xl border border-taupe/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <Watch className="h-5 w-5 text-saffron" />
-                <div>
-                  <p className="font-medium text-sm text-foreground">Wearable Data</p>
-                  <p className="text-xs text-muted-foreground">Biometric and activity patterns</p>
-                </div>
-              </div>
-              <Switch 
-                checked={connections.wearable.enabled} 
-                onCheckedChange={(checked) => handleConnectionToggle('wearable', checked)}
-                className="data-[state=checked]:bg-taupe"
-              />
-            </div>
-            {connections.wearable.enabled && (
-              <div className="mt-3">
-                <ProviderSelector 
-                  type="wearable"
-                  selectedProvider={connections.wearable.provider}
-                  onSelect={(provider) => handleProviderSelect('wearable', provider)}
+              
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-muted-foreground">Email</Label>
+                <Input 
+                  id="email" 
+                  value={user?.email || ''} 
+                  readOnly 
+                  className="bg-muted/30"
                 />
               </div>
-            )}
-          </div>
-
-          {/* Email - Coming Soon */}
-          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
-                    Email Data
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Sentiment and tone detection</p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="preferredName" className="text-muted-foreground">Preferred Name (editable)</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="preferredName" 
+                    value={preferredName} 
+                    onChange={(e) => setPreferredName(e.target.value)}
+                    placeholder="Enter your preferred name"
+                  />
+                  <Button 
+                    onClick={handleSavePreferredName}
+                    className="bg-gradient-to-r from-taupe via-taupe-light to-taupe hover:opacity-90"
+                  >
+                    Save
+                  </Button>
                 </div>
               </div>
-              <Switch disabled />
             </div>
-          </div>
+          </CollapsibleContent>
+        </GoldCard>
+      </Collapsible>
 
-          {/* Social - Coming Soon */}
-          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+      {/* Connected Data Sources Section */}
+      <Collapsible open={dataSourcesOpen} onOpenChange={setDataSourcesOpen}>
+        <GoldCard variant="prominent" className="overflow-hidden">
+          <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
+            <h3 className="text-xl font-semibold text-foreground">Connected Data Sources</h3>
+            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dataSourcesOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-6 pb-6 space-y-4">
+              {connections.map((connection) => (
+                <div key={connection.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {connection.icon}
+                    <div>
+                      <p className="font-medium text-foreground">{connection.name}</p>
+                      <Badge 
+                        variant={connection.status === 'connected' ? 'default' : 'outline'}
+                        className={connection.status === 'connected' ? 'bg-forest text-white' : ''}
+                      >
+                        {connection.status === 'connected' ? 'Connected' : 'Not Connected'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Switch 
+                    checked={connection.enabled}
+                    onCheckedChange={() => handleConnectionToggle(connection.id)}
+                  />
+                </div>
+              ))}
+              
+              <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3">
+                <Lock className="h-5 w-5 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Pro plan required for data source integrations. <span className="text-primary font-medium cursor-pointer hover:underline">Upgrade to Pro →</span>
+                </p>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </GoldCard>
+      </Collapsible>
+
+      {/* Privacy & Security Section */}
+      <Collapsible open={privacyOpen} onOpenChange={setPrivacyOpen}>
+        <GoldCard variant="glowing" className="overflow-hidden">
+          <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
+            <h3 className="text-xl font-semibold text-foreground">Privacy & Security</h3>
+            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${privacyOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-6 pb-6 space-y-6">
+              {/* Local-First Architecture */}
+              <Card className="bg-gradient-to-br from-taupe/5 to-taupe-light/5 border-taupe/20">
+                <div className="p-6">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-taupe/10 flex items-center justify-center">
+                      <Lock className="h-5 w-5 text-taupe" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground mb-1">Local-First Architecture</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Your data lives on your device. No cloud storage, no external servers.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-forest" />
+                      <span>Fully encrypted on your device</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-forest" />
+                      <span>Zero data collection by Mind Atelier</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-forest" />
+                      <span>You control all integrations</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Biometric Lock */}
+              <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg">
                 <div>
-                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
-                    Social Data
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Communications and sentiment analysis</p>
+                  <p className="font-medium text-foreground">Biometric Lock</p>
+                  <p className="text-sm text-muted-foreground">Require Face ID or fingerprint to access</p>
+                </div>
+                <Switch 
+                  checked={biometricLock}
+                  onCheckedChange={(checked) => {
+                    setBiometricLock(checked);
+                    localStorage.setItem('biometricLock', checked.toString());
+                  }}
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </GoldCard>
+      </Collapsible>
+
+      {/* What's New Section */}
+      <Collapsible open={whatsNewOpen} onOpenChange={setWhatsNewOpen}>
+        <GoldCard variant="subtle" className="overflow-hidden">
+          <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-gold" />
+              <h3 className="text-xl font-semibold text-foreground">What's New</h3>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${whatsNewOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-6 pb-6 space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
+                  <Badge variant="outline" className="bg-forest/10 text-forest border-forest/30">New</Badge>
+                  <div>
+                    <p className="font-medium text-foreground">Insights Dashboard</p>
+                    <p className="text-sm text-muted-foreground">Track your practice patterns and energy trends</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
+                  <Badge variant="outline" className="bg-gold/10 text-gold border-gold/30">Soon</Badge>
+                  <div>
+                    <p className="font-medium text-foreground">Dialogue Room</p>
+                    <p className="text-sm text-muted-foreground">AI-powered conversations for mental clarity</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
+                  <Badge variant="outline">v1.0.0</Badge>
+                  <div>
+                    <p className="font-medium text-foreground">Current Version</p>
+                    <p className="text-sm text-muted-foreground">Released: January 2025</p>
+                  </div>
                 </div>
               </div>
-              <Switch disabled />
             </div>
-          </div>
+          </CollapsibleContent>
+        </GoldCard>
+      </Collapsible>
 
-          {/* Documents - Coming Soon */}
-          <div className="p-4 rounded-lg bg-white/10 backdrop-blur-xl border border-dashed border-taupe/20 opacity-60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm flex items-center gap-2 text-foreground">
-                    Document Access
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Knowledge work patterns</p>
+      {/* Refer to Friends Section */}
+      <Collapsible open={referOpen} onOpenChange={setReferOpen}>
+        <GoldCard variant="prominent" className="overflow-hidden">
+          <CollapsibleTrigger className="w-full p-6 flex items-center justify-between hover:bg-muted/5 transition-colors">
+            <div className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-primary" />
+              <h3 className="text-xl font-semibold text-foreground">Refer to Friends</h3>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${referOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-6 pb-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Share Mind Atelier with your friends and help them discover their mental architecture.
+              </p>
+              
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Your Referral Link</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={`https://mindatelier.app/ref/${user?.id || 'demo'}`}
+                    readOnly 
+                    className="bg-muted/30"
+                  />
+                  <Button 
+                    onClick={handleCopyReferralLink}
+                    variant="outline"
+                    className="shrink-0"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
-              <Switch disabled />
             </div>
-          </div>
-        </CardContent>
-      </GoldCard>
+          </CollapsibleContent>
+        </GoldCard>
+      </Collapsible>
     </div>
   );
 };

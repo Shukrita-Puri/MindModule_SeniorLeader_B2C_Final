@@ -15,7 +15,7 @@ import FlowSession from "./pages/FlowSession";
 import GlobalHeader from "./components/GlobalHeader";
 import NudgeSettings from "./pages/NudgeSettings";
 import NudgeSimulator from "./pages/NudgeSimulator";
-import MemoryArchive from "./pages/MemoryArchive";
+
 import RecalibrateMode from "./pages/RecalibrateMode";
 import Soundscapes from "./pages/Soundscapes";
 import SoundscapePlayer from "./pages/SoundscapePlayer";
@@ -67,8 +67,7 @@ const Layout = () => {
     '/recalibrate/pause',
     '/recalibrate/presence',
     '/nudge-settings',
-    '/nudge-simulator',
-    '/memory-archive'
+    '/nudge-simulator'
   ];
   
   // Exclude specific pages from showing the 3-line button/GlobalHeader
@@ -146,10 +145,6 @@ const router = createBrowserRouter([
       {
         path: "nudge-simulator",
         element: <ProtectedRoute><NudgeSimulator /></ProtectedRoute>,
-      },
-      {
-        path: "memory-archive",
-        element: <ProtectedRoute><MemoryArchive /></ProtectedRoute>,
       },
       {
         path: "soundscapes",

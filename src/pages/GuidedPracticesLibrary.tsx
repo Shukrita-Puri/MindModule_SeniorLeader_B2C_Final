@@ -130,7 +130,7 @@ const GuidedPracticesLibrary = () => {
       
       {/* Hero Banner */}
       <div 
-        className="relative h-64 bg-cover bg-center mt-14"
+        className="relative h-64 bg-cover bg-center mt-14 img-taupe-overlay"
         style={{ backgroundImage: `url('/lovable-uploads/4ed33e6d-77b9-47f9-9981-bab218507307.png')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-mocha/60 via-mocha/40 to-background" />
@@ -231,7 +231,7 @@ const GuidedPracticesLibrary = () => {
               onClick={() => navigate(`/guided-practices/${practice.id}`)}
             >
               <div 
-                className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                className="h-48 bg-cover bg-center img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                 style={{ backgroundImage: `url('${practice.thumbnail}')` }}
               >
                 <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4 justify-between">

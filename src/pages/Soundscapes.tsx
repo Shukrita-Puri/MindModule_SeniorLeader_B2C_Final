@@ -105,7 +105,7 @@ const Soundscapes = () => {
       
       {/* Hero Banner */}
       <div 
-        className="relative h-64 bg-cover bg-center mt-14"
+        className="relative h-64 bg-cover bg-center mt-14 img-taupe-overlay"
         style={{ backgroundImage: `url('/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-mocha/60 via-mocha/40 to-background" />
@@ -159,7 +159,7 @@ const Soundscapes = () => {
               onClick={() => navigate(`/soundscapes/${soundscape.id}`)}
             >
               <div 
-                className="h-48 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                className="h-48 bg-cover bg-center img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                 style={{ backgroundImage: `url('${soundscape.thumbnail}')` }}
               >
                 <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">

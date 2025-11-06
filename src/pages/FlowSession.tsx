@@ -330,7 +330,7 @@ const FlowSession = () => {
           <img 
             src={architecturalFlow} 
             alt="Flow state focus"
-            className="w-full h-full object-cover img-card"
+            className="w-full h-full object-cover img-card img-taupe-overlay"
           />
         </div>
         

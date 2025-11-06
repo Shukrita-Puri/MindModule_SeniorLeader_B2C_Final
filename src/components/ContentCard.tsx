@@ -25,7 +25,7 @@ const ContentCard = ({ type, title, description, thumbnail }: ContentCardProps) 
     <>
       <div 
         onClick={() => setIsExpanded(true)}
-        className="bg-white border border-gray-200 rounded-2xl p-3 cursor-pointer shadow-[0_8px_24px_rgba(74,44,42,0.12),0_16px_48px_rgba(74,44,42,0.08)] hover:shadow-[0_16px_40px_rgba(74,44,42,0.16),0_24px_64px_rgba(74,44,42,0.12)] hover:-translate-y-1 transition-all duration-300"
+        className="bg-card border border-border rounded-2xl p-3 cursor-pointer shadow-[0_8px_24px_rgba(74,44,42,0.12),0_16px_48px_rgba(74,44,42,0.08)] hover:shadow-[0_16px_40px_rgba(74,44,42,0.16),0_24px_64px_rgba(74,44,42,0.12)] hover:-translate-y-1 transition-all duration-300"
       >
         <div className="flex gap-3">
           {thumbnail && (
