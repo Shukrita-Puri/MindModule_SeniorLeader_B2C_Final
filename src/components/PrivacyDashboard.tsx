@@ -10,6 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Lock, Watch, Activity, Calendar, Share2, Sparkles, Copy, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
+import IntegrationSettings from "@/components/IntegrationSettings";
 
 interface DataConnection {
   id: string;
@@ -198,33 +200,17 @@ const PrivacyDashboard = () => {
           </CollapsibleTrigger>
           
           <CollapsibleContent>
-            <div className="px-6 pb-6 space-y-4">
-              {connections.map((connection) => (
-                <div key={connection.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {connection.icon}
-                    <div>
-                      <p className="font-medium text-foreground">{connection.name}</p>
-                      <Badge 
-                        variant={connection.status === 'connected' ? 'default' : 'outline'}
-                        className={connection.status === 'connected' ? 'bg-forest text-white' : ''}
-                      >
-                        {connection.status === 'connected' ? 'Connected' : 'Not Connected'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <Switch 
-                    checked={connection.enabled}
-                    onCheckedChange={() => handleConnectionToggle(connection.id)}
-                  />
-                </div>
-              ))}
+            <div className="px-6 pb-6 space-y-6">
+              {/* Calendar Integration */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Calendar</h4>
+                <CalendarConnectionSettings />
+              </div>
               
-              <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3">
-                <Lock className="h-5 w-5 text-primary" />
-                <p className="text-sm text-muted-foreground">
-                  Pro plan required for data source integrations. <span className="text-primary font-medium cursor-pointer hover:underline">Upgrade to Pro →</span>
-                </p>
+              {/* Other Integrations */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Wearable Devices</h4>
+                <IntegrationSettings />
               </div>
             </div>
           </CollapsibleContent>
