@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Activity, Calendar, AlertCircle } from 'lucide-react';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
-import { getHRVHistory, analyzeEventHRVPattern, type HistoricalHRVEvent } from '@/utils/historicalHRVTracking';
+import { getPhysiologicalHistory, analyzeEventPhysiologicalPattern, type HistoricalPhysiologicalEvent } from '@/utils/historicalPhysiologicalTracking';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 const HRVInsightsDashboard = () => {
-  const [history, setHistory] = useState<HistoricalHRVEvent[]>([]);
+  const [history, setHistory] = useState<HistoricalPhysiologicalEvent[]>([]);
   const [eventTypeStats, setEventTypeStats] = useState<Record<string, { count: number; avgHRV: number }>>({});
 
   useEffect(() => {
@@ -15,18 +15,18 @@ const HRVInsightsDashboard = () => {
   }, []);
 
   const loadHRVData = () => {
-    const hrvHistory = getHRVHistory();
-    setHistory(hrvHistory);
+    const physHistory = getPhysiologicalHistory();
+    setHistory(physHistory);
 
     // Calculate stats by event type
     const stats: Record<string, { count: number; avgHRV: number; totalHRV: number }> = {};
     
-    hrvHistory.forEach(event => {
+    physHistory.forEach(event => {
       if (!stats[event.eventType]) {
         stats[event.eventType] = { count: 0, avgHRV: 0, totalHRV: 0 };
       }
       stats[event.eventType].count++;
-      stats[event.eventType].totalHRV += event.hrv;
+      stats[event.eventType].totalHRV += event.hrv || 0;
     });
 
     // Calculate averages

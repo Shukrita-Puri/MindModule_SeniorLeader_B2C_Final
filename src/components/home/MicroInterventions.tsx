@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Bell, Target, Activity, Zap } from 'lucide-react';
+import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle } from 'lucide-react';
 import {
   detectMeetingGaps,
   detectHighStakesEvents,
@@ -12,114 +12,167 @@ import {
   type CalendarEvent,
   type MeetingGap
 } from '@/utils/historicalPatternEngine';
-import { analyzeEventHRVPattern } from '@/utils/historicalHRVTracking';
+import { analyzeEventPhysiologicalPattern } from '@/utils/historicalPhysiologicalTracking';
+import { getWearableContext, type WearableContext, getUserHRVBaseline } from '@/utils/wearableContextAnalyzer';
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MicroIntervention {
   id: string;
-  type: 'meeting-gap' | 'pre-performance' | 'recovery';
+  type: 'meeting-gap' | 'pre-performance' | 'recovery' | 'sleep-recovery' | 'readiness-boost' | 
+        'stress-regulation' | 'energy-protection' | 'protective-recovery' | 'energy-conservation' | 
+        'cumulative-recovery';
   trigger: string;
   content: any;
   timing: string;
   reasoning: string;
-  icon: 'bell' | 'target' | 'activity' | 'zap';
+  icon: 'bell' | 'target' | 'activity' | 'zap' | 'heart' | 'battery' | 'alert';
+  priority: number;
+  urgencyLevel: 'critical' | 'high' | 'medium' | 'low';
 }
 
 const MicroInterventions = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [interventions, setInterventions] = useState<MicroIntervention[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     loadInterventions();
   }, []);
 
-  const loadInterventions = () => {
+  const loadInterventions = async () => {
     setLoading(true);
     const calendarEvents: CalendarEvent[] = JSON.parse(
       localStorage.getItem('calendarEvents') || '[]'
     );
 
-    if (calendarEvents.length === 0) {
-      setInterventions([]);
-      setLoading(false);
-      return;
-    }
+    // Get wearable context
+    const wearableContext = await getWearableContext(user?.id);
 
     const detectedInterventions: MicroIntervention[] = [];
 
-    // 1. Detect Meeting Gaps
+    // THREE DETECTION PATHWAYS
+    
+    // 1. CALENDAR-ONLY INTERVENTIONS (existing logic)
+    if (calendarEvents.length > 0) {
+      detectedInterventions.push(...detectCalendarOnlyInterventions(calendarEvents));
+    }
+
+    // 2. WEARABLE-ONLY INTERVENTIONS (new)
+    if (wearableContext.hasData) {
+      detectedInterventions.push(...detectWearableOnlyInterventions(wearableContext, calendarEvents.length === 0));
+    }
+
+    // 3. COMBINED INTERVENTIONS (new - calendar + wearable)
+    if (calendarEvents.length > 0 && wearableContext.hasData) {
+      detectedInterventions.push(
+        ...(await detectCombinedInterventions(calendarEvents, wearableContext, user?.id || ''))
+      );
+    }
+
+    // Calculate priority scores for all interventions
+    const scoredInterventions = detectedInterventions.map(intervention => ({
+      ...intervention,
+      priority: calculateInterventionPriority(
+        intervention,
+        wearableContext,
+        {
+          totalMeetings: calculateTotalMeetingMinutes(calendarEvents),
+          backToBackCount: detectBackToBackOverload(calendarEvents),
+          hasHighStakes: detectHighStakesEvents(calendarEvents, 60).length > 0
+        }
+      )
+    }));
+
+    // Sort by priority (highest first)
+    scoredInterventions.sort((a, b) => b.priority - a.priority);
+
+    setInterventions(scoredInterventions);
+    setLoading(false);
+  };
+
+  // PATHWAY 1: Calendar-Only Interventions
+  function detectCalendarOnlyInterventions(calendarEvents: CalendarEvent[]): MicroIntervention[] {
+    const interventions: MicroIntervention[] = [];
+
+    // 1.1 Meeting Gaps
     const gaps = detectMeetingGaps(calendarEvents);
     gaps.forEach((gap, index) => {
       const quickResetContent = getContentByTags(['pause', 'quick', 'gentle']);
       if (quickResetContent[0]) {
-        detectedInterventions.push({
+        interventions.push({
           id: `gap-${index}`,
           type: 'meeting-gap',
           trigger: `${gap.gapDuration}-min gap between meetings`,
           content: quickResetContent[0],
           timing: gap.timing,
           reasoning: `Prevent mental fatigue with a brief reset between your ${gap.afterMeeting.title} and ${gap.beforeMeeting.title}.`,
-          icon: 'zap'
+          icon: 'zap',
+          priority: 50,
+          urgencyLevel: 'medium'
         });
       }
     });
 
-    // 2. Detect High-Stakes Events (upcoming in next 60 min)
+    // 1.2 High-Stakes Events
     const highStakesEvents = detectHighStakesEvents(calendarEvents, 60);
     highStakesEvents.forEach((event, index) => {
       const groundingContent = getContentByTags(['presence', 'grounding', 'centering', 'pre-performance']);
       if (groundingContent[0]) {
         const eventStart = new Date(event.startTime);
-        const minutesUntil = Math.floor((eventStart.getTime() - Date.now()) / (1000 * 60));
         const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
         
-        // Check historical HRV pattern for this event
-        const hrvAnalysis = analyzeEventHRVPattern(
+        const physAnalysis = analyzeEventPhysiologicalPattern(
           event.title,
           event.eventType || 'meeting'
         );
         
         let reasoning = 'Get into the zone for tough conversations. This practice will help you stay grounded and present.';
         
-        if (hrvAnalysis.hasPattern && hrvAnalysis.elevated) {
-          reasoning = `Your HRV averaged ${hrvAnalysis.avgHRV} during past ${event.title} meetings, indicating stress. ${
-            hrvAnalysis.trend === 'improving' 
-              ? 'Your pattern is improving, but a grounding practice will help maintain that progress.' 
+        if (physAnalysis.hasPattern && physAnalysis.elevated) {
+          reasoning = `Past ${event.title} meetings showed elevated stress (HRV: ${physAnalysis.avgHRV}). ${
+            physAnalysis.trend === 'improving' 
+              ? 'Your pattern is improving, but a grounding practice will maintain progress.' 
               : 'This pre-emptive practice will help you manage stress proactively.'
           }`;
         }
         
-        detectedInterventions.push({
+        interventions.push({
           id: `highstakes-${index}`,
           type: 'pre-performance',
           trigger: `${event.title} at ${formatTime(eventStart)}`,
           content: groundingContent[0],
           timing: `Recommended: ${formatTime(recommendedTime)} (30 min before)`,
           reasoning,
-          icon: 'target'
+          icon: 'target',
+          priority: 75,
+          urgencyLevel: 'high'
         });
       }
     });
 
-    // 3. Detect Back-to-Back Overload
+    // 1.3 Back-to-Back Overload
     const backToBackCount = detectBackToBackOverload(calendarEvents);
     if (backToBackCount >= 3) {
       const quickResetContent = getContentByTags(['pause', 'quick', 'centering']);
       if (quickResetContent[0]) {
-        detectedInterventions.push({
+        interventions.push({
           id: 'back-to-back-overload',
           type: 'meeting-gap',
           trigger: `${backToBackCount} back-to-back meetings detected`,
           content: quickResetContent[0],
           timing: 'Between meetings today',
           reasoning: 'Multiple consecutive meetings drain focus. Quick resets will help you maintain clarity throughout the day.',
-          icon: 'activity'
+          icon: 'activity',
+          priority: 60,
+          urgencyLevel: 'medium'
         });
       }
     }
 
-    // 4. Detect Meeting Overload (6+ hours)
+    // 1.4 Meeting Overload (6+ hours)
     const totalMeetingMinutes = calculateTotalMeetingMinutes(calendarEvents);
     if (totalMeetingMinutes >= 360) {
       const recoveryContent = getContentByTags(['pause', 'cooling', 'gentle', 'release']);
@@ -127,21 +180,243 @@ const MicroInterventions = () => {
         const lastMeeting = calendarEvents[calendarEvents.length - 1];
         const lastMeetingEnd = new Date(lastMeeting.endTime);
         
-        detectedInterventions.push({
+        interventions.push({
           id: 'meeting-overload-recovery',
           type: 'recovery',
           trigger: `${Math.floor(totalMeetingMinutes / 60)} hours of meetings today`,
           content: recoveryContent[0],
           timing: `After your last meeting at ${formatTime(lastMeetingEnd)}`,
           reasoning: 'Restore energy after an intensive day. This recovery practice will help you decompress and recharge.',
-          icon: 'bell'
+          icon: 'bell',
+          priority: 55,
+          urgencyLevel: 'medium'
         });
       }
     }
 
-    setInterventions(detectedInterventions);
-    setLoading(false);
-  };
+    return interventions;
+  }
+
+  // PATHWAY 2: Wearable-Only Interventions
+  function detectWearableOnlyInterventions(
+    context: WearableContext, 
+    noCalendarEvents: boolean
+  ): MicroIntervention[] {
+    const interventions: MicroIntervention[] = [];
+
+    // Only show wearable-only interventions if there are no calendar events
+    if (!noCalendarEvents) return interventions;
+
+    // 2.1 Poor Sleep Recovery (no calendar context)
+    if (context.sleepQuality === 'poor') {
+      const restorativeContent = getContentByTags(['pause', 'restorative', 'gentle']);
+      if (restorativeContent[0]) {
+        interventions.push({
+          id: 'wearable-sleep-recovery',
+          type: 'sleep-recovery',
+          trigger: `Low sleep quality (${context.sleepScore}/100)`,
+          content: restorativeContent[0],
+          timing: 'Morning - Start your day',
+          reasoning: 'Your body needs extra restoration today. This gentle practice will help offset sleep deficit.',
+          icon: 'heart',
+          priority: 65,
+          urgencyLevel: 'medium'
+        });
+      }
+    }
+
+    // 2.2 Low Readiness (no calendar context)
+    if (context.readinessScore && context.readinessScore < 50) {
+      const activationContent = getContentByTags(['activation', 'gentle', 'energizing']);
+      if (activationContent[0]) {
+        interventions.push({
+          id: 'wearable-readiness-boost',
+          type: 'readiness-boost',
+          trigger: `Low readiness score (${context.readinessScore}/100)`,
+          content: activationContent[0],
+          timing: 'Mid-morning',
+          reasoning: 'Your body signals need for recovery. This activation practice will help build energy sustainably.',
+          icon: 'battery',
+          priority: 60,
+          urgencyLevel: 'medium'
+        });
+      }
+    }
+
+    // 2.3 Elevated RHR (no immediate stressor)
+    if (context.hrvStatus === 'elevated' && context.restingHeartRate) {
+      const calmingContent = getContentByTags(['presence', 'calming', 'centering']);
+      if (calmingContent[0]) {
+        interventions.push({
+          id: 'wearable-stress-regulation',
+          type: 'stress-regulation',
+          trigger: `Elevated resting heart rate (${context.restingHeartRate} bpm)`,
+          content: calmingContent[0],
+          timing: 'As soon as possible',
+          reasoning: `Your resting heart rate is elevated, suggesting background stress. This grounding practice will help regulate your nervous system.`,
+          icon: 'alert',
+          priority: 70,
+          urgencyLevel: 'high'
+        });
+      }
+    }
+
+    return interventions;
+  }
+
+  // PATHWAY 3: Combined Interventions (5 new types A-E)
+  async function detectCombinedInterventions(
+    calendarEvents: CalendarEvent[],
+    context: WearableContext,
+    userId: string
+  ): Promise<MicroIntervention[]> {
+    const interventions: MicroIntervention[] = [];
+    const totalMeetingMinutes = calculateTotalMeetingMinutes(calendarEvents);
+    const backToBackCount = detectBackToBackOverload(calendarEvents);
+    const highStakesEvents = detectHighStakesEvents(calendarEvents, 120);
+    const nextHighStakesEvent = highStakesEvents[0];
+
+    // Get HRV baseline for comparison
+    const hrvBaseline = await getUserHRVBaseline(userId);
+
+    // A. Low Energy + Meeting Overload
+    if (context.sleepScore && context.sleepScore < 60 && totalMeetingMinutes > 240) {
+      const energizingContent = getContentByTags(['power-up', 'energizing', 'activation']);
+      if (energizingContent[0]) {
+        const firstMeeting = calendarEvents[0];
+        const firstMeetingStart = new Date(firstMeeting.startTime);
+        
+        interventions.push({
+          id: 'combined-energy-protection',
+          type: 'energy-protection',
+          trigger: `Low sleep (${context.sleepScore}/100) + ${Math.floor(totalMeetingMinutes/60)}h meetings`,
+          content: energizingContent[0],
+          timing: `Before first meeting at ${formatTime(firstMeetingStart)}`,
+          reasoning: `Your sleep score is below optimal and you have a heavy meeting day ahead. This energizing practice will help you show up with clarity despite fatigue.`,
+          icon: 'zap',
+          priority: 80,
+          urgencyLevel: 'high'
+        });
+      }
+    }
+
+    // B. Elevated RHR + High-Stakes Event
+    if (
+      context.restingHeartRate && 
+      hrvBaseline && 
+      context.restingHeartRate > hrvBaseline + 10 && 
+      nextHighStakesEvent
+    ) {
+      const groundingContent = getContentByTags(['presence', 'grounding', 'centering']);
+      if (groundingContent[0]) {
+        const eventStart = new Date(nextHighStakesEvent.startTime);
+        const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
+        
+        interventions.push({
+          id: 'combined-pre-performance',
+          type: 'pre-performance',
+          trigger: `Elevated HR (${context.restingHeartRate} bpm) + ${nextHighStakesEvent.title}`,
+          content: groundingContent[0],
+          timing: `30 min before at ${formatTime(recommendedTime)}`,
+          reasoning: `Your resting heart rate is ${context.restingHeartRate} bpm (baseline: ${hrvBaseline}), suggesting pre-event stress. This grounding practice will help you center before your high-stakes meeting.`,
+          icon: 'target',
+          priority: 90,
+          urgencyLevel: 'critical'
+        });
+      }
+    }
+
+    // C. Low Readiness + Back-to-Back Meetings
+    if (context.readinessScore && context.readinessScore < 50 && backToBackCount >= 3) {
+      const quickResetContent = getContentByTags(['pause', 'quick', 'reset', 'gentle']);
+      if (quickResetContent[0]) {
+        interventions.push({
+          id: 'combined-protective-recovery',
+          type: 'protective-recovery',
+          trigger: `Low readiness (${context.readinessScore}/100) + ${backToBackCount} consecutive meetings`,
+          content: quickResetContent[0],
+          timing: 'Between meetings',
+          reasoning: `Your readiness score indicates your body needs recovery. These micro-breaks will prevent burnout during your packed schedule.`,
+          icon: 'battery',
+          priority: 75,
+          urgencyLevel: 'high'
+        });
+      }
+    }
+
+    // D. Poor Sleep + Evening Commitments
+    const hasEveningMeetings = calendarEvents.some(event => {
+      const hour = new Date(event.startTime).getHours();
+      return hour >= 17;
+    });
+    
+    if (context.sleepScore && context.sleepScore < 60 && hasEveningMeetings) {
+      const restorativeContent = getContentByTags(['pause', 'restorative', 'cooling']);
+      if (restorativeContent[0]) {
+        interventions.push({
+          id: 'combined-energy-conservation',
+          type: 'energy-conservation',
+          trigger: `Sleep deficit (${context.sleepScore}/100) + evening meetings`,
+          content: restorativeContent[0],
+          timing: 'Mid-afternoon (3:00 PM)',
+          reasoning: `You got insufficient sleep last night (score: ${context.sleepScore}/100). This restorative practice will help you recharge before evening commitments.`,
+          icon: 'heart',
+          priority: 70,
+          urgencyLevel: 'medium'
+        });
+      }
+    }
+
+    // E. High Activity + No Recovery Time
+    const gaps = detectMeetingGaps(calendarEvents);
+    if (context.activityScore && context.activityScore > 80 && gaps.length === 0) {
+      const deepRecoveryContent = getContentByTags(['pause', 'deep', 'release', 'restoration']);
+      if (deepRecoveryContent[0]) {
+        const lastMeeting = calendarEvents[calendarEvents.length - 1];
+        const lastMeetingEnd = new Date(lastMeeting.endTime);
+        
+        interventions.push({
+          id: 'combined-cumulative-recovery',
+          type: 'cumulative-recovery',
+          trigger: `High activity yesterday + no breaks today`,
+          content: deepRecoveryContent[0],
+          timing: `After last meeting at ${formatTime(lastMeetingEnd)}`,
+          reasoning: `Your body was highly active yesterday (${context.activityScore}/100) and today offers no natural breaks. This deep recovery practice will prevent cumulative fatigue.`,
+          icon: 'bell',
+          priority: 65,
+          urgencyLevel: 'medium'
+        });
+      }
+    }
+
+    return interventions;
+  }
+
+  // Priority Scoring System
+  function calculateInterventionPriority(
+    intervention: MicroIntervention,
+    wearableContext: WearableContext,
+    calendarContext: { totalMeetings: number; backToBackCount: number; hasHighStakes: boolean }
+  ): number {
+    let score = intervention.priority || 50; // Base priority
+
+    // Urgency multipliers
+    if (intervention.timing.includes('30 min')) score += 20; // Immediate
+    if (intervention.type === 'pre-performance') score += 15; // High stakes
+
+    // Physiological urgency
+    if (wearableContext.readinessScore && wearableContext.readinessScore < 40) score += 25; // Critical
+    if (wearableContext.recoveryStatus === 'critical') score += 20;
+    if (wearableContext.sleepQuality === 'poor') score += 15;
+    if (wearableContext.hrvStatus === 'elevated') score += 20;
+
+    // Calendar urgency
+    if (calendarContext.hasHighStakes) score += 15;
+    if (calendarContext.backToBackCount >= 4) score += 10;
+    if (calendarContext.totalMeetings > 360) score += 10; // 6+ hours
+
+    return Math.min(score, 100); // Cap at 100
+  }
 
   const handleInterventionClick = (intervention: MicroIntervention) => {
     const content = intervention.content;
@@ -159,7 +434,19 @@ const MicroInterventions = () => {
       case 'target': return Target;
       case 'activity': return Activity;
       case 'zap': return Zap;
+      case 'heart': return Heart;
+      case 'battery': return Battery;
+      case 'alert': return AlertCircle;
       default: return Bell;
+    }
+  };
+
+  const getUrgencyColor = (level: string) => {
+    switch (level) {
+      case 'critical': return 'text-red-600 dark:text-red-400';
+      case 'high': return 'text-orange-600 dark:text-orange-400';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400';
+      default: return 'text-muted-foreground';
     }
   };
 
@@ -167,7 +454,7 @@ const MicroInterventions = () => {
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground animate-pulse">
-          Analyzing your calendar...
+          Analyzing your calendar and wearable data...
         </p>
       </div>
     );
@@ -177,16 +464,20 @@ const MicroInterventions = () => {
     return (
       <Card className="p-4">
         <p className="text-sm text-muted-foreground text-center">
-          No micro interventions needed right now. Connect your calendar to get personalized recommendations.
+          No micro interventions needed right now. Connect your calendar or wearable to get personalized recommendations.
         </p>
       </Card>
     );
   }
 
+  const displayedInterventions = showAll ? interventions : interventions.slice(0, 3);
+
   return (
     <div className="space-y-3">
-      {interventions.map((intervention) => {
+      {displayedInterventions.map((intervention) => {
         const Icon = getIcon(intervention.icon);
+        const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
+        
         return (
           <Card
             key={intervention.id}
@@ -195,8 +486,12 @@ const MicroInterventions = () => {
           >
             {/* Header */}
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-saffron/10 flex items-center justify-center flex-shrink-0">
-                <Icon className="w-4 h-4 text-saffron" />
+              <div className={`w-8 h-8 rounded-full ${
+                intervention.urgencyLevel === 'critical' ? 'bg-red-100 dark:bg-red-900/20' :
+                intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
+                'bg-saffron/10'
+              } flex items-center justify-center flex-shrink-0`}>
+                <Icon className={`w-4 h-4 ${urgencyColor}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-semibold text-foreground mb-1">
@@ -206,6 +501,11 @@ const MicroInterventions = () => {
                   {intervention.timing}
                 </p>
               </div>
+              {intervention.priority > 80 && (
+                <Badge variant="destructive" className="text-xs">
+                  Urgent
+                </Badge>
+              )}
             </div>
 
             {/* Content Preview */}
@@ -259,9 +559,21 @@ const MicroInterventions = () => {
         );
       })}
 
+      {/* Show More / Show Less Button */}
+      {interventions.length > 3 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Show Less' : `Show ${interventions.length - 3} More`}
+        </Button>
+      )}
+
       {interventions.length > 0 && (
         <p className="text-xs text-muted-foreground text-center pt-2">
-          📬 {interventions.length} recommendation{interventions.length > 1 ? 's' : ''} for your day
+          📬 {interventions.length} recommendation{interventions.length > 1 ? 's' : ''} • Sorted by priority
         </p>
       )}
     </div>

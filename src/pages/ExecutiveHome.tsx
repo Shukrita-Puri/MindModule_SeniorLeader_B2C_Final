@@ -76,7 +76,7 @@ const ExecutiveHome = () => {
           <div>
             <h3 className="text-lg font-semibold text-foreground mb-2">Micro Interventions</h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Personalized for your calendar events today
+              Personalised to align your inner world for what matters today.
             </p>
             <MicroInterventions />
           </div>

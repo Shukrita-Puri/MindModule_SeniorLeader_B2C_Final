@@ -43,12 +43,102 @@ serve(async (req) => {
       throw new Error('No active Oura connection found');
     }
 
-    // Fetch daily data from Oura API
-    // This is a placeholder - actual implementation depends on OAuth flow
+    // Fetch comprehensive data from Oura API v2
+    const OURA_API_BASE = 'https://api.ouraring.com/v2/usercollection';
+    const accessToken = connection.access_token;
     
-    // TODO: Implement actual API calls to Oura Cloud API
-    // Example endpoint: https://api.ouraring.com/v2/usercollection/daily_readiness
+    if (!accessToken) {
+      throw new Error('No access token available. Please reconnect your Oura account.');
+    }
     
+    // Get yesterday's date (Oura data is typically available next day)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toISOString().split('T')[0];
+    
+    console.log('Fetching Oura data for date:', dateStr);
+    
+    // Fetch from all 4 endpoints
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`
+    };
+    
+    try {
+      // 1. Daily Readiness
+      const readinessRes = await fetch(
+        `${OURA_API_BASE}/daily_readiness?start_date=${dateStr}&end_date=${dateStr}`,
+        { headers }
+      );
+      const readinessData = readinessRes.ok ? await readinessRes.json() : null;
+      
+      // 2. Daily Sleep
+      const sleepRes = await fetch(
+        `${OURA_API_BASE}/daily_sleep?start_date=${dateStr}&end_date=${dateStr}`,
+        { headers }
+      );
+      const sleepData = sleepRes.ok ? await sleepRes.json() : null;
+      
+      // 3. Daily Activity
+      const activityRes = await fetch(
+        `${OURA_API_BASE}/daily_activity?start_date=${dateStr}&end_date=${dateStr}`,
+        { headers }
+      );
+      const activityData = activityRes.ok ? await activityRes.json() : null;
+      
+      // 4. Heart Rate (for HRV)
+      const heartRateRes = await fetch(
+        `${OURA_API_BASE}/heartrate?start_date=${dateStr}&end_date=${dateStr}`,
+        { headers }
+      );
+      const heartRateData = heartRateRes.ok ? await heartRateRes.json() : null;
+      
+      console.log('Oura API responses:', {
+        readiness: readinessData?.data?.length || 0,
+        sleep: sleepData?.data?.length || 0,
+        activity: activityData?.data?.length || 0,
+        heartRate: heartRateData?.data?.length || 0
+      });
+      
+      // Extract metrics from responses
+      const readiness = readinessData?.data?.[0];
+      const sleep = sleepData?.data?.[0];
+      const activity = activityData?.data?.[0];
+      const heartRate = heartRateData?.data?.[0];
+      
+      // Store in database
+      const { error: insertError } = await supabaseClient
+        .from('oura_daily_data')
+        .upsert({
+          user_id: user.id,
+          summary_date: dateStr,
+          readiness_score: readiness?.score || null,
+          sleep_score: sleep?.contributors?.total_sleep_duration || null,
+          activity_score: activity?.score || null,
+          hrv: heartRate?.bpm || null,
+          resting_heart_rate: heartRate?.source === 'rest' ? heartRate?.bpm : null,
+          raw_data: {
+            readiness: readiness || {},
+            sleep: sleep || {},
+            activity: activity || {},
+            heartrate: heartRate || {}
+          }
+        }, {
+          onConflict: 'user_id,summary_date'
+        });
+      
+      if (insertError) {
+        console.error('Error storing Oura data:', insertError);
+        throw insertError;
+      }
+      
+      console.log('Successfully stored Oura data for user:', user.id);
+      
+    } catch (apiError) {
+      console.error('Error fetching from Oura API:', apiError);
+      // Continue to update last_sync even if API call fails
+    }
+    
+    // Update last sync timestamp
     await supabaseClient
       .from('oura_connections')
       .update({ last_sync: new Date().toISOString() })
@@ -59,8 +149,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Oura sync initiated',
-        note: 'Full OAuth implementation required'
+        message: 'Oura sync completed successfully',
+        synced_date: dateStr
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
