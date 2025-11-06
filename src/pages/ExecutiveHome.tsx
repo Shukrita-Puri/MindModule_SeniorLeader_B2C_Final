@@ -27,34 +27,31 @@ const ExecutiveHome = () => {
   };
 
   return (
-    <div className="min-h-screen font-body pb-32">
+    <div className="min-h-screen font-body pb-32 bg-background">
       <UnifiedTopBar backPath="/signup" />
       <SecurityWatermark />
       
-      {/* SECTION 1: Hero - Compressed to 30vh */}
-      <div className="relative w-full h-[30vh] overflow-hidden">
-        {/* Background Image */}
-        <img 
-          src={executiveHomeBanner} 
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
+      {/* SECTION 1: Hero with Radial Glow */}
+      <div className="relative w-full h-[35vh] overflow-hidden">
+        {/* Gradient Background with Radial Glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,217,255,0.15)_0%,_transparent_70%)]" />
         
-        {/* Warm Overlay */}
-        <div className="absolute inset-0 bg-[rgba(255,240,230,0.35)]" />
+        {/* Animated Mesh Gradient */}
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
         
         {/* Content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center z-10">
           <h1 
-            className="text-5xl md:text-7xl font-headline font-medium mb-2 bg-gradient-to-br from-[#6B5610] via-[#8B6914] to-[#B8860B] bg-clip-text text-transparent"
-            style={{ filter: 'drop-shadow(0 2px 12px rgba(139, 105, 20, 0.4)) drop-shadow(0 4px 20px rgba(0, 0, 0, 0.2))' }}
+            className="text-5xl md:text-7xl font-headline font-bold mb-2 bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-shimmer"
+            style={{ backgroundSize: '200% auto' }}
           >
             {getGreeting()}
           </h1>
-          <p 
-            className="text-base md:text-lg text-foreground/90"
-            style={{ textShadow: '0 2px 8px rgba(255, 240, 230, 0.8)' }}
-          >
+          <p className="text-base md:text-lg text-muted-foreground">
             {getSubtitle()}
           </p>
         </div>
@@ -62,34 +59,34 @@ const ExecutiveHome = () => {
 
       <div className="px-4 max-w-lg mx-auto">
         
-        {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        {/* Cyan Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent my-8" />
         
         {/* SECTION 2: Energy State Today */}
         <section className="animate-fade-in mb-8">
-          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
+          <h2 className="text-xl font-headline font-semibold text-foreground mb-4 tracking-tight">
             Your Energy State Today
           </h2>
           <EnergyStateHeader />
         </section>
         
-        {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        {/* Cyan Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent my-8" />
         
         {/* SECTION 3: Recommended for You */}
         <section className="animate-fade-in mb-8" style={{ animationDelay: '200ms' }}>
-          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
+          <h2 className="text-xl font-headline font-semibold text-foreground mb-4 tracking-tight">
             Recommended for You
           </h2>
           <RecommendedPlan />
         </section>
         
-        {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-8" />
+        {/* Cyan Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent my-8" />
         
         {/* SECTION 4: Your Intelligence */}
         <section className="animate-fade-in mb-8" style={{ animationDelay: '400ms' }}>
-          <h2 className="text-lg font-headline font-medium text-foreground mb-4">
+          <h2 className="text-xl font-headline font-semibold text-foreground mb-4 tracking-tight">
             Your Intelligence
           </h2>
           <InsightProgressCard />

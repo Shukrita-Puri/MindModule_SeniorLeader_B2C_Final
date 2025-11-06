@@ -39,7 +39,7 @@ const MainNavigation = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-xl border-t border-gold/20 z-50 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-xl border-t border-white/10 z-50 shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
       <div className="flex justify-around items-center py-3 px-4 max-w-md mx-auto">
         {navItems.map((item, index) => (
           <button
@@ -48,22 +48,22 @@ const MainNavigation = () => {
             className={`relative flex flex-col items-center gap-2 py-3 px-4 rounded-xl transition-all duration-300 ${
               item.isActive 
                 ? "text-primary" 
-                : "text-secondary hover:text-primary"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {item.isActive && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-gold rounded-full" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full shadow-[0_0_10px_rgba(0,217,255,0.6)]" />
             )}
             <div className={`transition-transform duration-200 ${item.isActive ? 'scale-110' : ''}`}>
               <item.icon 
                 size={20} 
                 fill={item.isActive ? "currentColor" : "none"}
                 stroke="currentColor"
-                strokeWidth={item.isActive ? 1.5 : 1.5}
+                strokeWidth={item.isActive ? 2 : 1.5}
               />
             </div>
             <span className={`text-xs font-body transition-all duration-200 ${
-              item.isActive ? 'font-medium' : ''
+              item.isActive ? 'font-semibold' : ''
             }`}>
               {item.label}
             </span>
