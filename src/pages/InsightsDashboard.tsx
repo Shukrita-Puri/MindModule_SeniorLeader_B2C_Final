@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, TrendingUp, Clock, Calendar } from "lucide-react";
+import { Download, TrendingUp, Clock, Calendar, Activity, Zap } from "lucide-react";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import MainNavigation from "@/components/MainNavigation";
 import EnergyGauge from "@/components/insights/EnergyGauge";
@@ -10,6 +10,7 @@ import CircadianGraph from "@/components/insights/CircadianGraph";
 import AlignmentTimeline from "@/components/insights/AlignmentTimeline";
 import ElementalMandala from "@/components/insights/ElementalMandala";
 import DecisionQualityChart from "@/components/insights/DecisionQualityChart";
+import ContentTypeAnalysis from "@/components/insights/ContentTypeAnalysis";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { calculateMentalFitnessScore } from "@/utils/intelligenceEngine";
 
@@ -127,79 +128,89 @@ const InsightsDashboard = () => {
         </div>
       </div>
 
-        {/* Section 1: Weekly Energy Summary */}
-        <section className="mb-12 max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Weekly Energy Summary
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 space-y-8 mb-8">
+        
+        {/* Section 1: Mental Fitness Score - Prominent at top */}
+        <section>
+          <Card className="bg-gradient-to-br from-card to-card/50 border-2 border-gold/20">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Zap className="h-6 w-6 text-saffron" />
+                <CardTitle className="text-xl md:text-2xl">Mental Fitness Score</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
+                <div className="text-5xl md:text-7xl font-bold text-saffron">{fitnessScore}</div>
+                <div className="text-xs md:text-sm text-muted-foreground text-center md:text-left">
+                  <p className="leading-relaxed">Based on practice consistency, breakthroughs, and active days</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Divider */}
+        <div className="w-full h-px bg-border" />
+
+        {/* Section 2: Current Energy State */}
+        <section className="space-y-4">
+          <h2 className="text-xl md:text-2xl font-headline font-semibold flex items-center gap-2 tracking-tight">
+            <Activity className="h-5 w-5 text-saffron" />
+            Current Energy State
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <EnergyGauge currentBalance={energyState?.overallBalance || 50} />
             <EnergyDistributionChart timeRange={timeRange} comparisonMode={comparisonMode} />
           </div>
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
+        <div className="w-full h-px bg-border" />
 
-        {/* Section 2: Circadian Pattern Analysis */}
-        <section className="mb-12 max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
-            <Clock className="h-5 w-5 text-primary" />
-            Your Natural Rhythms
+        {/* Section 3: Practice Patterns */}
+        <section className="space-y-4">
+          <h2 className="text-xl md:text-2xl font-headline font-semibold flex items-center gap-2 tracking-tight">
+            <TrendingUp className="h-5 w-5 text-saffron" />
+            Practice Patterns
           </h2>
-          <CircadianGraph timeRange={timeRange} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <ContentTypeAnalysis />
+            <div className="space-y-4">
+              <ElementalMandala />
+            </div>
+          </div>
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
+        <div className="w-full h-px bg-border" />
 
-        {/* Section 3: Alignment Timeline */}
-        <section className="mb-12 max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-headline font-semibold mb-6 flex items-center gap-2 tracking-tight">
-            <Calendar className="h-5 w-5 text-primary" />
-            Alignment Over Time
+        {/* Section 4: Temporal Intelligence */}
+        <section className="space-y-4">
+          <h2 className="text-xl md:text-2xl font-headline font-semibold flex items-center gap-2 tracking-tight">
+            <Clock className="h-5 w-5 text-saffron" />
+            Temporal Intelligence
           </h2>
-          <AlignmentTimeline timeRange={timeRange} comparisonMode={comparisonMode} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <CircadianGraph timeRange={timeRange} />
+            <AlignmentTimeline timeRange={timeRange} comparisonMode={comparisonMode} />
+          </div>
         </section>
 
         {/* Divider */}
-        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
+        <div className="w-full h-px bg-border" />
 
-        {/* Section 4: Elemental Balance */}
-        <section className="mb-12 max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-headline font-semibold mb-6 tracking-tight">Elemental Balance</h2>
-          <ElementalMandala />
-        </section>
-
-        {/* Divider */}
-        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
-
-        {/* Section 5: Decision Quality Trends */}
-        <section className="mb-12 max-w-7xl mx-auto px-6">
-          <h2 className="text-2xl font-headline font-semibold mb-6 tracking-tight">Decision Quality Over Time</h2>
+        {/* Section 5: Deeper Analysis */}
+        <section className="space-y-4">
+          <h2 className="text-xl md:text-2xl font-headline font-semibold flex items-center gap-2 tracking-tight">
+            <Calendar className="h-5 w-5 text-saffron" />
+            Deeper Analysis
+          </h2>
           <DecisionQualityChart timeRange={timeRange} comparisonMode={comparisonMode} />
         </section>
 
-        {/* Divider */}
-        <div className="w-full h-px bg-black/[0.08] mb-12 max-w-7xl mx-auto px-6" />
-
-        {/* Mental Fitness Score */}
-        <div className="mb-8 max-w-7xl mx-auto px-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Mental Fitness Score</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="text-6xl font-bold text-foreground">{fitnessScore}</div>
-                <div className="text-sm text-muted-foreground">
-                  <p>Based on practice consistency, breakthroughs, and active days</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      </div>
 
       <MainNavigation />
     </div>

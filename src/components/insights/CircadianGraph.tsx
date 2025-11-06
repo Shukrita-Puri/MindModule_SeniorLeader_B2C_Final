@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState, useRef } from "react";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface CircadianData {
   hour: number;
@@ -18,8 +20,14 @@ const CircadianGraph = ({ timeRange = "week" }: CircadianGraphProps) => {
   const [peakHour, setPeakHour] = useState<number>(0);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
+    const savedState = localStorage.getItem('insight-collapse-circadian');
+    if (savedState !== null) {
+      setIsOpen(savedState === 'true');
+    }
+
     // Load practice history with time range filter
     const practiceHistory = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
     const now = new Date();
@@ -78,11 +86,16 @@ const CircadianGraph = ({ timeRange = "week" }: CircadianGraphProps) => {
 
   const maxEnergy = Math.max(...data.map(d => d.energy), 1);
 
+  const handleToggle = (newState: boolean) => {
+    setIsOpen(newState);
+    localStorage.setItem('insight-collapse-circadian', newState.toString());
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Your Natural Energy Curve</CardTitle>
+          <CardTitle className="text-base md:text-lg">Your Natural Energy Curve</CardTitle>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -90,7 +103,7 @@ const CircadianGraph = ({ timeRange = "week" }: CircadianGraphProps) => {
               onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
               disabled={zoomLevel <= 0.5}
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
             <Button
               variant="outline"
@@ -98,22 +111,31 @@ const CircadianGraph = ({ timeRange = "week" }: CircadianGraphProps) => {
               onClick={() => setZoomLevel(Math.min(2, zoomLevel + 0.25))}
               disabled={zoomLevel >= 2}
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-3 w-3 md:h-4 md:w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleToggle(!isOpen)}
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm">
-            <p className="text-muted-foreground">Peak Performance Time:</p>
-            <p className="font-semibold text-gold">{formatHour(peakHour)}</p>
-          </div>
-          
-          <div 
-            className="relative flex items-end justify-between gap-1 overflow-x-auto"
-            style={{ height: `${192 * zoomLevel}px` }}
-          >
+      <Collapsible open={isOpen} onOpenChange={handleToggle}>
+        <CollapsibleContent>
+          <CardContent className="p-4 md:p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs md:text-sm">
+                <p className="text-muted-foreground">Peak Performance Time:</p>
+                <p className="font-semibold text-gold">{formatHour(peakHour)}</p>
+              </div>
+              
+              <div 
+                className="relative flex items-end justify-between gap-1 overflow-x-auto"
+                style={{ height: `${128 * zoomLevel}px` }}
+              >
             {data.map((item) => (
               <div
                 key={item.hour}
@@ -141,15 +163,17 @@ const CircadianGraph = ({ timeRange = "week" }: CircadianGraphProps) => {
             ))}
           </div>
           
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>12am</span>
-            <span>6am</span>
-            <span>12pm</span>
-            <span>6pm</span>
-            <span>12am</span>
-          </div>
-        </div>
-      </CardContent>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>12am</span>
+                <span>6am</span>
+                <span>12pm</span>
+                <span>6pm</span>
+                <span>12am</span>
+              </div>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 };

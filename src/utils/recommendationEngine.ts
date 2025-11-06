@@ -3,6 +3,7 @@
 import { mapCheckInToTags, getEnergyStateFromCheckIn } from './checkInToTags';
 import { CONTEXT_TAGS, getTimeOfDayTags, ENERGY_TAGS } from './tagMappings';
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
+import { CurrentEnergyState } from './energyStateEngine';
 
 export interface Recommendation {
   id: string;
@@ -16,7 +17,7 @@ export interface Recommendation {
   matchScore: number;
 }
 
-export async function generateRecommendations(): Promise<{
+export async function generateRecommendations(energyState: CurrentEnergyState): Promise<{
   soundbath: Recommendation | null;
   guidedPractice: Recommendation | null;
   microPractice: Recommendation | null;
@@ -26,38 +27,33 @@ export async function generateRecommendations(): Promise<{
   const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
   const checkInOutcome = checkInData.outcome || 'pause';
   
-  const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
-  const ouraReadiness = ouraData.readiness || 70;
-  
   const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
   const upcomingEvent = calendarEvents[0];
   
-  const now = new Date();
-  const hour = now.getHours();
+  // Build recommendation tags based on energy state priority
+  let recommendationTags: string[] = [];
   
-  // Get energy state from check-in
-  const energyState = getEnergyStateFromCheckIn(checkInOutcome);
-  const checkInTags = mapCheckInToTags(checkInOutcome);
-  
-  // Get time context tags
-  const timeContextTags = getTimeOfDayTags(hour);
-  
-  // Build recommendation tags
-  let recommendationTags = [...checkInTags.recommendationTags];
-  
-  // Adjust based on Oura readiness
-  if (ouraReadiness < 60) {
-    recommendationTags.push('earth_up', 'grounding', 'gentle');
-  } else if (ouraReadiness > 80) {
-    recommendationTags.push('fire_up', 'activation', 'moderate');
+  // Use energy state recommendation priority to drive tags
+  switch (energyState.recommendationPriority) {
+    case 'rest':
+      recommendationTags = ['gentle', 'cooling', 'earth_up', 'grounding', 'release'];
+      break;
+    case 'restore':
+      recommendationTags = ['grounding', 'centering', 'water_up', 'balancing', 'moderate'];
+      break;
+    case 'activate':
+      recommendationTags = ['activation', 'fire_up', 'moderate', 'pre-performance', 'energizing'];
+      break;
+    case 'maintain':
+      recommendationTags = ['centering', 'balancing', 'moderate', 'grounding'];
+      break;
   }
   
-  // Adjust based on time of day
-  if (hour >= 5 && hour < 9) {
-    recommendationTags.push('activation', 'pre-performance');
-  } else if (hour >= 17) {
-    recommendationTags.push('cooling', 'release', 'gentle');
-  }
+  // Add energy tags from computed state
+  recommendationTags.push(...energyState.energyTags);
+  
+  // Add context tags from computed state
+  recommendationTags.push(...energyState.contextTags);
   
   // Adjust based on calendar
   if (upcomingEvent) {
@@ -73,8 +69,9 @@ export async function generateRecommendations(): Promise<{
   const microPractices = allContent.filter(c => c.contentType === 'micro-practice');
   
   // Generate reasoning
-  let reasoning = `Based on your daily check-in (${checkInOutcome}: ${energyState.balance}/100)`;
-  if (ouraReadiness > 0 && ouraReadiness < 60) reasoning += `, low recovery state (${ouraReadiness}/100)`;
+  let reasoning = `Based on your energy state (${energyState.state}, ${Math.round(energyState.overallBalance)}/100 balance)`;
+  if (energyState.recommendationPriority === 'rest') reasoning += `, your system needs rest`;
+  if (energyState.recommendationPriority === 'activate') reasoning += `, you're ready to activate`;
   if (upcomingEvent) reasoning += `, and upcoming ${upcomingEvent.title}`;
   reasoning += ` — here's your personalized plan:`;
   

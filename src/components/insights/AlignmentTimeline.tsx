@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface AlignmentPoint {
   date: string;
@@ -22,8 +24,14 @@ const AlignmentTimeline = ({
   const [comparisonData, setComparisonData] = useState<AlignmentPoint[]>([]);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
+    const savedState = localStorage.getItem('insight-collapse-alignment');
+    if (savedState !== null) {
+      setIsOpen(savedState === 'true');
+    }
+
     const processTimeline = (history: any[], daysBack: number) => {
       const dailyData: Record<string, { totalScore: number; count: number }> = {};
       
@@ -81,14 +89,19 @@ const AlignmentTimeline = ({
     ? Math.round(data.reduce((sum, d) => sum + d.score, 0) / data.length)
     : 0;
 
+  const handleToggle = (newState: boolean) => {
+    setIsOpen(newState);
+    localStorage.setItem('insight-collapse-alignment', newState.toString());
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Alignment Timeline</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Avg: <span className="text-gold font-semibold">{avgScore}</span>
+            <CardTitle className="text-base md:text-lg">Alignment Timeline</CardTitle>
+            <p className="text-xs md:text-sm text-muted-foreground mt-1">
+              Avg: <span className="text-xl md:text-2xl text-gold font-bold">{avgScore}</span>
               {comparisonMode && comparisonData.length > 0 && (
                 <span className="ml-2">
                   vs Previous: <span className="text-primary font-semibold">
@@ -105,7 +118,7 @@ const AlignmentTimeline = ({
               onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
               disabled={zoomLevel <= 0.5}
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
             <Button
               variant="outline"
@@ -113,18 +126,27 @@ const AlignmentTimeline = ({
               onClick={() => setZoomLevel(Math.min(2, zoomLevel + 0.25))}
               disabled={zoomLevel >= 2}
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-3 w-3 md:h-4 md:w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleToggle(!isOpen)}
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Complete practices over multiple days to see your alignment timeline
-          </p>
-        ) : (
-          <div className="relative overflow-x-auto" style={{ height: `${192 * zoomLevel}px` }}>
+      <Collapsible open={isOpen} onOpenChange={handleToggle}>
+        <CollapsibleContent>
+          <CardContent className="p-4 md:p-6">
+            {data.length === 0 ? (
+              <p className="text-xs md:text-sm text-muted-foreground text-center py-8">
+                Complete practices over multiple days to see your alignment timeline
+              </p>
+            ) : (
+              <div className="relative overflow-x-auto h-32 md:h-48" style={{ height: `${(window.innerWidth < 768 ? 128 : 192) * zoomLevel}px` }}>
             <svg 
               className="w-full h-full" 
               viewBox="0 0 100 100" 
@@ -201,9 +223,11 @@ const AlignmentTimeline = ({
                 );
               })}
             </svg>
-          </div>
-        )}
-      </CardContent>
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 };

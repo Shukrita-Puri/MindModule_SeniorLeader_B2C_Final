@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, Sparkles } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
+import { computeEnergyState } from '@/utils/energyStateEngine';
 
 const RecommendedPlan = () => {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ const RecommendedPlan = () => {
 
   const loadRecommendations = async () => {
     setLoading(true);
-    const recs = await generateRecommendations();
+    // Compute energy state first, then pass to recommendations
+    const energyState = computeEnergyState();
+    const recs = await generateRecommendations(energyState);
     setRecommendations(recs);
     setLoading(false);
   };
