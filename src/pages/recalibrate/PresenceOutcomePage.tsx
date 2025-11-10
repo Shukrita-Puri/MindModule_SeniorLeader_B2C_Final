@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Sparkles } from "lucide-react";
+import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
+import { useFavorites } from "@/hooks/useFavorites";
+import { cn } from "@/lib/utils";
 
 const PresenceOutcomePage = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const PresenceOutcomePage = () => {
   const practices = content.filter(item => item.contentType === 'guided-practice');
   const microPractices = content.filter(item => item.contentType === 'micro-practice');
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
@@ -158,6 +161,20 @@ const PresenceOutcomePage = () => {
                       Soundscape
                     </Badge>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id, item.contentType, 'presence');
+                    }}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-5 w-5 transition-colors",
+                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                  </button>
                 </div>
                 
                 <CardHeader className="pb-3">
@@ -213,6 +230,20 @@ const PresenceOutcomePage = () => {
                       Practice
                     </Badge>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id, item.contentType, 'presence');
+                    }}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-5 w-5 transition-colors",
+                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                  </button>
                 </div>
                 
                 <CardHeader className="pb-3">
@@ -267,6 +298,20 @@ const PresenceOutcomePage = () => {
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">Tool</Badge>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id, item.contentType, 'presence');
+                    }}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-5 w-5 transition-colors",
+                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                  </button>
                 </div>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
