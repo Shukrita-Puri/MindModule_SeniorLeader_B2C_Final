@@ -89,14 +89,48 @@ serve(async (req) => {
         throw new Error('Failed to get access token');
       }
 
-      // Store tokens in database
+      // Store tokens encrypted in vault
+      // First, insert tokens into vault
+      const { data: accessTokenVault, error: accessTokenError } = await supabaseClient
+        .from('vault.secrets')
+        .insert({
+          secret: tokens.access_token,
+          description: `Calendar access token for user ${state}`
+        })
+        .select('id')
+        .single();
+
+      if (accessTokenError) {
+        console.error('Error storing access token in vault:', accessTokenError);
+        throw new Error('Failed to encrypt access token');
+      }
+
+      let refreshTokenVaultId = null;
+      if (tokens.refresh_token) {
+        const { data: refreshTokenVault, error: refreshTokenError } = await supabaseClient
+          .from('vault.secrets')
+          .insert({
+            secret: tokens.refresh_token,
+            description: `Calendar refresh token for user ${state}`
+          })
+          .select('id')
+          .single();
+
+        if (refreshTokenError) {
+          console.error('Error storing refresh token in vault:', refreshTokenError);
+          throw new Error('Failed to encrypt refresh token');
+        }
+        refreshTokenVaultId = refreshTokenVault.id;
+      }
+
+      // Store connection with encrypted token references
       const { error: insertError } = await supabaseClient
         .from('calendar_connections')
         .upsert({
           user_id: state,
           provider: provider,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
+          encrypted_access_token_id: accessTokenVault.id,
+          encrypted_refresh_token_id: refreshTokenVaultId,
           token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
           is_active: true,
         });

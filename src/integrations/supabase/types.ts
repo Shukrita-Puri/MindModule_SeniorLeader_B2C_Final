@@ -16,37 +16,37 @@ export type Database = {
     Tables: {
       calendar_connections: {
         Row: {
-          access_token: string | null
           created_at: string
+          encrypted_access_token_id: string | null
+          encrypted_refresh_token_id: string | null
           id: string
           is_active: boolean | null
           last_sync: string | null
           provider: string
-          refresh_token: string | null
           token_expires_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          access_token?: string | null
           created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
           last_sync?: string | null
           provider: string
-          refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          access_token?: string | null
           created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
           last_sync?: string | null
           provider?: string
-          refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id?: string
@@ -145,34 +145,34 @@ export type Database = {
       }
       oura_connections: {
         Row: {
-          access_token: string | null
           created_at: string
+          encrypted_access_token_id: string | null
+          encrypted_refresh_token_id: string | null
           id: string
           is_active: boolean | null
           last_sync: string | null
-          refresh_token: string | null
           token_expires_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          access_token?: string | null
           created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
           last_sync?: string | null
-          refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          access_token?: string | null
           created_at?: string
+          encrypted_access_token_id?: string | null
+          encrypted_refresh_token_id?: string | null
           id?: string
           is_active?: boolean | null
           last_sync?: string | null
-          refresh_token?: string | null
           token_expires_at?: string | null
           updated_at?: string
           user_id?: string
@@ -373,9 +373,55 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      assign_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      get_calendar_access_token: {
+        Args: { _connection_id: string }
+        Returns: string
+      }
+      get_calendar_refresh_token: {
+        Args: { _connection_id: string }
+        Returns: string
+      }
+      get_oura_access_token: {
+        Args: { _connection_id: string }
+        Returns: string
+      }
+      get_oura_refresh_token: {
+        Args: { _connection_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -383,6 +429,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      migrate_calendar_tokens: { Args: never; Returns: undefined }
+      migrate_oura_tokens: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "user" | "admin"

@@ -43,13 +43,17 @@ serve(async (req) => {
       throw new Error('No active Oura connection found');
     }
 
+    // Retrieve decrypted access token from vault
+    const { data: accessToken, error: tokenError } = await supabaseClient
+      .rpc('get_oura_access_token', { _connection_id: connection.id });
+
+    if (tokenError || !accessToken) {
+      console.error('Error retrieving access token:', tokenError);
+      throw new Error('Failed to retrieve Oura access token');
+    }
+
     // Fetch comprehensive data from Oura API v2
     const OURA_API_BASE = 'https://api.ouraring.com/v2/usercollection';
-    const accessToken = connection.access_token;
-    
-    if (!accessToken) {
-      throw new Error('No access token available. Please reconnect your Oura account.');
-    }
     
     // Get yesterday's date (Oura data is typically available next day)
     const yesterday = new Date();

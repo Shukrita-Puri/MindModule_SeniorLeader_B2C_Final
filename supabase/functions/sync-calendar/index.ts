@@ -32,6 +32,15 @@ serve(async (req) => {
       throw new Error('Calendar connection not found');
     }
 
+    // Retrieve decrypted access token from vault
+    const { data: accessToken, error: tokenError } = await supabaseClient
+      .rpc('get_calendar_access_token', { _connection_id: connection.id });
+
+    if (tokenError || !accessToken) {
+      console.error('Error retrieving access token:', tokenError);
+      throw new Error('Failed to retrieve calendar access token');
+    }
+
     let events: any[] = [];
     const now = new Date();
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -42,7 +51,7 @@ serve(async (req) => {
         `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${nextWeek.toISOString()}&singleEvents=true&orderBy=startTime`,
         {
           headers: {
-            Authorization: `Bearer ${connection.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
@@ -71,7 +80,7 @@ serve(async (req) => {
         `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${nextWeek.toISOString()}&$orderby=start/dateTime`,
         {
           headers: {
-            Authorization: `Bearer ${connection.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
