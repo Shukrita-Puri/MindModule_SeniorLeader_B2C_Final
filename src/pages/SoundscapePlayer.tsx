@@ -312,12 +312,14 @@ const SoundscapePlayer = () => {
   }, [id]);
 
   const getCategoryPath = () => {
-    const locationState = location.state as { category?: string } | null;
-    const category = locationState?.category;
+    // Use the soundscape's actual category to determine back path
+    if (!soundscape) return '/soundscapes';
     
+    const category = soundscape.category;
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
+    if (category === 'flow') return '/recalibrate/flow';
     return '/soundscapes';
   };
 

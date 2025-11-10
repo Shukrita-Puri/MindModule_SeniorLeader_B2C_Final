@@ -19,6 +19,11 @@ const MicroPracticePlayer = () => {
     );
   }
 
+  // Determine back path based on category
+  const backPath = practice.category 
+    ? `/recalibrate/${practice.category}` 
+    : "/micro-practices";
+
   const handleComplete = () => {
     // Store completion in localStorage
     const history = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
@@ -37,7 +42,7 @@ const MicroPracticePlayer = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <UnifiedTopBar backPath="/micro-practices" />
+      <UnifiedTopBar backPath={backPath} />
       
       <div className="pt-20 px-6 max-w-4xl mx-auto pb-12">
         {/* Hero Image */}

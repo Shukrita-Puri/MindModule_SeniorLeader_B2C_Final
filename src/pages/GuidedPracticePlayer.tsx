@@ -734,11 +734,14 @@ const GuidedPracticePlayer = () => {
   }, [isPlaying, view, currentStep, stepTimeLeft, practice]);
 
   const getCategoryPath = () => {
-    const category = (location.state as any)?.category;
+    // Use the practice's actual category to determine back path
+    if (!practice) return '/guided-practices';
     
+    const category = practice.category;
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
+    if (category === 'flow') return '/recalibrate/flow';
     return '/guided-practices';
   };
 
