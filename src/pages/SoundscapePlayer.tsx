@@ -37,7 +37,8 @@ const getSoundscapeData = (id: string) => {
     creator: content.creator,
     technique: content.technique || "",
     benefits: content.benefits || [],
-    completionQuote: content.completionQuote || ""
+    completionQuote: content.completionQuote || "",
+    audioSrc: content.audioSrc || ""
   };
 };
 
@@ -644,11 +645,12 @@ const SoundscapePlayer = () => {
         <audio
           ref={audioRef}
           src={
-            id === 'earth-resonance-power' || id === 'earth-resonance-presence' 
+            soundscape?.audioSrc ||
+            (id === 'earth-resonance-power' || id === 'earth-resonance-presence' 
               ? '/soundscapes/earth-resonance.mp3'
               : id === 'warrior-drums-power' || id === 'warrior-drums-presence'
               ? '/soundscapes/warrior-drums.mp3'
-              : `/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`
+              : `/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`)
           }
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
