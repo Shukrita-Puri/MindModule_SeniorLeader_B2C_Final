@@ -68,17 +68,30 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PAUSE Soundbaths
   {
-    id: "tibetan-bowl-resonance",
-    title: "Tibetan Bowl Resonance",
+    id: "harmonic-calm",
+    title: "Harmonic Calm",
     contentType: "soundbath",
     category: "pause",
     tags: ['earth', 'post-stress', 'gentle', 'healing', 'meditation'],
-    duration: 8,
-    creator: "Curated from Tibetan Buddhist lineages",
-    origin: "Ancient Himalayan Tradition",
-    storyHook: "5000-year practice used by monks to achieve deep meditative states through harmonic frequencies.",
+    duration: 3,
+    creator: "Tibetan Buddhist singing bowl traditions",
+    origin: "Drawn from Tibetan Buddhist singing bowl traditions",
+    storyHook: "Used to reduce stress, restore emotional balance, and create a sense of grounded presence through harmonic resonance.",
     thumbnail: "/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png",
-    audioSrc: "/soundscapes/tibetan-bowls.mp3"
+    audioSrc: "/soundscapes/harmonic-calm.mp3"
+  },
+  {
+    id: "deep-calm-forest-bathing",
+    title: "Deep Calm Forest Bathing",
+    contentType: "soundbath",
+    category: "pause",
+    tags: ['earth', 'nature', 'gentle', 'stress-relief', 'grounding'],
+    duration: 2,
+    creator: "Japanese Shinrin-yoku practices",
+    origin: "Inspired by ancient Japanese Shinrin-yoku (forest bathing) practices",
+    storyHook: "Used to cultivate deep calm, restore mental clarity, and anchor attention in the present through gentle rain and subtle village sounds.",
+    thumbnail: "/lovable-uploads/7a5dd5f2-96fb-485c-a58f-0280491740c1.png",
+    audioSrc: "/soundscapes/forest-bathing.mp3"
   },
   {
     id: "pre-mission-calm",
@@ -92,19 +105,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "Used by special forces before high-stakes operations to achieve tactical composure.",
     thumbnail: "/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png",
     audioSrc: "/soundscapes/cathedral-choir-flow.mp3"
-  },
-  {
-    id: "forest-bathing",
-    title: "Forest Bathing",
-    contentType: "soundbath",
-    category: "pause",
-    tags: ['earth', 'nature', 'gentle', 'stress-relief', 'grounding'],
-    duration: 15,
-    creator: "Traditional Japanese practice",
-    origin: "Japanese Shinrin-yoku",
-    storyHook: "Proven by Tokyo researchers to lower cortisol and boost immune function through nature immersion.",
-    thumbnail: "/lovable-uploads/7a5dd5f2-96fb-485c-a58f-0280491740c1.png",
-    audioSrc: "/soundscapes/earth-resonance.mp3"
   },
   {
     id: "himalayan-monastery",
@@ -147,30 +147,43 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PRESENCE Soundbaths
   {
-    id: "cathedral-flow-presence",
-    title: "Cathedral Choir Flow",
+    id: "deep-focus-monastic-resonance",
+    title: "Deep Focus with Monastic Resonance",
+    contentType: "soundbath",
+    category: "presence",
+    tags: ['air', 'focus', 'moderate', 'meditation', 'clarity'],
+    duration: 1.5,
+    creator: "Monastic chanting and harmonic rituals",
+    origin: "Inspired by monastic chanting and harmonic rituals in Himalayan-style summit monasteries",
+    storyHook: "Used to sharpen cognitive clarity, sustain deep focus, and expand awareness through layered chants, resonant gongs, and ethereal chimes.",
+    thumbnail: "/lovable-uploads/ae4d66fb-b3ea-4ef5-bfff-f228c447224c.png",
+    audioSrc: "/soundscapes/monastic-resonance.mp3"
+  },
+  {
+    id: "sustained-focus-choir-harmonic",
+    title: "Sustained Focus with Choir Harmonic",
     contentType: "soundbath",
     category: "presence",
     tags: ['air', 'focus', 'moderate', 'sacred', 'resonance'],
-    duration: 18,
-    creator: "Sacred harmonic composition",
-    origin: "Sacred Cathedral Resonance",
-    storyHook: "Resonance for Healing & Focus. A grand cathedral where sunlight spills across vaulted ceilings.",
+    duration: 3.5,
+    creator: "Sacred harmonic compositions",
+    origin: "Inspired by sacred harmonic compositions in grand cathedrals",
+    storyHook: "Used to enhance focus, cultivate mindful presence, and align energy through layered choirs, bells, and reverberant harmonics.",
     thumbnail: "/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png",
     audioSrc: "/soundscapes/cathedral-choir-flow.mp3"
   },
   {
-    id: "primal-resonance-presence",
-    title: "Primal Resonance",
+    id: "energised-focus-didgeridoo-bowls",
+    title: "Energised Focus with Didgeridoo & Bowls",
     contentType: "soundbath",
     category: "presence",
     tags: ['fire', 'focus', 'moderate', 'energy', 'activation'],
-    duration: 25,
-    creator: "Ancient sound designed to awaken focus",
-    origin: "Ancient Sound Traditions",
-    storyHook: "Didgeridoo & Singing Bowls for Energy Alignment. Ancient sound traditions to awaken focus.",
+    duration: 2.5,
+    creator: "Didgeridoo traditions and harmonic bowl practices",
+    origin: "Inspired by didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
+    storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
     thumbnail: "/lovable-uploads/cc7c715b-a0d1-4464-b0e1-d338c14452a0.png",
-    audioSrc: "/soundscapes/ina-night-fields.mp3"
+    audioSrc: "/soundscapes/didgeridoo-bowls.mp3"
   },
   {
     id: "warrior-drums-presence",
