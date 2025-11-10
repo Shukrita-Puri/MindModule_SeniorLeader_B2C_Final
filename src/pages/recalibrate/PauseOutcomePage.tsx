@@ -42,7 +42,7 @@ const PauseOutcomePage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-2xl font-headline text-foreground">Sonic Sessions</h2>
-              <Badge variant="outline" className="text-xs">{soundscapes.length} Sonic Sessions</Badge>
+              <Badge variant="outline" className="text-xs">6 Soundscapes</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
           </div>
@@ -100,12 +100,12 @@ const PauseOutcomePage = () => {
           </div>
         </section>
 
-        {/* Guided Practices Section */}
+        {/* Guided Sessions Section */}
         <section className="mb-12">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Guided Practices</h2>
-              <Badge variant="outline" className="text-xs">{practices.length} Mastery Sessions</Badge>
+              <h2 className="text-2xl font-headline text-foreground">Guided Sessions</h2>
+              <Badge variant="outline" className="text-xs">2 Practices</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">intentional exercises drawn from ancient traditions and elite performance protocols</p>
           </div>
@@ -170,12 +170,12 @@ const PauseOutcomePage = () => {
           </div>
         </section>
 
-        {/* Micro Practices Section */}
+        {/* Micro Exercises Section */}
         <section className="mb-12">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Micro Tools</h2>
-              <Badge variant="outline" className="text-xs">{microPractices.length} Micro Exercises</Badge>
+              <h2 className="text-2xl font-headline text-foreground">Micro Exercises</h2>
+              <Badge variant="outline" className="text-xs">2 Tools</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
           </div>
@@ -190,7 +190,7 @@ const PauseOutcomePage = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
-                    <Badge className="bg-background/50 text-foreground border-border">Micro</Badge>
+                    <Badge className="bg-background/50 text-foreground border-border">Tool</Badge>
                   </div>
                 </div>
                 <CardHeader className="pb-3">
