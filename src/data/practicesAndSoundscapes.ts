@@ -418,7 +418,81 @@ export const sanctuaryContent: SanctuaryContent[] = [
     usedBy: "Yogis, Meditators, Focus Seekers",
     thumbnail: "/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png",
     steps: 6,
-    creator: "The Humming Bee Breath"
+    creator: "The Humming Bee Breath",
+    fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara—the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana—the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
+    whatYouNeed: [
+      "Essential: Quiet space where you can sit comfortably for 12 minutes",
+      "Essential: Ability to hum without disturbing others (or practice during private time)",
+      "Essential: Chair or cushion for upright seated position",
+      "Optional: Earplugs or finger position to close ears (enhances internal sound)",
+      "Optional: Aromatics—Sandalwood, lotus, or jasmine incense/oil",
+      "Optional: Dim lighting or eye mask to reduce visual distraction",
+      "Optional: Timer set to 12 minutes (or use the guided audio)",
+      "Best Practiced: During mid-day energy dips when focus is needed",
+      "Best Practiced: Before creative work or deep focus sessions",
+      "Best Practiced: When feeling mentally scattered or anxious",
+      "Best Practiced: As a transition ritual between different activities"
+    ],
+    expectedOutcomes: [
+      "Immediate: Profound mental stillness and clarity",
+      "Immediate: Sensation of pleasant vibration in the skull and face",
+      "Immediate: Immediate reduction in mental chatter and anxiety",
+      "Immediate: Feeling of being 'centered' and present",
+      "Immediate: Mild euphoria or tingling sensations in the head",
+      "Immediate: Instant access to focused attention state",
+      "Regular Practice: Enhanced ability to drop into flow states quickly",
+      "Regular Practice: Improved concentration and sustained attention",
+      "Regular Practice: Reduced reactivity to stress and distractions",
+      "Regular Practice: Better emotional regulation",
+      "Regular Practice: Deeper meditation experiences",
+      "Regular Practice: Relief from tension headaches",
+      "Regular Practice: Improved quality of creative work",
+      "Traditional Wisdom: Awakens dormant brain centers",
+      "Traditional Wisdom: Balances both hemispheres of the brain",
+      "Traditional Wisdom: Creates 'internal listening' that leads to Self-realization",
+      "Traditional Wisdom: Purifies the nadis (energy channels)",
+      "Traditional Wisdom: Prepares the mind for deeper meditation states"
+    ],
+    practiceSteps: [
+      {
+        title: "Sacred Arrival",
+        instruction: "Settle into a comfortable seated position with your spine naturally upright. Close your eyes and begin to notice your breath without changing it. Feel the weight of your body grounding into the earth. Take three deep breaths to signal to your nervous system that it's time to turn inward.",
+        duration: 1.5,
+        wisdomNote: "This arrival phase is sacred. You're creating a boundary between your outer life and inner practice."
+      },
+      {
+        title: "Pranayama Preparation",
+        instruction: "Learn the ear closure technique: Place your index or middle fingers gently over your ear canals (not pressing hard, just creating a seal). Or, if you prefer, leave ears open for your first few practices. The ear closure enhances the internal sound of the hum, making it easier to absorb your attention in the vibration.",
+        duration: 1.5,
+        wisdomNote: "The hand position is not mandatory, but it amplifies the internal resonance. Experiment to find what works for you."
+      },
+      {
+        title: "First Humming Cycle",
+        instruction: "Take a deep breath in through your nose. On the exhale, close your mouth and make a soft humming sound—'mmmmm'—like a bee. Let the hum last the entire exhale. Notice how the sound vibrates in your face, head, and chest. Repeat this 3 times, learning the rhythm and sensation.",
+        duration: 2,
+        breathingPattern: "Inhale through nose → Exhale humming 'mmmmm'",
+        wisdomNote: "Don't force the hum. Let it be gentle and natural. You're learning to ride the vibration like a wave."
+      },
+      {
+        title: "Deep Immersion Rounds",
+        instruction: "Now begin 12 continuous rounds of Bhramari. Inhale deeply through the nose, then exhale with the humming bee sound. With each round, let yourself go deeper into the vibration. Stop thinking about the technique—become the sound. Notice how the mind begins to quiet, how the hum absorbs your attention. If thoughts arise, let them pass and return to the hum.",
+        duration: 5,
+        breathingPattern: "12 rounds: Deep inhale → Long humming exhale",
+        wisdomNote: "This is where the magic happens. The hum becomes an anchor, drawing your scattered attention into a single point. You're training Dharana—one-pointed focus."
+      },
+      {
+        title: "Silent Absorption",
+        instruction: "Release your hands from your ears (if they were closed). Sit in complete stillness. Don't move. Notice the resonance that remains in your body and mind. Observe the quality of silence—it's different now, deeper, more spacious. This is the state of Pratyahara, where external distractions have withdrawn and you're resting in pure awareness.",
+        duration: 1.5,
+        wisdomNote: "The practice doesn't end when the humming stops. This silence is the fruit. Let it soak in."
+      },
+      {
+        title: "Return & Integration",
+        instruction: "Slowly open your eyes. Take one final deep breath and bow your head gently, sealing the practice. Carry this clarity and stillness into whatever comes next. Notice how your mind feels—clear, calm, focused. This is the state of one-pointed awareness that ancient yogis cultivated.",
+        duration: 0.5,
+        wisdomNote: "You've just practiced a 5,000-year-old technique for entering flow states. With repetition, this becomes instant access to focused presence."
+      }
+    ]
   },
   {
     id: "trataka",
