@@ -1,11 +1,13 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, Sparkles, TrendingUp } from "lucide-react";
+import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import { getContentByCategory } from "@/data/practicesAndSoundscapes";
+import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { supabase } from "@/integrations/supabase/client";
 
 const PowerUpOutcomePage = () => {
   const navigate = useNavigate();
@@ -13,6 +15,94 @@ const PowerUpOutcomePage = () => {
   const soundscapes = content.filter(item => item.contentType === 'soundbath');
   const practices = content.filter(item => item.contentType === 'guided-practice');
   const microPractices = content.filter(item => item.contentType === 'micro-practice');
+  const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchCompletionCounts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+      
+      const { data, error } = await supabase
+        .from('sanctuary_events')
+        .select('content_id')
+        .eq('user_id', user.id)
+        .eq('event_type', 'completed');
+      
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach(event => {
+          counts[event.content_id] = (counts[event.content_id] || 0) + 1;
+        });
+        setCompletionCounts(counts);
+      }
+    };
+    
+    fetchCompletionCounts();
+  }, []);
+
+  const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
+    const titleMap: Record<string, string> = {
+      "Athletic Activation": "Pre-Competition Mental Preparation",
+      "Kapalabhati Pranayama": "Ancient Alternative to Caffeine",
+      "The Spartan Battle Breath": "Access Fearless Warrior State",
+      "Box Breathing Reset": "Tactical Composure & Sharp Decisions",
+      "Wim Hof Power Breathing": "Control Your Autonomic System",
+      "Power Stance": "20% Confidence Boost in 2 Minutes",
+      "Energy Shift": "Unstick Stagnant Energy Fast",
+    };
+    return titleMap[item.title] || item.title;
+  };
+
+  const getCredibilitySubtitle = (item: SanctuaryContent): string => {
+    if (!item.origin && !item.creator) return "";
+    
+    const origin = item.origin || "";
+    const creator = item.creator || "";
+    
+    if (origin.includes("Navy SEAL") || origin.includes("Military") || origin.includes("Special Forces") || origin.includes("Spartan")) {
+      return `Based on ${origin}`;
+    }
+    if (origin.includes("Tibetan") || origin.includes("Ancient") || origin.includes("Traditional") || origin.includes("Vedic") || origin.includes("Buddhist") || origin.includes("Himalayan") || origin.includes("Yoga")) {
+      return `Drawn from ${origin}`;
+    }
+    if (origin.includes("Olympic") || origin.includes("Sports") || origin.includes("Athletic")) {
+      return `Based on ${origin}`;
+    }
+    if (creator && !origin) {
+      return `Inspired by ${creator}`;
+    }
+    
+    return `Drawn from ${origin || creator}`;
+  };
+
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 1) {
+      return `${minutes * 60} sec`;
+    } else if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+    } else {
+      return `${minutes} mins`;
+    }
+  };
+
+  const getCompletionTracking = (item: SanctuaryContent): string => {
+    const count = completionCounts[item.id] || 0;
+    const duration = formatDuration(item.duration);
+    
+    if (count === 0) {
+      return duration;
+    }
+    
+    if (item.contentType === 'soundbath') {
+      return `${duration} — Listened ${count}x`;
+    } else if (item.contentType === 'guided-practice') {
+      return `${duration} — Completed ${count}x`;
+    } else {
+      return `${duration} — Used ${count}x`;
+    }
+  };
 
   const handleItemClick = (item: typeof content[0]) => {
     if (item.contentType === 'soundbath') {
@@ -41,7 +131,7 @@ const PowerUpOutcomePage = () => {
         <section className="mb-12">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Sonic Sessions</h2>
+              <h2 className="text-2xl font-headline text-foreground">Sonic Studio</h2>
               <Badge variant="outline" className="text-xs">6 Soundscapes</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
@@ -68,14 +158,11 @@ const PowerUpOutcomePage = () => {
                 </div>
                 
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{item.title}</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    {item.creator}
+                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 flex-shrink-0" />
+                    {getCredibilitySubtitle(item)}
                   </CardDescription>
-                  <div className="flex items-center gap-2 text-xs text-gold/80">
-                    <Sparkles className="h-3 w-3" />
-                    {item.origin}
-                  </div>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
@@ -85,14 +172,9 @@ const PowerUpOutcomePage = () => {
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span className="text-xs">{item.duration}</span>
-                </div>
-                    {item.creator && (
-                      <span className="text-[10px] text-muted-foreground/70 text-right italic max-w-[50%] leading-tight">
-                        {item.creator}
-                      </span>
-                    )}
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{getCompletionTracking(item)}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -131,14 +213,11 @@ const PowerUpOutcomePage = () => {
                 </div>
                 
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{item.title}</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    {item.creator}
+                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 flex-shrink-0" />
+                    {getCredibilitySubtitle(item)}
                   </CardDescription>
-                  <div className="flex items-center gap-2 text-xs text-gold/80">
-                    <Sparkles className="h-3 w-3" />
-                    {item.origin}
-                  </div>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
@@ -146,18 +225,11 @@ const PowerUpOutcomePage = () => {
                     {item.storyHook}
                   </p>
                   
-                  {item.usedBy && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-                      <TrendingUp className="h-3 w-3" />
-                      <span className="text-[10px]">{item.usedBy}</span>
-                    </div>
-                  )}
-                  
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span className="text-xs">{item.duration}</span>
-                </div>
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{getCompletionTracking(item)}</span>
+                    </div>
                     {item.steps && (
                       <span className="text-[10px] text-muted-foreground/70">
                         {item.steps} steps
@@ -194,15 +266,18 @@ const PowerUpOutcomePage = () => {
                   </div>
                 </div>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{item.title}</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">{item.creator}</CardDescription>
+                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 flex-shrink-0" />
+                    {getCredibilitySubtitle(item)}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">{item.duration} min</span>
+                      <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
                     {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
                   </div>

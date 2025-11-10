@@ -115,7 +115,7 @@ const RecalibrateMode = () => {
             Reset. Restore. Refocus. — Master Your Mental Edge
           </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Curated soundscapes, guided sessions, and micro-practices, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.
+            Curated Sonic Studio, Guided Sessions and Micro Exercises, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.
           </p>
         </div>
       </div>
