@@ -1,5 +1,5 @@
 
-import { UsersRound, Home, Zap, BarChart3 } from "lucide-react";
+import { UsersRound, Home, Compass, BarChart3 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const MainNavigation = () => {
@@ -20,6 +20,7 @@ const MainNavigation = () => {
     "/recalibrate/power-up",
     "/recalibrate/breathing",
     "/recalibrate/pause",
+    "/recalibrate/presence",
     "/recalibrate/flow-state"
   ];
 
@@ -31,8 +32,8 @@ const MainNavigation = () => {
       isActive: location.pathname === "/executive-home"
     },
     { 
-      icon: Zap, 
-      label: "Sanctuary", 
+      icon: Compass, 
+      label: "Recalibrate", 
       route: "/recalibrate",
       isActive: recalibratePages.some(path => location.pathname.startsWith(path.split('/').slice(0, 3).join('/'))) || location.pathname === "/recalibrate"
     },

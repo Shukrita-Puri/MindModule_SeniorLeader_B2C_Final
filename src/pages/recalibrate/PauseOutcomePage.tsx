@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Sparkles, TrendingUp } from "lucide-react";
-import GlobalHeader from "@/components/GlobalHeader";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
 import { getContentByCategory } from "@/data/practicesAndSoundscapes";
 
@@ -26,31 +26,26 @@ const PauseOutcomePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <GlobalHeader />
+      <TopNavigation backPath="/recalibrate" />
       
       {/* Minimal Header */}
       <div className="relative pt-20 pb-6 px-6 max-w-4xl mx-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/recalibrate')}
-          className="absolute top-4 left-4"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
         <h1 className="text-4xl md:text-5xl font-headline font-semibold text-foreground mb-2">
-          Pause
+          Pause Mastery
         </h1>
-        <p className="text-muted-foreground text-base font-body">Reset and restore through breathing and calming sounds</p>
+        <p className="text-muted-foreground text-base font-body">Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.</p>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">
         {/* Soundscapes Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
-            <span>Sonic Restoration</span>
-            <Badge variant="outline" className="text-xs">{soundscapes.length} soundscapes</Badge>
-          </h2>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-2xl font-headline text-foreground">Sonic Sessions</h2>
+              <Badge variant="outline" className="text-xs">{soundscapes.length} Sonic Sessions</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {soundscapes.map((item) => (
               <Card
@@ -106,11 +101,14 @@ const PauseOutcomePage = () => {
         </section>
 
         {/* Guided Practices Section */}
-        <section>
-          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
-            <span>Structured Reset</span>
-            <Badge variant="outline" className="text-xs">{practices.length} practices</Badge>
-          </h2>
+        <section className="mb-12">
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-2xl font-headline text-foreground">Guided Practices</h2>
+              <Badge variant="outline" className="text-xs">{practices.length} Mastery Sessions</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground italic">intentional exercises drawn from ancient traditions and elite performance protocols</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {practices.map((item) => (
               <Card
@@ -174,10 +172,13 @@ const PauseOutcomePage = () => {
 
         {/* Micro Practices Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-headline text-foreground mb-6 flex items-center gap-2">
-            <span>Quick Reset Tools</span>
-            <Badge variant="outline" className="text-xs">{microPractices.length} practices</Badge>
-          </h2>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-2xl font-headline text-foreground">Micro Tools</h2>
+              <Badge variant="outline" className="text-xs">{microPractices.length} Micro Exercises</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {microPractices.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
@@ -216,11 +217,11 @@ const PauseOutcomePage = () => {
           <div className="h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mb-8" />
           <p className="text-muted-foreground mb-4">Looking for something else?</p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button variant="outline" onClick={() => navigate('/recalibrate/power-up')}>
-              Need Energy? Try Power Up →
-            </Button>
             <Button variant="outline" onClick={() => navigate('/recalibrate/presence')}>
-              Need Focus? Try Presence →
+              Flow Mastery →
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/recalibrate/power-up')}>
+              Renewal Mastery →
             </Button>
           </div>
         </div>

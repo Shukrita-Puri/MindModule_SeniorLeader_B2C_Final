@@ -17,25 +17,25 @@ const RecalibrateMode = () => {
 
   const tools = [
     {
-      id: "power-up", 
-      title: "Power Up",
-      description: "Energy boost before big moments or during low energy moments",
-      illustration: architecturalPowerUp,
-      path: "/recalibrate/power-up"
-    },
-    {
       id: "pause",
-      title: "Pause",
-      description: "Breathing exercises and calming sounds for reset and restoration",
+      title: "Pause Mastery",
+      description: "Reset and restore composure, regain clarity, and maintain executive poise, in moments of intensity.",
       illustration: architecturalPause,
       path: "/recalibrate/pause"
     },
     {
       id: "presence",
-      title: "Presence",
-      description: "Deep focus sessions and soundscapes for peak performance",
+      title: "Flow Mastery",
+      description: "Enter deep focus, accelerate productivity, and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence"
+    },
+    {
+      id: "power-up", 
+      title: "Renewal Mastery",
+      description: "Rebuild energy, resilience, and readiness for high-stakes moments.",
+      illustration: architecturalPowerUp,
+      path: "/recalibrate/power-up"
     }
   ];
 
@@ -107,12 +107,15 @@ const RecalibrateMode = () => {
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         
-        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
           <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-            Sanctuary
+            Recalibrate Studio
           </h1>
           <p className="text-lg font-subheadline italic text-muted-foreground">
-            Reset. Restore. Refocus.
+            Reset. Restore. Refocus. — Master Your Mental Edge
+          </p>
+          <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Curated soundscapes, guided sessions, and micro-practices, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.
           </p>
         </div>
       </div>
