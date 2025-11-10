@@ -3,6 +3,14 @@
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
 
+export interface PracticeStep {
+  title: string;
+  instruction: string;
+  duration: number;
+  breathingPattern?: string;
+  wisdomNote?: string;
+}
+
 export interface SanctuaryContent {
   id: string;
   title: string;
@@ -19,6 +27,17 @@ export interface SanctuaryContent {
   audioSrc?: string;
   steps?: number;
   instructions?: string[];
+  
+  // Rich metadata for soundscapes
+  fullStory?: string;
+  technique?: string;
+  benefits?: string[];
+  completionQuote?: string;
+  
+  // Rich metadata for guided practices
+  whatYouNeed?: string[];
+  expectedOutcomes?: string[];
+  practiceSteps?: PracticeStep[];
 }
 
 export const sanctuaryContent: SanctuaryContent[] = [
@@ -78,7 +97,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Drawn from Tibetan Buddhist singing bowl traditions",
     storyHook: "Used to reduce stress, restore emotional balance, and create a sense of grounded presence through harmonic resonance.",
     thumbnail: "/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png",
-    audioSrc: "/soundscapes/harmonic-calm.mp3"
+    audioSrc: "/soundscapes/harmonic-calm.mp3",
+    fullStory: "For over a thousand years, Tibetan Buddhist monks have used singing bowls as sacred instruments for meditation and healing. These bronze bowls, traditionally crafted in the Himalayan regions, produce harmonic overtones that are believed to align the body's energy centers and quiet the restless mind. The practice was traditionally reserved for monastic meditation halls, where monks would strike and circle the bowls' rims to create cascading waves of sound that filled the space with resonance. Today, this ancient tradition offers a pathway to restore emotional balance and cultivate a sense of grounded presence amid modern life's turbulence.",
+    technique: "Find a comfortable seated or lying position. Close your eyes and allow your body to settle. As the singing bowls begin, notice how the sound waves seem to move through your body rather than just your ears. Don't try to control your thoughts—simply let the harmonic frequencies wash over you like gentle waves. When your mind wanders, use the sound as an anchor to return to the present moment. Notice how different tones resonate in different parts of your body. This is not passive listening; it's active presence with sound as your guide.",
+    benefits: [
+      "Reduces stress and anxiety through harmonic resonance",
+      "Restores emotional balance and inner stability",
+      "Cultivates deep relaxation and nervous system regulation",
+      "Anchors attention in present-moment awareness",
+      "Promotes grounded presence and mental clarity"
+    ],
+    completionQuote: "In stillness, the mind finds its natural harmony. Like ripples on a pond, thoughts settle into peace."
   },
   {
     id: "deep-calm-forest-bathing",
@@ -91,7 +120,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Inspired by ancient Japanese Shinrin-yoku (forest bathing) practices",
     storyHook: "Used to cultivate deep calm, restore mental clarity, and anchor attention in the present through gentle rain and subtle village sounds.",
     thumbnail: "/lovable-uploads/7a5dd5f2-96fb-485c-a58f-0280491740c1.png",
-    audioSrc: "/soundscapes/forest-bathing.mp3"
+    audioSrc: "/soundscapes/forest-bathing.mp3",
+    fullStory: "In the 1980s, the Japanese government formally recognized Shinrin-yoku—'forest bathing'—as a cornerstone of preventive healthcare and healing. But the practice itself is ancient, rooted in Shinto beliefs about the sacred presence of nature. Japanese physicians discovered that simply being present in a forest environment significantly reduced stress hormones, lowered blood pressure, and improved immune function. The practice isn't about hiking or exercise—it's about opening your senses fully to the forest atmosphere: the rustle of leaves, the patter of rain, the distant sounds of village life. This soundscape captures that essence, transporting you to a rain-soaked forest where time moves slowly and the mind finds space to breathe.",
+    technique: "Close your eyes and imagine yourself standing at the edge of an ancient forest after a gentle rain. Feel the cool air on your skin. As you listen, notice the layers: the soft rain, the rustling leaves, the distant village sounds. Don't try to identify every sound—instead, let the soundscape become a living environment around you. Breathe deeply and slowly, as if inhaling the forest air itself. When thoughts arise, acknowledge them gently and return your attention to the natural sounds. This is not an escape from life, but a return to your natural state of calm awareness.",
+    benefits: [
+      "Cultivates profound calm and nervous system rest",
+      "Restores mental clarity and cognitive freshness",
+      "Anchors attention in present-moment awareness",
+      "Reduces rumination and mental overload",
+      "Connects you to natural rhythms and grounding presence"
+    ],
+    completionQuote: "In nature's embrace, the mind remembers how to be still. The forest teaches what words cannot."
   },
   {
     id: "pre-mission-calm",
@@ -157,7 +196,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Inspired by monastic chanting and harmonic rituals in Himalayan-style summit monasteries",
     storyHook: "Used to sharpen cognitive clarity, sustain deep focus, and expand awareness through layered chants, resonant gongs, and ethereal chimes.",
     thumbnail: "/lovable-uploads/ae4d66fb-b3ea-4ef5-bfff-f228c447224c.png",
-    audioSrc: "/soundscapes/monastic-resonance.mp3"
+    audioSrc: "/soundscapes/monastic-resonance.mp3",
+    fullStory: "High in the Himalayan mountains, Buddhist monks have practiced contemplative chanting for centuries as a method to sharpen awareness and sustain deep concentration. The resonant tones of their voices, combined with the deep reverberations of temple gongs and the crystalline clarity of meditation chimes, create an acoustic environment that naturally draws the mind into focused presence. These monasteries, often perched at altitudes where the air is thin and silence profound, became laboratories for understanding how sound can shape consciousness. The layered harmonics aren't merely beautiful—they're precisely calibrated to guide the mind from distraction into clear, sustained attention.",
+    technique: "Sit with an upright but relaxed posture. As the chanting begins, let the low tones anchor your awareness like roots into the earth. Notice how the gongs add depth, and the chimes add clarity—three layers working together. Don't fight for focus; instead, let the sound environment create a container for your attention. When distractions arise, use the resonant chants as your anchor point. This is active listening: you're training your mind to sustain focus by riding the waves of harmonic sound. With practice, this becomes a gateway to hours of clear, effortless concentration.",
+    benefits: [
+      "Sharpens cognitive clarity and mental precision",
+      "Sustains deep focus for extended periods",
+      "Expands awareness while maintaining concentration",
+      "Trains attention through harmonic resonance",
+      "Reduces mental fatigue and cognitive drift"
+    ],
+    completionQuote: "Attention is not forced—it is cultivated. In the monastery of the mind, every sound is a teacher."
   },
   {
     id: "sustained-focus-choir-harmonic",
@@ -170,7 +219,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Inspired by sacred harmonic compositions in grand cathedrals",
     storyHook: "Used to enhance focus, cultivate mindful presence, and align energy through layered choirs, bells, and reverberant harmonics.",
     thumbnail: "/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png",
-    audioSrc: "/soundscapes/cathedral-choir-flow.mp3"
+    audioSrc: "/soundscapes/cathedral-choir-flow.mp3",
+    fullStory: "The great cathedrals of Europe were designed not just as buildings but as instruments—acoustic spaces engineered to amplify the human voice into something transcendent. Gregorian chant and sacred polyphony weren't simply religious music; they were technologies for altering consciousness through harmonic resonance. The layered voices, the deep bells, the reverberant acoustics—all combined to create an environment where individual awareness could merge with something larger while maintaining crystalline focus. Modern neuroscience has confirmed what medieval monks knew intuitively: these harmonic patterns synchronize brainwaves, enhance coherence, and create optimal states for sustained mental clarity.",
+    technique: "Find a comfortable position where you can remain alert yet relaxed. As the choir begins, imagine yourself standing in the center of a vast cathedral. The voices aren't coming from outside—they're surrounding you, creating a sonic architecture. Let the harmonics wash over you while keeping a thread of awareness on your breath. Notice how the bells punctuate moments of transition, how the reverb creates space. This isn't about passive listening—you're learning to hold sustained focus within a rich, complex environment. The choir becomes a mirror for your mind: multiple layers working in harmony toward a single purpose.",
+    benefits: [
+      "Enhances sustained focus and mental endurance",
+      "Cultivates mindful presence in complex environments",
+      "Aligns internal energy through harmonic resonance",
+      "Reduces mental fragmentation and distraction",
+      "Builds capacity for long-form concentration"
+    ],
+    completionQuote: "In the cathedral of consciousness, every voice matters. Focus is not singular—it is harmonious."
   },
   {
     id: "energised-focus-didgeridoo-bowls",
@@ -183,7 +242,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Inspired by didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
     storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
     thumbnail: "/lovable-uploads/cc7c715b-a0d1-4464-b0e1-d338c14452a0.png",
-    audioSrc: "/soundscapes/didgeridoo-bowls.mp3"
+    audioSrc: "/soundscapes/didgeridoo-bowls.mp3",
+    fullStory: "This soundscape bridges two ancient traditions: the Indigenous Australian didgeridoo, used for healing and ceremony for over 40,000 years, and Tibetan singing bowls, crafted for meditation and consciousness work. The didgeridoo's low-frequency drones—often below 100Hz—activate the body's primal energy centers, creating a sense of grounded vitality. The singing bowls then enter, their crystalline overtones elevating that raw energy into precise mental focus. It's a two-phase journey: first awakening the body's core power, then channeling that momentum into calm, sustained attention. Warriors used the didgeridoo before battle; monks use bowls for marathon meditation sessions. Together, they create a unique state: energized yet centered, powerful yet precise.",
+    technique: "This is a two-phase practice. Phase 1 (Didgeridoo): Feel the low frequencies in your body—your chest, your belly, your legs. Don't just hear it; let it vibrate through you. This awakens your core energy and vitality. Phase 2 (Singing Bowls): As the bowls enter, feel the energy shift upward—into your heart, your throat, your head. The raw power becomes refined focus. Breathe deeply throughout. This isn't relaxation—it's energized presence. You're learning to transform primal momentum into laser-sharp attention.",
+    benefits: [
+      "Awakens core vitality and physical energy",
+      "Channels raw energy into precise mental focus",
+      "Sustains attention with energized presence",
+      "Balances activation with calm clarity",
+      "Builds capacity for high-intensity concentration"
+    ],
+    completionQuote: "True focus is not stillness—it is energy with direction. Power without presence is chaos; presence without power is passive."
   },
   {
     id: "warrior-drums-presence",

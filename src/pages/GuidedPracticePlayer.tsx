@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import BreathingAnimation from "@/components/BreathingAnimation";
 import TopNavigation from "@/components/simulation/TopNavigation";
+import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 
 interface PracticeStep {
   stepNumber: number;
@@ -42,6 +43,40 @@ interface PracticeData {
   completionMessage: string;
 }
 
+// Practice data now comes from practicesAndSoundscapes.ts
+const getPracticeData = (id: string): PracticeData | null => {
+  const content = getContentById(id);
+  if (!content || content.contentType !== "guided-practice") return null;
+  
+  // Convert imported practice steps to local format with step numbers
+  const steps: PracticeStep[] = content.practiceSteps?.map((step, index) => ({
+    stepNumber: index + 1,
+    title: step.title,
+    instruction: step.instruction,
+    duration: step.duration,
+    breathingPattern: step.breathingPattern,
+    wisdomNote: step.wisdomNote
+  })) || [];
+  
+  const totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
+  
+  return {
+    id: content.id,
+    title: content.title,
+    category: content.category,
+    totalDuration,
+    difficulty: content.difficulty || "Beginner",
+    origin: content.origin || "",
+    fullStory: content.fullStory || "",
+    whatYouNeed: content.whatYouNeed || [],
+    expectedOutcomes: content.expectedOutcomes || [],
+    usedBy: content.usedBy || "",
+    steps,
+    completionMessage: content.completionQuote || "You've completed the practice."
+  };
+};
+
+// Legacy practice data for backwards compatibility
 const practiceData: Record<string, PracticeData> = {
   "box-breathing": {
     id: "box-breathing",
@@ -662,7 +697,8 @@ const GuidedPracticePlayer = () => {
   const [stepTimeLeft, setStepTimeLeft] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
-  const practice = id ? practiceData[id] : null;
+  // Try to get practice from new data structure first, fallback to legacy
+  const practice = id ? (getPracticeData(id) || practiceData[id]) : null;
 
   useEffect(() => {
     if (isPlaying && view === "practice" && practice) {

@@ -20,21 +20,29 @@ import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { toast } from "sonner";
+import { getContentById } from "@/data/practicesAndSoundscapes";
 
-interface SoundscapeData {
-  id: string;
-  title: string;
-  category: string;
-  duration: number;
-  origin: string;
-  fullStory: string;
-  creator: string;
-  technique: string;
-  benefits: string[];
-  completionQuote: string;
-}
+// Soundscape data now comes from practicesAndSoundscapes.ts
+const getSoundscapeData = (id: string) => {
+  const content = getContentById(id);
+  if (!content || content.contentType !== "soundbath") return null;
+  
+  return {
+    id: content.id,
+    title: content.title,
+    category: content.category,
+    duration: content.duration * 60, // Convert minutes to seconds
+    origin: content.origin || content.storyHook,
+    fullStory: content.fullStory || "",
+    creator: content.creator,
+    technique: content.technique || "",
+    benefits: content.benefits || [],
+    completionQuote: content.completionQuote || ""
+  };
+};
 
-const soundscapeData: Record<string, SoundscapeData> = {
+// Legacy soundscape data for backwards compatibility
+const soundscapeData: Record<string, any> = {
   "tibetan-bowls": {
     id: "tibetan-bowls",
     title: "Tibetan Bowl Resonance",
@@ -262,6 +270,10 @@ const SoundscapePlayer = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Try to get soundscape from new data structure first, fallback to legacy
+  const soundscape = id ? (getSoundscapeData(id) || soundscapeData[id]) : null;
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(70);
@@ -277,7 +289,6 @@ const SoundscapePlayer = () => {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [isInQueue, setIsInQueue] = useState(false);
 
-  const soundscape = id ? soundscapeData[id] : null;
   const displayDuration = actualDuration || soundscape?.duration || 0;
 
   useEffect(() => {
