@@ -498,7 +498,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "space-between-stimulus-response",
-    title: "The Space Between Stimulus and Response",
+    title: "Inspired from Viktor Frankl",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],
@@ -506,7 +506,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Viktor Frankl",
     origin: "\"Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth and our freedom.\" — Viktor Frankl",
-    storyHook: "The gap between what happens and how you react is where mastery lives. Expand that space.",
+    storyHook: "The space between stimulus and response",
     essence: "The gap between what happens and how you react is where mastery lives. Expand that space.",
     parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
     cue: "\"Breathe. Space. Choose.\"",

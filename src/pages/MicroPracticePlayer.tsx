@@ -60,7 +60,7 @@ const MicroPracticePlayer = () => {
 
         {/* Origin Quote */}
         {practice.origin && (
-          <Card className="mb-6 bg-muted/30">
+          <Card className="mb-6 bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6">
               <p className="text-sm leading-relaxed italic text-foreground">{practice.origin}</p>
             </CardContent>
@@ -70,7 +70,7 @@ const MicroPracticePlayer = () => {
         {/* Essence, Parallel, Cue, Used For */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {practice.essence && (
-            <Card>
+            <Card className="bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
               <CardContent className="pt-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Essence</h3>
                 <p className="text-sm text-foreground">{practice.essence}</p>
@@ -78,7 +78,7 @@ const MicroPracticePlayer = () => {
             </Card>
           )}
           {practice.parallel && (
-            <Card>
+            <Card className="bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
               <CardContent className="pt-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Parallel</h3>
                 <p className="text-sm text-foreground">{practice.parallel}</p>
@@ -86,7 +86,7 @@ const MicroPracticePlayer = () => {
             </Card>
           )}
           {practice.cue && (
-            <Card>
+            <Card className="bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
               <CardContent className="pt-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Cue</h3>
                 <p className="text-sm font-medium text-foreground">{practice.cue}</p>
@@ -94,7 +94,7 @@ const MicroPracticePlayer = () => {
             </Card>
           )}
           {practice.usedBy && (
-            <Card>
+            <Card className="bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
               <CardContent className="pt-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Used For</h3>
                 <p className="text-sm text-foreground">{practice.usedBy}</p>
@@ -105,7 +105,7 @@ const MicroPracticePlayer = () => {
 
         {/* What to Actually Do */}
         {practice.instructions && practice.instructions.length > 0 && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-semibold">What to Actually Do</h2>
               <ol className="space-y-4">
@@ -124,7 +124,7 @@ const MicroPracticePlayer = () => {
 
         {/* Real Examples */}
         {practice.realExamples && practice.realExamples.length > 0 && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6 space-y-6">
               <h2 className="text-lg font-semibold">Real Examples</h2>
               {practice.realExamples.map((example, index) => (
@@ -146,7 +146,7 @@ const MicroPracticePlayer = () => {
 
         {/* Why This Works */}
         {practice.whyThisWorks && (
-          <Card className="mb-8 bg-muted/30">
+          <Card className="mb-8 bg-background shadow-[0_0_30px_rgba(0,0,0,0.08)]">
             <CardContent className="pt-6">
               <h2 className="text-lg font-semibold mb-3">Why This Works</h2>
               <p className="text-sm leading-relaxed text-foreground">{practice.whyThisWorks}</p>
