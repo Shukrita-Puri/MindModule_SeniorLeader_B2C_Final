@@ -506,7 +506,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Inspired from Viktor Frankl's choice of response",
     origin: "\"Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth and our freedom.\" — Viktor Frankl",
-    storyHook: "Expand the space between trigger and reaction to choose your response wisely",
+    storyHook: "For high-pressure moments, provocations, and receiving criticism with composure",
     essence: "The gap between what happens and how you react is where mastery lives. Expand that space.",
     parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
     cue: "\"Breathe. Space. Choose.\"",
