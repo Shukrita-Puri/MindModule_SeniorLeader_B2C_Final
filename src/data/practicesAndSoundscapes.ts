@@ -472,20 +472,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PAUSE Micro Practices
   {
-    id: "tactical-pause",
-    title: "60-Second Reset Through Military Pause",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'between-meetings', 'gentle', 'quick-reset'],
-    duration: 2,
-    difficulty: "beginner",
-    creator: "Military decision-making technique",
-    storyHook: "Special operations teams pause 60 seconds before entering high-risk zones to reset nervous system.",
-    thumbnail: pauseMauve,
-    steps: 3,
-    subType: "tool"
-  },
-  {
     id: "grounding-touch",
     title: "Instant Calm Through Somatic Touch",
     contentType: "micro-practice",
@@ -493,11 +479,40 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['earth', 'anxiety-relief', 'gentle', 'nervous-system'],
     duration: 2,
     difficulty: "beginner",
-    creator: "Somatic therapy technique",
-    storyHook: "Simple touch technique that calms the vagus nerve — therapists use this for immediate anxiety relief.",
+    creator: "Thomas Hanna, founder of Somatics",
+    origin: "\"Your body is the ground of your being. It holds the key to safety, presence, and peace.\" — Adapted from Thomas Hanna, founder of Somatics",
+    storyHook: "For moments of anxiety, overwhelm, panic, emotional flooding, or after receiving hard news",
+    essence: "The body can calm the mind faster than thoughts can. When you touch with awareness, you signal safety directly to your nervous system.",
+    parallel: "Polyvagal theory; vagus nerve activation through self-touch; interoceptive awareness; embodied safety",
+    cue: "\"Touch. Feel. Soften.\"",
+    usedBy: "Moments of anxiety, overwhelm, panic, emotional flooding, or after receiving hard news",
     thumbnail: pauseMauve,
-    steps: 3,
-    subType: "tool"
+    steps: 4,
+    subType: "tool",
+    instructions: [
+      "Notice the body alarm (3 seconds): You feel the rush: heart pounding, throat tight, chest heavy, shoulders rising. Name it: \"My body is on alert.\" (Simply naming the state engages the prefrontal cortex and begins to downshift arousal.)",
+      "Make contact — the anchor touch (5 seconds): Choose one: Hand on heart → activates warmth, trust, and oxytocin release | Hand on belly → deepens diaphragmatic breathing | One palm on chest, one on belly → synchronizes upper and lower body regulation | Or place both hands on your thighs → grounding through physical support. As you place your hands, apply light pressure. Feel your own weight and warmth.",
+      "The settling breath (10 seconds): Inhale gently through nose for 4 seconds, hold for 2 seconds, exhale slowly through mouth for 6 seconds. (Lengthening the exhale activates the parasympathetic branch of the vagus nerve.) With each exhale, silently say: \"It's safe to soften.\"",
+      "Soothing through micro-movement (ongoing): After 15–20 seconds, notice what your body wants next — maybe a sigh, a yawn, or a shoulder drop. Let it happen. Don't manage it. That's your nervous system self-correcting. Ask yourself: \"What does my body need to feel 5% safer right now?\" Then do that — maybe more pressure, slower breath, or loosening your jaw."
+    ],
+    realExamples: [
+      {
+        scenario: "Before a difficult conversation",
+        trigger: "You feel a knot in your stomach, voice tightening.",
+        response: "One hand on belly, one on chest. Breathe slowly. Whisper: \"I can stay open.\" Now when you speak, your tone carries steadiness instead of tension."
+      },
+      {
+        scenario: "After reading distressing news or an emotional text",
+        trigger: "You feel shaky, flooded, disconnected.",
+        response: "Cross arms over your chest and tap each shoulder alternately (Butterfly Hug). After 20 seconds, your breath steadies, your eyes refocus. You've re-entered your body."
+      },
+      {
+        scenario: "In a moment of panic or overwhelm at work",
+        trigger: "You feel dizzy, everything feels \"too much.\"",
+        response: "Press both feet firmly into the floor, palms flat on your thighs. Feel the ground holding you. Say quietly: \"Here. Now. Supported.\""
+      }
+    ],
+    whyThisWorks: "Your skin is a direct access point to your autonomic nervous system. Gentle, intentional touch releases oxytocin and endorphins, lowers cortisol, and slows the heart rate. According to polyvagal theory (Stephen Porges), warm, steady contact activates the vagal brake — a physiological mechanism that signals safety to the brain. When you self-touch with presence, you're not \"comforting yourself like a child.\" You're sending a biological message: \"The threat has passed. You are safe enough to relax.\" The body leads; the mind follows."
   },
   {
     id: "space-between-stimulus-response",
