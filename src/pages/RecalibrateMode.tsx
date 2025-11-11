@@ -49,34 +49,33 @@ const RecalibrateMode = () => {
   const renderToolSelection = () => (
     <>
       {/* Tools Selection */}
-      <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
+      <div className="flex-1 px-6 md:px-8 max-w-6xl mx-auto pb-32 pt-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
               onClick={() => handleToolSelect(tool.id)}
-              className="group cursor-pointer animate-fade-in"
+              className="group cursor-pointer animate-fade-in h-[500px]"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500">
-                {/* Image Container */}
-                <div className="relative w-full aspect-square overflow-hidden bg-card">
-                  <img 
-                    src={tool.illustration} 
-                    alt={tool.title}
-                    className="w-full h-full object-cover img-card img-taupe-overlay group-hover:scale-105 transition-all duration-700"
-                  />
-                  {/* Subtle gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-transparent" />
-                </div>
+              <div className="relative h-full bg-card border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500">
+                {/* Full-height Image Background */}
+                <img 
+                  src={tool.illustration} 
+                  alt={tool.title}
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                />
                 
-                {/* Content */}
-                <div className="p-8 space-y-3">
-                  <h3 className="text-2xl font-headline font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
+                {/* Content Overlay at Bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 space-y-3">
+                  <h3 className="text-2xl font-headline font-semibold text-white group-hover:text-primary transition-colors duration-300">
                     {tool.title}
                   </h3>
                   
-                  <p className="text-sm text-muted-foreground leading-relaxed font-body">
+                  <p className="text-sm text-white/90 leading-relaxed font-body">
                     {tool.description}
                   </p>
                 </div>
