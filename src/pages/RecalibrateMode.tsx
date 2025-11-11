@@ -64,6 +64,10 @@ const RecalibrateMode = () => {
                   src={tool.illustration} 
                   alt={tool.title}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                  onError={(e) => {
+                    console.error(`Failed to load image: ${tool.illustration}`);
+                    e.currentTarget.style.display = 'none';
+                  }}
                 />
                 
                 {/* Gradient Overlay */}
@@ -102,7 +106,7 @@ const RecalibrateMode = () => {
       <TopNavigation backPath="/executive-home" />
       
       {/* Hero Banner - Architectural Style */}
-      <div className="relative h-auto py-12 overflow-hidden">
+      <div className="relative h-auto py-16 pt-24 overflow-hidden">
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         
@@ -114,7 +118,7 @@ const RecalibrateMode = () => {
             Reset. Restore. Refocus. — Master Your Mental Edge
           </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Curated Sonic Studio, Guided Sessions and Micro Exercises, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.
+            Curated Sonic Library, Guided Sessions and Micro Exercises, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.
           </p>
         </div>
       </div>
