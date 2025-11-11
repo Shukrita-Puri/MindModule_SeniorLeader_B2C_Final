@@ -214,64 +214,128 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // POWER-UP Practices
   {
-    id: "kapalabhati",
-    title: "Kapalabhati Pranayama",
+    id: "kapalabhati-pranayama",
+    title: "Energy Surge Through Kapalabhati Pranayama",
     contentType: "guided-practice",
     category: "power-up",
     tags: ['fire', 'energy-boost', 'intense', 'morning', 'breathwork'],
     duration: 6,
     difficulty: "intermediate",
-    origin: "Ancient Yogic Practice | Hatha Yoga",
-    storyHook: "For thousands of years, yogis have used this rapid-fire breathing to generate instant energy and mental clarity—ancient alternative to caffeine.",
+    origin: "Ancient Yogic Energizing Breath",
+    storyHook: "Yogis used this rapid-fire breathing for thousands of years to generate instant vitality—nature's alternative to caffeine.",
     usedBy: "Yogis, Warriors, High Performers",
     thumbnail: renewalStretchIllustration,
     steps: 6,
-    creator: "Skull Shining Breath"
+    creator: "Ancient Yogic Energizing Breath",
+    audioSrc: "/guided-practices/kapalabhati-pranayama.mp3",
+    fullStory: "Kapalabhati, meaning 'skull shining' in Sanskrit, is an ancient yogic cleansing technique from the Hatha Yoga Pradipika. Yogis discovered that rapid, forceful exhalations generate immediate vitality and mental clarity. The vigorous diaphragmatic pumping creates an internal organ massage, stimulates the sympathetic nervous system, and floods the body with oxygen and energy.",
+    whatYouNeed: [
+      "⚠️ DO NOT PRACTICE IF: Pregnant, heart disease, high blood pressure, hernia, gastric ulcers, recent abdominal surgery, epilepsy/seizures, vertigo/migraine, severe asthma/COPD",
+      "⚠️ PRACTICE WITH SUPERVISION: Diabetes, mild back/neck problems",
+      "Essential: Empty stomach (at least 2 hours after eating)",
+      "Essential: Comfortable seated position with straight spine",
+      "Essential: Box of tissues nearby (practice clears sinuses)",
+      "Essential: Water to drink afterward",
+      "Best Practiced: First thing in the morning, before physical workouts, mid-afternoon energy slumps, before important presentations"
+    ],
+    expectedOutcomes: [
+      "Immediate: Surge of energy and vitality",
+      "Immediate: Complete mental clarity and alertness",
+      "Immediate: Feeling of internal heat and activation",
+      "Immediate: Tingling sensations throughout body",
+      "Regular Practice: Significantly increased energy levels",
+      "Regular Practice: Improved lung capacity and respiratory health",
+      "Regular Practice: Stronger core muscles",
+      "Regular Practice: Enhanced digestive fire and metabolism"
+    ],
+    practiceSteps: [
+      { title: "Preparation & Technique", instruction: "Sit with a straight spine. Place one hand on your belly. Practice the breath: Sharp, forceful exhale through nose (belly contracts), passive inhale (belly relaxes). The exhale is active, the inhale is automatic.", duration: 1, wisdomNote: "This is the opposite of normal breathing. The exhale is the power stroke." },
+      { title: "First Activation Round", instruction: "Begin 30 rapid breaths. Pump your belly—sharp exhale, passive inhale. Find your rhythm. At the end, inhale deeply, hold for 10 seconds, then exhale completely.", duration: 1, breathingPattern: "30 rapid breaths + hold" },
+      { title: "Second Power Round", instruction: "Now 50 rapid breaths. Go faster, deeper. Feel the heat building. Finish with deep inhale, hold for 15 seconds, then controlled exhale.", duration: 1.5, breathingPattern: "50 rapid breaths + hold" },
+      { title: "Peak Performance Round", instruction: "Final round: 70-100 rapid breaths. Maximum power. Your body is a furnace. Finish with deep inhale, hold as long as comfortable (20-30 seconds), then exhale slowly.", duration: 2, breathingPattern: "70-100 rapid breaths + extended hold", wisdomNote: "Warriors used this before battle. You've awakened your inner fire." },
+      { title: "Integration Breath", instruction: "Return to normal breathing. Notice the surge of energy, the clarity, the tingling. This is pranic activation—life force coursing through you.", duration: 0.5 },
+      { title: "Seal & Rise", instruction: "Take one final deep breath. Set your intention for the energized state you've created. Now rise and channel this power into your day.", duration: 0.5, wisdomNote: "Ancient yogis called this 'skull shining' because it illuminates the mind with vitality." }
+    ]
   },
   {
     id: "spartan-battle-breath",
-    title: "The Spartan Battle Breath",
+    title: "Warrior Courage Through Spartan Battle Breath",
     contentType: "guided-practice",
     category: "power-up",
     tags: ['fire', 'pre-meeting', 'intense', 'warrior', 'activation'],
     duration: 7,
-    difficulty: "advanced",
-    origin: "Ancient Spartan Warrior Protocol | 480 BCE",
-    storyHook: "Before Thermopylae, 300 Spartans performed this ritual to enter 'menos'—divine battle-trance. Now access that fearless warrior state for any challenge.",
+    difficulty: "intermediate",
+    origin: "Ancient Greek Warrior Activation",
+    storyHook: "Before Thermopylae, Spartans performed this ritual to enter 'menos'—divine battle-trance. Access that fearless state for modern challenges.",
     usedBy: "Spartan Warriors, Athletes, Leaders",
     thumbnail: renewalStretchIllustration,
     steps: 6,
-    creator: "Ancient Greek Warrior Activation"
+    creator: "Ancient Greek Warrior Activation",
+    audioSrc: "/guided-practices/spartan-battle-breath.mp3",
+    fullStory: "Before the Battle of Thermopylae (480 BCE), Spartan warriors performed breathing rituals combined with battle cries to enter 'menos'—divine fury. Historical sources describe how they used rhythmic breathing and synchronized movements to create unified energy and fearless presence. Controlled hyperventilation increases adrenaline, reduces fear response, and creates a transcendent state of courage.",
+    whatYouNeed: [
+      "⚠️ DO NOT PRACTICE IF: Heart conditions, high blood pressure, pregnant, recent injuries, prone to panic attacks",
+      "Essential: Standing space where you can move and make noise",
+      "Essential: Privacy (you will shout)",
+      "Essential: Empty stomach",
+      "Optional: Physical prop to grip (simulates spear/sword)",
+      "Optional: Mirror to witness your transformation",
+      "Best Practiced: Before athletic competitions, challenging confrontations, performances, high-stakes moments"
+    ],
+    expectedOutcomes: [
+      "Immediate: Massive surge of adrenaline and energy",
+      "Immediate: Feeling of invincibility and fearlessness",
+      "Immediate: Complete mental focus and clarity",
+      "Immediate: Heightened physical strength and pain tolerance",
+      "Regular Practice: Significantly increased confidence and assertiveness",
+      "Regular Practice: Improved ability to face difficult situations",
+      "Regular Practice: Enhanced physical power and endurance",
+      "Regular Practice: Leadership qualities and commanding presence"
+    ],
+    practiceSteps: [
+      { title: "Warrior's Stance", instruction: "Stand with feet shoulder-width apart. Ground through your heels. Roll your shoulders back. Feel your spine lengthen. Close your eyes and visualize yourself as a warrior preparing for battle. Set your intention: What challenge are you facing?", duration: 1, wisdomNote: "The Spartans believed that physical posture shapes internal state. Stand like a warrior, become a warrior." },
+      { title: "Shield Wall Breathing", instruction: "Begin slow, deep breathing—4-second inhale through nose, 6-second exhale through mouth. With each breath, expand your chest like you're wearing armor. Feel yourself becoming larger, more powerful. Do 5 cycles.", duration: 1.5, breathingPattern: "Slow, powerful breathing" },
+      { title: "Battle March Activation", instruction: "Now march in place with forceful steps. Breathe with each step—inhale on two steps, exhale on two steps. Increase your pace. Feel your heartrate rising. Pump your arms. This is the approach to battle. Do 60 seconds.", duration: 2, breathingPattern: "Breathing synchronized with movement", wisdomNote: "Spartans marched as one. The collective rhythm created invincibility." },
+      { title: "The Paean - War Cry", instruction: "Take the deepest breath you can. As you exhale, release a primal battle cry—'HA!' or 'AHOO!' Use your full voice. Feel the vibration in your chest. Repeat 3 times, each louder than the last.", duration: 1.5, wisdomNote: "The paean expelled fear and summoned divine courage. Your voice is a weapon." },
+      { title: "Menos - Battle Trance", instruction: "Stand perfectly still. Eyes open. Breathe powerfully. You are the warrior, fully activated, absolutely fearless. Hold this state for 60 seconds. Feel the menos—divine fury channeled into calm, controlled power.", duration: 1, wisdomNote: "This is the state Spartans fought in: utterly calm, utterly lethal." },
+      { title: "Return of the Victor", instruction: "Slowly return to normal breathing. Place hand on heart. Bow your head. You've honored the ancient tradition. Carry this warrior energy into your challenge.", duration: 0.5, wisdomNote: "The battle is won before it begins. You are ready." }
+    ]
   },
   {
     id: "box-breathing",
-    title: "Box Breathing Reset",
+    title: "Tactical Composure Through Box Breathing",
     contentType: "guided-practice",
     category: "power-up",
     tags: ['fire', 'pre-meeting', 'moderate', 'tactical'],
     duration: 5,
     difficulty: "beginner",
     origin: "Navy SEAL Tactical Protocol",
-    storyHook: "Before high-stakes missions, Navy SEALs use this 4-4-4-4 breathing pattern to regulate heart rate and sharpen decision-making.",
-    usedBy: "Special Forces, Surgeons, Olympic Athletes",
+    storyHook: "Navy SEALs use this 4-4-4-4 breathing pattern before high-stakes missions to regulate heart rate and sharpen decision-making under pressure.",
+    usedBy: "Special Forces, Surgeons, First Responders, Athletes",
     thumbnail: renewalStretchIllustration,
     steps: 4,
-    creator: "Navy SEAL Tactical Protocol"
-  },
-  {
-    id: "wim-hof",
-    title: "Wim Hof Power Breathing",
-    contentType: "guided-practice",
-    category: "power-up",
-    tags: ['fire', 'energy-boost', 'intense', 'morning'],
-    duration: 15,
-    difficulty: "advanced",
-    origin: "Cold Exposure Protocol",
-    storyHook: "Dutch extreme athlete Wim Hof developed this technique to control the autonomic nervous system and boost energy.",
-    usedBy: "Athletes, Biohackers, Performance Seekers",
-    thumbnail: renewalStretchIllustration,
-    steps: 6,
-    creator: "Wim Hof Method"
+    creator: "Navy SEAL Tactical Protocol",
+    audioSrc: "/guided-practices/box-breathing.mp3",
+    fullStory: "Navy SEALs developed box breathing for tactical composure before high-stakes missions. The 4-4-4-4 pattern (inhale-hold-exhale-hold) activates the parasympathetic nervous system, creating calm alertness. Used by elite operators, surgeons, and first responders to make sharp decisions under extreme pressure.",
+    whatYouNeed: [
+      "Essential: Quiet space for 5 minutes",
+      "Essential: Comfortable seated position",
+      "Best Practiced: Before high-stakes decisions, stressful meetings, performance moments, anytime composure is needed"
+    ],
+    expectedOutcomes: [
+      "Immediate: Stress reduction within 60 seconds",
+      "Immediate: Enhanced mental clarity and focus",
+      "Immediate: Improved emotional control",
+      "Immediate: Lowered heart rate and blood pressure",
+      "Regular Practice: Greater ability to perform under pressure",
+      "Regular Practice: Improved decision-making in stressful situations"
+    ],
+    practiceSteps: [
+      { title: "Find Your Center", instruction: "Sit comfortably with spine straight but not rigid. Rest hands on lap. Close your eyes or soften your gaze. Take a few natural breaths to settle in.", duration: 0.5, wisdomNote: "SEALs begin every mission brief with this centering. Composure precedes action." },
+      { title: "Learn the Box Pattern", instruction: "The box has 4 equal sides: Inhale (4 counts) → Hold (4 counts) → Exhale (4 counts) → Hold (4 counts). Practice 3 rounds slowly to establish the rhythm.", duration: 1.5, breathingPattern: "4-4-4-4 pattern", wisdomNote: "This pattern brings your nervous system into perfect balance." },
+      { title: "Deep Practice Rounds", instruction: "Continue the box breathing for 8-10 complete rounds. Inhale through nose for 4, hold for 4, exhale through mouth for 4, hold empty for 4. Let the pattern become automatic. Your mind and body are now in sync.", duration: 2.5, breathingPattern: "Continuous 4-4-4-4 cycles", wisdomNote: "Three minutes of box breathing creates unshakeable composure." },
+      { title: "Return with Readiness", instruction: "Take one final deep breath. Open your eyes slowly. Notice the calm clarity. You're now in tactical mode—relaxed but ready, calm but alert.", duration: 0.5, wisdomNote: "You've mastered the breath. You've mastered the moment." }
+    ]
   },
 
   // PAUSE Practices
@@ -291,6 +355,36 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Tibetan Buddhist Lineage"
   },
   {
+    id: "pranayama-clarity",
+    title: "Pranayama Clarity Breath",
+    contentType: "guided-practice",
+    category: "pause",
+    tags: ['earth', 'decision-making', 'gentle', 'mental-clarity', 'calm'],
+    duration: 3,
+    difficulty: "beginner",
+    origin: "Ancient Yogic Pranayama | 3000+ years",
+    storyHook: "For over 3,000 years, yogis have used alternate nostril breathing to clear mental fog and balance the nervous system before important decisions.",
+    usedBy: "Yogis, Meditators, Decision Makers",
+    thumbnail: pauseVisual,
+    steps: 4,
+    creator: "Nadi Shodhana (Channel Purification)",
+    audioSrc: "/guided-practices/pranayama-clarity.mp3",
+    whatYouNeed: [
+      "Essential: Quiet space for 3-5 minutes",
+      "Essential: Comfortable seated position",
+      "Optional: Knowledge of which nostril feels more open",
+      "Best Practiced: Before important decisions or meetings",
+      "Best Practiced: When experiencing mental fog or indecision"
+    ],
+    expectedOutcomes: [
+      "Immediate: Clearing of mental fog within 30-60 seconds",
+      "Immediate: Balanced, calm nervous system activation",
+      "Immediate: Enhanced clarity for decision-making",
+      "Regular Practice: Improved focus and mental sharpness",
+      "Regular Practice: Greater emotional regulation"
+    ]
+  },
+  {
     id: "vipassana-body-scan",
     title: "Vipassana Body Scan",
     contentType: "guided-practice",
@@ -308,152 +402,92 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PRESENCE Practices
   {
-    id: "pre-performance-ritual",
-    title: "Pre-Performance Ritual",
+    id: "bhramari-pranayama",
+    title: "Deep Focus Through Bhramari Pranayama",
     contentType: "guided-practice",
     category: "presence",
-    tags: ['fire', 'pre-presentation', 'intense', 'visualization'],
-    duration: 8,
-    difficulty: "intermediate",
-    origin: "Olympic Swimmer Protocol",
-    storyHook: "Combines ancient visualization with modern sports psychology to create peak performance state before competition.",
-    usedBy: "Olympic Swimmers, Performers",
-    thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png",
-    steps: 6,
-    creator: "Sports Psychology"
-  },
-  {
-    id: "pranayama-clarity",
-    title: "Pranayama Clarity Breath",
-    contentType: "guided-practice",
-    category: "presence",
-    tags: ['air', 'decision-making', 'gentle', 'mental-clarity', 'focus'],
-    duration: 3,
-    difficulty: "beginner",
-    origin: "Ancient Yogic Pranayama | 3000+ years",
-    storyHook: "For over 3,000 years, yogis have used this alternate nostril breathing technique to clear mental fog and balance the nervous system before important decisions.",
-    usedBy: "Yogis, Meditators, Decision Makers",
-    thumbnail: flowMeditationColorful,
-    steps: 4,
-    creator: "Nadi Shodhana (Channel Purification)",
-    whatYouNeed: [
-      "Essential: Quiet space for 3-5 minutes",
-      "Essential: Comfortable seated position",
-      "Optional: Knowledge of which nostril feels more open",
-      "Best Practiced: Before important decisions or meetings",
-      "Best Practiced: When experiencing mental fog or indecision"
-    ],
-    expectedOutcomes: [
-      "Immediate: Clearing of mental fog within 30-60 seconds",
-      "Immediate: Balanced, calm nervous system activation",
-      "Immediate: Enhanced clarity for decision-making",
-      "With Regular Practice: Improved focus and mental sharpness",
-      "With Regular Practice: Greater emotional regulation"
-    ]
-  },
-  {
-    id: "bhramari",
-    title: "Bhramari Pranayama",
-    contentType: "guided-practice",
-    category: "presence",
-    tags: ['air', 'focus', 'gentle', 'meditation', 'calm'],
+    tags: ['air', 'focus', 'gentle', 'meditation', 'flow'],
     duration: 12,
     difficulty: "beginner",
-    origin: "Ancient Vedic Meditation | 5000 years",
+    origin: "Ancient Vedic Meditation Sound",
     storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
     usedBy: "Yogis, Meditators, Focus Seekers",
     thumbnail: flowMeditationColorful,
     steps: 6,
-    creator: "The Humming Bee Breath",
-    fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara—the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana—the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
+    creator: "Ancient Vedic Meditation Sound",
+    audioSrc: "/guided-practices/bhramari-pranayama.mp3",
+    fullStory: "Bhramari Pranayama originates from ancient India, dating back 5,000 years to the Vedic period. Named after the Sanskrit word 'bhramari' (bee), the practice mimics a bee's humming sound. Ancient yogis discovered that internal vibration creates deep meditative states where the mind naturally absorbs into sound—one of the most effective techniques for entering flow states. Modern neuroscience confirms the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while focusing attention.",
     whatYouNeed: [
       "Essential: Quiet space where you can sit comfortably for 12 minutes",
-      "Essential: Ability to hum without disturbing others (or practice during private time)",
+      "Essential: Ability to hum without disturbing others",
       "Essential: Chair or cushion for upright seated position",
       "Optional: Earplugs or finger position to close ears (enhances internal sound)",
       "Optional: Aromatics—Sandalwood, lotus, or jasmine incense/oil",
-      "Optional: Dim lighting or eye mask to reduce visual distraction",
-      "Optional: Timer set to 12 minutes (or use the guided audio)",
-      "Best Practiced: During mid-day energy dips when focus is needed",
-      "Best Practiced: Before creative work or deep focus sessions",
-      "Best Practiced: When feeling mentally scattered or anxious",
-      "Best Practiced: As a transition ritual between different activities"
+      "Best Practiced: During mid-day energy dips, before creative work, when feeling mentally scattered, as transition rituals"
     ],
     expectedOutcomes: [
       "Immediate: Profound mental stillness and clarity",
-      "Immediate: Sensation of pleasant vibration in the skull and face",
-      "Immediate: Immediate reduction in mental chatter and anxiety",
-      "Immediate: Feeling of being 'centered' and present",
-      "Immediate: Mild euphoria or tingling sensations in the head",
+      "Immediate: Pleasant vibration sensation in skull and face",
+      "Immediate: Reduction in mental chatter and anxiety",
+      "Immediate: Feeling centered and present",
       "Immediate: Instant access to focused attention state",
       "Regular Practice: Enhanced ability to drop into flow states quickly",
       "Regular Practice: Improved concentration and sustained attention",
-      "Regular Practice: Reduced reactivity to stress and distractions",
-      "Regular Practice: Better emotional regulation",
-      "Regular Practice: Deeper meditation experiences",
-      "Regular Practice: Relief from tension headaches",
-      "Regular Practice: Improved quality of creative work",
-      "Traditional Wisdom: Awakens dormant brain centers",
-      "Traditional Wisdom: Balances both hemispheres of the brain",
-      "Traditional Wisdom: Creates 'internal listening' that leads to Self-realization",
-      "Traditional Wisdom: Purifies the nadis (energy channels)",
-      "Traditional Wisdom: Prepares the mind for deeper meditation states"
+      "Regular Practice: Better emotional regulation"
     ],
     practiceSteps: [
-      {
-        title: "Sacred Arrival",
-        instruction: "Settle into a comfortable seated position with your spine naturally upright. Close your eyes and begin to notice your breath without changing it. Feel the weight of your body grounding into the earth. Take three deep breaths to signal to your nervous system that it's time to turn inward.",
-        duration: 1.5,
-        wisdomNote: "This arrival phase is sacred. You're creating a boundary between your outer life and inner practice."
-      },
-      {
-        title: "Pranayama Preparation",
-        instruction: "Learn the ear closure technique: Place your index or middle fingers gently over your ear canals (not pressing hard, just creating a seal). Or, if you prefer, leave ears open for your first few practices. The ear closure enhances the internal sound of the hum, making it easier to absorb your attention in the vibration.",
-        duration: 1.5,
-        wisdomNote: "The hand position is not mandatory, but it amplifies the internal resonance. Experiment to find what works for you."
-      },
-      {
-        title: "First Humming Cycle",
-        instruction: "Take a deep breath in through your nose. On the exhale, close your mouth and make a soft humming sound—'mmmmm'—like a bee. Let the hum last the entire exhale. Notice how the sound vibrates in your face, head, and chest. Repeat this 3 times, learning the rhythm and sensation.",
-        duration: 2,
-        breathingPattern: "Inhale through nose → Exhale humming 'mmmmm'",
-        wisdomNote: "Don't force the hum. Let it be gentle and natural. You're learning to ride the vibration like a wave."
-      },
-      {
-        title: "Deep Immersion Rounds",
-        instruction: "Now begin 12 continuous rounds of Bhramari. Inhale deeply through the nose, then exhale with the humming bee sound. With each round, let yourself go deeper into the vibration. Stop thinking about the technique—become the sound. Notice how the mind begins to quiet, how the hum absorbs your attention. If thoughts arise, let them pass and return to the hum.",
-        duration: 5,
-        breathingPattern: "12 rounds: Deep inhale → Long humming exhale",
-        wisdomNote: "This is where the magic happens. The hum becomes an anchor, drawing your scattered attention into a single point. You're training Dharana—one-pointed focus."
-      },
-      {
-        title: "Silent Absorption",
-        instruction: "Release your hands from your ears (if they were closed). Sit in complete stillness. Don't move. Notice the resonance that remains in your body and mind. Observe the quality of silence—it's different now, deeper, more spacious. This is the state of Pratyahara, where external distractions have withdrawn and you're resting in pure awareness.",
-        duration: 1.5,
-        wisdomNote: "The practice doesn't end when the humming stops. This silence is the fruit. Let it soak in."
-      },
-      {
-        title: "Return & Integration",
-        instruction: "Slowly open your eyes. Take one final deep breath and bow your head gently, sealing the practice. Carry this clarity and stillness into whatever comes next. Notice how your mind feels—clear, calm, focused. This is the state of one-pointed awareness that ancient yogis cultivated.",
-        duration: 0.5,
-        wisdomNote: "You've just practiced a 5,000-year-old technique for entering flow states. With repetition, this becomes instant access to focused presence."
-      }
+      { title: "Sacred Arrival", instruction: "Settle into a comfortable seated position with your spine naturally upright. Close your eyes and begin to notice your breath without changing it. Feel the weight of your body grounding into the earth. Take three deep breaths to signal to your nervous system that it's time to turn inward.", duration: 1.5, wisdomNote: "This arrival phase is sacred. You're creating a boundary between your outer life and inner practice." },
+      { title: "Pranayama Preparation", instruction: "Learn the ear closure technique: Place your index or middle fingers gently over your ear canals (not pressing hard, just creating a seal). Or, if you prefer, leave ears open for your first few practices. The ear closure enhances the internal sound of the hum, making it easier to absorb your attention in the vibration.", duration: 1.5, wisdomNote: "The hand position is not mandatory, but it amplifies the internal resonance." },
+      { title: "First Humming Cycle", instruction: "Take a deep breath in through your nose. On the exhale, close your mouth and make a soft humming sound—'mmmmm'—like a bee. Let the hum last the entire exhale. Notice how the sound vibrates in your face, head, and chest. Repeat this 3 times, learning the rhythm and sensation.", duration: 2, breathingPattern: "Inhale through nose → Exhale humming 'mmmmm'", wisdomNote: "Don't force the hum. Let it be gentle and natural." },
+      { title: "Deep Immersion Rounds", instruction: "Now begin 12 continuous rounds of Bhramari. Inhale deeply through the nose, then exhale with the humming bee sound. With each round, let yourself go deeper into the vibration. Stop thinking about the technique—become the sound. Notice how the mind begins to quiet, how the hum absorbs your attention.", duration: 5, breathingPattern: "12 rounds: Deep inhale → Long humming exhale", wisdomNote: "The hum becomes an anchor, drawing scattered attention into a single point. You're training Dharana—one-pointed focus." },
+      { title: "Silent Absorption", instruction: "Release your hands from your ears. Sit in complete stillness. Notice the resonance that remains in your body and mind. Observe the quality of silence—it's different now, deeper, more spacious. This is Pratyahara, where external distractions have withdrawn and you're resting in pure awareness.", duration: 1.5, wisdomNote: "The practice doesn't end when the humming stops. This silence is the fruit." },
+      { title: "Return & Integration", instruction: "Slowly open your eyes. Take one final deep breath and bow your head gently, sealing the practice. Carry this clarity and stillness into whatever comes next. Notice how your mind feels—clear, calm, focused.", duration: 0.5, wisdomNote: "You've just practiced a 5,000-year-old technique for entering flow states." }
     ]
   },
   {
-    id: "trataka",
-    title: "Trataka - The Steady Flame Gaze",
+    id: "trataka-flame-gaze",
+    title: "One-Pointed Focus Through Trataka",
     contentType: "guided-practice",
     category: "presence",
     tags: ['air', 'focus', 'moderate', 'meditation', 'clarity'],
     duration: 8,
-    difficulty: "intermediate",
-    origin: "Ancient Yogic Practice | Hatha Yoga Pradipika",
-    storyHook: "For thousands of years, yogis have gazed at flames to develop superhuman focus—training the eyes trains the mind, leading to instant flow states.",
+    difficulty: "beginner",
+    origin: "Ancient Yogic Focus Meditation",
+    storyHook: "Yogis gazed at flames for centuries to develop superhuman focus—training the eyes trains the mind, creating instant flow states.",
     usedBy: "Yogis, Meditators, High Performers",
     thumbnail: flowMeditationColorful,
     steps: 6,
-    creator: "Ancient Yogic Focus Meditation"
+    creator: "Ancient Yogic Focus Meditation",
+    audioSrc: "/guided-practices/trataka-flame-gaze.mp3",
+    fullStory: "Trataka is one of six purification practices from the Hatha Yoga Pradipika (15th century). The word means 'to gaze steadily.' Ancient yogis discovered that training the eyes to remain perfectly still naturally draws the mind into deep concentration. The flame was chosen because fire represents consciousness itself in Vedic philosophy. Modern research shows Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
+    whatYouNeed: [
+      "Essential: One candle (any size, unscented works best)",
+      "Essential: Matches or lighter",
+      "Essential: Stable surface at eye level when seated",
+      "Essential: Comfortable seated position 3-4 feet from candle",
+      "Optional: Dim room with all other lights off",
+      "Optional: Eye drops if your eyes are sensitive",
+      "Best Practiced: Before deep work sessions, in the morning to set focused tone, before meditation, when feeling mentally scattered"
+    ],
+    expectedOutcomes: [
+      "Immediate: Profound mental clarity and focus",
+      "Immediate: Complete cessation of mental chatter",
+      "Immediate: Sense of absorption where time disappears",
+      "Immediate: Slight tingling or pressure at third eye center",
+      "Immediate: Instant entry into flow state",
+      "Regular Practice: Dramatically improved concentration span",
+      "Regular Practice: Ability to enter flow states at will",
+      "Regular Practice: Enhanced visualization abilities",
+      "Regular Practice: Deeper meditation experiences"
+    ],
+    practiceSteps: [
+      { title: "Sacred Setup", instruction: "Light the candle. Place it 3-4 feet away at eye level. Sit comfortably with spine upright. Set your intention: What requires your deepest focus today? Close your eyes briefly to center yourself.", duration: 1, wisdomNote: "The flame is not just an object—it's a doorway to one-pointed awareness." },
+      { title: "Soft Gazing Preparation", instruction: "Open your eyes. Look at the flame gently—not staring hard, but resting your gaze on it. Notice its shape, color, movement. Relax your face, jaw, shoulders. Blink naturally when needed. This is soft gazing, not forcing.", duration: 1, wisdomNote: "Trataka is not about straining. It's about gentle, sustained attention." },
+      { title: "First Gaze Cycle", instruction: "Gaze at the flame for 30 seconds without blinking. When you must blink or when eyes water, close them gently. Observe the afterimage behind your eyelids—the flame's impression on your inner vision. Rest for 30 seconds with eyes closed.", duration: 1.5, wisdomNote: "The afterimage stimulates the Ajna chakra, the third eye center of intuition and insight." },
+      { title: "Deep Immersion Cycles", instruction: "Repeat three more rounds: 45 seconds gazing, 30 seconds closed; 60 seconds gazing, 30 seconds closed; 60 seconds gazing, 30 seconds closed. With each round, notice distractions falling away. You're becoming absorbed in the flame.", duration: 3.5, wisdomNote: "Absorption is not forced—it happens naturally when you surrender to the practice." },
+      { title: "Final Extended Gaze", instruction: "One final gaze: Look at the flame for as long as comfortable without blinking. When you close your eyes, hold the afterimage as long as possible. This is concentration training at its purest—Dharana, one-pointed focus.", duration: 1, wisdomNote: "Ancient yogis believed this practice awakens inner vision and develops clairvoyant abilities." },
+      { title: "Integration", instruction: "Slowly return. Take a deep breath. Bow your head slightly to the flame, honoring the practice. Notice the quality of your attention now—sharp, clear, focused. Carry this into your work.", duration: 0.5, wisdomNote: "You've trained the gateway to flow states. With practice, focus becomes effortless." }
+    ]
   },
   {
     id: "stoic-reflection",
