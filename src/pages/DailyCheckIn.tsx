@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Zap, Waves, Target, Home, Sparkles } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import architecturalPresence from "@/assets/architectural-presence.jpg";
+import { trackEngagement } from "@/utils/engagementTracking";
 
 type Outcome = "pause" | "power-up" | "presence" | "calm" | "ready";
 
@@ -65,6 +66,9 @@ const DailyCheckIn = () => {
   ];
 
   const handleOutcomeSelect = (outcome: Outcome) => {
+    // Track check-in engagement
+    trackEngagement('check_in');
+    
     // Map UI outcomes to stored outcomes per user's request
     const outcomeMap: Record<Outcome, Outcome> = {
       "pause": "pause",

@@ -20,6 +20,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
+import { trackEngagement } from "@/utils/engagementTracking";
 
 // Soundscape data now comes from practicesAndSoundscapes.ts
 const getSoundscapeData = (id: string) => {
@@ -364,6 +365,40 @@ const SoundscapePlayer = () => {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      // Track engagement when audio starts (only on first play)
+      if (!isComplete) {
+        const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        
+        if (isPartOfRitual) {
+          trackEngagement('daily_ritual_soundscape');
+          
+          // Update daily ritual history
+          const today = new Date().toISOString().split('T')[0];
+          const history = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
+          
+          const todayRecord = history.find((r: any) => r.date === today);
+          if (todayRecord) {
+            todayRecord.componentsCompleted = Math.min(todayRecord.componentsCompleted + 1, 3);
+            todayRecord.timestamps.push(new Date().toISOString());
+            
+            if (todayRecord.componentsCompleted === 3) {
+              todayRecord.completionStatus = 'full';
+            } else if (todayRecord.componentsCompleted > 0) {
+              todayRecord.completionStatus = 'partial';
+            }
+            
+            localStorage.setItem('dailyRitualHistory', JSON.stringify(history));
+          }
+        } else if (soundscape?.category === 'pause') {
+          trackEngagement('pause_session');
+        } else if (soundscape?.category === 'power-up') {
+          trackEngagement('renew_session');
+        } else if (soundscape?.category === 'presence' || soundscape?.category === 'flow') {
+          trackEngagement('flow_session');
+        }
+      }
+      
       audioRef.current.play().catch(err => {
         toast.error("Failed to play audio");
         console.error("Audio play error:", err);

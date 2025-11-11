@@ -26,6 +26,7 @@ import BreathingAnimation from "@/components/BreathingAnimation";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
+import { trackEngagement } from "@/utils/engagementTracking";
 
 interface PracticeStep {
   stepNumber: number;
@@ -945,6 +946,20 @@ const GuidedPracticePlayer = () => {
               size="lg"
               className="w-full"
               onClick={() => {
+                // Track engagement
+                const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+                const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+                
+                if (isPartOfRitual) {
+                  trackEngagement('daily_ritual_practice');
+                } else if (practice.category === 'pause') {
+                  trackEngagement('pause_session');
+                } else if (practice.category === 'power-up') {
+                  trackEngagement('renew_session');
+                } else if (practice.category === 'presence' || practice.category === 'flow') {
+                  trackEngagement('flow_session');
+                }
+                
                 setView("practice");
                 setStepTimeLeft(practice.steps[0].duration);
                 // Auto-start audio if available

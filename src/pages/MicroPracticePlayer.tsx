@@ -1,15 +1,35 @@
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { trackEngagement } from "@/utils/engagementTracking";
 
 const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const allContent = getAllContent();
   const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
+
+  // Track engagement on page load
+  useEffect(() => {
+    if (practice) {
+      const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+      const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+      
+      if (isPartOfRitual) {
+        trackEngagement('daily_ritual_micro');
+      } else if (practice.category === 'pause') {
+        trackEngagement('pause_session');
+      } else if (practice.category === 'power-up') {
+        trackEngagement('renew_session');
+      } else if (practice.category === 'presence' || practice.category === 'flow') {
+        trackEngagement('flow_session');
+      }
+    }
+  }, [practice, id]);
 
   if (!practice) {
     return (
@@ -25,6 +45,29 @@ const MicroPracticePlayer = () => {
     : "/micro-practices";
 
   const handleComplete = () => {
+    // Update daily ritual history if part of ritual
+    const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+    const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+    
+    if (isPartOfRitual) {
+      const today = new Date().toISOString().split('T')[0];
+      const history = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
+      
+      const todayRecord = history.find((r: any) => r.date === today);
+      if (todayRecord) {
+        todayRecord.componentsCompleted = Math.min(todayRecord.componentsCompleted + 1, 3);
+        todayRecord.timestamps.push(new Date().toISOString());
+        
+        if (todayRecord.componentsCompleted === 3) {
+          todayRecord.completionStatus = 'full';
+        } else if (todayRecord.componentsCompleted > 0) {
+          todayRecord.completionStatus = 'partial';
+        }
+        
+        localStorage.setItem('dailyRitualHistory', JSON.stringify(history));
+      }
+    }
+    
     // Store completion in localStorage
     const history = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
     history.push({

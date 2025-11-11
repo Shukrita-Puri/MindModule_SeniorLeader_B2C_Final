@@ -1,5 +1,5 @@
 interface Engagement {
-  type: 'check_in' | 'daily_ritual_soundscape' | 'daily_ritual_practice' | 'daily_ritual_micro' | 'flow_session' | 'pause_session' | 'renew_session' | 'micro_intervention';
+  type: 'check_in' | 'daily_ritual_start' | 'daily_ritual_soundscape' | 'daily_ritual_practice' | 'daily_ritual_micro' | 'flow_session' | 'pause_session' | 'renew_session' | 'micro_intervention';
   timestamp: string;
 }
 
