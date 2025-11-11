@@ -44,20 +44,29 @@ const PowerUpOutcomePage = () => {
   }, []);
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
+    // For micro practices, use the title directly as it's already formatted with outcome + origin
+    if (item.contentType === 'micro-practice') {
+      return item.title;
+    }
+    
+    // For soundscapes and guided practices, use the mapping
     const titleMap: Record<string, string> = {
       "Athletic Activation": "Pre-Competition Mental Preparation",
       "Kapalabhati Pranayama": "Ancient Alternative to Caffeine",
       "The Spartan Battle Breath": "Access Fearless Warrior State",
       "Box Breathing Reset": "Tactical Composure & Sharp Decisions",
       "Wim Hof Power Breathing": "Control Your Autonomic System",
-      "Power Stance": "20% Confidence Boost in 2 Minutes",
-      "Energy Shift": "Unstick Stagnant Energy Fast",
     };
     return titleMap[item.title] || item.title;
   };
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";
+    
+    // For micro practices with creator field, prioritize that
+    if (item.contentType === 'micro-practice' && item.creator) {
+      return item.creator;
+    }
     
     const origin = item.origin || "";
     const creator = item.creator || "";

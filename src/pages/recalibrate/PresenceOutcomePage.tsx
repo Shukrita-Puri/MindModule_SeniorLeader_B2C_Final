@@ -44,6 +44,12 @@ const PresenceOutcomePage = () => {
   }, []);
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
+    // For micro practices, use the title directly as it's already formatted with outcome + origin
+    if (item.contentType === 'micro-practice') {
+      return item.title;
+    }
+    
+    // For soundscapes and guided practices, use the mapping
     const titleMap: Record<string, string> = {
       "Primal Resonance": "Ancient Focus Activation",
       "Warrior Drums": "Courage & Readiness Ritual",
@@ -53,14 +59,17 @@ const PresenceOutcomePage = () => {
       "Bhramari Pranayama": "Instant Calm Through Humming",
       "Trataka - The Steady Flame Gaze": "Superhuman Focus Development",
       "Stoic Evening Reflection": "Daily Virtue Alignment",
-      "Clarity Breath": "Clear Mental Fog Instantly",
-      "Decision Pause": "Centered Decision-Making",
     };
     return titleMap[item.title] || item.title;
   };
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";
+    
+    // For micro practices with creator field, prioritize that
+    if (item.contentType === 'micro-practice' && item.creator) {
+      return item.creator;
+    }
     
     const origin = item.origin || "";
     const creator = item.creator || "";

@@ -442,7 +442,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // POWER-UP Micro Practices
   {
     id: "power-stance",
-    title: "Power Stance",
+    title: "Confidence Through Cuddy's Power Posture",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['fire', 'pre-meeting', 'moderate', 'confidence'],
@@ -455,7 +455,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "energy-shift",
-    title: "Energy Shift",
+    title: "Energy Revival Through Kinesthetic Movement",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['fire', 'afternoon-slump', 'moderate', 'energy-boost'],
@@ -470,7 +470,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // PAUSE Micro Practices
   {
     id: "tactical-pause",
-    title: "Tactical Pause",
+    title: "60-Second Reset Through Military Pause",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'between-meetings', 'gentle', 'quick-reset'],
@@ -484,7 +484,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "grounding-touch",
-    title: "Grounding Touch",
+    title: "Instant Calm Through Somatic Touch",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'anxiety-relief', 'gentle', 'nervous-system'],
@@ -498,7 +498,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "space-between-stimulus-response",
-    title: "High-Pressure Negotiations & Criticism",
+    title: "Composure Through Frankl's Response Space",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],
@@ -543,7 +543,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // PRESENCE Micro Practices
   {
     id: "clarity-breath",
-    title: "Clarity Breath",
+    title: "Mental Clarity Through Pranayama Breath",
     contentType: "micro-practice",
     category: "presence",
     tags: ['air', 'decision-making', 'gentle', 'mental-clarity'],
@@ -556,7 +556,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "decision-pause",
-    title: "Decision Pause",
+    title: "Intuitive Decisions Through Executive Pause",
     contentType: "micro-practice",
     category: "presence",
     tags: ['air', 'before-decision', 'moderate', 'clarity'],

@@ -44,6 +44,12 @@ const PauseOutcomePage = () => {
   }, []);
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
+    // For micro practices, use the title directly as it's already formatted with outcome + origin
+    if (item.contentType === 'micro-practice') {
+      return item.title;
+    }
+    
+    // For soundscapes and guided practices, use the mapping
     const titleMap: Record<string, string> = {
       "Tibetan Bowl Resonance": "Deep Meditative Flow",
       "Pre-Mission Calm": "Tactical Composure Before Critical Moments",
