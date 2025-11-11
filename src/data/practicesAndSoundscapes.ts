@@ -881,6 +881,178 @@ export const sanctuaryContent: SanctuaryContent[] = [
     whyThisWorks: "Intrinsic motivation (purpose, autonomy, mastery) outperforms extrinsic motivation (money, status) for complex cognitive work. When you connect your task to meaning, your prefrontal cortex releases dopamine—the fuel for sustained effort. People with strong Ikigai live longer and report higher life satisfaction. It's not woo-woo—it's how the reward system in your brain is designed. Meaning isn't found; it's created through framing.",
     thumbnail: flowBlue,
     steps: 4
+  },
+  {
+    id: "amor-fati",
+    title: "Growth Through Amor Fati",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['resilience', 'setbacks', 'reframing', 'growth'],
+    duration: 15,
+    difficulty: "intermediate",
+    creator: "Stoicism (Marcus Aurelius, Epictetus), Nietzsche",
+    origin: "\"Amor Fati\" — Stoicism (Marcus Aurelius, Epictetus), later Nietzsche",
+    storyHook: "For setbacks, failures, rejections, unexpected obstacles, when victimhood thinking emerges",
+    essence: "Don't just accept what happened—love it as the exact training you needed. Obstacles are curriculum.",
+    parallel: "Post-traumatic growth; cognitive reappraisal; antifragility (Taleb)",
+    cue: "This moment is my teacher.",
+    usedBy: "After setbacks, failures, rejections, unexpected obstacles, when victimhood thinking emerges",
+    subType: "mindset",
+    instructions: [
+      "Feel it first, reframe second (5 minutes): Don't bypass the emotion. Sit with disappointment, anger, or grief for a few minutes. Journal it: \"This hurts because...\" Let it be real.",
+      "The sacred question (10 minutes): Once the initial wave passes, ask: \"What is this here to teach me? If I look back in 5 years, what will I say I learned from this exact moment?\" Write 3 possible lessons.",
+      "Rewrite the story (ongoing): Instead of \"This happened TO me,\" shift to \"This happened FOR me.\" Not as toxic positivity, but as active meaning-making. Example: \"I didn't get the job\" → \"I got redirected toward something better aligned.\"",
+      "The gratitude paradox (daily practice): Each night, write: \"Today's obstacle was _____. I'm grateful for it because _____.\" At first it feels forced. Over time, it becomes your default lens."
+    ],
+    realExamples: [
+      {
+        scenario: "You got rejected from your dream job",
+        trigger: "\"I failed. I'm not good enough. My career is over.\"",
+        response: "After crying, you ask: \"What did this rejection protect me from? Maybe that culture was toxic. Maybe I would've been miserable. What door just opened because this one closed?\" Six months later, you're in a better role and you think: \"Thank God I didn't get that job.\""
+      },
+      {
+        scenario: "A relationship ends",
+        trigger: "\"I wasted 3 years. I'll never find anyone.\"",
+        response: "\"This relationship taught me what I need and what I won't tolerate. I'm now calibrated. The next relationship will be wiser because of this one.\" The pain had purpose—it refined you."
+      },
+      {
+        scenario: "You got injured right before a major event",
+        trigger: "\"Why me? This ruins everything.\"",
+        response: "\"My body is telling me something. Maybe I was overtraining and this forced me to rest. Maybe I would've injured myself worse if I competed. What can I learn about recovery, patience, or listening to my body?\""
+      }
+    ],
+    whyThisWorks: "Your brain is a meaning-making machine. It WILL create a story about what happened. You can let it default to victimhood (which keeps you stuck), or you can author a story of growth (which moves you forward). Post-traumatic growth research shows people who reframe adversity as transformative often end up STRONGER than before the trauma. Amor Fati isn't denying pain—it's refusing to let pain be meaningless.",
+    thumbnail: renewalColorful,
+    steps: 4
+  },
+  {
+    id: "buddhist-phoenix",
+    title: "Resilience Through the Buddhist Phoenix",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['resilience', 'recovery', 'hardship', 'growth'],
+    duration: 10,
+    difficulty: "intermediate",
+    creator: "Thích Nhất Hạnh (Buddhist teaching)",
+    origin: "\"No mud, no lotus.\" — Thích Nhất Hạnh (Buddhist teaching)",
+    storyHook: "During hardship, when feeling broken, after intense stress, questioning whether you can recover",
+    essence: "Beauty and enlightenment emerge from suffering. The lotus grows in muddy water, not pristine pools.",
+    parallel: "Resilience building through adversity; stress inoculation; growth mindset",
+    cue: "The mud feeds the flower.",
+    usedBy: "During hardship, when feeling broken, after intense stress, questioning whether you can recover",
+    subType: "mindset",
+    instructions: [
+      "Name the mud (when in crisis): \"I'm in the mud right now. This is the hard part. This is where growth happens, even if I can't see it yet.\" Naming it reduces the shock and shame.",
+      "Micro-signs of growth (daily, during recovery): You won't see the lotus overnight. Look for tiny green shoots: \"Today I cried less. Today I got out of bed an hour earlier. Today I asked for help.\" Track these. They prove you're growing through the mud.",
+      "Reframe suffering as composting (ongoing): The mud isn't punishment—it's FUEL. Every hard conversation, every failure, every moment of discomfort is decomposing into wisdom, strength, and depth. You're not just enduring; you're composting experience into character.",
+      "Honor the mud (when you emerge): Don't erase the struggle from your story. When you bloom, remember: \"I grew BECAUSE of that mud, not in spite of it.\" Let your scars be part of your beauty."
+    ],
+    realExamples: [
+      {
+        scenario: "Going through a brutal work failure",
+        trigger: "\"I'm humiliated. Everyone saw me fail. I don't know if I can come back from this.\"",
+        response: "Weeks pass. You notice: you're less afraid of others' opinions now. You try bigger risks because you've already survived failure. One day you realize: \"That failure liberated me from perfectionism. I'm more creative now because I stopped playing it safe.\""
+      },
+      {
+        scenario: "Recovering from burnout",
+        trigger: "\"I can barely function. I'm broken.\"",
+        response: "You rest. You learn boundaries. You realize which relationships and work drained you. Months later, you've rebuilt a life with spaciousness. \"I had to break to rebuild correctly. The person I am now is better than the person I was before burnout.\""
+      },
+      {
+        scenario: "Loss of a loved one",
+        trigger: "\"This grief is unbearable. I'll never be okay again.\"",
+        response: "Slowly, you notice: you appreciate small moments more. You tell people you love them more often. You're kinder to strangers because you know everyone is carrying something. Your grief deepened your humanity. The lotus is compassion that only blooms in the mud of loss."
+      }
+    ],
+    whyThisWorks: "Neuroplasticity research shows the brain rewires itself most dramatically during stress and recovery. You're literally building new neural pathways through adversity. Hormetic stress (the right dose of challenge) makes you antifragile—stronger than before. The lotus metaphor is ancient, but the science is modern: struggle, when metabolized intentionally, becomes strength. You're not waiting to get through the mud. You're using the mud.",
+    thumbnail: renewalColorful,
+    steps: 4
+  },
+  {
+    id: "bezos-regret-framework",
+    title: "Bold Action Through Bezos' Framework",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['decision-making', 'courage', 'risk', 'values'],
+    duration: 10,
+    difficulty: "beginner",
+    creator: "Jeff Bezos",
+    origin: "\"I knew that when I was 80, I would never regret trying this. I would only regret not trying.\" — Jeff Bezos",
+    storyHook: "When afraid to act, stuck in comfort zone, procrastinating on meaningful risk, choosing safety over growth",
+    essence: "View your life from the deathbed. What would you regret not doing? Let future-you guide present-you.",
+    parallel: "Temporal self-continuity; mortality salience (Memento Mori); values clarification",
+    cue: "Will I regret not doing this?",
+    usedBy: "When afraid to act, stuck in comfort zone, procrastinating on meaningful risk, choosing safety over growth",
+    subType: "tool",
+    instructions: [
+      "The deathbed projection (5 minutes): Close your eyes. You're 80 years old, looking back on your life. You're at the decision point you're facing today. Ask that older self: \"Did I regret playing it safe? Or did I regret trying and failing?\" Listen for the answer.",
+      "Write the two futures (2 minutes): Future A: You don't take the risk. Where are you in 5 years? How do you feel? Future B: You take the risk (even if it fails). Where are you in 5 years? How do you feel? Which one has more aliveness, even if it's scarier?",
+      "The regret litmus test (moment of decision): When paralyzed by fear, ask: \"If I don't do this, will I think about it with regret in 10 years?\" If yes, that's your answer. Do it.",
+      "Bias toward action (ongoing): Regret of action fades. Regret of inaction haunts. When in doubt, choose the path with more courage, not more comfort."
+    ],
+    realExamples: [
+      {
+        scenario: "Leaving a stable job for a startup",
+        trigger: "\"What if it fails? What if I can't get another job?\"",
+        response: "You imagine yourself at 80. Which story do you want to tell? \"I played it safe and always wondered 'what if'?\" or \"I took a shot. It was terrifying. It didn't work out, but I'm proud I tried\"? You quit the job."
+      },
+      {
+        scenario: "Asking someone out after years of friendship",
+        trigger: "\"What if it ruins the friendship? What if they say no?\"",
+        response: "\"If I never tell them, I'll spend years wondering. If I tell them and they say no, at least I'll know. I can live with rejection. I can't live with never trying.\" You ask."
+      },
+      {
+        scenario: "Pursuing a creative dream",
+        trigger: "\"I'm too old. I should be practical. People will judge me.\"",
+        response: "\"When I'm dying, will I care that people judged me? Or will I regret never creating the thing that was alive in me?\" You start the project."
+      }
+    ],
+    whyThisWorks: "Mortality salience research shows that awareness of death increases focus on intrinsic goals (meaning, relationships, growth) over extrinsic ones (money, status, safety). When you project to your deathbed, your brain bypasses short-term fear and accesses your deepest values. Studies on end-of-life regrets show people regret what they DIDN'T do far more than what they tried and failed at. The framework doesn't eliminate fear—it clarifies what's worth being afraid for.",
+    thumbnail: renewalColorful,
+    steps: 4
+  },
+  {
+    id: "mandela-long-game",
+    title: "Learning Through Mandela's Wisdom",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['resilience', 'learning', 'failure', 'growth-mindset'],
+    duration: 5,
+    difficulty: "beginner",
+    creator: "Nelson Mandela",
+    origin: "\"I never lose. I either win or learn.\" — Nelson Mandela",
+    storyHook: "After failures, when self-criticism spirals, building resilience, reframing setbacks as data",
+    essence: "There's no such thing as wasted experience. Every outcome either validates your approach or teaches you something essential.",
+    parallel: "Growth mindset (Dweck); learning orientation vs. performance orientation; psychological safety",
+    cue: "Win or learn. Never lose.",
+    usedBy: "After failures, when self-criticism spirals, building resilience, reframing setbacks as data",
+    subType: "mindset",
+    instructions: [
+      "Separate outcome from identity (immediately after setback): Say out loud: \"I didn't fail. The approach failed. I am not the outcome.\" This creates psychological distance between you and the event.",
+      "The learning extraction (within 24 hours): Get a blank page. Three questions: \"What worked that I should keep?\" \"What didn't work that I should change?\" \"What did I learn that I couldn't have learned any other way?\" Write at least 3 answers for each.",
+      "Build the knowledge bank (ongoing): Keep a \"Lessons Learned\" document. Every setback gets an entry: Date, What happened, What I learned, What I'll do differently. Over time, you'll see patterns. You're building wisdom.",
+      "Apply the learning (before next attempt): Before your next performance/attempt, review your lessons. You're not repeating the same approach—you're iterating. Each attempt is version 2.0, 3.0, 4.0."
+    ],
+    realExamples: [
+      {
+        scenario: "You bombed a presentation",
+        trigger: "\"I'm terrible at public speaking. I embarrassed myself.\"",
+        response: "Within 24 hours, you write: \"I learned I need to rehearse transitions out loud, not just in my head. I learned anxiety makes me rush—so I need physical anchors to slow down. I learned the content was solid but delivery needs work.\" Next presentation, you specifically practice those elements. It goes better. You didn't lose—you learned."
+      },
+      {
+        scenario: "A business venture failed",
+        trigger: "\"I wasted 2 years and all that money.\"",
+        response: "\"I learned how to build a team. I learned what customers actually want vs. what I thought they wanted. I learned my tolerance for risk. I learned which relationships are real. My next venture will be 10x smarter because of this.\" Mandela spent 27 years in prison learning—then became president. Timeline is irrelevant. Learning is accumulating."
+      },
+      {
+        scenario: "You got harsh feedback",
+        trigger: "\"They think I'm incompetent. I should just quit.\"",
+        response: "You sit with the sting, then you ask: \"What's the 10% of this feedback that's actually true?\" You find it: you DO miss deadlines sometimes. Okay. Now you know what to work on. The feedback wasn't an attack—it was data. You implement a new system. Deadlines improve. You just leveled up."
+      }
+    ],
+    whyThisWorks: "Carol Dweck's research on growth vs. fixed mindset: people who believe abilities are learnable outperform those who believe abilities are innate. When you reframe failure as learning, you maintain psychological safety to keep trying. Your brain's prediction-error signal (dopamine system) is designed to learn from mismatches between expectation and reality—that's literally how neural networks optimize. \"Failure\" is your brain's update mechanism. Mandela didn't just survive prison—he studied law, led movements, emerged wiser. He metabolized suffering into strategy. You can do this with every setback, large or small.",
+    thumbnail: renewalColorful,
+    steps: 4
   }
 ];
 
