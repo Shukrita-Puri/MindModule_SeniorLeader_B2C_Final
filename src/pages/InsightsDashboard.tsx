@@ -73,10 +73,10 @@ const InsightsDashboard = () => {
       {/* Header Section - Clean and minimal */}
       <div className="relative pt-16 pb-8 px-4">
         <div className="relative z-10 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
-              <h1 className="text-4xl font-headline mb-2 text-foreground tracking-tight">Your Energy Intelligence</h1>
-              <p className="text-muted-foreground font-body">Understand your cognitive energy performance</p>
+              <h1 className="text-2xl md:text-4xl font-headline mb-2 text-foreground tracking-tight">Your Energy Intelligence</h1>
+              <p className="text-sm md:text-base text-muted-foreground font-body">Understand your cognitive energy performance</p>
             </div>
           </div>
 
