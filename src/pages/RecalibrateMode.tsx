@@ -50,7 +50,7 @@ const RecalibrateMode = () => {
     <>
       {/* Tools Selection */}
       <div className="flex-1 px-6 md:px-8 max-w-5xl mx-auto pb-32 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 auto-rows-fr">
           {tools.map((tool, index) => (
             <article 
               key={tool.id}
@@ -58,7 +58,7 @@ const RecalibrateMode = () => {
               className="group cursor-pointer animate-fade-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500">
+              <div className="h-full bg-card/85 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(0,217,255,0.1)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_40px_rgba(0,217,255,0.2)] hover:-translate-y-1 transition-all duration-500 flex flex-col">
                 {/* Image Container */}
                 <div className="relative w-full aspect-square overflow-hidden bg-card">
                   <img 
