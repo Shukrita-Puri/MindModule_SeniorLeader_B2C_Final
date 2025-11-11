@@ -473,32 +473,47 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // POWER-UP Micro Practices
   {
-    id: "power-stance",
-    title: "Confidence Through Power Posture",
-    contentType: "micro-practice",
-    category: "power-up",
-    tags: ['fire', 'pre-meeting', 'moderate', 'confidence'],
-    duration: 2,
-    difficulty: "beginner",
-    creator: "Inspired from Amy Cuddy's body language research",
-    storyHook: "Harvard research shows 2 minutes in expansive posture increases confidence hormones by 20%.",
-    thumbnail: renewalColorful,
-    steps: 2,
-    subType: "tool"
-  },
-  {
     id: "energy-shift",
     title: "Energy Revival Through Kinesthetic Movement",
     contentType: "micro-practice",
     category: "power-up",
-    tags: ['fire', 'afternoon-slump', 'moderate', 'energy-boost'],
+    tags: ['energy', 'movement', 'fatigue', 'creativity'],
     duration: 3,
     difficulty: "beginner",
-    creator: "Kinesthetic energy technique",
-    storyHook: "Movement-based practice to shift stagnant energy — athletes use this between training sets.",
+    creator: "Somatic movement principles",
+    origin: "Somatic movement principles — rooted in practices like Qigong, yoga, and modern somatic therapy",
+    storyHook: "When energy stagnates in the mind, move it through the body. Motion creates emotion. Activation precedes motivation.",
+    essence: "When energy stagnates in the mind, move it through the body. Motion creates emotion. Activation precedes motivation.",
+    parallel: "Embodied cognition; vagus nerve regulation; psychophysiological state shifts",
+    cue: "Move the body, shift the state.",
+    usedBy: "Afternoon fatigue, mental fog, emotional heaviness, creative stagnation, when energy feels flat or stuck",
     thumbnail: renewalColorful,
-    steps: 3,
-    subType: "tool"
+    steps: 4,
+    subType: "tool",
+    instructions: [
+      "Notice the energy level (30 seconds): Pause. Close your eyes. Ask: \"What's my energy signal right now—tense, drained, frozen, scattered?\" Notice where the stagnation lives in your body: shoulders slumped, jaw tight, breath shallow, spine collapsed. Don't fix—just feel.",
+      "Activate through micro-movement (2 minutes): Start small: shake out your hands, roll your shoulders, tap your chest or thighs, rotate wrists and ankles. If you're sitting, stand. If you're standing, walk. Let movement be irregular, instinctive, almost childlike. You're thawing frozen energy, not doing a workout.",
+      "Integrate breath and rhythm (1 minute): Inhale through the nose for 4 counts, exhale through the mouth with sound (a sigh, hum, or gentle \"ha\"). Match breath to movement—inhale rise, exhale release. Feel circulation return, attention widen.",
+      "Re-enter with embodiment (ongoing): Return to your task but stay in your body. Keep a subtle rhythm—rolling your shoulders every few minutes, standing when thoughts get sticky, walking during calls. Energy maintenance is movement maintenance."
+    ],
+    realExamples: [
+      {
+        scenario: "Afternoon crash at your desk",
+        trigger: "You reach for caffeine, still feel sluggish.",
+        response: "You stand, stretch arms overhead, shake out hands for 60 seconds, breathe deeply. Heart rate lifts, focus returns. You bought another productive hour—naturally."
+      },
+      {
+        scenario: "Creative block while writing or designing",
+        trigger: "You're staring at the screen, looping.",
+        response: "You put on one song, let your body move without choreography. By the second chorus, an idea surfaces. Movement unblocked cognition."
+      },
+      {
+        scenario: "Emotional heaviness after tough feedback",
+        trigger: "Chest tight, mind replaying words.",
+        response: "You walk outside, swing your arms, shake out tension. The emotion metabolizes through motion instead of rumination."
+      }
+    ],
+    whyThisWorks: "Your body is not separate from your mind—it is your mind in motion. Movement stimulates blood flow, activates proprioceptive and vestibular systems, and signals safety to the nervous system through the vagus nerve. Research in embodied cognition shows physical state shifts precede cognitive ones: when you move, you change brain chemistry and perception. Somatic movement interrupts mental rumination loops and re-engages vitality. You don't think your way out of low energy—you move your way out."
   },
 
   // PAUSE Micro Practices
@@ -897,7 +912,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     contentType: "micro-practice",
     category: "power-up",
     tags: ['resilience', 'setbacks', 'reframing', 'growth'],
-    duration: 15,
+    duration: 3,
     difficulty: "intermediate",
     creator: "Stoicism (Marcus Aurelius, Epictetus), Nietzsche",
     origin: "\"Amor Fati\" — Stoicism (Marcus Aurelius, Epictetus), later Nietzsche",
@@ -940,7 +955,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     contentType: "micro-practice",
     category: "power-up",
     tags: ['resilience', 'recovery', 'hardship', 'growth'],
-    duration: 10,
+    duration: 2,
     difficulty: "intermediate",
     creator: "Thích Nhất Hạnh (Buddhist teaching)",
     origin: "\"No mud, no lotus.\" — Thích Nhất Hạnh (Buddhist teaching)",
@@ -983,7 +998,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     contentType: "micro-practice",
     category: "power-up",
     tags: ['decision-making', 'courage', 'risk', 'values'],
-    duration: 10,
+    duration: 3,
     difficulty: "beginner",
     creator: "Inspired from Jeff Bezos",
     origin: "\"I knew that when I was 80, I would never regret trying this. I would only regret not trying.\" — Jeff Bezos",

@@ -147,7 +147,7 @@ const PresenceOutcomePage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-2xl font-headline text-foreground">Sonic Studio</h2>
-              <Badge variant="outline" className="text-xs">6 Soundscapes</Badge>
+              <Badge variant="outline" className="text-xs">{soundscapes.length} Soundscapes</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
           </div>
@@ -216,7 +216,7 @@ const PresenceOutcomePage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-2xl font-headline text-foreground">Guided Sessions</h2>
-              <Badge variant="outline" className="text-xs">2 Practices</Badge>
+              <Badge variant="outline" className="text-xs">{practices.length} Practices</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">intentional exercises drawn from ancient traditions and elite performance protocols</p>
           </div>
@@ -290,7 +290,7 @@ const PresenceOutcomePage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-2xl font-headline text-foreground">Micro Exercises</h2>
-              <Badge variant="outline" className="text-xs">2 Tools</Badge>
+              <Badge variant="outline" className="text-xs">{microPractices.length} {microPractices.length === 1 ? 'Item' : 'Items'}</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
           </div>
