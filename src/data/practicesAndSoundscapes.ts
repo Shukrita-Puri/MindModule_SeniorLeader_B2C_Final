@@ -2,6 +2,9 @@
 import pauseVisual from "@/assets/soundscape-pause-visual.jpg";
 import renewalVisual from "@/assets/soundscape-renewal-visual.jpg";
 import flowVisual from "@/assets/soundscape-flow-visual.jpg";
+import pauseMauve from "@/assets/mindset-pause-mauve.jpg";
+import flowBlue from "@/assets/mindset-flow-blue.jpg";
+import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -450,7 +453,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Amy Cuddy's body language research",
     storyHook: "Harvard research shows 2 minutes in expansive posture increases confidence hormones by 20%.",
-    thumbnail: "/lovable-uploads/67bda649-edbb-4f39-8290-175122fe99bf.png",
+    thumbnail: renewalColorful,
     steps: 2
   },
   {
@@ -463,7 +466,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Kinesthetic energy technique",
     storyHook: "Movement-based practice to shift stagnant energy — athletes use this between training sets.",
-    thumbnail: "/lovable-uploads/b8ffb35c-7a57-47ef-a879-1aff9c47603d.png",
+    thumbnail: renewalColorful,
     steps: 3
   },
 
@@ -478,7 +481,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Military decision-making technique",
     storyHook: "Special operations teams pause 60 seconds before entering high-risk zones to reset nervous system.",
-    thumbnail: "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png",
+    thumbnail: pauseMauve,
     steps: 3,
     subType: "tool"
   },
@@ -492,7 +495,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Somatic therapy technique",
     storyHook: "Simple touch technique that calms the vagus nerve — therapists use this for immediate anxiety relief.",
-    thumbnail: "/lovable-uploads/7a5dd5f2-96fb-485c-a58f-0280491740c1.png",
+    thumbnail: pauseMauve,
     steps: 3,
     subType: "tool"
   },
@@ -511,7 +514,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
     cue: "\"Breathe. Space. Choose.\"",
     usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
-    thumbnail: "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png",
+    thumbnail: pauseMauve,
     steps: 4,
     subType: "mindset",
     instructions: [
@@ -551,7 +554,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Pranayama breathing technique",
     storyHook: "Ancient yogic breath that clears mental fog — used before important decisions for 3,000 years.",
-    thumbnail: "/lovable-uploads/4ed33e6d-77b9-47f9-9981-bab218507307.png",
+    thumbnail: flowBlue,
     steps: 4
   },
   {
@@ -564,7 +567,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Executive decision protocol",
     storyHook: "Top executives use this 3-minute pause before major decisions to check intuition vs. reactivity.",
-    thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png",
+    thumbnail: flowBlue,
     steps: 4
   }
 ];
