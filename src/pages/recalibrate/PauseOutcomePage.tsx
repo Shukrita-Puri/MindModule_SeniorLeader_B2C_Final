@@ -62,6 +62,11 @@ const PauseOutcomePage = () => {
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (!item.origin && !item.creator) return "";
     
+    // For micro practices with creator field, prioritize that
+    if (item.contentType === 'micro-practice' && item.creator) {
+      return item.creator;
+    }
+    
     const origin = item.origin || "";
     const creator = item.creator || "";
     
