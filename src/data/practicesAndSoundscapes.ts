@@ -5,6 +5,8 @@ import flowVisual from "@/assets/soundscape-flow-visual.jpg";
 import pauseMauve from "@/assets/mindset-pause-mauve.jpg";
 import flowBlue from "@/assets/mindset-flow-blue.jpg";
 import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
+import flowMeditationColorful from "@/assets/flow-meditation-colorful.jpg";
+import renewalStretchIllustration from "@/assets/renewal-stretch-illustration.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -222,7 +224,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Practice | Hatha Yoga",
     storyHook: "For thousands of years, yogis have used this rapid-fire breathing to generate instant energy and mental clarity—ancient alternative to caffeine.",
     usedBy: "Yogis, Warriors, High Performers",
-    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
+    thumbnail: renewalStretchIllustration,
     steps: 6,
     creator: "Skull Shining Breath"
   },
@@ -237,7 +239,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Spartan Warrior Protocol | 480 BCE",
     storyHook: "Before Thermopylae, 300 Spartans performed this ritual to enter 'menos'—divine battle-trance. Now access that fearless warrior state for any challenge.",
     usedBy: "Spartan Warriors, Athletes, Leaders",
-    thumbnail: "/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png",
+    thumbnail: renewalStretchIllustration,
     steps: 6,
     creator: "Ancient Greek Warrior Activation"
   },
@@ -252,7 +254,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Navy SEAL Tactical Protocol",
     storyHook: "Before high-stakes missions, Navy SEALs use this 4-4-4-4 breathing pattern to regulate heart rate and sharpen decision-making.",
     usedBy: "Special Forces, Surgeons, Olympic Athletes",
-    thumbnail: "/lovable-uploads/aa4d150b-e5fe-48d7-aa74-9f082d21ffaa.png",
+    thumbnail: renewalStretchIllustration,
     steps: 4,
     creator: "Navy SEAL Tactical Protocol"
   },
@@ -267,7 +269,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Cold Exposure Protocol",
     storyHook: "Dutch extreme athlete Wim Hof developed this technique to control the autonomic nervous system and boost energy.",
     usedBy: "Athletes, Biohackers, Performance Seekers",
-    thumbnail: "/lovable-uploads/c72cc661-d2db-48b0-b39a-d5c4bb2253d3.png",
+    thumbnail: renewalStretchIllustration,
     steps: 6,
     creator: "Wim Hof Method"
   },
@@ -331,7 +333,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Pranayama | 3000+ years",
     storyHook: "For over 3,000 years, yogis have used this alternate nostril breathing technique to clear mental fog and balance the nervous system before important decisions.",
     usedBy: "Yogis, Meditators, Decision Makers",
-    thumbnail: flowBlue,
+    thumbnail: flowMeditationColorful,
     steps: 4,
     creator: "Nadi Shodhana (Channel Purification)",
     whatYouNeed: [
@@ -360,7 +362,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Vedic Meditation | 5000 years",
     storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
     usedBy: "Yogis, Meditators, Focus Seekers",
-    thumbnail: "/lovable-uploads/6ad3487d-07e9-414e-96cd-7a73d8a12c03.png",
+    thumbnail: flowMeditationColorful,
     steps: 6,
     creator: "The Humming Bee Breath",
     fullStory: "Bhramari Pranayama originates from ancient India, dating back at least 5,000 years to the Vedic period. The name comes from the Sanskrit word 'bhramari,' meaning 'bee,' as the practice mimics the gentle humming sound of a black Indian bee. Referenced in the Hatha Yoga Pradipika (15th century) and earlier tantric texts, this practice was used by yogis to achieve Pratyahara—the withdrawal of senses from external distractions and deep inward focus. The humming vibration was believed to activate the Ajna chakra (third eye) and still the fluctuations of the mind. Ancient practitioners discovered that the internal vibration creates a deeply meditative state where the mind naturally becomes absorbed in the sound, making it one of the most effective techniques for entering flow states. Vedic sages called this state 'one-pointed awareness' or Dharana—the precursor to meditation and eventual samadhi (transcendent consciousness). The practice was traditionally performed at dawn or dusk in quiet forest settings, where yogis would sync their humming with the natural sounds of bees pollinating flowers. Modern neuroscience confirms what ancient yogis knew: the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while simultaneously focusing attention.",
@@ -449,7 +451,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Practice | Hatha Yoga Pradipika",
     storyHook: "For thousands of years, yogis have gazed at flames to develop superhuman focus—training the eyes trains the mind, leading to instant flow states.",
     usedBy: "Yogis, Meditators, High Performers",
-    thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png",
+    thumbnail: flowMeditationColorful,
     steps: 6,
     creator: "Ancient Yogic Focus Meditation"
   },
@@ -464,7 +466,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Rome | Marcus Aurelius",
     storyHook: "The Roman Emperor's daily practice of reviewing actions, thoughts, and alignment with virtue at day's end.",
     usedBy: "CEOs, Leaders, Philosophers",
-    thumbnail: "/lovable-uploads/afddfc0a-07c8-4659-bfb5-560d510b12c3.png",
+    thumbnail: flowMeditationColorful,
     steps: 5,
     creator: "Stoic Philosophy"
   },
