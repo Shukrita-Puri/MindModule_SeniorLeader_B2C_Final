@@ -547,7 +547,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "space-between-stimulus-response",
-    title: "Composure Through Frankl's Response Space",
+    title: "Composure Through Response Space",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],

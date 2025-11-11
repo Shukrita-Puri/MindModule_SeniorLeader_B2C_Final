@@ -305,7 +305,9 @@ const PresenceOutcomePage = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
-                    <Badge className="bg-background/50 text-foreground border-border">Tool</Badge>
+                    <Badge className="bg-background/50 text-foreground border-border">
+                      {item.subType === 'mindset' ? 'Mindset' : 'Tool'}
+                    </Badge>
                   </div>
                   <button
                     onClick={(e) => {
