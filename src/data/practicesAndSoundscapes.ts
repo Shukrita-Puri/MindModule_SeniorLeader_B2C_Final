@@ -321,6 +321,35 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Sports Psychology"
   },
   {
+    id: "pranayama-clarity",
+    title: "Pranayama Clarity Breath",
+    contentType: "guided-practice",
+    category: "presence",
+    tags: ['air', 'decision-making', 'gentle', 'mental-clarity', 'focus'],
+    duration: 3,
+    difficulty: "beginner",
+    origin: "Ancient Yogic Pranayama | 3000+ years",
+    storyHook: "For over 3,000 years, yogis have used this alternate nostril breathing technique to clear mental fog and balance the nervous system before important decisions.",
+    usedBy: "Yogis, Meditators, Decision Makers",
+    thumbnail: flowBlue,
+    steps: 4,
+    creator: "Nadi Shodhana (Channel Purification)",
+    whatYouNeed: [
+      "Essential: Quiet space for 3-5 minutes",
+      "Essential: Comfortable seated position",
+      "Optional: Knowledge of which nostril feels more open",
+      "Best Practiced: Before important decisions or meetings",
+      "Best Practiced: When experiencing mental fog or indecision"
+    ],
+    expectedOutcomes: [
+      "Immediate: Clearing of mental fog within 30-60 seconds",
+      "Immediate: Balanced, calm nervous system activation",
+      "Immediate: Enhanced clarity for decision-making",
+      "With Regular Practice: Improved focus and mental sharpness",
+      "With Regular Practice: Greater emotional regulation"
+    ]
+  },
+  {
     id: "bhramari",
     title: "Bhramari Pranayama",
     contentType: "guided-practice",
@@ -445,16 +474,17 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // POWER-UP Micro Practices
   {
     id: "power-stance",
-    title: "Confidence Through Cuddy's Power Posture",
+    title: "Confidence Through Power Posture",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['fire', 'pre-meeting', 'moderate', 'confidence'],
     duration: 2,
     difficulty: "beginner",
-    creator: "Amy Cuddy's body language research",
+    creator: "Inspired from Amy Cuddy's body language research",
     storyHook: "Harvard research shows 2 minutes in expansive posture increases confidence hormones by 20%.",
     thumbnail: renewalColorful,
-    steps: 2
+    steps: 2,
+    subType: "tool"
   },
   {
     id: "energy-shift",
@@ -467,7 +497,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Kinesthetic energy technique",
     storyHook: "Movement-based practice to shift stagnant energy — athletes use this between training sets.",
     thumbnail: renewalColorful,
-    steps: 3
+    steps: 3,
+    subType: "tool"
   },
 
   // PAUSE Micro Practices
@@ -602,13 +633,13 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "eye-of-storm",
-    title: "Clarity in Chaos Through Sun Tzu's Eye",
+    title: "Clarity in Chaos Through The Eye",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'overwhelm', 'information-overload', 'focus', 'mastery'],
     duration: 1,
     difficulty: "beginner",
-    creator: "Sun Tzu, The Art of War",
+    creator: "Inspired from Sun Tzu, The Art of War",
     origin: "\"In the midst of chaos, there is also opportunity.\" — Sun Tzu, The Art of War",
     storyHook: "For overwhelming situations, information overload, when multiple demands hit simultaneously",
     essence: "The hurricane's center is silent. Position yourself there mentally, not in the violent outer winds.",
@@ -645,13 +676,13 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "djokovic-reset",
-    title: "Instant Reset Through Djokovic's Ritual",
+    title: "Instant Reset Through Performance Ritual",
     contentType: "micro-practice",
     category: "pause",
     tags: ['earth', 'after-mistakes', 'performance', 'recovery', 'quick-reset'],
     duration: 1,
     difficulty: "beginner",
-    creator: "Drawn from Novak Djokovic's performance psychology principles",
+    creator: "Inspired from Novak Djokovic's performance psychology principles",
     origin: "\"The most important point is the next point.\" — Novak Djokovic",
     storyHook: "For moments after mistakes, during performance slumps, when past failures cloud present execution",
     essence: "The last point is dead. The future doesn't exist. Only this breath, this shot, this moment can be controlled.",
@@ -689,32 +720,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PRESENCE Micro Practices
   {
-    id: "clarity-breath",
-    title: "Mental Clarity Through Pranayama Breath",
-    contentType: "micro-practice",
-    category: "presence",
-    tags: ['air', 'decision-making', 'gentle', 'mental-clarity'],
-    duration: 3,
-    difficulty: "beginner",
-    creator: "Pranayama breathing technique",
-    storyHook: "Ancient yogic breath that clears mental fog — used before important decisions for 3,000 years.",
-    thumbnail: flowBlue,
-    steps: 4
-  },
-  {
-    id: "decision-pause",
-    title: "Intuitive Decisions Through Executive Pause",
-    contentType: "micro-practice",
-    category: "presence",
-    tags: ['air', 'before-decision', 'moderate', 'clarity'],
-    duration: 3,
-    difficulty: "beginner",
-    creator: "Executive decision protocol",
-    storyHook: "Top executives use this 3-minute pause before major decisions to check intuition vs. reactivity.",
-    thumbnail: flowBlue,
-    steps: 4
-  },
-  {
     id: "wu-wei-flow",
     title: "Effortless Action Through Wu Wei",
     contentType: "micro-practice",
@@ -729,6 +734,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Flow state (Csíkszentmihályi); optimal challenge-skill balance; reduced cognitive friction",
     cue: "Flow, don't force.",
     usedBy: "When micromanaging, overthinking technique, feeling stuck or effortful, creative blocks",
+    subType: "tool",
     instructions: [
       "Notice where you're forcing (30 seconds): Scan your body: Where am I holding tension? Jaw? Shoulders? Typing too hard? Scan your mind: Am I overthinking this?",
       "Release 20% of effort (10 seconds): Intentionally reduce grip, soften muscles, slow down slightly. You're looking for the minimum effective dose of effort.",
@@ -771,6 +777,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Automaticity in expert performance; reduced self-consciousness; procedural memory dominance",
     cue: "Empty mind, full action.",
     usedBy: "High-stakes performance, when self-doubt interferes, during practiced skills that don't need thinking",
+    subType: "mindset",
     instructions: [
       "Pre-performance discharge (15 seconds): Before the event, do a \"thought dump\": write every worry, doubt, and \"what if\" on paper. Close the notebook. \"Those thoughts stay here. I'm going in empty.\"",
       "Shift from thinking to sensing (5 seconds): Stop rehearsing in your head. Instead, tune into physical sensations: What do I see? Hear? Feel in my body? Become the action, not the narrator.",
@@ -800,19 +807,20 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "jobs-simplicity",
-    title: "Ruthless Focus Through Jobs' Simplicity",
+    title: "Ruthless Focus Through Simplicity",
     contentType: "micro-practice",
     category: "presence",
     tags: ['focus', 'priorities', 'essentialism', 'decision-making'],
     duration: 2,
     difficulty: "beginner",
-    creator: "Steve Jobs",
+    creator: "Inspired from Steve Jobs",
     origin: "\"Focus is about saying no.\" — Steve Jobs",
     storyHook: "For overwhelm by options, multitasking temptation, unclear priorities, decision fatigue",
     essence: "Mastery isn't adding complexity—it's ruthless elimination of everything that doesn't serve the mission.",
     parallel: "Selective attention; cognitive load management; essentialism (Greg McKeown)",
     cue: "One thing. Nothing else.",
     usedBy: "When overwhelmed by options, multitasking temptation, unclear priorities, decision fatigue",
+    subType: "tool",
     instructions: [
       "The brutal prioritization question (2 minutes): Write down everything you think you need to do. Then ask: \"If I could only do ONE of these today, and the rest disappeared, which one actually moves the mission forward?\" Circle it. Cross out the rest (for now).",
       "Create environmental constraints (10 seconds): Close all browser tabs except the one for your priority task. Put phone in another room. Set a timer for 25 minutes of single-focus work. Tell yourself: \"For the next 25 minutes, this is the only thing that exists.\"",
@@ -855,6 +863,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Intrinsic motivation; self-determination theory; purpose-driven performance",
     cue: "This is why I'm here.",
     usedBy: "Mundane work, motivation dips, when questioning the point, energy depletion from meaningless tasks",
+    subType: "mindset",
     instructions: [
       "Connect task to larger meaning (2 minutes): Before starting work, answer: \"Who benefits if I do this well? How does this serve something bigger than me?\" Even mundane tasks have downstream impact.",
       "Reframe the task (30 seconds): You're not \"filling out reports\"—you're \"creating clarity for the team to make better decisions.\" You're not \"answering emails\"—you're \"unblocking people so they can move forward.\" Find the human impact hiding in the task.",
@@ -970,13 +979,13 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "bezos-regret-framework",
-    title: "Bold Action Through Bezos' Framework",
+    title: "Bold Action Through Regret Minimization",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['decision-making', 'courage', 'risk', 'values'],
     duration: 10,
     difficulty: "beginner",
-    creator: "Jeff Bezos",
+    creator: "Inspired from Jeff Bezos",
     origin: "\"I knew that when I was 80, I would never regret trying this. I would only regret not trying.\" — Jeff Bezos",
     storyHook: "When afraid to act, stuck in comfort zone, procrastinating on meaningful risk, choosing safety over growth",
     essence: "View your life from the deathbed. What would you regret not doing? Let future-you guide present-you.",
@@ -1013,13 +1022,13 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "mandela-long-game",
-    title: "Learning Through Mandela's Wisdom",
+    title: "Learning Through Win or Learn",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['resilience', 'learning', 'failure', 'growth-mindset'],
     duration: 5,
     difficulty: "beginner",
-    creator: "Nelson Mandela",
+    creator: "Inspired from Nelson Mandela",
     origin: "\"I never lose. I either win or learn.\" — Nelson Mandela",
     storyHook: "After failures, when self-criticism spirals, building resilience, reframing setbacks as data",
     essence: "There's no such thing as wasted experience. Every outcome either validates your approach or teaches you something essential.",
