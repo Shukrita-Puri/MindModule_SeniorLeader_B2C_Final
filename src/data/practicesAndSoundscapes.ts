@@ -542,6 +542,135 @@ export const sanctuaryContent: SanctuaryContent[] = [
     ],
     whyThisWorks: "The amygdala hijack happens in 0.2 seconds. Your prefrontal cortex needs 6-10 seconds to come back online. The breath physiologically activates your parasympathetic nervous system. You're not suppressing emotion—you're giving your wise brain time to catch up to your reactive brain."
   },
+  {
+    id: "fudoshin-immovable-mind",
+    title: "Calm in Chaos Through Fudōshin",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'high-pressure', 'leadership', 'performance', 'composure'],
+    duration: 1,
+    difficulty: "beginner",
+    creator: "不動心 (Fudōshin) — Samurai principle, Miyamoto Musashi's teachings",
+    origin: "Fudōshin (不動心) — The Immovable Mind principle from Samurai warrior philosophy",
+    storyHook: "For critical performances, leadership under crisis, public speaking, and confrontation",
+    essence: "Your center remains still even when the world around you moves violently. Calm presence in chaos.",
+    parallel: "Psychological composure under stress; \"calm is contagious\" (Navy SEAL principle); emotional steadiness",
+    cue: "\"Still center, moving world.\"",
+    usedBy: "Before critical performances, leadership under crisis, public speaking, confrontation",
+    thumbnail: pauseMauve,
+    steps: 4,
+    subType: "tool",
+    instructions: [
+      "Root yourself physically (10 seconds): Feet shoulder-width apart. Feel weight drop through your heels. Soften your knees slightly. Imagine roots growing from your feet into the ground.",
+      "Find your gravity center (5 seconds): Place hand two inches below your navel (your hara or center of gravity in martial arts). Breathe into that spot. Imagine a dense, heavy ball of iron there.",
+      "The mountain meditation (15 seconds): Eyes open or closed. Visualize yourself as a mountain: storms pass over you, wind howls, but the mountain doesn't flinch. You are the mountain. Say internally: \"Still center, moving world.\"",
+      "Micro-adjustments during action (ongoing): Every 2-3 minutes during high pressure, check: Am I still breathing? Is my jaw relaxed? Weight in my heels?"
+    ],
+    realExamples: [
+      {
+        scenario: "About to give a major presentation",
+        trigger: "Sweaty palms, racing thoughts, audience filing in",
+        response: "In bathroom beforehand—stance wide, hand on belly, 10 slow breaths while repeating \"Still center, moving world.\" When you walk to the stage, you move like you own the ground beneath you."
+      },
+      {
+        scenario: "Leading a crisis meeting",
+        trigger: "Team is panicking, everyone talking at once, looking to you",
+        response: "You don't speak immediately. You stand, feet planted, take one visible breath, then speak slowly: \"Okay. Let's take this one piece at a time.\" Your calm becomes their calm."
+      },
+      {
+        scenario: "Confronting someone about broken trust",
+        trigger: "Your voice wants to shake, emotions bubbling",
+        response: "Before the conversation, you sit for 2 minutes. Feet flat on floor. Hand on belly. You rehearse your first sentence until you can say it with a steady voice. When you speak, you sound like someone who cannot be moved."
+      }
+    ],
+    whyThisWorks: "Your body and mind are bidirectional. When you create physical stability (grounded stance, steady breath), your nervous system interprets: \"We must be safe—we're not running or collapsing.\" Your composure literally regulates others' nervous systems through mirror neurons. Leadership is a felt state, not just words."
+  },
+  {
+    id: "eye-of-storm",
+    title: "Clarity in Chaos Through Sun Tzu's Eye",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'overwhelm', 'information-overload', 'focus', 'mastery'],
+    duration: 1,
+    difficulty: "beginner",
+    creator: "Sun Tzu, The Art of War",
+    origin: "\"In the midst of chaos, there is also opportunity.\" — Sun Tzu, The Art of War",
+    storyHook: "For overwhelming situations, information overload, when multiple demands hit simultaneously",
+    essence: "The hurricane's center is silent. Position yourself there mentally, not in the violent outer winds.",
+    parallel: "Attentional control; metacognitive awareness; the \"observer self\" in mindfulness",
+    cue: "\"Find the eye.\"",
+    usedBy: "Overwhelming situations, information overload, when multiple demands hit simultaneously",
+    thumbnail: pauseMauve,
+    steps: 4,
+    subType: "mindset",
+    instructions: [
+      "Name what's swirling around you (5 seconds): \"Okay—three deadlines, two angry emails, one meeting in 10 minutes, and my head is spinning.\"",
+      "Physical anchor (3 seconds): Press your feet into the ground. Feel the chair beneath you. Touch your thumb to each finger slowly.",
+      "The question that creates the eye (10 seconds): \"What's the one thing I can control in the next 60 seconds?\" Not everything. Just one thing. Maybe it's: Close Slack so the pings stop, Reply to one email with \"Got it, will respond by 3pm\", or Write down the swirling tasks so they're out of your head.",
+      "Repeat the cue as a mantra (ongoing): While doing that one thing, whisper: \"Find the eye. Find the eye.\" It keeps you anchored."
+    ],
+    realExamples: [
+      {
+        scenario: "You're in a heated meeting",
+        trigger: "Three people talking over each other, your idea just got attacked, you feel defensive",
+        response: "Instead of reacting, you take one slow breath and say, \"Hold on—let me make sure I understand what you're saying.\" (Buying yourself 10 seconds to get to your center)"
+      },
+      {
+        scenario: "Your inbox exploded",
+        trigger: "47 unread emails, 5 marked urgent, you're paralyzed",
+        response: "Close email. Open a blank doc. Write: \"What matters today?\" Pick ONE. Do that first. The storm still exists, but you're not in it."
+      },
+      {
+        scenario: "A personal crisis hits mid-workday",
+        trigger: "Bad news from home, emotions flooding, but you have a presentation in 20 minutes",
+        response: "Tell someone you trust: \"I just got hard news. I need 5 minutes.\" Go to bathroom. Splash face. Three deep breaths. Tell yourself: \"For the next 20 minutes, I will do this one thing. After, I can fall apart if I need to.\" (Compartmentalization isn't suppression—it's strategic timing)"
+      }
+    ],
+    whyThisWorks: "Your nervous system can't tell the difference between 20 threats and 1 threat—it just goes into overload. By consciously choosing ONE thing to control, you signal: \"We're not drowning. We're taking one stroke at a time.\" The eye of the storm isn't calm because the storm stopped. It's calm because you stopped trying to fight all of it at once."
+  },
+  {
+    id: "djokovic-reset",
+    title: "Instant Reset Through Djokovic's Ritual",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'after-mistakes', 'performance', 'recovery', 'quick-reset'],
+    duration: 1,
+    difficulty: "beginner",
+    creator: "Novak Djokovic's performance psychology",
+    origin: "\"The most important point is the next point.\" — Novak Djokovic",
+    storyHook: "For moments after mistakes, during performance slumps, when past failures cloud present execution",
+    essence: "The last point is dead. The future doesn't exist. Only this breath, this shot, this moment can be controlled.",
+    parallel: "Present-moment awareness; resetting attentional focus; letting go of rumination",
+    cue: "\"This point only.\"",
+    usedBy: "After mistakes, during performance slumps, when past failures cloud present execution",
+    thumbnail: pauseMauve,
+    steps: 4,
+    subType: "tool",
+    instructions: [
+      "Physical break from the past (2 seconds): Do something that marks a boundary: turn away, shake out your hands, touch something (desk, doorframe, your leg).",
+      "The release breath (5 seconds): Big inhale through nose, forceful exhale through mouth (like blowing out birthday candles). Imagine the last moment leaving your body with that breath.",
+      "State the present moment (3 seconds): Say aloud or internally: \"That point is over. This point starts now.\" Or simply: \"Next.\"",
+      "Narrow your attention to immediate task (ongoing): What is the literal next action? Not the next 10 things. Just the one thing in front of you right now."
+    ],
+    realExamples: [
+      {
+        scenario: "You bombed a question in an interview",
+        trigger: "\"I blew it. They think I'm an idiot. This interview is over.\"",
+        response: "Pause. Look down. Touch your notebook. Release breath. Look back up. \"Okay, next question.\" You re-engage with this moment, not the last one."
+      },
+      {
+        scenario: "You just lost a major client",
+        trigger: "Replaying the conversation, blaming yourself, catastrophizing",
+        response: "Set a timer for 5 minutes. Let yourself feel it fully. When timer goes off, stand up, shake out your body, say \"Next point.\" Open your calendar. \"What's the next call I can win?\""
+      },
+      {
+        scenario: "Mistake in a live presentation",
+        trigger: "Face goes red, you stumble on next three sentences thinking about the error",
+        response: "You pause. Take a sip of water (physical break). Smile slightly. \"Let me refocus that...\" (You just gave yourself permission to start fresh mid-sentence)"
+      }
+    ],
+    whyThisWorks: "Your brain wants to ruminate because it thinks replaying the past will prevent future pain. But when performing, rumination is cognitive load you can't afford. The physical ritual (shake, breath, touch) acts as a pattern interrupt. Djokovic does this between EVERY point—not because he's always failing, but because he's always resetting. Champions don't have fewer setbacks; they have faster resets."
+  },
 
   // PRESENCE Micro Practices
   {
