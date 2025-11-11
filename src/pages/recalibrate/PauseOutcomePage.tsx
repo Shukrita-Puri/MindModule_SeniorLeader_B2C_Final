@@ -281,7 +281,7 @@ const PauseOutcomePage = () => {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-2xl font-headline text-foreground">Micro Exercises</h2>
-              <Badge variant="outline" className="text-xs">2 Tools</Badge>
+              <Badge variant="outline" className="text-xs">{microPractices.length} {microPractices.length === 1 ? 'Item' : 'Items'}</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
           </div>
@@ -296,7 +296,9 @@ const PauseOutcomePage = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
-                    <Badge className="bg-background/50 text-foreground border-border">Tool</Badge>
+                    <Badge className="bg-background/50 text-foreground border-border">
+                      {item.subType === 'mindset' ? 'Mindset' : 'Tool'}
+                    </Badge>
                   </div>
                   <button
                     onClick={(e) => {

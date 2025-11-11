@@ -30,6 +30,7 @@ export interface SanctuaryContent {
   audioSrc?: string;
   steps?: number;
   instructions?: string[];
+  subType?: 'mindset' | 'tool'; // For micro-practices
   
   // Rich metadata for soundscapes
   fullStory?: string;
@@ -467,7 +468,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Military decision-making technique",
     storyHook: "Special operations teams pause 60 seconds before entering high-risk zones to reset nervous system.",
     thumbnail: "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png",
-    steps: 3
+    steps: 3,
+    subType: "tool"
   },
   {
     id: "grounding-touch",
@@ -480,7 +482,24 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Somatic therapy technique",
     storyHook: "Simple touch technique that calms the vagus nerve — therapists use this for immediate anxiety relief.",
     thumbnail: "/lovable-uploads/7a5dd5f2-96fb-485c-a58f-0280491740c1.png",
-    steps: 3
+    steps: 3,
+    subType: "tool"
+  },
+  {
+    id: "space-between-stimulus-response",
+    title: "The Space Between Stimulus and Response",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],
+    duration: 1,
+    difficulty: "beginner",
+    creator: "Viktor Frankl",
+    origin: "Viktor Frankl's logotherapy and existential psychology",
+    storyHook: "The gap between what happens and how you react is where mastery lives. Expand that space — the prefrontal cortex override of amygdala response.",
+    usedBy: "High-pressure negotiations, receiving criticism, moments of provocation",
+    thumbnail: "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png",
+    steps: 1,
+    subType: "mindset"
   },
 
   // PRESENCE Micro Practices
