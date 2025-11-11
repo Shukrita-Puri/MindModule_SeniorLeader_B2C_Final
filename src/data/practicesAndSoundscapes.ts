@@ -713,6 +713,174 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "Top executives use this 3-minute pause before major decisions to check intuition vs. reactivity.",
     thumbnail: flowBlue,
     steps: 4
+  },
+  {
+    id: "wu-wei-flow",
+    title: "Effortless Action Through Wu Wei",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['flow', 'effortless', 'creative-blocks', 'natural-rhythm'],
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Laozi's Tao Te Ching",
+    origin: "無為 (Wu Wei) — Daoist principle, Laozi's Tao Te Ching",
+    storyHook: "For micromanaging, overthinking technique, feeling stuck or effortful, creative blocks",
+    essence: "Flow arises when you align effort with natural conditions, not against them. The river doesn't push water.",
+    parallel: "Flow state (Csíkszentmihályi); optimal challenge-skill balance; reduced cognitive friction",
+    cue: "Flow, don't force.",
+    usedBy: "When micromanaging, overthinking technique, feeling stuck or effortful, creative blocks",
+    instructions: [
+      "Notice where you're forcing (30 seconds): Scan your body: Where am I holding tension? Jaw? Shoulders? Typing too hard? Scan your mind: Am I overthinking this?",
+      "Release 20% of effort (10 seconds): Intentionally reduce grip, soften muscles, slow down slightly. You're looking for the minimum effective dose of effort.",
+      "Find the natural rhythm (1 minute): If writing: Stop trying to write perfectly. Just write next thought. If problem-solving: Stop forcing the solution. Ask: \"What wants to emerge here?\" If in conversation: Stop planning your next sentence. Just listen and respond naturally.",
+      "The \"ease check\" (ongoing): Every 10 minutes ask: \"Am I swimming with the current or against it?\" Adjust accordingly."
+    ],
+    realExamples: [
+      {
+        scenario: "Writing a difficult email",
+        trigger: "Rewriting first sentence 12 times, paralyzed by how it sounds",
+        response: "You stop. Close eyes. Ask: \"If I were talking to them in person, what would I say?\" Type THAT. Then edit. The flow is speak-first, polish-second."
+      },
+      {
+        scenario: "Stuck on a complex problem",
+        trigger: "Staring at screen for 40 minutes, grinding mentally, getting nowhere",
+        response: "You stand up. Go for 5-minute walk. Don't try to solve it. Just let your mind wander. The answer often arrives when you stop strangling it."
+      },
+      {
+        scenario: "Learning a new skill",
+        trigger: "Gripping the tool too hard, overthinking every micro-movement, progress is slow",
+        response: "Your coach says \"Relax your hands.\" You do. Suddenly the motion is smoother. Mastery isn't more effort—it's precise effort with less tension."
+      }
+    ],
+    whyThisWorks: "Cognitive load theory: your working memory has limited slots. Over-effort (physical tension, mental forcing) fills those slots with noise. When you release 20%, you free up bandwidth for pattern recognition and intuition. Flow states emerge when challenge matches skill AND effort is optimized, not maximized. \"Try less hard\" sounds wrong but is often right.",
+    thumbnail: flowBlue,
+    steps: 4
+  },
+  {
+    id: "mushin-no-mind",
+    title: "Fluid Performance Through Mushin",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['flow', 'performance', 'trust', 'automaticity'],
+    duration: 1,
+    difficulty: "intermediate",
+    creator: "Zen Buddhism martial arts philosophy",
+    origin: "無心 (Mushin) — Zen Buddhism, martial arts philosophy",
+    storyHook: "For high-stakes performance, when self-doubt interferes, during practiced skills that don't need thinking",
+    essence: "The mind that doesn't cling to thoughts performs fluidly. Think less, execute more.",
+    parallel: "Automaticity in expert performance; reduced self-consciousness; procedural memory dominance",
+    cue: "Empty mind, full action.",
+    usedBy: "High-stakes performance, when self-doubt interferes, during practiced skills that don't need thinking",
+    instructions: [
+      "Pre-performance discharge (15 seconds): Before the event, do a \"thought dump\": write every worry, doubt, and \"what if\" on paper. Close the notebook. \"Those thoughts stay here. I'm going in empty.\"",
+      "Shift from thinking to sensing (5 seconds): Stop rehearsing in your head. Instead, tune into physical sensations: What do I see? Hear? Feel in my body? Become the action, not the narrator.",
+      "Trust the training (moment of action): When it's time to perform, don't think your way through it. Let your body do what it's practiced 100 times. If a thought arises (\"Am I doing this right?\"), notice it like a cloud passing and return to sensation.",
+      "The redirect mantra (ongoing): When thoughts hook you mid-performance, say internally: \"Not now. Do.\""
+    ],
+    realExamples: [
+      {
+        scenario: "Free throw in basketball (high pressure)",
+        trigger: "Thinking mind: \"Don't miss. Everyone's watching. I missed last time. Bend knees, elbow in...\"",
+        response: "You've shot 10,000 free throws. You step to line. See the rim. Feel the ball. Shoot. Your body knows. Trust it."
+      },
+      {
+        scenario: "Improvising in a meeting",
+        trigger: "Thinking mind: \"What should I say? Does this sound smart? They're judging me.\"",
+        response: "Someone asks you a question. You don't plan your answer. You open your mouth and trust what comes. It's more authentic and fluid than any rehearsed response."
+      },
+      {
+        scenario: "Playing a piano piece you've mastered",
+        trigger: "Thinking mind: \"Okay, this part is tricky, don't mess up the accidentals...\"",
+        response: "Your fingers have memorized the geography. You close your eyes and feel the music through you, not think it through you. Mistakes only happen when you start thinking again."
+      }
+    ],
+    whyThisWorks: "The conscious mind processes 40-50 bits of information per second. The unconscious processes 11 million. When you \"try to think\" during performance, you bottleneck a massive parallel processor through a tiny serial one. Experts perform best when they stop consciously monitoring. \"Choking\" is what happens when thinking interrupts doing. Mushin is getting out of your own way.",
+    thumbnail: flowBlue,
+    steps: 4
+  },
+  {
+    id: "jobs-simplicity",
+    title: "Ruthless Focus Through Jobs' Simplicity",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['focus', 'priorities', 'essentialism', 'decision-making'],
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Steve Jobs",
+    origin: "\"Focus is about saying no.\" — Steve Jobs",
+    storyHook: "For overwhelm by options, multitasking temptation, unclear priorities, decision fatigue",
+    essence: "Mastery isn't adding complexity—it's ruthless elimination of everything that doesn't serve the mission.",
+    parallel: "Selective attention; cognitive load management; essentialism (Greg McKeown)",
+    cue: "One thing. Nothing else.",
+    usedBy: "When overwhelmed by options, multitasking temptation, unclear priorities, decision fatigue",
+    instructions: [
+      "The brutal prioritization question (2 minutes): Write down everything you think you need to do. Then ask: \"If I could only do ONE of these today, and the rest disappeared, which one actually moves the mission forward?\" Circle it. Cross out the rest (for now).",
+      "Create environmental constraints (10 seconds): Close all browser tabs except the one for your priority task. Put phone in another room. Set a timer for 25 minutes of single-focus work. Tell yourself: \"For the next 25 minutes, this is the only thing that exists.\"",
+      "The \"is this it?\" filter (ongoing): Every time you're tempted to switch tasks or add something, ask: \"Is this THE thing right now?\" If no, write it on a \"later\" list and return to your one thing.",
+      "The simplicity review (end of day): \"Did I do my one thing? If not, why? What distracted me?\" Adjust tomorrow's environment accordingly."
+    ],
+    realExamples: [
+      {
+        scenario: "Building a new product",
+        trigger: "47 features you could build, all seem important",
+        response: "\"If we only ship ONE feature that makes people say 'holy shit,' what is it?\" Build that. Ignore the rest until that one sings."
+      },
+      {
+        scenario: "Your morning is chaos",
+        trigger: "Check email, Slack, news, social media, make coffee, start three tasks",
+        response: "Before touching your phone, you do your ONE priority task for 60 minutes. Everything else can wait. This one thing defines whether today was a win."
+      },
+      {
+        scenario: "Someone asks you to join another project",
+        trigger: "FOMO, people-pleasing, \"maybe I can fit it in...\"",
+        response: "\"I'm focused on X right now. If I say yes to this, I'm saying no to that. I choose X.\" You protect your one thing by saying no to everything else."
+      }
+    ],
+    whyThisWorks: "Context-switching costs 20-40% of your productive time. Every additional priority fractures your attention. Jobs killed 70% of Apple's product line when he returned. The company became the most valuable in the world by doing LESS, better. Your brain can only hold one complex thing in working memory at a time. \"Do one thing\" isn't limiting—it's liberating. You're not avoiding work; you're avoiding waste.",
+    thumbnail: flowBlue,
+    steps: 4
+  },
+  {
+    id: "ikigai-purpose",
+    title: "Purpose-Driven Flow Through Ikigai",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['purpose', 'motivation', 'meaning', 'energy'],
+    duration: 3,
+    difficulty: "intermediate",
+    creator: "Japanese philosophy of purpose",
+    origin: "生き甲斐 (Ikigai) — Japanese philosophy of purpose",
+    storyHook: "For mundane work, motivation dips, when questioning the point, energy depletion from meaningless tasks",
+    essence: "When your task sits at the intersection of what you love, what you're good at, what the world needs, and what you can be rewarded for—energy flows naturally.",
+    parallel: "Intrinsic motivation; self-determination theory; purpose-driven performance",
+    cue: "This is why I'm here.",
+    usedBy: "Mundane work, motivation dips, when questioning the point, energy depletion from meaningless tasks",
+    instructions: [
+      "Connect task to larger meaning (2 minutes): Before starting work, answer: \"Who benefits if I do this well? How does this serve something bigger than me?\" Even mundane tasks have downstream impact.",
+      "Reframe the task (30 seconds): You're not \"filling out reports\"—you're \"creating clarity for the team to make better decisions.\" You're not \"answering emails\"—you're \"unblocking people so they can move forward.\" Find the human impact hiding in the task.",
+      "The energy check (ongoing): If a task consistently drains you with no sense of purpose, ask: \"Is this in my Ikigai zone? If not, can I delegate it, automate it, or say no to it?\" Protect your energy for work that lights you up.",
+      "The Ikigai audit (weekly): Draw four overlapping circles (love, good at, world needs, paid for). Plot your tasks. If most are outside the center, something needs to change."
+    ],
+    realExamples: [
+      {
+        scenario: "Tedious data entry",
+        trigger: "\"This is boring busywork. Why am I doing this?\"",
+        response: "\"This data helps us identify which customers are struggling. If I do this right, we can reach them before they churn. I'm protecting relationships.\""
+      },
+      {
+        scenario: "You're exhausted and questioning your career",
+        trigger: "\"I'm just going through the motions. What's the point?\"",
+        response: "You take a walk. Remember why you started. A specific moment when your work helped someone. You write that story down. Read it every morning for a week. The \"why\" reignites the \"how.\""
+      },
+      {
+        scenario: "Entry-level work that feels beneath you",
+        trigger: "\"I'm overqualified for this. This is a waste.\"",
+        response: "\"Every master was once a beginner at the basics. I'm not just doing the task—I'm learning the system, building relationships, proving reliability. This is the foundation.\" Purpose isn't always immediate. Sometimes it's strategic patience."
+      }
+    ],
+    whyThisWorks: "Intrinsic motivation (purpose, autonomy, mastery) outperforms extrinsic motivation (money, status) for complex cognitive work. When you connect your task to meaning, your prefrontal cortex releases dopamine—the fuel for sustained effort. People with strong Ikigai live longer and report higher life satisfaction. It's not woo-woo—it's how the reward system in your brain is designed. Meaning isn't found; it's created through framing.",
+    thumbnail: flowBlue,
+    steps: 4
   }
 ];
 
