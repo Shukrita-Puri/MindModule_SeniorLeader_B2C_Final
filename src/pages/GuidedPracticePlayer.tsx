@@ -12,10 +12,18 @@ import {
   Sparkles,
   Clock,
   TrendingUp,
-  Lightbulb
+  Lightbulb,
+  Volume2,
+  VolumeX,
+  SkipBack,
+  SkipForward,
+  ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
+import { Slider } from "@/components/ui/slider";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import BreathingAnimation from "@/components/BreathingAnimation";
+import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 
@@ -697,6 +705,15 @@ const GuidedPracticePlayer = () => {
   const [stepTimeLeft, setStepTimeLeft] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
+  // Audio player state
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [volume, setVolume] = useState(75);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isOriginOpen, setIsOriginOpen] = useState(false);
+
   // Try to get practice from new data structure first, fallback to legacy
   const practice = id ? (getPracticeData(id) || practiceData[id]) : null;
 
@@ -764,52 +781,121 @@ const GuidedPracticePlayer = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Audio player functions
+  const toggleAudioPlayback = () => {
+    if (audioRef.current) {
+      if (isAudioPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsAudioPlaying(!isAudioPlaying);
+    }
+  };
+
+  const skipAudio = (seconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, duration));
+    }
+  };
+
+  // Audio player effects
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const handleEnded = () => setIsAudioPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume / 100;
+    }
+  }, [volume, isMuted]);
+
   // Intro View
   if (view === "intro") {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background">
         <TopNavigation backPath={getCategoryPath()} />
         
-        <div className="max-w-4xl mx-auto px-6 py-8 pt-20">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 pt-20 space-y-4 md:space-y-6">
+            {/* Hero Image */}
+            {getContentById(id!)?.thumbnail && (
+              <div className="w-full max-h-64 md:max-h-80 overflow-hidden rounded-xl bg-muted">
+                <img 
+                  src={getContentById(id!)!.thumbnail} 
+                  alt={practice.title}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+
             {/* Header */}
             <div>
-              <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
                 {practice.title}
               </h1>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <Sparkles className="h-4 w-4 text-gold" />
+                  <Sparkles className="h-3 w-3 md:h-4 md:w-4 text-gold" />
                   {practice.origin}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-3 w-3 md:h-4 md:w-4" />
                   {Math.floor(practice.totalDuration / 60)} min
                 </span>
                 <span>{practice.difficulty}</span>
               </div>
             </div>
 
-            {/* Origin Story */}
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-xl font-semibold text-gold">Origin & History</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  {practice.fullStory}
-                </p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>Used by: {practice.usedBy}</span>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Origin Story - Collapsible */}
+            <Collapsible open={isOriginOpen} onOpenChange={setIsOriginOpen}>
+              <Card>
+                <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+                  <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                    <h2 className="text-base md:text-lg font-semibold text-gold">Origin & History</h2>
+                    <ChevronDown className={`h-4 w-4 text-gold transition-transform ${isOriginOpen ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                      {practice.fullStory}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground pt-2">
+                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                      <span>Used by: {practice.usedBy}</span>
+                    </div>
+                  </CollapsibleContent>
+                </CardContent>
+              </Card>
+            </Collapsible>
 
             {/* What You'll Need */}
             <Card>
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-xl font-semibold text-gold">What You'll Need</h2>
+              <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+                <h2 className="text-base md:text-lg font-semibold text-gold">What You'll Need</h2>
                 <ul className="space-y-2">
                   {practice.whatYouNeed.map((item, index) => (
-                    <li key={index} className="flex items-start gap-2 text-muted-foreground">
+                    <li 
+                      key={index} 
+                      className={`flex items-start gap-2 text-sm md:text-base ${
+                        item.startsWith('⚠️') || item.includes('DO NOT') 
+                          ? 'text-red-500 font-semibold' 
+                          : 'text-muted-foreground'
+                      }`}
+                    >
                       <span className="text-gold mt-1">•</span>
                       <span>{item}</span>
                     </li>
@@ -820,12 +906,12 @@ const GuidedPracticePlayer = () => {
 
             {/* Expected Outcomes */}
             <Card>
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-xl font-semibold text-gold">Expected Outcomes</h2>
+              <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+                <h2 className="text-base md:text-lg font-semibold text-gold">Expected Outcomes</h2>
                 <ul className="space-y-2">
                   {practice.expectedOutcomes.map((outcome, index) => (
-                    <li key={index} className="flex items-start gap-2 text-muted-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-gold mt-1" />
+                    <li key={index} className="flex items-start gap-2 text-sm md:text-base text-muted-foreground">
+                      <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-gold mt-1" />
                       <span>{outcome}</span>
                     </li>
                   ))}
@@ -835,17 +921,17 @@ const GuidedPracticePlayer = () => {
 
             {/* Step Preview */}
             <Card>
-              <CardContent className="pt-6 space-y-4">
-                <h2 className="text-xl font-semibold text-gold">Practice Journey</h2>
-                <p className="text-muted-foreground">
+              <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+                <h2 className="text-base md:text-lg font-semibold text-gold">Practice Journey</h2>
+                <p className="text-sm md:text-base text-muted-foreground">
                   {practice.steps.length} steps • {Math.floor(practice.totalDuration / 60)} minutes
                 </p>
                 <div className="space-y-2">
                   {practice.steps.map((step, index) => (
-                    <div key={index} className="flex items-center gap-3 text-sm">
-                      <span className="text-gold font-mono">{index + 1}</span>
-                      <span className="text-muted-foreground">{step.title}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">
+                    <div key={index} className="flex items-center gap-2 md:gap-3 text-xs md:text-sm">
+                      <span className="text-gold font-mono text-xs">{index + 1}</span>
+                      <span className="text-muted-foreground flex-1">{step.title}</span>
+                      <span className="text-xs text-muted-foreground">
                         {formatTime(step.duration)}
                       </span>
                     </div>
@@ -861,11 +947,22 @@ const GuidedPracticePlayer = () => {
               onClick={() => {
                 setView("practice");
                 setStepTimeLeft(practice.steps[0].duration);
+                // Auto-start audio if available
+                const content = getContentById(id!);
+                if (content?.audioSrc && audioRef.current) {
+                  audioRef.current.play();
+                  setIsAudioPlaying(true);
+                }
                 toast.success("Practice started");
               }}
             >
               Begin Practice
             </Button>
+
+            {/* Hidden audio element */}
+            {getContentById(id!)?.audioSrc && (
+              <audio ref={audioRef} src={getContentById(id!)!.audioSrc} />
+            )}
           </div>
       </div>
     );
@@ -882,35 +979,39 @@ const GuidedPracticePlayer = () => {
         <TopNavigation backPath={getCategoryPath()} />
         
         {/* Step Counter */}
-        <div className="fixed top-16 right-6 z-40">
-          <span className="text-sm text-muted-foreground bg-card/80 backdrop-blur-sm px-3 py-1 rounded-full border border-gold/20">
+        <div className="fixed top-16 right-4 md:right-6 z-40">
+          <span className="text-xs md:text-sm text-muted-foreground bg-card/80 backdrop-blur-sm px-2 md:px-3 py-1 rounded-full border border-gold/20">
             Step {currentStep + 1} of {practice.steps.length}
           </span>
         </div>
 
         {/* Progress Bar */}
-        <div className="px-6 py-4 pt-20">
+        <div className="px-4 md:px-6 py-3 md:py-4 pt-20">
           <Progress value={overallProgress} className="h-2" />
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-3xl mx-auto">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-8 md:py-12 max-w-3xl mx-auto">
           {/* Step Title */}
-          <h2 className="text-3xl md:text-4xl font-serif text-center mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+          <h2 className="text-xl md:text-3xl font-serif text-center mb-3 md:mb-4 bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
             {currentStepData.title}
           </h2>
 
-          {/* Breathing Visual */}
-          {currentStepData.breathingPattern && (
-            <div className="my-8">
+          {/* Waveform Visualizer or Breathing Visual */}
+          {isAudioPlaying ? (
+            <div className="my-6 md:my-8">
+              <WaveformVisualizer isActive={isAudioPlaying} color="primary" />
+            </div>
+          ) : currentStepData.breathingPattern ? (
+            <div className="my-6 md:my-8">
               <BreathingAnimation />
             </div>
-          )}
+          ) : null}
 
           {/* Instruction */}
-          <Card className="w-full mb-6">
-            <CardContent className="pt-6">
-              <p className="text-lg leading-relaxed text-center">
+          <Card className="w-full mb-4 md:mb-6">
+            <CardContent className="pt-4 md:pt-6">
+              <p className="text-sm md:text-base leading-relaxed text-center">
                 {currentStepData.instruction}
               </p>
             </CardContent>
@@ -918,24 +1019,24 @@ const GuidedPracticePlayer = () => {
 
           {/* Wisdom Note */}
           {currentStepData.wisdomNote && (
-            <div className="flex items-start gap-3 bg-gold/5 border border-gold/20 rounded-lg p-4 mb-6 max-w-2xl">
-              <Lightbulb className="h-5 w-5 text-gold flex-shrink-0 mt-0.5" />
-              <p className="text-sm italic text-muted-foreground">
+            <div className="flex items-start gap-2 md:gap-3 bg-gold/5 border border-gold/20 rounded-lg p-3 md:p-4 mb-4 md:mb-6 max-w-2xl">
+              <Lightbulb className="h-4 w-4 md:h-5 md:w-5 text-gold flex-shrink-0 mt-0.5" />
+              <p className="text-xs md:text-sm italic text-muted-foreground">
                 {currentStepData.wisdomNote}
               </p>
             </div>
           )}
 
           {/* Timer */}
-          <div className="text-center mb-8">
-            <p className="text-5xl font-mono font-light text-gold">
+          <div className="text-center mb-6 md:mb-8">
+            <p className="text-3xl md:text-5xl font-mono font-light text-gold">
               {formatTime(stepTimeLeft)}
             </p>
-            <Progress value={stepProgress} className="w-64 mx-auto mt-4 h-1" />
+            <Progress value={stepProgress} className="w-48 md:w-64 mx-auto mt-3 md:mt-4 h-1" />
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-6">
+          {/* Practice Controls */}
+          <div className="flex items-center gap-4 md:gap-6 mb-4">
             <Button
               variant="outline"
               size="icon"
@@ -947,20 +1048,20 @@ const GuidedPracticePlayer = () => {
                 }
               }}
               disabled={currentStep === 0}
-              className="h-12 w-12"
+              className="h-10 w-10 md:h-12 md:w-12"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
             </Button>
 
             <Button
               size="icon"
               onClick={() => setIsPlaying(!isPlaying)}
-              className="h-16 w-16 rounded-full"
+              className="h-14 w-14 md:h-16 md:w-16 rounded-full"
             >
               {isPlaying ? (
-                <Pause className="h-8 w-8" />
+                <Pause className="h-7 w-7 md:h-8 md:w-8" />
               ) : (
-                <Play className="h-8 w-8 ml-1" />
+                <Play className="h-7 w-7 md:h-8 md:w-8 ml-1" />
               )}
             </Button>
 
@@ -976,11 +1077,77 @@ const GuidedPracticePlayer = () => {
                   setView("complete");
                 }
               }}
-              className="h-12 w-12"
+              className="h-10 w-10 md:h-12 md:w-12"
             >
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
             </Button>
           </div>
+
+          {/* Audio Controls (if audio available) */}
+          {getContentById(id!)?.audioSrc && (
+            <Card className="w-full max-w-2xl mt-6">
+              <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+                <div className="flex items-center justify-between gap-3 md:gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => skipAudio(-15)}
+                    className="h-8 w-8 md:h-10 md:w-10"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={toggleAudioPlayback}
+                    className="h-10 w-10 md:h-12 md:w-12"
+                  >
+                    {isAudioPlaying ? (
+                      <Pause className="h-5 w-5 md:h-6 md:w-6" />
+                    ) : (
+                      <Play className="h-5 w-5 md:h-6 md:w-6 ml-0.5" />
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => skipAudio(15)}
+                    className="h-8 w-8 md:h-10 md:w-10"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </Button>
+
+                  <div className="flex items-center gap-2 flex-1 max-w-32">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsMuted(!isMuted)}
+                      className="h-8 w-8"
+                    >
+                      {isMuted ? (
+                        <VolumeX className="h-4 w-4" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Slider
+                      value={[volume]}
+                      onValueChange={(value) => setVolume(value[0])}
+                      max={100}
+                      step={1}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-xs md:text-sm text-center text-muted-foreground">
+                  {Math.floor(currentTime / 60)}:{String(Math.floor(currentTime % 60)).padStart(2, '0')} / {Math.floor(duration / 60)}:{String(Math.floor(duration % 60)).padStart(2, '0')}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     );
@@ -988,20 +1155,20 @@ const GuidedPracticePlayer = () => {
 
   // Completion View
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-6">
-      <div className="max-w-2xl text-center space-y-6">
-        <CheckCircle2 className="h-20 w-20 text-gold mx-auto" />
-        <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6">
+      <div className="max-w-2xl text-center space-y-4 md:space-y-6">
+        <CheckCircle2 className="h-16 w-16 md:h-20 md:w-20 text-gold mx-auto" />
+        <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
           Practice Complete
         </h1>
         
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <p className="text-xl italic text-muted-foreground">
+          <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
+            <p className="text-base md:text-xl italic text-muted-foreground">
               {practice.completionMessage}
             </p>
             
-            <div className="pt-4 border-t border-border text-sm text-muted-foreground space-y-2">
+            <div className="pt-3 md:pt-4 border-t border-border text-xs md:text-sm text-muted-foreground space-y-1 md:space-y-2">
               <p>Practice: {practice.title}</p>
               <p>Duration: {Math.floor(practice.totalDuration / 60)} minutes</p>
               <p>Steps completed: {practice.steps.length}</p>
@@ -1009,7 +1176,7 @@ const GuidedPracticePlayer = () => {
           </CardContent>
         </Card>
 
-        <div className="flex gap-4 justify-center flex-wrap">
+        <div className="flex gap-3 md:gap-4 justify-center flex-wrap">
           <Button onClick={() => {
             setView("practice");
             setCurrentStep(0);

@@ -487,25 +487,25 @@ const SoundscapePlayer = () => {
 
   if (isComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-6">
-        <div className="max-w-2xl text-center space-y-6">
-          <CheckCircle2 className="h-20 w-20 text-gold mx-auto" />
-          <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
+      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6">
+        <div className="max-w-2xl text-center space-y-4 md:space-y-6">
+          <CheckCircle2 className="h-16 w-16 md:h-20 md:w-20 text-gold mx-auto" />
+          <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
             Journey Complete
           </h1>
           
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-8 border border-gold/20">
-            <p className="text-xl italic text-muted-foreground mb-6">
+          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 md:p-8 border border-gold/20">
+            <p className="text-base md:text-xl italic text-muted-foreground mb-4 md:mb-6">
               "{soundscape.completionQuote}"
             </p>
             
-            <div className="space-y-4 text-sm text-muted-foreground">
+            <div className="space-y-2 md:space-y-4 text-xs md:text-sm text-muted-foreground">
               <p>Session: {soundscape.title}</p>
               <p>Duration: {formatTime(displayDuration)}</p>
             </div>
           </div>
 
-          <div className="flex gap-4 justify-center flex-wrap">
+          <div className="flex gap-3 md:gap-4 justify-center flex-wrap">
             <Button onClick={() => {
               setIsComplete(false);
               setCurrentTime(0);
@@ -542,23 +542,23 @@ const SoundscapePlayer = () => {
       )}
 
       {/* Main Player Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12 pt-20">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 pb-8 md:pb-12 pt-20">
         {/* Title */}
-        <div className="text-center mb-8 max-w-2xl">
-          <h1 className="text-4xl md:text-5xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
+        <div className="text-center mb-6 md:mb-8 max-w-2xl">
+          <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
             {soundscape.title}
           </h1>
-          <p className="text-muted-foreground">{soundscape.origin}</p>
+          <p className="text-sm md:text-base text-muted-foreground">{soundscape.origin}</p>
         </div>
 
-        <GoldCard variant="glowing" className="w-full max-w-2xl p-6 md:p-8 mb-8">
+        <GoldCard variant="glowing" className="w-full max-w-2xl p-4 md:p-6 mb-6 md:mb-8">
           {/* Visual Element */}
-          <div className="mb-8">
+          <div className="mb-6 md:mb-8">
             <div className="relative w-full aspect-[4/3] max-w-md mx-auto rounded-xl overflow-hidden">
               <img 
                 src={getContentById(id!)?.thumbnail} 
                 alt={soundscape.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               {isPlaying && (
                 <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-primary/5 to-accent/10 animate-pulse" />
@@ -567,8 +567,8 @@ const SoundscapePlayer = () => {
           </div>
 
           {/* Timer and Progress */}
-          <div className="w-full space-y-3 mb-8">
-            <div className="flex justify-between text-sm text-muted-foreground">
+          <div className="w-full space-y-2 md:space-y-3 mb-6 md:mb-8">
+            <div className="flex justify-between text-xs md:text-sm text-muted-foreground">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(displayDuration)}</span>
             </div>
@@ -576,26 +576,26 @@ const SoundscapePlayer = () => {
           </div>
 
           {/* Playback Controls */}
-          <div className="flex items-center justify-center gap-6 mb-6">
+          <div className="flex items-center justify-center gap-4 md:gap-6 mb-4 md:mb-6">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => handleSkip(-15)}
-              className="h-12 w-12 rounded-full"
+              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
             >
-              <SkipBack className="h-5 w-5" />
+              <SkipBack className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
             
             <Button
               variant="ghost"
               size="icon"
               onClick={handlePlayPause}
-              className="h-16 w-16 rounded-full bg-primary/10 hover:bg-primary/20"
+              className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-primary/10 hover:bg-primary/20"
             >
               {isPlaying ? (
-                <Pause className="h-6 w-6" />
+                <Pause className="h-5 w-5 md:h-6 md:w-6" />
               ) : (
-                <Play className="h-6 w-6 ml-0.5" />
+                <Play className="h-5 w-5 md:h-6 md:w-6 ml-0.5" />
               )}
             </Button>
             
@@ -603,9 +603,9 @@ const SoundscapePlayer = () => {
               variant="ghost"
               size="icon"
               onClick={() => handleSkip(15)}
-              className="h-12 w-12 rounded-full"
+              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
             >
-              <SkipForward className="h-5 w-5" />
+              <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </div>
 
