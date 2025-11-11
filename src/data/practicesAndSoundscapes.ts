@@ -42,6 +42,17 @@ export interface SanctuaryContent {
   whatYouNeed?: string[];
   expectedOutcomes?: string[];
   practiceSteps?: PracticeStep[];
+  
+  // Rich metadata for mindset micro-practices
+  essence?: string;
+  parallel?: string;
+  cue?: string;
+  realExamples?: Array<{
+    scenario: string;
+    trigger: string;
+    response: string;
+  }>;
+  whyThisWorks?: string;
 }
 
 export const sanctuaryContent: SanctuaryContent[] = [
@@ -494,12 +505,39 @@ export const sanctuaryContent: SanctuaryContent[] = [
     duration: 1,
     difficulty: "beginner",
     creator: "Viktor Frankl",
-    origin: "Viktor Frankl's logotherapy and existential psychology",
-    storyHook: "The gap between what happens and how you react is where mastery lives. Expand that space — the prefrontal cortex override of amygdala response.",
-    usedBy: "High-pressure negotiations, receiving criticism, moments of provocation",
+    origin: "\"Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth and our freedom.\" — Viktor Frankl",
+    storyHook: "The gap between what happens and how you react is where mastery lives. Expand that space.",
+    essence: "The gap between what happens and how you react is where mastery lives. Expand that space.",
+    parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
+    cue: "\"Breathe. Space. Choose.\"",
+    usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
     thumbnail: "/lovable-uploads/06444f60-b3bd-4d38-a749-aea185d789e6.png",
-    steps: 1,
-    subType: "mindset"
+    steps: 4,
+    subType: "mindset",
+    instructions: [
+      "Catch the trigger moment (3 seconds): Notice the sensation: heart racing, jaw clenching, heat rising. Name it: \"I'm triggered.\"",
+      "Create physical space (5 seconds): If standing, take one step back. If sitting, lean back in chair, uncross arms. Anywhere: Place your hand on your chest or belly.",
+      "The triple breath (10 seconds): Breathe in for 4, hold for 4, out for 6. During the exhale, say internally: \"I choose my response.\"",
+      "The bridging question (ongoing): \"What do I want to be true about me in 5 minutes when I look back at this moment?\""
+    ],
+    realExamples: [
+      {
+        scenario: "Someone insults your work in a meeting",
+        trigger: "Your face flushes, you want to defend yourself immediately",
+        response: "You pause, take one breath, then say: \"Help me understand what specifically concerns you.\" (You just bought 30 seconds to think, and shifted from defensive to curious)"
+      },
+      {
+        scenario: "Your teenager slams a door",
+        trigger: "Instant anger, you want to storm in yelling",
+        response: "You stop at the door. Hand on doorknob. Three breaths. Ask yourself: \"Do I want them to remember me as someone who matches their chaos, or someone who stayed steady?\" Then knock gently."
+      },
+      {
+        scenario: "You get a rejection email",
+        trigger: "Stomach drops, immediate spiral into \"I'm not good enough\"",
+        response: "Close laptop. Stand up. Walk to window. Feel your feet on ground. One minute of just breathing. Then choose: \"This is data, not destiny.\""
+      }
+    ],
+    whyThisWorks: "The amygdala hijack happens in 0.2 seconds. Your prefrontal cortex needs 6-10 seconds to come back online. The breath physiologically activates your parasympathetic nervous system. You're not suppressing emotion—you're giving your wise brain time to catch up to your reactive brain."
   },
 
   // PRESENCE Micro Practices

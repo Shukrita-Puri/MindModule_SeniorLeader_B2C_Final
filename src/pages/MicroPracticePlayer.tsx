@@ -58,30 +58,101 @@ const MicroPracticePlayer = () => {
           </div>
         </div>
 
-        {/* Story Hook */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <p className="text-sm leading-relaxed text-muted-foreground">{practice.storyHook}</p>
-          </CardContent>
-        </Card>
+        {/* Origin Quote */}
+        {practice.origin && (
+          <Card className="mb-6 bg-muted/30">
+            <CardContent className="pt-6">
+              <p className="text-sm leading-relaxed italic text-foreground">{practice.origin}</p>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Instructions */}
-        <Card className="mb-8">
-          <CardContent className="pt-6 space-y-4">
-            <h2 className="text-lg font-semibold mb-4">Practice Instructions</h2>
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Follow these simple steps to complete this {practice.duration}-minute practice:
-              </p>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                <li>Find a comfortable position</li>
-                <li>Take a deep breath and center yourself</li>
-                <li>Follow the guided practice</li>
-                <li>Notice how you feel afterwards</li>
+        {/* Essence, Parallel, Cue, Used For */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {practice.essence && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Essence</h3>
+                <p className="text-sm text-foreground">{practice.essence}</p>
+              </CardContent>
+            </Card>
+          )}
+          {practice.parallel && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Parallel</h3>
+                <p className="text-sm text-foreground">{practice.parallel}</p>
+              </CardContent>
+            </Card>
+          )}
+          {practice.cue && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Cue</h3>
+                <p className="text-sm font-medium text-foreground">{practice.cue}</p>
+              </CardContent>
+            </Card>
+          )}
+          {practice.usedBy && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Used For</h3>
+                <p className="text-sm text-foreground">{practice.usedBy}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* What to Actually Do */}
+        {practice.instructions && practice.instructions.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-semibold">What to Actually Do</h2>
+              <ol className="space-y-4">
+                {practice.instructions.map((instruction, index) => (
+                  <li key={index} className="flex gap-3">
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm text-foreground pt-1">{instruction}</p>
+                  </li>
+                ))}
               </ol>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Real Examples */}
+        {practice.realExamples && practice.realExamples.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="pt-6 space-y-6">
+              <h2 className="text-lg font-semibold">Real Examples</h2>
+              {practice.realExamples.map((example, index) => (
+                <div key={index} className="space-y-3 pb-6 border-b last:border-b-0 last:pb-0">
+                  <h3 className="text-sm font-semibold text-foreground">Scenario {index + 1}: {example.scenario}</h3>
+                  <div className="space-y-2 pl-4 border-l-2 border-muted">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">The trigger:</span> {example.trigger}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Use the space:</span> {example.response}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Why This Works */}
+        {practice.whyThisWorks && (
+          <Card className="mb-8 bg-muted/30">
+            <CardContent className="pt-6">
+              <h2 className="text-lg font-semibold mb-3">Why This Works</h2>
+              <p className="text-sm leading-relaxed text-foreground">{practice.whyThisWorks}</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Complete Button */}
         <Button 
