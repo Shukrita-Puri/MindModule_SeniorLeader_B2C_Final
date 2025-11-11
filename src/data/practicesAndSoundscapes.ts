@@ -48,31 +48,27 @@ export const sanctuaryContent: SanctuaryContent[] = [
   
   // POWER-UP Soundbaths
   {
-    id: "athletic-activation",
-    title: "Athletic Activation",
+    id: "energised-focus-didgeridoo-bowls",
+    title: "Energised Focus with Didgeridoo & Bowls",
     contentType: "soundbath",
     category: "power-up",
-    tags: ['fire', 'pre-meeting', 'intense', 'morning', 'performance', 'energy-boost'],
-    duration: 6,
-    creator: "Olympic Performance Protocol",
-    origin: "Sports psychology protocol",
-    storyHook: "Used by Olympic swimmers and track athletes for pre-competition mental preparation.",
-    usedBy: "Olympic athletes, High performers",
+    tags: ['fire', 'focus', 'moderate', 'energy', 'activation'],
+    duration: 2.5,
+    creator: "Didgeridoo traditions and harmonic bowl practices",
+    origin: "Didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
+    storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
     thumbnail: renewalVisual,
-    audioSrc: "/soundscapes/tibetan-bowls.mp3"
-  },
-  {
-    id: "primal-resonance-power",
-    title: "Primal Resonance",
-    contentType: "soundbath",
-    category: "power-up",
-    tags: ['fire', 'pre-meeting', 'intense', 'morning', 'focus', 'activation'],
-    duration: 25,
-    creator: "Ancient sound designed to awaken focus",
-    origin: "Ancient Sound Traditions",
-    storyHook: "A fusion of ancient sound traditions designed to awaken focus and presence before high-energy moments—didgeridoo's primal frequency meets crystalline singing bowls.",
-    thumbnail: renewalVisual,
-    audioSrc: "/soundscapes/ina-night-fields.mp3"
+    audioSrc: "/soundscapes/didgeridoo-bowls.mp3",
+    fullStory: "This soundscape bridges two ancient traditions: the Indigenous Australian didgeridoo, used for healing and ceremony for over 40,000 years, and Tibetan singing bowls, crafted for meditation and consciousness work. The didgeridoo's low-frequency drones—often below 100Hz—activate the body's primal energy centers, creating a sense of grounded vitality. The singing bowls then enter, their crystalline overtones elevating that raw energy into precise mental focus. It's a two-phase journey: first awakening the body's core power, then channeling that momentum into calm, sustained attention. Warriors used the didgeridoo before battle; monks use bowls for marathon meditation sessions. Together, they create a unique state: energized yet centered, powerful yet precise.",
+    technique: "This is a two-phase practice. Phase 1 (Didgeridoo): Feel the low frequencies in your body—your chest, your belly, your legs. Don't just hear it; let it vibrate through you. This awakens your core energy and vitality. Phase 2 (Singing Bowls): As the bowls enter, feel the energy shift upward—into your heart, your throat, your head. The raw power becomes refined focus. Breathe deeply throughout. This isn't relaxation—it's energized presence. You're learning to transform primal momentum into laser-sharp attention.",
+    benefits: [
+      "Awakens core vitality and physical energy",
+      "Channels raw energy into precise mental focus",
+      "Sustains attention with energized presence",
+      "Balances activation with calm clarity",
+      "Builds capacity for high-intensity concentration"
+    ],
+    completionQuote: "True focus is not stillness—it is energy with direction. Power without presence is chaos; presence without power is passive."
   },
   {
     id: "warrior-drums",
@@ -97,7 +93,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['earth', 'post-stress', 'gentle', 'healing', 'meditation'],
     duration: 3,
     creator: "Tibetan Buddhist singing bowl traditions",
-    origin: "Drawn from Tibetan Buddhist singing bowl traditions",
+    origin: "Tibetan Buddhist singing bowl traditions",
     storyHook: "Used to reduce stress, restore emotional balance, and create a sense of grounded presence through harmonic resonance.",
     thumbnail: pauseVisual,
     audioSrc: "/soundscapes/harmonic-calm.mp3",
@@ -120,7 +116,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['earth', 'nature', 'gentle', 'stress-relief', 'grounding'],
     duration: 2,
     creator: "Japanese Shinrin-yoku practices",
-    origin: "Inspired by ancient Japanese Shinrin-yoku (forest bathing) practices",
+    origin: "Japanese Shinrin-yoku (forest bathing) practices",
     storyHook: "Used to cultivate deep calm, restore mental clarity, and anchor attention in the present through gentle rain and subtle village sounds.",
     thumbnail: pauseVisual,
     audioSrc: "/soundscapes/forest-bathing.mp3",
@@ -145,7 +141,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['air', 'focus', 'moderate', 'meditation', 'clarity'],
     duration: 1.5,
     creator: "Monastic chanting and harmonic rituals",
-    origin: "Inspired by monastic chanting and harmonic rituals in Himalayan-style summit monasteries",
+    origin: "Monastic chanting and harmonic rituals in Himalayan-style summit monasteries",
     storyHook: "Used to sharpen cognitive clarity, sustain deep focus, and expand awareness through layered chants, resonant gongs, and ethereal chimes.",
     thumbnail: flowVisual,
     audioSrc: "/soundscapes/monastic-resonance.mp3",
@@ -168,7 +164,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['air', 'focus', 'moderate', 'sacred', 'resonance'],
     duration: 3.5,
     creator: "Sacred harmonic compositions",
-    origin: "Inspired by sacred harmonic compositions in grand cathedrals",
+    origin: "Sacred harmonic compositions in grand cathedrals",
     storyHook: "Used to enhance focus, cultivate mindful presence, and align energy through layered choirs, bells, and reverberant harmonics.",
     thumbnail: flowVisual,
     audioSrc: "/soundscapes/cathedral-choir-flow.mp3",
@@ -182,29 +178,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Builds capacity for long-form concentration"
     ],
     completionQuote: "In the cathedral of consciousness, every voice matters. Focus is not singular—it is harmonious."
-  },
-  {
-    id: "energised-focus-didgeridoo-bowls",
-    title: "Energised Focus with Didgeridoo & Bowls",
-    contentType: "soundbath",
-    category: "presence",
-    tags: ['fire', 'focus', 'moderate', 'energy', 'activation'],
-    duration: 2.5,
-    creator: "Didgeridoo traditions and harmonic bowl practices",
-    origin: "Inspired by didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
-    storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
-    thumbnail: flowVisual,
-    audioSrc: "/soundscapes/didgeridoo-bowls.mp3",
-    fullStory: "This soundscape bridges two ancient traditions: the Indigenous Australian didgeridoo, used for healing and ceremony for over 40,000 years, and Tibetan singing bowls, crafted for meditation and consciousness work. The didgeridoo's low-frequency drones—often below 100Hz—activate the body's primal energy centers, creating a sense of grounded vitality. The singing bowls then enter, their crystalline overtones elevating that raw energy into precise mental focus. It's a two-phase journey: first awakening the body's core power, then channeling that momentum into calm, sustained attention. Warriors used the didgeridoo before battle; monks use bowls for marathon meditation sessions. Together, they create a unique state: energized yet centered, powerful yet precise.",
-    technique: "This is a two-phase practice. Phase 1 (Didgeridoo): Feel the low frequencies in your body—your chest, your belly, your legs. Don't just hear it; let it vibrate through you. This awakens your core energy and vitality. Phase 2 (Singing Bowls): As the bowls enter, feel the energy shift upward—into your heart, your throat, your head. The raw power becomes refined focus. Breathe deeply throughout. This isn't relaxation—it's energized presence. You're learning to transform primal momentum into laser-sharp attention.",
-    benefits: [
-      "Awakens core vitality and physical energy",
-      "Channels raw energy into precise mental focus",
-      "Sustains attention with energized presence",
-      "Balances activation with calm clarity",
-      "Builds capacity for high-intensity concentration"
-    ],
-    completionQuote: "True focus is not stillness—it is energy with direction. Power without presence is chaos; presence without power is passive."
   },
   {
     id: "ina-night-fields",

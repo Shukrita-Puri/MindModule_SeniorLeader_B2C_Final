@@ -16,7 +16,6 @@ import {
   Repeat
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { toast } from "sonner";
@@ -555,15 +554,15 @@ const SoundscapePlayer = () => {
         <GoldCard variant="glowing" className="w-full max-w-2xl p-6 md:p-8 mb-8">
           {/* Visual Element */}
           <div className="mb-8">
-            <div className="relative w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-gold/20 via-primary/20 to-accent/20 rounded-full blur-3xl animate-pulse" />
-              <div className="relative">
-                <WaveformVisualizer 
-                  isActive={isPlaying} 
-                  color="primary" 
-                  className="scale-150"
-                />
-              </div>
+            <div className="relative w-full aspect-[4/3] max-w-md mx-auto rounded-xl overflow-hidden">
+              <img 
+                src={getContentById(id!)?.thumbnail} 
+                alt={soundscape.title}
+                className="w-full h-full object-cover"
+              />
+              {isPlaying && (
+                <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-primary/5 to-accent/10 animate-pulse" />
+              )}
             </div>
           </div>
 
