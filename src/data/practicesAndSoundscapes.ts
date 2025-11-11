@@ -651,7 +651,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     tags: ['earth', 'after-mistakes', 'performance', 'recovery', 'quick-reset'],
     duration: 1,
     difficulty: "beginner",
-    creator: "Novak Djokovic's performance psychology",
+    creator: "Drawn from Novak Djokovic's performance psychology principles",
     origin: "\"The most important point is the next point.\" — Novak Djokovic",
     storyHook: "For moments after mistakes, during performance slumps, when past failures cloud present execution",
     essence: "The last point is dead. The future doesn't exist. Only this breath, this shot, this moment can be controlled.",
