@@ -8,6 +8,9 @@ import { Zap, Waves, Target, Home, Sparkles } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import architecturalPresence from "@/assets/architectural-presence.jpg";
 import { trackEngagement } from "@/utils/engagementTracking";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 
 type Outcome = "pause" | "power-up" | "presence" | "calm" | "ready";
 
@@ -31,6 +34,41 @@ interface CheckInData {
 
 const DailyCheckIn = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Fetch user plan tier
+  const { data: profile } = useQuery({
+    queryKey: ['profile-plan', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('plan_tier')
+        .eq('id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id
+  });
+  
+  // Fetch connection status for tier inference
+  const { data: connections } = useQuery({
+    queryKey: ['connections', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return { hasWearable: false, hasCalendar: false };
+      const [oura, calendar] = await Promise.all([
+        supabase.from('oura_connections').select('id').eq('user_id', user.id).single(),
+        supabase.from('calendar_connections').select('id').eq('user_id', user.id).single()
+      ]);
+      return {
+        hasWearable: !!oura.data,
+        hasCalendar: !!calendar.data
+      };
+    },
+    enabled: !!user?.id
+  });
+  
+  const planTier = profile?.plan_tier || (connections?.hasWearable || connections?.hasCalendar ? 'super_pro' : 'pro');
 
   const outcomes = [
     {
@@ -94,16 +132,34 @@ const DailyCheckIn = () => {
     navigate('/executive-home');
   };
 
-  const handleSkipToHome = () => {
-    const checkInData: CheckInData = {
-      outcome: "pause",
-      timestamp: new Date().toISOString(),
-      date: new Date().toDateString(),
+  const handleSkipToHome = async () => {
+    // Track skip event for analytics
+    if (user?.id) {
+      await supabase.from('checkin_skip_events').insert({
+        user_id: user.id,
+        skip_date: new Date().toISOString().split('T')[0],
+        plan_tier: planTier,
+        has_wearable: connections?.hasWearable || false,
+        has_calendar: connections?.hasCalendar || false
+      });
+    }
+    
+    // Mark skip in localStorage (don't create fake check-in)
+    localStorage.setItem('dailyCheckInSkipped', JSON.stringify({
       skipped: true,
-      completedFull: false
-    };
-    localStorage.setItem('dailyCheckIn', JSON.stringify(checkInData));
+      timestamp: new Date().toISOString(),
+      date: new Date().toDateString()
+    }));
+    
     navigate('/executive-home');
+  };
+  
+  // Dynamic skip button text
+  const getSkipButtonText = () => {
+    if (planTier === 'super_pro') {
+      return "Skip check-in (use wearable data)";
+    }
+    return "I am good, take me to my Mind Atelier";
   };
 
   return (
@@ -149,14 +205,14 @@ const DailyCheckIn = () => {
           })}
         </div>
 
-        {/* Skip to Home - Translucent taupe button */}
+        {/* Skip to Home - Dynamic text based on plan tier */}
         <Button
           variant="outline"
           onClick={handleSkipToHome}
           className="w-full py-3"
         >
           <Home size={16} className="mr-2" />
-          I am good, take me to my Mind Atelier
+          {getSkipButtonText()}
         </Button>
       </div>
       

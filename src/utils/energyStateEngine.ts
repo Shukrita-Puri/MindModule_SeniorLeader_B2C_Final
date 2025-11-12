@@ -1,139 +1,238 @@
-// Energy State Engine - Computes current energy state from multiple inputs
+// Energy State Engine - Calculates user's current energy state from multiple data sources
+// Removes elemental classification, integrates memory, supports skip logic
 
+import { getUserEnergyProfile, type UserEnergyProfile } from './memoryEngine';
 import { getEnergyStateFromCheckIn } from './checkInToTags';
-import { getTimeOfDayTags } from './tagMappings';
 
 export interface CurrentEnergyState {
-  overallBalance: number; // 0-100
-  dominantElement: string;
+  overallBalance: number;
   state: string;
   contextTags: string[];
   energyTags: string[];
   stateTags: string[];
   recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain';
+  dataSources: string[];
+  confidence: 'high' | 'medium' | 'low';
 }
 
-export function computeEnergyState(): CurrentEnergyState {
+export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
   // Get check-in data
   const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
-  const checkInOutcome = checkInData.outcome || 'pause';
-  const checkInState = getEnergyStateFromCheckIn(checkInOutcome);
+  const checkInSkipped = JSON.parse(localStorage.getItem('dailyCheckInSkipped') || '{}');
+  const hasCheckIn = checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
   
-  // Get wearable data (Apple Watch OR Oura - never both)
+  // Get wearable data
   const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || '{}');
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
-  const appleWatchHrv = appleWatchData.hrv || 0;
-  const ouraReadiness = ouraData.readiness || 0;
+  const hasWearable = (appleWatchData.hrv > 0 || ouraData.readiness > 0);
   
-  // Get calendar context
+  // Get calendar data
   const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
-  const upcomingHighStakes = calendarEvents.filter((e: any) => e.isHighStakes).length;
-  const backToBack = calendarEvents.filter((e: any) => e.isBackToBack).length;
-  const calendarLoad = Math.min((upcomingHighStakes * 15 + backToBack * 10), 30);
   const hasCalendar = calendarEvents.length > 0;
   
-  // Get time of day context
+  // Get memory profile
+  const memoryProfile = userId ? await getUserEnergyProfile() : null;
+  const hasMemory = memoryProfile && memoryProfile.energyPatterns.length > 0;
+  
+  // Get circadian rhythm
   const hour = new Date().getHours();
-  const timeContextTags = getTimeOfDayTags(hour);
+  const circadianBonus = getCircadianBonus(hour);
   
-  // Natural circadian energy curve
-  let circadianBonus = 0;
-  if (hour >= 9 && hour < 12) circadianBonus = 15; // Peak morning
-  else if (hour >= 14 && hour < 17) circadianBonus = -10; // Afternoon dip
-  else if (hour >= 17 && hour < 20) circadianBonus = 10; // Evening recovery
-  else if (hour >= 22 || hour < 6) circadianBonus = -15; // Late night fatigue
+  // Dynamic weight calculation
+  const weights = calculateDynamicWeights(hasCheckIn, hasWearable, hasCalendar, hasMemory);
   
-  // Dynamic weight calculation based on connected sources
-  const hasWearable = appleWatchHrv > 0 || ouraReadiness > 0;
+  // Calculate component scores
+  const checkInScore = hasCheckIn ? getEnergyStateFromCheckIn(checkInData.outcome).balance : 0;
+  const wearableScore = calculateWearableScore(appleWatchData, ouraData);
+  const calendarScore = calculateCalendarScore(calendarEvents);
+  const memoryScore = memoryProfile ? calculateMemoryScore(memoryProfile, hour) : 50;
+  const circadianScore = 50 + circadianBonus;
   
-  let checkInWeight: number;
-  let wearableWeight: number;
-  let calendarWeight: number;
-  let circadianWeight: number;
-  
-  if (hasWearable && hasCalendar) {
-    // Both wearable and calendar connected
-    checkInWeight = 0.35;
-    wearableWeight = 0.30;
-    calendarWeight = 0.20;
-    circadianWeight = 0.15;
-  } else if (hasWearable && !hasCalendar) {
-    // Only wearable connected
-    checkInWeight = 0.35;
-    wearableWeight = 0.40;
-    calendarWeight = 0.00;
-    circadianWeight = 0.25;
-  } else if (!hasWearable && hasCalendar) {
-    // Only calendar connected
-    checkInWeight = 0.40;
-    wearableWeight = 0.00;
-    calendarWeight = 0.30;
-    circadianWeight = 0.30;
-  } else {
-    // No external sources connected
-    checkInWeight = 0.50;
-    wearableWeight = 0.00;
-    calendarWeight = 0.00;
-    circadianWeight = 0.50;
-  }
-  
-  // Calculate wearable score (Apple Watch OR Oura)
-  const wearableScore = appleWatchHrv > 0 
-    ? Math.min(100, (appleWatchHrv / 50) * 100) // Apple Watch HRV normalized
-    : ouraReadiness; // Oura readiness is already 0-100
-  
-  // Calculate overall balance
+  // Weighted overall balance
   const overallBalance = Math.round(
-    (checkInState.balance * checkInWeight) +
-    (wearableScore * wearableWeight) +
-    (Math.max(0, 100 - calendarLoad * 2) * calendarWeight) +
-    ((50 + circadianBonus) * circadianWeight)
+    (checkInScore * weights.checkIn) +
+    (wearableScore * weights.wearable) +
+    (calendarScore * weights.calendar) +
+    (memoryScore * weights.memory) +
+    (circadianScore * weights.circadian)
   );
   
-  // Determine recommendation priority
-  let recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain' = 'maintain';
-  if (overallBalance < 40) recommendationPriority = 'rest';
-  else if (overallBalance < 60) recommendationPriority = 'restore';
-  else if (overallBalance < 75) recommendationPriority = 'activate';
-  else recommendationPriority = 'maintain';
+  // Determine confidence based on data sources
+  const confidence = hasCheckIn && (hasWearable || hasCalendar) ? 'high' 
+    : hasCheckIn || hasWearable ? 'medium' 
+    : 'low';
   
-  // Build context tags
-  const contextTags = [...timeContextTags];
-  if (backToBack > 0) contextTags.push('back_to_back_meetings');
-  if (upcomingHighStakes > 0) contextTags.push('high_decision_density');
-  if (wearableScore < 60) contextTags.push('low_recovery');
-  if (wearableScore > 80) contextTags.push('well_rested');
+  // Build data sources array for transparency
+  const dataSources: string[] = [];
+  if (hasCheckIn) dataSources.push('check-in');
+  if (hasWearable) dataSources.push('wearable');
+  if (hasCalendar) dataSources.push('calendar');
+  if (hasMemory) dataSources.push('memory');
+  dataSources.push('circadian');
   
-  // Build energy tags
-  const energyTags = [checkInState.dominantElement];
-  if (overallBalance < 50) energyTags.push(`low_${checkInState.dominantElement}`);
-  else if (overallBalance > 75) energyTags.push(`${checkInState.dominantElement}_up`);
-  
-  // Build state tags
-  const stateTags = [checkInState.state];
-  if (overallBalance < 40) stateTags.push('depleted');
-  else if (overallBalance > 75) stateTags.push('energised');
-  if (backToBack > 2) stateTags.push('tense');
+  // Infer state
+  const state = hasCheckIn 
+    ? getEnergyStateFromCheckIn(checkInData.outcome).state
+    : inferStateFromBalance(overallBalance);
   
   return {
     overallBalance,
-    dominantElement: checkInState.dominantElement,
-    state: checkInState.state,
-    contextTags,
-    energyTags,
-    stateTags,
-    recommendationPriority
+    state,
+    contextTags: buildContextTags(hour, calendarEvents, wearableScore),
+    energyTags: buildEnergyTags(overallBalance),
+    stateTags: buildStateTags(overallBalance, calendarEvents),
+    recommendationPriority: getRecommendationPriority(overallBalance),
+    dataSources,
+    confidence
   };
 }
 
-export function getEnergyStateInsight(state: CurrentEnergyState): string {
-  if (state.overallBalance >= 75) {
-    return `Your energy is strong (${state.overallBalance}/100). You're primed for peak performance.`;
-  } else if (state.overallBalance >= 60) {
-    return `Your energy is good (${state.overallBalance}/100). Small adjustments will optimize your state.`;
-  } else if (state.overallBalance >= 40) {
-    return `Your energy needs support (${state.overallBalance}/100). Restoration practices recommended.`;
-  } else {
-    return `Your energy is depleted (${state.overallBalance}/100). Prioritize rest and recovery.`;
+function calculateDynamicWeights(
+  hasCheckIn: boolean,
+  hasWearable: boolean,
+  hasCalendar: boolean,
+  hasMemory: boolean
+) {
+  // Pro user with check-in
+  if (hasCheckIn && !hasWearable && !hasCalendar) {
+    return { checkIn: 0.50, wearable: 0, calendar: 0, memory: 0.30, circadian: 0.20 };
   }
+  
+  // Pro user skipped (memory + circadian only)
+  if (!hasCheckIn && !hasWearable && !hasCalendar) {
+    return { checkIn: 0, wearable: 0, calendar: 0, memory: 0.70, circadian: 0.30 };
+  }
+  
+  // Super Pro with check-in + all data
+  if (hasCheckIn && hasWearable && hasCalendar) {
+    return { checkIn: 0.35, wearable: 0.30, calendar: 0.20, memory: 0.10, circadian: 0.05 };
+  }
+  
+  // Super Pro skipped but has wearable + calendar
+  if (!hasCheckIn && hasWearable && hasCalendar) {
+    return { checkIn: 0, wearable: 0.50, calendar: 0.25, memory: 0.15, circadian: 0.10 };
+  }
+  
+  // Super Pro skipped with wearable only
+  if (!hasCheckIn && hasWearable && !hasCalendar) {
+    return { checkIn: 0, wearable: 0.60, calendar: 0, memory: 0.25, circadian: 0.15 };
+  }
+  
+  // Default fallback
+  return { checkIn: 0.40, wearable: 0.20, calendar: 0.20, memory: 0.10, circadian: 0.10 };
+}
+
+function calculateMemoryScore(memoryProfile: UserEnergyProfile, currentHour: number): number {
+  // Find typical energy for this time of day from memory
+  const timeWindow = getTimeWindow(currentHour);
+  const pattern = memoryProfile.energyPatterns.find(p => p.timeOfDay === timeWindow);
+  
+  return pattern?.avgBalance || 50;
+}
+
+function getTimeWindow(hour: number): string {
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  if (hour >= 18 && hour < 22) return 'evening';
+  return 'night';
+}
+
+function calculateWearableScore(appleWatch: any, oura: any): number {
+  if (oura.readiness) {
+    return oura.readiness;
+  }
+  if (appleWatch.hrv) {
+    return Math.min(100, Math.max(0, appleWatch.hrv * 1.5));
+  }
+  return 50;
+}
+
+function calculateCalendarScore(events: any[]): number {
+  const upcomingEvents = events.filter((e: any) => {
+    const eventTime = new Date(e.start).getTime();
+    const now = Date.now();
+    const twoHours = 2 * 60 * 60 * 1000;
+    return eventTime > now && eventTime < now + twoHours;
+  });
+
+  if (upcomingEvents.length === 0) return 70;
+  if (upcomingEvents.length === 1) return 55;
+  if (upcomingEvents.length === 2) return 40;
+  return 30;
+}
+
+function getCircadianBonus(hour: number): number {
+  if (hour >= 9 && hour <= 11) return 10;
+  if (hour >= 14 && hour <= 16) return 5;
+  if (hour >= 20 || hour <= 6) return -10;
+  return 0;
+}
+
+function inferStateFromBalance(balance: number): string {
+  if (balance < 40) return 'fatigued';
+  if (balance < 55) return 'tense';
+  if (balance < 70) return 'scattered';
+  if (balance < 85) return 'balanced';
+  return 'energized';
+}
+
+function buildContextTags(hour: number, events: any[], wearableScore: number): string[] {
+  const tags: string[] = [];
+  
+  if (hour >= 6 && hour < 12) tags.push('morning');
+  else if (hour >= 12 && hour < 18) tags.push('afternoon');
+  else if (hour >= 18 && hour < 22) tags.push('evening');
+  else tags.push('night');
+  
+  if (events.length > 2) tags.push('high_meeting_density');
+  if (wearableScore < 40) tags.push('low_readiness');
+  
+  return tags;
+}
+
+function buildEnergyTags(balance: number): string[] {
+  if (balance < 40) return ['low_activation', 'depleted'];
+  if (balance < 55) return ['excess_activation', 'tense'];
+  if (balance < 70) return ['scattered', 'excess_mental_chatter'];
+  if (balance < 85) return ['balanced'];
+  return ['energized', 'peak_state'];
+}
+
+function buildStateTags(balance: number, events: any[]): string[] {
+  const tags: string[] = [];
+  
+  if (balance < 40) tags.push('fatigued', 'needs_restoration');
+  else if (balance < 55) tags.push('tense', 'needs_calming');
+  else if (balance < 70) tags.push('scattered', 'needs_focus');
+  else if (balance < 85) tags.push('balanced');
+  else tags.push('energized', 'peak_performance');
+  
+  if (events.length > 2) tags.push('high_cognitive_load');
+  
+  return tags;
+}
+
+function getRecommendationPriority(balance: number): 'rest' | 'restore' | 'activate' | 'maintain' {
+  if (balance < 40) return 'rest';
+  if (balance < 60) return 'restore';
+  if (balance < 75) return 'activate';
+  return 'maintain';
+}
+
+export function getEnergyStateInsight(energyState: CurrentEnergyState): string {
+  const { overallBalance } = energyState;
+  
+  if (overallBalance < 40) {
+    return 'Deep restoration needed—your system is depleted';
+  }
+  if (overallBalance < 55) {
+    return 'High activation detected—time to downregulate';
+  }
+  if (overallBalance < 70) {
+    return 'Mental scatter present—centering practices recommended';
+  }
+  if (overallBalance < 85) {
+    return 'Balanced state—maintain with grounding practices';
+  }
+  return 'Peak energy state—sustain with focus practices';
 }

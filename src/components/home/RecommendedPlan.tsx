@@ -24,7 +24,7 @@ const RecommendedPlan = () => {
   const loadRecommendations = async () => {
     setLoading(true);
     // Compute energy state first, then pass to recommendations
-    const energyState = computeEnergyState();
+    const energyState = await computeEnergyState();
     const recs = await generateRecommendations(energyState);
     setRecommendations(recs);
     setLoading(false);

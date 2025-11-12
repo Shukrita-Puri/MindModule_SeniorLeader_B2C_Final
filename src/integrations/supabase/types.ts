@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_skip_events: {
+        Row: {
+          created_at: string | null
+          has_calendar: boolean | null
+          has_wearable: boolean | null
+          id: string
+          plan_tier: string | null
+          skip_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          has_calendar?: boolean | null
+          has_wearable?: boolean | null
+          id?: string
+          plan_tier?: string | null
+          skip_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          has_calendar?: boolean | null
+          has_wearable?: boolean | null
+          id?: string
+          plan_tier?: string | null
+          skip_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_relevance_feedback: {
         Row: {
           content_id: string
@@ -147,27 +177,36 @@ export type Database = {
         Row: {
           checkin_date: string
           created_at: string
+          data_sources: Json | null
+          energy_balance: number | null
           id: string
           outcome: string
           skipped: boolean | null
+          state_tags: string[] | null
           timestamp: string
           user_id: string
         }
         Insert: {
           checkin_date: string
           created_at?: string
+          data_sources?: Json | null
+          energy_balance?: number | null
           id?: string
           outcome: string
           skipped?: boolean | null
+          state_tags?: string[] | null
           timestamp: string
           user_id: string
         }
         Update: {
           checkin_date?: string
           created_at?: string
+          data_sources?: Json | null
+          energy_balance?: number | null
           id?: string
           outcome?: string
           skipped?: boolean | null
+          state_tags?: string[] | null
           timestamp?: string
           user_id?: string
         }
@@ -516,12 +555,16 @@ export type Database = {
           meta_skill_scores: Json | null
           onboarding_completed_at: string | null
           onboarding_session_id: string | null
+          plan_tier: string | null
           profile_description: string | null
           profile_type: string | null
           q1_setback_response: string | null
           q2_pressure_response: string | null
           q3_communication_style: string | null
           q4_self_assessed_strength: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
           updated_at: string | null
           user_archetype: string | null
         }
@@ -543,12 +586,16 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
+          plan_tier?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string | null
           user_archetype?: string | null
         }
@@ -570,12 +617,16 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
+          plan_tier?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string | null
           user_archetype?: string | null
         }

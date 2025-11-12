@@ -5,7 +5,6 @@ import { ENERGY_TAGS, STATE_TAGS, PRACTICE_TAGS } from './tagMappings';
 export interface CheckInTagMapping {
   emotionTag: string;
   energyTag: string;
-  element: string;
   stateTag: string;
   recommendationTags: string[];
 }
@@ -15,7 +14,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
     'pause': {
       emotionTag: 'tense',
       energyTag: ENERGY_TAGS.EXCESS_FIRE,
-      element: 'fire',
       stateTag: STATE_TAGS.TENSE,
       recommendationTags: [
         PRACTICE_TAGS.FIRE_DOWN,
@@ -28,7 +26,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
     'power-up': {
       emotionTag: 'fatigued',
       energyTag: ENERGY_TAGS.LOW_FIRE,
-      element: 'earth',
       stateTag: STATE_TAGS.FATIGUED,
       recommendationTags: [
         PRACTICE_TAGS.FIRE_UP,
@@ -40,7 +37,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
     'presence': {
       emotionTag: 'scattered',
       energyTag: ENERGY_TAGS.EXCESS_AIR,
-      element: 'air',
       stateTag: STATE_TAGS.SCATTERED,
       recommendationTags: [
         PRACTICE_TAGS.AIR_DOWN,
@@ -53,7 +49,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
     'calm': {
       emotionTag: 'anxious',
       energyTag: ENERGY_TAGS.EXCESS_AIR,
-      element: 'air',
       stateTag: STATE_TAGS.ANXIOUS,
       recommendationTags: [
         PRACTICE_TAGS.FIRE_DOWN,
@@ -66,7 +61,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
     'ready': {
       emotionTag: 'focused',
       energyTag: ENERGY_TAGS.BALANCED,
-      element: 'balanced',
       stateTag: STATE_TAGS.BALANCED,
       recommendationTags: [
         PRACTICE_TAGS.FOCUS,
@@ -81,7 +75,6 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
 }
 
 export function getEnergyStateFromCheckIn(checkInOutcome: string): {
-  dominantElement: string;
   state: string;
   balance: number; // 0-100
 } {
@@ -96,7 +89,6 @@ export function getEnergyStateFromCheckIn(checkInOutcome: string): {
   };
   
   return {
-    dominantElement: mapping.element,
     state: mapping.stateTag,
     balance: balanceMap[checkInOutcome] || 50
   };

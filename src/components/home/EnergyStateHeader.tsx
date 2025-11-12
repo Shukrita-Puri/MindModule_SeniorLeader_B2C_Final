@@ -1,78 +1,131 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Flame, Mountain, Droplets, Wind, Sparkles } from 'lucide-react';
-import { computeEnergyState, getEnergyStateInsight } from '@/utils/energyStateEngine';
+import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
+import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const EnergyStateHeader = () => {
-  const [energyState, setEnergyState] = useState(computeEnergyState());
+  const { user } = useAuth();
+  const [energyState, setEnergyState] = useState<CurrentEnergyState | null>(null);
 
-  useEffect(() => {
-    // Recalculate on mount
-    setEnergyState(computeEnergyState());
-  }, []);
+  // Compute energy state (now async due to memory integration)
+  useQuery({
+    queryKey: ['energy-state', user?.id],
+    queryFn: async () => {
+      const state = await computeEnergyState(user?.id);
+      setEnergyState(state);
+      return state;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 5 * 60 * 1000 // Refetch every 5 minutes
+  });
 
-  const elementIcons: Record<string, any> = {
-    fire: Flame,
-    earth: Mountain,
-    water: Droplets,
-    air: Wind,
-    balanced: Sparkles
-  };
+  // Get LLM-generated insight
+  const { data: insightData } = useQuery({
+    queryKey: ['energy-insight', energyState?.overallBalance, energyState?.state, energyState?.dataSources],
+    queryFn: async () => {
+      if (!energyState) return null;
+      
+      const { data, error } = await supabase.functions.invoke('generate-energy-insight', {
+        body: {
+          balance: energyState.overallBalance,
+          state: energyState.state,
+          dataSources: energyState.dataSources,
+          recommendationPriority: energyState.recommendationPriority
+        }
+      });
+      
+      if (error) {
+        console.error('Error generating insight:', error);
+        return { insight: getDefaultInsight(energyState) };
+      }
+      
+      return data;
+    },
+    enabled: !!energyState,
+    staleTime: 10 * 60 * 1000 // Cache for 10 minutes
+  });
 
-  const ElementIcon = elementIcons[energyState.dominantElement] || Sparkles;
+  if (!energyState) {
+    return (
+      <Card className="bg-gradient-to-br from-taupe/10 to-taupe-highlight/5 border-border/50 animate-pulse">
+        <CardContent className="p-5">
+          <div className="h-20" />
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const getBalanceColor = (balance: number) => {
-    return 'text-saffron'; // Critical element - always saffron
-  };
-
-  const getBalanceGradient = (balance: number) => {
-    // Element-based warm taupe gradients
-    const element = energyState.dominantElement;
-    if (element === 'fire') return 'from-[#9B7B6A]/10 to-[#B89888]/5';
-    if (element === 'earth') return 'from-[#8B8174]/10 to-[#A39B8E]/5';
-    if (element === 'water') return 'from-[#7A8A89]/10 to-[#94A5A4]/5';
-    if (element === 'air') return 'from-[#9B9B8E]/10 to-[#B4B4A7]/5';
-    return 'from-taupe/10 to-taupe-highlight/5';
-  };
+  const insight = insightData?.insight || getDefaultInsight(energyState);
 
   return (
-    <Card className={`bg-gradient-to-br ${getBalanceGradient(energyState.overallBalance)} border-border/50`}>
+    <Card className="bg-gradient-to-br from-taupe/10 to-taupe-highlight/5 border-border/50">
       <CardContent className="p-5">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full taupe-gradient-shine border border-taupe/30 flex items-center justify-center flex-shrink-0">
-            <ElementIcon className="w-6 h-6 text-taupe-rich" />
+        <div className="space-y-4">
+          {/* Header with data sources */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Energy State Today</h3>
+            <span className="text-xs text-muted-foreground">
+              {energyState.dataSources.join(' + ')}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground mb-1 capitalize">
-              Your Mental State
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {getEnergyStateInsight(energyState)}
-            </p>
-          </div>
-        </div>
-        
-        {/* Energy Balance Bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-            <span>Mental Energy</span>
-            <div className="flex items-center gap-1">
-              <span className={`text-lg font-bold ${getBalanceColor(energyState.overallBalance)}`}>
-                {energyState.overallBalance}
-              </span>
-              <span className="text-xs">/100</span>
+          
+          {/* LLM-generated crisp insight */}
+          <p className="text-sm text-foreground leading-relaxed">
+            {insight}
+          </p>
+          
+          {/* Score + Progress bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Balance</span>
+              <span className="text-2xl font-bold text-saffron">{energyState.overallBalance}</span>
             </div>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all duration-500 ease-out taupe-gradient"
-              style={{ width: `${energyState.overallBalance}%` }}
-            />
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full taupe-gradient transition-all duration-500"
+                style={{ width: `${energyState.overallBalance}%` }}
+              />
+            </div>
+            
+            {/* Practice recommendation */}
+            <p className="text-xs text-muted-foreground mt-2">
+              → {getPracticeTypeText(energyState.recommendationPriority)} recommended
+            </p>
           </div>
         </div>
       </CardContent>
     </Card>
   );
 };
+
+function getPracticeTypeText(priority: string): string {
+  const map: Record<string, string> = {
+    'rest': 'Deep restoration',
+    'restore': 'Rebalancing practices',
+    'activate': 'Energizing tools',
+    'maintain': 'Peak state practices'
+  };
+  return map[priority] || 'Practices';
+}
+
+function getDefaultInsight(energyState: CurrentEnergyState): string {
+  const { overallBalance, state } = energyState;
+  
+  if (overallBalance < 40) {
+    return 'Deep restoration needed—your system is depleted and requires rest.';
+  }
+  if (overallBalance < 55) {
+    return 'High activation detected—time to downregulate with calming practices.';
+  }
+  if (overallBalance < 70) {
+    return 'Mental scatter present—centering practices will help you refocus.';
+  }
+  if (overallBalance < 85) {
+    return 'Balanced state—maintain this equilibrium with grounding practices.';
+  }
+  return 'Peak energy state—sustain your momentum with focus practices.';
+}
 
 export default EnergyStateHeader;

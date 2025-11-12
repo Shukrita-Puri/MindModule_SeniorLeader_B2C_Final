@@ -148,3 +148,18 @@ export async function getUserEnergyProfile(): Promise<UserEnergyProfile> {
   const profile = await analyzeUserPatterns();
   return profile || getDefaultProfile();
 }
+
+export function calculateMemoryScore(memoryProfile: UserEnergyProfile, currentHour: number): number {
+  // Find typical energy for this time of day from memory
+  const timeWindow = getTimeWindow(currentHour);
+  const pattern = memoryProfile.energyPatterns.find(p => p.timeOfDay === timeWindow);
+  
+  return pattern?.avgBalance || 50;
+}
+
+function getTimeWindow(hour: number): string {
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  if (hour >= 18 && hour < 22) return 'evening';
+  return 'night';
+}

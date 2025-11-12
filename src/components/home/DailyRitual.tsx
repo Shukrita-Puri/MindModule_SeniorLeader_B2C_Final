@@ -36,7 +36,7 @@ const DailyRitual = () => {
 
   const loadRecommendations = async () => {
     setLoading(true);
-    const energyState = computeEnergyState();
+    const energyState = await computeEnergyState();
     const recs = await generateRecommendations(energyState);
     setRecommendations(recs);
     setLoading(false);
