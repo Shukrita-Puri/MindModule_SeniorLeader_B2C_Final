@@ -87,11 +87,8 @@ const CalendarConnectionSettings = () => {
     
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const { error } = await supabase.functions.invoke('sync-calendar', {
-        body: { userId: user.id, provider }
+        body: { provider }
       });
 
       if (error) throw error;

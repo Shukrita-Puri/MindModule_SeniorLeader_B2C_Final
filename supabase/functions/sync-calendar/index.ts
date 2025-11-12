@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,12 +13,34 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, provider } = await req.json();
+    // Validate input
+    const requestSchema = z.object({
+      provider: z.enum(['google', 'outlook']),
+    });
+
+    const body = await req.json();
+    const { provider } = requestSchema.parse(body);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
     );
+
+    // Get authenticated user
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+
+    const userId = user.id;
 
     // Get calendar connection
     const { data: connection, error: connectionError } = await supabaseClient
@@ -32,8 +55,14 @@ serve(async (req) => {
       throw new Error('Calendar connection not found');
     }
 
+    // Switch to service role for vault access
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Retrieve decrypted access token from vault
-    const { data: accessToken, error: tokenError } = await supabaseClient
+    const { data: accessToken, error: tokenError } = await serviceClient
       .rpc('get_calendar_access_token', { _connection_id: connection.id });
 
     if (tokenError || !accessToken) {
@@ -142,13 +171,13 @@ serve(async (req) => {
     });
 
     // Delete existing events for this user
-    await supabaseClient
+    await serviceClient
       .from('calendar_events')
       .delete()
       .eq('user_id', userId);
 
     // Insert new events
-    const { error: insertError } = await supabaseClient
+    const { error: insertError } = await serviceClient
       .from('calendar_events')
       .insert(classifiedEvents);
 
@@ -158,7 +187,7 @@ serve(async (req) => {
     }
 
     // Update last_sync timestamp
-    await supabaseClient
+    await serviceClient
       .from('calendar_connections')
       .update({ last_sync: new Date().toISOString() })
       .eq('user_id', userId)

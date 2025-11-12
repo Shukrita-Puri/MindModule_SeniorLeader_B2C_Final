@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +15,11 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
-    const provider = url.searchParams.get('provider'); // 'google' or 'outlook'
+    const provider = url.searchParams.get('provider');
+
+    // Validate input
+    const providerSchema = z.enum(['google', 'outlook']);
+    const validProvider = providerSchema.parse(provider);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -40,7 +45,7 @@ serve(async (req) => {
       let clientId = '';
       let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
 
-      if (provider === 'google') {
+      if (validProvider === 'google') {
         clientId = Deno.env.get('GoogleAuthClientID') ?? '';
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${user.id}`;
@@ -62,9 +67,9 @@ serve(async (req) => {
       let tokenUrl = '';
       let clientId = '';
       let clientSecret = '';
-      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
+      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${validProvider}`;
 
-      if (provider === 'google') {
+      if (validProvider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
         clientId = Deno.env.get('GoogleAuthClientID') ?? '';
         clientSecret = Deno.env.get('GoogleAuthClientSecret') ?? '';
@@ -128,7 +133,7 @@ serve(async (req) => {
         .from('calendar_connections')
         .upsert({
           user_id: state,
-          provider: provider,
+          provider: validProvider,
           encrypted_access_token_id: accessTokenVault.id,
           encrypted_refresh_token_id: refreshTokenVaultId,
           token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
@@ -142,7 +147,7 @@ serve(async (req) => {
 
       // Trigger initial sync
       await supabaseClient.functions.invoke('sync-calendar', {
-        body: { userId: state, provider }
+        body: { provider: validProvider }
       });
 
       // Redirect back to app with success
@@ -159,7 +164,7 @@ serve(async (req) => {
         .from('calendar_connections')
         .update({ is_active: false })
         .eq('user_id', user.id)
-        .eq('provider', provider);
+        .eq('provider', validProvider);
 
       if (error) throw error;
 
