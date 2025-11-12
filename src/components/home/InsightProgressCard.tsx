@@ -86,31 +86,6 @@ const InsightProgressCard = () => {
       {/* Expanded View */}
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4 border-t border-border pt-4 animate-fade-in">
-          {/* Mental Fitness Breakdown */}
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
-              Mental Fitness Breakdown
-            </p>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Scenarios (40%)</span>
-                <span className="font-medium text-foreground">{mentalFitness.breakdown.scenariosCompleted}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Consistency (30%)</span>
-                <span className="font-medium text-foreground">{mentalFitness.breakdown.practiceConsistency}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Breakthroughs (20%)</span>
-                <span className="font-medium text-foreground">{mentalFitness.breakdown.breakthroughs}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Active Days (10%)</span>
-                <span className="font-medium text-foreground">{mentalFitness.breakdown.activeDays}</span>
-              </div>
-            </div>
-          </div>
-          
           {/* Pattern Detection */}
           {patterns.length > 0 && (
             <div>
@@ -127,17 +102,6 @@ const InsightProgressCard = () => {
               </ul>
             </div>
           )}
-          
-          {/* Mini Meta-Skill Radar Placeholder */}
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
-              Meta-Skill Progress
-            </p>
-            <div className="flex items-center justify-center py-6 bg-muted/20 rounded-lg">
-              <TrendingUp size={24} className="text-primary mr-2" />
-              <span className="text-sm text-muted-foreground">Radar chart coming soon</span>
-            </div>
-          </div>
         </div>
       )}
     </div>

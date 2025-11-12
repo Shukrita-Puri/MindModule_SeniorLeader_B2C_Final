@@ -21,10 +21,18 @@ const DailyRitual = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
+  const [isRitualCompleted, setIsRitualCompleted] = useState(false);
 
   useEffect(() => {
     loadRecommendations();
+    checkRitualCompletion();
   }, []);
+
+  const checkRitualCompletion = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const ritualCompletions = JSON.parse(localStorage.getItem('ritualCompletions') || '{}');
+    setIsRitualCompleted(ritualCompletions[today] === true);
+  };
 
   const loadRecommendations = async () => {
     setLoading(true);
@@ -163,13 +171,22 @@ const DailyRitual = () => {
         ))}
       </Card>
 
-      {/* Start Button */}
-      <Button
-        onClick={handleStartRitual}
-        className="w-full bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
-      >
-        Start Your Ritual →
-      </Button>
+      {/* Start/Complete Button */}
+      {isRitualCompleted ? (
+        <Button
+          disabled
+          className="w-full bg-emerald-600/50 text-white cursor-default"
+        >
+          ✓ Daily Ritual Completed
+        </Button>
+      ) : (
+        <Button
+          onClick={handleStartRitual}
+          className="w-full bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
+        >
+          Start Your Ritual →
+        </Button>
+      )}
     </div>
   );
 };
