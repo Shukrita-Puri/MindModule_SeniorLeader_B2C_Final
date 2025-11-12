@@ -25,8 +25,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import BreathingAnimation from "@/components/BreathingAnimation";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
+import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
+import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PracticeStep {
   stepNumber: number;
@@ -700,10 +703,11 @@ const GuidedPracticePlayer = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [view, setView] = useState<"intro" | "practice" | "complete">("intro");
+  const [view, setView] = useState<"intro" | "practice" | "complete" | "rating">("intro");
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stepTimeLeft, setStepTimeLeft] = useState(0);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const intervalRef = useRef<number | null>(null);
 
   // Audio player state
@@ -735,7 +739,7 @@ const GuidedPracticePlayer = () => {
               return practice.steps[currentStep + 1].duration;
             } else {
               setIsPlaying(false);
-              setView("complete");
+              handlePracticeComplete();
               return 0;
             }
           }
@@ -761,6 +765,38 @@ const GuidedPracticePlayer = () => {
     if (category === 'presence') return '/recalibrate/presence';
     if (category === 'flow') return '/recalibrate/flow';
     return '/guided-practices';
+  };
+
+  const handlePracticeComplete = async () => {
+    // Save practice session to database
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && practice) {
+        const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+        
+        const { data, error } = await supabase.from('practice_sessions').insert({
+          user_id: user.id,
+          content_id: practice.id,
+          content_type: 'guided',
+          category: practice.category,
+          duration_seconds: practice.totalDuration,
+          started_at: new Date(Date.now() - practice.totalDuration * 1000).toISOString(),
+          completed_at: new Date().toISOString(),
+          completed: true,
+          part_of_ritual: isPartOfRitual,
+          metadata: { title: practice.title }
+        }).select('id').single();
+        
+        if (data) {
+          setSessionId(data.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save practice session:', error);
+    }
+    
+    setView("rating");
   };
 
   if (!practice) {
@@ -1089,7 +1125,7 @@ const GuidedPracticePlayer = () => {
                   setStepTimeLeft(practice.steps[currentStep + 1].duration);
                   setIsPlaying(false);
                 } else {
-                  setView("complete");
+                  handlePracticeComplete();
                 }
               }}
               className="h-10 w-10 md:h-12 md:w-12"
@@ -1165,6 +1201,31 @@ const GuidedPracticePlayer = () => {
           )}
         </div>
       </div>
+    );
+  }
+
+  // Rating View
+  if (view === "rating") {
+    const handleRatingSubmit = async (rating: number, feedback?: string) => {
+      await submitPracticeRating(sessionId, practice.id, 'guided-practice', rating, feedback);
+      toast.success("Thank you for your feedback!");
+      setView("complete");
+    };
+
+    const handleRatingSkip = () => {
+      setView("complete");
+    };
+
+    return (
+      <PracticeRatingModal
+        contentId={practice.id}
+        contentType="guided-practice"
+        contentTitle={practice.title}
+        category={practice.category}
+        sessionId={sessionId}
+        onSubmit={handleRatingSubmit}
+        onSkip={handleRatingSkip}
+      />
     );
   }
 

@@ -1,18 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
+import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
+import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const allContent = getAllContent();
   const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
+  
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
   // Track engagement on page load
   useEffect(() => {
@@ -56,7 +62,7 @@ const MicroPracticePlayer = () => {
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
       // Track practice session
-      await supabase.from('practice_sessions').insert({
+      const { data, error } = await supabase.from('practice_sessions').insert({
         user_id: user.id,
         content_id: practice.id,
         content_type: 'micro',
@@ -67,7 +73,11 @@ const MicroPracticePlayer = () => {
         completed: true,
         part_of_ritual: isPartOfRitual,
         metadata: { title: practice.title }
-      });
+      }).select('id').single();
+
+      if (data) {
+        setSessionId(data.id);
+      }
 
       // Update ritual completion if part of ritual
       if (isPartOfRitual) {
@@ -89,8 +99,37 @@ const MicroPracticePlayer = () => {
       console.error('Failed to save completion:', error);
     }
     
+    // Show rating modal
+    setShowRatingModal(true);
+  };
+
+  const handleRatingSubmit = async (rating: number, feedback?: string) => {
+    if (practice) {
+      await submitPracticeRating(sessionId, practice.id, 'micro-practice', rating, feedback);
+      toast.success("Thank you for your feedback!");
+    }
+    setShowRatingModal(false);
     navigate("/recalibrate");
   };
+
+  const handleRatingSkip = () => {
+    setShowRatingModal(false);
+    navigate("/recalibrate");
+  };
+
+  if (showRatingModal && practice) {
+    return (
+      <PracticeRatingModal
+        contentId={practice.id}
+        contentType="micro-practice"
+        contentTitle={practice.title}
+        category={practice.category}
+        sessionId={sessionId}
+        onSubmit={handleRatingSubmit}
+        onSkip={handleRatingSkip}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

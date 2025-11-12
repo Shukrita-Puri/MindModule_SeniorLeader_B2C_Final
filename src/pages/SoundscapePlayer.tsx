@@ -18,9 +18,12 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
+import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
+import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { supabase } from "@/integrations/supabase/client";
 
 // Soundscape data now comes from practicesAndSoundscapes.ts
 const getSoundscapeData = (id: string) => {
@@ -283,6 +286,8 @@ const SoundscapePlayer = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [actualDuration, setActualDuration] = useState<number | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Practice Queue State
@@ -435,7 +440,7 @@ const SoundscapePlayer = () => {
     }
   };
 
-  const handleAudioEnded = () => {
+  const handleAudioEnded = async () => {
     if (isLooping && audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(err => {
@@ -444,7 +449,37 @@ const SoundscapePlayer = () => {
       });
     } else {
       setIsPlaying(false);
-      setIsComplete(true);
+      
+      // Save practice session to database
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && soundscape) {
+          const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+          const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+          
+          const { data, error } = await supabase.from('practice_sessions').insert({
+            user_id: user.id,
+            content_id: soundscape.id,
+            content_type: 'soundbath',
+            category: soundscape.category,
+            duration_seconds: displayDuration,
+            started_at: new Date(Date.now() - displayDuration * 1000).toISOString(),
+            completed_at: new Date().toISOString(),
+            completed: true,
+            part_of_ritual: isPartOfRitual,
+            metadata: { title: soundscape.title }
+          }).select('id').single();
+          
+          if (data) {
+            setSessionId(data.id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to save practice session:', error);
+      }
+      
+      // Show rating modal instead of completion screen
+      setShowRatingModal(true);
       
       // If in queue, auto-navigate to next after 2 seconds
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
@@ -519,6 +554,34 @@ const SoundscapePlayer = () => {
   };
 
   const progress = displayDuration > 0 ? (currentTime / displayDuration) * 100 : 0;
+
+  const handleRatingSubmit = async (rating: number, feedback?: string) => {
+    if (soundscape) {
+      await submitPracticeRating(sessionId, soundscape.id, 'soundbath', rating, feedback);
+      toast.success("Thank you for your feedback!");
+    }
+    setShowRatingModal(false);
+    setIsComplete(true);
+  };
+
+  const handleRatingSkip = () => {
+    setShowRatingModal(false);
+    setIsComplete(true);
+  };
+
+  if (showRatingModal && soundscape) {
+    return (
+      <PracticeRatingModal
+        contentId={soundscape.id}
+        contentType="soundbath"
+        contentTitle={soundscape.title}
+        category={soundscape.category}
+        sessionId={sessionId}
+        onSubmit={handleRatingSubmit}
+        onSkip={handleRatingSkip}
+      />
+    );
+  }
 
   if (isComplete) {
     return (

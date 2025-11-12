@@ -95,6 +95,54 @@ export type Database = {
         }
         Relationships: []
       }
+      content_relevance_feedback: {
+        Row: {
+          content_id: string
+          content_type: string
+          context_data: Json | null
+          created_at: string
+          feedback_reason: string | null
+          feedback_text: string | null
+          feedback_type: string
+          id: string
+          session_id: string | null
+          star_rating: number | null
+          timestamp: string
+          trigger_context: string | null
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          context_data?: Json | null
+          created_at?: string
+          feedback_reason?: string | null
+          feedback_text?: string | null
+          feedback_type: string
+          id?: string
+          session_id?: string | null
+          star_rating?: number | null
+          timestamp?: string
+          trigger_context?: string | null
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          context_data?: Json | null
+          created_at?: string
+          feedback_reason?: string | null
+          feedback_text?: string | null
+          feedback_type?: string
+          id?: string
+          session_id?: string | null
+          star_rating?: number | null
+          timestamp?: string
+          trigger_context?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           checkin_date: string
