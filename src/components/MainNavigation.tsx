@@ -27,7 +27,7 @@ const MainNavigation = () => {
   const navItems = [
     { 
       icon: Home, 
-      label: "Mind Atelier", 
+      label: "Atelier", 
       route: "/executive-home",
       isActive: location.pathname === "/executive-home"
     },

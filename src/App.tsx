@@ -75,6 +75,12 @@ const Layout = () => {
   const excludedPages = [
     '/',
     '/signup',
+    '/executive-home',
+    '/daily-check-in',
+    '/recalibrate',
+    '/recalibrate/power-up',
+    '/recalibrate/pause',
+    '/recalibrate/presence',
     '/practice',
     '/practice/configure',
     '/practice/simulation'

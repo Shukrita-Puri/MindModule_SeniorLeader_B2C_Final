@@ -1,5 +1,5 @@
 interface MentalFitnessData {
-  score: number;
+  score: number; // 0-100 scale
   trend: 'up' | 'down' | 'stable';
   changeFromBaseline: number;
   currentStreak: number;

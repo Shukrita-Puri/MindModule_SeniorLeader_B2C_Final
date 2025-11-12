@@ -20,16 +20,9 @@ const ExecutiveHome = () => {
   // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return `Good morning, ${firstName}`;
-    if (hour < 18) return `Hey, ${firstName}`;
+    if (hour < 12) return `Morning, ${firstName}`;
+    if (hour < 18) return `Afternoon, ${firstName}`;
     return `Evening, ${firstName}`;
-  };
-  
-  const getSubtitle = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Ready to architect your mind for the day?";
-    if (hour < 18) return "How's your mental game today?";
-    return "Time to restore and reflect";
   };
 
   return (
@@ -40,10 +33,10 @@ const ExecutiveHome = () => {
       <div className="relative pt-16 pb-6 px-4">
         <div className="text-center max-w-2xl mx-auto">
           <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-            Mind Atelier
+            {getGreeting()}
           </h1>
           <p className="text-lg font-subheadline italic text-muted-foreground">
-            Your daily practice
+            Welcome to Your Contextual Mind Atelier
           </p>
         </div>
       </div>
