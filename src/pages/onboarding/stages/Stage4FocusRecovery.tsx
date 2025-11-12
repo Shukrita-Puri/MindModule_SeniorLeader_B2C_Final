@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
-import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
+import { OnboardingBackButton } from "@/components/onboarding/OnboardingBackButton";
 
 export default function Stage4FocusRecovery() {
   const navigate = useNavigate();
@@ -44,10 +44,8 @@ export default function Stage4FocusRecovery() {
   ];
 
   return (
-    <>
-      <UnifiedTopBar backPath="/onboarding/energy-regulation" />
-      
-      <div className="pt-16 space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      <OnboardingBackButton backPath="/onboarding/energy-regulation" />
         <QuestionCard 
           title="When you're interrupted during deep work, how do you recover your focus?"
           subtitle="Think about emails, calls, or unexpected asks"
@@ -71,7 +69,6 @@ export default function Stage4FocusRecovery() {
             ))}
           </div>
         </QuestionCard>
-      </div>
-    </>
+    </div>
   );
 }

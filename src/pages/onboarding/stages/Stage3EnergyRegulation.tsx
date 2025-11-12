@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
-import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
+import { OnboardingBackButton } from "@/components/onboarding/OnboardingBackButton";
 
 export default function Stage3EnergyRegulation() {
   const navigate = useNavigate();
@@ -44,10 +44,8 @@ export default function Stage3EnergyRegulation() {
   ];
 
   return (
-    <>
-      <UnifiedTopBar backPath="/onboarding/identity" />
-      
-      <div className="pt-16 space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      <OnboardingBackButton backPath="/onboarding/identity" />
         <QuestionCard 
           title="After a period of intense focus or high-pressure work, what happens?"
           subtitle="Think about how you transition after demanding tasks"
@@ -71,7 +69,6 @@ export default function Stage3EnergyRegulation() {
             ))}
           </div>
         </QuestionCard>
-      </div>
-    </>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
 import { ArrowRight } from "lucide-react";
-import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
+import { OnboardingBackButton } from "@/components/onboarding/OnboardingBackButton";
 
 export default function Stage6GrowthAssessment() {
   const navigate = useNavigate();
@@ -46,10 +46,8 @@ export default function Stage6GrowthAssessment() {
   ];
 
   return (
-    <>
-      <UnifiedTopBar backPath="/onboarding/energy-renewal" />
-      
-      <div className="pt-16 space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      <OnboardingBackButton backPath="/onboarding/energy-renewal" />
         <QuestionCard 
           title="What's your biggest growth priority right now?"
           subtitle="Select the one that feels most important to you"
@@ -83,7 +81,6 @@ export default function Stage6GrowthAssessment() {
           See My Results
           <ArrowRight size={20} className="ml-2" />
         </Button>
-      </div>
-    </>
+    </div>
   );
 }

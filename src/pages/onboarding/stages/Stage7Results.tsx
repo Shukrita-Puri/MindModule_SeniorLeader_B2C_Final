@@ -79,24 +79,21 @@ export default function Stage7Results() {
         <div className="text-5xl md:text-6xl font-bold text-primary">
           {scoringResult.mentalFitnessBaseline}<span className="text-2xl text-muted-foreground">/100</span>
         </div>
-        
-        <div className="text-sm text-muted-foreground">
-          Above National Average ({nationalAvg}/100)
-        </div>
 
         {/* Progress Bar with National Average Marker */}
-        <div className="max-w-md mx-auto space-y-2">
+        <div className="max-w-md mx-auto space-y-3">
           <div className="relative">
             <Progress value={scoringResult.mentalFitnessBaseline} className="h-3" />
             {/* National Average Marker */}
             <div 
               className="absolute top-0 bottom-0 w-0.5 bg-muted-foreground/50" 
               style={{ left: `${nationalAvg}%` }}
-            >
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
-                Avg: {nationalAvg}
-              </div>
-            </div>
+            />
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>National Avg: {nationalAvg}/100</span>
+            <span className="text-primary font-medium">You: {scoringResult.mentalFitnessBaseline}/100</span>
           </div>
         </div>
 
