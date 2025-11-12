@@ -1,21 +1,26 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, TrendingUp } from "lucide-react";
-import { getOnboardingStatus, getResumeRoute } from "@/utils/onboardingStatus";
+import { getOnboardingStatus, getResumeRoute, OnboardingStatus } from "@/utils/onboardingStatus";
 import { GoldDivider } from "@/components/ui/divider";
 
 export const ResumeOnboardingBanner = () => {
   const navigate = useNavigate();
-  const status = getOnboardingStatus();
+  const [status, setStatus] = useState<OnboardingStatus | null>(null);
 
-  // Don't show if onboarding is complete or not started
-  if (status.isComplete || !status.hasStarted) {
+  useEffect(() => {
+    getOnboardingStatus().then(setStatus);
+  }, []);
+
+  // Don't show if loading, onboarding is complete, or not started
+  if (!status || status.isComplete || !status.hasStarted) {
     return null;
   }
 
-  const handleResume = () => {
-    const resumeRoute = getResumeRoute();
+  const handleResume = async () => {
+    const resumeRoute = await getResumeRoute();
     navigate(resumeRoute);
   };
 

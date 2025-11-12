@@ -1,4 +1,5 @@
 import { getSession, getAllResponses } from "./onboardingStorage";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface OnboardingStatus {
   isComplete: boolean;
@@ -12,7 +13,7 @@ export interface OnboardingStatus {
 
 const TOTAL_STAGES = 8; // Welcome, Identity, Behavioral, Self-Assessment, Signup, Results, Payment, Context Connection
 
-export function getOnboardingStatus(): OnboardingStatus {
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   const session = getSession();
   const responses = getAllResponses();
 
@@ -34,8 +35,9 @@ export function getOnboardingStatus(): OnboardingStatus {
     responses.q4_self_assessed_strength
   );
 
-  // Check if they've gone through signup (indicated by auth or payment selection)
-  const hasSignedUp = localStorage.getItem('supabase.auth.token') !== null;
+  // Check if they've gone through signup using server-side authentication
+  const { data: { user } } = await supabase.auth.getUser();
+  const hasSignedUp = user !== null;
   
   // Check if they've completed payment selection
   const hasSelectedPlan = localStorage.getItem('selectedPlan') !== null;
@@ -102,7 +104,7 @@ export function getOnboardingStatus(): OnboardingStatus {
   };
 }
 
-export function getResumeRoute(): string {
+export async function getResumeRoute(): Promise<string> {
   const session = getSession();
   const responses = getAllResponses();
 
@@ -123,8 +125,9 @@ export function getResumeRoute(): string {
     return '/onboarding/self-assessment';
   }
 
-  const hasSignedUp = localStorage.getItem('supabase.auth.token') !== null;
-  if (!hasSignedUp) {
+  // Check authentication using server-side verification
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return '/onboarding/signup-step';
   }
 

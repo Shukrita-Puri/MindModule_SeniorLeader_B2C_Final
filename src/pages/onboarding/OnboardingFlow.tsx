@@ -34,14 +34,18 @@ export default function OnboardingFlow() {
   const location = useLocation();
 
   useEffect(() => {
-    const sessionId = initializeSession();
-    console.log("Onboarding session initialized:", sessionId);
+    const initOnboarding = async () => {
+      const sessionId = initializeSession();
+      console.log("Onboarding session initialized:", sessionId);
 
-    const session = getSession();
-    const resumeRoute = getResumeRoute();
-    if (location.pathname !== resumeRoute && !location.pathname.includes('/signup')) {
-      navigate(resumeRoute);
-    }
+      const session = getSession();
+      const resumeRoute = await getResumeRoute();
+      if (location.pathname !== resumeRoute && !location.pathname.includes('/signup')) {
+        navigate(resumeRoute);
+      }
+    };
+    
+    initOnboarding();
   }, []);
 
   // Match routes from longest to shortest to avoid "/onboarding" matching before "/onboarding/behavioral"

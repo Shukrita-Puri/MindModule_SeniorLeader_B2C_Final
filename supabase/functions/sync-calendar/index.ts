@@ -66,7 +66,6 @@ serve(async (req) => {
       .rpc('get_calendar_access_token', { _connection_id: connection.id });
 
     if (tokenError || !accessToken) {
-      console.error('Error retrieving access token:', tokenError);
       throw new Error('Failed to retrieve calendar access token');
     }
 
@@ -182,7 +181,6 @@ serve(async (req) => {
       .insert(classifiedEvents);
 
     if (insertError) {
-      console.error('Error inserting events:', insertError);
       throw insertError;
     }
 
@@ -193,14 +191,11 @@ serve(async (req) => {
       .eq('user_id', userId)
       .eq('provider', provider);
 
-    console.log(`Synced ${classifiedEvents.length} events for user ${userId}`);
-
     return new Response(
       JSON.stringify({ success: true, eventCount: classifiedEvents.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Calendar sync error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

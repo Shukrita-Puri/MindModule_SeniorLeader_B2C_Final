@@ -1,6 +1,7 @@
 // Sanctuary Event Tracking - Memory and Context System
 
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
 export interface SanctuaryEventData {
   userId?: string;
@@ -23,18 +24,43 @@ export interface SanctuaryEventData {
   effectivenessRating?: number;
 }
 
+// Zod schema for input validation
+const sanctuaryEventSchema = z.object({
+  userId: z.string().uuid().optional(),
+  eventType: z.enum(['session_start', 'session_complete', 'session_pause', 'session_skip']),
+  contentId: z.string().min(1).max(100),
+  contentType: z.enum(['soundbath', 'guided-practice', 'micro-practice']),
+  category: z.enum(['pause', 'power-up', 'presence']),
+  tags: z.array(z.string().max(50)).max(10),
+  duration: z.number().positive().max(86400).optional(),
+  timestamp: z.string().datetime(),
+  contextData: z.object({
+    timeOfDay: z.string(),
+    dayOfWeek: z.string(),
+    checkInOutcome: z.string().optional(),
+    ouraReadiness: z.number().optional(),
+    calendarEvents: z.array(z.any()).optional(),
+    energyState: z.string().optional(),
+    recommendationReason: z.string().optional(),
+  }),
+  effectivenessRating: z.number().min(1).max(5).optional(),
+});
+
 // Queue for offline events
 let offlineQueue: SanctuaryEventData[] = [];
 
 export async function trackSanctuaryEvent(event: SanctuaryEventData) {
   try {
+    // Validate input before processing
+    const validatedEvent = sanctuaryEventSchema.parse(event) as SanctuaryEventData;
+    
     // Get user ID from supabase auth
     const { data: { user } } = await supabase.auth.getUser();
     
-    const eventWithUser = {
-      ...event,
+    const eventWithUser: SanctuaryEventData = {
+      ...validatedEvent,
       userId: user?.id,
-      timestamp: event.timestamp || new Date().toISOString()
+      timestamp: validatedEvent.timestamp || new Date().toISOString()
     };
     
     // Try to send to edge function
@@ -43,21 +69,37 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     });
     
     if (error) {
-      console.error('Error tracking sanctuary event:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error tracking sanctuary event:', error);
+      }
       // Add to offline queue
       offlineQueue.push(eventWithUser);
       // Store in localStorage as backup
       const existing = JSON.parse(localStorage.getItem('sanctuaryEvents') || '[]');
       localStorage.setItem('sanctuaryEvents', JSON.stringify([...existing, eventWithUser]));
     } else {
-      console.log('Sanctuary event tracked successfully:', data);
+      if (import.meta.env.DEV) {
+        console.log('Event tracked successfully');
+      }
     }
     
     return { success: !error, data, error };
   } catch (err) {
-    console.error('Exception tracking sanctuary event:', err);
-    // Add to offline queue
-    offlineQueue.push(event);
+    if (import.meta.env.DEV) {
+      console.error('Exception tracking sanctuary event:', err);
+    }
+    // For validation errors, don't queue invalid data
+    if (err instanceof z.ZodError) {
+      return { success: false, error: new Error('Invalid event data') };
+    }
+    // Add to offline queue for network errors (with user ID if available)
+    const { data: { user } } = await supabase.auth.getUser();
+    const eventWithUser: SanctuaryEventData = {
+      ...event,
+      userId: user?.id,
+      timestamp: event.timestamp || new Date().toISOString()
+    };
+    offlineQueue.push(eventWithUser);
     return { success: false, error: err };
   }
 }
@@ -65,7 +107,9 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
 export async function uploadOfflineEvents() {
   if (offlineQueue.length === 0) return;
   
-  console.log(`Uploading ${offlineQueue.length} offline events...`);
+  if (import.meta.env.DEV) {
+    console.log(`Uploading ${offlineQueue.length} offline events...`);
+  }
   
   const events = [...offlineQueue];
   offlineQueue = [];

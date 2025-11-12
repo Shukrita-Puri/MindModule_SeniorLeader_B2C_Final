@@ -48,7 +48,6 @@ serve(async (req) => {
       .rpc('get_oura_access_token', { _connection_id: connection.id });
 
     if (tokenError || !accessToken) {
-      console.error('Error retrieving access token:', tokenError);
       throw new Error('Failed to retrieve Oura access token');
     }
 
@@ -59,8 +58,6 @@ serve(async (req) => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const dateStr = yesterday.toISOString().split('T')[0];
-    
-    console.log('Fetching Oura data for date:', dateStr);
     
     // Fetch from all 4 endpoints
     const headers = {
@@ -96,13 +93,6 @@ serve(async (req) => {
       );
       const heartRateData = heartRateRes.ok ? await heartRateRes.json() : null;
       
-      console.log('Oura API responses:', {
-        readiness: readinessData?.data?.length || 0,
-        sleep: sleepData?.data?.length || 0,
-        activity: activityData?.data?.length || 0,
-        heartRate: heartRateData?.data?.length || 0
-      });
-      
       // Extract metrics from responses
       const readiness = readinessData?.data?.[0];
       const sleep = sleepData?.data?.[0];
@@ -131,14 +121,10 @@ serve(async (req) => {
         });
       
       if (insertError) {
-        console.error('Error storing Oura data:', insertError);
         throw insertError;
       }
       
-      console.log('Successfully stored Oura data for user:', user.id);
-      
     } catch (apiError) {
-      console.error('Error fetching from Oura API:', apiError);
       // Continue to update last_sync even if API call fails
     }
     
@@ -147,8 +133,6 @@ serve(async (req) => {
       .from('oura_connections')
       .update({ last_sync: new Date().toISOString() })
       .eq('id', connection.id);
-
-    console.log('Oura sync completed for user:', user.id);
 
     return new Response(
       JSON.stringify({ 
@@ -162,7 +146,6 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in sync-oura:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
