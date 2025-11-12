@@ -112,8 +112,8 @@ const DailyCheckIn = () => {
       "pause": "pause",
       "power-up": "power-up", 
       "presence": "presence",
-      "calm": "pause",      // anxious/tense maps to pause
-      "ready": "presence"   // motivated/ready maps to presence
+      "calm": "calm",      // anxious/tense → anxious (45 balance)
+      "ready": "ready"     // motivated/ready → balanced (85 balance)
     };
     
     const mappedOutcome = outcomeMap[outcome];
