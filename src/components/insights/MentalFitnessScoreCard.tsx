@@ -4,32 +4,63 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Minus, Flame, Brain, Target } from 'lucide-react';
 import { calculateMentalFitnessScore } from '@/utils/mentalFitnessEngine';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 export function MentalFitnessScoreCard() {
+  const { user } = useAuth();
+  
   const [isOpen, setIsOpen] = useState(() => {
     const saved = localStorage.getItem('mentalFitnessCard-collapsed');
     return saved ? JSON.parse(saved) : true;
   });
   
   const [fitnessData, setFitnessData] = useState(() => calculateMentalFitnessScore());
-  
-  // Get onboarding archetype and component scores
-  const [archetypeData, setArchetypeData] = useState<any>(null);
+
+  // Load profile data from database (primary source)
+  const { data: profile } = useQuery({
+    queryKey: ['profile-insights', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          mental_fitness_baseline,
+          user_archetype,
+          growth_priority,
+          biggest_pressure,
+          component_scores,
+          identity_role
+        `)
+        .eq('id', user.id)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error loading profile:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!user?.id
+  });
+
+  // Prepare archetype data from database or localStorage fallback
+  const archetypeData = profile?.user_archetype ? {
+    archetype: typeof profile.user_archetype === 'string' 
+      ? JSON.parse(profile.user_archetype) 
+      : profile.user_archetype,
+    componentScores: profile.component_scores,
+    growthArea: profile.growth_priority,
+    recommendedMastery: extractRecommendedMastery(profile.growth_priority),
+    baseline: profile.mental_fitness_baseline,
+    biggestPressure: profile.biggest_pressure,
+    role: profile.identity_role
+  } : null;
 
   useEffect(() => {
     setFitnessData(calculateMentalFitnessScore());
-    
-    // Load archetype data from onboarding
-    const onboardingSession = JSON.parse(localStorage.getItem('mind_module_onboarding') || '{}');
-    if (onboardingSession.responses) {
-      setArchetypeData({
-        archetype: onboardingSession.responses.user_archetype,
-        componentScores: onboardingSession.responses.component_scores,
-        growthArea: onboardingSession.responses.growth_area,
-        recommendedMastery: onboardingSession.responses.recommended_mastery,
-        baseline: onboardingSession.responses.mental_fitness_baseline
-      });
-    }
   }, []);
 
   const handleToggle = (newState: boolean) => {
@@ -44,6 +75,18 @@ export function MentalFitnessScoreCard() {
   };
 
   const getTrendText = () => {
+    // Use database baseline if available, otherwise use changeFromBaseline
+    if (profile?.mental_fitness_baseline) {
+      const baseline = profile.mental_fitness_baseline;
+      const currentScore = fitnessData.score;
+      const change = currentScore - baseline;
+      
+      if (change === 0) return 'from baseline';
+      const sign = change > 0 ? '+' : '';
+      return `${sign}${change} from baseline`;
+    }
+    
+    // Fallback to calculated change
     if (fitnessData.changeFromBaseline === 0) return 'from baseline';
     const sign = fitnessData.changeFromBaseline > 0 ? '+' : '';
     return `${sign}${fitnessData.changeFromBaseline} from baseline`;
@@ -156,7 +199,7 @@ export function MentalFitnessScoreCard() {
                     </div>
                   </div>
 
-                  {/* Section B: Your Profile Insights (from onboarding) */}
+                  {/* Section B: Your Profile Insights (from database) */}
                   {archetypeData && archetypeData.archetype && (
                     <div className="bg-gradient-to-br from-primary/5 to-gold/5 rounded-lg p-4 border border-border space-y-4">
                       <div className="flex items-start gap-3">
@@ -164,10 +207,17 @@ export function MentalFitnessScoreCard() {
                           <Brain className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-sm font-semibold mb-1">You're a {archetypeData.archetype.title}</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
+                          <h4 className="text-sm md:text-base font-semibold mb-1">
+                            You're a {archetypeData.archetype.title}
+                          </h4>
+                          <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
                             {archetypeData.archetype.description}
                           </p>
+                          {archetypeData.baseline && (
+                            <p className="text-xs text-gold mt-2">
+                              Day 1 Baseline: {archetypeData.baseline}/100
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -176,21 +226,47 @@ export function MentalFitnessScoreCard() {
                           <Target className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
                           <div className="space-y-2 flex-1">
                             <div>
-                              <div className="text-xs font-medium mb-1">Your Growth Edge</div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                {archetypeData.growthArea} - {getEvolvingGrowthInsight(archetypeData, fitnessData)}
+                              <div className="text-xs md:text-sm font-medium mb-1">Your Growth Priority</div>
+                              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                                {archetypeData.growthArea}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {getEvolvingGrowthInsight(archetypeData, fitnessData, profile?.mental_fitness_baseline)}
                               </p>
                             </div>
                             
-                            <div className="pt-2 border-t border-border/50">
-                              <div className="text-xs font-medium mb-1">Recommended Focus</div>
-                              <p className="text-xs text-muted-foreground">
-                                {archetypeData.recommendedMastery} Mastery practices - {getMasteryDescription(archetypeData.recommendedMastery)}
-                              </p>
-                            </div>
+                            {archetypeData.recommendedMastery && (
+                              <div className="pt-2 border-t border-border/50">
+                                <div className="text-xs md:text-sm font-medium mb-1">Recommended Focus</div>
+                                <p className="text-xs md:text-sm text-muted-foreground">
+                                  {archetypeData.recommendedMastery} Mastery practices
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {getMasteryDescription(archetypeData.recommendedMastery)}
+                                </p>
+                              </div>
+                            )}
+
+                            {archetypeData.biggestPressure && (
+                              <div className="pt-2 border-t border-border/50">
+                                <div className="text-xs md:text-sm font-medium mb-1">Your Context</div>
+                                <p className="text-xs md:text-sm text-muted-foreground">
+                                  {archetypeData.role && `${archetypeData.role} facing `}
+                                  {archetypeData.biggestPressure}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {!archetypeData && (
+                    <div className="bg-muted/30 rounded-lg p-4 text-center border border-border/30">
+                      <p className="text-xs md:text-sm text-muted-foreground">
+                        Complete your onboarding to see personalized insights
+                      </p>
                     </div>
                   )}
 
@@ -228,19 +304,37 @@ export function MentalFitnessScoreCard() {
   );
 }
 
+// Helper function to extract recommended mastery from growth priority text
+function extractRecommendedMastery(growthPriority: string | null): string {
+  if (!growthPriority) return 'Pause';
+  
+  const lower = growthPriority.toLowerCase();
+  if (lower.includes('composure') || lower.includes('calm') || lower.includes('pause')) {
+    return 'Pause';
+  } else if (lower.includes('focus') || lower.includes('concentration') || lower.includes('flow')) {
+    return 'Flow';
+  } else if (lower.includes('energy') || lower.includes('renewal') || lower.includes('activation')) {
+    return 'Renewal';
+  }
+  return 'Pause';
+}
+
 // Helper function to provide evolving growth insights based on current performance
-function getEvolvingGrowthInsight(archetypeData: any, fitnessData: any): string {
-  const progressFromBaseline = fitnessData.changeFromBaseline;
-  const growthArea = archetypeData.growthArea;
+function getEvolvingGrowthInsight(archetypeData: any, fitnessData: any, baseline?: number): string {
+  const currentScore = fitnessData.score;
+  const baselineScore = baseline || archetypeData.baseline;
+  const progressFromBaseline = baselineScore ? currentScore - baselineScore : fitnessData.changeFromBaseline;
   
   if (progressFromBaseline >= 10) {
-    return `Excellent progress! Your ${growthArea} skills are developing rapidly. Focus on consistency to sustain this momentum.`;
+    return `Excellent progress! You're +${progressFromBaseline} from baseline. Focus on consistency to sustain momentum.`;
   } else if (progressFromBaseline >= 5) {
-    return `You're building momentum in ${growthArea}. Keep practicing your core techniques to accelerate growth.`;
+    return `Building momentum: +${progressFromBaseline} from baseline. Keep practicing core techniques to accelerate growth.`;
   } else if (progressFromBaseline >= 0) {
-    return `Focus on ${growthArea} practices to move beyond your baseline. Consistency in daily rituals will unlock the next level.`;
+    return progressFromBaseline === 0 
+      ? `At baseline. Consistency in daily rituals will unlock the next level.`
+      : `Small gains: +${progressFromBaseline} from baseline. Stay consistent with daily practices.`;
   } else {
-    return `Your ${growthArea} needs more attention. Return to foundational practices and rebuild your daily rhythm.`;
+    return `${progressFromBaseline} from baseline. Return to foundational practices and rebuild daily rhythm.`;
   }
 }
 
