@@ -3,7 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle } from 'lucide-react';
+import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle, X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   detectMeetingGaps,
   detectHighStakesEvents,
@@ -17,6 +27,8 @@ import { getWearableContext, type WearableContext, getUserHRVBaseline } from '@/
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
 import { useAuth } from '@/hooks/useAuth';
 import { trackInterventionEvent } from '@/utils/interventionTracking';
+import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
+import { useToast } from '@/hooks/use-toast';
 
 interface MicroIntervention {
   id: string;
@@ -35,9 +47,14 @@ interface MicroIntervention {
 const MicroInterventions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [interventions, setInterventions] = useState<MicroIntervention[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [dismissModalOpen, setDismissModalOpen] = useState(false);
+  const [dismissingIntervention, setDismissingIntervention] = useState<MicroIntervention | null>(null);
+  const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
   const trackedSentRef = useRef<Set<string>>(new Set());
   const ignoreTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -530,6 +547,65 @@ const MicroInterventions = () => {
     }
   };
 
+  const handleDismissClick = (intervention: MicroIntervention, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissingIntervention(intervention);
+    setDismissModalOpen(true);
+  };
+
+  const handleDismissConfirm = (reason: string) => {
+    if (!dismissingIntervention) return;
+
+    // Clear ignore timer
+    const timer = ignoreTimersRef.current.get(dismissingIntervention.id);
+    if (timer) {
+      clearTimeout(timer);
+      ignoreTimersRef.current.delete(dismissingIntervention.id);
+    }
+
+    // Track dismissal
+    trackInterventionEvent({
+      eventType: 'nudge_dismissed',
+      interventionId: dismissingIntervention.id,
+      interventionType: dismissingIntervention.type,
+      triggerReason: dismissingIntervention.trigger,
+      timingWindow: dismissingIntervention.timing,
+      urgencyLevel: dismissingIntervention.urgencyLevel,
+      recommendedContentId: dismissingIntervention.content.id,
+      recommendedContentType: dismissingIntervention.content.contentType,
+      contextData: {
+        priority: dismissingIntervention.priority,
+        dismissalReason: reason
+      }
+    });
+
+    // Remove from display
+    setDismissedIds(prev => new Set(prev).add(dismissingIntervention.id));
+    setDismissModalOpen(false);
+    setDismissingIntervention(null);
+  };
+
+  const handleFeedback = async (intervention: MicroIntervention, type: 'thumbs_up' | 'thumbs_down') => {
+    setFeedback(prev => ({ ...prev, [intervention.id]: type }));
+    
+    await submitRelevanceFeedback({
+      contentId: intervention.content.id,
+      contentType: intervention.content.contentType,
+      feedbackType: type,
+      triggerContext: 'micro_intervention_nudge',
+      contextData: {
+        interventionType: intervention.type,
+        urgencyLevel: intervention.urgencyLevel,
+        triggerReason: intervention.trigger
+      }
+    });
+
+    toast({
+      description: "Thanks for your feedback",
+      duration: 2000,
+    });
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -550,7 +626,8 @@ const MicroInterventions = () => {
     );
   }
 
-  const displayedInterventions = showAll ? interventions : interventions.slice(0, 3);
+  const activeInterventions = interventions.filter(i => !dismissedIds.has(i.id));
+  const displayedInterventions = showAll ? activeInterventions : activeInterventions.slice(0, 3);
 
   return (
     <div className="space-y-3">
@@ -562,11 +639,19 @@ const MicroInterventions = () => {
         return (
           <Card
             key={intervention.id}
-            className="p-4 space-y-3 cursor-pointer hover:bg-card/50 transition-all"
-            onClick={() => handleInterventionClick(intervention, cardRenderTime)}
+            className="p-4 space-y-3 relative"
           >
+            {/* X Dismiss Button */}
+            <button
+              onClick={(e) => handleDismissClick(intervention, e)}
+              className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/50 text-muted-foreground opacity-60 hover:opacity-100 transition-opacity z-10"
+              aria-label="Dismiss this suggestion"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             {/* Header */}
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 pr-8">
               <div className={`w-8 h-8 rounded-full ${
                 intervention.urgencyLevel === 'critical' ? 'bg-red-100 dark:bg-red-900/20' :
                 intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
@@ -615,6 +700,30 @@ const MicroInterventions = () => {
               💡 {intervention.reasoning}
             </p>
 
+            {/* Feedback buttons */}
+            <div className="flex items-center gap-2 pb-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFeedback(intervention, 'thumbs_up');
+                }}
+                className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
+                aria-label="This is helpful"
+              >
+                <ThumbsUp className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_up' ? 'fill-emerald-600 text-emerald-600' : ''}`} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFeedback(intervention, 'thumbs_down');
+                }}
+                className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
+                aria-label="Not helpful"
+              >
+                <ThumbsDown className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_down' ? 'fill-orange-600 text-orange-600' : ''}`} />
+              </button>
+            </div>
+
             {/* Actions */}
             <div className="flex gap-2">
               <Button
@@ -656,6 +765,10 @@ const MicroInterventions = () => {
               <Button
                 size="sm"
                 className="flex-1 text-xs bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleInterventionClick(intervention, cardRenderTime);
+                }}
               >
                 Start Now →
               </Button>
@@ -664,21 +777,69 @@ const MicroInterventions = () => {
         );
       })}
 
+      {/* Dismissal Modal */}
+      <AlertDialog open={dismissModalOpen} onOpenChange={setDismissModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Why dismiss this suggestion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This helps us improve your recommendations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => handleDismissConfirm("Not relevant right now")}
+            >
+              Not relevant right now
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => handleDismissConfirm("Already feeling good")}
+            >
+              Already feeling calm/focused/energized
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => handleDismissConfirm("Don't have time")}
+            >
+              Don't have time
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => handleDismissConfirm("Not interested in this type")}
+            >
+              Not interested in this type
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button variant="ghost" onClick={() => handleDismissConfirm("No reason")}>
+              Skip
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Show More / Show Less Button */}
-      {interventions.length > 3 && (
+      {activeInterventions.length > 3 && (
         <Button
           variant="outline"
           size="sm"
           className="w-full"
           onClick={() => setShowAll(!showAll)}
         >
-          {showAll ? 'Show Less' : `Show ${interventions.length - 3} More`}
+          {showAll ? 'Show Less' : `Show ${activeInterventions.length - 3} More`}
         </Button>
       )}
 
-      {interventions.length > 0 && (
+      {activeInterventions.length > 0 && (
         <p className="text-xs text-muted-foreground text-center pt-2">
-          📬 {interventions.length} recommendation{interventions.length > 1 ? 's' : ''} • Sorted by priority
+          📬 {activeInterventions.length} recommendation{activeInterventions.length > 1 ? 's' : ''} • Sorted by priority
         </p>
       )}
     </div>

@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Sparkles, ArrowDown } from 'lucide-react';
+import { Clock, Sparkles, ArrowDown, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { trackEngagement } from '@/utils/engagementTracking';
+import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
+import { useToast } from '@/hooks/use-toast';
 
 const DailyRitual = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [recommendations, setRecommendations] = useState<{
     soundbath: Recommendation | null;
     guidedPractice: Recommendation | null;
@@ -17,6 +20,7 @@ const DailyRitual = () => {
     reasoning: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
 
   useEffect(() => {
     loadRecommendations();
@@ -68,6 +72,23 @@ const DailyRitual = () => {
     }
   };
 
+  const handleFeedback = async (rec: Recommendation, type: 'thumbs_up' | 'thumbs_down', position: number) => {
+    setFeedback(prev => ({ ...prev, [rec.id]: type }));
+    
+    await submitRelevanceFeedback({
+      contentId: rec.id,
+      contentType: rec.contentType,
+      feedbackType: type,
+      triggerContext: 'daily_ritual_recommendation',
+      contextData: { position, totalSteps: allRecs.length }
+    });
+
+    toast({
+      description: "Thanks for your feedback",
+      duration: 2000,
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Reasoning */}
@@ -108,9 +129,27 @@ const DailyRitual = () => {
                     {rec.duration}m
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
                   {rec.whyNow}
                 </p>
+                
+                {/* Feedback buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleFeedback(rec, 'thumbs_up', index + 1)}
+                    className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
+                    aria-label="This is helpful"
+                  >
+                    <ThumbsUp className={`w-3.5 h-3.5 ${feedback[rec.id] === 'thumbs_up' ? 'fill-emerald-600 text-emerald-600' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(rec, 'thumbs_down', index + 1)}
+                    className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
+                    aria-label="Not helpful"
+                  >
+                    <ThumbsDown className={`w-3.5 h-3.5 ${feedback[rec.id] === 'thumbs_down' ? 'fill-orange-600 text-orange-600' : ''}`} />
+                  </button>
+                </div>
               </div>
             </div>
 
