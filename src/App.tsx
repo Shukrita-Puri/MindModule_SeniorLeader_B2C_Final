@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -7,51 +8,50 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Front from "./pages/Front";
-import Signup from "./pages/Signup";
-import DailyCheckIn from "./pages/DailyCheckIn";
-import ExecutiveHome from "./pages/ExecutiveHome";
-import FlowSession from "./pages/FlowSession";
 import GlobalHeader from "./components/GlobalHeader";
-import NudgeSettings from "./pages/NudgeSettings";
-import NudgeSimulator from "./pages/NudgeSimulator";
 
-import RecalibrateMode from "./pages/RecalibrateMode";
-import Soundscapes from "./pages/Soundscapes";
-import SoundscapePlayer from "./pages/SoundscapePlayer";
-import GuidedPracticesLibrary from "./pages/GuidedPracticesLibrary";
-import GuidedPracticePlayer from "./pages/GuidedPracticePlayer";
-import MicroPracticesLibrary from "./pages/MicroPracticesLibrary";
-import MicroPracticePlayer from "./pages/MicroPracticePlayer";
-import InsightsDashboard from "./pages/InsightsDashboard";
-import HRVInsightsDashboard from "./pages/HRVInsightsDashboard";
+// Lazy load pages for code splitting
+const Front = lazy(() => import("./pages/Front"));
+const Signup = lazy(() => import("./pages/Signup"));
+const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
+const ExecutiveHome = lazy(() => import("./pages/ExecutiveHome"));
+const FlowSession = lazy(() => import("./pages/FlowSession"));
+const NudgeSettings = lazy(() => import("./pages/NudgeSettings"));
+const NudgeSimulator = lazy(() => import("./pages/NudgeSimulator"));
+const RecalibrateMode = lazy(() => import("./pages/RecalibrateMode"));
+const Soundscapes = lazy(() => import("./pages/Soundscapes"));
+const SoundscapePlayer = lazy(() => import("./pages/SoundscapePlayer"));
+const GuidedPracticesLibrary = lazy(() => import("./pages/GuidedPracticesLibrary"));
+const GuidedPracticePlayer = lazy(() => import("./pages/GuidedPracticePlayer"));
+const MicroPracticesLibrary = lazy(() => import("./pages/MicroPracticesLibrary"));
+const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
+const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
+const HRVInsightsDashboard = lazy(() => import("./pages/HRVInsightsDashboard"));
 
-// ARCHIVED - V2 Features (moved to src/pages/_archived/)
-// import FlowStateLab from "./pages/FlowStateLab";
-// import MentorChat from "./pages/MentorChat";
-// import MindVault from "./pages/MindVault";
-// import MentorMode from "./pages/MentorMode";
-// import ClarityMode from "./pages/ClarityMode";
-// import FuturescapeMode from "./pages/FuturescapeMode";
-// import MentorInsights from "./pages/MentorInsights";
-// import ClaritySummary from "./pages/ClaritySummary";
-// import ClarityConversation from "./pages/clarity/ClarityConversation";
-// import ClarityJournal from "./pages/clarity/ClarityJournal";
-
-// Import recalibrate outcome pages
-import PowerUpOutcomePage from "./pages/recalibrate/PowerUpOutcomePage";
-import PauseOutcomePage from "./pages/recalibrate/PauseOutcomePage";
-import PresenceOutcomePage from "./pages/recalibrate/PresenceOutcomePage";
+// Recalibrate outcome pages
+const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
+const PauseOutcomePage = lazy(() => import("./pages/recalibrate/PauseOutcomePage"));
+const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutcomePage"));
 
 // Onboarding pages
-import OnboardingFlow from "./pages/onboarding/OnboardingFlow";
-import Stage1Welcome from "./pages/onboarding/stages/Stage1Welcome";
-import Stage2Identity from "./pages/onboarding/stages/Stage2Identity";
-import Stage3Behavioral from "./pages/onboarding/stages/Stage3Behavioral";
-import Stage4SelfAssessment from "./pages/onboarding/stages/Stage4SelfAssessment";
-import Stage5Results from "./pages/onboarding/stages/Stage5Results";
-import Stage6Payment from "./pages/onboarding/stages/Stage6Payment";
-import Stage7ContextConnection from "./pages/onboarding/stages/Stage7ContextConnection";
+const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
+const Stage1Welcome = lazy(() => import("./pages/onboarding/stages/Stage1Welcome"));
+const Stage2Identity = lazy(() => import("./pages/onboarding/stages/Stage2Identity"));
+const Stage3Behavioral = lazy(() => import("./pages/onboarding/stages/Stage3Behavioral"));
+const Stage4SelfAssessment = lazy(() => import("./pages/onboarding/stages/Stage4SelfAssessment"));
+const Stage5Results = lazy(() => import("./pages/onboarding/stages/Stage5Results"));
+const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
+const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="text-center">
+      <div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
 
 // Layout component that conditionally includes GlobalHeader
 const Layout = () => {
@@ -103,94 +103,94 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Front />,
+        element: <Suspense fallback={<LoadingFallback />}><Front /></Suspense>,
       },
       {
         path: "signup",
-        element: <Signup />,
+        element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense>,
       },
       {
         path: "daily-check-in",
-        element: <ProtectedRoute><DailyCheckIn /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><DailyCheckIn /></ProtectedRoute></Suspense>,
       },
       {
         path: "executive-home",
-        element: <ProtectedRoute><ExecutiveHome /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ExecutiveHome /></ProtectedRoute></Suspense>,
       },
       {
         path: "flow-session",
-        element: <ProtectedRoute><FlowSession /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FlowSession /></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",
-        element: <ProtectedRoute><RecalibrateMode /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RecalibrateMode /></ProtectedRoute></Suspense>,
         children: [
           {
             path: "power-up",
-            element: <PowerUpOutcomePage />,
+            element: <Suspense fallback={<LoadingFallback />}><PowerUpOutcomePage /></Suspense>,
           },
           {
             path: "pause",
-            element: <PauseOutcomePage />,
+            element: <Suspense fallback={<LoadingFallback />}><PauseOutcomePage /></Suspense>,
           },
           {
             path: "presence",
-            element: <PresenceOutcomePage />,
+            element: <Suspense fallback={<LoadingFallback />}><PresenceOutcomePage /></Suspense>,
           },
         ],
       },
       {
         path: "nudge-settings",
-        element: <ProtectedRoute><NudgeSettings /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><NudgeSettings /></ProtectedRoute></Suspense>,
       },
       {
         path: "nudge-simulator",
-        element: <ProtectedRoute><NudgeSimulator /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><NudgeSimulator /></ProtectedRoute></Suspense>,
       },
       {
         path: "soundscapes",
-        element: <ProtectedRoute><Soundscapes /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Soundscapes /></ProtectedRoute></Suspense>,
       },
       {
         path: "soundscapes/:id",
-        element: <ProtectedRoute><SoundscapePlayer /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SoundscapePlayer /></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices",
-        element: <ProtectedRoute><GuidedPracticesLibrary /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GuidedPracticesLibrary /></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <ProtectedRoute><GuidedPracticePlayer /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GuidedPracticePlayer /></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practices",
-        element: <ProtectedRoute><MicroPracticesLibrary /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticesLibrary /></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <ProtectedRoute><MicroPracticePlayer /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayer /></ProtectedRoute></Suspense>,
       },
       {
         path: "insights-dashboard",
-        element: <ProtectedRoute><InsightsDashboard /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><InsightsDashboard /></ProtectedRoute></Suspense>,
       },
       {
         path: "hrv-insights",
-        element: <ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute></Suspense>,
       },
       {
         path: "onboarding",
-        element: <OnboardingFlow />,
+        element: <Suspense fallback={<LoadingFallback />}><OnboardingFlow /></Suspense>,
         children: [
-          { index: true, element: <Stage1Welcome /> },
-          { path: "identity", element: <Stage2Identity /> },
-          { path: "behavioral", element: <Stage3Behavioral /> },
-          { path: "self-assessment", element: <Stage4SelfAssessment /> },
-          { path: "signup-step", element: <Signup /> },
-          { path: "results", element: <Stage5Results /> },
-          { path: "payment", element: <Stage6Payment /> },
-          { path: "context-connection", element: <Stage7ContextConnection /> },
+          { index: true, element: <Suspense fallback={<LoadingFallback />}><Stage1Welcome /></Suspense> },
+          { path: "identity", element: <Suspense fallback={<LoadingFallback />}><Stage2Identity /></Suspense> },
+          { path: "behavioral", element: <Suspense fallback={<LoadingFallback />}><Stage3Behavioral /></Suspense> },
+          { path: "self-assessment", element: <Suspense fallback={<LoadingFallback />}><Stage4SelfAssessment /></Suspense> },
+          { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense> },
+          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage5Results /></Suspense> },
+          { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
+          { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],
       },
       // ARCHIVED ROUTES - V2 Features
