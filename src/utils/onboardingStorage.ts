@@ -5,6 +5,13 @@ export interface OnboardingSession {
   currentStage: number;
   startedAt: string;
   responses: Record<string, any>;
+  // New fields for self-regulation results
+  mental_fitness_baseline?: number;
+  user_archetype?: any;
+  component_scores?: any;
+  baseline_established_date?: string;
+  recommended_mastery?: string;
+  growth_area?: string;
 }
 
 const STORAGE_KEY = 'mind_module_onboarding';

@@ -39,7 +39,7 @@ const Stage1Welcome = lazy(() => import("./pages/onboarding/stages/Stage1Welcome
 const Stage2Identity = lazy(() => import("./pages/onboarding/stages/Stage2Identity"));
 const Stage3Behavioral = lazy(() => import("./pages/onboarding/stages/Stage3Behavioral"));
 const Stage4SelfAssessment = lazy(() => import("./pages/onboarding/stages/Stage4SelfAssessment"));
-const Stage5Results = lazy(() => import("./pages/onboarding/stages/Stage5Results"));
+const Stage7Results = lazy(() => import("./pages/onboarding/stages/Stage7Results"));
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 
@@ -194,7 +194,7 @@ const router = createBrowserRouter([
           { path: "behavioral", element: <Suspense fallback={<LoadingFallback />}><Stage3Behavioral /></Suspense> },
           { path: "self-assessment", element: <Suspense fallback={<LoadingFallback />}><Stage4SelfAssessment /></Suspense> },
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense> },
-          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage5Results /></Suspense> },
+          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage7Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],

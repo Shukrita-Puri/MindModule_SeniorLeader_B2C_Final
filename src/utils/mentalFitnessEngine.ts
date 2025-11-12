@@ -25,7 +25,13 @@ export function calculateMentalFitnessScore(): MentalFitnessData {
   const dailyRitualHistory = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]') as DailyRitualRecord[];
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');
   const recalibrateHistory = JSON.parse(localStorage.getItem('recalibrateHistory') || '[]');
-  const baseline = JSON.parse(localStorage.getItem('mentalFitnessBaseline') || 'null');
+  
+  // Check for onboarding baseline first, fallback to old baseline
+  const onboardingSession = JSON.parse(localStorage.getItem('mind_module_onboarding') || '{}');
+  const onboardingBaseline = onboardingSession.responses?.mental_fitness_baseline;
+  const baseline = onboardingBaseline 
+    ? { score: onboardingBaseline, date: onboardingSession.responses?.baseline_established_date }
+    : JSON.parse(localStorage.getItem('mentalFitnessBaseline') || 'null');
   
   // Calculate days since first activity
   const allDates = [
