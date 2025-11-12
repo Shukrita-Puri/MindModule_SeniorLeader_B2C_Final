@@ -7,24 +7,28 @@ import { getResumeRoute } from "@/utils/onboardingStatus";
 const STAGE_ROUTES = [
   "/onboarding",
   "/onboarding/identity",
-  "/onboarding/behavioral",
-  "/onboarding/self-assessment",
+  "/onboarding/energy-regulation",
+  "/onboarding/focus-recovery",
+  "/onboarding/energy-renewal",
+  "/onboarding/growth-assessment",
   "/onboarding/signup-step",
   "/onboarding/results",
   "/onboarding/payment",
   "/onboarding/context-connection",
 ];
 
-// Only tracking time for questionnaire stages (1-4)
-const TIME_ESTIMATES = [0.5, 0.75, 2.5, 0.5];
+// Only tracking time for questionnaire stages (1-5)
+const TIME_ESTIMATES = [0.5, 0.75, 0.75, 0.75, 0.75];
 
 // Weighted progress calculation - shows completion of PREVIOUS stages
 const calculateWeightedProgress = (stageIndex: number): number => {
   const weights = {
     0: 0,    // Welcome - 0% (just starting)
     1: 10,   // Identity - 10% (welcome completed)
-    2: 30,   // Behavioral - 30% (identity completed)
-    3: 80,   // Self-Assessment - 80% (behavioral completed)
+    2: 25,   // Energy Regulation - 25% (identity completed)
+    3: 45,   // Focus Recovery - 45% (energy regulation completed)
+    4: 65,   // Energy Renewal - 65% (focus recovery completed)
+    5: 85,   // Growth Assessment - 85% (energy renewal completed)
   };
   return weights[stageIndex as keyof typeof weights] || 0;
 };
@@ -61,7 +65,7 @@ export default function OnboardingFlow() {
   const percentage = calculateWeightedProgress(currentStageIndex);
 
   // Calculate time remaining only for questionnaire stages
-  const estimatedTimeRemaining = currentStageIndex <= 3 
+  const estimatedTimeRemaining = currentStageIndex <= 5 
     ? TIME_ESTIMATES.slice(currentStageIndex).reduce((sum, time) => sum + time, 0)
     : 0;
 
@@ -70,7 +74,7 @@ export default function OnboardingFlow() {
   }, [currentStage]);
 
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
-  const hideProgress = currentStageIndex === 0 || currentStageIndex > 3 || location.pathname.includes('/signup');
+  const hideProgress = currentStageIndex === 0 || currentStageIndex > 5 || location.pathname.includes('/signup');
 
   return (
     <div className="min-h-screen bg-background relative">

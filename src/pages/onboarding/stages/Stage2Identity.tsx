@@ -56,7 +56,7 @@ export default function Stage2Identity() {
       setCurrentQuestion(2);
     } else {
       saveResponse("biggest_pressure", biggestPressure);
-      navigate("/onboarding/behavioral");
+      navigate("/onboarding/energy-regulation");
     }
   };
 
