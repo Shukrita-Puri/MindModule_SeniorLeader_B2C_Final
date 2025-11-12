@@ -1,9 +1,11 @@
+import { supabase } from '@/integrations/supabase/client';
+
 interface Engagement {
   type: 'check_in' | 'daily_ritual_start' | 'daily_ritual_soundscape' | 'daily_ritual_practice' | 'daily_ritual_micro' | 'flow_session' | 'pause_session' | 'renew_session' | 'micro_intervention';
   timestamp: string;
 }
 
-interface PeakWindow {
+export interface PeakWindow {
   startHour: number;
   endHour: number;
   type: 'morning' | 'afternoon' | 'evening';
@@ -12,28 +14,83 @@ interface PeakWindow {
   sessionCount: number;
 }
 
-interface HourBucket {
+export interface HourBucket {
   hour: number;
   count: number;
   density: number;
   smoothed: number;
 }
 
-export function trackEngagement(type: Engagement['type'], timestamp?: string): void {
-  const engagements = JSON.parse(localStorage.getItem('allEngagements') || '[]') as Engagement[];
-  
-  engagements.push({
-    type,
-    timestamp: timestamp || new Date().toISOString()
-  });
-  
-  localStorage.setItem('allEngagements', JSON.stringify(engagements));
+export async function trackEngagement(type: Engagement['type'], timestamp?: string): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('user_engagements').insert({
+      user_id: user.id,
+      event_type: type,
+      timestamp: timestamp || new Date().toISOString(),
+      metadata: {}
+    });
+  } catch (error) {
+    console.error('Failed to track engagement:', error);
+  }
 }
 
-export function getEngagementsByHour(): HourBucket[] {
-  const engagements = JSON.parse(localStorage.getItem('allEngagements') || '[]') as Engagement[];
-  
-  if (engagements.length === 0) {
+export async function getEngagementsByHour(): Promise<HourBucket[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        count: 0,
+        density: 0,
+        smoothed: 0
+      }));
+    }
+
+    const { data: engagements, error } = await supabase
+      .from('user_engagements')
+      .select('timestamp')
+      .eq('user_id', user.id);
+
+    if (error || !engagements || engagements.length === 0) {
+      return Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        count: 0,
+        density: 0,
+        smoothed: 0
+      }));
+    }
+
+    // Step 1: Create 24-hour buckets
+    const hourBuckets = Array(24).fill(0);
+    
+    engagements.forEach(engagement => {
+      const hour = new Date(engagement.timestamp).getHours();
+      hourBuckets[hour] += 1;
+    });
+    
+    // Step 2: Calculate density
+    const totalEngagements = engagements.length;
+    const densityPerHour = hourBuckets.map(count => (count / totalEngagements) * 100);
+    
+    // Step 3: Smooth the curve (3-point moving average)
+    const smoothedCurve = densityPerHour.map((value, index) => {
+      const prev = densityPerHour[index - 1] || densityPerHour[23];
+      const next = densityPerHour[index + 1] || densityPerHour[0];
+      return (prev + value + next) / 3;
+    });
+    
+    // Step 4: Return structured data
+    return Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      count: hourBuckets[hour],
+      density: densityPerHour[hour],
+      smoothed: smoothedCurve[hour]
+    }));
+  } catch (error) {
+    console.error('Failed to fetch engagements:', error);
     return Array.from({ length: 24 }, (_, hour) => ({
       hour,
       count: 0,
@@ -41,40 +98,14 @@ export function getEngagementsByHour(): HourBucket[] {
       smoothed: 0
     }));
   }
-  
-  // Step 1: Create 24-hour buckets
-  const hourBuckets = Array(24).fill(0);
-  
-  engagements.forEach(engagement => {
-    const hour = new Date(engagement.timestamp).getHours();
-    hourBuckets[hour] += 1;
-  });
-  
-  // Step 2: Calculate density
-  const totalEngagements = engagements.length;
-  const densityPerHour = hourBuckets.map(count => (count / totalEngagements) * 100);
-  
-  // Step 3: Smooth the curve (3-point moving average)
-  const smoothedCurve = densityPerHour.map((value, index) => {
-    const prev = densityPerHour[index - 1] || densityPerHour[23];
-    const next = densityPerHour[index + 1] || densityPerHour[0];
-    return (prev + value + next) / 3;
-  });
-  
-  // Step 4: Return structured data
-  return Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    count: hourBuckets[hour],
-    density: densityPerHour[hour],
-    smoothed: smoothedCurve[hour]
-  }));
 }
 
-export function calculatePeakWindows(): PeakWindow[] {
-  const hourBuckets = getEngagementsByHour();
-  const engagements = JSON.parse(localStorage.getItem('allEngagements') || '[]') as Engagement[];
+export async function calculatePeakWindows(): Promise<PeakWindow[]> {
+  const hourBuckets = await getEngagementsByHour();
   
-  if (engagements.length < 7) {
+  const totalEngagements = hourBuckets.reduce((sum, h) => sum + h.count, 0);
+  
+  if (totalEngagements < 7) {
     return [];
   }
   
@@ -101,9 +132,9 @@ export function calculatePeakWindows(): PeakWindow[] {
       if (hourData.hour === lastHour + 1 || (lastHour === 23 && hourData.hour === 0)) {
         currentWindow.push(hourData.hour);
       } else {
-        // Save current window and start new one
+    // Save current window and start new one
         if (currentWindow.length > 0) {
-          windows.push(createPeakWindow(currentWindow, hourBuckets, engagements.length));
+          windows.push(createPeakWindow(currentWindow, hourBuckets, totalEngagements));
         }
         currentWindow = [hourData.hour];
       }
@@ -111,7 +142,7 @@ export function calculatePeakWindows(): PeakWindow[] {
     
     // Save last window
     if (index === peakHours.length - 1 && currentWindow.length > 0) {
-      windows.push(createPeakWindow(currentWindow, hourBuckets, engagements.length));
+      windows.push(createPeakWindow(currentWindow, hourBuckets, totalEngagements));
     }
   });
   
@@ -142,76 +173,131 @@ function createPeakWindow(hours: number[], hourBuckets: HourBucket[], totalEngag
   return { startHour, endHour, type, label, percentage, sessionCount };
 }
 
-export function getWeeklyRitualCompletion(): Array<{
+export async function getWeeklyRitualCompletion(): Promise<Array<{
   day: string;
   date: string;
   status: 'full' | 'partial' | 'skipped';
   componentsCompleted: number;
-}> {
-  const dailyRitualHistory = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
-  
-  // Get last 7 days
-  const today = new Date();
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (6 - i));
-    return date;
-  });
-  
-  return last7Days.map(date => {
-    const dateStr = date.toISOString().split('T')[0];
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-    
-    const record = dailyRitualHistory.find((r: any) => r.date === dateStr);
-    
-    return {
-      day: dayName,
-      date: dateStr,
-      status: record?.completionStatus || 'skipped',
-      componentsCompleted: record?.componentsCompleted || 0
-    };
-  });
+}>> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Get last 7 days
+    const today = new Date();
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(date.getDate() - (6 - i));
+      return date;
+    });
+
+    const startDate = last7Days[0].toISOString().split('T')[0];
+    const endDate = last7Days[6].toISOString().split('T')[0];
+
+    const { data: rituals, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('ritual_date', startDate)
+      .lte('ritual_date', endDate);
+
+    if (error) {
+      console.error('Failed to fetch ritual completions:', error);
+      return last7Days.map(date => ({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: date.toISOString().split('T')[0],
+        status: 'skipped' as const,
+        componentsCompleted: 0
+      }));
+    }
+
+    return last7Days.map(date => {
+      const dateStr = date.toISOString().split('T')[0];
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      
+      const record = rituals?.find(r => r.ritual_date === dateStr);
+      
+      const componentsCompleted = record 
+        ? (record.soundscape_completed ? 1 : 0) + 
+          (record.guided_practice_completed ? 1 : 0) + 
+          (record.micro_exercise_completed ? 1 : 0)
+        : 0;
+
+      return {
+        day: dayName,
+        date: dateStr,
+        status: (record?.completion_status || 'skipped') as 'full' | 'partial' | 'skipped',
+        componentsCompleted
+      };
+    });
+  } catch (error) {
+    console.error('Failed to fetch weekly ritual completion:', error);
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(date.getDate() - (6 - i));
+      return {
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: date.toISOString().split('T')[0],
+        status: 'skipped' as const,
+        componentsCompleted: 0
+      };
+    });
+  }
 }
 
-export function calculateStreak(): { currentStreak: number; longestStreak: number } {
-  const dailyRitualHistory = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
-  
-  if (dailyRitualHistory.length === 0) {
+export async function calculateStreak(): Promise<{ currentStreak: number; longestStreak: number }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { currentStreak: 0, longestStreak: 0 };
+
+    const { data: rituals, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('ritual_date, completion_status, soundscape_completed, guided_practice_completed, micro_exercise_completed')
+      .eq('user_id', user.id)
+      .order('ritual_date', { ascending: false });
+
+    if (error || !rituals || rituals.length === 0) {
+      return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    rituals.forEach((record, index) => {
+      const recordDate = new Date(record.ritual_date);
+      recordDate.setHours(0, 0, 0, 0);
+      
+      const expectedDate = new Date(today);
+      expectedDate.setDate(expectedDate.getDate() - index);
+      
+      const componentsCompleted = 
+        (record.soundscape_completed ? 1 : 0) +
+        (record.guided_practice_completed ? 1 : 0) +
+        (record.micro_exercise_completed ? 1 : 0);
+      
+      if (recordDate.getTime() === expectedDate.getTime() && componentsCompleted > 0) {
+        tempStreak++;
+        if (index === 0) {
+          currentStreak = tempStreak;
+        }
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 0;
+      }
+    });
+    
+    longestStreak = Math.max(longestStreak, tempStreak);
+    
+    return { currentStreak, longestStreak };
+  } catch (error) {
+    console.error('Failed to calculate streak:', error);
     return { currentStreak: 0, longestStreak: 0 };
   }
-  
-  const sortedHistory = [...dailyRitualHistory].sort((a: any, b: any) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-  
-  let currentStreak = 0;
-  let longestStreak = 0;
-  let tempStreak = 0;
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  sortedHistory.forEach((record: any, index: number) => {
-    const recordDate = new Date(record.date);
-    recordDate.setHours(0, 0, 0, 0);
-    
-    const expectedDate = new Date(today);
-    expectedDate.setDate(expectedDate.getDate() - index);
-    
-    if (recordDate.getTime() === expectedDate.getTime() && record.componentsCompleted > 0) {
-      tempStreak++;
-      if (index === 0) {
-        currentStreak = tempStreak;
-      }
-    } else {
-      longestStreak = Math.max(longestStreak, tempStreak);
-      tempStreak = 0;
-    }
-  });
-  
-  longestStreak = Math.max(longestStreak, tempStreak);
-  
-  return { currentStreak, longestStreak };
 }
 
 export function generateEnergyInsight(windows: PeakWindow[]): string {
@@ -236,7 +322,7 @@ export function generateEnergyInsight(windows: PeakWindow[]): string {
   return `Your peak practice time is ${formatHour(primaryWindow.startHour)}-${formatHour(primaryWindow.endHour)}. Build your routine around this.`;
 }
 
-export function generateWeeklyInsight(weeklyData: ReturnType<typeof getWeeklyRitualCompletion>): string {
+export function generateWeeklyInsight(weeklyData: Awaited<ReturnType<typeof getWeeklyRitualCompletion>>): string {
   const completionRates = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
     const dayData = weeklyData.filter(d => {
       const date = new Date(d.date);

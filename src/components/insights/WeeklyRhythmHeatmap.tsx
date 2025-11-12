@@ -4,25 +4,39 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown } from 'lucide-react';
 import { getWeeklyRitualCompletion, generateWeeklyInsight } from '@/utils/engagementTracking';
 
+type WeeklyData = Array<{
+  day: string;
+  date: string;
+  status: 'full' | 'partial' | 'skipped';
+  componentsCompleted: number;
+}>;
+
 export function WeeklyRhythmHeatmap() {
   const [isOpen, setIsOpen] = useState(() => {
     const saved = localStorage.getItem('weeklyRhythmCard-collapsed');
     return saved ? JSON.parse(saved) : true;
   });
   
-  const [weeklyData, setWeeklyData] = useState(() => getWeeklyRitualCompletion());
+  const [weeklyData, setWeeklyData] = useState<WeeklyData>([]);
   const [insight, setInsight] = useState('');
   const [stats, setStats] = useState({ completed: 0, total: 7, percentage: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const data = getWeeklyRitualCompletion();
-    setWeeklyData(data);
+    const loadData = async () => {
+      setLoading(true);
+      const data = await getWeeklyRitualCompletion();
+      setWeeklyData(data);
+      
+      const completed = data.filter(d => d.status === 'full').length;
+      const percentage = Math.round((completed / 7) * 100);
+      setStats({ completed, total: 7, percentage });
+      
+      setInsight(generateWeeklyInsight(data));
+      setLoading(false);
+    };
     
-    const completed = data.filter(d => d.status === 'full').length;
-    const percentage = Math.round((completed / 7) * 100);
-    setStats({ completed, total: 7, percentage });
-    
-    setInsight(generateWeeklyInsight(data));
+    loadData();
   }, []);
 
   const handleToggle = (newState: boolean) => {
@@ -74,7 +88,15 @@ export function WeeklyRhythmHeatmap() {
 
           <CollapsibleContent>
             <div className="mt-6 space-y-6">
-              {/* 7-Day Heatmap */}
+              {loading ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    Loading weekly rhythm...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* 7-Day Heatmap */}
               <div className="space-y-3">
                 <div className="grid grid-cols-7 gap-2">
                   {weeklyData.map((day, index) => (
@@ -150,6 +172,8 @@ export function WeeklyRhythmHeatmap() {
                   ))}
                 </div>
               </div>
+            </>
+              )}
             </div>
           </CollapsibleContent>
         </div>

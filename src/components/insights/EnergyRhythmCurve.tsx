@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Sunrise, Zap, Moon } from 'lucide-react';
-import { getEngagementsByHour, calculatePeakWindows, generateEnergyInsight } from '@/utils/engagementTracking';
+import { getEngagementsByHour, calculatePeakWindows, generateEnergyInsight, type HourBucket, type PeakWindow } from '@/utils/engagementTracking';
 
 export function EnergyRhythmCurve() {
   const [isOpen, setIsOpen] = useState(() => {
@@ -10,22 +10,30 @@ export function EnergyRhythmCurve() {
     return saved ? JSON.parse(saved) : true;
   });
   
-  const [hourlyData, setHourlyData] = useState(() => getEngagementsByHour());
-  const [peakWindows, setPeakWindows] = useState(() => calculatePeakWindows());
+  const [hourlyData, setHourlyData] = useState<HourBucket[]>([]);
+  const [peakWindows, setPeakWindows] = useState<PeakWindow[]>([]);
   const [insight, setInsight] = useState('');
   const [totalEngagements, setTotalEngagements] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const engagements = JSON.parse(localStorage.getItem('allEngagements') || '[]');
-    setTotalEngagements(engagements.length);
+    const loadData = async () => {
+      setLoading(true);
+      
+      const data = await getEngagementsByHour();
+      setHourlyData(data);
+      
+      const total = data.reduce((sum, h) => sum + h.count, 0);
+      setTotalEngagements(total);
+      
+      const windows = await calculatePeakWindows();
+      setPeakWindows(windows);
+      
+      setInsight(generateEnergyInsight(windows));
+      setLoading(false);
+    };
     
-    const data = getEngagementsByHour();
-    setHourlyData(data);
-    
-    const windows = calculatePeakWindows();
-    setPeakWindows(windows);
-    
-    setInsight(generateEnergyInsight(windows));
+    loadData();
   }, []);
 
   const handleToggle = (newState: boolean) => {
@@ -74,7 +82,13 @@ export function EnergyRhythmCurve() {
 
           <CollapsibleContent>
             <div className="mt-6 space-y-6">
-              {!hasEnoughData ? (
+              {loading ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    Loading energy pattern...
+                  </p>
+                </div>
+              ) : !hasEnoughData ? (
                 <div className="text-center py-8 space-y-4">
                   <p className="text-sm md:text-base text-muted-foreground">
                     Complete 7 sessions to see your energy curve

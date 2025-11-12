@@ -48,26 +48,11 @@ const DailyRitual = () => {
 
   const totalDuration = allRecs.reduce((sum, rec) => sum + rec.duration, 0);
 
-  const handleStartRitual = () => {
+  const handleStartRitual = async () => {
     // Track ritual start engagement
-    trackEngagement('daily_ritual_start');
+    await trackEngagement('daily_ritual_start');
     
-    // Initialize today's ritual record
-    const today = new Date().toISOString().split('T')[0];
-    const history = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
-    
-    const existingRecord = history.find((r: any) => r.date === today);
-    if (!existingRecord) {
-      history.push({
-        date: today,
-        completionStatus: 'partial',
-        componentsCompleted: 0,
-        timestamps: [new Date().toISOString()]
-      });
-      localStorage.setItem('dailyRitualHistory', JSON.stringify(history));
-    }
-    
-    // Store ritual queue in localStorage
+    // Store ritual queue in localStorage for UI continuity
     localStorage.setItem('practiceQueue', JSON.stringify(allRecs));
     
     // Navigate to first practice

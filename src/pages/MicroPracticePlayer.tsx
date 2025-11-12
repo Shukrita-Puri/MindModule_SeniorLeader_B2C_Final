@@ -6,6 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
+import { supabase } from "@/integrations/supabase/client";
 
 const MicroPracticePlayer = () => {
   const { id } = useParams();
@@ -44,41 +45,49 @@ const MicroPracticePlayer = () => {
     ? `/recalibrate/${practice.category}` 
     : "/micro-practices";
 
-  const handleComplete = () => {
-    // Update daily ritual history if part of ritual
-    const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
-    const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
-    
-    if (isPartOfRitual) {
-      const today = new Date().toISOString().split('T')[0];
-      const history = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
+  const handleComplete = async () => {
+    if (!practice) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+      const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
-      const todayRecord = history.find((r: any) => r.date === today);
-      if (todayRecord) {
-        todayRecord.componentsCompleted = Math.min(todayRecord.componentsCompleted + 1, 3);
-        todayRecord.timestamps.push(new Date().toISOString());
+      // Track practice session
+      await supabase.from('practice_sessions').insert({
+        user_id: user.id,
+        content_id: practice.id,
+        content_type: 'micro',
+        category: practice.category,
+        duration_seconds: practice.duration * 60,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        completed: true,
+        part_of_ritual: isPartOfRitual,
+        metadata: { title: practice.title }
+      });
+
+      // Update ritual completion if part of ritual
+      if (isPartOfRitual) {
+        const today = new Date().toISOString().split('T')[0];
         
-        if (todayRecord.componentsCompleted === 3) {
-          todayRecord.completionStatus = 'full';
-        } else if (todayRecord.componentsCompleted > 0) {
-          todayRecord.completionStatus = 'partial';
-        }
-        
-        localStorage.setItem('dailyRitualHistory', JSON.stringify(history));
+        await supabase
+          .from('daily_ritual_completions')
+          .upsert({
+            user_id: user.id,
+            ritual_date: today,
+            micro_exercise_completed: true,
+            micro_exercise_completed_at: new Date().toISOString(),
+            completion_status: 'partial'
+          }, {
+            onConflict: 'user_id,ritual_date'
+          });
       }
+    } catch (error) {
+      console.error('Failed to save completion:', error);
     }
-    
-    // Store completion in localStorage
-    const history = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
-    history.push({
-      id: practice.id,
-      title: practice.title,
-      type: "micro-practice",
-      outcome: practice.category,
-      completedAt: new Date().toISOString(),
-      duration: practice.duration
-    });
-    localStorage.setItem("practiceHistory", JSON.stringify(history));
     
     navigate("/recalibrate");
   };
