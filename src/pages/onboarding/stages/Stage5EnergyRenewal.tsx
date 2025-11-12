@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
-import { ArrowRight, Zap, Coffee } from "lucide-react";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 
 export default function Stage5EnergyRenewal() {
   const navigate = useNavigate();
@@ -11,9 +10,14 @@ export default function Stage5EnergyRenewal() {
     getResponse("energy_renewal_response") || ""
   );
 
-  const handleContinue = () => {
-    saveResponse("energy_renewal_response", answer);
-    navigate("/onboarding/growth-assessment");
+  const handleSelectAnswer = (value: string) => {
+    setAnswer(value);
+    saveResponse("energy_renewal_response", value);
+    
+    // Auto-advance after 300ms
+    setTimeout(() => {
+      navigate("/onboarding/growth-assessment");
+    }, 300);
   };
 
   const options = [
@@ -40,49 +44,34 @@ export default function Stage5EnergyRenewal() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <QuestionCard 
-        title="When you're mentally drained but still have hours to go, what do you do?"
-        subtitle="Think about mid-afternoon slumps or late-day fatigue"
-      >
-        <div className="space-y-3 mt-6">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setAnswer(option.value)}
-              className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
-                answer === option.value
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
-                  {option.value === "go_to_strategies" ? (
-                    <Zap className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Coffee className="w-5 h-5 text-muted-foreground" />
-                  )}
-                </div>
+    <>
+      <UnifiedTopBar backPath="/onboarding/focus-recovery" />
+      
+      <div className="pt-16 space-y-6 animate-fade-in">
+        <QuestionCard 
+          title="When you're mentally drained but still have hours to go, what do you do?"
+          subtitle="Think about mid-afternoon slumps or late-day fatigue"
+        >
+          <div className="space-y-3 mt-6">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleSelectAnswer(option.value)}
+                className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
+                  answer === option.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
                 <div className="flex-1">
                   <div className="font-medium text-sm mb-1">{option.label}</div>
                   <div className="text-xs text-muted-foreground">{option.description}</div>
                 </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </QuestionCard>
-
-      <Button
-        onClick={handleContinue}
-        disabled={!answer}
-        size="lg"
-        className="w-full"
-      >
-        Continue
-        <ArrowRight size={20} className="ml-2" />
-      </Button>
-    </div>
+              </button>
+            ))}
+          </div>
+        </QuestionCard>
+      </div>
+    </>
   );
 }

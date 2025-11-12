@@ -80,9 +80,9 @@ export function getArchetypeInsights(archetype: UserArchetype, scores: Component
   const insights: Record<string, any> = {
     natural_regulator: {
       patternRevealation: [
-        "You naturally downshift energy after intense work—a capability found in only 19% of professionals.",
-        "You recover focus within minutes of interruptions, demonstrating exceptional cognitive control.",
-        "You have established go-to renewal strategies that actually work—rare at this baseline level."
+        "You naturally downshift energy after intense work—a rare capability that most professionals struggle to develop even with training.",
+        "You recover focus within minutes of interruptions, demonstrating exceptional cognitive control. Most leaders lose significant performance capacity to context-switching.",
+        "You have established renewal strategies that actually work—this baseline puts you in position to handle exponentially higher complexity without the performance degradation most leaders face."
       ],
       developmentFocus: "Advanced integration techniques to sustain peak performance under extreme complexity.",
       expectedOutcomes: [
@@ -94,9 +94,9 @@ export function getArchetypeInsights(archetype: UserArchetype, scores: Component
     },
     strategic_pauser: {
       patternRevealation: [
-        "You pause before reacting—only 12% of people naturally do this, and it's the #1 predictor of influence under pressure.",
-        "You can re-establish focus quickly after disruptions, showing strong cognitive control.",
-        "Your growth priority aligns with your natural strengths—this self-awareness accelerates development."
+        "You pause before reacting—a rare capability that research identifies as the strongest predictor of influence in high-stakes moments. Leaders without this skill struggle with reactive decision-making under pressure.",
+        "You recover focus quickly after disruptions, demonstrating strong cognitive control. Most professionals lose hours to context-switching and can't regain momentum.",
+        "Your growth priority aligns with your natural strengths—this self-awareness is what separates leaders who develop quickly from those who plateau."
       ],
       developmentFocus: "Energy regulation techniques to complement your natural composure.",
       expectedOutcomes: [
@@ -108,9 +108,9 @@ export function getArchetypeInsights(archetype: UserArchetype, scores: Component
     },
     high_octane_performer: {
       patternRevealation: [
-        "You have effective renewal strategies when you step away—a capability many professionals lack.",
-        "You struggle to downshift during intense work, leading to 64% higher burnout risk over 18 months.",
-        "Your pattern: high output with crash-and-recover cycles rather than sustainable regulation."
+        "You have effective renewal strategies when you step away—a capability many professionals never develop. The challenge: you're waiting until after the crash instead of preventing it.",
+        "You struggle to downshift during intense work, creating a crash-and-recover cycle. Research shows this pattern leads to significantly higher burnout risk and shorter career sustainability.",
+        "Your pattern: high output followed by exhaustion. Leaders who master proactive regulation sustain peak performance far longer without the crashes."
       ],
       developmentFocus: "Proactive energy regulation to prevent crashes before they happen.",
       expectedOutcomes: [
@@ -122,9 +122,9 @@ export function getArchetypeInsights(archetype: UserArchetype, scores: Component
     },
     awareness_builder: {
       patternRevealation: [
-        "You're aware you need better tools—this insight puts you ahead of 58% who never start.",
-        "Current patterns show reactive rather than strategic stress response.",
-        "Research shows this exact awareness is the strongest predictor of rapid skill development."
+        "You recognize you need better tools—this awareness is what separates professionals who grow from those who stay stuck. Most people never reach this moment of clarity.",
+        "Your current patterns show reactive rather than strategic stress response. Research consistently shows this is a key predictor of decision fatigue and career plateaus.",
+        "The opportunity: you're starting from awareness, which research identifies as the strongest predictor of rapid skill development. Leaders who build foundational tools at this stage experience transformative results."
       ],
       developmentFocus: "Build foundational self-regulation tools from the ground up.",
       expectedOutcomes: [
