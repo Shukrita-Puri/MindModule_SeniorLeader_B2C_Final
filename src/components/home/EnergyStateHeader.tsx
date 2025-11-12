@@ -80,10 +80,12 @@ const EnergyStateHeader = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Balance</span>
-              <span className="text-2xl font-bold text-saffron">
-                {energyState.overallBalance}
-                <span className="text-muted-foreground">/100</span>
-              </span>
+              <div className="flex items-baseline gap-0.5">
+                <span className="text-2xl font-bold text-saffron">
+                  {energyState.overallBalance}
+                </span>
+                <span className="text-sm font-normal text-muted-foreground">/100</span>
+              </div>
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
