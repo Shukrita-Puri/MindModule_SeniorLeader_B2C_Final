@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { analyzeEventPhysiologicalPattern } from '@/utils/historicalPhysiologica
 import { getWearableContext, type WearableContext, getUserHRVBaseline } from '@/utils/wearableContextAnalyzer';
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
 import { useAuth } from '@/hooks/useAuth';
+import { trackInterventionEvent } from '@/utils/interventionTracking';
 
 interface MicroIntervention {
   id: string;
@@ -37,10 +38,65 @@ const MicroInterventions = () => {
   const [interventions, setInterventions] = useState<MicroIntervention[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const trackedSentRef = useRef<Set<string>>(new Set());
+  const ignoreTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     loadInterventions();
   }, []);
+
+  // Track nudge_sent when interventions are displayed
+  useEffect(() => {
+    if (interventions.length > 0) {
+      interventions.forEach((intervention) => {
+        // Only track once per intervention
+        if (!trackedSentRef.current.has(intervention.id)) {
+          trackedSentRef.current.add(intervention.id);
+          
+          trackInterventionEvent({
+            eventType: 'nudge_sent',
+            interventionId: intervention.id,
+            interventionType: intervention.type,
+            triggerReason: intervention.trigger,
+            timingWindow: intervention.timing,
+            urgencyLevel: intervention.urgencyLevel,
+            recommendedContentId: intervention.content.id,
+            recommendedContentType: intervention.content.contentType,
+            contextData: {
+              priority: intervention.priority,
+              reasoning: intervention.reasoning
+            }
+          });
+
+          // Set timer to track nudge_ignored after 5 minutes
+          const timer = setTimeout(() => {
+            trackInterventionEvent({
+              eventType: 'nudge_ignored',
+              interventionId: intervention.id,
+              interventionType: intervention.type,
+              triggerReason: intervention.trigger,
+              timingWindow: intervention.timing,
+              urgencyLevel: intervention.urgencyLevel,
+              recommendedContentId: intervention.content.id,
+              recommendedContentType: intervention.content.contentType,
+              timeToActionSeconds: 300, // 5 minutes
+              contextData: {
+                priority: intervention.priority
+              }
+            });
+          }, 5 * 60 * 1000); // 5 minutes
+
+          ignoreTimersRef.current.set(intervention.id, timer);
+        }
+      });
+    }
+
+    // Cleanup timers on unmount
+    return () => {
+      ignoreTimersRef.current.forEach(timer => clearTimeout(timer));
+      ignoreTimersRef.current.clear();
+    };
+  }, [interventions]);
 
   const loadInterventions = async () => {
     setLoading(true);
@@ -418,7 +474,31 @@ const MicroInterventions = () => {
     return Math.min(score, 100); // Cap at 100
   }
 
-  const handleInterventionClick = (intervention: MicroIntervention) => {
+  const handleInterventionClick = (intervention: MicroIntervention, clickTime: number) => {
+    // Clear ignore timer since user is taking action
+    const timer = ignoreTimersRef.current.get(intervention.id);
+    if (timer) {
+      clearTimeout(timer);
+      ignoreTimersRef.current.delete(intervention.id);
+    }
+
+    // Track nudge_clicked
+    trackInterventionEvent({
+      eventType: 'nudge_clicked',
+      interventionId: intervention.id,
+      interventionType: intervention.type,
+      triggerReason: intervention.trigger,
+      timingWindow: intervention.timing,
+      urgencyLevel: intervention.urgencyLevel,
+      recommendedContentId: intervention.content.id,
+      recommendedContentType: intervention.content.contentType,
+      timeToActionSeconds: Math.floor((Date.now() - clickTime) / 1000),
+      contextData: {
+        priority: intervention.priority,
+        action: 'start_now'
+      }
+    });
+
     const content = intervention.content;
     if (content.contentType === 'soundbath') {
       navigate(`/soundscapes/${content.id}`, { state: { category: content.category } });
@@ -477,12 +557,13 @@ const MicroInterventions = () => {
       {displayedInterventions.map((intervention) => {
         const Icon = getIcon(intervention.icon);
         const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
+        const cardRenderTime = Date.now();
         
         return (
           <Card
             key={intervention.id}
             className="p-4 space-y-3 cursor-pointer hover:bg-card/50 transition-all"
-            onClick={() => handleInterventionClick(intervention)}
+            onClick={() => handleInterventionClick(intervention, cardRenderTime)}
           >
             {/* Header */}
             <div className="flex items-start gap-3">
@@ -542,6 +623,30 @@ const MicroInterventions = () => {
                 className="flex-1 text-xs"
                 onClick={(e) => {
                   e.stopPropagation();
+                  
+                  // Track reminder set
+                  const timer = ignoreTimersRef.current.get(intervention.id);
+                  if (timer) {
+                    clearTimeout(timer);
+                    ignoreTimersRef.current.delete(intervention.id);
+                  }
+
+                  trackInterventionEvent({
+                    eventType: 'nudge_clicked',
+                    interventionId: intervention.id,
+                    interventionType: intervention.type,
+                    triggerReason: intervention.trigger,
+                    timingWindow: intervention.timing,
+                    urgencyLevel: intervention.urgencyLevel,
+                    recommendedContentId: intervention.content.id,
+                    recommendedContentType: intervention.content.contentType,
+                    timeToActionSeconds: Math.floor((Date.now() - cardRenderTime) / 1000),
+                    contextData: {
+                      priority: intervention.priority,
+                      action: 'set_reminder'
+                    }
+                  });
+                  
                   // TODO: Implement notification scheduling
                   alert('Notification set! We\'ll remind you at the right time.');
                 }}
