@@ -95,6 +95,81 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_checkins: {
+        Row: {
+          checkin_date: string
+          created_at: string
+          id: string
+          outcome: string
+          skipped: boolean | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          checkin_date: string
+          created_at?: string
+          id?: string
+          outcome: string
+          skipped?: boolean | null
+          timestamp: string
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          created_at?: string
+          id?: string
+          outcome?: string
+          skipped?: boolean | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_ritual_completions: {
+        Row: {
+          completion_status: string
+          created_at: string
+          guided_practice_completed: boolean | null
+          guided_practice_completed_at: string | null
+          id: string
+          micro_exercise_completed: boolean | null
+          micro_exercise_completed_at: string | null
+          ritual_date: string
+          soundscape_completed: boolean | null
+          soundscape_completed_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completion_status?: string
+          created_at?: string
+          guided_practice_completed?: boolean | null
+          guided_practice_completed_at?: string | null
+          id?: string
+          micro_exercise_completed?: boolean | null
+          micro_exercise_completed_at?: string | null
+          ritual_date: string
+          soundscape_completed?: boolean | null
+          soundscape_completed_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completion_status?: string
+          created_at?: string
+          guided_practice_completed?: boolean | null
+          guided_practice_completed_at?: string | null
+          id?: string
+          micro_exercise_completed?: boolean | null
+          micro_exercise_completed_at?: string | null
+          ritual_date?: string
+          soundscape_completed?: boolean | null
+          soundscape_completed_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       energy_snapshots: {
         Row: {
           calendar_density: number | null
@@ -139,6 +214,57 @@ export type Database = {
           presence_percentage?: number | null
           snapshot_date?: string
           total_sessions?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mental_fitness_scores: {
+        Row: {
+          baseline_avg: number | null
+          checkin_consistency_score: number | null
+          content_engagement_score: number | null
+          created_at: string
+          current_streak: number | null
+          id: string
+          is_baseline_period: boolean | null
+          metadata: Json | null
+          ritual_completion_score: number | null
+          score: number
+          score_date: string
+          streak_bonus: number | null
+          trend: string | null
+          user_id: string
+        }
+        Insert: {
+          baseline_avg?: number | null
+          checkin_consistency_score?: number | null
+          content_engagement_score?: number | null
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          is_baseline_period?: boolean | null
+          metadata?: Json | null
+          ritual_completion_score?: number | null
+          score: number
+          score_date: string
+          streak_bonus?: number | null
+          trend?: string | null
+          user_id: string
+        }
+        Update: {
+          baseline_avg?: number | null
+          checkin_consistency_score?: number | null
+          content_engagement_score?: number | null
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          is_baseline_period?: boolean | null
+          metadata?: Json | null
+          ritual_completion_score?: number | null
+          score?: number
+          score_date?: string
+          streak_bonus?: number | null
+          trend?: string | null
           user_id?: string
         }
         Relationships: []
@@ -218,6 +344,54 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_sessions: {
+        Row: {
+          category: string
+          completed: boolean | null
+          completed_at: string | null
+          content_id: string
+          content_type: string
+          created_at: string
+          duration_seconds: number | null
+          effectiveness_rating: number | null
+          id: string
+          metadata: Json | null
+          part_of_ritual: boolean | null
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          completed?: boolean | null
+          completed_at?: string | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          duration_seconds?: number | null
+          effectiveness_rating?: number | null
+          id?: string
+          metadata?: Json | null
+          part_of_ritual?: boolean | null
+          started_at: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          duration_seconds?: number | null
+          effectiveness_rating?: number | null
+          id?: string
+          metadata?: Json | null
+          part_of_ritual?: boolean | null
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -285,6 +459,42 @@ export type Database = {
           event_type?: string
           id?: string
           tags?: string[] | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_engagements: {
+        Row: {
+          category: string | null
+          content_id: string | null
+          content_type: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
           timestamp?: string
           user_id?: string
         }
