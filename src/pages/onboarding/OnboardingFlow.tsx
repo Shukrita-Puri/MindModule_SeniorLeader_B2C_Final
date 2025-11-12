@@ -77,9 +77,10 @@ export default function OnboardingFlow() {
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
   const hideProgress = currentStageIndex === 0 || currentStageIndex > 5 || location.pathname.includes('/signup');
 
-  // Determine if we should show back button
-  const showBackButton = currentStageIndex >= 2 && currentStageIndex <= 5; // Stages 2-6 (identity through growth)
+  // Determine if we should show back button (stages 1-5: identity through growth assessment)
+  const showBackButton = currentStageIndex >= 1 && currentStageIndex <= 5;
   const getBackPath = () => {
+    if (currentStageIndex === 1) return "/onboarding"; // Identity back to welcome
     if (currentStageIndex === 2) return "/onboarding/identity";
     if (currentStageIndex === 3) return "/onboarding/energy-regulation";
     if (currentStageIndex === 4) return "/onboarding/focus-recovery";
