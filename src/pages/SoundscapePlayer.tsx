@@ -585,7 +585,9 @@ const SoundscapePlayer = () => {
 
   if (isComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6">
+      <>
+        <TopNavigation backPath={getCategoryPath()} />
+        <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6 pt-20">
         <div className="max-w-2xl text-center space-y-4 md:space-y-6">
           <CheckCircle2 className="h-16 w-16 md:h-20 md:w-20 text-gold mx-auto" />
           <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
@@ -620,6 +622,7 @@ const SoundscapePlayer = () => {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
