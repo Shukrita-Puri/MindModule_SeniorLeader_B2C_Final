@@ -9,8 +9,8 @@ export const ProgressIndicator = ({
 }: ProgressIndicatorProps) => {
 
   return (
-    <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3">
-      <div className="max-w-md mx-auto">
+    <div className="bg-background border-b border-border px-4 py-3">
+      <div className="max-w-2xl mx-auto">
         <div className="relative h-1.5 bg-muted rounded-full overflow-hidden mb-2">
           <div
             className="absolute inset-y-0 left-0 bg-gradient-to-r from-gold via-gold to-primary rounded-full transition-all duration-500 ease-out"

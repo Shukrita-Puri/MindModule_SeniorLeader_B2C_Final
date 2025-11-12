@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
-import { Briefcase, GraduationCap, Users, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export default function Stage2Identity() {
@@ -20,10 +18,10 @@ export default function Stage2Identity() {
   );
 
   const identityOptions = [
-    { value: "executive", label: "Senior Executive / Leader", icon: Briefcase },
-    { value: "manager", label: "Manager / Team Leader", icon: Users },
-    { value: "student", label: "Student / Learner", icon: GraduationCap },
-    { value: "other", label: "Other", icon: Users },
+    { value: "executive", label: "Senior Executive / Leader" },
+    { value: "manager", label: "Manager / Team Leader" },
+    { value: "student", label: "Student / Learner" },
+    { value: "other", label: "Other" },
   ];
 
   const getPressurePointsForIdentity = (): Array<{ value: string; label: string }> => {
@@ -47,17 +45,26 @@ export default function Stage2Identity() {
     ];
   };
 
-  const handleContinue = () => {
-    if (currentQuestion === 1) {
-      saveResponse("identity_type", identityType);
-      if (identityType === "other") {
-        saveResponse("custom_identity", customIdentity);
-      }
-      setCurrentQuestion(2);
-    } else {
-      saveResponse("biggest_pressure", biggestPressure);
-      navigate("/onboarding/energy-regulation");
+  const handleIdentitySelect = (value: string) => {
+    setIdentityType(value);
+    saveResponse("identity_type", value);
+    
+    // Auto-advance to Q2 after brief delay (unless "other" selected)
+    if (value !== "other") {
+      setTimeout(() => {
+        setCurrentQuestion(2);
+      }, 300);
     }
+  };
+
+  const handlePressureSelect = (value: string) => {
+    setBiggestPressure(value);
+    saveResponse("biggest_pressure", value);
+    
+    // Auto-advance to next stage after brief delay
+    setTimeout(() => {
+      navigate("/onboarding/energy-regulation");
+    }, 300);
   };
 
   const canContinue = () => {
@@ -74,30 +81,43 @@ export default function Stage2Identity() {
     <div className="space-y-6 animate-fade-in">
       {currentQuestion === 1 && (
         <QuestionCard title="What describes you best?">
-          <div className="space-y-3 mt-4">
+          <div className="space-y-3 mt-6">
             {identityOptions.map((option) => (
               <button
                 key={option.value}
-                onClick={() => setIdentityType(option.value)}
-                className={`w-full text-left p-4 border-2 rounded-lg transition-all flex items-center gap-3 ${
+                onClick={() => handleIdentitySelect(option.value)}
+                className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
                   identityType === option.value
-                    ? "border-gold bg-gold/5"
-                    : "border-border hover:border-gold/50"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
                 }`}
               >
-                <option.icon size={20} className="text-gold" />
-                <span className="font-medium">{option.label}</span>
+                <span className="font-medium text-sm">{option.label}</span>
               </button>
             ))}
 
             {identityType === "other" && (
-              <Input
-                type="text"
-                value={customIdentity}
-                onChange={(e) => setCustomIdentity(e.target.value)}
-                placeholder="Please specify..."
-                className="mt-2"
-              />
+              <div className="mt-4 space-y-3">
+                <Input
+                  type="text"
+                  value={customIdentity}
+                  onChange={(e) => setCustomIdentity(e.target.value)}
+                  placeholder="Please specify..."
+                  className="mt-2"
+                />
+                <button
+                  onClick={() => {
+                    if (customIdentity.trim()) {
+                      saveResponse("custom_identity", customIdentity);
+                      setTimeout(() => setCurrentQuestion(2), 300);
+                    }
+                  }}
+                  disabled={!customIdentity.trim()}
+                  className="w-full p-3 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
+                >
+                  Continue
+                </button>
+              </div>
             )}
           </div>
         </QuestionCard>
@@ -108,33 +128,23 @@ export default function Stage2Identity() {
           title="What's your biggest pressure point right now?"
           subtitle="Select the one that feels most challenging"
         >
-          <div className="space-y-3 mt-4">
+          <div className="space-y-3 mt-6">
             {getPressurePointsForIdentity().map((option) => (
               <button
                 key={option.value}
-                onClick={() => setBiggestPressure(option.value)}
+                onClick={() => handlePressureSelect(option.value)}
                 className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
                   biggestPressure === option.value
-                    ? "border-gold bg-gold/5"
-                    : "border-border hover:border-gold/50"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
                 }`}
               >
-                <span className="text-sm font-body">{option.label}</span>
+                <span className="text-sm">{option.label}</span>
               </button>
             ))}
           </div>
         </QuestionCard>
       )}
-
-      <Button
-        onClick={handleContinue}
-        disabled={!canContinue()}
-        size="lg"
-        className="w-full"
-      >
-        Continue
-        <ArrowRight size={20} className="ml-2" />
-      </Button>
     </div>
   );
 }

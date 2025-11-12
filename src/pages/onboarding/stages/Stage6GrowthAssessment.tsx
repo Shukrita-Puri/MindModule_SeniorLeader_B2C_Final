@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/onboarding/QuestionCard";
 import { saveResponse, getResponse } from "@/utils/onboardingStorage";
 import { ArrowRight } from "lucide-react";
-import { OnboardingBackButton } from "@/components/onboarding/OnboardingBackButton";
 
 export default function Stage6GrowthAssessment() {
   const navigate = useNavigate();
@@ -47,40 +46,39 @@ export default function Stage6GrowthAssessment() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <OnboardingBackButton backPath="/onboarding/energy-renewal" />
-        <QuestionCard 
-          title="What's your biggest growth priority right now?"
-          subtitle="Select the one that feels most important to you"
-        >
-          <div className="space-y-3 mt-6">
-            {options.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setAnswer(option.value)}
-                className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
-                  answer === option.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className="flex-1">
-                  <div className="font-medium text-sm mb-1">{option.label}</div>
-                  <div className="text-xs text-muted-foreground">{option.description}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </QuestionCard>
+      <QuestionCard 
+        title="What's your biggest growth priority right now?"
+        subtitle="Select the one that feels most important to you"
+      >
+        <div className="space-y-3 mt-6">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setAnswer(option.value)}
+              className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
+                answer === option.value
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <div className="flex-1">
+                <div className="font-medium text-sm mb-1">{option.label}</div>
+                <div className="text-xs text-muted-foreground">{option.description}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </QuestionCard>
 
-        <Button
-          onClick={handleContinue}
-          disabled={!answer}
-          size="lg"
-          className="w-full"
-        >
-          See My Results
-          <ArrowRight size={20} className="ml-2" />
-        </Button>
+      <Button
+        onClick={handleContinue}
+        disabled={!answer}
+        size="lg"
+        className="w-full"
+      >
+        See My Results
+        <ArrowRight size={20} className="ml-2" />
+      </Button>
     </div>
   );
 }

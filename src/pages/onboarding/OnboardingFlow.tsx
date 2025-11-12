@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { initializeSession, getSession, updateSession } from "@/utils/onboardingStorage";
 import { getResumeRoute } from "@/utils/onboardingStatus";
@@ -76,18 +77,46 @@ export default function OnboardingFlow() {
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
   const hideProgress = currentStageIndex === 0 || currentStageIndex > 5 || location.pathname.includes('/signup');
 
+  // Determine if we should show back button
+  const showBackButton = currentStageIndex >= 2 && currentStageIndex <= 5; // Stages 2-6 (identity through growth)
+  const getBackPath = () => {
+    if (currentStageIndex === 2) return "/onboarding/identity";
+    if (currentStageIndex === 3) return "/onboarding/energy-regulation";
+    if (currentStageIndex === 4) return "/onboarding/focus-recovery";
+    if (currentStageIndex === 5) return "/onboarding/energy-renewal";
+    return "/onboarding";
+  };
+
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background">
       {/* Radial gradient overlay for visual consistency */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-gold/5 via-transparent to-transparent pointer-events-none" />
       
+      {/* Fixed Top Bar with Back Arrow */}
+      {showBackButton && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08]">
+          <div className="flex items-center px-4 py-2">
+            <button 
+              onClick={() => navigate(getBackPath())}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft size={20} />
+              <span className="text-sm">Back</span>
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="relative z-10">
-        {!hideProgress && (
-          <ProgressIndicator
-            percentage={percentage}
-            estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
-          />
-        )}
+        {/* Progress Bar - below top bar */}
+        <div className={showBackButton ? "pt-[53px]" : ""}>
+          {!hideProgress && (
+            <ProgressIndicator
+              percentage={percentage}
+              estimatedTimeRemaining={Math.ceil(estimatedTimeRemaining)}
+            />
+          )}
+        </div>
 
         <div className="max-w-2xl mx-auto px-4 py-8">
           <Outlet />
