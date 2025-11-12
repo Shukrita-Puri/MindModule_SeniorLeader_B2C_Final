@@ -1,8 +1,38 @@
 import { Flame, Target } from 'lucide-react';
 import { calculateMentalFitnessScore } from '@/utils/mentalFitnessEngine';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const InsightProgressCard = () => {
-  const mentalFitness = calculateMentalFitnessScore();
+  const { user } = useAuth();
+
+  // Load onboarding data from database
+  const { data: profile } = useQuery({
+    queryKey: ['profile-onboarding', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('mental_fitness_baseline, user_archetype, growth_priority, biggest_pressure')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id
+  });
+
+  // Calculate current Mental Fitness Score from activity
+  const currentScore = calculateMentalFitnessScore();
+  
+  // Use baseline from database if available, otherwise use current calculated score
+  const mentalFitness = {
+    score: profile?.mental_fitness_baseline || currentScore.score,
+    trend: currentScore.trend
+  };
   
   // Get streak and practices from localStorage (includes both Dialogue and Sanctuary)
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');

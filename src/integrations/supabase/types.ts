@@ -499,28 +499,85 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alignment_status: string | null
           avatar_url: string | null
+          biggest_pressure: string | null
+          component_scores: Json | null
           created_at: string | null
           email: string
+          energy_regulation_response: string | null
+          energy_renewal_response: string | null
+          focus_recovery_response: string | null
           full_name: string | null
+          growth_priority: string | null
           id: string
+          identity_role: string | null
+          mental_fitness_baseline: number | null
+          meta_skill_scores: Json | null
+          onboarding_completed_at: string | null
+          onboarding_session_id: string | null
+          profile_description: string | null
+          profile_type: string | null
+          q1_setback_response: string | null
+          q2_pressure_response: string | null
+          q3_communication_style: string | null
+          q4_self_assessed_strength: string | null
           updated_at: string | null
+          user_archetype: string | null
         }
         Insert: {
+          alignment_status?: string | null
           avatar_url?: string | null
+          biggest_pressure?: string | null
+          component_scores?: Json | null
           created_at?: string | null
           email: string
+          energy_regulation_response?: string | null
+          energy_renewal_response?: string | null
+          focus_recovery_response?: string | null
           full_name?: string | null
+          growth_priority?: string | null
           id: string
+          identity_role?: string | null
+          mental_fitness_baseline?: number | null
+          meta_skill_scores?: Json | null
+          onboarding_completed_at?: string | null
+          onboarding_session_id?: string | null
+          profile_description?: string | null
+          profile_type?: string | null
+          q1_setback_response?: string | null
+          q2_pressure_response?: string | null
+          q3_communication_style?: string | null
+          q4_self_assessed_strength?: string | null
           updated_at?: string | null
+          user_archetype?: string | null
         }
         Update: {
+          alignment_status?: string | null
           avatar_url?: string | null
+          biggest_pressure?: string | null
+          component_scores?: Json | null
           created_at?: string | null
           email?: string
+          energy_regulation_response?: string | null
+          energy_renewal_response?: string | null
+          focus_recovery_response?: string | null
           full_name?: string | null
+          growth_priority?: string | null
           id?: string
+          identity_role?: string | null
+          mental_fitness_baseline?: number | null
+          meta_skill_scores?: Json | null
+          onboarding_completed_at?: string | null
+          onboarding_session_id?: string | null
+          profile_description?: string | null
+          profile_type?: string | null
+          q1_setback_response?: string | null
+          q2_pressure_response?: string | null
+          q3_communication_style?: string | null
+          q4_self_assessed_strength?: string | null
           updated_at?: string | null
+          user_archetype?: string | null
         }
         Relationships: []
       }

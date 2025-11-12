@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
@@ -9,10 +10,27 @@ import MicroInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
+import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
 
 const ExecutiveHome = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [migrationComplete, setMigrationComplete] = useState(false);
+  
+  // Migrate onboarding data from localStorage to database on first visit
+  useEffect(() => {
+    const migrateData = async () => {
+      if (user?.id && !migrationComplete) {
+        const success = await migrateOnboardingToDatabase(user.id);
+        if (success) {
+          console.log('✅ Onboarding data persisted to database');
+          setMigrationComplete(true);
+        }
+      }
+    };
+
+    migrateData();
+  }, [user?.id, migrationComplete]);
   
   const fullName = user?.user_metadata?.full_name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
