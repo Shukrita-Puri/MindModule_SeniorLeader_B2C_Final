@@ -60,7 +60,7 @@ const InsightProgressCard = () => {
   const { data: balanceTrend } = useQuery({
     queryKey: ['balance-trend', user?.id],
     queryFn: async () => {
-      if (!user?.id) return { change: 0, display: 'Building baseline...' };
+      if (!user?.id) return { change: 0, display: 'Stable' };
       
       const fourteenDaysAgo = new Date();
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -74,20 +74,18 @@ const InsightProgressCard = () => {
         
       if (error) throw error;
       
-      if (!data || data.length < 7) {
-        return { change: 0, display: 'Building baseline...' };
+      if (!data || data.length === 0) {
+        return { change: 0, display: 'Stable' };
       }
       
-      // Calculate averages
-      const recent7 = data.slice(0, 7).map(d => d.energy_balance || 50);
-      const previous7 = data.slice(7, 14).map(d => d.energy_balance || 50);
+      // Use available data (even if less than 7 days)
+      const recentData = data.slice(0, Math.min(data.length, 7));
+      const recentAvg = recentData.reduce((sum, d) => sum + (d.energy_balance || 50), 0) / recentData.length;
       
-      const recentAvg = recent7.reduce((a, b) => a + b, 0) / recent7.length;
-      const previousAvg = previous7.length > 0 
-        ? previous7.reduce((a, b) => a + b, 0) / previous7.length 
-        : recentAvg;
+      // Use baseline from profile or first check-in as reference
+      const baselineAvg = profile?.mental_fitness_baseline || data[data.length - 1]?.energy_balance || 50;
       
-      const diff = Math.round(recentAvg - previousAvg);
+      const diff = Math.round(recentAvg - baselineAvg);
       
       if (Math.abs(diff) < 5) {
         return { change: 0, display: 'Stable' };
@@ -116,40 +114,40 @@ const InsightProgressCard = () => {
       <div className="mt-4 pt-4 border-t border-border">
         <div className="grid grid-cols-3 gap-2 text-center">
           {/* Mental Fitness Score */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center justify-end">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-2xl font-bold text-foreground">{current}</span>
+              <span className="text-2xl font-bold text-orange-500">{current}</span>
               {getTrendIcon()}
               <MetricInfoModal
                 title="Mental Fitness Score"
                 description="Your overall self-regulation capacity (0-100). Tracks your ability to manage energy, focus, and emotional states. Higher scores indicate better regulation."
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">Score</p>
+            <p className="text-[10px] text-muted-foreground">Mental Fitness</p>
           </div>
 
           {/* Peak Window */}
-          <div className="flex flex-col items-center border-x border-border">
+          <div className="flex flex-col items-center justify-end border-x border-border">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-sm font-semibold text-foreground">{peakWindowDisplay}</span>
+              <span className="text-2xl font-bold text-orange-500">{peakWindowDisplay}</span>
               <MetricInfoModal
-                title="Peak Window"
+                title="Peak Performance Window"
                 description="Your strongest time of day based on when you naturally complete practices and check-ins. Requires 21+ sessions to detect patterns."
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">Peak</p>
+            <p className="text-[10px] text-muted-foreground">Peak Performance</p>
           </div>
 
           {/* Energy Balance Trend */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center justify-end">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-sm font-semibold text-foreground">{balanceTrend?.display || 'Loading...'}</span>
+              <span className="text-2xl font-bold text-orange-500">{balanceTrend?.display || '0'}</span>
               <MetricInfoModal
-                title="Balance Trend"
+                title="Energy Balance Trend"
                 description="7-day average energy balance trend. Compares this week vs last week. Shows if your regulation is improving (↑), declining (↓), or stable."
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">Trend</p>
+            <p className="text-[10px] text-muted-foreground">Energy Trend</p>
           </div>
         </div>
       </div>
