@@ -63,10 +63,10 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
       energyTag: ENERGY_TAGS.BALANCED,
       stateTag: STATE_TAGS.BALANCED,
       recommendationTags: [
-        PRACTICE_TAGS.FOCUS,
-        PRACTICE_TAGS.MENTAL_CLARITY,
-        PRACTICE_TAGS.PRE_PERFORMANCE,
-        PRACTICE_TAGS.CENTERING
+        PRACTICE_TAGS.GROUNDING,       // Anchor balance
+        PRACTICE_TAGS.MENTAL_CLARITY,  // Sustain clarity
+        PRACTICE_TAGS.FOCUS,           // Optimize focus
+        PRACTICE_TAGS.CENTERING        // Maintain center
       ]
     }
   };

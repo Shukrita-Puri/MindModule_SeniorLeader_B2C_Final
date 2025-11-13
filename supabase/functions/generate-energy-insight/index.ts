@@ -12,30 +12,41 @@ serve(async (req) => {
   }
 
   try {
-    const { balance, state, dataSources, recommendationPriority } = await req.json();
+    const { balance, state, dataSources, recommendationPriority, timeOfDay } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const prompt = `Generate a crisp, single-sentence energy state insight for an executive user.
+    const getTimeLabel = (hour: number): string => {
+      if (hour >= 6 && hour < 12) return 'morning';
+      if (hour >= 12 && hour < 18) return 'afternoon';
+      if (hour >= 18 && hour < 23) return 'evening';
+      return 'night';
+    };
+
+    const prompt = `Generate a forward-looking energy insight for an executive user.
 
 Context:
 - Energy balance: ${balance}/100
 - State: ${state}
+- Time: ${getTimeLabel(timeOfDay)} (${timeOfDay}:00)
 - Data sources: ${dataSources.join(', ')}
-- Recommendation priority: ${recommendationPriority}
+- Recommendation: ${recommendationPriority}
 
-Rules:
+Critical Rules:
 - Maximum 15 words
+- DO NOT repeat the state or score (user already knows)
+- Be forward-looking: what's the strategic move RIGHT NOW?
+- Consider time of day (morning = seize window, evening = transition wisely)
 - Action-oriented and specific
-- No generic statements like "you're doing great"
-- Tie insight directly to their balance/state
-- Be direct and concise
-- Example: "Sharp focus at 82—sustain with grounding before your 2pm call"
-- Example: "Depleted at 38—deep restoration needed before evening demands"
-- Example: "Scattered at 52—centering practice will sharpen your next decision"
+
+Examples:
+- "Evening peak—ground this clarity into strategic planning before rest"
+- "Morning window detected—capture this for your hardest decisions"
+- "Afternoon dip coming—pre-emptive centering protects 3pm focus"
+- "Depletion building—micro-rest now prevents evening collapse"
 
 Insight:`;
 

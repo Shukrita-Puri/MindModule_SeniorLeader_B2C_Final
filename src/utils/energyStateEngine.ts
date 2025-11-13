@@ -10,7 +10,7 @@ export interface CurrentEnergyState {
   contextTags: string[];
   energyTags: string[];
   stateTags: string[];
-  recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain';
+  recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain' | 'ground';
   dataSources: string[];
   confidence: 'high' | 'medium' | 'low';
 }
@@ -81,7 +81,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     contextTags: buildContextTags(hour, calendarEvents, wearableScore),
     energyTags: buildEnergyTags(overallBalance),
     stateTags: buildStateTags(overallBalance, calendarEvents),
-    recommendationPriority: getRecommendationPriority(overallBalance),
+    recommendationPriority: getRecommendationPriority(overallBalance, hour),
     dataSources,
     confidence
   };
@@ -162,9 +162,10 @@ function calculateCalendarScore(events: any[]): number {
 }
 
 function getCircadianBonus(hour: number): number {
-  if (hour >= 9 && hour <= 11) return 10;
-  if (hour >= 14 && hour <= 16) return 5;
-  if (hour >= 20 || hour <= 6) return -10;
+  if (hour >= 9 && hour <= 11) return 10;   // Morning peak
+  if (hour >= 14 && hour <= 16) return 5;   // Afternoon peak
+  if (hour >= 18 && hour <= 22) return -5;  // Gentle evening transition
+  if (hour >= 23 || hour <= 6) return -10;  // Deep night
   return 0;
 }
 
@@ -212,7 +213,11 @@ function buildStateTags(balance: number, events: any[]): string[] {
   return tags;
 }
 
-function getRecommendationPriority(balance: number): 'rest' | 'restore' | 'activate' | 'maintain' {
+function getRecommendationPriority(balance: number, hour: number): 'rest' | 'restore' | 'activate' | 'maintain' | 'ground' {
+  // Evening high-energy = ground/transition (not activate)
+  if (hour >= 18 && hour <= 22 && balance >= 70) return 'ground';
+  
+  // Standard logic
   if (balance < 40) return 'rest';
   if (balance < 60) return 'restore';
   if (balance < 75) return 'activate';
