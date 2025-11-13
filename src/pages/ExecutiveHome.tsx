@@ -8,7 +8,6 @@ import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
 import MicroInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
-import EnergyStateTestPanel from "@/components/home/EnergyStateTestPanel";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
@@ -62,6 +61,15 @@ const ExecutiveHome = () => {
 
       {/* Main Content with improved spacing */}
       <div className="px-4 space-y-8 max-w-lg mx-auto">
+        {/* Your Intelligence - First Thing User Sees */}
+        <section>
+          <h2 className="text-2xl font-headline mb-4 text-foreground">Your Progress This Week</h2>
+          <InsightProgressCard />
+        </section>
+
+        {/* Divider */}
+        <div className="h-px bg-black/[0.08]" />
+
         {/* Energy State Section */}
         <section>
           <h2 className="text-2xl font-headline mb-4 text-foreground">Your Energy State Today</h2>
@@ -93,23 +101,7 @@ const ExecutiveHome = () => {
             <MicroInterventions />
           </div>
         </section>
-
-        {/* Divider */}
-        <div className="h-px bg-black/[0.08]" />
-
-        {/* Intelligence Overview */}
-        <section>
-          <h2 className="text-2xl font-headline mb-4 text-foreground">Your Intelligence</h2>
-          <InsightProgressCard />
-        </section>
       </div>
-
-      {/* Test Panel - Only show in development */}
-      {import.meta.env.DEV && (
-        <div className="px-4 pb-8">
-          <EnergyStateTestPanel />
-        </div>
-      )}
 
       <SecurityWatermark />
       <PrivacyFooter />
