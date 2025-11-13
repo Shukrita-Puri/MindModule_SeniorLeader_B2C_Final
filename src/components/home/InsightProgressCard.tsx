@@ -116,7 +116,7 @@ const InsightProgressCard = () => {
           {/* Mental Fitness Score */}
           <div className="flex flex-col items-center justify-end">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-2xl font-bold text-orange-500">{current}</span>
+              <span className="text-lg font-bold text-orange-500">{current}</span>
               {getTrendIcon()}
               <MetricInfoModal
                 title="Mental Fitness Score"
@@ -129,7 +129,7 @@ const InsightProgressCard = () => {
           {/* Peak Window */}
           <div className="flex flex-col items-center justify-end border-x border-border">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-2xl font-bold text-orange-500">{peakWindowDisplay}</span>
+              <span className="text-lg font-bold text-orange-500">{peakWindowDisplay}</span>
               <MetricInfoModal
                 title="Peak Performance Window"
                 description="Your strongest time of day based on when you naturally complete practices and check-ins. Requires 21+ sessions to detect patterns."
@@ -141,7 +141,7 @@ const InsightProgressCard = () => {
           {/* Energy Balance Trend */}
           <div className="flex flex-col items-center justify-end">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-2xl font-bold text-orange-500">{balanceTrend?.display || '0'}</span>
+              <span className="text-lg font-bold text-orange-500">{balanceTrend?.display || '0'}</span>
               <MetricInfoModal
                 title="Energy Balance Trend"
                 description="7-day average energy balance trend. Compares this week vs last week. Shows if your regulation is improving (↑), declining (↓), or stable."

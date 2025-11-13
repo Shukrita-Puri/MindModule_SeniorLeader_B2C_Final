@@ -1,11 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { buildUserContext } from '@/utils/llmContextBuilder';
 import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
+import { generateEnergyInsight } from '@/utils/energyInsightEngine';
 import MetricInfoModal from './MetricInfoModal';
 
 const EnergyStateHeader = () => {
@@ -24,31 +23,14 @@ const EnergyStateHeader = () => {
     refetchInterval: 5 * 60 * 1000 // Refetch every 5 minutes
   });
 
-  // Get LLM-generated insight
-  const { data: insightData } = useQuery({
-    queryKey: ['energy-insight', energyState?.overallBalance, energyState?.state, energyState?.dataSources],
-    queryFn: async () => {
-      if (!energyState) return null;
-      
-      const userContext = await buildUserContext(energyState, user?.id);
-      
-      const { data, error } = await supabase.functions.invoke('generate-energy-insight', {
-        body: userContext
-      });
-      
-      if (error) {
-        console.error('Error generating insight:', error);
-        return { insight: getDefaultInsight(energyState) };
-      }
-      
-      return data;
-    },
-    enabled: !!energyState,
-    staleTime: 10 * 60 * 1000 // Cache for 10 minutes
-  });
-
-  const isLoadingInsight = !insightData;
-  const llmInsight = insightData?.insight || (energyState ? getDefaultInsight(energyState) : '');
+  // Generate logic-based insight
+  const insight = energyState ? generateEnergyInsight({
+    balance: energyState.overallBalance,
+    checkInOutcome: energyState.checkInOutcome as 'pause' | 'power-up' | 'presence' | 'calm' | 'ready' | null | undefined,
+    timeOfDay: new Date().getHours(),
+    calendarDensity: energyState.calendarDensity || 0,
+    dataSources: energyState.dataSources
+  }) : '';
 
   if (!energyState) {
     return (
@@ -87,53 +69,13 @@ const EnergyStateHeader = () => {
           </div>
         </div>
 
-        {/* LLM Insight */}
+        {/* Logic-based Insight */}
         <div className="text-sm md:text-base text-muted-foreground leading-relaxed">
-          {isLoadingInsight ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          ) : (
-            <p>{llmInsight}</p>
-          )}
+          <p>{insight}</p>
         </div>
       </CardContent>
     </Card>
   );
 };
-
-// Fallback insights when LLM is unavailable
-function getDefaultInsight(energyState: CurrentEnergyState): string {
-  const { overallBalance, recommendationPriority, checkInOutcome } = energyState;
-  const hour = new Date().getHours();
-
-  if (overallBalance >= 75) {
-    if (hour >= 18) {
-      return "Strong regulation detected. Evening transition approaching—time to ground yourself.";
-    }
-    return "Strong regulation detected. Sustain this with grounding practices.";
-  }
-
-  if (overallBalance >= 60) {
-    return "Solid performance state. Maintain focus with centering practices.";
-  }
-
-  if (overallBalance >= 40) {
-    if (hour >= 18) {
-      return "Moderate balance. Evening restoration practices recommended.";
-    }
-    return "Managing current demands. Support helpful—try restoring practices.";
-  }
-
-  // Low balance (<40)
-  if (hour >= 18) {
-    return "System depleted. Prioritize rest and recovery tonight.";
-  }
-  if (hour < 12) {
-    return "Low energy detected. Morning peak window still available—gentle activation recommended.";
-  }
-  return "Energy dip detected. Immediate restoration needed.";
-}
 
 export default EnergyStateHeader;
