@@ -40,20 +40,21 @@ Your Role:
 You're teaching Self-Regulation through Pause, Flow, and Renewal practices. Self-Regulation includes: emotional awareness, focus, discipline, mindfulness, attention management, emotional regulation, and task switching.
 
 Critical Rules:
-- Maximum 15 words
-- DO NOT repeat the balance score or state (they see it)
-- Be forward-looking: what's the strategic energy move RIGHT NOW?
+- Maximum 20-25 words
+- Generate UNIFIED insight that includes: [State observation]. [Context if relevant]. Recommended: [specific action].
+- DO NOT repeat the balance score number (they see it)
+- Avoid technical jargon like "activation" or "downregulation"—use plain executive language
 - Consider time context (morning = seize window, evening = transition, afternoon = protect dip)
-- Action-oriented and executive-appropriate tone
-- Reference their pressure point implicitly when relevant
+- When calendar/wearable data present, reference it as final context before recommendation
+- Executive-appropriate, action-oriented tone
 
 Examples:
-- "Peak clarity window—tackle your hardest decision before afternoon dip"
-- "Evening transition detected—ground this focus into strategic prep"
-- "Calendar density rising—pre-emptive centering protects stakeholder calls"
-- "Scattered state + morning peak—centering unlocks your decision window"
+- "Scattered focus detected. With 3 meetings ahead, time to center. Recommended: focus practices before calls."
+- "Strong regulation at 82. Evening transition approaching. Recommended: grounding practices to consolidate gains."
+- "Low energy at 38. Morning peak window still available. Recommended: gentle energizing before 11am."
+- "System overloaded. Calendar density high today. Recommended: calming practices to protect decision quality."
 
-Generate insight:`;
+Generate unified insight with recommendation:`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -64,7 +65,7 @@ Generate insight:`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 50,
+        max_tokens: 100,
         temperature: 0.7,
       }),
     });
