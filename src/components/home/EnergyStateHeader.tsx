@@ -4,6 +4,9 @@ import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyState
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { buildUserContext } from '@/utils/llmContextBuilder';
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const EnergyStateHeader = () => {
   const { user } = useAuth();
@@ -27,14 +30,10 @@ const EnergyStateHeader = () => {
     queryFn: async () => {
       if (!energyState) return null;
       
+      const userContext = await buildUserContext(energyState, user?.id);
+      
       const { data, error } = await supabase.functions.invoke('generate-energy-insight', {
-        body: {
-          balance: energyState.overallBalance,
-          state: energyState.state,
-          dataSources: energyState.dataSources,
-          recommendationPriority: energyState.recommendationPriority,
-          timeOfDay: new Date().getHours()
-        }
+        body: userContext
       });
       
       if (error) {
@@ -66,7 +65,6 @@ const EnergyStateHeader = () => {
         <div className="space-y-4">
           {/* Header with data sources */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Energy State Today</h3>
             <span className="text-xs text-muted-foreground">
               {energyState.dataSources.join(' + ')}
             </span>
@@ -80,12 +78,30 @@ const EnergyStateHeader = () => {
           {/* Score + Progress bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Balance</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Balance</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs">
+                      <p className="font-medium mb-1">Higher balance = better energy regulation</p>
+                      <ul className="space-y-0.5 text-muted-foreground">
+                        <li>0-40: Depleted, needs rest</li>
+                        <li>40-60: Managing, needs support</li>
+                        <li>60-75: Strong, optimal performance</li>
+                        <li>75-100: Peak regulation state</li>
+                      </ul>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <div className="flex items-baseline gap-0.5">
                 <span className="text-2xl font-bold text-saffron">
                   {energyState.overallBalance}
                 </span>
-                <span className="text-sm font-normal text-muted-foreground">/100</span>
+                <span className="text-xs font-light text-muted-foreground">/100</span>
               </div>
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">

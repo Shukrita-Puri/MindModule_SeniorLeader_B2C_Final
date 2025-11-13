@@ -50,6 +50,15 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
     case 'ground':
       recommendationTags = ['grounding', 'centering', 'focus', 'moderate', 'cooling'];
       break;
+    case 'center_focus':
+      recommendationTags = ['centering', 'focus', 'mental_clarity', 'grounding', 'air_down'];
+      break;
+    case 'calm_cool':
+      recommendationTags = ['cooling', 'fire_down', 'nervous_system', 'grounding', 'calming'];
+      break;
+    case 'restore_energize':
+      recommendationTags = ['grounding', 'activation', 'moderate', 'fire_up', 'pre-performance'];
+      break;
   }
   
   // Add energy tags from computed state

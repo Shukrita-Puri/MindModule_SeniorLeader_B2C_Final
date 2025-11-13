@@ -20,22 +20,23 @@ export default function Stage2Identity() {
   const identityOptions = [
     { value: "executive", label: "Senior Executive / Leader" },
     { value: "manager", label: "Manager / Team Leader" },
-    { value: "student", label: "Student / Learner" },
+    // { value: "student", label: "Student / Learner" }, // ARCHIVED: Executive focus for MVP
     { value: "other", label: "Other" },
   ];
 
   const getPressurePointsForIdentity = (): Array<{ value: string; label: string }> => {
-    if (identityType === "student") {
-      return [
-        { value: "academic_performance", label: "Academic performance and test pressure" },
-        { value: "leadership_social", label: "Leadership roles and social dynamics" },
-        { value: "future_planning", label: "University applications and future planning" },
-        { value: "stress_burnout", label: "Managing stress and avoiding burnout" },
-        { value: "multiple_commitments", label: "Balancing multiple commitments" },
-      ];
-    }
+    // ARCHIVED: Student questions kept for future expansion
+    // if (identityType === "student") {
+    //   return [
+    //     { value: "academic_performance", label: "Academic performance and test pressure" },
+    //     { value: "leadership_social", label: "Leadership roles and social dynamics" },
+    //     { value: "future_planning", label: "University applications and future planning" },
+    //     { value: "stress_burnout", label: "Managing stress and avoiding burnout" },
+    //     { value: "multiple_commitments", label: "Balancing multiple commitments" },
+    //   ];
+    // }
 
-    // Professionals (executive/manager/other)
+    // Executive/Professional pressure points (MVP focus)
     return [
       { value: "high_stakes_decisions", label: "High-stakes decisions under uncertainty" },
       { value: "difficult_stakeholders", label: "Leading/influencing difficult stakeholders" },
