@@ -76,7 +76,7 @@ const EnergyStateHeader = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <span className="text-4xl md:text-5xl font-bold text-foreground">{energyState.overallBalance}</span>
+              <span className="text-4xl md:text-5xl font-bold text-orange-500">{energyState.overallBalance}</span>
               <span className="text-xs font-light text-muted-foreground ml-1">/100</span>
             </div>
             <MetricInfoModal

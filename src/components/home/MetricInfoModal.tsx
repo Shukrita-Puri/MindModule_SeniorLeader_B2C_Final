@@ -15,7 +15,7 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={cn("text-muted-foreground hover:text-foreground transition-colors", className)}
+        className={cn("text-muted-foreground/60 hover:text-foreground transition-colors", className)}
         aria-label={`Info about ${title}`}
       >
         <Info size={14} />
