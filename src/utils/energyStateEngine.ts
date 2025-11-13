@@ -10,9 +10,11 @@ export interface CurrentEnergyState {
   contextTags: string[];
   energyTags: string[];
   stateTags: string[];
-  recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain' | 'ground';
+  recommendationPriority: 'rest' | 'restore' | 'activate' | 'maintain' | 'ground' | 'center_focus' | 'calm_cool' | 'restore_energize';
   dataSources: string[];
   confidence: 'high' | 'medium' | 'low';
+  calendarDensity?: number;
+  checkInOutcome?: string;
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
@@ -20,6 +22,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
   const checkInSkipped = JSON.parse(localStorage.getItem('dailyCheckInSkipped') || '{}');
   const hasCheckIn = checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
+  const checkInOutcome = hasCheckIn ? checkInData.outcome : null;
   
   // Get wearable data
   const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || '{}');
@@ -29,6 +32,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   // Get calendar data
   const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
   const hasCalendar = calendarEvents.length > 0;
+  const calendarDensity = calculateCalendarDensity(calendarEvents);
   
   // Get memory profile
   const memoryProfile = userId ? await getUserEnergyProfile() : null;
@@ -81,9 +85,11 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     contextTags: buildContextTags(hour, calendarEvents, wearableScore),
     energyTags: buildEnergyTags(overallBalance),
     stateTags: buildStateTags(overallBalance, calendarEvents),
-    recommendationPriority: getRecommendationPriority(overallBalance, hour),
+    recommendationPriority: getRecommendationPriority(checkInOutcome, overallBalance, hour, calendarDensity),
     dataSources,
-    confidence
+    confidence,
+    calendarDensity,
+    checkInOutcome: checkInOutcome || undefined
   };
 }
 
@@ -213,11 +219,42 @@ function buildStateTags(balance: number, events: any[]): string[] {
   return tags;
 }
 
-function getRecommendationPriority(balance: number, hour: number): 'rest' | 'restore' | 'activate' | 'maintain' | 'ground' {
-  // Evening high-energy = ground/transition (not activate)
+function calculateCalendarDensity(calendarEvents: any[]): number {
+  if (!calendarEvents || calendarEvents.length === 0) return 0;
+  const now = Date.now();
+  const threeHoursLater = now + (3 * 60 * 60 * 1000);
+  
+  const upcomingEvents = calendarEvents.filter((event: any) => {
+    const start = new Date(event.start).getTime();
+    return start >= now && start <= threeHoursLater;
+  });
+  
+  return upcomingEvents.length;
+}
+
+function getRecommendationPriority(
+  checkInOutcome: string | null,
+  balance: number, 
+  hour: number,
+  calendarDensity: number
+): 'rest' | 'restore' | 'activate' | 'maintain' | 'ground' | 'center_focus' | 'calm_cool' | 'restore_energize' {
+  
+  // PRIORITY 1: Check-in outcome type (specific dysregulation)
+  if (checkInOutcome === 'scattered') return 'center_focus';
+  if (checkInOutcome === 'overwhelmed') return 'calm_cool';
+  
+  // PRIORITY 2: Tired with contextual modifiers
+  if (checkInOutcome === 'tired') {
+    // Morning + busy calendar = hybrid restore_energize
+    if (hour >= 6 && hour <= 11 && calendarDensity >= 3) return 'restore_energize';
+    // Otherwise standard restore
+    return balance < 40 ? 'rest' : 'restore';
+  }
+  
+  // PRIORITY 3: Evening high-energy = ground/transition
   if (hour >= 18 && hour <= 22 && balance >= 70) return 'ground';
   
-  // Standard logic
+  // PRIORITY 4: Balance-driven logic for other states
   if (balance < 40) return 'rest';
   if (balance < 60) return 'restore';
   if (balance < 75) return 'activate';

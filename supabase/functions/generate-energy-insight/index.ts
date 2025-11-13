@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,43 +12,48 @@ serve(async (req) => {
   }
 
   try {
-    const { balance, state, dataSources, recommendationPriority, timeOfDay } = await req.json();
+    const context = await req.json(); // Full UserContext object
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
+
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const getTimeLabel = (hour: number): string => {
-      if (hour >= 6 && hour < 12) return 'morning';
-      if (hour >= 12 && hour < 18) return 'afternoon';
-      if (hour >= 18 && hour < 23) return 'evening';
-      return 'night';
-    };
+    const prompt = `You are an Executive Energy and Performance Management Coach helping a ${context.identityRole || 'leader'} develop Self-Regulation mastery through energy management.
 
-    const prompt = `Generate a forward-looking energy insight for an executive user.
+Current Context:
+- Time: ${context.timeLabel} (${context.timeOfDay}:00)
+- Energy Balance: ${context.currentBalance}/100
+- Check-in State: ${context.checkInOutcome || 'not provided'}
+- Calendar Density: ${context.calendarDensity} events in next 3 hours
+- Biggest Pressure: ${context.biggestPressure || 'high-stakes execution'}
 
-Context:
-- Energy balance: ${balance}/100
-- State: ${state}
-- Time: ${getTimeLabel(timeOfDay)} (${timeOfDay}:00)
-- Data sources: ${dataSources.join(', ')}
-- Recommendation: ${recommendationPriority}
+User Profile:
+- Archetype: ${context.archetype || 'building awareness'}
+- Growth Priority: ${context.growthPriority || 'self-regulation'}
+- Meta-Skill Focus: Self-Regulation (sub-skills: ${context.subSkillsInPlay.join(', ')})
+
+Recent Pattern (last 7 days):
+- Practices used: ${context.recentPractices.slice(0, 3).map((p: any) => p.type).join(', ') || 'none yet'}
+
+Your Role:
+You're teaching Self-Regulation through Pause, Flow, and Renewal practices. Self-Regulation includes: emotional awareness, focus, discipline, mindfulness, attention management, emotional regulation, and task switching.
 
 Critical Rules:
 - Maximum 15 words
-- DO NOT repeat the state or score (user already knows)
-- Be forward-looking: what's the strategic move RIGHT NOW?
-- Consider time of day (morning = seize window, evening = transition wisely)
-- Action-oriented and specific
+- DO NOT repeat the balance score or state (they see it)
+- Be forward-looking: what's the strategic energy move RIGHT NOW?
+- Consider time context (morning = seize window, evening = transition, afternoon = protect dip)
+- Action-oriented and executive-appropriate tone
+- Reference their pressure point implicitly when relevant
 
 Examples:
-- "Evening peak—ground this clarity into strategic planning before rest"
-- "Morning window detected—capture this for your hardest decisions"
-- "Afternoon dip coming—pre-emptive centering protects 3pm focus"
-- "Depletion building—micro-rest now prevents evening collapse"
+- "Peak clarity window—tackle your hardest decision before afternoon dip"
+- "Evening transition detected—ground this focus into strategic prep"
+- "Calendar density rising—pre-emptive centering protects stakeholder calls"
+- "Scattered state + morning peak—centering unlocks your decision window"
 
-Insight:`;
+Generate insight:`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -59,31 +64,33 @@ Insight:`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 50
+        max_tokens: 50,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error('AI Gateway Error:', response.status, errorText);
+      throw new Error(`AI Gateway failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const insight = data.choices[0].message.content.trim();
+    const insight = data.choices?.[0]?.message?.content?.trim() || "Focus on your immediate energy state";
 
-    return new Response(JSON.stringify({ insight }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-    
+    return new Response(
+      JSON.stringify({ insight }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
   } catch (error) {
-    console.error('Error in generate-energy-insight function:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      insight: 'Analyzing your energy state—check back in a moment.'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error generating energy insight:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
