@@ -47,6 +47,9 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
     case 'maintain':
       recommendationTags = ['centering', 'balancing', 'moderate', 'grounding'];
       break;
+    case 'ground':
+      recommendationTags = ['grounding', 'centering', 'focus', 'moderate', 'cooling'];
+      break;
   }
   
   // Add energy tags from computed state

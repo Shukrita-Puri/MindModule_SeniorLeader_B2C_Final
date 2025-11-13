@@ -32,7 +32,8 @@ const EnergyStateHeader = () => {
           balance: energyState.overallBalance,
           state: energyState.state,
           dataSources: energyState.dataSources,
-          recommendationPriority: energyState.recommendationPriority
+          recommendationPriority: energyState.recommendationPriority,
+          timeOfDay: new Date().getHours()
         }
       });
       
@@ -110,7 +111,8 @@ function getPracticeTypeText(priority: string): string {
     'rest': 'Deep restoration',
     'restore': 'Rebalancing practices',
     'activate': 'Energizing tools',
-    'maintain': 'Peak state practices'
+    'maintain': 'Peak state practices',
+    'ground': 'Grounding practices'
   };
   return map[priority] || 'Practices';
 }
