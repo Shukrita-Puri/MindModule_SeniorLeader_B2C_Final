@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { buildUserContext } from '@/utils/llmContextBuilder';
-import { Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
+import MetricInfoModal from './MetricInfoModal';
 
 const EnergyStateHeader = () => {
   const { user } = useAuth();
@@ -49,6 +48,7 @@ const EnergyStateHeader = () => {
   });
 
   const isLoadingInsight = !insightData;
+  const llmInsight = insightData?.insight || (energyState ? getDefaultInsight(energyState) : '');
 
   if (!energyState) {
     return (
@@ -63,77 +63,39 @@ const EnergyStateHeader = () => {
     );
   }
 
-  const insight = insightData?.insight || getDefaultInsight(energyState);
-
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-4 md:p-5 space-y-4">
         {/* Data Sources */}
-        <div className="text-xs text-muted-foreground">
-          {energyState.dataSources.join(' + ')}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Sources:</span>
+          <span>{energyState.dataSources.join(' + ')}</span>
         </div>
 
-        {/* Balance Score with Info Icon */}
+        {/* Balance Score - Prominent */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Balance</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-muted/50 transition-colors">
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent 
-                  side="bottom" 
-                  align="center" 
-                  sideOffset={8}
-                  className="max-w-[340px] p-5 text-sm bg-card border-border shadow-lg"
-                >
-                  <div className="space-y-3">
-                    <p className="text-foreground font-medium text-base">What does your balance score mean?</p>
-                    <ul className="space-y-2.5 text-muted-foreground">
-                      <li className="flex items-start gap-3">
-                        <span className="text-foreground font-medium min-w-[55px] text-sm">0-40:</span>
-                        <span className="leading-relaxed">Depleted — deep rest needed</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="text-foreground font-medium min-w-[55px] text-sm">40-60:</span>
-                        <span className="leading-relaxed">Managing — support helpful</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="text-foreground font-medium min-w-[55px] text-sm">60-75:</span>
-                        <span className="leading-relaxed">Strong — performing well</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <span className="text-foreground font-medium min-w-[55px] text-sm">75-100:</span>
-                        <span className="leading-relaxed">Peak — optimal regulation</span>
-                      </li>
-                    </ul>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-5xl font-bold text-saffron">
-              {energyState.overallBalance}
-            </span>
-            <span className="text-xs font-light text-muted-foreground">/100</span>
+          <div className="flex items-center gap-3">
+            <div>
+              <span className="text-4xl md:text-5xl font-bold text-foreground">{energyState.overallBalance}</span>
+              <span className="text-xs font-light text-muted-foreground ml-1">/100</span>
+            </div>
+            <MetricInfoModal
+              title="Balance Score"
+              description="Your current energy regulation state. 0-40: Depleted (deep rest needed). 40-60: Managing (support helpful). 60-75: Strong (performing well). 75-100: Peak (optimal regulation)."
+              className="ml-1"
+            />
           </div>
         </div>
 
-        {/* Unified LLM Insight (includes recommendation) */}
-        <div className="pt-2">
+        {/* LLM Insight */}
+        <div className="text-sm md:text-base text-muted-foreground leading-relaxed">
           {isLoadingInsight ? (
             <div className="space-y-2">
-              <div className="h-4 bg-muted animate-pulse rounded w-full" />
-              <div className="h-4 bg-muted animate-pulse rounded w-4/5" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
             </div>
           ) : (
-            <p className="text-sm md:text-base text-foreground leading-relaxed">
-              {insight}
-            </p>
+            <p>{llmInsight}</p>
           )}
         </div>
       </CardContent>
@@ -141,36 +103,37 @@ const EnergyStateHeader = () => {
   );
 };
 
+// Fallback insights when LLM is unavailable
 function getDefaultInsight(energyState: CurrentEnergyState): string {
   const { overallBalance, recommendationPriority, checkInOutcome } = energyState;
   const hour = new Date().getHours();
-  const timeContext = hour >= 6 && hour < 12 ? 'morning' : hour >= 12 && hour < 18 ? 'afternoon' : 'evening';
-  
-  // State-aware fallbacks with unified insight + recommendation format (20-25 words)
-  if (checkInOutcome === 'scattered') {
-    return `Scattered focus detected. ${timeContext === 'morning' ? 'Morning window ideal for centering.' : timeContext === 'evening' ? 'Evening approaching.' : 'Afternoon dip window.'} Recommended: focus and centering practices.`;
-  }
-  if (checkInOutcome === 'overwhelmed') {
-    return `System overloaded. ${timeContext === 'evening' ? 'Evening wind-down needed.' : 'Calendar density high.'} Recommended: calming and grounding practices to protect decision quality.`;
-  }
-  if (checkInOutcome === 'tired') {
-    if (timeContext === 'morning') return "Low energy in prime window. Morning peak still available. Recommended: gentle energizing restoration before 11am.";
-    if (timeContext === 'evening') return "Depleted at day's end. Evening transition approaching. Recommended: deep restoration practices before rest.";
-    return "Energy dip detected. Afternoon window challenging. Recommended: rebalancing support to sustain performance.";
-  }
-  if (checkInOutcome === 'ready') {
-    if (timeContext === 'evening') return "Strong regulation at 85+. Evening transition approaching. Recommended: grounding practices to consolidate gains.";
-    return "Peak state detected. High balance maintained. Recommended: sustaining practices to protect this focus window.";
-  }
-  
-  // Balance-driven fallbacks when no check-in outcome
+
   if (overallBalance >= 75) {
-    if (timeContext === 'evening') return "Strong regulation state. Evening transition detected. Recommended: grounding practices to consolidate and transition to rest.";
-    return "Peak regulation achieved. High balance sustained. Recommended: focus practices to maintain clarity and performance.";
+    if (hour >= 18) {
+      return "Strong regulation detected. Evening transition approaching—time to ground yourself.";
+    }
+    return "Strong regulation detected. Sustain this with grounding practices.";
   }
-  if (overallBalance >= 60) return `Balanced state at ${overallBalance}. ${timeContext === 'morning' ? 'Morning clarity window.' : 'Performance steady.'} Recommended: sustaining practices to maintain energy.`;
-  if (overallBalance >= 40) return "Managing but need support. Energy mid-range detected. Recommended: rebalancing tools to restore and stabilize.";
-  return "System running low. Deep depletion detected. Recommended: restoration practices to rebuild energy reserves.";
+
+  if (overallBalance >= 60) {
+    return "Solid performance state. Maintain focus with centering practices.";
+  }
+
+  if (overallBalance >= 40) {
+    if (hour >= 18) {
+      return "Moderate balance. Evening restoration practices recommended.";
+    }
+    return "Managing current demands. Support helpful—try restoring practices.";
+  }
+
+  // Low balance (<40)
+  if (hour >= 18) {
+    return "System depleted. Prioritize rest and recovery tonight.";
+  }
+  if (hour < 12) {
+    return "Low energy detected. Morning peak window still available—gentle activation recommended.";
+  }
+  return "Energy dip detected. Immediate restoration needed.";
 }
 
 export default EnergyStateHeader;

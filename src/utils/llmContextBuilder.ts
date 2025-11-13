@@ -9,6 +9,7 @@ export interface UserContext {
   calendarDensity: number;
   timeOfDay: number;
   timeLabel: 'morning' | 'afternoon' | 'evening' | 'night';
+  dataSources?: string[];
   
   // User Profile
   archetype?: string;
@@ -82,6 +83,7 @@ export async function buildUserContext(
     calendarDensity: energyState.calendarDensity || 0,
     timeOfDay: hour,
     timeLabel,
+    dataSources: energyState.dataSources || ['checkin', 'circadian'],
     archetype: profile?.user_archetype,
     identityRole: profile?.identity_role,
     biggestPressure: profile?.biggest_pressure,

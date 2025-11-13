@@ -19,13 +19,21 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
+    // Build calendar context conditionally
+    const hasCalendar = context.dataSources?.includes('calendar');
+    const calendarInfo = hasCalendar && context.calendarDensity > 0 
+      ? `- Calendar: ${context.calendarDensity} events in next 3 hours`
+      : hasCalendar 
+        ? '- Calendar: Clear ahead'
+        : '- Calendar: Not connected';
+
     const prompt = `You are an Executive Energy and Performance Management Coach helping a ${context.identityRole || 'leader'} develop Self-Regulation mastery through energy management.
 
 Current Context:
 - Time: ${context.timeLabel} (${context.timeOfDay}:00)
 - Energy Balance: ${context.currentBalance}/100
 - Check-in State: ${context.checkInOutcome || 'not provided'}
-- Calendar Density: ${context.calendarDensity} events in next 3 hours
+${calendarInfo}
 - Biggest Pressure: ${context.biggestPressure || 'high-stakes execution'}
 
 User Profile:

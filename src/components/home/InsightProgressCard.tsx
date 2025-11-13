@@ -1,14 +1,14 @@
-import { TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { calculateMentalFitnessScore } from '@/utils/mentalFitnessEngine';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import WeeklyRitualStreak from './WeeklyRitualStreak';
+import MetricInfoModal from './MetricInfoModal';
+import { calculatePeakWindows } from '@/utils/engagementTracking';
 
 const InsightProgressCard = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   // Load onboarding data from database
   const { data: profile } = useQuery({
@@ -18,7 +18,7 @@ const InsightProgressCard = () => {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('mental_fitness_baseline, user_archetype, growth_priority, biggest_pressure')
+        .select('mental_fitness_baseline')
         .eq('id', user.id)
         .single();
         
@@ -35,48 +35,68 @@ const InsightProgressCard = () => {
   const baseline = profile?.mental_fitness_baseline || currentScore.score;
   const current = currentScore.score;
   const change = current - baseline;
-  
-  // Calculate consistency rate (this week)
-  const { data: weeklyCompletions } = useQuery({
-    queryKey: ['weekly-consistency', user?.id],
+
+  // Calculate Peak Performance Window
+  const { data: peakWindows } = useQuery({
+    queryKey: ['peak-windows', user?.id],
     queryFn: async () => {
-      if (!user?.id) return { rate: 0, streak: 0 };
+      const windows = await calculatePeakWindows();
+      return windows;
+    },
+    enabled: !!user?.id
+  });
+
+  const formatHour = (hour: number) => {
+    const period = hour >= 12 ? 'pm' : 'am';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}${period}`;
+  };
+
+  const peakWindowDisplay = peakWindows && peakWindows.length > 0
+    ? `${formatHour(peakWindows[0].startHour)}-${formatHour(peakWindows[0].endHour)}`
+    : 'Detecting...';
+
+  // Calculate Energy Balance Trend (7-day average)
+  const { data: balanceTrend } = useQuery({
+    queryKey: ['balance-trend', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return { change: 0, display: 'Building baseline...' };
       
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 6);
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
       
       const { data, error } = await supabase
-        .from('daily_ritual_completions')
-        .select('completion_status')
+        .from('daily_checkins')
+        .select('checkin_date, energy_balance')
         .eq('user_id', user.id)
-        .gte('ritual_date', sevenDaysAgo.toISOString().split('T')[0]);
+        .gte('checkin_date', fourteenDaysAgo.toISOString().split('T')[0])
+        .order('checkin_date', { ascending: false });
         
       if (error) throw error;
       
-      const completed = data?.filter(d => d.completion_status === 'full').length || 0;
-      const rate = Math.round((completed / 7) * 100);
-      
-      // Calculate current streak
-      let streak = 0;
-      const { data: streakData } = await supabase
-        .from('daily_ritual_completions')
-        .select('ritual_date, completion_status')
-        .eq('user_id', user.id)
-        .order('ritual_date', { ascending: false })
-        .limit(30);
-      
-      if (streakData) {
-        for (const day of streakData) {
-          if (day.completion_status === 'full') {
-            streak++;
-          } else {
-            break;
-          }
-        }
+      if (!data || data.length < 7) {
+        return { change: 0, display: 'Building baseline...' };
       }
       
-      return { rate, streak };
+      // Calculate averages
+      const recent7 = data.slice(0, 7).map(d => d.energy_balance || 50);
+      const previous7 = data.slice(7, 14).map(d => d.energy_balance || 50);
+      
+      const recentAvg = recent7.reduce((a, b) => a + b, 0) / recent7.length;
+      const previousAvg = previous7.length > 0 
+        ? previous7.reduce((a, b) => a + b, 0) / previous7.length 
+        : recentAvg;
+      
+      const diff = Math.round(recentAvg - previousAvg);
+      
+      if (Math.abs(diff) < 5) {
+        return { change: 0, display: 'Stable' };
+      }
+      
+      return {
+        change: diff,
+        display: `${diff > 0 ? '↑' : '↓'} ${Math.abs(diff)}`
+      };
     },
     enabled: !!user?.id
   });
@@ -88,51 +108,51 @@ const InsightProgressCard = () => {
   };
   
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-sm p-5">
+    <div className="bg-card border border-border rounded-2xl shadow-sm p-4">
       {/* Weekly Ritual Completion Visual */}
       <WeeklyRitualStreak />
       
-      {/* Mental Fitness Score - Prominent */}
-      <div className="text-center mb-6 pb-6 border-b border-border">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-4xl font-bold text-foreground">{current}</span>
-          <span className="text-sm font-light text-muted-foreground">/100</span>
-          {getTrendIcon()}
-        </div>
-        <p className="text-xs text-muted-foreground mb-1">Mental Fitness Score</p>
-        <p className="text-xs font-medium text-primary">
-          {change > 0 ? '+' : ''}{change} from baseline
-        </p>
-      </div>
-      
-      {/* Supporting Metrics */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* Consistency Rate */}
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <span className="text-2xl font-bold text-foreground">{weeklyCompletions?.rate || 0}</span>
-            <span className="text-xs text-muted-foreground">%</span>
+      {/* Consolidated Metrics - 1 Line */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {/* Mental Fitness Score */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-2xl font-bold text-foreground">{current}</span>
+              {getTrendIcon()}
+              <MetricInfoModal
+                title="Mental Fitness Score"
+                description="Your overall self-regulation capacity (0-100). Tracks your ability to manage energy, focus, and emotional states. Higher scores indicate better regulation."
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Score</p>
           </div>
-          <p className="text-xs text-muted-foreground">Consistency</p>
-        </div>
-        
-        {/* Current Streak */}
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <Clock size={16} className="text-saffron" />
-            <span className="text-2xl font-bold text-foreground">{weeklyCompletions?.streak || 0}</span>
+
+          {/* Peak Window */}
+          <div className="flex flex-col items-center border-x border-border">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-sm font-semibold text-foreground">{peakWindowDisplay}</span>
+              <MetricInfoModal
+                title="Peak Window"
+                description="Your strongest time of day based on when you naturally complete practices and check-ins. Requires 21+ sessions to detect patterns."
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Peak</p>
           </div>
-          <p className="text-xs text-muted-foreground">Day Streak</p>
+
+          {/* Energy Balance Trend */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-sm font-semibold text-foreground">{balanceTrend?.display || 'Loading...'}</span>
+              <MetricInfoModal
+                title="Balance Trend"
+                description="7-day average energy balance trend. Compares this week vs last week. Shows if your regulation is improving (↑), declining (↓), or stable."
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Trend</p>
+          </div>
         </div>
       </div>
-      
-      {/* Link to Detailed Insights */}
-      <button
-        onClick={() => navigate('/insights-dashboard')}
-        className="w-full text-xs text-muted-foreground hover:text-primary transition-colors text-center"
-      >
-        View detailed insights →
-      </button>
     </div>
   );
 };
