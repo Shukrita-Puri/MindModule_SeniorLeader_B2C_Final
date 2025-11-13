@@ -8,6 +8,7 @@ import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
 import MicroInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
+import EnergyStateTestPanel from "@/components/home/EnergyStateTestPanel";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
@@ -102,6 +103,13 @@ const ExecutiveHome = () => {
           <InsightProgressCard />
         </section>
       </div>
+
+      {/* Test Panel - Only show in development */}
+      {import.meta.env.DEV && (
+        <div className="px-4 pb-8">
+          <EnergyStateTestPanel />
+        </div>
+      )}
 
       <SecurityWatermark />
       <PrivacyFooter />
