@@ -116,7 +116,7 @@ const EnergyStateHeader = () => {
             </TooltipProvider>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-saffron">
+            <span className="text-5xl font-bold text-saffron">
               {energyState.overallBalance}
             </span>
             <span className="text-xs font-light text-muted-foreground">/100</span>
