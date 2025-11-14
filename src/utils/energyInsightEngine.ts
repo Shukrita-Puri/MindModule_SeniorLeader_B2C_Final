@@ -146,7 +146,7 @@ function selectInsightTemplate(
       }
       if (checkInOutcome === 'power-up') {
         return {
-          stateObservation: 'Moderate energy in morning peak',
+          stateObservation: 'Managing energy levels in morning peak',
           contextClause: hasCalendar && calendarDensity > 0 ? 'Support helpful before demands begin' : undefined,
           recommendation: 'Recommended: activating practices to optimize window'
         };
@@ -158,7 +158,7 @@ function selectInsightTemplate(
         };
       }
       return {
-        stateObservation: 'Moderate balance in morning',
+        stateObservation: 'Managing energy levels in morning',
         recommendation: 'Recommended: grounding practices to build stability'
       };
     }
@@ -180,7 +180,7 @@ function selectInsightTemplate(
       }
       if (checkInOutcome === 'power-up') {
         return {
-          stateObservation: 'Moderate energy in afternoon period',
+          stateObservation: 'Managing energy levels in afternoon period',
           recommendation: 'Recommended: brief energizing practices to sustain performance'
         };
       }
@@ -199,12 +199,12 @@ function selectInsightTemplate(
     }
     if (checkInOutcome === 'power-up') {
       return {
-        stateObservation: 'Moderate fatigue at day end',
+        stateObservation: 'Managing energy levels at day end',
         recommendation: 'Recommended: gentle restoration practices'
       };
     }
     return {
-      stateObservation: 'Moderate balance at evening transition',
+      stateObservation: 'Managing energy levels at evening transition',
       recommendation: 'Recommended: grounding practices to consolidate and prepare for rest'
     };
   }

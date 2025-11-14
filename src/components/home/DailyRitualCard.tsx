@@ -2,10 +2,22 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Target, Zap, Waves } from 'lucide-react';
 import { getDailyRitualRecommendation } from '@/utils/intelligenceEngine';
+import { useQuery } from '@tanstack/react-query';
+import { computeEnergyState } from '@/utils/energyStateEngine';
+import { useAuth } from '@/hooks/useAuth';
 
 const DailyRitualCard = () => {
   const navigate = useNavigate();
-  const ritual = getDailyRitualRecommendation();
+  const { user } = useAuth();
+  
+  // Get energy state
+  const { data: energyState } = useQuery({
+    queryKey: ['energy-state', user?.id],
+    queryFn: () => computeEnergyState(user?.id),
+    enabled: !!user?.id,
+  });
+  
+  const ritual = getDailyRitualRecommendation(energyState);
   
   const IconComponent = ritual.icon === 'Target' ? Target : 
                         ritual.icon === 'Zap' ? Zap : Waves;
