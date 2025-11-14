@@ -6,10 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, ArrowDown, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
-import { trackEngagement } from '@/utils/engagementTracking';
 import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
 import { useToast } from '@/hooks/use-toast';
-import { useMentalFitnessTracking } from '@/hooks/useMentalFitnessTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -17,13 +15,11 @@ const DailyRitual = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { updateRitualCompletion, trackEngagement } = useMentalFitnessTracking();
   const [recommendations, setRecommendations] = useState<{
-    soundbath: Recommendation | null;
-    guidedPractice: Recommendation | null;
-    microPractice: Recommendation | null;
+    practices: Recommendation[];
+    recommendedCount: number;
     reasoning: string;
-  } | null>(null);
+  }>({ practices: [], recommendedCount: 0, reasoning: '' });
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
   const [ritualStatus, setRitualStatus] = useState<{
@@ -33,14 +29,13 @@ const DailyRitual = () => {
   }>({
     status: 'not_started',
     completedCount: 0,
-    totalCount: 3
+    totalCount: 0
   });
 
   useEffect(() => {
     loadRecommendations();
     checkRitualCompletion();
     
-    // Poll for completion updates every 15 seconds
     const interval = setInterval(() => {
       checkRitualCompletion();
     }, 15000);
@@ -61,55 +56,33 @@ const DailyRitual = () => {
       .single();
     
     if (error || !data) {
-      // No ritual record - not started
-      const actualCount = recommendations ? [
-        recommendations.soundbath,
-        recommendations.guidedPractice,
-        recommendations.microPractice
-      ].filter(Boolean).length : 3;
+      const actualCount = recommendations.practices.length || 0;
       setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: actualCount });
       return;
     }
     
-    // Count actual completions
-    const completed = [
-      data.soundscape_completed,
-      data.guided_practice_completed,
-      data.micro_exercise_completed
-    ].filter(Boolean).length;
+    const completedIds = data.completed_practice_ids || [];
+    const totalRecommended = data.recommended_practices_count || recommendations.recommendedCount || 0;
     
-    const totalRecommended = data.recommended_practices_count || 3;
-    
-    // Calculate status based on BOTH completion_status field AND actual count
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
     
-    // Trust the database completion_status as primary source
     if (data.completion_status === 'full') {
       status = 'completed';
-    } else if (completed === totalRecommended && completed > 0) {
-      // Double-check: if actual count equals total, should be complete
+    } else if (completedIds.length >= totalRecommended && completedIds.length > 0) {
       status = 'completed';
-      
-      // Fix inconsistent state in database
-      console.log('🔧 Fixing inconsistent ritual status:', {
-        completedCount: completed,
-        totalRecommended,
-        currentStatus: data.completion_status,
-        fixingTo: 'full'
-      });
       
       await supabase
         .from('daily_ritual_completions')
         .update({ completion_status: 'full' })
         .eq('user_id', user.id)
         .eq('ritual_date', today);
-    } else if (completed > 0) {
+    } else if (completedIds.length > 0) {
       status = 'partial';
     }
     
     setRitualStatus({
       status,
-      completedCount: completed,
+      completedCount: completedIds.length,
       totalCount: totalRecommended
     });
   };
@@ -120,266 +93,264 @@ const DailyRitual = () => {
     const recs = await generateRecommendations(energyState);
     
     console.log('🎯 Daily Ritual Recommendations:', {
-      soundbath: recs.soundbath?.title || 'NULL',
-      guidedPractice: recs.guidedPractice?.title || 'NULL',
-      microPractice: recs.microPractice?.title || 'NULL',
-      totalRecommended: [recs.soundbath, recs.guidedPractice, recs.microPractice].filter(Boolean).length
+      practices: recs.practices.map(p => p.title),
+      recommendedCount: recs.recommendedCount,
+      actualCount: recs.practices.length
     });
     
     setRecommendations(recs);
+    setRitualStatus(prev => ({
+      ...prev,
+      totalCount: recs.recommendedCount
+    }));
     setLoading(false);
   };
 
-  if (loading || !recommendations) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground animate-pulse">
-          Creating your ritual...
-        </p>
-      </div>
-    );
-  }
+  const handleFeedback = async (contentId: string, feedbackType: 'thumbs_up' | 'thumbs_down') => {
+    if (!user?.id || feedback[contentId]) return;
 
-  const allRecs = [
-    recommendations.soundbath,
-    recommendations.guidedPractice,
-    recommendations.microPractice
-  ].filter(Boolean) as Recommendation[];
+    setFeedback(prev => ({ ...prev, [contentId]: feedbackType }));
 
-  const totalDuration = allRecs.reduce((sum, rec) => sum + rec.duration, 0);
+    const practice = recommendations.practices.find(p => p.id === contentId);
+    if (!practice) return;
+
+    await submitRelevanceFeedback({
+      contentId,
+      contentType: practice.contentType,
+      feedbackType,
+      triggerContext: 'daily_ritual_recommendation',
+      contextData: {
+        energyState: 'computed',
+        recommendationReasoning: recommendations.reasoning
+      }
+    });
+
+    toast({
+      title: "Thank you!",
+      description: "Your feedback helps us improve recommendations",
+      duration: 2000
+    });
+  };
 
   const navigateToPractice = (practice: Recommendation) => {
-    if (practice.contentType === 'soundbath') {
-      navigate(`/soundscapes/${practice.id}`, { state: { category: practice.category } });
-    } else if (practice.contentType === 'guided-practice') {
-      navigate(`/guided-practices/${practice.id}`, { state: { category: practice.category } });
-    } else if (practice.contentType === 'micro-practice') {
-      navigate(`/micro-practice/${practice.id}`, { state: { category: practice.category } });
-    }
+    const baseRoute = practice.contentType === 'soundbath' 
+      ? '/soundscapes'
+      : practice.contentType === 'guided-practice'
+      ? '/guided-practices'
+      : '/micro-practice';
+    
+    navigate(`${baseRoute}/${practice.id}`, { 
+      state: { 
+        category: practice.category,
+        fromRitual: true 
+      } 
+    });
   };
 
   const handleStartRitual = async () => {
-    await trackEngagement({ event_type: 'ritual_start', category: 'general' });
-    
-    // Store ritual queue in localStorage for UI continuity
-    localStorage.setItem('practiceQueue', JSON.stringify(allRecs));
-    
-    // Initialize ritual in database with actual count
-    if (user?.id) {
+    const practices = recommendations.practices;
+    if (practices.length === 0) return;
+
+    localStorage.setItem('practice_queue', JSON.stringify(practices.map(r => ({
+      id: r.id,
+      title: r.title,
+      type: r.contentType,
+      category: r.category
+    }))));
+    localStorage.setItem('queue_index', '0');
+    localStorage.setItem('ritual_mode', 'true');
+
+    if (user) {
       const today = new Date().toISOString().split('T')[0];
-      await supabase.from('daily_ritual_completions').upsert({
-        user_id: user.id,
-        ritual_date: today,
-        completion_status: 'partial',
-        recommended_practices_count: allRecs.length
-      });
+      await supabase
+        .from('daily_ritual_completions')
+        .upsert({
+          user_id: user.id,
+          ritual_date: today,
+          completion_status: 'partial',
+          recommended_practices_count: recommendations.recommendedCount,
+          recommended_practice_ids: practices.map(r => r.id),
+          completed_practice_ids: []
+        }, {
+          onConflict: 'user_id,ritual_date'
+        });
     }
-    
-    // Navigate to first practice
-    if (allRecs[0]) {
-      navigateToPractice(allRecs[0]);
-    }
+
+    navigateToPractice(practices[0]);
   };
 
   const handleContinueRitual = async () => {
-    await trackEngagement({ event_type: 'session_start', category: 'general', metadata: { action: 'continue' } });
-    
-    if (!user?.id) return;
-    
-    const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase
-      .from('daily_ritual_completions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('ritual_date', today)
-      .single();
-    
-    if (!data) {
+    const queue = localStorage.getItem('practice_queue');
+    if (!queue) {
       handleStartRitual();
       return;
     }
+
+    const queueData = JSON.parse(queue);
+    const currentIndex = parseInt(localStorage.getItem('queue_index') || '0');
     
-    // Build completion map based on ACTUAL recommendations
-    const completionMap = [];
-    
-    if (recommendations?.soundbath) {
-      completionMap.push({ 
-        completed: data.soundscape_completed, 
-        practice: recommendations.soundbath 
-      });
-    }
-    
-    if (recommendations?.guidedPractice) {
-      completionMap.push({ 
-        completed: data.guided_practice_completed, 
-        practice: recommendations.guidedPractice 
-      });
-    }
-    
-    if (recommendations?.microPractice) {
-      completionMap.push({ 
-        completed: data.micro_exercise_completed, 
-        practice: recommendations.microPractice 
-      });
-    }
-    
-    const nextPractice = completionMap.find(item => !item.completed);
-    
-    if (nextPractice) {
-      navigateToPractice(nextPractice.practice);
+    if (currentIndex < queueData.length) {
+      const nextPractice = queueData[currentIndex];
+      const practice = recommendations.practices.find(p => p.id === nextPractice.id);
+      if (practice) {
+        navigateToPractice(practice);
+      }
     } else {
-      // All practices completed, refresh status
-      await checkRitualCompletion();
+      handleStartRitual();
     }
   };
 
   const handleRestartRitual = async () => {
-    await trackEngagement({ event_type: 'session_start', category: 'general', metadata: { action: 'restart' } });
-    
-    // Reset completion in database
-    if (user?.id) {
-      await updateRitualCompletion({
-        ritual_date: new Date(),
-        completion_status: 'skipped',
-        soundscape_completed: false,
-        guided_practice_completed: false,
-        micro_exercise_completed: false
-      });
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      await supabase
+        .from('daily_ritual_completions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('ritual_date', today);
     }
     
-    // Clear localStorage queue
-    localStorage.removeItem('practiceQueue');
+    localStorage.removeItem('practice_queue');
+    localStorage.removeItem('queue_index');
+    localStorage.removeItem('ritual_mode');
     
-    // Refresh and start from beginning
+    setRitualStatus({
+      status: 'not_started',
+      completedCount: 0,
+      totalCount: recommendations.recommendedCount
+    });
     await loadRecommendations();
-    await checkRitualCompletion();
-    
-    toast({
-      description: "Ritual reset. Ready to start fresh!",
-      duration: 2000,
-    });
   };
 
-  const handleFeedback = async (rec: Recommendation, type: 'thumbs_up' | 'thumbs_down', position: number) => {
-    setFeedback(prev => ({ ...prev, [rec.id]: type }));
-    
-    await submitRelevanceFeedback({
-      contentId: rec.id,
-      contentType: rec.contentType,
-      feedbackType: type,
-      triggerContext: 'daily_ritual_recommendation',
-      contextData: { position, totalSteps: allRecs.length }
-    });
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="space-y-3">
+          <div className="h-4 bg-muted animate-pulse rounded" />
+          <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+        </div>
+      </Card>
+    );
+  }
 
-    toast({
-      description: "Thanks for your feedback",
-      duration: 2000,
-    });
-  };
+  if (recommendations.practices.length === 0) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-muted-foreground">
+          Unable to generate recommendations. Please complete your daily check-in.
+        </p>
+      </Card>
+    );
+  }
+
+  const practices = recommendations.practices;
+  const totalDuration = practices.reduce((sum, rec) => sum + rec.duration, 0);
 
   return (
-    <div className="space-y-4">
-      {/* Sequential Flow */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-semibold text-foreground">Your Complete Ritual</h4>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{totalDuration} min total</span>
+    <Card className="p-6">
+      <div className="space-y-6">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-foreground">Today's Ritual</h3>
+            <Badge variant="secondary">
+              {Math.floor(totalDuration / 60)} min
+            </Badge>
           </div>
+          <p className="text-sm text-muted-foreground">{recommendations.reasoning}</p>
+          {ritualStatus.totalCount > 0 && (
+            <div className="mt-2">
+              <Badge variant="outline" className="text-xs">
+                {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
+              </Badge>
+            </div>
+          )}
         </div>
 
-        {allRecs.map((rec, index) => (
-          <div key={rec.id}>
-            {/* Step Card */}
-            <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-saffron/10 text-saffron flex items-center justify-center text-sm font-semibold">
+        <div className="space-y-3">
+          {practices.map((practice, index) => (
+            <div
+              key={practice.id}
+              className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/50"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
                 {index + 1}
               </div>
-              
-              <div
-                className="w-14 h-14 rounded-lg bg-cover bg-center flex-shrink-0"
-                style={{ backgroundImage: `url('${rec.thumbnail}')` }}
-              />
-              
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h5 className="text-sm font-semibold text-foreground line-clamp-1">
-                    {rec.title}
-                  </h5>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-foreground text-sm">{practice.title}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{practice.whyNow}</p>
+                  </div>
                   <Badge variant="outline" className="text-xs flex-shrink-0">
-                    {rec.duration}m
+                    {practice.duration} min
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
-                  {rec.whyNow}
-                </p>
-                
-                {/* Feedback buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleFeedback(rec, 'thumbs_up', index + 1)}
-                    className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
-                    aria-label="This is helpful"
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleFeedback(practice.id, 'thumbs_up')}
+                    disabled={!!feedback[practice.id]}
+                    className="h-7 text-xs"
                   >
-                    <ThumbsUp className={`w-3.5 h-3.5 ${feedback[rec.id] === 'thumbs_up' ? 'fill-emerald-600 text-emerald-600' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => handleFeedback(rec, 'thumbs_down', index + 1)}
-                    className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
-                    aria-label="Not helpful"
+                    <ThumbsUp className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleFeedback(practice.id, 'thumbs_down')}
+                    disabled={!!feedback[practice.id]}
+                    className="h-7 text-xs"
                   >
-                    <ThumbsDown className={`w-3.5 h-3.5 ${feedback[rec.id] === 'thumbs_down' ? 'fill-orange-600 text-orange-600' : ''}`} />
-                  </button>
+                    <ThumbsDown className="h-3 w-3" />
+                  </Button>
                 </div>
               </div>
             </div>
-
-            {/* Arrow between steps */}
-            {index < allRecs.length - 1 && (
-              <div className="flex justify-center py-2">
-                <ArrowDown className="w-4 h-4 text-muted-foreground/50" />
-              </div>
-            )}
-          </div>
-        ))}
-      </Card>
-
-      {/* Button States: Start / Continue+Restart / Completed */}
-      {ritualStatus.status === 'completed' ? (
-        <Button
-          disabled
-          className="w-full bg-emerald-600/50 text-white cursor-default"
-        >
-          ✓ Today's Ritual Completed
-        </Button>
-      ) : ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 ? (
-        <div className="flex gap-2">
-          <Button
-            onClick={handleContinueRitual}
-            className="flex-1 bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
-          >
-            Continue Your Ritual →
-          </Button>
-          <Button
-            onClick={handleRestartRitual}
-            variant="outline"
-            size="icon"
-            className="w-12 h-12 rounded-full border-2 border-taupe hover:bg-taupe/10"
-            aria-label="Restart ritual"
-          >
-            <RotateCcw className="w-5 h-5 text-taupe" />
-          </Button>
+          ))}
         </div>
-      ) : (
-        <Button
-          onClick={handleStartRitual}
-          className="w-full bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
-        >
-          Start Your Ritual →
-        </Button>
-      )}
-    </div>
+
+        <div className="space-y-2">
+          {ritualStatus.status === 'completed' ? (
+            <Button 
+              className="w-full" 
+              disabled
+              variant="outline"
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              Today's Ritual Completed ✓
+            </Button>
+          ) : ritualStatus.status === 'partial' ? (
+            <>
+              <Button 
+                className="w-full"
+                onClick={handleContinueRitual}
+              >
+                Continue Your Ritual
+                <ArrowDown className="ml-2 h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={handleRestartRitual}
+              >
+                <RotateCcw className="mr-2 h-3 w-3" />
+                Restart Ritual
+              </Button>
+            </>
+          ) : (
+            <Button 
+              className="w-full"
+              onClick={handleStartRitual}
+            >
+              Start Your Ritual
+              <ArrowDown className="ml-2 h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 };
 

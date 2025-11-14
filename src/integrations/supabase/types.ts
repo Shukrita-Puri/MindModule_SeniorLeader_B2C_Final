@@ -214,6 +214,7 @@ export type Database = {
       }
       daily_ritual_completions: {
         Row: {
+          completed_practice_ids: string[] | null
           completion_status: string
           created_at: string
           guided_practice_completed: boolean | null
@@ -221,6 +222,7 @@ export type Database = {
           id: string
           micro_exercise_completed: boolean | null
           micro_exercise_completed_at: string | null
+          recommended_practice_ids: string[] | null
           recommended_practices_count: number | null
           ritual_date: string
           soundscape_completed: boolean | null
@@ -229,6 +231,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          completed_practice_ids?: string[] | null
           completion_status?: string
           created_at?: string
           guided_practice_completed?: boolean | null
@@ -236,6 +239,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date: string
           soundscape_completed?: boolean | null
@@ -244,6 +248,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          completed_practice_ids?: string[] | null
           completion_status?: string
           created_at?: string
           guided_practice_completed?: boolean | null
@@ -251,6 +256,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date?: string
           soundscape_completed?: boolean | null
