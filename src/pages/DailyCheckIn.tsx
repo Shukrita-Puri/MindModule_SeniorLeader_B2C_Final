@@ -10,7 +10,7 @@ import architecturalPresence from "@/assets/architectural-presence.jpg";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Outcome = "pause" | "power-up" | "presence" | "calm" | "ready";
 
@@ -35,6 +35,7 @@ interface CheckInData {
 const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   // Fetch user plan tier
   const { data: profile } = useQuery({
@@ -128,10 +129,15 @@ const DailyCheckIn = () => {
       usageHistory: [] // For future memory tracking
     };
 
+    // Save to localStorage
     localStorage.setItem('dailyCheckIn', JSON.stringify(checkInData));
     
-    // Trigger storage event to force energy state refetch
-    window.dispatchEvent(new Event('storage'));
+    // Debug log to verify save
+    console.log('[Check-In] Saved to localStorage:', checkInData);
+    console.log('[Check-In] Stored value:', localStorage.getItem('dailyCheckIn'));
+    
+    // Invalidate energy-state query to force refetch
+    queryClient.invalidateQueries({ queryKey: ['energy-state'] });
     
     navigate('/executive-home');
   };
