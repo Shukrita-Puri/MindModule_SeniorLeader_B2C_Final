@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Check, ArrowRight, Target, Zap, Waves } from 'lucide-react';
+import { Play, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -216,39 +216,19 @@ const DailyRitual = () => {
     );
   }
 
-  const practices = recommendations.practices;
-
-  // Determine mastery type based on first practice category
-  const firstPractice = practices[0];
-  const masteryType = firstPractice?.category || 'pause';
-  
-  const IconComponent = masteryType === 'pause' ? Target : 
-                        masteryType === 'power-up' ? Zap : Waves;
-  
-  const masteryTitle = masteryType === 'pause' ? 'Pause Mastery' :
-                       masteryType === 'power-up' ? 'Power-Up Mastery' : 'Presence Mastery';
+  const { practices } = recommendations;
 
   return (
     <div className="bg-card border border-border rounded-lg p-5 shadow-sm">
-      {/* Header: Primary Mastery Type */}
-      <div className="flex items-center gap-4 mb-5">
-        <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-          <IconComponent size={24} className="text-primary" />
+      {/* Progress indicator */}
+      {ritualStatus.status === 'partial' && (
+        <div className="mb-4 text-sm text-muted-foreground">
+          {ritualStatus.completedCount} of {ritualStatus.totalCount} practices completed
         </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-headline font-semibold text-foreground">
-            {masteryTitle}
-          </h3>
-          {ritualStatus.status === 'partial' && (
-            <p className="text-sm text-muted-foreground">
-              {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
-            </p>
-          )}
-        </div>
-      </div>
-      
-      {/* Recommended Content */}
-      <div className="space-y-2 mb-4">
+      )}
+
+      {/* Recommended Content with Thumbnails */}
+      <div className="grid grid-cols-1 gap-4 mb-4">
         {practices.map((practice) => {
           const isCompleted = completedPracticeIds.includes(practice.id);
           return (
@@ -257,37 +237,43 @@ const DailyRitual = () => {
               onClick={() => navigateToPractice(practice)}
               disabled={isCompleted}
               className={cn(
-                "w-full flex items-center justify-between p-3 rounded-lg transition-colors border group",
+                "relative group overflow-hidden rounded-lg border transition-all text-left",
                 isCompleted 
-                  ? "bg-primary/5 border-primary/20 opacity-50 cursor-not-allowed" 
-                  : "hover:bg-accent/50 border-transparent hover:border-border"
+                  ? "opacity-60 cursor-not-allowed border-primary/20"
+                  : "hover:shadow-lg hover:scale-[1.02] border-border"
               )}
             >
-              <div className="flex items-center gap-3">
+              {/* Thumbnail Image */}
+              <div 
+                className="h-32 bg-cover bg-center relative"
+                style={{ backgroundImage: `url('${practice.thumbnail}')` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                
+                {/* Play/Check Icon Overlay */}
                 <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                  "absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center",
                   isCompleted 
-                    ? "bg-primary/20" 
-                    : "bg-primary/5 group-hover:bg-primary/10"
+                    ? "bg-primary/90" 
+                    : "bg-white/90 group-hover:bg-primary group-hover:text-white"
                 )}>
                   {isCompleted ? (
-                    <Check size={14} className="text-primary" />
+                    <Check size={20} className="text-white" />
                   ) : (
-                    <Play size={14} className="text-primary ml-0.5" />
+                    <Play size={20} className="text-primary group-hover:text-white ml-0.5" />
                   )}
                 </div>
-                <div className="flex flex-col items-start gap-1">
-                  <span className="text-sm font-medium text-foreground">
-                    {practice.title}
-                  </span>
-                  <Badge variant="outline" className="text-xs px-2 py-0">
-                    {practice.duration}m
-                  </Badge>
-                </div>
               </div>
-              {!isCompleted && (
-                <ArrowRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />
-              )}
+
+              {/* Practice Info */}
+              <div className="p-4 bg-card">
+                <h4 className="font-medium text-foreground mb-2">
+                  {practice.title}
+                </h4>
+                <Badge variant="outline" className="text-xs">
+                  {practice.duration} min
+                </Badge>
+              </div>
             </button>
           );
         })}
@@ -295,25 +281,23 @@ const DailyRitual = () => {
 
       {/* Action Button */}
       {ritualStatus.status === 'not_started' && (
-        <Button
+        <Button 
           onClick={handleStartRitual}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
         >
           Start Your Ritual
-          <ArrowRight size={16} className="ml-2" />
         </Button>
       )}
-      
+
       {ritualStatus.status === 'partial' && (
-        <Button
+        <Button 
           onClick={handleContinueRitual}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
         >
           Continue Your Ritual
-          <ArrowRight size={16} className="ml-2" />
         </Button>
       )}
-      
+
       {ritualStatus.status === 'completed' && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -322,7 +306,7 @@ const DailyRitual = () => {
             </div>
             <span className="text-sm font-medium text-foreground">Ritual Completed</span>
           </div>
-          <Button
+          <Button 
             onClick={handleRestartRitual}
             variant="outline"
             size="sm"
