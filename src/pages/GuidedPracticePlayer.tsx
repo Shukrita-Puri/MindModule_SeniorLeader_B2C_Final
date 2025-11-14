@@ -791,6 +791,33 @@ const GuidedPracticePlayer = () => {
         if (data) {
           setSessionId(data.id);
         }
+        
+        // Update ritual completion if part of ritual
+        if (isPartOfRitual) {
+          const today = new Date().toISOString().split('T')[0];
+          
+          const { data: ritualData } = await supabase
+            .from('daily_ritual_completions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('ritual_date', today)
+            .single();
+          
+          const allComplete = ritualData?.soundscape_completed && 
+                             ritualData?.micro_exercise_completed;
+          
+          await supabase
+            .from('daily_ritual_completions')
+            .upsert({
+              user_id: user.id,
+              ritual_date: today,
+              guided_practice_completed: true,
+              guided_practice_completed_at: new Date().toISOString(),
+              completion_status: allComplete ? 'full' : 'partial'
+            }, {
+              onConflict: 'user_id,ritual_date'
+            });
+        }
       }
     } catch (error) {
       console.error('Failed to save practice session:', error);

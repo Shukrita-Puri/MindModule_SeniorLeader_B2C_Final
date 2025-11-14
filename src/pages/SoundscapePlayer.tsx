@@ -24,6 +24,7 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
+import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 
 // Soundscape data now comes from practicesAndSoundscapes.ts
 const getSoundscapeData = (id: string) => {
@@ -472,6 +473,33 @@ const SoundscapePlayer = () => {
           
           if (data) {
             setSessionId(data.id);
+          }
+          
+          // Update ritual completion if part of ritual
+          if (isPartOfRitual) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const { data: ritualData } = await supabase
+              .from('daily_ritual_completions')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('ritual_date', today)
+              .single();
+            
+            const allComplete = ritualData?.guided_practice_completed && 
+                               ritualData?.micro_exercise_completed;
+            
+            await supabase
+              .from('daily_ritual_completions')
+              .upsert({
+                user_id: user.id,
+                ritual_date: today,
+                soundscape_completed: true,
+                soundscape_completed_at: new Date().toISOString(),
+                completion_status: allComplete ? 'full' : 'partial'
+              }, {
+                onConflict: 'user_id,ritual_date'
+              });
           }
         }
       } catch (error) {
