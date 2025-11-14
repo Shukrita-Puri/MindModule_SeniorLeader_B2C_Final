@@ -486,9 +486,7 @@ const SoundscapePlayer = () => {
               .eq('ritual_date', today)
               .single();
             
-            const allComplete = ritualData?.guided_practice_completed && 
-                               ritualData?.micro_exercise_completed;
-            
+            // Mark soundscape as completed
             await supabase
               .from('daily_ritual_completions')
               .upsert({
@@ -496,10 +494,30 @@ const SoundscapePlayer = () => {
                 ritual_date: today,
                 soundscape_completed: true,
                 soundscape_completed_at: new Date().toISOString(),
-                completion_status: allComplete ? 'full' : 'partial'
+                completion_status: 'partial'
               }, {
                 onConflict: 'user_id,ritual_date'
               });
+            
+            // Check if ALL recommended practices are now done
+            if (ritualData) {
+              const completed = [
+                true, // soundscape just completed
+                ritualData.guided_practice_completed,
+                ritualData.micro_exercise_completed
+              ].filter(Boolean).length;
+              
+              const totalRecommended = ritualData.recommended_practices_count || 3;
+              
+              // Update to "full" if all recommended practices are done
+              if (completed === totalRecommended) {
+                await supabase
+                  .from('daily_ritual_completions')
+                  .update({ completion_status: 'full' })
+                  .eq('user_id', user.id)
+                  .eq('ritual_date', today);
+              }
+            }
           }
         }
       } catch (error) {

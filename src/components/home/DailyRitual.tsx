@@ -39,6 +39,13 @@ const DailyRitual = () => {
   useEffect(() => {
     loadRecommendations();
     checkRitualCompletion();
+    
+    // Poll for completion updates every 15 seconds
+    const interval = setInterval(() => {
+      checkRitualCompletion();
+    }, 15000);
+    
+    return () => clearInterval(interval);
   }, [user?.id]);
 
   const checkRitualCompletion = async () => {
@@ -54,7 +61,13 @@ const DailyRitual = () => {
       .single();
     
     if (error || !data) {
-      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: 3 });
+      // Calculate actual recommended count from current recommendations
+      const actualCount = recommendations ? [
+        recommendations.soundbath,
+        recommendations.guidedPractice,
+        recommendations.microPractice
+      ].filter(Boolean).length : 3;
+      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: actualCount });
       return;
     }
     
@@ -64,16 +77,21 @@ const DailyRitual = () => {
       data.micro_exercise_completed
     ].filter(Boolean).length;
     
-    // Map database status
+    // Use the stored recommended count, fallback to 3
+    const totalRecommended = data.recommended_practices_count || 3;
+    
+    // Map database status based on dynamic total
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (data.completion_status === 'full') status = 'completed';
-    else if (data.completion_status === 'partial' && completed > 0) status = 'partial';
-    else status = 'not_started';
+    if (completed === totalRecommended) {
+      status = 'completed';
+    } else if (completed > 0) {
+      status = 'partial';
+    }
     
     setRitualStatus({
       status,
       completedCount: completed,
-      totalCount: 3
+      totalCount: totalRecommended
     });
   };
 
@@ -119,11 +137,14 @@ const DailyRitual = () => {
     // Store ritual queue in localStorage for UI continuity
     localStorage.setItem('practiceQueue', JSON.stringify(allRecs));
     
-    // Initialize ritual in database
+    // Initialize ritual in database with actual count
     if (user?.id) {
-      await updateRitualCompletion({
-        ritual_date: new Date(),
-        completion_status: 'partial'
+      const today = new Date().toISOString().split('T')[0];
+      await supabase.from('daily_ritual_completions').upsert({
+        user_id: user.id,
+        ritual_date: today,
+        completion_status: 'partial',
+        recommended_practices_count: allRecs.length
       });
     }
     
@@ -136,22 +157,52 @@ const DailyRitual = () => {
   const handleContinueRitual = async () => {
     await trackEngagement({ event_type: 'session_start', category: 'general', metadata: { action: 'continue' } });
     
-    // Find first incomplete practice
-    const queue = JSON.parse(localStorage.getItem('practiceQueue') || '[]');
+    if (!user?.id) return;
+    
+    const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('daily_ritual_completions')
       .select('*')
-      .eq('user_id', user?.id)
-      .eq('ritual_date', new Date().toISOString().split('T')[0])
+      .eq('user_id', user.id)
+      .eq('ritual_date', today)
       .single();
     
-    let nextPracticeIndex = 0;
-    if (data?.soundscape_completed) nextPracticeIndex = 1;
-    if (data?.guided_practice_completed) nextPracticeIndex = 2;
+    if (!data) {
+      handleStartRitual();
+      return;
+    }
     
-    const nextPractice = queue[nextPracticeIndex];
+    // Build completion map based on ACTUAL recommendations
+    const completionMap = [];
+    
+    if (recommendations?.soundbath) {
+      completionMap.push({ 
+        completed: data.soundscape_completed, 
+        practice: recommendations.soundbath 
+      });
+    }
+    
+    if (recommendations?.guidedPractice) {
+      completionMap.push({ 
+        completed: data.guided_practice_completed, 
+        practice: recommendations.guidedPractice 
+      });
+    }
+    
+    if (recommendations?.microPractice) {
+      completionMap.push({ 
+        completed: data.micro_exercise_completed, 
+        practice: recommendations.microPractice 
+      });
+    }
+    
+    const nextPractice = completionMap.find(item => !item.completed);
+    
     if (nextPractice) {
-      navigateToPractice(nextPractice);
+      navigateToPractice(nextPractice.practice);
+    } else {
+      // All practices completed, refresh status
+      await checkRitualCompletion();
     }
   };
 

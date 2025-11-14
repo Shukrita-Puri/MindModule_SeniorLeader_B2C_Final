@@ -803,9 +803,7 @@ const GuidedPracticePlayer = () => {
             .eq('ritual_date', today)
             .single();
           
-          const allComplete = ritualData?.soundscape_completed && 
-                             ritualData?.micro_exercise_completed;
-          
+          // Mark guided practice as completed
           await supabase
             .from('daily_ritual_completions')
             .upsert({
@@ -813,10 +811,30 @@ const GuidedPracticePlayer = () => {
               ritual_date: today,
               guided_practice_completed: true,
               guided_practice_completed_at: new Date().toISOString(),
-              completion_status: allComplete ? 'full' : 'partial'
+              completion_status: 'partial'
             }, {
               onConflict: 'user_id,ritual_date'
             });
+          
+          // Check if ALL recommended practices are now done
+          if (ritualData) {
+            const completed = [
+              ritualData.soundscape_completed,
+              true, // guided practice just completed
+              ritualData.micro_exercise_completed
+            ].filter(Boolean).length;
+            
+            const totalRecommended = ritualData.recommended_practices_count || 3;
+            
+            // Update to "full" if all recommended practices are done
+            if (completed === totalRecommended) {
+              await supabase
+                .from('daily_ritual_completions')
+                .update({ completion_status: 'full' })
+                .eq('user_id', user.id)
+                .eq('ritual_date', today);
+            }
+          }
         }
       }
     } catch (error) {

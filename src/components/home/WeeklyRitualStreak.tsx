@@ -78,7 +78,7 @@ const WeeklyRitualStreak = () => {
           <div className={cn(
             "h-8 w-8 rounded-full flex items-center justify-center transition-all",
             day.status === 'full' && "bg-saffron text-charcoal",
-            day.status === 'partial' && "bg-amber-400 text-charcoal",
+            day.status === 'partial' && "bg-taupe text-white",
             day.status === 'skipped' && "border-2 border-border",
             day.isToday && "ring-2 ring-primary ring-offset-2"
           )}>
