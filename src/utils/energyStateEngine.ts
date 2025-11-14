@@ -99,9 +99,9 @@ function calculateDynamicWeights(
   hasCalendar: boolean,
   hasMemory: boolean
 ) {
-  // Pro user with check-in
+  // Pro user with check-in - prioritize check-in at 60%
   if (hasCheckIn && !hasWearable && !hasCalendar) {
-    return { checkIn: 0.50, wearable: 0, calendar: 0, memory: 0.30, circadian: 0.20 };
+    return { checkIn: 0.60, wearable: 0, calendar: 0, memory: 0.25, circadian: 0.15 };
   }
   
   // Pro user skipped (memory + circadian only)
@@ -109,9 +109,9 @@ function calculateDynamicWeights(
     return { checkIn: 0, wearable: 0, calendar: 0, memory: 0.70, circadian: 0.30 };
   }
   
-  // Super Pro with check-in + all data
+  // Super Pro with check-in + all data - prioritize check-in at 60%
   if (hasCheckIn && hasWearable && hasCalendar) {
-    return { checkIn: 0.35, wearable: 0.30, calendar: 0.20, memory: 0.10, circadian: 0.05 };
+    return { checkIn: 0.60, wearable: 0.15, calendar: 0.05, memory: 0.10, circadian: 0.10 };
   }
   
   // Super Pro skipped but has wearable + calendar
@@ -124,8 +124,8 @@ function calculateDynamicWeights(
     return { checkIn: 0, wearable: 0.60, calendar: 0, memory: 0.25, circadian: 0.15 };
   }
   
-  // Default fallback
-  return { checkIn: 0.40, wearable: 0.20, calendar: 0.20, memory: 0.10, circadian: 0.10 };
+  // Default fallback - prioritize check-in at 60%
+  return { checkIn: 0.60, wearable: 0.15, calendar: 0.05, memory: 0.10, circadian: 0.10 };
 }
 
 function calculateMemoryScore(memoryProfile: UserEnergyProfile, currentHour: number): number {
