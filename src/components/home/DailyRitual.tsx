@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Sparkles, ArrowDown, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Clock, ArrowDown, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { trackEngagement } from '@/utils/engagementTracking';
 import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
 import { useToast } from '@/hooks/use-toast';
+import { useMentalFitnessTracking } from '@/hooks/useMentalFitnessTracking';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const DailyRitual = () => {
   const navigate = useNavigate();
@@ -99,12 +102,6 @@ const DailyRitual = () => {
 
   return (
     <div className="space-y-4">
-      {/* Reasoning */}
-      <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-        <Sparkles className="w-4 h-4 text-saffron flex-shrink-0 mt-0.5" />
-        <p className="leading-relaxed">{recommendations.reasoning}</p>
-      </div>
-
       {/* Sequential Flow */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between mb-2">

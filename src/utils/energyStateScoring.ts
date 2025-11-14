@@ -226,24 +226,41 @@ export interface Recommendation {
   contextStatement: string;
 }
 
-// Helper function to get check-in display text
-function getCheckInText(checkInOutcome: string | null): string {
+// Helper function to get check-in emotional state
+function getCheckInEmotion(checkInOutcome: string | null): string {
   if (!checkInOutcome) return '';
   
-  const checkInMap: Record<string, string> = {
-    'pause': 'Stressed/Overwhelmed',
-    'power-up': 'Drained/Tired',
-    'presence': 'Scattered/Unfocused',
-    'calm': 'Anxious/Tense',
-    'ready': 'Motivated/Ready',
-    'good': 'I\'m Good / Take me to homepage'
+  const emotionMap: Record<string, string> = {
+    'pause': 'stressed and overwhelmed',
+    'power-up': 'drained and tired',
+    'presence': 'scattered and unfocused',
+    'calm': 'anxious and tense',
+    'ready': 'motivated and ready',
+    'good': 'good'
   };
   
-  return checkInMap[checkInOutcome] || '';
+  return emotionMap[checkInOutcome] || '';
+}
+
+// Helper function to format context statement
+function formatContextStatement(
+  checkInOutcome: string | null,
+  balance: number,
+  timeOfDay: TimeOfDay,
+  recommendation: string
+): string {
+  const emotion = getCheckInEmotion(checkInOutcome);
+  const timeLabel = timeOfDay === 'morning' ? 'this morning' : timeOfDay === 'afternoon' ? 'this afternoon' : 'this evening';
+  
+  if (emotion) {
+    return `You mentioned, you are feeling ${emotion}, and your energy is ${balance}/100. ${recommendation.charAt(0).toUpperCase() + recommendation.slice(1)} ${timeLabel}.`;
+  }
+  
+  return `Your energy is at ${balance}/100 ${timeLabel}. ${recommendation.charAt(0).toUpperCase() + recommendation.slice(1)}.`;
 }
 
 export function getRecommendation(
-  balance: number,               // ✅ PHASE 3: ADD BALANCE AS FIRST PARAMETER
+  balance: number,
   energyTier: EnergyTier,
   calendarMetrics: CalendarMetrics,
   wearableFunction: WearableFunction,
@@ -251,39 +268,27 @@ export function getRecommendation(
   timeOfDay: TimeOfDay
 ): Recommendation {
   const subTier = getEnergySubTier(balance);
-  const checkInText = getCheckInText(checkInOutcome);
-  const timeLabel = timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1);
-  
-  // Check-in prefix for context statement (PHASE 2 & 4)
-  const checkInPrefix = checkInText ? `Check-in: ${checkInText}. ` : '';
   
   // ==================== DEPLETED TIER ====================
   if (energyTier === 'depleted') {
-    // Primary: Always Renewal
-    // Secondary: Differentiate by sub-tier and pressure (PHASE 5)
-    
     let secondarySubtype: MasterySubtype = 'grounding';
-    let contextDetail = 'Focus on restoring resilience.';
+    let recommendation = '';
     
-    // Sub-tier logic for depleted
     if (subTier === 'very-low') {
-      // 0-15: Stressed/Overwhelmed → Deep Calm (unless high pressure)
       secondarySubtype = (calendarMetrics.pressure === 'high') ? 'grounding' : 'deep-calm';
-      contextDetail = secondarySubtype === 'deep-calm' 
-        ? 'Deep rest needed. Priority is energy restoration.' 
-        : 'High demands require maintaining composure under stress.';
+      recommendation = secondarySubtype === 'deep-calm' 
+        ? 'deep rest is your priority—focus on restoring your energy before anything else' 
+        : 'high demands require maintaining composure under stress';
     } else if (subTier === 'low') {
-      // 16-25: Drained/Tired, Anxious/Tense → Grounding (unless low pressure)
       secondarySubtype = (calendarMetrics.pressure === 'low' && wearableFunction === 'low') ? 'deep-calm' : 'grounding';
-      contextDetail = secondarySubtype === 'deep-calm'
-        ? 'Low physical energy detected. Deep rest is essential.'
-        : 'Ground yourself first before tackling demands.';
+      recommendation = secondarySubtype === 'deep-calm'
+        ? 'your body needs deep rest right now—recovery is essential before you take on anything else'
+        : 'ground yourself first before tackling demands';
     } else {
-      // 26-35: Scattered/Unfocused → Grounding or Composure
       secondarySubtype = (calendarMetrics.pressure === 'high' || calendarMetrics.load === 'high') ? 'composure' : 'grounding';
-      contextDetail = secondarySubtype === 'composure'
-        ? 'Cognitive clarity compromised. Maintain composure under pressure.'
-        : 'Scattered energy. Ground yourself to restore focus.';
+      recommendation = secondarySubtype === 'composure'
+        ? 'cognitive clarity is compromised—maintain composure under pressure'
+        : 'scattered energy calls for grounding to restore focus';
     }
     
     return {
@@ -291,97 +296,84 @@ export function getRecommendation(
       primarySubtype: 'restore',
       secondary: 'pause',
       secondarySubtype,
-      contextStatement: `${checkInPrefix}Energy: ${balance} (Depleted). Time of day: ${timeLabel}. ${contextDetail}`
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, recommendation)
     };
   }
 
   // ==================== MANAGING TIER ====================
   if (energyTier === 'managing') {
-    // Load-driven decision
     if (calendarMetrics.load === 'high') {
-      // High Load → Pause + Renewal
       return {
         primary: 'pause',
         primarySubtype: 'composure',
         secondary: 'renewal',
         secondarySubtype: 'refresh',
-        contextStatement: `${checkInPrefix}Energy: ${balance} (Managing). Time of day: ${timeLabel}. High demands ahead. Steady your pace with brief resets.`
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'with high demands ahead, try steadying your pace with brief reset moments')
       };
     } else if (calendarMetrics.load === 'medium') {
-      // Medium Load → Pause + Flow
       return {
         primary: 'pause',
         primarySubtype: 'grounding',
         secondary: 'flow',
         secondarySubtype: 'activate',
-        contextStatement: `${checkInPrefix}Energy: ${balance} (Managing). Time of day: ${timeLabel}. Moderate demands. Balance grounding with activation.`
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'moderate demands call for balancing grounding with activation')
       };
     } else {
-      // Low Load → Flow + Pause
       return {
         primary: 'flow',
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: `${checkInPrefix}Energy: ${balance} (Managing). Time of day: ${timeLabel}. Low demands. Build momentum with focus practices.`
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'low demands mean you can build momentum with focus practices')
       };
     }
   }
 
   // ==================== STRONG TIER ====================
   if (energyTier === 'strong') {
-    // Pressure-driven decision
     if (calendarMetrics.pressure === 'high') {
-      // High Pressure → Flow + Pause
       return {
         primary: 'flow',
         primarySubtype: 'optimize',
         secondary: 'pause',
         secondarySubtype: 'composure',
-        contextStatement: `${checkInPrefix}Energy: ${balance} (Strong). Time of day: ${timeLabel}. High-stakes demands. Optimize performance while maintaining composure.`
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'high-pressure moments ahead—lean into practices that support executive presence')
       };
     } else {
-      // Low/Medium Pressure → Flow + Pause Mix
       return {
         primary: 'flow',
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: `${checkInPrefix}Energy: ${balance} (Strong). Time of day: ${timeLabel}. Strong energy. Lean into flow states with grounding support.`
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'strong energy means you can lean into flow states with grounding support')
       };
     }
   }
 
   // ==================== PEAK TIER ====================
-  // energyTier === 'peak'
-  
-  // Time of day influences peak recommendations (PHASE 4)
   if (timeOfDay === 'morning') {
-    // Morning → Flow-heavy
     return {
       primary: 'flow',
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'composure',
-      contextStatement: `${checkInPrefix}Energy: ${balance} (Peak). Time of day: ${timeLabel}. Peak morning energy. Maximize high-value work with flow states.`
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'peak morning energy—maximize high-value work with flow states')
     };
   } else if (timeOfDay === 'evening') {
-    // Evening → Renewal optional
     return {
       primary: 'flow',
       primarySubtype: 'maintain-peak',
       secondary: 'renewal',
       secondarySubtype: 'refresh',
-      contextStatement: `${checkInPrefix}Energy: ${balance} (Peak). Time of day: ${timeLabel}. Peak evening energy. Maintain high performance; consider renewal for tomorrow.`
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'peak energy sustained—maintain high performance and consider renewal for tomorrow')
     };
   } else {
-    // Afternoon → Balanced
     return {
       primary: 'flow',
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'grounding',
-      contextStatement: `${checkInPrefix}Energy: ${balance} (Peak). Time of day: ${timeLabel}. Peak energy sustained. Optimize output with balanced support.`
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'keep this momentum going with practices that maintain focus and performance')
     };
   }
 }

@@ -8,6 +8,7 @@ import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
 import MicroInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
+import MetricInfoModal from "@/components/home/MetricInfoModal";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
@@ -80,17 +81,24 @@ const ExecutiveHome = () => {
         <div className="h-px bg-black/[0.08]" />
 
         {/* Recommended for You - Split into TWO sub-sections */}
-        <section>
-          <h2 className="text-2xl font-headline mb-4 text-foreground">Recommended for You</h2>
-          
-          {/* Sub-section 1: Daily Ritual */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-foreground mb-2">Your Daily Ritual</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Based on your energy state, calendar load, and recovery data
-            </p>
-            <DailyRitual />
+      <section>
+        <h2 className="text-2xl font-headline mb-4 text-foreground">Recommended for You</h2>
+        
+        {/* Sub-section 1: Daily Ritual */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-lg font-semibold text-foreground">Your Daily Ritual</h3>
+            <MetricInfoModal
+              title="How Your Ritual is Created"
+              description={
+                user?.user_metadata?.plan_tier === 'super_pro' 
+                  ? "Your ritual is personalized based on your daily check-in, recovery data from your wearable, and upcoming calendar demands."
+                  : "Your ritual is personalized based on your daily check-in and upcoming calendar demands."
+              }
+            />
           </div>
+          <DailyRitual />
+        </div>
 
           {/* Sub-section 2: Micro Interventions */}
           <div>
