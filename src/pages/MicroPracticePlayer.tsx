@@ -83,44 +83,57 @@ const MicroPracticePlayer = () => {
       if (isPartOfRitual) {
         const today = new Date().toISOString().split('T')[0];
         
-        const { data: ritualData } = await supabase
-          .from('daily_ritual_completions')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('ritual_date', today)
-          .single();
-        
-        // Mark micro exercise as completed
+        // Step 1: Upsert the specific completion field WITHOUT setting status
         await supabase
           .from('daily_ritual_completions')
           .upsert({
             user_id: user.id,
             ritual_date: today,
             micro_exercise_completed: true,
-            micro_exercise_completed_at: new Date().toISOString(),
-            completion_status: 'partial'
+            micro_exercise_completed_at: new Date().toISOString()
+            // DON'T set completion_status here
           }, {
             onConflict: 'user_id,ritual_date'
           });
         
-        // Check if ALL recommended practices are now done
-        if (ritualData) {
+        // Step 2: Query FRESH data AFTER the upsert
+        const { data: freshRitualData } = await supabase
+          .from('daily_ritual_completions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('ritual_date', today)
+          .single();
+        
+        // Step 3: Calculate completion using FRESH data
+        if (freshRitualData) {
           const completed = [
-            ritualData.soundscape_completed,
-            ritualData.guided_practice_completed,
-            true // micro exercise just completed
+            freshRitualData.soundscape_completed,
+            freshRitualData.guided_practice_completed,
+            freshRitualData.micro_exercise_completed
           ].filter(Boolean).length;
           
-          const totalRecommended = ritualData.recommended_practices_count || 3;
+          const totalRecommended = freshRitualData.recommended_practices_count || 3;
           
-          // Update to "full" if all recommended practices are done
-          if (completed === totalRecommended) {
-            await supabase
-              .from('daily_ritual_completions')
-              .update({ completion_status: 'full' })
-              .eq('user_id', user.id)
-              .eq('ritual_date', today);
-          }
+          // Step 4: Update status atomically
+          const newStatus = completed === totalRecommended && completed > 0 
+            ? 'full' 
+            : completed > 0 
+              ? 'partial' 
+              : 'skipped';
+          
+          await supabase
+            .from('daily_ritual_completions')
+            .update({ completion_status: newStatus })
+            .eq('user_id', user.id)
+            .eq('ritual_date', today);
+          
+          console.log('🎯 Micro practice completed:', {
+            type: 'micro-practice',
+            completedCount: completed,
+            totalRecommended,
+            newStatus,
+            timestamp: new Date().toISOString()
+          });
         }
       }
     } catch (error) {

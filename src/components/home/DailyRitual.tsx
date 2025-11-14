@@ -61,7 +61,7 @@ const DailyRitual = () => {
       .single();
     
     if (error || !data) {
-      // Calculate actual recommended count from current recommendations
+      // No ritual record - not started
       const actualCount = recommendations ? [
         recommendations.soundbath,
         recommendations.guidedPractice,
@@ -71,27 +71,39 @@ const DailyRitual = () => {
       return;
     }
     
+    // Count actual completions
     const completed = [
       data.soundscape_completed,
       data.guided_practice_completed,
       data.micro_exercise_completed
     ].filter(Boolean).length;
     
-    // Use the stored recommended count, fallback to 3
     const totalRecommended = data.recommended_practices_count || 3;
     
-    // Map database status based on dynamic total
+    // Calculate status based on BOTH completion_status field AND actual count
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (completed === totalRecommended && completed > 0) {
-      status = 'completed';
-    } else if (completed > 0) {
-      status = 'partial';
-    }
     
-    // Also check the database completion_status field as authoritative source
+    // Trust the database completion_status as primary source
     if (data.completion_status === 'full') {
       status = 'completed';
-    } else if (data.completion_status === 'partial' && completed > 0) {
+    } else if (completed === totalRecommended && completed > 0) {
+      // Double-check: if actual count equals total, should be complete
+      status = 'completed';
+      
+      // Fix inconsistent state in database
+      console.log('🔧 Fixing inconsistent ritual status:', {
+        completedCount: completed,
+        totalRecommended,
+        currentStatus: data.completion_status,
+        fixingTo: 'full'
+      });
+      
+      await supabase
+        .from('daily_ritual_completions')
+        .update({ completion_status: 'full' })
+        .eq('user_id', user.id)
+        .eq('ritual_date', today);
+    } else if (completed > 0) {
       status = 'partial';
     }
     
