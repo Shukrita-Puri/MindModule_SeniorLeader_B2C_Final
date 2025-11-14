@@ -129,6 +129,10 @@ const DailyCheckIn = () => {
     };
 
     localStorage.setItem('dailyCheckIn', JSON.stringify(checkInData));
+    
+    // Trigger storage event to force energy state refetch
+    window.dispatchEvent(new Event('storage'));
+    
     navigate('/executive-home');
   };
 

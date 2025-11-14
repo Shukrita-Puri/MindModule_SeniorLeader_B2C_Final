@@ -20,7 +20,9 @@ const EnergyStateHeader = () => {
       return state;
     },
     enabled: !!user?.id,
-    refetchInterval: 5 * 60 * 1000 // Refetch every 5 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    refetchOnMount: 'always', // Always refetch on mount to catch check-in updates
+    staleTime: 0, // Don't use stale data
   });
 
   // Generate logic-based insight
@@ -54,7 +56,7 @@ const EnergyStateHeader = () => {
           <span>{energyState.dataSources.join(' + ')}</span>
         </div>
 
-        {/* Balance Score - Prominent */}
+        {/* Energy Balance - Prominent */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
@@ -62,8 +64,8 @@ const EnergyStateHeader = () => {
               <span className="text-xs font-light text-muted-foreground ml-1">/100</span>
             </div>
             <MetricInfoModal
-              title="Balance Score"
-              description="Your current energy regulation state. 0-40: Depleted (deep rest needed). 40-60: Managing (support helpful). 60-75: Strong (performing well). 75-100: Peak (optimal regulation)."
+              title="Energy Balance"
+              description="Your current energy balance (0-100). Ranges: Depleted (0-40) - deep rest needed, Managing (40-60) - holding steady, Strong (60-75) - performing well, Peak (75-100) - optimal regulation."
               className="ml-1"
             />
           </div>
