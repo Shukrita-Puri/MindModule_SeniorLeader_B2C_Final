@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, Sparkles } from 'lucide-react';
@@ -10,11 +10,10 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 const RecommendedPlan = () => {
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<{
-    soundbath: Recommendation | null;
-    guidedPractice: Recommendation | null;
-    microPractice: Recommendation | null;
+    practices: Recommendation[];
+    recommendedCount: number;
     reasoning: string;
-  } | null>(null);
+  }>({ practices: [], recommendedCount: 0, reasoning: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,18 +22,27 @@ const RecommendedPlan = () => {
 
   const loadRecommendations = async () => {
     setLoading(true);
-    // Compute energy state first, then pass to recommendations
     const energyState = await computeEnergyState();
     const recs = await generateRecommendations(energyState);
     setRecommendations(recs);
     setLoading(false);
   };
 
-  if (loading || !recommendations) {
+  if (loading) {
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground animate-pulse">
           Analyzing your energy state...
+        </p>
+      </div>
+    );
+  }
+
+  if (recommendations.practices.length === 0) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Complete your daily check-in to see personalized recommendations.
         </p>
       </div>
     );
@@ -50,23 +58,15 @@ const RecommendedPlan = () => {
     }
   };
 
-  const allRecs = [
-    recommendations.soundbath,
-    recommendations.guidedPractice,
-    recommendations.microPractice
-  ].filter(Boolean) as Recommendation[];
-
   return (
     <div className="space-y-4">
-      {/* Reasoning */}
       <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
         <Sparkles className="w-4 h-4 text-saffron flex-shrink-0 mt-0.5" />
         <p className="leading-relaxed">{recommendations.reasoning}</p>
       </div>
 
-      {/* Recommendations */}
       <div className="space-y-3">
-        {allRecs.map((rec) => (
+        {recommendations.practices.map((rec) => (
           <Card
             key={rec.id}
             className="cursor-pointer group hover:bg-card/50 transition-all"
@@ -99,7 +99,6 @@ const RecommendedPlan = () => {
         ))}
       </div>
 
-      {/* View All */}
       <Button
         variant="ghost"
         size="sm"
