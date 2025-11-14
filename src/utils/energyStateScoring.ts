@@ -13,12 +13,12 @@
 
 export function getCheckInScore(outcome: string): number {
   const scoreMap: Record<string, number> = {
-    'pause': 10,           // I'm stressed/overwhelmed
-    'power-up': 20,        // I'm drained/tired
-    'presence': 30,        // I'm scattered/unfocused
-    'calm': 25,            // I'm anxious/tense
-    'ready': 80,           // I'm motivated/ready
-    'good': 90             // I'm good / take me to homepage
+    'pause': 10,           // I'm stressed/overwhelmed (Depleted)
+    'power-up': 20,        // I'm drained/tired (Depleted)
+    'steady': 50,          // I'm feeling steady and balanced (Managing)
+    'presence': 55,        // I'm scattered/unfocused (Managing)
+    'focused': 70,         // I'm focused and energized (Strong)
+    'ready': 80            // I'm motivated and ready (Peak)
   };
   
   return scoreMap[outcome] || 50; // Default to 50 if unknown
@@ -271,6 +271,68 @@ export function getRecommendation(
   
   // ==================== DEPLETED TIER ====================
   if (energyTier === 'depleted') {
+    // Differentiate by CHECK-IN OUTCOME (type of depletion)
+    
+    if (checkInOutcome === 'pause') {
+      // STRESSED/OVERWHELMED → Need grounding and calming
+      return {
+        primary: 'pause',
+        primarySubtype: calendarMetrics.pressure === 'high' ? 'composure' : 'grounding',
+        secondary: 'renewal',
+        secondarySubtype: 'restore',
+        contextStatement: formatContextStatement(
+          checkInOutcome, balance, timeOfDay,
+          calendarMetrics.pressure === 'high'
+            ? 'high demands require maintaining composure under stress'
+            : 'focus on grounding and releasing stress'
+        )
+      };
+    }
+    
+    if (checkInOutcome === 'power-up') {
+      // DRAINED/TIRED → Could need rest OR gentle energizing
+      if (wearableFunction === 'low' && calendarMetrics.pressure !== 'high') {
+        // Very low physiological readiness + no pressure = DEEP REST
+        return {
+          primary: 'pause',
+          primarySubtype: 'deep-calm',
+          secondary: 'renewal',
+          secondarySubtype: 'restore',
+          contextStatement: formatContextStatement(
+            checkInOutcome, balance, timeOfDay,
+            'your body needs deep rest—recovery is essential before you take on anything else'
+          )
+        };
+      } else {
+        // Needs gentle energizing
+        return {
+          primary: 'renewal',
+          primarySubtype: 'recharge',
+          secondary: 'pause',
+          secondarySubtype: 'grounding',
+          contextStatement: formatContextStatement(
+            checkInOutcome, balance, timeOfDay,
+            'gentle recharging practices will restore your energy'
+          )
+        };
+      }
+    }
+    
+    if (checkInOutcome === 'presence') {
+      // SCATTERED/UNFOCUSED → Flow (activate) + Pause (grounding)
+      return {
+        primary: 'flow',
+        primarySubtype: 'activate',
+        secondary: 'pause',
+        secondarySubtype: 'grounding',
+        contextStatement: formatContextStatement(
+          checkInOutcome, balance, timeOfDay,
+          'lack of focus calls for activation with grounding support to restore attention'
+        )
+      };
+    }
+    
+    // Default depleted (fallback for old outcomes or no check-in)
     let secondarySubtype: MasterySubtype = 'grounding';
     let recommendation = '';
     

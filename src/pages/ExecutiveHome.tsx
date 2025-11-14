@@ -92,8 +92,8 @@ const ExecutiveHome = () => {
               title="How Your Ritual is Created"
               description={
                 user?.user_metadata?.plan_tier === 'super_pro' 
-                  ? "Your ritual is personalized based on your daily check-in, recovery data from your wearable, and upcoming calendar demands."
-                  : "Your ritual is personalized based on your daily check-in and upcoming calendar demands."
+                  ? "Your ritual is personalized based on your Energy State Score (check-in + recovery data + circadian rhythm) and upcoming calendar demands."
+                  : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm)."
               }
             />
           </div>
