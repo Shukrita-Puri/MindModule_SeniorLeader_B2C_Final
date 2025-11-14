@@ -35,7 +35,7 @@ const WeeklyRitualStreak = () => {
         
       if (error) throw error;
       
-      // Map Monday-Sunday for this week
+      // Map Monday-Sunday for this week, preserving historical completion data
       const weekDays = [];
       for (let i = 0; i < 7; i++) {
         const date = new Date(monday);
@@ -44,11 +44,13 @@ const WeeklyRitualStreak = () => {
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
         const todayStr = today.toISOString().split('T')[0];
         const isToday = dateStr === todayStr;
+        const isFuture = date > today;
         
         const completion = data?.find(d => d.ritual_date === dateStr);
-        const status = completion?.completion_status || 'skipped';
+        // Keep historical data: if completion exists, use it; otherwise only mark as skipped if past date
+        const status = completion?.completion_status || (isFuture ? 'skipped' : 'skipped');
         
-        weekDays.push({ date: dateStr, day: dayName, isToday, status });
+        weekDays.push({ date: dateStr, day: dayName, isToday, status, isFuture });
       }
       
       return weekDays;
