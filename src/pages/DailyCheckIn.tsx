@@ -139,7 +139,10 @@ const DailyCheckIn = () => {
     // Invalidate energy-state query to force refetch
     queryClient.invalidateQueries({ queryKey: ['energy-state'] });
     
-    navigate('/executive-home');
+    // Add small delay to ensure localStorage write completes before navigation
+    setTimeout(() => {
+      navigate('/executive-home');
+    }, 100);
   };
 
   const handleSkipToHome = async () => {

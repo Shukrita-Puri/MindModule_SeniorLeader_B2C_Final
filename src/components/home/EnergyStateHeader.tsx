@@ -22,6 +22,7 @@ const EnergyStateHeader = () => {
     enabled: !!user?.id,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
     refetchOnMount: 'always', // Always refetch on mount to catch check-in updates
+    refetchOnWindowFocus: true, // Refetch when window regains focus
     staleTime: 0, // Don't use stale data
   });
 

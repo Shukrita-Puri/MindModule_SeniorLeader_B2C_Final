@@ -318,52 +318,96 @@ function detectPracticePattern(practiceHistory: any[]) {
 }
 
 // Daily Ritual Recommendation
-export function getDailyRitualRecommendation() {
+export function getDailyRitualRecommendation(energyState: any) {
   const hour = new Date().getHours();
   const checkIn = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
   const hasCheckIn = checkIn.timestamp && new Date(checkIn.timestamp).toDateString() === new Date().toDateString();
   
-  // Evening mode (6pm-12am)
-  if (hour >= 18) {
+  // If no check-in in morning, prompt for it
+  if (hour < 12 && !hasCheckIn) {
     return {
-      title: 'Close Your Day',
-      subtitle: 'Reflect and restore before tomorrow',
-      icon: 'Waves',
-      ctaLabel: 'Evening Wind-Down',
-      route: '/recalibrate/pause'
+      title: 'Set Your Intention',
+      subtitle: 'How are you showing up today?',
+      icon: 'Target',
+      ctaLabel: 'Daily Check-in',
+      route: '/daily-check-in'
     };
   }
   
-  // Morning mode (6am-12pm)
-  if (hour < 12) {
-    if (!hasCheckIn) {
-      return {
-        title: 'Set Your Intention',
-        subtitle: 'How are you showing up today?',
+  // If energy state is available, use its recommendation priority
+  if (energyState && energyState.recommendationPriority) {
+    const priority = energyState.recommendationPriority;
+    
+    // Map priority to ritual recommendation
+    const ritualMap: Record<string, any> = {
+      'rest': {
+        title: 'Deep Restoration Needed',
+        subtitle: 'Your system needs recovery',
+        icon: 'Waves',
+        ctaLabel: 'Rest Practice',
+        route: '/recalibrate/pause'
+      },
+      'restore': {
+        title: 'Restore Your Energy',
+        subtitle: 'Gentle practices to rebuild',
+        icon: 'Waves',
+        ctaLabel: 'Restorative Practice',
+        route: '/recalibrate/pause'
+      },
+      'activate': {
+        title: 'Build Your Energy',
+        subtitle: 'Energizing practices',
+        icon: 'Zap',
+        ctaLabel: 'Activation Practice',
+        route: '/recalibrate/power-up'
+      },
+      'ground': {
+        title: 'Ground Your Energy',
+        subtitle: 'Transition and consolidate',
+        icon: 'Waves',
+        ctaLabel: 'Grounding Practice',
+        route: '/soundscapes'
+      },
+      'center_focus': {
+        title: 'Center Your Focus',
+        subtitle: 'Reduce mental scatter',
         icon: 'Target',
-        ctaLabel: 'Daily Check-in',
-        route: '/daily-check-in'
-      };
-    } else {
-      return {
-        title: 'Get Ready for the Day',
-        subtitle: getEnergyInsight(checkIn.outcome),
-        icon: getOutcomeIcon(checkIn.outcome),
-        ctaLabel: getRecommendedAction(checkIn),
-        route: getRecommendedRoute(checkIn)
-      };
-    }
+        ctaLabel: 'Centering Practice',
+        route: '/recalibrate/presence'
+      },
+      'calm_cool': {
+        title: 'Calm Your System',
+        subtitle: 'Reduce overwhelm',
+        icon: 'Waves',
+        ctaLabel: 'Calming Practice',
+        route: '/recalibrate/pause'
+      },
+      'restore_energize': {
+        title: 'Restore & Energize',
+        subtitle: 'Hybrid approach for busy mornings',
+        icon: 'Zap',
+        ctaLabel: 'Balanced Practice',
+        route: '/recalibrate/power-up'
+      },
+      'maintain': {
+        title: 'Maintain Your State',
+        subtitle: 'Grounding to sustain peak',
+        icon: 'Waves',
+        ctaLabel: 'Grounding Practice',
+        route: '/soundscapes'
+      }
+    };
+    
+    return ritualMap[priority] || ritualMap['restore'];
   }
   
-  // Afternoon mode (12pm-6pm)
+  // Fallback if no energy state available
   return {
     title: 'Recalibrate Your Energy',
-    subtitle: hasCheckIn 
-      ? getEnergyInsight(checkIn.outcome)
-      : 'Take a moment to reset',
+    subtitle: 'Take a moment to reset',
     icon: 'Zap',
-    ctaLabel: getRecommendedAction(checkIn) || 'Quick Reset',
-    route: getRecommendedRoute(checkIn) || '/recalibrate'
+    ctaLabel: 'Quick Reset',
+    route: '/recalibrate'
   };
 }
 
