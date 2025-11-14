@@ -13,6 +13,7 @@ import {
   getCalendarMetrics,
   getCircadianScore,
   getEnergyTier,
+  getTimeOfDay,
   getRecommendation,
   type WearableFunction,
   type CalendarLoad,
@@ -46,7 +47,8 @@ export interface CurrentEnergyState {
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
-  const checkInData = JSON.parse(localStorage.getItem('todayCheckIn') || '{}');
+  // Try both possible localStorage keys for check-in
+  const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || localStorage.getItem('todayCheckIn') || '{}');
   const checkInSkipped = JSON.parse(localStorage.getItem('checkInSkipped') || '{}');
   const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
   const calendarData = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
@@ -80,11 +82,10 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   
   const recommendation = getRecommendation(
     energyTier,
-    calendarLoad,
-    calendarPressure,
+    { load: calendarLoad, pressure: calendarPressure, density: calendarDensity, pressureScore: 0, loadScore: 0 },
     hasWearable ? getWearableFunction(wearableData) : 'medium',
-    checkInData.outcome,
-    new Date().getHours()
+    checkInData.outcome || null,
+    getTimeOfDay(new Date().getHours())
   );
 
   return {
