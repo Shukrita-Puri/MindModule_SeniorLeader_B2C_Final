@@ -262,9 +262,11 @@ function formatContextStatement(
     'peak': 'Peak'
   };
   
-  // Tier explanations
+  // Tier explanations (time-aware for depleted)
   const tierMeanings: Record<EnergyTier, string> = {
-    'depleted': 'Depleted energy means you need deep rest and restoration before taking on demands',
+    'depleted': timeOfDay === 'evening' 
+      ? 'Depleted energy means you need calming techniques and restoration to prepare for deep rest tonight'
+      : 'Depleted energy means you need deep rest and restoration before taking on demands',
     'managing': 'Managing energy means you can maintain steady performance with balanced practices',
     'strong': 'Strong energy means you can lean into flow states with grounding support',
     'peak': 'Peak energy means you can optimize high performance and sustain momentum'
