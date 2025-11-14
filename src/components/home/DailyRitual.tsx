@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -120,6 +120,29 @@ const DailyRitual = () => {
     });
   };
 
+  const handleMarkComplete = async (practiceId: string) => {
+    if (!user?.id || completedPracticeIds.includes(practiceId)) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const newCompletedIds = [...completedPracticeIds, practiceId];
+    
+    const { error } = await supabase
+      .from('daily_ritual_completions')
+      .upsert({
+        user_id: user.id,
+        ritual_date: today,
+        completed_practice_ids: newCompletedIds,
+        recommended_practice_ids: recommendations.practices.map(p => p.id),
+        recommended_practices_count: recommendations.recommendedCount,
+        completion_status: newCompletedIds.length >= recommendations.recommendedCount ? 'full' : 'partial'
+      });
+    
+    if (!error) {
+      setCompletedPracticeIds(newCompletedIds);
+      checkRitualCompletion();
+    }
+  };
+
   const handleStartRitual = async () => {
     const practices = recommendations.practices;
     if (practices.length === 0) return;
@@ -219,61 +242,69 @@ const DailyRitual = () => {
   const { practices } = recommendations;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5 shadow-sm">
+    <div className="bg-white/40 border border-black/10 rounded-lg p-5 shadow-md">
       {/* Progress indicator */}
       {ritualStatus.status === 'partial' && (
-        <div className="mb-4 text-sm text-muted-foreground">
+        <div className="mb-3 text-xs text-muted-foreground">
           {ritualStatus.completedCount} of {ritualStatus.totalCount} practices completed
         </div>
       )}
 
       {/* Recommended Content with Thumbnails */}
-      <div className="grid grid-cols-1 gap-4 mb-4">
+      <div className="grid grid-cols-1 gap-3 mb-4">
         {practices.map((practice) => {
           const isCompleted = completedPracticeIds.includes(practice.id);
+          
           return (
-            <button
+            <div
               key={practice.id}
-              onClick={() => navigateToPractice(practice)}
-              disabled={isCompleted}
+              onClick={() => !isCompleted && navigateToPractice(practice)}
+              onTouchStart={(e) => {
+                if (isCompleted) return;
+                const touch = e.touches[0];
+                (e.currentTarget as any).swipeStartX = touch.clientX;
+              }}
+              onTouchEnd={(e) => {
+                if (isCompleted) return;
+                const touch = e.changedTouches[0];
+                const startX = (e.currentTarget as any).swipeStartX;
+                if (startX && startX - touch.clientX > 100) {
+                  handleMarkComplete(practice.id);
+                }
+              }}
               className={cn(
-                "w-full flex items-center gap-3 p-4 rounded-lg border transition-all",
+                "relative w-full flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
                 isCompleted 
-                  ? "opacity-60 cursor-not-allowed border-primary/20 bg-primary/5"
-                  : "hover:shadow-lg hover:border-primary/30 border-border"
+                  ? "opacity-60 cursor-not-allowed border-black/5 bg-black/5"
+                  : "hover:shadow-sm hover:border-primary/20 border-black/10 bg-white/60"
               )}
             >
               {/* Thumbnail on LEFT */}
               <img 
                 src={practice.thumbnail} 
                 alt={practice.title}
-                className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
               />
               
               {/* Content NEXT TO thumbnail */}
               <div className="flex-1 text-left">
-                <h4 className="font-medium text-foreground mb-1">
+                <h4 className="text-sm font-medium text-foreground">
                   {practice.title}
                 </h4>
-                <Badge variant="outline" className="text-xs">
-                  {practice.duration} min
-                </Badge>
               </div>
               
-              {/* Play/Check icon on RIGHT */}
-              <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                isCompleted 
-                  ? "bg-primary/90" 
-                  : "bg-primary/5"
-              )}>
-                {isCompleted ? (
-                  <Check size={20} className="text-white" />
-                ) : (
-                  <Play size={20} className="text-primary ml-0.5" />
-                )}
-              </div>
-            </button>
+              {/* Duration badge on TOP RIGHT */}
+              <Badge variant="outline" className="absolute top-2 right-2 text-xs">
+                {practice.duration}m
+              </Badge>
+              
+              {/* Check icon on RIGHT (only when completed) */}
+              {isCompleted && (
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/90">
+                  <Check size={16} className="text-white" />
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
