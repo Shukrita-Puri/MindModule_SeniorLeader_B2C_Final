@@ -132,6 +132,7 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   const practices: Recommendation[] = [];
   const usedIds = new Set<string>();
   
+  // First pass: try to match exact content types
   for (const type of practiceConfig.types) {
     const matching = scoredContent.find(c => 
       c.content.contentType === type && !usedIds.has(c.content.id)
@@ -142,6 +143,29 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
       usedIds.add(matching.content.id);
     }
   }
+  
+  // Second pass: fill remaining slots with best alternatives
+  while (practices.length < practiceConfig.count) {
+    const nextBest = scoredContent.find(c => !usedIds.has(c.content.id));
+    
+    if (!nextBest) {
+      console.warn(`⚠️ Only ${practices.length} practices available, requested ${practiceConfig.count}`);
+      break;
+    }
+    
+    practices.push(createRecommendation(
+      nextBest.content, 
+      primary, 
+      getWhyNow(nextBest.content.contentType, primary)
+    ));
+    usedIds.add(nextBest.content.id);
+  }
+  
+  console.log('✅ Recommendations:', {
+    requested: practiceConfig.count,
+    returned: practices.length,
+    types: practices.map(p => p.contentType)
+  });
   
   return {
     practices,

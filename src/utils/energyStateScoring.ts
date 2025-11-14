@@ -267,7 +267,7 @@ function formatContextStatement(
     'depleted': timeOfDay === 'evening' 
       ? 'Depleted energy means you need calming techniques and restoration to prepare for deep rest tonight'
       : 'Depleted energy means you need deep rest and restoration before taking on demands',
-    'managing': 'Managing energy means you can maintain steady performance with balanced practices',
+    'managing': 'Managing energy means you need a mix of grounding and recovery practices to maintain performance',
     'strong': 'Strong energy means you can lean into flow states with grounding support',
     'peak': 'Peak energy means you can optimize high performance and sustain momentum'
   };
