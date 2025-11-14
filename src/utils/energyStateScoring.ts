@@ -215,7 +215,8 @@ export type MasteryType = 'pause' | 'flow' | 'renewal';
 export type MasterySubtype = 
   | 'deep-calm' | 'grounding' | 'composure' 
   | 'activate' | 'optimize' | 'maintain-peak'
-  | 'recharge' | 'restore' | 'refresh';
+  | 'recharge' | 'restore' | 'refresh'
+  | 'focus' | 'clarity' | 'executive-presence' | 'restore-resilience' | 'reset-energy'; // Legacy values for compatibility
 
 export interface Recommendation {
   primary: MasteryType;
