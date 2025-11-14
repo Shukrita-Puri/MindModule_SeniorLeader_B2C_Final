@@ -221,6 +221,7 @@ export type Database = {
           id: string
           micro_exercise_completed: boolean | null
           micro_exercise_completed_at: string | null
+          recommended_practices_count: number | null
           ritual_date: string
           soundscape_completed: boolean | null
           soundscape_completed_at: string | null
@@ -235,6 +236,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          recommended_practices_count?: number | null
           ritual_date: string
           soundscape_completed?: boolean | null
           soundscape_completed_at?: string | null
@@ -249,6 +251,7 @@ export type Database = {
           id?: string
           micro_exercise_completed?: boolean | null
           micro_exercise_completed_at?: string | null
+          recommended_practices_count?: number | null
           ritual_date?: string
           soundscape_completed?: boolean | null
           soundscape_completed_at?: string | null

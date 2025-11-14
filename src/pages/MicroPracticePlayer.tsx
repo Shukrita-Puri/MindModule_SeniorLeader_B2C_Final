@@ -90,9 +90,7 @@ const MicroPracticePlayer = () => {
           .eq('ritual_date', today)
           .single();
         
-        const allComplete = ritualData?.soundscape_completed && 
-                           ritualData?.guided_practice_completed;
-        
+        // Mark micro exercise as completed
         await supabase
           .from('daily_ritual_completions')
           .upsert({
@@ -100,10 +98,30 @@ const MicroPracticePlayer = () => {
             ritual_date: today,
             micro_exercise_completed: true,
             micro_exercise_completed_at: new Date().toISOString(),
-            completion_status: allComplete ? 'full' : 'partial'
+            completion_status: 'partial'
           }, {
             onConflict: 'user_id,ritual_date'
           });
+        
+        // Check if ALL recommended practices are now done
+        if (ritualData) {
+          const completed = [
+            ritualData.soundscape_completed,
+            ritualData.guided_practice_completed,
+            true // micro exercise just completed
+          ].filter(Boolean).length;
+          
+          const totalRecommended = ritualData.recommended_practices_count || 3;
+          
+          // Update to "full" if all recommended practices are done
+          if (completed === totalRecommended) {
+            await supabase
+              .from('daily_ritual_completions')
+              .update({ completion_status: 'full' })
+              .eq('user_id', user.id)
+              .eq('ritual_date', today);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to save completion:', error);

@@ -234,6 +234,8 @@ function getCheckInEmotion(checkInOutcome: string | null): string {
     'pause': 'stressed and overwhelmed',
     'power-up': 'drained and tired',
     'presence': 'scattered and unfocused',
+    'steady': 'feeling steady and balanced',
+    'focused': 'focused and energized',
     'calm': 'anxious and tense',
     'ready': 'motivated and ready',
     'good': 'good'
@@ -272,10 +274,10 @@ function formatContextStatement(
   const tierMeaning = tierMeanings[energyTier];
   
   if (emotion) {
-    return `You mentioned ${emotion}. This ${timeLabel} your energy is ${tierName}. ${tierMeaning}.`;
+    return `You mentioned you are ${emotion}. Hence I understand your energy is ${tierName} ${timeLabel}. ${tierMeaning}.`;
   }
   
-  return `This ${timeLabel} your energy is ${tierName}. ${tierMeaning}.`;
+  return `Your energy is ${tierName} ${timeLabel}. ${tierMeaning}.`;
 }
 
 export function getRecommendation(
