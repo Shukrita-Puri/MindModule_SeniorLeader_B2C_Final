@@ -139,13 +139,13 @@ function selectInsightTemplate(
     if (timeLabel === 'morning') {
       if (checkInOutcome === 'pause') {
         return {
-          stateObservation: 'Managing stress this morning',
+          stateObservation: 'Feeling stressed this morning',
           recommendation: 'Recommended: calming practices to protect peak hours'
         };
       }
       if (checkInOutcome === 'power-up') {
         return {
-          stateObservation: 'Managing energy levels this morning',
+          stateObservation: 'Energy holding steady this morning',
           contextClause: hasCalendar && calendarDensity > 0 ? 'Support helpful before demands begin' : undefined,
           recommendation: 'Recommended: activating practices to optimize energy'
         };
@@ -157,7 +157,7 @@ function selectInsightTemplate(
         };
       }
       return {
-        stateObservation: 'Managing energy levels in morning',
+        stateObservation: 'Steady energy this morning',
         recommendation: 'Recommended: grounding practices to build stability'
       };
     }
@@ -165,7 +165,7 @@ function selectInsightTemplate(
     if (timeLabel === 'afternoon') {
       if (checkInOutcome === 'pause') {
         return {
-          stateObservation: 'Managing stress this afternoon',
+          stateObservation: 'Feeling stressed this afternoon',
           contextClause: hasCalendar && calendarDensity > 2 ? `With ${calendarDensity} meetings ahead, centering critical` : undefined,
           recommendation: 'Recommended: calming practices to protect decision quality'
         };
@@ -179,12 +179,12 @@ function selectInsightTemplate(
       }
       if (checkInOutcome === 'power-up') {
         return {
-          stateObservation: 'Managing energy levels this afternoon',
+          stateObservation: 'Energy holding steady this afternoon',
           recommendation: 'Recommended: brief energizing practices to sustain performance'
         };
       }
       return {
-        stateObservation: 'Managing afternoon demands',
+        stateObservation: 'Steady energy this afternoon',
         recommendation: 'Recommended: grounding practices to maintain stability'
       };
     }
@@ -198,12 +198,12 @@ function selectInsightTemplate(
     }
     if (checkInOutcome === 'power-up') {
       return {
-        stateObservation: 'Managing energy levels at day end',
+        stateObservation: 'Energy holding steady at day end',
         recommendation: 'Recommended: gentle restoration practices'
       };
     }
     return {
-      stateObservation: 'Managing energy levels this evening',
+      stateObservation: 'Steady energy this evening',
       recommendation: 'Recommended: grounding practices to wind down'
     };
   }

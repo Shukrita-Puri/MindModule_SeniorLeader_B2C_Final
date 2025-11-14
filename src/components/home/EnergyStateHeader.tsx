@@ -66,7 +66,7 @@ const EnergyStateHeader = () => {
             </div>
             <MetricInfoModal
               title="Energy Balance"
-              description="Your current energy balance (0-100). Ranges: Depleted (0-40) - deep rest needed, Managing (40-60) - holding steady, Strong (60-75) - performing well, Peak (75-100) - optimal regulation."
+              description="Your current energy balance (0-100). Ranges: Depleted (0-40) - deep rest needed, Steady (40-60) - holding steady, Strong (60-75) - performing well, Peak (75-100) - optimal regulation."
               className="ml-1"
             />
           </div>
