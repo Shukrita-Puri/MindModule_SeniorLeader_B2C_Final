@@ -118,6 +118,14 @@ const DailyRitual = () => {
     setLoading(true);
     const energyState = await computeEnergyState();
     const recs = await generateRecommendations(energyState);
+    
+    console.log('🎯 Daily Ritual Recommendations:', {
+      soundbath: recs.soundbath?.title || 'NULL',
+      guidedPractice: recs.guidedPractice?.title || 'NULL',
+      microPractice: recs.microPractice?.title || 'NULL',
+      totalRecommended: [recs.soundbath, recs.guidedPractice, recs.microPractice].filter(Boolean).length
+    });
+    
     setRecommendations(recs);
     setLoading(false);
   };
