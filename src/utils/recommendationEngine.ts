@@ -4,6 +4,7 @@ import { mapCheckInToTags, getEnergyStateFromCheckIn } from './checkInToTags';
 import { CONTEXT_TAGS, getTimeOfDayTags, ENERGY_TAGS } from './tagMappings';
 import { getContentByTags } from '@/data/practicesAndSoundscapes';
 import { CurrentEnergyState } from './energyStateEngine';
+import { type MasteryType, type MasterySubtype } from './energyStateScoring';
 
 export interface Recommendation {
   id: string;
@@ -23,54 +24,24 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   microPractice: Recommendation | null;
   reasoning: string;
 }> {
-  // Get current context
-  const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
-  const checkInOutcome = checkInData.outcome || 'pause';
-  
-  const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
-  const upcomingEvent = calendarEvents[0];
-  
-  // Build recommendation tags based on energy state priority
-  let recommendationTags: string[] = [];
-  
-  // Use energy state recommendation priority to drive tags
-  switch (energyState.recommendationPriority) {
-    case 'rest':
-      recommendationTags = ['gentle', 'cooling', 'earth_up', 'grounding', 'release'];
-      break;
-    case 'restore':
-      recommendationTags = ['grounding', 'centering', 'water_up', 'balancing', 'moderate'];
-      break;
-    case 'activate':
-      recommendationTags = ['activation', 'fire_up', 'moderate', 'pre-performance', 'energizing'];
-      break;
-    case 'maintain':
-      recommendationTags = ['centering', 'balancing', 'moderate', 'grounding'];
-      break;
-    case 'ground':
-      recommendationTags = ['grounding', 'centering', 'focus', 'moderate', 'cooling'];
-      break;
-    case 'center_focus':
-      recommendationTags = ['centering', 'focus', 'mental_clarity', 'grounding', 'air_down'];
-      break;
-    case 'calm_cool':
-      recommendationTags = ['cooling', 'fire_down', 'nervous_system', 'grounding', 'calming'];
-      break;
-    case 'restore_energize':
-      recommendationTags = ['grounding', 'activation', 'moderate', 'fire_up', 'pre-performance'];
-      break;
+  // Use new recommendation system
+  if (!energyState.recommendation) {
+    return { 
+      soundbath: null, 
+      guidedPractice: null, 
+      microPractice: null, 
+      reasoning: 'Unable to generate recommendations - no energy state' 
+    };
   }
   
-  // Add energy tags from computed state
-  recommendationTags.push(...energyState.energyTags);
+  const { primary, primarySubtype, secondary, secondarySubtype, contextStatement } = energyState.recommendation;
   
-  // Add context tags from computed state
-  recommendationTags.push(...energyState.contextTags);
+  // Map mastery types to content tags
+  const primaryTags = getMasteryTags(primary, primarySubtype);
+  const secondaryTags = secondary ? getMasteryTags(secondary, secondarySubtype) : [];
   
-  // Adjust based on calendar
-  if (upcomingEvent) {
-    recommendationTags.push('pre-meeting', 'pre-performance', 'centering');
-  }
+  // Combine tags with priority to primary
+  const recommendationTags = [...primaryTags, ...secondaryTags];
   
   // Get matching content
   const allContent = getContentByTags(recommendationTags);
@@ -80,22 +51,45 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   const guidedPractices = allContent.filter(c => c.contentType === 'guided-practice');
   const microPractices = allContent.filter(c => c.contentType === 'micro-practice');
   
-  // Generate reasoning
-  let reasoning = `Based on your energy state (${energyState.state}, ${Math.round(energyState.overallBalance)}/100 balance)`;
-  if (energyState.recommendationPriority === 'rest') reasoning += `, your system needs rest`;
-  if (energyState.recommendationPriority === 'activate') reasoning += `, you're ready to activate`;
-  if (upcomingEvent) reasoning += `, and upcoming ${upcomingEvent.title}`;
-  reasoning += ` — here's your personalized plan:`;
-  
   return {
-    soundbath: soundbaths[0] ? createRecommendation(soundbaths[0], checkInOutcome, 'Deep immersion to shift your energy state') : null,
-    guidedPractice: guidedPractices[0] ? createRecommendation(guidedPractices[0], checkInOutcome, 'Structured practice to build resilience') : null,
-    microPractice: microPractices[0] ? createRecommendation(microPractices[0], checkInOutcome, 'Quick reset before your next moment') : null,
-    reasoning
+    soundbath: soundbaths[0] ? createRecommendation(soundbaths[0], primary, 'Deep immersion to shift your energy state') : null,
+    guidedPractice: guidedPractices[0] ? createRecommendation(guidedPractices[0], primary, 'Structured practice to build resilience') : null,
+    microPractice: microPractices[0] ? createRecommendation(microPractices[0], primary, 'Quick reset before your next moment') : null,
+    reasoning: contextStatement
   };
 }
 
-function createRecommendation(content: any, checkInOutcome: string, whyNow: string): Recommendation {
+// Helper function to map mastery types to content tags
+function getMasteryTags(mastery: MasteryType, subtype?: MasterySubtype): string[] {
+  if (mastery === 'pause') {
+    if (subtype === 'deep-calm') return ['gentle', 'cooling', 'earth_up', 'grounding', 'release'];
+    if (subtype === 'grounding') return ['grounding', 'centering', 'water_up', 'balancing', 'moderate'];
+    if (subtype === 'composure') return ['centering', 'focus', 'moderate', 'grounding', 'cooling'];
+    return ['grounding', 'centering', 'calming'];
+  }
+  
+  if (mastery === 'renewal') {
+    if (subtype === 'recharge') return ['activation', 'moderate', 'pre-performance', 'energizing'];
+    if (subtype === 'restore') return ['grounding', 'centering', 'water_up', 'balancing', 'moderate'];
+    if (subtype === 'refresh') return ['gentle', 'cooling', 'moderate'];
+    return ['grounding', 'energizing', 'moderate'];
+  }
+  
+  if (mastery === 'flow') {
+    if (subtype === 'optimize') return ['centering', 'focus', 'mental_clarity', 'air_down'];
+    if (subtype === 'activate') return ['activation', 'fire_up', 'pre-performance', 'energizing'];
+    if (subtype === 'maintain-peak') return ['centering', 'balancing', 'moderate', 'focus'];
+    return ['focus', 'centering', 'activation'];
+  }
+  
+  return ['moderate', 'grounding'];
+}
+
+function createRecommendation(
+  content: any,
+  category: string,
+  whyNow: string
+): Recommendation {
   return {
     id: content.id,
     title: content.title,

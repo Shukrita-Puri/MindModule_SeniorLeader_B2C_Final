@@ -97,6 +97,9 @@ const ExecutiveHome = () => {
               }
             />
           </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            A curated sequence of practices designed to shift your energy state and build lasting mental fitness.
+          </p>
           <DailyRitual />
         </div>
 

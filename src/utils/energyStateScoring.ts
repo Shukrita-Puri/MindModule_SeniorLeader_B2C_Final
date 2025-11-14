@@ -247,16 +247,35 @@ function formatContextStatement(
   checkInOutcome: string | null,
   balance: number,
   timeOfDay: TimeOfDay,
-  recommendation: string
+  energyTier: EnergyTier
 ): string {
   const emotion = getCheckInEmotion(checkInOutcome);
   const timeLabel = timeOfDay === 'morning' ? 'this morning' : timeOfDay === 'afternoon' ? 'this afternoon' : 'this evening';
   
+  // Tier display names
+  const tierNames: Record<EnergyTier, string> = {
+    'depleted': 'Depleted',
+    'managing': 'Managing', 
+    'strong': 'Strong',
+    'peak': 'Peak'
+  };
+  
+  // Tier explanations
+  const tierMeanings: Record<EnergyTier, string> = {
+    'depleted': 'Depleted energy means you need deep rest and restoration before taking on demands',
+    'managing': 'Managing energy means you can maintain steady performance with balanced practices',
+    'strong': 'Strong energy means you can lean into flow states with grounding support',
+    'peak': 'Peak energy means you can optimize high performance and sustain momentum'
+  };
+  
+  const tierName = tierNames[energyTier];
+  const tierMeaning = tierMeanings[energyTier];
+  
   if (emotion) {
-    return `You mentioned, you are feeling ${emotion}, and your energy is ${balance}/100. ${recommendation.charAt(0).toUpperCase() + recommendation.slice(1)} ${timeLabel}.`;
+    return `You mentioned ${emotion}. This ${timeLabel} your energy is ${tierName}. ${tierMeaning}.`;
   }
   
-  return `Your energy is at ${balance}/100 ${timeLabel}. ${recommendation.charAt(0).toUpperCase() + recommendation.slice(1)}.`;
+  return `This ${timeLabel} your energy is ${tierName}. ${tierMeaning}.`;
 }
 
 export function getRecommendation(
@@ -281,10 +300,7 @@ export function getRecommendation(
         secondary: 'renewal',
         secondarySubtype: 'restore',
         contextStatement: formatContextStatement(
-          checkInOutcome, balance, timeOfDay,
-          calendarMetrics.pressure === 'high'
-            ? 'high demands require maintaining composure under stress'
-            : 'focus on grounding and releasing stress'
+          checkInOutcome, balance, timeOfDay, energyTier
         )
       };
     }
@@ -299,8 +315,7 @@ export function getRecommendation(
           secondary: 'renewal',
           secondarySubtype: 'restore',
           contextStatement: formatContextStatement(
-            checkInOutcome, balance, timeOfDay,
-            'your body needs deep rest—recovery is essential before you take on anything else'
+            checkInOutcome, balance, timeOfDay, energyTier
           )
         };
       } else {
@@ -311,8 +326,7 @@ export function getRecommendation(
           secondary: 'pause',
           secondarySubtype: 'grounding',
           contextStatement: formatContextStatement(
-            checkInOutcome, balance, timeOfDay,
-            'gentle recharging practices will restore your energy'
+            checkInOutcome, balance, timeOfDay, energyTier
           )
         };
       }
@@ -326,8 +340,7 @@ export function getRecommendation(
         secondary: 'pause',
         secondarySubtype: 'grounding',
         contextStatement: formatContextStatement(
-          checkInOutcome, balance, timeOfDay,
-          'lack of focus calls for activation with grounding support to restore attention'
+          checkInOutcome, balance, timeOfDay, energyTier
         )
       };
     }
@@ -358,7 +371,7 @@ export function getRecommendation(
       primarySubtype: 'restore',
       secondary: 'pause',
       secondarySubtype,
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, recommendation)
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
     };
   }
 
@@ -370,7 +383,7 @@ export function getRecommendation(
         primarySubtype: 'composure',
         secondary: 'renewal',
         secondarySubtype: 'refresh',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'with high demands ahead, try steadying your pace with brief reset moments')
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
       };
     } else if (calendarMetrics.load === 'medium') {
       return {
@@ -378,7 +391,7 @@ export function getRecommendation(
         primarySubtype: 'grounding',
         secondary: 'flow',
         secondarySubtype: 'activate',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'moderate demands call for balancing grounding with activation')
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
       };
     } else {
       return {
@@ -386,7 +399,7 @@ export function getRecommendation(
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'low demands mean you can build momentum with focus practices')
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
       };
     }
   }
@@ -399,7 +412,7 @@ export function getRecommendation(
         primarySubtype: 'optimize',
         secondary: 'pause',
         secondarySubtype: 'composure',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'high-pressure moments ahead—lean into practices that support executive presence')
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
       };
     } else {
       return {
@@ -407,7 +420,7 @@ export function getRecommendation(
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'strong energy means you can lean into flow states with grounding support')
+        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
       };
     }
   }
@@ -419,7 +432,7 @@ export function getRecommendation(
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'composure',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'peak morning energy—maximize high-value work with flow states')
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
     };
   } else if (timeOfDay === 'evening') {
     return {
@@ -427,7 +440,7 @@ export function getRecommendation(
       primarySubtype: 'maintain-peak',
       secondary: 'renewal',
       secondarySubtype: 'refresh',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'peak energy sustained—maintain high performance and consider renewal for tomorrow')
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
     };
   } else {
     return {
@@ -435,7 +448,7 @@ export function getRecommendation(
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'grounding',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, 'keep this momentum going with practices that maintain focus and performance')
+      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
     };
   }
 }

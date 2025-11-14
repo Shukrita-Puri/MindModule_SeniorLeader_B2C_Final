@@ -27,7 +27,7 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
           onClick={() => setIsOpen(false)}
         >
           {/* Blur backdrop - only blurs the parent card area */}
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           
           {/* Modal content */}
           <div 
