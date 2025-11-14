@@ -214,10 +214,10 @@ const DailyCheckIn = () => {
                 <Card 
                   className="bg-card/80 backdrop-blur-sm border transition-all duration-300 cursor-pointer hover:bg-card hover:shadow-lg"
                 >
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <IconComponent className="w-6 h-6 text-primary" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <IconComponent className="w-5 h-5 text-primary" />
                       </div>
                       <h3 className="text-base font-body font-medium text-foreground">
                         {outcome.title}
