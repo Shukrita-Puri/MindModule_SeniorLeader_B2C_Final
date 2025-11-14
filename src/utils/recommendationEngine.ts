@@ -18,53 +18,135 @@ export interface Recommendation {
   matchScore: number;
 }
 
+interface PracticeConfig {
+  count: number;
+  reasoning: string;
+  types: ('soundbath' | 'guided-practice' | 'micro-practice')[];
+}
+
+function determineOptimalPracticeCount(energyState: CurrentEnergyState): PracticeConfig {
+  const { energyTier, calendarPressure, calendarLoad } = energyState;
+  
+  if (energyTier === 'depleted') {
+    if (calendarPressure === 'high') {
+      return {
+        count: 2,
+        reasoning: 'You need quick intensive support before your demanding schedule.',
+        types: ['guided-practice', 'micro-practice']
+      };
+    }
+    return {
+      count: 4,
+      reasoning: 'Deep depletion needs comprehensive recovery.',
+      types: ['soundbath', 'guided-practice', 'micro-practice', 'micro-practice']
+    };
+  }
+  
+  if (energyTier === 'managing') {
+    if (calendarLoad === 'high') {
+      return {
+        count: 2,
+        reasoning: 'Targeted support to sustain you through a busy day.',
+        types: ['guided-practice', 'micro-practice']
+      };
+    }
+    return {
+      count: 3,
+      reasoning: 'Balanced ritual to strengthen your foundation.',
+      types: ['soundbath', 'guided-practice', 'micro-practice']
+    };
+  }
+  
+  if (energyTier === 'strong' || energyTier === 'peak') {
+    if (calendarPressure === 'high') {
+      return {
+        count: 2,
+        reasoning: 'Prime yourself for peak performance.',
+        types: ['micro-practice', 'micro-practice']
+      };
+    }
+    return {
+      count: 1,
+      reasoning: 'Light practice to maintain your optimal state.',
+      types: ['micro-practice']
+    };
+  }
+  
+  return {
+    count: 2,
+    reasoning: 'Balanced support for your current state.',
+    types: ['guided-practice', 'micro-practice']
+  };
+}
+
+function getWhyNow(contentType: string, masteryType: MasteryType): string {
+  const map: Record<string, Record<MasteryType, string>> = {
+    'soundbath': {
+      'pause': 'Deep immersion to restore calm and release tension',
+      'flow': 'Soundscape to optimize mental clarity',
+      'renewal': 'Restorative sound journey to recharge'
+    },
+    'guided-practice': {
+      'pause': 'Structured practice to regulate your nervous system',
+      'flow': 'Guided session to activate peak performance',
+      'renewal': 'Restorative practice to rebuild energy'
+    },
+    'micro-practice': {
+      'pause': 'Quick reset to downregulate before your next moment',
+      'flow': 'Brief activation to prime your focus',
+      'renewal': 'Fast recharge to sustain momentum'
+    }
+  };
+  return map[contentType]?.[masteryType] || 'Practice aligned with your current needs';
+}
+
 export async function generateRecommendations(energyState: CurrentEnergyState): Promise<{
-  soundbath: Recommendation | null;
-  guidedPractice: Recommendation | null;
-  microPractice: Recommendation | null;
+  practices: Recommendation[];
+  recommendedCount: number;
   reasoning: string;
 }> {
-  // Use new recommendation system
   if (!energyState.recommendation) {
     return { 
-      soundbath: null, 
-      guidedPractice: null, 
-      microPractice: null, 
+      practices: [],
+      recommendedCount: 0,
       reasoning: 'Unable to generate recommendations - no energy state' 
     };
   }
   
+  const practiceConfig = determineOptimalPracticeCount(energyState);
   const { primary, primarySubtype, secondary, secondarySubtype, contextStatement } = energyState.recommendation;
   
-  // Map mastery types to content tags
   const primaryTags = getMasteryTags(primary, primarySubtype);
   const secondaryTags = secondary ? getMasteryTags(secondary, secondarySubtype) : [];
-  
-  // Combine tags with priority to primary
   const recommendationTags = [...primaryTags, ...secondaryTags];
   
-  // Get matching content with enhanced scoring
   const allContent = getContentByTags(recommendationTags);
   
-  // Score and rank content based on structured tags
   const scoredContent = allContent.map(content => ({
     content,
     score: matchesStructuredTags(content, primary, primarySubtype, recommendationTags)
   }));
   
-  // Sort by score (highest first), then by legacy tag match
   scoredContent.sort((a, b) => b.score - a.score);
   
-  // Split by content type
-  const soundbaths = scoredContent.filter(c => c.content.contentType === 'soundbath').map(c => c.content);
-  const guidedPractices = scoredContent.filter(c => c.content.contentType === 'guided-practice').map(c => c.content);
-  const microPractices = scoredContent.filter(c => c.content.contentType === 'micro-practice').map(c => c.content);
+  const practices: Recommendation[] = [];
+  const usedIds = new Set<string>();
+  
+  for (const type of practiceConfig.types) {
+    const matching = scoredContent.find(c => 
+      c.content.contentType === type && !usedIds.has(c.content.id)
+    );
+    
+    if (matching) {
+      practices.push(createRecommendation(matching.content, primary, getWhyNow(type, primary)));
+      usedIds.add(matching.content.id);
+    }
+  }
   
   return {
-    soundbath: soundbaths[0] ? createRecommendation(soundbaths[0], primary, 'Deep immersion to shift your energy state') : null,
-    guidedPractice: guidedPractices[0] ? createRecommendation(guidedPractices[0], primary, 'Structured practice to build resilience') : null,
-    microPractice: microPractices[0] ? createRecommendation(microPractices[0], primary, 'Quick reset before your next moment') : null,
-    reasoning: contextStatement
+    practices,
+    recommendedCount: practiceConfig.count,
+    reasoning: `${contextStatement} ${practiceConfig.reasoning}`
   };
 }
 
