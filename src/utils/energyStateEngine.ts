@@ -13,12 +13,14 @@ import {
   getCalendarMetrics,
   getCircadianScore,
   getEnergyTier,
+  getEnergySubTier,
   getTimeOfDay,
   getRecommendation,
   type WearableFunction,
   type CalendarLoad,
   type CalendarPressure,
   type EnergyTier,
+  type EnergySubTier,
   type MasteryType,
   type MasterySubtype
 } from './energyStateScoring';
@@ -82,6 +84,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   const energyTier = getEnergyTier(overallBalance);
   
   const recommendation = getRecommendation(
+    overallBalance,  // ✅ PASS BALANCE AS FIRST PARAMETER
     energyTier,
     { load: calendarLoad, pressure: calendarPressure, density: calendarDensity, pressureScore: 0, loadScore: 0 },
     hasWearable ? getWearableFunction(wearableData) : 'medium',
