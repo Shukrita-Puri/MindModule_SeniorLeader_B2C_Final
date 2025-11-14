@@ -265,72 +265,112 @@ export const CONTENT_TAG_MAP: Record<string, ContentTags> = {
 
 export interface ContentRecommendation {
   contentId: string;
+  title: string;
+  route: string;
+  duration: number;
+  intensity: 'gentle' | 'moderate' | 'intense';
   masteryType: MasteryType;
-  masterySubtype?: MasterySubtype;
+  contentType: 'soundscape' | 'guided-practice' | 'micro-practice';
   relevanceScore: number;
-  reason: string;
+}
+
+// Helper function to get content title
+function getContentTitle(contentId: string): string {
+  const titleMap: Record<string, string> = {
+    'tibetan-singing-bowls': 'Tibetan Singing Bowls',
+    'himalayan-monastery-resonance': 'Himalayan Monastery',
+    'earth-resonance-grounding': 'Earth Resonance',
+    'harmonic-calm-foundation': 'Harmonic Calm',
+    'forest-bathing-restoration': 'Forest Bathing',
+    'cathedral-choir-flow': 'Cathedral Choir',
+    'monastic-resonance-stillness': 'Monastic Resonance',
+    'energised-focus-didgeridoo-bowls': 'Energized Focus',
+    'ina-night-fields': 'Night Fields',
+    'tactical-grounding-practice': 'Tactical Grounding',
+    'power-breathing-protocol': 'Power Breathing',
+    'recovery-breathing-practice': 'Recovery Breathing',
+    'physiological-sigh-reset': 'Physiological Sigh',
+    'box-breathing-flow-protocol': 'Box Breathing',
+    'micro-composure': 'Micro Composure',
+    'micro-clarity': 'Micro Clarity',
+    'micro-grounding': 'Micro Grounding',
+    'micro-focus': 'Micro Focus',
+    'micro-reset': 'Micro Reset'
+  };
+  return titleMap[contentId] || contentId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+// Helper function to get content route
+function getContentRoute(contentId: string): string {
+  // Determine route based on content ID pattern
+  if (contentId.includes('tibetan') || contentId.includes('monastery') || contentId.includes('cathedral') || 
+      contentId.includes('earth') || contentId.includes('harmonic') || contentId.includes('forest') || 
+      contentId.includes('monastic') || contentId.includes('ina') || contentId.includes('didgeridoo')) {
+    return `/soundscapes`;
+  }
+  if (contentId.includes('breathing') || contentId.includes('grounding-practice')) {
+    return `/guided-practices`;
+  }
+  return `/micro-practices`;
 }
 
 export function getRecommendedContent(
   primaryMastery: MasteryType,
   primarySubtype?: MasterySubtype,
-  secondaryMastery?: MasteryType,
-  contentType?: 'soundscape' | 'guided-practice' | 'micro-practice',
   maxResults: number = 3
 ): ContentRecommendation[] {
   
-  const recommendations: ContentRecommendation[] = [];
+  const allContent = Object.entries(CONTENT_TAG_MAP);
   
-  // Score all content
-  Object.entries(CONTENT_TAG_MAP).forEach(([contentId, tags]) => {
-    // Filter by content type if specified
-    if (contentType) {
-      const isMatch = 
-        (contentType === 'soundscape' && contentId.includes('tibetan') || contentId.includes('himalayan') || contentId.includes('earth') || contentId.includes('harmonic') || contentId.includes('forest') || contentId.includes('cathedral') || contentId.includes('monastic') || contentId.includes('energised') || contentId.includes('ina')) ||
-        (contentType === 'guided-practice' && contentId.includes('breathing') || contentId.includes('breath')) ||
-        (contentType === 'micro-practice' && (contentId.includes('mindset') || contentId.includes('tool')));
-      
-      if (!isMatch) return;
-    }
+  const scoredContent = allContent.map(([contentId, tags]) => {
+    let score = 0;
     
-    let relevanceScore = 0;
-    let reason = '';
-    
-    // Primary mastery match (high weight)
+    // Exact mastery type match: +10
     if (tags.masteryTypes.includes(primaryMastery)) {
-      relevanceScore += 50;
+      score += 10;
       
-      // Primary subtype match (bonus)
-      if (primarySubtype && tags.masterySubtypes.includes(primarySubtype)) {
-        relevanceScore += 30;
-        reason = `Perfect match for ${primaryMastery} (${primarySubtype})`;
-      } else {
-        reason = `Excellent for ${primaryMastery}`;
+      // If it's the FIRST mastery type (primary): +5 bonus
+      if (tags.masteryTypes[0] === primaryMastery) {
+        score += 5;
       }
     }
     
-    // Secondary mastery match (medium weight)
-    if (secondaryMastery && tags.masteryTypes.includes(secondaryMastery)) {
-      relevanceScore += 20;
-      if (!reason) reason = `Good for ${secondaryMastery}`;
+    // Exact subtype match: +15 (higher priority)
+    if (primarySubtype && tags.masterySubtypes.includes(primarySubtype)) {
+      score += 15;
+      
+      // If it's the FIRST subtype (primary): +5 bonus
+      if (tags.masterySubtypes[0] === primarySubtype) {
+        score += 5;
+      }
     }
     
-    // Add recommendation if relevant
-    if (relevanceScore > 0) {
-      recommendations.push({
-        contentId,
-        masteryType: primaryMastery,
-        masterySubtype: primarySubtype,
-        relevanceScore,
-        reason
-      });
+    // No match: exclude
+    if (score === 0) return null;
+    
+    // Determine content type
+    let contentType: 'soundscape' | 'guided-practice' | 'micro-practice' = 'soundscape';
+    if (contentId.includes('breathing') || contentId.includes('grounding-practice')) {
+      contentType = 'guided-practice';
+    } else if (contentId.includes('micro-')) {
+      contentType = 'micro-practice';
     }
-  });
+    
+    return {
+      contentId,
+      title: getContentTitle(contentId),
+      route: getContentRoute(contentId),
+      duration: tags.duration,
+      intensity: tags.intensity,
+      masteryType: tags.masteryTypes[0],
+      contentType,
+      relevanceScore: score
+    };
+  })
+  .filter((item): item is ContentRecommendation => item !== null)
+  .sort((a, b) => b.relevanceScore - a.relevanceScore);
   
-  // Sort by relevance and return top N
-  return recommendations
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, maxResults);
+  return scoredContent.slice(0, maxResults);
 }
 
 // ==================== CONTENT METADATA HELPERS ====================
