@@ -19,12 +19,27 @@ export interface PracticeStep {
   wisdomNote?: string;
 }
 
+export interface StructuredTags {
+  pillar: 'pause' | 'flow' | 'renewal';
+  masterySubtypes: string[]; // e.g., ['deep-calm', 'grounding', 'composure', 'activate', 'optimize', 'maintain-peak', 'recharge', 'restore', 'refresh']
+  goalTags: string[]; // e.g., ['grounding', 'breathing_regulation', 'composure', 'focus', 'decision_readiness']
+  physioTarget: string[]; // e.g., ['hrv_increase', 'hr_decrease', 'cortisol_reduce', 'alertness_increase']
+  contextTags: string[]; // e.g., ['pre-meeting', 'post-meeting', 'between-meetings', 'morning_ritual', 'afternoon_slump', 'evening_winddown']
+  environmentSuitability: string[]; // e.g., ['private', 'shared_space', 'public', 'on_the_go']
+  equipment: string[]; // e.g., ['headphones', 'none', 'speaker', 'watch']
+  cognitiveLoadHelp: string[]; // e.g., ['lowers_cognitive_load', 'supports_decision', 'improves_concentration']
+  socialTag: 'solo' | 'pair' | 'group';
+  intensityLevel: 'low' | 'medium' | 'high';
+  energyDirection: string; // e.g., 'uplift', 'stabilize', 'downshift', 'clarify', 'motivate'
+}
+
 export interface SanctuaryContent {
   id: string;
   title: string;
   contentType: ContentType;
   category: Category;
-  tags: string[]; // Energy state, context, intensity tags
+  tags: string[]; // Legacy tags - kept for backward compatibility
+  structuredTags?: StructuredTags; // NEW: Multi-dimensional tagging system (optional during migration)
   duration: number; // in minutes
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   creator: string;
@@ -36,6 +51,18 @@ export interface SanctuaryContent {
   steps?: number;
   instructions?: string[];
   subType?: 'mindset' | 'tool'; // For micro-practices
+  voice?: 'male' | 'female' | 'neutral' | 'none' | 'ai';
+  language?: string;
+  deliveryModality?: string[];
+  
+  // Computed metrics (populated from database aggregations)
+  metrics?: {
+    popularityScore: number;
+    avgCompletionRate: number;
+    avgEffectivenessScore: number;
+    totalUsageCount: number;
+    lastUpdated: string;
+  };
   
   // Rich metadata for soundscapes
   fullStory?: string;

@@ -43,13 +43,22 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   // Combine tags with priority to primary
   const recommendationTags = [...primaryTags, ...secondaryTags];
   
-  // Get matching content
+  // Get matching content with enhanced scoring
   const allContent = getContentByTags(recommendationTags);
   
+  // Score and rank content based on structured tags
+  const scoredContent = allContent.map(content => ({
+    content,
+    score: matchesStructuredTags(content, primary, primarySubtype, recommendationTags)
+  }));
+  
+  // Sort by score (highest first), then by legacy tag match
+  scoredContent.sort((a, b) => b.score - a.score);
+  
   // Split by content type
-  const soundbaths = allContent.filter(c => c.contentType === 'soundbath');
-  const guidedPractices = allContent.filter(c => c.contentType === 'guided-practice');
-  const microPractices = allContent.filter(c => c.contentType === 'micro-practice');
+  const soundbaths = scoredContent.filter(c => c.content.contentType === 'soundbath').map(c => c.content);
+  const guidedPractices = scoredContent.filter(c => c.content.contentType === 'guided-practice').map(c => c.content);
+  const microPractices = scoredContent.filter(c => c.content.contentType === 'micro-practice').map(c => c.content);
   
   return {
     soundbath: soundbaths[0] ? createRecommendation(soundbaths[0], primary, 'Deep immersion to shift your energy state') : null,
@@ -83,6 +92,45 @@ function getMasteryTags(mastery: MasteryType, subtype?: MasterySubtype): string[
   }
   
   return ['moderate', 'grounding'];
+}
+
+// Helper function to check if content matches structured tags
+function matchesStructuredTags(content: any, masteryType: MasteryType, masterySubtype?: MasterySubtype, requiredTags?: string[]): number {
+  // If no structured tags, fall back to legacy tag matching
+  if (!content.structuredTags) {
+    return 0;
+  }
+  
+  let score = 0;
+  const structured = content.structuredTags;
+  
+  // Pillar match (highest priority)
+  const pillarMap: Record<MasteryType, string> = {
+    'pause': 'pause',
+    'flow': 'flow', 
+    'renewal': 'renewal'
+  };
+  if (structured.pillar === pillarMap[masteryType]) {
+    score += 50;
+  }
+  
+  // Mastery subtype match (high priority)
+  if (masterySubtype && structured.masterySubtypes?.includes(masterySubtype)) {
+    score += 30;
+  }
+  
+  // Goal tag overlap (medium priority)
+  if (requiredTags && structured.goalTags) {
+    const overlappingGoals = requiredTags.filter(tag => 
+      structured.goalTags.some((goalTag: string) => 
+        goalTag.toLowerCase().includes(tag.toLowerCase()) || 
+        tag.toLowerCase().includes(goalTag.toLowerCase())
+      )
+    );
+    score += overlappingGoals.length * 5;
+  }
+  
+  return score;
 }
 
 function createRecommendation(
