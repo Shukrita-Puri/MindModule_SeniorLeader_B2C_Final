@@ -3,8 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
-import { generateEnergyInsight } from '@/utils/energyInsightEngine';
+import { computeEnergyState, getEnergyStateInsight, type CurrentEnergyState } from '@/utils/energyStateEngine';
 import MetricInfoModal from './MetricInfoModal';
 
 const EnergyStateHeader = () => {
@@ -26,14 +25,8 @@ const EnergyStateHeader = () => {
     staleTime: 0, // Don't use stale data
   });
 
-  // Generate logic-based insight
-  const insight = energyState ? generateEnergyInsight({
-    balance: energyState.overallBalance,
-    checkInOutcome: energyState.checkInOutcome as 'pause' | 'power-up' | 'presence' | 'calm' | 'ready' | null | undefined,
-    timeOfDay: new Date().getHours(),
-    calendarDensity: energyState.calendarDensity || 0,
-    dataSources: energyState.dataSources
-  }) : '';
+  // Generate logic-based insight using new system
+  const insight = energyState ? getEnergyStateInsight(energyState) : '';
 
   if (!energyState) {
     return (
