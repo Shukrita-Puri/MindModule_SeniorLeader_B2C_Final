@@ -82,9 +82,16 @@ const DailyRitual = () => {
     
     // Map database status based on dynamic total
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (completed === totalRecommended) {
+    if (completed === totalRecommended && completed > 0) {
       status = 'completed';
     } else if (completed > 0) {
+      status = 'partial';
+    }
+    
+    // Also check the database completion_status field as authoritative source
+    if (data.completion_status === 'full') {
+      status = 'completed';
+    } else if (data.completion_status === 'partial' && completed > 0) {
       status = 'partial';
     }
     
