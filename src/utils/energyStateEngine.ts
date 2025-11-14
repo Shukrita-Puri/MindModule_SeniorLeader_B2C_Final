@@ -24,6 +24,14 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   const hasCheckIn = checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
   const checkInOutcome = hasCheckIn ? checkInData.outcome : null;
   
+  // Debug logging
+  console.log('[Energy State] Reading localStorage:', {
+    checkInData,
+    checkInSkipped,
+    hasCheckIn,
+    checkInOutcome
+  });
+  
   // Get wearable data
   const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || '{}');
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
