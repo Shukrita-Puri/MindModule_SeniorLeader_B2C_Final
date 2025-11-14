@@ -237,42 +237,41 @@ const DailyRitual = () => {
               onClick={() => navigateToPractice(practice)}
               disabled={isCompleted}
               className={cn(
-                "relative group overflow-hidden rounded-lg border transition-all text-left",
+                "w-full flex items-center gap-3 p-4 rounded-lg border transition-all",
                 isCompleted 
-                  ? "opacity-60 cursor-not-allowed border-primary/20"
-                  : "hover:shadow-lg hover:scale-[1.02] border-border"
+                  ? "opacity-60 cursor-not-allowed border-primary/20 bg-primary/5"
+                  : "hover:shadow-lg hover:border-primary/30 border-border"
               )}
             >
-              {/* Thumbnail Image */}
-              <div 
-                className="h-32 bg-cover bg-center relative"
-                style={{ backgroundImage: `url('${practice.thumbnail}')` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                
-                {/* Play/Check Icon Overlay */}
-                <div className={cn(
-                  "absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center",
-                  isCompleted 
-                    ? "bg-primary/90" 
-                    : "bg-white/90 group-hover:bg-primary group-hover:text-white"
-                )}>
-                  {isCompleted ? (
-                    <Check size={20} className="text-white" />
-                  ) : (
-                    <Play size={20} className="text-primary group-hover:text-white ml-0.5" />
-                  )}
-                </div>
-              </div>
-
-              {/* Practice Info */}
-              <div className="p-4 bg-card">
-                <h4 className="font-medium text-foreground mb-2">
+              {/* Thumbnail on LEFT */}
+              <img 
+                src={practice.thumbnail} 
+                alt={practice.title}
+                className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+              />
+              
+              {/* Content NEXT TO thumbnail */}
+              <div className="flex-1 text-left">
+                <h4 className="font-medium text-foreground mb-1">
                   {practice.title}
                 </h4>
                 <Badge variant="outline" className="text-xs">
                   {practice.duration} min
                 </Badge>
+              </div>
+              
+              {/* Play/Check icon on RIGHT */}
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                isCompleted 
+                  ? "bg-primary/90" 
+                  : "bg-primary/5"
+              )}>
+                {isCompleted ? (
+                  <Check size={20} className="text-white" />
+                ) : (
+                  <Play size={20} className="text-primary ml-0.5" />
+                )}
               </div>
             </button>
           );
