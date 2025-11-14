@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-type Outcome = "pause" | "power-up" | "presence" | "calm" | "ready";
+type Outcome = "pause" | "power-up" | "presence" | "steady" | "focused" | "ready";
 
 interface CheckInData {
   outcome: Outcome;
@@ -72,6 +72,7 @@ const DailyCheckIn = () => {
   const planTier = profile?.plan_tier || (connections?.hasWearable || connections?.hasCalendar ? 'super_pro' : 'pro');
 
   const outcomes = [
+    // DEPLETED (0-39)
     {
       value: "pause" as Outcome,
       icon: Waves,
@@ -84,23 +85,33 @@ const DailyCheckIn = () => {
       title: "I'm drained or tired",
       borderColor: "border-primary hover:border-primary"
     },
+    
+    // MANAGING (40-59)
+    {
+      value: "steady" as Outcome,
+      icon: Target,
+      title: "I'm feeling steady and balanced",
+      borderColor: "border-taupe hover:border-taupe"
+    },
     {
       value: "presence" as Outcome,
       icon: Target,
       title: "I'm scattered or unfocused",
       borderColor: "border-gold hover:border-gold"
     },
+    
+    // STRONG/PEAK (60-100)
     {
-      value: "calm" as Outcome,
-      icon: Waves,
-      title: "I'm anxious or tense",
-      borderColor: "border-muted hover:border-muted"
+      value: "focused" as Outcome,
+      icon: Sparkles,
+      title: "I'm focused and energized",
+      borderColor: "border-primary hover:border-primary"
     },
     {
       value: "ready" as Outcome,
       icon: Sparkles,
       title: "I am motivated and ready",
-      borderColor: "border-primary hover:border-primary"
+      borderColor: "border-saffron hover:border-saffron"
     }
   ];
 
@@ -108,13 +119,14 @@ const DailyCheckIn = () => {
     // Track check-in engagement
     trackEngagement('check_in');
     
-    // Map UI outcomes to stored outcomes per user's request
+    // Map UI outcomes to stored outcomes
     const outcomeMap: Record<Outcome, Outcome> = {
       "pause": "pause",
       "power-up": "power-up", 
       "presence": "presence",
-      "calm": "calm",      // anxious/tense → anxious (45 balance)
-      "ready": "ready"     // motivated/ready → balanced (85 balance)
+      "steady": "steady",
+      "focused": "focused",
+      "ready": "ready"
     };
     
     const mappedOutcome = outcomeMap[outcome];
@@ -218,15 +230,6 @@ const DailyCheckIn = () => {
           })}
         </div>
 
-        {/* Skip to Home - Dynamic text based on plan tier */}
-        <Button
-          variant="outline"
-          onClick={handleSkipToHome}
-          className="w-full py-3"
-        >
-          <Home size={16} className="mr-2" />
-          {getSkipButtonText()}
-        </Button>
       </div>
       
       <MainNavigation />
