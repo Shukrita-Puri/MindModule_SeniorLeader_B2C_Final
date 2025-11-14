@@ -83,6 +83,16 @@ const MicroPracticePlayer = () => {
       if (isPartOfRitual) {
         const today = new Date().toISOString().split('T')[0];
         
+        const { data: ritualData } = await supabase
+          .from('daily_ritual_completions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('ritual_date', today)
+          .single();
+        
+        const allComplete = ritualData?.soundscape_completed && 
+                           ritualData?.guided_practice_completed;
+        
         await supabase
           .from('daily_ritual_completions')
           .upsert({
@@ -90,7 +100,7 @@ const MicroPracticePlayer = () => {
             ritual_date: today,
             micro_exercise_completed: true,
             micro_exercise_completed_at: new Date().toISOString(),
-            completion_status: 'partial'
+            completion_status: allComplete ? 'full' : 'partial'
           }, {
             onConflict: 'user_id,ritual_date'
           });

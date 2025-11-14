@@ -16,6 +16,8 @@ import { useAuth } from '@/hooks/useAuth';
 const DailyRitual = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { updateRitualCompletion, trackEngagement } = useMentalFitnessTracking();
   const [recommendations, setRecommendations] = useState<{
     soundbath: Recommendation | null;
     guidedPractice: Recommendation | null;
@@ -24,17 +26,55 @@ const DailyRitual = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
-  const [isRitualCompleted, setIsRitualCompleted] = useState(false);
+  const [ritualStatus, setRitualStatus] = useState<{
+    status: 'not_started' | 'partial' | 'completed';
+    completedCount: number;
+    totalCount: number;
+  }>({
+    status: 'not_started',
+    completedCount: 0,
+    totalCount: 3
+  });
 
   useEffect(() => {
     loadRecommendations();
     checkRitualCompletion();
-  }, []);
+  }, [user?.id]);
 
-  const checkRitualCompletion = () => {
+  const checkRitualCompletion = async () => {
+    if (!user?.id) return;
+    
     const today = new Date().toISOString().split('T')[0];
-    const ritualCompletions = JSON.parse(localStorage.getItem('ritualCompletions') || '{}');
-    setIsRitualCompleted(ritualCompletions[today] === true);
+    
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('ritual_date', today)
+      .single();
+    
+    if (error || !data) {
+      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: 3 });
+      return;
+    }
+    
+    const completed = [
+      data.soundscape_completed,
+      data.guided_practice_completed,
+      data.micro_exercise_completed
+    ].filter(Boolean).length;
+    
+    // Map database status
+    let status: 'not_started' | 'partial' | 'completed' = 'not_started';
+    if (data.completion_status === 'full') status = 'completed';
+    else if (data.completion_status === 'partial' && completed > 0) status = 'partial';
+    else status = 'not_started';
+    
+    setRitualStatus({
+      status,
+      completedCount: completed,
+      totalCount: 3
+    });
   };
 
   const loadRecommendations = async () => {
@@ -63,24 +103,83 @@ const DailyRitual = () => {
 
   const totalDuration = allRecs.reduce((sum, rec) => sum + rec.duration, 0);
 
+  const navigateToPractice = (practice: Recommendation) => {
+    if (practice.contentType === 'soundbath') {
+      navigate(`/soundscapes/${practice.id}`, { state: { category: practice.category } });
+    } else if (practice.contentType === 'guided-practice') {
+      navigate(`/guided-practices/${practice.id}`, { state: { category: practice.category } });
+    } else if (practice.contentType === 'micro-practice') {
+      navigate(`/micro-practice/${practice.id}`, { state: { category: practice.category } });
+    }
+  };
+
   const handleStartRitual = async () => {
-    // Track ritual start engagement
-    await trackEngagement('daily_ritual_start');
+    await trackEngagement({ event_type: 'ritual_start', category: 'general' });
     
     // Store ritual queue in localStorage for UI continuity
     localStorage.setItem('practiceQueue', JSON.stringify(allRecs));
     
+    // Initialize ritual in database
+    if (user?.id) {
+      await updateRitualCompletion({
+        ritual_date: new Date(),
+        completion_status: 'partial'
+      });
+    }
+    
     // Navigate to first practice
     if (allRecs[0]) {
-      const first = allRecs[0];
-      if (first.contentType === 'soundbath') {
-        navigate(`/soundscapes/${first.id}`, { state: { category: first.category } });
-      } else if (first.contentType === 'guided-practice') {
-        navigate(`/guided-practices/${first.id}`, { state: { category: first.category } });
-      } else if (first.contentType === 'micro-practice') {
-        navigate(`/micro-practice/${first.id}`, { state: { category: first.category } });
-      }
+      navigateToPractice(allRecs[0]);
     }
+  };
+
+  const handleContinueRitual = async () => {
+    await trackEngagement({ event_type: 'session_start', category: 'general', metadata: { action: 'continue' } });
+    
+    // Find first incomplete practice
+    const queue = JSON.parse(localStorage.getItem('practiceQueue') || '[]');
+    const { data } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', user?.id)
+      .eq('ritual_date', new Date().toISOString().split('T')[0])
+      .single();
+    
+    let nextPracticeIndex = 0;
+    if (data?.soundscape_completed) nextPracticeIndex = 1;
+    if (data?.guided_practice_completed) nextPracticeIndex = 2;
+    
+    const nextPractice = queue[nextPracticeIndex];
+    if (nextPractice) {
+      navigateToPractice(nextPractice);
+    }
+  };
+
+  const handleRestartRitual = async () => {
+    await trackEngagement({ event_type: 'session_start', category: 'general', metadata: { action: 'restart' } });
+    
+    // Reset completion in database
+    if (user?.id) {
+      await updateRitualCompletion({
+        ritual_date: new Date(),
+        completion_status: 'skipped',
+        soundscape_completed: false,
+        guided_practice_completed: false,
+        micro_exercise_completed: false
+      });
+    }
+    
+    // Clear localStorage queue
+    localStorage.removeItem('practiceQueue');
+    
+    // Refresh and start from beginning
+    await loadRecommendations();
+    await checkRitualCompletion();
+    
+    toast({
+      description: "Ritual reset. Ready to start fresh!",
+      duration: 2000,
+    });
   };
 
   const handleFeedback = async (rec: Recommendation, type: 'thumbs_up' | 'thumbs_down', position: number) => {
@@ -168,14 +267,32 @@ const DailyRitual = () => {
         ))}
       </Card>
 
-      {/* Start/Complete Button */}
-      {isRitualCompleted ? (
+      {/* Button States: Start / Continue+Restart / Completed */}
+      {ritualStatus.status === 'completed' ? (
         <Button
           disabled
           className="w-full bg-emerald-600/50 text-white cursor-default"
         >
-          ✓ Daily Ritual Completed
+          ✓ Today's Ritual Completed
         </Button>
+      ) : ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 ? (
+        <div className="flex gap-2">
+          <Button
+            onClick={handleContinueRitual}
+            className="flex-1 bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
+          >
+            Continue Your Ritual →
+          </Button>
+          <Button
+            onClick={handleRestartRitual}
+            variant="outline"
+            size="icon"
+            className="w-12 h-12 rounded-full border-2 border-taupe hover:bg-taupe/10"
+            aria-label="Restart ritual"
+          >
+            <RotateCcw className="w-5 h-5 text-taupe" />
+          </Button>
+        </div>
       ) : (
         <Button
           onClick={handleStartRitual}
