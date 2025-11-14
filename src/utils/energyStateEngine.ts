@@ -19,7 +19,8 @@ import {
   type CalendarLoad,
   type CalendarPressure,
   type EnergyTier,
-  type MasteryType
+  type MasteryType,
+  type MasterySubtype
 } from './energyStateScoring';
 
 export interface CurrentEnergyState {
@@ -38,9 +39,9 @@ export interface CurrentEnergyState {
   energyTier?: EnergyTier;
   recommendation?: {
     primary: MasteryType;
-    primarySubtype?: string;
+    primarySubtype?: MasterySubtype;
     secondary?: MasteryType;
-    secondarySubtype?: string;
+    secondarySubtype?: MasterySubtype;
     contextStatement: string;
   };
   checkInOutcome?: string;

@@ -198,7 +198,7 @@ export function getEnergyTier(balance: number): EnergyTier {
 // ==================== RECOMMENDATION LOGIC ====================
 
 export type MasteryType = 'pause' | 'flow' | 'renewal';
-export type MasterySubtype = 'deep-calm' | 'grounding' | 'composure' | 'clarity' | 'focus' | 'executive-presence' | 'reset-energy' | 'restore-resilience';
+export type MasterySubtype = 'deep-calm' | 'grounding' | 'composure' | 'clarity' | 'focus' | 'executive-presence' | 'maintain-peak' | 'reset-energy' | 'restore-resilience';
 
 interface Recommendation {
   primary: MasteryType;
@@ -210,132 +210,136 @@ interface Recommendation {
 
 export function getRecommendation(
   energyTier: EnergyTier,
-  calendarLoad: CalendarLoad,
-  calendarPressure: CalendarPressure,
+  calendarMetrics: CalendarMetrics,
   wearableFunction: WearableFunction,
-  checkInOutcome: string | undefined,
-  hour: number
+  checkInOutcome: string | null,
+  timeOfDay: TimeOfDay
 ): Recommendation {
-  const time = getTimeOfDay(hour);
   
-  // DEPLETED TIER
+  const { load, pressure } = calendarMetrics;
+  const timeLabel = { morning: 'this morning', afternoon: 'this afternoon', evening: 'this evening' }[timeOfDay];
+  
+  // Check-in acknowledgment map
+  const checkInAck: Record<string, string> = {
+    'pause': 'stressed/overwhelmed',
+    'power-up': 'drained/tired',
+    'presence': 'scattered/unfocused',
+    'calm': 'anxious/tense',
+    'ready': 'motivated/ready',
+    'good': 'good'
+  };
+  
+  const checkInText = checkInOutcome ? `You reported feeling ${checkInAck[checkInOutcome]}. ` : '';
+  
+  // Helper to determine if Load > Pressure
+  const loadDominates = (load === 'high' && pressure !== 'high') || (load === 'medium' && pressure === 'low');
+  const pressureDominates = (pressure === 'high' && load !== 'high') || (pressure === 'medium' && load === 'low');
+  
+  // ============= DEPLETED TIER (0-40) =============
   if (energyTier === 'depleted') {
-    // Low wearable + Low load/pressure → Renewal + Deep Calm
-    if (wearableFunction === 'low' && calendarLoad === 'low' && calendarPressure === 'low') {
-      return {
-        primary: 'renewal',
-        primarySubtype: 'reset-energy',
-        secondary: 'pause',
-        secondarySubtype: 'deep-calm',
-        contextStatement: `Energy is low at ${Math.round(Math.random() * 20 + 20)}%. Focus on restoring resilience. Pause can help maintain composure.`
-      };
-    }
+    const isHighDemand = load === 'high' || pressure === 'high';
+    const isLowFunction = wearableFunction === 'low';
     
-    // High load/pressure → Renewal + Grounding
-    if (calendarLoad === 'high' || calendarPressure === 'high') {
+    if (isHighDemand || isLowFunction) {
       return {
         primary: 'renewal',
         primarySubtype: 'restore-resilience',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: `Energy is depleted with ${calendarLoad} load and ${calendarPressure} pressure. Renew energy first; grounding will help maintain executive presence.`
+        contextStatement: `${checkInText}Energy is depleted ${timeLabel}. High demands require restoration. Renew energy first; grounding can help maintain executive presence.`
       };
     }
     
-    // Default depleted
     return {
       primary: 'renewal',
       primarySubtype: 'reset-energy',
       secondary: 'pause',
       secondarySubtype: 'deep-calm',
-      contextStatement: `Energy needs deep rest and recovery. Start with Renewal practices.`
+      contextStatement: `${checkInText}Energy is low ${timeLabel}. Focus on restoring resilience. Pause micro-practice can help maintain composure.`
     };
   }
   
-  // MANAGING TIER
+  // ============= MANAGING TIER (41-60) =============
   if (energyTier === 'managing') {
-    // Load > Pressure → Pause (grounding/clarity) + optional Flow
-    if (calendarLoad === 'high' || (calendarLoad === 'medium' && calendarPressure === 'low')) {
+    if (loadDominates) {
       return {
         primary: 'pause',
         primarySubtype: 'grounding',
         secondary: 'flow',
         secondarySubtype: 'focus',
-        contextStatement: `Cognitive load is high today. Pause practices will help maintain clarity; optional Flow to sustain focus.`
+        contextStatement: `${checkInText}Energy is steady (Managing range) ${timeLabel}. Cognitive load is ${load} today. Pause practices will help maintain clarity; optional Flow micro-practice sustains focus.`
       };
     }
     
-    // Pressure > Load → Flow (executive presence) + optional Pause
-    if (calendarPressure === 'high' || (calendarPressure === 'medium' && calendarLoad === 'low')) {
+    if (pressureDominates) {
       return {
         primary: 'flow',
         primarySubtype: 'executive-presence',
         secondary: 'pause',
         secondarySubtype: 'composure',
-        contextStatement: `High-pressure events require executive presence. Flow practices are primary; Pause can support calm composure.`
+        contextStatement: `${checkInText}Energy is steady (Managing range) ${timeLabel}. High-pressure events require executive presence. Flow practices are primary; Pause can support calm composure.`
       };
     }
     
-    // Balanced → Flow + Pause Mix
+    // Balanced load and pressure
     return {
       primary: 'flow',
       primarySubtype: 'focus',
       secondary: 'pause',
       secondarySubtype: 'clarity',
-      contextStatement: `Balanced cognitive and decision load. Mix Flow and Pause practices; Renewal optional if energy dips.`
+      contextStatement: `${checkInText}Energy is steady (Managing range) ${timeLabel}. Balanced cognitive and decision load. Mix Flow and Pause practices; Renewal optional if energy dips.`
     };
   }
   
-  // STRONG TIER
+  // ============= STRONG TIER (61-75) =============
   if (energyTier === 'strong') {
-    // Pressure > Load → Flow (assertiveness)
-    if (calendarPressure === 'high' || (calendarPressure === 'medium' && calendarLoad === 'low')) {
+    if (loadDominates) {
+      return {
+        primary: 'flow',
+        primarySubtype: 'focus',
+        secondary: 'pause',
+        secondarySubtype: 'grounding',
+        contextStatement: `${checkInText}Energy is strong ${timeLabel}. Maintain clarity with combined Flow and grounding micro-practices to handle high load.`
+      };
+    }
+    
+    if (pressureDominates) {
       return {
         primary: 'flow',
         primarySubtype: 'executive-presence',
         secondary: 'pause',
-        secondarySubtype: 'grounding',
-        contextStatement: `Energy is strong; high pressure requires Flow practices to sustain executive performance.`
+        secondarySubtype: 'composure',
+        contextStatement: `${checkInText}Energy is strong ${timeLabel}. High pressure requires Flow practices to sustain executive performance.`
       };
     }
     
-    // Load > Pressure → Flow + Pause Mix
     return {
       primary: 'flow',
       primarySubtype: 'focus',
       secondary: 'pause',
       secondarySubtype: 'clarity',
-      contextStatement: `Energy is strong. Maintain clarity with combined Flow and grounding practices to handle high load.`
+      contextStatement: `${checkInText}Energy is strong ${timeLabel}. Balanced demands with sufficient energy. Use Flow and optional grounding micro-practices to sustain performance.`
     };
   }
   
-  // PEAK TIER
-  if (energyTier === 'peak') {
-    // High load/pressure → Flow + optional Renewal
-    if (calendarLoad === 'high' || calendarPressure === 'high') {
-      return {
-        primary: 'flow',
-        primarySubtype: 'executive-presence',
-        secondary: 'renewal',
-        secondarySubtype: 'restore-resilience',
-        contextStatement: `Peak energy but high load & pressure. Focus on Flow for decision readiness; Renewal can sustain energy for tomorrow.`
-      };
-    }
-    
-    // Low demand → Flow + optional Pause
+  // ============= PEAK TIER (76-100) =============
+  const isHighDemand = load === 'high' && pressure === 'high';
+  
+  if (isHighDemand) {
     return {
       primary: 'flow',
-      primarySubtype: 'focus',
-      secondary: 'pause',
-      secondarySubtype: 'grounding',
-      contextStatement: `Peak energy with low demand. Flow to maintain focus; optional Pause for micro-reset if desired.`
+      primarySubtype: 'maintain-peak',
+      secondary: 'renewal',
+      secondarySubtype: 'reset-energy',
+      contextStatement: `${checkInText}Energy is at peak ${timeLabel} but high load & pressure ahead. Focus on Flow for decision readiness; micro-Renewal can sustain energy for tomorrow.`
     };
   }
   
-  // Fallback
   return {
     primary: 'flow',
-    primarySubtype: 'focus',
-    contextStatement: `Maintain steady energy with Flow practices.`
+    primarySubtype: 'maintain-peak',
+    secondary: 'pause',
+    secondarySubtype: 'composure',
+    contextStatement: `${checkInText}Energy is at peak ${timeLabel}. Flow practices maintain performance; optional micro-Pause or Renewal if upcoming load is high or end-of-day.`
   };
 }
