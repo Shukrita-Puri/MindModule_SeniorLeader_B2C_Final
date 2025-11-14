@@ -64,27 +64,35 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   const hasWearable = wearableData.readiness > 0 || wearableData.hrv > 0;
   const hasCalendar = calendarData.length > 0;
 
-  const weights = calculateDynamicWeights(hasCheckIn, hasWearable, hasCalendar);
-  
-  const checkInScore = hasCheckIn ? getCheckInScore(checkInData.outcome) : 0;
+  // OPTION B: Separate Energy Score from Ritual Selection
+  // Energy Score = Internal State Only (Check-in + Wearable + Circadian)
+  const checkInScore = hasCheckIn ? getCheckInScore(checkInData.outcome) : 50; // Default to neutral
   const wearableScore = hasWearable ? getWearableScore(wearableData) : 0;
-  const calendarScore = hasCalendar ? getCalendarScore(calendarData) : 0;
-  const circadianScore = getCircadianScore();
+  const circadianAdjustment = getCircadianScore(); // Returns -5, 0, +5
+  
+  // Calculate dynamic weights based on available data
+  const weights = hasWearable 
+    ? { checkIn: 0.65, wearable: 0.30, circadian: 0.05 } // Super Pro
+    : { checkIn: 0.90, wearable: 0, circadian: 0.10 };    // Pro
 
-  const overallBalance = Math.round(
+  // Energy score (no calendar influence)
+  const energyScore = Math.round(
     (checkInScore * weights.checkIn) +
     (wearableScore * weights.wearable) +
-    (calendarScore * weights.calendar) +
-    (circadianScore * weights.circadian)
+    (circadianAdjustment * weights.circadian)
   );
 
+  // Tier determined by energy score alone
+  const energyTier = getEnergyTier(energyScore);
+  const energySubTier = getEnergySubTier(energyScore);
+
+  // Calendar metrics calculated separately for ritual selection
   const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } = 
     hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
 
-  const energyTier = getEnergyTier(overallBalance);
-  
+  // Recommendation uses BOTH energy tier AND calendar context
   const recommendation = getRecommendation(
-    overallBalance,  // ✅ PASS BALANCE AS FIRST PARAMETER
+    energyScore,
     energyTier,
     { load: calendarLoad, pressure: calendarPressure, density: calendarDensity, pressureScore: 0, loadScore: 0 },
     hasWearable ? getWearableFunction(wearableData) : 'medium',
@@ -93,7 +101,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   );
 
   return {
-    overallBalance,
+    overallBalance: energyScore,
     state: energyTier,
     contextTags: [],
     energyTags: [],
@@ -102,10 +110,9 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     dataSources: [
       ...(hasCheckIn ? ['check-in'] : []),
       ...(hasWearable ? ['wearable'] : []),
-      ...(hasCalendar ? ['calendar'] : []),
       'circadian'
     ],
-    confidence: hasCheckIn ? (hasWearable || hasCalendar ? 'high' : 'medium') : 'low',
+    confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
     calendarDensity,
     calendarLoad,
     calendarPressure,
@@ -114,17 +121,6 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     recommendation,
     checkInOutcome: hasCheckIn ? checkInData.outcome : undefined
   };
-}
-
-function calculateDynamicWeights(hasCheckIn: boolean, hasWearable: boolean, hasCalendar: boolean) {
-  if (hasCheckIn && hasWearable && hasCalendar) return { checkIn: 0.60, wearable: 0.20, calendar: 0.10, circadian: 0.10 };
-  if (hasCheckIn && hasWearable) return { checkIn: 0.60, wearable: 0.20, calendar: 0, circadian: 0.20 };
-  if (hasCheckIn && hasCalendar) return { checkIn: 0.60, wearable: 0, calendar: 0.10, circadian: 0.30 };
-  if (hasCheckIn) return { checkIn: 0.90, wearable: 0, calendar: 0, circadian: 0.10 };
-  if (hasWearable && hasCalendar) return { checkIn: 0, wearable: 0.40, calendar: 0.30, circadian: 0.30 };
-  if (hasWearable) return { checkIn: 0, wearable: 0.50, calendar: 0, circadian: 0.50 };
-  if (hasCalendar) return { checkIn: 0, wearable: 0, calendar: 0.40, circadian: 0.60 };
-  return { checkIn: 0, wearable: 0, calendar: 0, circadian: 1.0 };
 }
 
 export function getEnergyStateInsight(energyState: CurrentEnergyState): string {
