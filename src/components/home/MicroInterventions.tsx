@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle, X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle, X, ThumbsUp, ThumbsDown, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -30,6 +30,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { trackInterventionEvent } from '@/utils/interventionTracking';
 import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface MicroIntervention {
   id: string;
@@ -725,10 +731,30 @@ const MicroSelfRecalibrateInterventions = () => {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-        <Bell className="w-5 h-5 text-primary" />
-        Micro Self-Recalibrate Interventions
-      </h2>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" />
+          Micro Self Recalibration
+        </h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="text-muted-foreground hover:text-foreground transition-colors">
+                <Info className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-semibold mb-1">How This Works</p>
+              <ul className="text-sm space-y-1">
+                <li>• Analyzes your calendar (meeting gaps, high-stakes events) and Oura data (sleep, HRV, readiness)</li>
+                <li>• Recommends 1-5 min practices based on detected patterns</li>
+                <li>• Prioritizes by urgency, timing, and your past effectiveness</li>
+                <li>• Updates throughout the day as your schedule and physiology change</li>
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       {displayedInterventions.map((intervention) => {
         const Icon = getIcon(intervention.icon);
         const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
