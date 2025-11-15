@@ -713,8 +713,7 @@ const MicroSelfRecalibrateInterventions = () => {
     <div className="space-y-3">
       {/* Title with Info Icon - Always Visible */}
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Bell className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-semibold text-foreground">
           Micro Self Recalibration
         </h2>
         <TooltipProvider>
