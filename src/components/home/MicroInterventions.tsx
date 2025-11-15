@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle, X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,7 @@ import {
 } from '@/utils/historicalPatternEngine';
 import { analyzeEventPhysiologicalPattern } from '@/utils/historicalPhysiologicalTracking';
 import { getWearableContext, type WearableContext, getUserHRVBaseline } from '@/utils/wearableContextAnalyzer';
-import { getContentByTags } from '@/data/practicesAndSoundscapes';
+import { getContentByStructuredTags, interventionToStructuredQuery, getFallbackContent } from '@/utils/interventionContentMatcher';
 import { useAuth } from '@/hooks/useAuth';
 import { trackInterventionEvent } from '@/utils/interventionTracking';
 import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
@@ -44,7 +45,7 @@ interface MicroIntervention {
   urgencyLevel: 'critical' | 'high' | 'medium' | 'low';
 }
 
-const MicroInterventions = () => {
+const MicroSelfRecalibrateInterventions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -55,12 +56,61 @@ const MicroInterventions = () => {
   const [dismissModalOpen, setDismissModalOpen] = useState(false);
   const [dismissingIntervention, setDismissingIntervention] = useState<MicroIntervention | null>(null);
   const [feedback, setFeedback] = useState<Record<string, 'thumbs_up' | 'thumbs_down' | null>>({});
+  const [recentInterventions, setRecentInterventions] = useState<Map<string, number>>(new Map());
+  const [userPreferences, setUserPreferences] = useState<{
+    effectiveContentTypes: Record<string, number>;
+    completedInterventions: Set<string>;
+    favoriteContentIds: string[];
+  }>({ effectiveContentTypes: {}, completedInterventions: new Set(), favoriteContentIds: [] });
   const trackedSentRef = useRef<Set<string>>(new Set());
   const ignoreTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
+    loadUserPreferences();
     loadInterventions();
   }, []);
+
+  // Load user preferences for personalization
+  const loadUserPreferences = async () => {
+    if (!user) return;
+
+    try {
+      // Get user's effective content types from feedback
+      const { data: feedbackData } = await supabase
+        .from('content_relevance_feedback')
+        .select('content_type, star_rating')
+        .eq('user_id', user.id)
+        .gte('star_rating', 4);
+
+      const effectiveTypes: Record<string, number> = {};
+      feedbackData?.forEach(fb => {
+        effectiveTypes[fb.content_type] = (effectiveTypes[fb.content_type] || 0) + 1;
+      });
+
+      // Get completed interventions
+      const { data: interventionData } = await supabase
+        .from('micro_intervention_events')
+        .select('intervention_id, event_type')
+        .eq('user_id', user.id)
+        .eq('event_type', 'nudge_clicked');
+
+      const completed = new Set(interventionData?.map(i => i.intervention_id) || []);
+
+      // Get favorites
+      const { data: favoritesData } = await supabase
+        .from('user_favorites')
+        .select('content_id')
+        .eq('user_id', user.id);
+
+      setUserPreferences({
+        effectiveContentTypes: effectiveTypes,
+        completedInterventions: completed,
+        favoriteContentIds: favoritesData?.map(f => f.content_id) || [],
+      });
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+    }
+  };
 
   // Track nudge_sent when interventions are displayed
   useEffect(() => {
@@ -166,6 +216,38 @@ const MicroInterventions = () => {
     setLoading(false);
   };
 
+  // Filter and deduplicate interventions
+  function filterAndDeduplicateInterventions(interventions: MicroIntervention[]): MicroIntervention[] {
+    const now = Date.now();
+    const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+
+    // Filter out recently shown interventions
+    const filtered = interventions.filter(intervention => {
+      const lastShown = recentInterventions.get(intervention.type);
+      if (lastShown && lastShown > twoHoursAgo) {
+        return false;
+      }
+      return true;
+    });
+
+    // Deduplicate by type - only keep highest priority of each type
+    const typeMap = new Map<string, MicroIntervention>();
+    filtered.forEach(intervention => {
+      const existing = typeMap.get(intervention.type);
+      if (!existing || intervention.priority > existing.priority) {
+        typeMap.set(intervention.type, intervention);
+      }
+    });
+
+    // Update recent interventions map
+    const result = Array.from(typeMap.values());
+    result.forEach(intervention => {
+      recentInterventions.set(intervention.type, now);
+    });
+
+    return result;
+  }
+
   // PATHWAY 1: Calendar-Only Interventions
   function detectCalendarOnlyInterventions(calendarEvents: CalendarEvent[]): MicroIntervention[] {
     const interventions: MicroIntervention[] = [];
@@ -173,7 +255,8 @@ const MicroInterventions = () => {
     // 1.1 Meeting Gaps
     const gaps = detectMeetingGaps(calendarEvents);
     gaps.forEach((gap, index) => {
-      const quickResetContent = getContentByTags(['pause', 'quick', 'gentle']);
+      const query = interventionToStructuredQuery('meeting-gap', { timeWindow: `${gap.gapDuration}min` });
+      const quickResetContent = getContentByStructuredTags(query);
       if (quickResetContent[0]) {
         interventions.push({
           id: `gap-${index}`,
@@ -192,7 +275,8 @@ const MicroInterventions = () => {
     // 1.2 High-Stakes Events
     const highStakesEvents = detectHighStakesEvents(calendarEvents, 60);
     highStakesEvents.forEach((event, index) => {
-      const groundingContent = getContentByTags(['presence', 'grounding', 'centering', 'pre-performance']);
+      const query = interventionToStructuredQuery('pre-performance', { urgencyLevel: 'high' });
+      const groundingContent = getContentByStructuredTags(query);
       if (groundingContent[0]) {
         const eventStart = new Date(event.startTime);
         const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
@@ -229,7 +313,8 @@ const MicroInterventions = () => {
     // 1.3 Back-to-Back Overload
     const backToBackCount = detectBackToBackOverload(calendarEvents);
     if (backToBackCount >= 3) {
-      const quickResetContent = getContentByTags(['pause', 'quick', 'centering']);
+      const query = interventionToStructuredQuery('meeting-gap', { urgencyLevel: 'medium' });
+      const quickResetContent = getContentByStructuredTags(query);
       if (quickResetContent[0]) {
         interventions.push({
           id: 'back-to-back-overload',
@@ -248,7 +333,8 @@ const MicroInterventions = () => {
     // 1.4 Meeting Overload (6+ hours)
     const totalMeetingMinutes = calculateTotalMeetingMinutes(calendarEvents);
     if (totalMeetingMinutes >= 360) {
-      const recoveryContent = getContentByTags(['pause', 'cooling', 'gentle', 'release']);
+      const query = interventionToStructuredQuery('recovery', { urgencyLevel: 'medium' });
+      const recoveryContent = getContentByStructuredTags(query);
       if (recoveryContent[0]) {
         const lastMeeting = calendarEvents[calendarEvents.length - 1];
         const lastMeetingEnd = new Date(lastMeeting.endTime);
@@ -282,7 +368,8 @@ const MicroInterventions = () => {
 
     // 2.1 Poor Sleep Recovery (no calendar context)
     if (context.sleepQuality === 'poor') {
-      const restorativeContent = getContentByTags(['pause', 'restorative', 'gentle']);
+      const query = interventionToStructuredQuery('sleep-recovery', { urgencyLevel: 'medium' });
+      const restorativeContent = getContentByStructuredTags(query);
       if (restorativeContent[0]) {
         interventions.push({
           id: 'wearable-sleep-recovery',
@@ -300,7 +387,8 @@ const MicroInterventions = () => {
 
     // 2.2 Low Readiness (no calendar context)
     if (context.readinessScore && context.readinessScore < 50) {
-      const activationContent = getContentByTags(['activation', 'gentle', 'energizing']);
+      const query = interventionToStructuredQuery('readiness-boost', { urgencyLevel: 'medium' });
+      const activationContent = getContentByStructuredTags(query);
       if (activationContent[0]) {
         interventions.push({
           id: 'wearable-readiness-boost',
@@ -318,7 +406,8 @@ const MicroInterventions = () => {
 
     // 2.3 Elevated RHR (no immediate stressor)
     if (context.hrvStatus === 'elevated' && context.restingHeartRate) {
-      const calmingContent = getContentByTags(['presence', 'calming', 'centering']);
+      const query = interventionToStructuredQuery('stress-regulation', { urgencyLevel: 'high' });
+      const calmingContent = getContentByStructuredTags(query);
       if (calmingContent[0]) {
         interventions.push({
           id: 'wearable-stress-regulation',
@@ -354,7 +443,8 @@ const MicroInterventions = () => {
 
     // A. Low Energy + Meeting Overload
     if (context.sleepScore && context.sleepScore < 60 && totalMeetingMinutes > 240) {
-      const energizingContent = getContentByTags(['power-up', 'energizing', 'activation']);
+      const query = interventionToStructuredQuery('energy-protection', { urgencyLevel: 'high' });
+      const energizingContent = getContentByStructuredTags(query);
       if (energizingContent[0]) {
         const firstMeeting = calendarEvents[0];
         const firstMeetingStart = new Date(firstMeeting.startTime);
@@ -380,7 +470,8 @@ const MicroInterventions = () => {
       context.restingHeartRate > hrvBaseline + 10 && 
       nextHighStakesEvent
     ) {
-      const groundingContent = getContentByTags(['presence', 'grounding', 'centering']);
+      const query = interventionToStructuredQuery('pre-performance', { urgencyLevel: 'critical' });
+      const groundingContent = getContentByStructuredTags(query);
       if (groundingContent[0]) {
         const eventStart = new Date(nextHighStakesEvent.startTime);
         const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
@@ -401,7 +492,8 @@ const MicroInterventions = () => {
 
     // C. Low Readiness + Back-to-Back Meetings
     if (context.readinessScore && context.readinessScore < 50 && backToBackCount >= 3) {
-      const quickResetContent = getContentByTags(['pause', 'quick', 'reset', 'gentle']);
+      const query = interventionToStructuredQuery('protective-recovery', { urgencyLevel: 'high' });
+      const quickResetContent = getContentByStructuredTags(query);
       if (quickResetContent[0]) {
         interventions.push({
           id: 'combined-protective-recovery',
@@ -424,7 +516,8 @@ const MicroInterventions = () => {
     });
     
     if (context.sleepScore && context.sleepScore < 60 && hasEveningMeetings) {
-      const restorativeContent = getContentByTags(['pause', 'restorative', 'cooling']);
+      const query = interventionToStructuredQuery('energy-conservation', { urgencyLevel: 'medium' });
+      const restorativeContent = getContentByStructuredTags(query);
       if (restorativeContent[0]) {
         interventions.push({
           id: 'combined-energy-conservation',
@@ -443,7 +536,8 @@ const MicroInterventions = () => {
     // E. High Activity + No Recovery Time
     const gaps = detectMeetingGaps(calendarEvents);
     if (context.activityScore && context.activityScore > 80 && gaps.length === 0) {
-      const deepRecoveryContent = getContentByTags(['pause', 'deep', 'release', 'restoration']);
+      const query = interventionToStructuredQuery('cumulative-recovery', { urgencyLevel: 'medium' });
+      const deepRecoveryContent = getContentByStructuredTags(query);
       if (deepRecoveryContent[0]) {
         const lastMeeting = calendarEvents[calendarEvents.length - 1];
         const lastMeetingEnd = new Date(lastMeeting.endTime);
@@ -631,6 +725,10 @@ const MicroInterventions = () => {
 
   return (
     <div className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+        <Bell className="w-5 h-5 text-primary" />
+        Micro Self-Recalibrate Interventions
+      </h2>
       {displayedInterventions.map((intervention) => {
         const Icon = getIcon(intervention.icon);
         const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
@@ -854,4 +952,4 @@ function formatTime(date: Date): string {
   }).format(date);
 }
 
-export default MicroInterventions;
+export default MicroSelfRecalibrateInterventions;

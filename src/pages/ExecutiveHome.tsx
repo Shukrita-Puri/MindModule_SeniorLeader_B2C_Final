@@ -6,7 +6,7 @@ import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
 import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
-import MicroInterventions from "@/components/home/MicroInterventions";
+import MicroSelfRecalibrateInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
@@ -109,7 +109,7 @@ const ExecutiveHome = () => {
             <p className="text-sm text-muted-foreground mb-3">
               Personalised to align your inner world for what matters today.
             </p>
-            <MicroInterventions />
+            <MicroSelfRecalibrateInterventions />
           </div>
         </section>
       </div>
