@@ -103,12 +103,8 @@ const ExecutiveHome = () => {
           <DailyRitual />
         </div>
 
-          {/* Sub-section 2: Micro Interventions */}
+          {/* Sub-section 2: Micro Self Recalibration */}
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Micro Interventions</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Personalised to align your inner world for what matters today.
-            </p>
             <MicroSelfRecalibrateInterventions />
           </div>
         </section>
