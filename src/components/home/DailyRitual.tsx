@@ -294,7 +294,7 @@ const DailyRitual = () => {
               </div>
               
               {/* Duration badge on TOP RIGHT */}
-              <Badge variant="outline" className="absolute top-2 right-2 text-xs">
+              <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
                 {practice.duration}m
               </Badge>
               
