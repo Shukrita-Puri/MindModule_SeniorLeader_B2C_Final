@@ -706,32 +706,13 @@ const MicroSelfRecalibrateInterventions = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground animate-pulse">
-          Analyzing your calendar and wearable data...
-        </p>
-      </div>
-    );
-  }
-
-  if (interventions.length === 0) {
-    return (
-      <Card className="p-4">
-        <p className="text-sm text-muted-foreground text-center">
-          No micro interventions needed right now. Connect your calendar or wearable to get personalized recommendations.
-        </p>
-      </Card>
-    );
-  }
-
   const activeInterventions = interventions.filter(i => !dismissedIds.has(i.id));
   const displayedInterventions = showAll ? activeInterventions : activeInterventions.slice(0, 3);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-3">
+      {/* Title with Info Icon - Always Visible */}
+      <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <Bell className="w-5 h-5 text-primary" />
           Micro Self Recalibration
@@ -755,7 +736,32 @@ const MicroSelfRecalibrateInterventions = () => {
           </Tooltip>
         </TooltipProvider>
       </div>
-      {displayedInterventions.map((intervention) => {
+
+      {/* Subtitle - Always Visible */}
+      <p className="text-sm text-muted-foreground -mt-1 mb-3">
+        Personalised to align your inner world for what matters today.
+      </p>
+
+      {/* Loading State */}
+      {loading && (
+        <p className="text-sm text-muted-foreground animate-pulse">
+          Analyzing your calendar and wearable data...
+        </p>
+      )}
+
+      {/* Empty State */}
+      {!loading && interventions.length === 0 && (
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground text-center">
+            No micro interventions needed right now. Connect your calendar or wearable to get personalized recommendations.
+          </p>
+        </Card>
+      )}
+
+      {/* Interventions List */}
+      {!loading && displayedInterventions.length > 0 && (
+        <>
+          {displayedInterventions.map((intervention) => {
         const Icon = getIcon(intervention.icon);
         const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
         const cardRenderTime = Date.now();
@@ -898,8 +904,10 @@ const MicroSelfRecalibrateInterventions = () => {
               </Button>
             </div>
           </Card>
-        );
-      })}
+          );
+        })}
+        </>
+      )}
 
       {/* Dismissal Modal */}
       <AlertDialog open={dismissModalOpen} onOpenChange={setDismissModalOpen}>
