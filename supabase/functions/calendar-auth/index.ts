@@ -160,11 +160,15 @@ serve(async (req) => {
       });
 
       // Redirect back to app with success
+      // Check if user is in onboarding by checking localStorage reference
+      // For now, redirect to onboarding page which will handle completion flow
+      const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co/functions/v1', '.lovableproject.com') || '';
+      
       return new Response(null, {
         status: 302,
         headers: {
           ...corsHeaders,
-          'Location': `${Deno.env.get('SUPABASE_URL')?.replace('/functions/v1', '')}/executive-home?calendar_connected=true`,
+          'Location': `${baseUrl}/onboarding/context-connection?calendar_connected=true`,
         },
       });
     } else if (action === 'disconnect') {
