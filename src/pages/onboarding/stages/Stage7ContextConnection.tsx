@@ -10,30 +10,57 @@ import { IntegrationPreviewCard } from "@/components/onboarding/IntegrationPrevi
 import { toast } from "@/hooks/use-toast";
 import { getSession } from "@/utils/onboardingStorage";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
-  const [calendarConfig, setCalendarConfig] = useState({
-    enabled: false,
-    provider: null as string | null,
-    waitlist: false
-  });
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
   const [wearableConfig, setWearableConfig] = useState({
     enabled: false,
     provider: null as string | null,
     waitlist: false
   });
 
-  const handleCalendarToggle = (checked: boolean) => {
-    setCalendarConfig(prev => ({ ...prev, enabled: checked }));
-    if (checked) {
-      toast({
-        title: "🎉 Excellent Choice!",
-        description: "Calendar integration unlocks context-aware practice suggestions.",
-      });
-    }
-  };
+  // Check if calendar is actually connected
+  useEffect(() => {
+    const checkCalendarConnection = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setCheckingConnection(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('calendar_connections')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+
+        if (data && !error) {
+          setCalendarConnected(true);
+        }
+      } catch (error) {
+        console.error('Error checking calendar connection:', error);
+      } finally {
+        setCheckingConnection(false);
+      }
+    };
+
+    checkCalendarConnection();
+
+    // Listen for storage events (when connection happens in another component)
+    const handleStorageChange = () => {
+      checkCalendarConnection();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const handleWearableToggle = (checked: boolean) => {
     setWearableConfig(prev => ({ ...prev, enabled: checked }));
@@ -45,13 +72,13 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = (skipCalendar = false) => {
     localStorage.setItem('contextConnections', JSON.stringify({
       calendar: {
-        enabled: calendarConfig.enabled,
-        provider: calendarConfig.provider,
-        waitlist: calendarConfig.waitlist,
-        setupCompletedAt: calendarConfig.enabled ? new Date().toISOString() : null
+        enabled: calendarConnected,
+        provider: calendarConnected ? 'google' : null,
+        setupCompletedAt: calendarConnected ? new Date().toISOString() : null,
+        skipped: skipCalendar
       },
       wearable: {
         enabled: wearableConfig.enabled,
@@ -75,11 +102,11 @@ export default function Stage7ContextConnection() {
   };
 
   const getButtonText = () => {
-    if (calendarConfig.enabled && wearableConfig.enabled) return 'Connect Both & Continue';
-    if (calendarConfig.enabled) return 'Connect Calendar & Continue';
-    if (wearableConfig.enabled) return 'Connect Wearable & Continue';
-    if (calendarConfig.waitlist || wearableConfig.waitlist) return 'Join Waitlist & Continue';
-    return 'Skip for Now';
+    if (calendarConnected && wearableConfig.enabled) return 'Continue to App';
+    if (calendarConnected) return 'Continue with Calendar Connected';
+    if (wearableConfig.enabled) return 'Continue with Wearable';
+    if (wearableConfig.waitlist) return 'Join Waitlist & Continue';
+    return 'Continue';
   };
 
   return (
@@ -138,11 +165,11 @@ export default function Stage7ContextConnection() {
         </Card>
 
         {/* Calendar Integration Card */}
-        <Card className={`p-6 transition-all duration-300 animate-fade-in delay-400 ${
-          calendarConfig.enabled ? 'border-gold/40 bg-card/90 shadow-lg' : 'bg-card/80'
+        <Card className={`transition-all duration-300 animate-fade-in delay-400 ${
+          calendarConnected ? 'border-gold/40 bg-card/90 shadow-lg' : 'bg-card/80'
         } backdrop-blur-sm`}>
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex gap-4 flex-1">
+          <div className="p-6 pb-4">
+            <div className="flex items-start gap-4 mb-4">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gold/20 to-primary/20 flex items-center justify-center flex-shrink-0">
                 <Calendar className="w-7 h-7 text-gold" />
               </div>
@@ -164,41 +191,12 @@ export default function Stage7ContextConnection() {
                 </div>
               </div>
             </div>
-            <Switch 
-              checked={calendarConfig.enabled} 
-              onCheckedChange={handleCalendarToggle}
-            />
           </div>
 
-          {calendarConfig.enabled && (
-            <>
-              <ProviderSelector 
-                type="calendar"
-                selectedProvider={calendarConfig.provider}
-                onSelect={(provider) => setCalendarConfig(prev => ({ ...prev, provider }))}
-              />
-              {calendarConfig.provider && (
-                <>
-                  <IntegrationPreviewCard type="calendar" />
-                  {['microsoft', 'apple'].includes(calendarConfig.provider) && (
-                    <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox 
-                          checked={calendarConfig.waitlist}
-                          onCheckedChange={(checked) => 
-                            setCalendarConfig(prev => ({ ...prev, waitlist: checked as boolean }))
-                          }
-                        />
-                        <span className="text-sm">
-                          Notify me when {calendarConfig.provider === 'microsoft' ? 'Outlook' : 'Apple Calendar'} integration launches
-                        </span>
-                      </label>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
+          {/* Real Calendar Connection Component */}
+          <div className="border-t border-border">
+            <CalendarConnectionSettings />
+          </div>
         </Card>
 
         {/* Wearable Integration Card */}
@@ -326,10 +324,28 @@ export default function Stage7ContextConnection() {
           </Accordion>
         </div>
 
-        <Button size="lg" onClick={handleComplete} className="w-full animate-fade-in delay-700">
-          {getButtonText()}
-          <ArrowRight size={20} className="ml-2" />
-        </Button>
+        <div className="space-y-3 animate-fade-in delay-700">
+          <Button 
+            size="lg" 
+            onClick={() => handleComplete(false)} 
+            className="w-full"
+            disabled={checkingConnection}
+          >
+            {getButtonText()}
+            <ArrowRight size={20} className="ml-2" />
+          </Button>
+
+          {!calendarConnected && !checkingConnection && (
+            <Button 
+              size="lg" 
+              variant="outline"
+              onClick={() => handleComplete(true)} 
+              className="w-full"
+            >
+              Skip Calendar for Now
+            </Button>
+          )}
+        </div>
 
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-700">
           You can always connect or modify these integrations later in Settings
