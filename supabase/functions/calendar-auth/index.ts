@@ -14,8 +14,17 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get('action');
-    const provider = url.searchParams.get('provider');
+    
+    // For callback action, read from URL params
+    let action = url.searchParams.get('action');
+    let provider = url.searchParams.get('provider');
+    
+    // For connect/disconnect actions, read from request body
+    if (req.method === 'POST') {
+      const body = await req.json();
+      action = body.action || action;
+      provider = body.provider || provider;
+    }
 
     // Validate input
     const providerSchema = z.enum(['google', 'outlook']);
