@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
+import { Calendar, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const CalendarConnectionSettings = () => {
+interface CalendarConnectionSettingsProps {
+  compact?: boolean;
+}
+
+const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSettingsProps) => {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
@@ -103,11 +107,57 @@ const CalendarConnectionSettings = () => {
     }
   };
 
+  // Compact mode for inline use in onboarding
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {!connected ? (
+          <>
+            <p className="text-sm text-muted-foreground mb-3">
+              Choose your calendar provider:
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleConnect('google')}
+                disabled={loading}
+                variant="outline"
+                className="flex-1"
+                size="sm"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Google'}
+              </Button>
+              <Button
+                onClick={() => handleConnect('outlook')}
+                disabled={loading}
+                variant="outline"
+                className="flex-1"
+                size="sm"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Outlook'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium capitalize">{provider} Connected</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleDisconnect}>
+              Disconnect
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Full card mode for settings pages
   return (
     <Card className="p-6">
       <div className="flex items-start gap-4 mb-4">
-        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-saffron/20 to-gold/20 flex items-center justify-center flex-shrink-0">
-          <Calendar className="w-6 h-6 text-saffron" />
+        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
+          <Calendar className="w-6 h-6 text-primary" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
@@ -120,77 +170,92 @@ const CalendarConnectionSettings = () => {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {connected
-              ? `Connected to ${provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}`
-              : 'Get context-aware practice recommendations based on your schedule'}
+            {connected 
+              ? `Connected to ${provider?.charAt(0).toUpperCase()}${provider?.slice(1)} Calendar`
+              : 'Connect your calendar to get personalized practice suggestions based on your schedule'
+            }
           </p>
-          {lastSync && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Last synced: {new Date(lastSync).toLocaleString()}
-            </p>
-          )}
         </div>
       </div>
 
-      {!connected ? (
-        <div className="space-y-2">
-          <Button
-            onClick={() => handleConnect('google')}
-            disabled={loading}
-            className="w-full justify-start"
-            variant="outline"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <ExternalLink className="w-4 h-4 mr-2" />
-            )}
-            Connect Google Calendar
-          </Button>
-          <Button
-            onClick={() => handleConnect('outlook')}
-            disabled={loading}
-            className="w-full justify-start"
-            variant="outline"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <ExternalLink className="w-4 h-4 mr-2" />
-            )}
-            Connect Outlook Calendar
-          </Button>
+      {connected ? (
+        <div className="space-y-4">
+          {lastSync && (
+            <p className="text-xs text-muted-foreground">
+              Last synced: {new Date(lastSync).toLocaleString()}
+            </p>
+          )}
+          
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSync}
+              disabled={loading}
+              variant="outline"
+              className="flex-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                'Sync Now'
+              )}
+            </Button>
+            <Button
+              onClick={handleDisconnect}
+              disabled={loading}
+              variant="destructive"
+            >
+              Disconnect
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSync}
-            disabled={loading}
-            variant="outline"
-            className="flex-1"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              'Sync Now'
-            )}
-          </Button>
-          <Button
-            onClick={handleDisconnect}
-            disabled={loading}
-            variant="outline"
-            className="text-destructive hover:bg-destructive/10"
-          >
-            Disconnect
-          </Button>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Choose your calendar provider to get started:
+          </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleConnect('google')}
+              disabled={loading}
+              variant="outline"
+              className="flex-1"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 mr-2" />
+              )}
+              Google Calendar
+            </Button>
+            <Button
+              onClick={() => handleConnect('outlook')}
+              disabled={loading}
+              variant="outline"
+              className="flex-1"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 mr-2" />
+              )}
+              Outlook Calendar
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-        <p className="text-xs text-muted-foreground">
-          <strong>What we sync:</strong> We analyze your upcoming meetings to suggest relevant practices
-          (e.g., grounding exercises before board meetings, quick resets between back-to-back calls).
-          Event titles and times are synced; content is never accessed.
+      <div className="pt-4 border-t mt-4">
+        <p className="text-sm font-medium mb-2">What we sync:</p>
+        <ul className="text-sm text-muted-foreground space-y-1">
+          <li>• Event times and duration</li>
+          <li>• Meeting frequency patterns</li>
+          <li>• Calendar availability</li>
+        </ul>
+        <p className="text-xs text-muted-foreground mt-3">
+          We respect your privacy. We only access metadata to suggest optimal practice times.
         </p>
       </div>
     </Card>
