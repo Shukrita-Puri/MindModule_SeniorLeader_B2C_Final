@@ -159,10 +159,8 @@ serve(async (req) => {
         body: { provider: validProvider }
       });
 
-      // Redirect back to app with success
-      // Check if user is in onboarding by checking localStorage reference
-      // For now, redirect to onboarding page which will handle completion flow
-      const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co/functions/v1', '.lovableproject.com') || '';
+      // Redirect back to app with success using FRONTEND_URL
+      const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://5bd59ee0-ab8c-409f-bc56-72fe64069377.lovableproject.com';
       
       return new Response(null, {
         status: 302,
