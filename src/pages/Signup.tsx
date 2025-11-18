@@ -131,18 +131,32 @@ const Signup = () => {
       ? `${window.location.origin}/onboarding/results`
       : `${window.location.origin}/executive-home`;
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl
-      }
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
 
-    if (error) {
+      if (error) {
+        console.error('Google OAuth error', error);
+        const friendlyMessage = error.message.includes('access_denied')
+          ? 'Google blocked the sign-in request for this account. Make sure this Google account is allowed to use the app, or try a different account.'
+          : 'We could not start Google sign-in. Please try again, or use email login instead.';
+
+        toast({
+          title: "Google sign-in failed",
+          description: friendlyMessage,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Unexpected Google OAuth error', err);
       toast({
-        title: "Authentication Failed",
-        description: error.message,
-        variant: "destructive"
+        title: "Google sign-in failed",
+        description: "Something went wrong starting Google sign-in. Please try again, or use email login.",
+        variant: "destructive",
       });
     }
   };
