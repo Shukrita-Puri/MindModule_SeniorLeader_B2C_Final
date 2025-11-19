@@ -22,9 +22,11 @@ const AuthCallback = () => {
       const fromOnboarding = urlParams.get('from') === 'onboarding';
       
       if (fromOnboarding) {
-        navigate('/onboarding/identity');
+        // New user completing onboarding → show their results
+        navigate('/onboarding/results');
       } else {
-        navigate('/executive-home');
+        // Returning user logging in → go to daily check-in
+        navigate('/daily-check-in');
       }
     }
   }, [isLoading, error, isAuthenticated, navigate]);
