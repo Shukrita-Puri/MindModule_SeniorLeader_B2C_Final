@@ -5,8 +5,8 @@ const GreetingBanner = () => {
   
   // Extract first name from user metadata or email
   const getFirstName = () => {
-    if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name.split(' ')[0];
+    if (user?.name) {
+      return user.name.split(' ')[0];
     }
     if (user?.email) {
       return user.email.split('@')[0];

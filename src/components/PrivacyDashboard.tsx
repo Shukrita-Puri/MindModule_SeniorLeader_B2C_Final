@@ -153,7 +153,7 @@ const PrivacyDashboard = () => {
                 <Label htmlFor="fullName" className="text-muted-foreground">Full Name</Label>
                 <Input 
                   id="fullName" 
-                  value={user?.user_metadata?.full_name || user?.email || ''} 
+                  value={user?.name || user?.email || ''} 
                   readOnly 
                   className="bg-muted/30"
                 />
