@@ -13,6 +13,7 @@ import GlobalHeader from "./components/GlobalHeader";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
+const Login = lazy(() => import("./pages/Login"));
 const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
 const ExecutiveHome = lazy(() => import("./pages/ExecutiveHome"));
 const FlowSession = lazy(() => import("./pages/FlowSession"));
@@ -117,6 +118,10 @@ const router = createBrowserRouter([
       {
         path: "signup",
         element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense>,
+      },
+      {
+        path: "login",
+        element: <Suspense fallback={<LoadingFallback />}><Login /></Suspense>,
       },
       {
         path: "callback",
