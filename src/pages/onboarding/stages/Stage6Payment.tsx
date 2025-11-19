@@ -85,11 +85,8 @@ export default function Stage6Payment() {
                 // Save selected plan
                 localStorage.setItem('selectedPlan', plan.name);
                 
-                if (plan.name.includes('Super Pro')) {
-                  navigate("/onboarding/context-connection");
-                } else {
-                  navigate("/executive-home");
-                }
+                // All plans go to context-connection for consistent onboarding flow
+                navigate("/onboarding/context-connection");
               }}
             >
               Start {plan.name.split(' ')[0]} Plan

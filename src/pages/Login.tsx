@@ -8,9 +8,9 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If already authenticated, redirect to home
+    // If already authenticated, redirect to daily check-in
     if (isAuthenticated) {
-      navigate('/executive-home');
+      navigate('/daily-check-in');
       return;
     }
 

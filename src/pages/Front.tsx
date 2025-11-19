@@ -46,16 +46,27 @@ const Front = () => {
           First Context-based Thinking Partner for developing Meta Skills
         </p>
         
-        {/* CTA Button */}
-        <Button 
-          onClick={handleGetStarted}
-          variant="critical"
-          size="lg"
-          className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 mt-8"
-        >
-          Begin Your Journey
-          <ArrowRight className="w-5 h-5 ml-3" />
-        </Button>
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mt-8">
+          <Button 
+            onClick={handleGetStarted}
+            variant="critical"
+            size="lg"
+            className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            Begin Your Journey
+            <ArrowRight className="w-5 h-5 ml-3" />
+          </Button>
+          
+          <Button 
+            onClick={() => navigate('/login')}
+            variant="outline"
+            size="lg"
+            className="px-12 py-6 text-lg font-medium tracking-wide"
+          >
+            Sign In
+          </Button>
+        </div>
         
         {/* Privacy Trust Badge */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-muted-foreground mt-8 pt-8 border-t border-gold/10 w-full">
