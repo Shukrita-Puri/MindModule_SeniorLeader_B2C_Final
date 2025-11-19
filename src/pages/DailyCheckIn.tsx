@@ -37,22 +37,10 @@ const DailyCheckIn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  // Fetch user plan tier
-  const { data: profile } = useQuery({
-    queryKey: ['profile-plan', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('plan_tier')
-        .eq('id', user.id)
-        .single();
-      return data;
-    },
-    enabled: !!user?.id
-  });
+  // Check if user has active subscription
+  const hasActiveSubscription = user?.subscription_status === 'active';
   
-  // Fetch connection status for tier inference
+  // Fetch connection status
   const { data: connections } = useQuery({
     queryKey: ['connections', user?.id],
     queryFn: async () => {
@@ -68,8 +56,6 @@ const DailyCheckIn = () => {
     },
     enabled: !!user?.id
   });
-  
-  const planTier = profile?.plan_tier || (connections?.hasWearable || connections?.hasCalendar ? 'super_pro' : 'pro');
 
   const outcomes = [
     // DEPLETED (0-39)
@@ -163,7 +149,6 @@ const DailyCheckIn = () => {
       await supabase.from('checkin_skip_events').insert({
         user_id: user.id,
         skip_date: new Date().toISOString().split('T')[0],
-        plan_tier: planTier,
         has_wearable: connections?.hasWearable || false,
         has_calendar: connections?.hasCalendar || false
       });
@@ -181,7 +166,7 @@ const DailyCheckIn = () => {
   
   // Dynamic skip button text
   const getSkipButtonText = () => {
-    if (planTier === 'super_pro') {
+    if (hasActiveSubscription) {
       return "Skip check-in (use wearable data)";
     }
     return "I am good, take me to my Mind Atelier";
