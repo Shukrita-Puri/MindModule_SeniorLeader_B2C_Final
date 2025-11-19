@@ -33,7 +33,7 @@ const ExecutiveHome = () => {
     migrateData();
   }, [user?.id, migrationComplete]);
   
-  const fullName = user?.user_metadata?.full_name || user?.email || 'there';
+  const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
   
   // Get greeting based on time
@@ -91,9 +91,9 @@ const ExecutiveHome = () => {
             <MetricInfoModal
               title="How Your Ritual is Created"
               description={
-                user?.user_metadata?.plan_tier === 'super_pro' 
+                user?.subscription_status === 'active'
                   ? "Your ritual is personalized based on your Energy State Score (check-in + recovery data + circadian rhythm) and upcoming calendar demands."
-                  : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm)."
+                  : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm). Upgrade to access calendar integration."
               }
             />
           </div>

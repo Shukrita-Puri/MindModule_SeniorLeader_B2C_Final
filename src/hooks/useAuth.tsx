@@ -1,49 +1,94 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { useAuth0, User as Auth0User } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Custom user type that includes subscription metadata
+interface AppUser {
+  id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  subscription_status?: 'active' | 'inactive' | 'trial';
+  subscription_plan?: 'monthly' | 'annual';
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: auth0User, isLoading, logout, isAuthenticated } = useAuth0();
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    const syncUserToSupabase = async () => {
+      if (!auth0User || syncing) return;
+      
+      setSyncing(true);
+      
+      try {
+        // Map Auth0 user to app user format
+        const mappedUser: AppUser = {
+          id: auth0User.sub!,
+          email: auth0User.email!,
+          name: auth0User.name,
+          picture: auth0User.picture,
+          subscription_status: auth0User['app_metadata']?.subscription_status || 'trial',
+          subscription_plan: auth0User['app_metadata']?.subscription_plan || 'monthly',
+        };
+        
+        setAppUser(mappedUser);
+        
+        // Sync to Supabase profiles table
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            id: mappedUser.id,
+            email: mappedUser.email,
+            full_name: mappedUser.name,
+            avatar_url: mappedUser.picture,
+            subscription_status: mappedUser.subscription_status,
+            subscription_plan: mappedUser.subscription_plan,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id'
+          });
+        
+        if (error) {
+          console.error('Failed to sync user to Supabase:', error);
+        }
+      } catch (error) {
+        console.error('Error syncing user:', error);
+      } finally {
+        setSyncing(false);
       }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    };
+    
+    syncUserToSupabase();
+  }, [auth0User, syncing]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    await logout({ 
+      logoutParams: { 
+        returnTo: window.location.origin 
+      } 
+    });
+    setAppUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ 
+      user: appUser, 
+      loading: isLoading || syncing, 
+      signOut,
+      isAuthenticated 
+    }}>
       {children}
     </AuthContext.Provider>
   );

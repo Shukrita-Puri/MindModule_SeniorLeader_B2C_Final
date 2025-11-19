@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.9.0",
     "@hookform/resolvers": "^3.9.0",
     "@nivo/radar": "^0.99.0",
     "@radix-ui/react-accordion": "^1.2.0",
