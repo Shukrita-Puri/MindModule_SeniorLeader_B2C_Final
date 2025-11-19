@@ -14,7 +14,7 @@ const GlobalHeader = () => {
   const handleSignOut = async () => {
     await signOut();
     setOpen(false);
-    navigate('/signup');
+    navigate('/login');
   };
 
   return (
