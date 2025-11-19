@@ -101,7 +101,6 @@ export type Database = {
           has_calendar: boolean | null
           has_wearable: boolean | null
           id: string
-          plan_tier: string | null
           skip_date: string
           user_id: string
         }
@@ -110,7 +109,6 @@ export type Database = {
           has_calendar?: boolean | null
           has_wearable?: boolean | null
           id?: string
-          plan_tier?: string | null
           skip_date: string
           user_id: string
         }
@@ -119,7 +117,6 @@ export type Database = {
           has_calendar?: boolean | null
           has_wearable?: boolean | null
           id?: string
-          plan_tier?: string | null
           skip_date?: string
           user_id?: string
         }
@@ -564,15 +561,13 @@ export type Database = {
           meta_skill_scores: Json | null
           onboarding_completed_at: string | null
           onboarding_session_id: string | null
-          plan_tier: string | null
           profile_description: string | null
           profile_type: string | null
           q1_setback_response: string | null
           q2_pressure_response: string | null
           q3_communication_style: string | null
           q4_self_assessed_strength: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
+          subscription_plan: string | null
           subscription_status: string | null
           updated_at: string | null
           user_archetype: string | null
@@ -595,15 +590,13 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
-          plan_tier?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
+          subscription_plan?: string | null
           subscription_status?: string | null
           updated_at?: string | null
           user_archetype?: string | null
@@ -626,15 +619,13 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
-          plan_tier?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
+          subscription_plan?: string | null
           subscription_status?: string | null
           updated_at?: string | null
           user_archetype?: string | null
