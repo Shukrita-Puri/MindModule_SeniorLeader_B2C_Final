@@ -46,6 +46,7 @@ const Stage7Results = lazy(() => import("./pages/onboarding/stages/Stage7Results
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -126,6 +127,10 @@ const router = createBrowserRouter([
       {
         path: "callback",
         element: <Suspense fallback={<LoadingFallback />}><AuthCallback /></Suspense>,
+      },
+      {
+        path: "auth-debug",
+        element: <Suspense fallback={<LoadingFallback />}><AuthDebug /></Suspense>,
       },
       {
         path: "daily-check-in",
