@@ -13,7 +13,7 @@ export default function Stage6GrowthAssessment() {
 
   const handleContinue = () => {
     saveResponse("growth_priority", answer);
-    navigate("/onboarding/signup-step");
+    navigate("/onboarding/results");
   };
 
   const options = [

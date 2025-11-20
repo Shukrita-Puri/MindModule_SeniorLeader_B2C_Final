@@ -181,7 +181,7 @@ export default function Stage7Results() {
       {/* CTA */}
       <Button 
         size="lg" 
-        onClick={() => navigate("/onboarding/payment")} 
+        onClick={() => navigate("/onboarding/context-connection")} 
         className="w-full group"
       >
         <Sparkles className="w-5 h-5 mr-2" />
