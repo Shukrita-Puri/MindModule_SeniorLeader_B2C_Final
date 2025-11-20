@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const Login = () => {
-  const { isAuthenticated, isLoading } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,27 +22,17 @@ const Login = () => {
       return;
     }
 
-    // Direct manual redirect - completely bypass Auth0 SDK
-    const timer = setTimeout(() => {
-      const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN;
-      const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-      
-      const redirect_uri = `${window.location.origin}/callback`;
-      
-      // Manually construct Auth0 authorization URL (no screen_hint for login)
-      const authUrl = `https://${auth0Domain}/authorize?` +
-        `response_type=code&` +
-        `client_id=${auth0ClientId}&` +
-        `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
-        `scope=openid%20profile%20email`;
-      
-      console.log('[Login] Direct full-page redirect to:', authUrl);
-      
-      // Break out of iframe and navigate top-level window
-      window.top.location.href = authUrl;
-    }, 100);
-
-    return () => clearTimeout(timer);
+    // Use Auth0 SDK loginWithRedirect for proper PKCE flow
+    const redirectUri = `${window.location.origin}/callback`;
+    
+    console.log('[Login] Redirecting to Auth0 with loginWithRedirect:', { redirectUri });
+    
+    loginWithRedirect({
+      authorizationParams: {
+        redirect_uri: redirectUri,
+        scope: 'openid profile email',
+      },
+    });
   }, [isLoading, isAuthenticated, navigate]);
 
   return (
