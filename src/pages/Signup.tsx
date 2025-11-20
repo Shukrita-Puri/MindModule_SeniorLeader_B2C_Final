@@ -8,7 +8,6 @@ const Signup = () => {
   const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
   const navigate = useNavigate();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [retryAttempts, setRetryAttempts] = useState(0);
 
   useEffect(() => {
     console.log('[Signup] State:', { 
@@ -16,63 +15,28 @@ const Signup = () => {
       isAuthenticated, 
       error: error?.message, 
       localError,
-      retryAttempts,
       pathname: window.location.pathname,
       search: window.location.search
     });
 
     if (isLoading) return;
 
-    // If already authenticated, redirect to home
+    // If already authenticated, redirect to executive-home
     if (isAuthenticated) {
       console.log('[Signup] Already authenticated, redirecting to executive-home');
       navigate('/executive-home');
       return;
     }
+  }, [isAuthenticated, isLoading, navigate, error, localError]);
 
-    // Check if user came from onboarding flow
-    const isOnboardingFlow = window.location.pathname.includes('/onboarding') || 
-                             window.location.search.includes('from=onboarding');
-    
-    console.log('[Signup] Checking onboarding flow:', { isOnboardingFlow });
-
-    // Only auto-redirect if there's no error
-    if (!error && !localError) {
-      // Redirect to Auth0 Universal Login
-      const doSignup = async () => {
-        try {
-          const redirect_uri = `${window.location.origin}/callback${isOnboardingFlow ? '?from=onboarding' : ''}`;
-          console.log('[Signup] Calling loginWithRedirect with:', { redirect_uri, screen_hint: 'signup' });
-          
-          await loginWithRedirect({
-            authorizationParams: {
-              redirect_uri,
-              screen_hint: 'signup',
-            },
-          });
-        } catch (e) {
-          console.error('[Signup] Redirect failed:', e);
-          setLocalError(e instanceof Error ? e.message : 'Failed to redirect to signup');
-        }
-      };
-
-      void doSignup();
-    }
-  }, [isAuthenticated, isLoading, loginWithRedirect, navigate, error, localError, retryAttempts]);
-
-  const handleRetry = () => {
-    console.log('[Signup] Retry button clicked, clearing errors');
-    setLocalError(null);
-    setRetryAttempts(prev => prev + 1);
-  };
-
-  const handleManualSignup = async () => {
-    console.log('[Signup] Manual signup button clicked');
+  const handleSignup = async () => {
+    console.log('[Signup] Signup button clicked');
     const isOnboardingFlow = window.location.pathname.includes('/onboarding') || 
                              window.location.search.includes('from=onboarding');
     try {
+      setLocalError(null);
       const redirect_uri = `${window.location.origin}/callback${isOnboardingFlow ? '?from=onboarding' : ''}`;
-      console.log('[Signup] Manual redirect with:', { redirect_uri });
+      console.log('[Signup] Redirect with:', { redirect_uri });
       
       await loginWithRedirect({
         authorizationParams: {
@@ -81,56 +45,57 @@ const Signup = () => {
         },
       });
     } catch (e) {
-      console.error('[Signup] Manual redirect failed:', e);
+      console.error('[Signup] Redirect failed:', e);
       setLocalError(e instanceof Error ? e.message : 'Failed to redirect to signup');
     }
   };
 
-  // Show loading state while redirecting
+  const isOnboardingFlow = window.location.pathname.includes('/onboarding');
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center max-w-md px-4">
-        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground mb-4">
-          {error || localError ? 'Sign up failed' : 'Redirecting to sign up...'}
-        </p>
-        
-        {error && (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="text-center max-w-md w-full space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Create Your Account</h1>
+          <p className="text-muted-foreground">
+            {isOnboardingFlow 
+              ? "You're almost done! Create your account to save your results and start your journey."
+              : "Sign up to get started with your personalized mental fitness journey."}
+          </p>
+        </div>
+
+        {(error || localError) && (
           <ErrorMessage 
-            message={`Auth0 error: ${error.message}`}
-            className="mt-4"
-          />
-        )}
-        
-        {localError && (
-          <ErrorMessage 
-            message={localError}
+            message={error?.message || localError || ''}
             className="mt-4"
           />
         )}
 
-        {(error || localError) && (
-          <div className="mt-6 space-y-3">
-            <button
-              onClick={handleRetry}
-              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Retry Signup
-            </button>
-            <button
-              onClick={handleManualSignup}
-              className="w-full px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-            >
-              Continue to Signup
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="mt-4 text-sm text-muted-foreground underline"
-            >
-              Back to start
-            </button>
-          </div>
-        )}
+        <button
+          onClick={handleSignup}
+          disabled={isLoading}
+          className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-50"
+        >
+          {isLoading ? 'Loading...' : 'Continue with Email'}
+        </button>
+
+        <button
+          onClick={() => navigate(isOnboardingFlow ? '/onboarding/growth-assessment' : '/')}
+          className="text-sm text-muted-foreground hover:text-foreground underline"
+        >
+          {isOnboardingFlow ? 'Back to questionnaire' : 'Back to start'}
+        </button>
       </div>
     </div>
   );
