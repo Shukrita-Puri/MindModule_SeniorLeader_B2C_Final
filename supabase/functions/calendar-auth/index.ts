@@ -55,9 +55,13 @@ serve(async (req) => {
       let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
 
       if (validProvider === 'google') {
-        clientId = Deno.env.get('GoogleCalendarClientID') ?? '';
+        clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
+        if (!clientId) {
+          throw new Error('Google Calendar Client ID not configured');
+        }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${user.id}`;
+        console.log('Generated OAuth URL for user:', user.id);
       }
 
       return new Response(
@@ -80,8 +84,8 @@ serve(async (req) => {
 
       if (validProvider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
-        clientId = Deno.env.get('GoogleCalendarClientID') ?? '';
-        clientSecret = Deno.env.get('GoogleCalendarClientSecret') ?? '';
+        clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
+        clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') ?? '';
       }
 
       // Exchange code for tokens
