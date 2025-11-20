@@ -42,8 +42,8 @@ const Signup = () => {
       
       console.log('[Signup] Direct full-page redirect to:', authUrl);
       
-      // Full-page navigation - no SDK, no iframe
-      window.location.href = authUrl;
+      // Break out of iframe and navigate top-level window
+      window.top.location.href = authUrl;
     }, 100);
 
     return () => clearTimeout(timer);
