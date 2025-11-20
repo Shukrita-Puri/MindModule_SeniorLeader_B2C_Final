@@ -167,7 +167,7 @@ export default function Stage7Results() {
       </div>
 
       {/* CTA */}
-      <Button size="lg" onClick={() => navigate("/onboarding/context-connection")} className="w-full group shadow-lg rounded-none">
+      <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg rounded-none">
         <Sparkles className="w-5 h-5 mr-2" />
         Unlock Your Plan - Elevate your impact!  
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />

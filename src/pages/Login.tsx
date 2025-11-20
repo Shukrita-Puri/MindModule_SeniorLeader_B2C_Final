@@ -1,127 +1,63 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, AlertCircle } from 'lucide-react';
-import ErrorMessage from '@/components/ui/error-message';
+import { Loader2 } from 'lucide-react';
 
 const Login = () => {
-  const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
+  const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
   const navigate = useNavigate();
-  const [localError, setLocalError] = useState<string | null>(null);
-  const [retryAttempts, setRetryAttempts] = useState(0);
 
   useEffect(() => {
-    console.log('[Login] State:', { 
+    console.log('[Login] Component mounted:', { 
       isLoading, 
-      isAuthenticated, 
-      error: error?.message, 
-      localError,
-      retryAttempts,
+      isAuthenticated,
       pathname: window.location.pathname
     });
 
     if (isLoading) return;
 
-    // If already authenticated, redirect to daily check-in
     if (isAuthenticated) {
       console.log('[Login] Already authenticated, redirecting to daily-check-in');
       navigate('/daily-check-in');
       return;
     }
 
-    // Only auto-redirect if there's no error
-    if (!error && !localError) {
-      // Redirect to Auth0 Universal Login
-      const doLogin = async () => {
-        try {
-          const redirect_uri = `${window.location.origin}/callback`;
-          console.log('[Login] Calling loginWithRedirect with:', { redirect_uri, screen_hint: 'login' });
-          
-          await loginWithRedirect({
-            authorizationParams: {
-              redirect_uri,
-              screen_hint: 'login',
-            },
-          });
-        } catch (e) {
-          console.error('[Login] Redirect failed:', e);
-          setLocalError(e instanceof Error ? e.message : 'Failed to redirect to login');
-        }
-      };
-
-      void doLogin();
-    }
-  }, [isAuthenticated, isLoading, loginWithRedirect, navigate, error, localError, retryAttempts]);
-
-  const handleRetry = () => {
-    console.log('[Login] Retry button clicked, clearing errors');
-    setLocalError(null);
-    setRetryAttempts(prev => prev + 1);
-  };
-
-  const handleManualLogin = async () => {
-    console.log('[Login] Manual login button clicked');
-    try {
+    // Auto-redirect after small delay to ensure Auth0 SDK is initialized
+    const timer = setTimeout(() => {
       const redirect_uri = `${window.location.origin}/callback`;
-      console.log('[Login] Manual redirect with:', { redirect_uri });
       
-      await loginWithRedirect({
+      console.log('[Login] Auto-redirecting to Auth0:', { redirect_uri });
+      
+      // Try loginWithRedirect first
+      loginWithRedirect({
         authorizationParams: {
           redirect_uri,
-          screen_hint: 'login',
         },
+      }).catch((err) => {
+        console.error('[Login] loginWithRedirect failed, using fallback:', err);
+        
+        // Fallback: Manual URL construction
+        const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN;
+        const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+        const authUrl = `https://${auth0Domain}/authorize?` +
+          `response_type=code&` +
+          `client_id=${auth0ClientId}&` +
+          `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
+          `scope=openid%20profile%20email`;
+        
+        console.log('[Login] Fallback redirect URL:', authUrl);
+        window.location.href = authUrl;
       });
-    } catch (e) {
-      console.error('[Login] Manual redirect failed:', e);
-      setLocalError(e instanceof Error ? e.message : 'Failed to redirect to login');
-    }
-  };
+    }, 100);
 
-  // Show loading state while redirecting
+    return () => clearTimeout(timer);
+  }, [isLoading, isAuthenticated, loginWithRedirect, navigate]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center max-w-md px-4">
+      <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground mb-4">
-          {error || localError ? 'Login failed' : 'Redirecting to login...'}
-        </p>
-        
-        {error && (
-          <ErrorMessage 
-            message={`Auth0 error: ${error.message}`}
-            className="mt-4"
-          />
-        )}
-        
-        {localError && (
-          <ErrorMessage 
-            message={localError}
-            className="mt-4"
-          />
-        )}
-
-        {(error || localError) && (
-          <div className="mt-6 space-y-3">
-            <button
-              onClick={handleRetry}
-              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Retry Login
-            </button>
-            <button
-              onClick={handleManualLogin}
-              className="w-full px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-            >
-              Continue to Login
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="mt-4 text-sm text-muted-foreground underline"
-            >
-              Back to start
-            </button>
-          </div>
-        )}
+        <p className="text-muted-foreground">Redirecting to login...</p>
       </div>
     </div>
   );
