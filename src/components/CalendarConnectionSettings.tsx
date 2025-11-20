@@ -5,33 +5,31 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
 interface CalendarConnectionSettingsProps {
   compact?: boolean;
 }
-
-const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSettingsProps) => {
+const CalendarConnectionSettings = ({
+  compact = false
+}: CalendarConnectionSettingsProps) => {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
-
   useEffect(() => {
     checkConnection();
   }, []);
-
   const checkConnection = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data, error } = await supabase
-        .from('calendar_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-
+      const {
+        data,
+        error
+      } = await supabase.from('calendar_connections').select('*').eq('user_id', user.id).eq('is_active', true).single();
       if (data && !error) {
         setConnected(true);
         setProvider(data.provider);
@@ -41,17 +39,20 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
       console.error('Error checking calendar connection:', error);
     }
   };
-
   const handleConnect = async (selectedProvider: 'google' | 'outlook') => {
     setLoading(true);
     try {
       // Call edge function to get OAuth URL
-      const { data, error } = await supabase.functions.invoke('calendar-auth', {
-        body: { action: 'connect', provider: selectedProvider }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('calendar-auth', {
+        body: {
+          action: 'connect',
+          provider: selectedProvider
+        }
       });
-
       if (error) throw error;
-
       if (data.authUrl) {
         // Redirect to OAuth URL
         window.location.href = data.authUrl;
@@ -62,18 +63,19 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
       setLoading(false);
     }
   };
-
   const handleDisconnect = async () => {
     if (!provider) return;
-    
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('calendar-auth', {
-        body: { action: 'disconnect', provider }
+      const {
+        error
+      } = await supabase.functions.invoke('calendar-auth', {
+        body: {
+          action: 'disconnect',
+          provider
+        }
       });
-
       if (error) throw error;
-
       setConnected(false);
       setProvider(null);
       setLastSync(null);
@@ -85,18 +87,18 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
       setLoading(false);
     }
   };
-
   const handleSync = async () => {
     if (!provider) return;
-    
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('sync-calendar', {
-        body: { provider }
+      const {
+        error
+      } = await supabase.functions.invoke('sync-calendar', {
+        body: {
+          provider
+        }
       });
-
       if (error) throw error;
-
       toast.success('Calendar synced successfully');
       await checkConnection();
     } catch (error) {
@@ -109,36 +111,14 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
 
   // Compact mode for inline use in onboarding
   if (compact) {
-    return (
-      <div className="space-y-3">
-        {!connected ? (
-          <>
-            <p className="text-sm text-muted-foreground mb-3">
-              Choose your calendar provider:
-            </p>
+    return <div className="space-y-3">
+        {!connected ? <>
+            
             <div className="flex gap-2">
-              <Button
-                onClick={() => handleConnect('google')}
-                disabled={loading}
-                variant="outline"
-                className="flex-1"
-                size="sm"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Google'}
-              </Button>
-              <Button
-                onClick={() => handleConnect('outlook')}
-                disabled={loading}
-                variant="outline"
-                className="flex-1"
-                size="sm"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Outlook'}
-              </Button>
+              
+              
             </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          </> : <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium capitalize">{provider} Connected</span>
@@ -146,15 +126,12 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
             <Button variant="ghost" size="sm" onClick={handleDisconnect}>
               Disconnect
             </Button>
-          </div>
-        )}
-      </div>
-    );
+          </div>}
+      </div>;
   }
 
   // Full card mode for settings pages
-  return (
-    <Card className="p-6">
+  return <Card className="p-6">
       <div className="flex items-start gap-4 mb-4">
         <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
           <Calendar className="w-6 h-6 text-primary" />
@@ -162,90 +139,48 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-lg font-semibold">Calendar Integration</h3>
-            {connected && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+            {connected && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
                 Connected
-              </Badge>
-            )}
+              </Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
-            {connected 
-              ? `Connected to ${provider?.charAt(0).toUpperCase()}${provider?.slice(1)} Calendar`
-              : 'Connect your calendar to get personalized practice suggestions based on your schedule'
-            }
+            {connected ? `Connected to ${provider?.charAt(0).toUpperCase()}${provider?.slice(1)} Calendar` : 'Connect your calendar to get personalized practice suggestions based on your schedule'}
           </p>
         </div>
       </div>
 
-      {connected ? (
-        <div className="space-y-4">
-          {lastSync && (
-            <p className="text-xs text-muted-foreground">
+      {connected ? <div className="space-y-4">
+          {lastSync && <p className="text-xs text-muted-foreground">
               Last synced: {new Date(lastSync).toLocaleString()}
-            </p>
-          )}
+            </p>}
           
           <div className="flex gap-2">
-            <Button
-              onClick={handleSync}
-              disabled={loading}
-              variant="outline"
-              className="flex-1"
-            >
-              {loading ? (
-                <>
+            <Button onClick={handleSync} disabled={loading} variant="outline" className="flex-1">
+              {loading ? <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Syncing...
-                </>
-              ) : (
-                'Sync Now'
-              )}
+                </> : 'Sync Now'}
             </Button>
-            <Button
-              onClick={handleDisconnect}
-              disabled={loading}
-              variant="destructive"
-            >
+            <Button onClick={handleDisconnect} disabled={loading} variant="destructive">
               Disconnect
             </Button>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
+        </div> : <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Choose your calendar provider to get started:
           </p>
           <div className="flex gap-2">
-            <Button
-              onClick={() => handleConnect('google')}
-              disabled={loading}
-              variant="outline"
-              className="flex-1"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Calendar className="w-4 h-4 mr-2" />
-              )}
+            <Button onClick={() => handleConnect('google')} disabled={loading} variant="outline" className="flex-1">
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
               Google Calendar
             </Button>
-            <Button
-              onClick={() => handleConnect('outlook')}
-              disabled={loading}
-              variant="outline"
-              className="flex-1"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Calendar className="w-4 h-4 mr-2" />
-              )}
+            <Button onClick={() => handleConnect('outlook')} disabled={loading} variant="outline" className="flex-1">
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
               Outlook Calendar
             </Button>
           </div>
-        </div>
-      )}
+        </div>}
 
       <div className="pt-4 border-t mt-4">
         <p className="text-sm font-medium mb-2">What we sync:</p>
@@ -258,8 +193,6 @@ const CalendarConnectionSettings = ({ compact = false }: CalendarConnectionSetti
           We respect your privacy. We only access metadata to suggest optimal practice times.
         </p>
       </div>
-    </Card>
-  );
+    </Card>;
 };
-
 export default CalendarConnectionSettings;
