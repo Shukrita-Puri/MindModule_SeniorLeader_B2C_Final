@@ -86,7 +86,18 @@ export default function Stage7ContextConnection() {
               <div>
                 <h3 className="font-medium">Calendar</h3>
                 <p className="text-sm text-muted-foreground">
-                  Google Calendar • Outlook
+                  Calendar
+
+Google Calendar 
+
+Why Super Pro Users Love This
+
+•
+3x more consistent practice habit formation
+•
+67% better transfer to real-world situations
+•
+Proactive support during high-stress moments
                 </p>
               </div>
             </div>
@@ -124,7 +135,7 @@ export default function Stage7ContextConnection() {
         <Card className="p-4 border-dashed bg-[#fbfbfa]/30">
           <p className="text-sm text-center text-muted-foreground">
             More integrations coming soon
-            <span className="block mt-1 text-xs">Wearables • Voice • Health data</span>
+            <span className="block mt-1 text-xs">More Calendar options •Wearables • Voice • Email</span>
           </p>
         </Card>
 
