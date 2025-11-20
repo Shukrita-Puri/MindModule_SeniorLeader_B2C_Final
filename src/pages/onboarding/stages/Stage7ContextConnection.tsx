@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +10,7 @@ import { getSession } from "@/utils/onboardingStorage";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -42,18 +43,30 @@ export default function Stage7ContextConnection() {
     };
     checkCalendarConnection();
 
+    // Check if returning from OAuth with success
+    const calendarConnectedParam = searchParams.get('calendar_connected');
+    if (calendarConnectedParam === 'true') {
+      toast.success("Calendar connected successfully!");
+      setCalendarConnected(true);
+      // Clean up URL
+      setSearchParams({});
+      // Force re-check to get latest connection status
+      checkCalendarConnection();
+    }
+
     // Listen for storage events (when connection happens in another component)
     const handleStorageChange = () => {
       checkCalendarConnection();
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   const handleToggleCalendar = async (checked: boolean) => {
-    if (!checked || calendarConnected) return;
+    if (!checked || calendarConnected || connecting) return;
     
     setConnecting(true);
+    setCalendarConnected(true); // Optimistic update
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -76,6 +89,7 @@ export default function Stage7ContextConnection() {
     } catch (error) {
       console.error('Calendar connection error:', error);
       toast.error("Failed to connect calendar. Please try again.");
+      setCalendarConnected(false); // Revert optimistic update
       setConnecting(false);
     }
   };
@@ -138,11 +152,16 @@ export default function Stage7ContextConnection() {
                 </p>
               </div>
             </div>
-            <Switch 
-              checked={calendarConnected} 
-              onCheckedChange={handleToggleCalendar}
-              disabled={checkingConnection || connecting}
-            />
+            <div className="flex items-center gap-2">
+              <Switch 
+                checked={calendarConnected} 
+                onCheckedChange={handleToggleCalendar}
+                disabled={checkingConnection || connecting}
+              />
+              {calendarConnected && (
+                <span className="text-xs text-green-600 font-medium">✓ Connected</span>
+              )}
+            </div>
           </div>
 
           {/* Value Prop Section */}
