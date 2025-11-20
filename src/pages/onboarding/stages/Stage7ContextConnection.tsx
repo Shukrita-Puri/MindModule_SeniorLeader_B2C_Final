@@ -8,7 +8,6 @@ import CalendarConnectionSettings from "@/components/CalendarConnectionSettings"
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
-
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [calendarConnected, setCalendarConnected] = useState(false);
@@ -18,19 +17,19 @@ export default function Stage7ContextConnection() {
   useEffect(() => {
     const checkCalendarConnection = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: {
+            user
+          }
+        } = await supabase.auth.getUser();
         if (!user) {
           setCheckingConnection(false);
           return;
         }
-
-        const { data, error } = await supabase
-          .from('calendar_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .single();
-
+        const {
+          data,
+          error
+        } = await supabase.from('calendar_connections').select('*').eq('user_id', user.id).eq('is_active', true).single();
         if (data && !error) {
           setCalendarConnected(true);
         }
@@ -40,18 +39,15 @@ export default function Stage7ContextConnection() {
         setCheckingConnection(false);
       }
     };
-
     checkCalendarConnection();
 
     // Listen for storage events (when connection happens in another component)
     const handleStorageChange = () => {
       checkCalendarConnection();
     };
-
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
   const handleComplete = (skipCalendar = false) => {
     localStorage.setItem('contextConnections', JSON.stringify({
       calendar: {
@@ -63,19 +59,15 @@ export default function Stage7ContextConnection() {
       onboardingCompletedAt: new Date().toISOString(),
       plan: 'super-pro'
     }));
-    
     const session = getSession();
     if (session) {
       session.responses.onboardingCompleted = true;
       session.responses.completedAt = new Date().toISOString();
       localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
     }
-    
     navigate("/daily-check-in");
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+  return <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         
         {/* Header */}
@@ -102,11 +94,9 @@ export default function Stage7ContextConnection() {
           </div>
 
           {/* Show CalendarConnectionSettings inline when not connected */}
-          {!calendarConnected && !checkingConnection && (
-            <div className="mb-4">
+          {!calendarConnected && !checkingConnection && <div className="mb-4">
               <CalendarConnectionSettings compact={true} />
-            </div>
-          )}
+            </div>}
 
           {/* Value Prop Section */}
           <div className="mt-4 pt-4 border-t">
@@ -131,7 +121,7 @@ export default function Stage7ContextConnection() {
         </Card>
 
         {/* Coming Soon Teaser */}
-        <Card className="p-4 bg-muted/30 border-dashed">
+        <Card className="p-4 border-dashed bg-[#fbfbfa]/30">
           <p className="text-sm text-center text-muted-foreground">
             More integrations coming soon
             <span className="block mt-1 text-xs">Wearables • Voice • Health data</span>
@@ -140,12 +130,7 @@ export default function Stage7ContextConnection() {
 
         {/* Privacy Link */}
         <div className="text-center">
-          <a 
-            href="https://docs.lovable.dev/features/security" 
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
-          >
+          <a href="https://docs.lovable.dev/features/security" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors">
             <Lock className="w-3 h-3" />
             How we protect your data
             <ArrowRight className="w-3 h-3" />
@@ -154,22 +139,13 @@ export default function Stage7ContextConnection() {
 
         {/* Action Buttons */}
         <div className="space-y-2">
-          <Button 
-            onClick={() => handleComplete(false)} 
-            className="w-full"
-            disabled={checkingConnection}
-          >
+          <Button onClick={() => handleComplete(false)} className="w-full" disabled={checkingConnection}>
             Continue to App
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => handleComplete(true)}
-            className="w-full text-sm"
-          >
+          <Button variant="ghost" onClick={() => handleComplete(true)} className="w-full text-sm">
             Skip for now
           </Button>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
