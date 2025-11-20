@@ -84,7 +84,7 @@ export default function Stage7ContextConnection() {
                 <Calendar className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium">Calendar</h3>
+                <h3 className="font-medium text-lg">Calendar Integration </h3>
                 <p className="text-sm text-muted-foreground">
                   Calendar
 
