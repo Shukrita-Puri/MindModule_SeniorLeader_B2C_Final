@@ -49,7 +49,8 @@ export default function Stage7ContextConnection() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
   const handleComplete = (skipCalendar = false) => {
-    localStorage.setItem('contextConnections', JSON.stringify({
+    // Save context connection data
+    const contextData = {
       calendar: {
         enabled: calendarConnected,
         provider: calendarConnected ? 'google' : null,
@@ -58,13 +59,21 @@ export default function Stage7ContextConnection() {
       },
       onboardingCompletedAt: new Date().toISOString(),
       plan: 'super-pro'
-    }));
+    };
+    
+    localStorage.setItem('contextConnections', JSON.stringify(contextData));
+    
+    // Mark onboarding as completed in session
     const session = getSession();
     if (session) {
       session.responses.onboardingCompleted = true;
       session.responses.completedAt = new Date().toISOString();
       localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
     }
+    
+    console.log('[Stage7] Context connection saved, navigating to daily check-in');
+    
+    // Navigate to daily check-in (first-time completion of onboarding flow)
     navigate("/daily-check-in");
   };
   return <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">

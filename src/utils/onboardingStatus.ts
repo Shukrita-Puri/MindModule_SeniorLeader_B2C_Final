@@ -145,6 +145,12 @@ export async function getResumeRoute(): Promise<string> {
     return '/onboarding/context-connection';
   }
 
+  // Check if user has completed their first daily check-in
+  const firstCheckIn = localStorage.getItem('dailyCheckIn');
+  if (!firstCheckIn) {
+    return '/daily-check-in';
+  }
+
   // Onboarding complete
   return '/executive-home';
 }

@@ -11,6 +11,14 @@ import { trackEngagement } from "@/utils/engagementTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Outcome = "pause" | "power-up" | "presence" | "steady" | "focused" | "ready";
 
@@ -36,9 +44,13 @@ const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   
   // Check if user has active subscription
   const hasActiveSubscription = user?.subscription_status === 'active';
+  
+  // Check if this is user's first check-in (completing onboarding)
+  const isFirstCheckIn = !localStorage.getItem('dailyCheckIn');
   
   // Fetch connection status
   const { data: connections } = useQuery({
@@ -137,10 +149,15 @@ const DailyCheckIn = () => {
     // Invalidate energy-state query to force refetch
     queryClient.invalidateQueries({ queryKey: ['energy-state'] });
     
-    // Add small delay to ensure localStorage write completes before navigation
-    setTimeout(() => {
-      navigate('/executive-home');
-    }, 100);
+    // For first-time users, show welcome modal instead of auto-redirecting
+    if (isFirstCheckIn) {
+      setShowWelcomeModal(true);
+    } else {
+      // Existing users get auto-redirected
+      setTimeout(() => {
+        navigate('/executive-home');
+      }, 100);
+    }
   };
 
   const handleSkipToHome = async () => {
@@ -218,6 +235,39 @@ const DailyCheckIn = () => {
       </div>
       
       <MainNavigation />
+      
+      {/* Welcome Modal for First-Time Users */}
+      <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-heading">Welcome to Your Mind Atelier!</DialogTitle>
+            <DialogDescription className="text-base space-y-3 pt-2">
+              <p>
+                Your personalized dashboard is ready. Here you'll find:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+                <li>Daily rituals tailored to your energy state</li>
+                <li>Micro-practices for quick recalibrations</li>
+                <li>Insights from your calendar and wearable data</li>
+                <li>Progress tracking and mental fitness scores</li>
+              </ul>
+              <p className="font-medium text-foreground pt-2">
+                Let's begin your journey to peak performance.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <Button 
+            onClick={() => {
+              setShowWelcomeModal(false);
+              navigate('/executive-home');
+            }}
+            className="w-full"
+            size="lg"
+          >
+            Continue to My Dashboard
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
