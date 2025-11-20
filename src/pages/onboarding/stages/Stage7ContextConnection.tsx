@@ -8,6 +8,7 @@ import CalendarConnectionSettings from "@/components/CalendarConnectionSettings"
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
+
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [calendarConnected, setCalendarConnected] = useState(false);
@@ -48,6 +49,7 @@ export default function Stage7ContextConnection() {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
   const handleComplete = (skipCalendar = false) => {
     // Save context connection data
     const contextData = {
@@ -76,14 +78,16 @@ export default function Stage7ContextConnection() {
     // Navigate to daily check-in (first-time completion of onboarding flow)
     navigate("/daily-check-in");
   };
+
   return <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Connect Your Calendar</h1>
-          <p className="text-muted-foreground">                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         Make your journey Proactive and Contextualised    
-Recalibrate for moments of impact</p>
+          <p className="text-muted-foreground">
+            Make your journey Proactive and Contextualised. Recalibrate for moments of impact.
+          </p>
         </div>
 
         {/* Main Calendar Card */}
@@ -94,9 +98,9 @@ Recalibrate for moments of impact</p>
                 <Calendar className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium text-lg">Calendar Integration                                                   </h3>
+                <h3 className="font-medium text-lg">Calendar Integration</h3>
                 <p className="text-sm text-muted-foreground">
-                  Calendar Google Calendar      
+                  Connect Google Calendar for contextual insights
                 </p>
               </div>
             </div>
@@ -134,7 +138,7 @@ Recalibrate for moments of impact</p>
         <Card className="p-4 border-dashed bg-[#fbfbfa]/30">
           <p className="text-sm text-center text-muted-foreground">
             More integrations coming soon
-            <span className="block mt-1 text-xs">More Calendar options •Wearables • Voice • Email</span>
+            <span className="block mt-1 text-xs">More Calendar options •Wearables • Voice • Email</span>
           </p>
         </Card>
 
