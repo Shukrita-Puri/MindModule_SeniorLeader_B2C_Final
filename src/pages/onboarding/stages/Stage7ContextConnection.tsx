@@ -63,34 +63,72 @@ export default function Stage7ContextConnection() {
   }, [searchParams, setSearchParams]);
 
   const handleToggleCalendar = async (checked: boolean) => {
-    if (!checked || calendarConnected || connecting) return;
+    if (connecting) return;
     
-    setConnecting(true);
-    setCalendarConnected(true); // Optimistic update
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Please log in to connect your calendar");
+    // Handle DISCONNECT (toggle OFF)
+    if (!checked && calendarConnected) {
+      setConnecting(true);
+      setCalendarConnected(false); // Optimistic update
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Please log in to manage your calendar");
+          setCalendarConnected(true);
+          setConnecting(false);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('calendar_connections')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('provider', 'google');
+
+        if (error) throw error;
+
+        toast.success("Calendar disconnected");
+      } catch (error) {
+        console.error('Calendar disconnect error:', error);
+        toast.error("Failed to disconnect calendar. Please try again.");
+        setCalendarConnected(true);
+      } finally {
         setConnecting(false);
-        return;
       }
+      return;
+    }
+    
+    // Handle CONNECT (toggle ON)
+    if (checked && !calendarConnected) {
+      setConnecting(true);
+      setCalendarConnected(true); // Optimistic update
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Please log in to connect your calendar");
+          setCalendarConnected(false);
+          setConnecting(false);
+          return;
+        }
 
-      const { data, error } = await supabase.functions.invoke('calendar-auth', {
-        body: { action: 'connect', provider: 'google' }
-      });
+        const { data, error } = await supabase.functions.invoke('calendar-auth', {
+          body: { action: 'connect', provider: 'google' }
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data?.authUrl) {
-        window.location.href = data.authUrl;
-      } else {
-        throw new Error('No authorization URL received');
+        if (data?.authUrl) {
+          window.location.href = data.authUrl;
+        } else {
+          throw new Error('No authorization URL received');
+        }
+      } catch (error) {
+        console.error('Calendar connection error:', error);
+        toast.error("Failed to connect calendar. Please try again.");
+        setCalendarConnected(false);
+        setConnecting(false);
       }
-    } catch (error) {
-      console.error('Calendar connection error:', error);
-      toast.error("Failed to connect calendar. Please try again.");
-      setCalendarConnected(false); // Revert optimistic update
-      setConnecting(false);
     }
   };
 
@@ -152,16 +190,11 @@ export default function Stage7ContextConnection() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch 
-                checked={calendarConnected} 
-                onCheckedChange={handleToggleCalendar}
-                disabled={checkingConnection || connecting}
-              />
-              {calendarConnected && (
-                <span className="text-xs text-green-600 font-medium">✓ Connected</span>
-              )}
-            </div>
+            <Switch 
+              checked={calendarConnected} 
+              onCheckedChange={handleToggleCalendar}
+              disabled={checkingConnection || connecting}
+            />
           </div>
 
           {/* Value Prop Section */}
