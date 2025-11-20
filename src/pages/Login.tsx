@@ -28,25 +28,17 @@ const Login = () => {
       
       console.log('[Login] Auto-redirecting to Auth0:', { redirect_uri });
       
-      // Try loginWithRedirect first
+      // Force full page redirect using openUrl to prevent iframe blocking
       loginWithRedirect({
         authorizationParams: {
           redirect_uri,
         },
+        async openUrl(url) {
+          console.log('[Login] Full page redirect to:', url);
+          window.location.replace(url);
+        }
       }).catch((err) => {
-        console.error('[Login] loginWithRedirect failed, using fallback:', err);
-        
-        // Fallback: Manual URL construction
-        const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN;
-        const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-        const authUrl = `https://${auth0Domain}/authorize?` +
-          `response_type=code&` +
-          `client_id=${auth0ClientId}&` +
-          `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
-          `scope=openid%20profile%20email`;
-        
-        console.log('[Login] Fallback redirect URL:', authUrl);
-        window.location.href = authUrl;
+        console.error('[Login] loginWithRedirect failed:', err);
       });
     }, 100);
 
