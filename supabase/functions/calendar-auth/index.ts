@@ -18,38 +18,34 @@ serve(async (req) => {
     // For callback action, read from URL params
     let action = url.searchParams.get('action');
     let provider = url.searchParams.get('provider');
+    let userId = url.searchParams.get('userId');
     
     // For connect/disconnect actions, read from request body
     if (req.method === 'POST') {
       const body = await req.json();
       action = body.action || action;
       provider = body.provider || provider;
+      userId = body.userId || userId;
     }
+    
+    console.log('[calendar-auth] Action:', action, 'Provider:', provider, 'UserId:', userId);
 
     // Validate input
     const providerSchema = z.enum(['google', 'outlook']);
     const validProvider = providerSchema.parse(provider);
 
+    // Use service role client for database operations since we're not using backend JWT
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
-
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
 
     if (action === 'connect') {
       // Step 1: Generate OAuth URL
+      if (!userId) {
+        throw new Error('Missing user identifier for connect action');
+      }
+      
       let authUrl = '';
       let clientId = '';
       let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
@@ -60,8 +56,8 @@ serve(async (req) => {
           throw new Error('Google Calendar Client ID not configured');
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${user.id}`;
-        console.log('Generated OAuth URL for user:', user.id);
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${userId}`;
+        console.log('[calendar-auth] Generated OAuth URL for user:', userId);
       }
 
       return new Response(
@@ -175,13 +171,19 @@ serve(async (req) => {
       });
     } else if (action === 'disconnect') {
       // Disconnect calendar
+      if (!userId) {
+        throw new Error('Missing user identifier for disconnect action');
+      }
+      
       const { error } = await supabaseClient
         .from('calendar_connections')
         .update({ is_active: false })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('provider', validProvider);
 
       if (error) throw error;
+      
+      console.log('[calendar-auth] Disconnected calendar for user:', userId);
 
       return new Response(
         JSON.stringify({ success: true }),

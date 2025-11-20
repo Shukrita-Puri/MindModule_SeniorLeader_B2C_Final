@@ -7,66 +7,39 @@ import { Calendar, ArrowRight, Lock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user: appUser } = useAuth();
   const [calendarConnected, setCalendarConnected] = useState(false);
-  const [checkingConnection, setCheckingConnection] = useState(true);
+  const [checkingConnection, setCheckingConnection] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
-  // Check if calendar is actually connected
+  // Check if returning from OAuth with success
   useEffect(() => {
-    const checkCalendarConnection = async () => {
-      try {
-        const {
-          data: {
-            user
-          }
-        } = await supabase.auth.getUser();
-        if (!user) {
-          setCheckingConnection(false);
-          return;
-        }
-        const {
-          data,
-          error
-        } = await supabase.from('calendar_connections').select('*').eq('user_id', user.id).eq('is_active', true).single();
-        if (data && !error) {
-          setCalendarConnected(true);
-        }
-      } catch (error) {
-        console.error('Error checking calendar connection:', error);
-      } finally {
-        setCheckingConnection(false);
-      }
-    };
-    checkCalendarConnection();
-
-    // Check if returning from OAuth with success
     const calendarConnectedParam = searchParams.get('calendar_connected');
     if (calendarConnectedParam === 'true') {
+      console.log('[Stage7] OAuth callback detected, marking calendar as connected');
       toast.success("Calendar connected successfully!");
       setCalendarConnected(true);
       // Clean up URL
       setSearchParams({});
-      // Force re-check to get latest connection status
-      checkCalendarConnection();
     }
-
-    // Listen for storage events (when connection happens in another component)
-    const handleStorageChange = () => {
-      checkCalendarConnection();
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, [searchParams, setSearchParams]);
 
   const handleToggleCalendar = async (checked: boolean) => {
     console.log('[Toggle] Called with checked:', checked, 'calendarConnected:', calendarConnected, 'connecting:', connecting);
+    console.log('[Toggle] Auth0 user ID:', appUser?.id);
     
     if (connecting) {
       console.log('[Toggle] Already connecting, returning');
+      return;
+    }
+
+    if (!appUser?.id) {
+      toast.error("Please log in to manage your calendar");
       return;
     }
     
@@ -77,25 +50,17 @@ export default function Stage7ContextConnection() {
       setCalendarConnected(false); // Optimistic update
       
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast.error("Please log in to manage your calendar");
-          setCalendarConnected(true);
-          setConnecting(false);
-          return;
-        }
+        const { data, error } = await supabase.functions.invoke('calendar-auth', {
+          body: { action: 'disconnect', provider: 'google', userId: appUser.id }
+        });
 
-        const { error } = await supabase
-          .from('calendar_connections')
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq('user_id', user.id)
-          .eq('provider', 'google');
+        console.log('[Toggle] Disconnect response:', { data, error });
 
         if (error) throw error;
 
         toast.success("Calendar disconnected");
       } catch (error) {
-        console.error('Calendar disconnect error:', error);
+        console.error('[Toggle] Calendar disconnect error:', error);
         toast.error("Failed to disconnect calendar. Please try again.");
         setCalendarConnected(true);
       } finally {
@@ -111,27 +76,25 @@ export default function Stage7ContextConnection() {
       setCalendarConnected(true); // Optimistic update
       
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast.error("Please log in to connect your calendar");
-          setCalendarConnected(false);
-          setConnecting(false);
-          return;
-        }
-
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
-          body: { action: 'connect', provider: 'google' }
+          body: { action: 'connect', provider: 'google', userId: appUser.id }
         });
 
-        if (error) throw error;
+        console.log('[Toggle] Connect response:', { data, error });
+
+        if (error) {
+          console.error('[Toggle] Function error:', error);
+          throw error;
+        }
 
         if (data?.authUrl) {
+          console.log('[Toggle] Redirecting to:', data.authUrl);
           window.location.href = data.authUrl;
         } else {
           throw new Error('No authorization URL received');
         }
       } catch (error) {
-        console.error('Calendar connection error:', error);
+        console.error('[Toggle] Calendar connection error:', error);
         toast.error("Failed to connect calendar. Please try again.");
         setCalendarConnected(false);
         setConnecting(false);
