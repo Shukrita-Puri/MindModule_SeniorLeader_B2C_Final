@@ -93,7 +93,7 @@ export default function Stage7Results() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-primary/5 to-gold/5 border border-border rounded-lg p-4 max-w-lg mx-auto">
+        <div className="bg-gradient-to-br from-primary/5 to-gold/5 border border-border p-4 max-w-lg mx-auto rounded-xl">
           <p className="text-sm leading-relaxed">
             You're starting in the <span className="font-semibold text-primary">{scoreRange.percentile}</span> of professionals who take this assessment.
             {gapToElite > 0 && <> But here's what matters: you're <span className="font-semibold text-gold">{gapToElite} points away</span> from the Elite Performance Zone (90+).</>}
@@ -102,7 +102,7 @@ export default function Stage7Results() {
       </div>
 
       {/* Section 2: Your Profile (Archetype) */}
-      <div className="bg-gradient-to-br from-primary/10 to-gold/10 border border-primary/20 rounded-xl p-6">
+      <div className="bg-gradient-to-br from-primary/10 to-gold/10 border border-primary/20 rounded-xl p-6 shadow-lg">
         <div className="flex items-start gap-3 mb-4">
           
           <div className="flex-1">
@@ -119,7 +119,7 @@ export default function Stage7Results() {
       </div>
 
       {/* Section 3: What Your Patterns Reveal */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb className="w-5 h-5 text-gold" />
           <h3 className="font-semibold text-lg">What Your Patterns Reveal</h3>
