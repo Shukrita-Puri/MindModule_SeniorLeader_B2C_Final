@@ -31,9 +31,9 @@ const AuthCallback = () => {
       console.log('[AuthCallback] URL params:', { from: urlParams.get('from'), fromOnboarding });
       
       if (fromOnboarding) {
-        // New user completing onboarding → go to calendar connection
-        console.log('[AuthCallback] Navigating to: /onboarding/context-connection');
-        navigate('/onboarding/context-connection');
+        // New user completing onboarding → show results first
+        console.log('[AuthCallback] Navigating to: /onboarding/results');
+        navigate('/onboarding/results');
       } else {
         // Returning user logging in → go to daily check-in
         console.log('[AuthCallback] Navigating to: /daily-check-in');
