@@ -86,7 +86,9 @@ export default function Stage7ContextConnection() {
               <div>
                 <h3 className="font-medium text-lg">Calendar Integration </h3>
                 <p className="text-sm text-muted-foreground">
-                  Calendar Google Calendar  
+                  Calendar Google Calendar   
+
+
 
 
 Why Super Pro Users Love This • 3x more consistent practice habit formation • 67% better transfer to real-world situations • Proactive support during high-stress moments
