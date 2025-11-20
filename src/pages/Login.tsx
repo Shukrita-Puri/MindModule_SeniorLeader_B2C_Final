@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const Login = () => {
-  const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
+  const { isAuthenticated, isLoading } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,28 +22,28 @@ const Login = () => {
       return;
     }
 
-    // Auto-redirect after small delay to ensure Auth0 SDK is initialized
+    // Direct manual redirect - completely bypass Auth0 SDK
     const timer = setTimeout(() => {
+      const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN;
+      const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+      
       const redirect_uri = `${window.location.origin}/callback`;
       
-      console.log('[Login] Auto-redirecting to Auth0:', { redirect_uri });
+      // Manually construct Auth0 authorization URL (no screen_hint for login)
+      const authUrl = `https://${auth0Domain}/authorize?` +
+        `response_type=code&` +
+        `client_id=${auth0ClientId}&` +
+        `redirect_uri=${encodeURIComponent(redirect_uri)}&` +
+        `scope=openid%20profile%20email`;
       
-      // Force full page redirect using openUrl to prevent iframe blocking
-      loginWithRedirect({
-        authorizationParams: {
-          redirect_uri,
-        },
-        async openUrl(url) {
-          console.log('[Login] Full page redirect to:', url);
-          window.location.replace(url);
-        }
-      }).catch((err) => {
-        console.error('[Login] loginWithRedirect failed:', err);
-      });
+      console.log('[Login] Direct full-page redirect to:', authUrl);
+      
+      // Full-page navigation - no SDK, no iframe
+      window.location.href = authUrl;
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isLoading, isAuthenticated, loginWithRedirect, navigate]);
+  }, [isLoading, isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
