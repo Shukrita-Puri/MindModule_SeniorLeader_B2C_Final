@@ -796,23 +796,7 @@ export type Database = {
       }
     }
     Views: {
-      content_usage_analytics: {
-        Row: {
-          avg_session_length_seconds: number | null
-          calculated_date: string | null
-          category: string | null
-          completion_count: number | null
-          completion_rate_percent: number | null
-          content_id: string | null
-          content_type: string | null
-          last_played_at: string | null
-          play_count: number | null
-          skip_count: number | null
-          skip_rate_percent: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       assign_user_role: {
