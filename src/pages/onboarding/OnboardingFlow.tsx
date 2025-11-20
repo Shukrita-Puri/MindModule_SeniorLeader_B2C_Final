@@ -43,10 +43,15 @@ export default function OnboardingFlow() {
       const sessionId = initializeSession();
       console.log("Onboarding session initialized:", sessionId);
 
-      const session = getSession();
-      const resumeRoute = await getResumeRoute();
-      if (location.pathname !== resumeRoute && !location.pathname.includes('/signup')) {
-        navigate(resumeRoute);
+      // Only apply resume logic if user directly visits /onboarding root
+      // Don't interrupt if they're already in a specific stage
+      if (location.pathname === '/onboarding') {
+        const session = getSession();
+        const resumeRoute = await getResumeRoute();
+        if (resumeRoute !== '/onboarding') {
+          console.log('[OnboardingFlow] Resuming to:', resumeRoute);
+          navigate(resumeRoute);
+        }
       }
     };
     
