@@ -63,10 +63,16 @@ export default function Stage7ContextConnection() {
   }, [searchParams, setSearchParams]);
 
   const handleToggleCalendar = async (checked: boolean) => {
-    if (connecting) return;
+    console.log('[Toggle] Called with checked:', checked, 'calendarConnected:', calendarConnected, 'connecting:', connecting);
+    
+    if (connecting) {
+      console.log('[Toggle] Already connecting, returning');
+      return;
+    }
     
     // Handle DISCONNECT (toggle OFF)
     if (!checked && calendarConnected) {
+      console.log('[Toggle] DISCONNECT branch triggered');
       setConnecting(true);
       setCalendarConnected(false); // Optimistic update
       
@@ -100,6 +106,7 @@ export default function Stage7ContextConnection() {
     
     // Handle CONNECT (toggle ON)
     if (checked && !calendarConnected) {
+      console.log('[Toggle] CONNECT branch triggered');
       setConnecting(true);
       setCalendarConnected(true); // Optimistic update
       
