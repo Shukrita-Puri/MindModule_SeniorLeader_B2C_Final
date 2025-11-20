@@ -3,11 +3,9 @@ import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "@/utils/onboardingStorage";
-
 const Front = () => {
   const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
-
   const handleGetStarted = () => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -15,9 +13,7 @@ const Front = () => {
       navigate('/onboarding');
     }, 300);
   };
-
-  return (
-    <div className={`relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className={`relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Subtle background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
@@ -30,7 +26,7 @@ const Front = () => {
         
         {/* LOGO - THE HERO */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
-          MIND<br/>MODULE
+          MIND<br />MODULE
         </h1>
         
         {/* Tagline */}
@@ -43,27 +39,20 @@ const Front = () => {
         
         {/* Description */}
         <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
-          First Context-based Thinking Partner for developing Meta Skills
+          World's First Context- Based Self Mastery Partner. 
+Because being able to recalibrate your mind is a superpower. 
+         
+ 
         </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mt-8">
-          <Button 
-            onClick={handleGetStarted}
-            variant="critical"
-            size="lg"
-            className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-          >
+          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             Begin Your Journey
             <ArrowRight className="w-5 h-5 ml-3" />
           </Button>
           
-          <Button 
-            onClick={() => navigate('/login')}
-            variant="outline"
-            size="lg"
-            className="px-12 py-6 text-lg font-medium tracking-wide"
-          >
+          <Button onClick={() => navigate('/login')} variant="outline" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide">
             Sign In
           </Button>
         </div>
@@ -87,16 +76,11 @@ const Front = () => {
       
       {/* Enhanced Privacy Footer */}
       <div className="absolute bottom-8 left-0 right-0 text-center">
-        <button 
-          onClick={() => navigate('/privacy')}
-          className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide"
-        >
+        <button onClick={() => navigate('/privacy')} className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide">
           Learn about our Privacy by Design commitment →
         </button>
       </div>
       
-    </div>
-  );
+    </div>;
 };
-
 export default Front;
