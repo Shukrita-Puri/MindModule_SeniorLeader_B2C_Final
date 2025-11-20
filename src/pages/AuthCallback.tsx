@@ -8,10 +8,17 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('[AuthCallback] State:', { 
+      isLoading, 
+      error: error?.message, 
+      isAuthenticated,
+      search: window.location.search
+    });
+
     if (isLoading) return;
 
     if (error) {
-      console.error('Auth0 callback error:', error);
+      console.error('[AuthCallback] Auth0 callback error:', error);
       navigate('/signup?error=auth_failed');
       return;
     }
@@ -21,11 +28,15 @@ const AuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const fromOnboarding = urlParams.get('from') === 'onboarding';
       
+      console.log('[AuthCallback] URL params:', { from: urlParams.get('from'), fromOnboarding });
+      
       if (fromOnboarding) {
-        // New user completing onboarding → show their results
-        navigate('/onboarding/results');
+        // New user completing onboarding → go to calendar connection
+        console.log('[AuthCallback] Navigating to: /onboarding/context-connection');
+        navigate('/onboarding/context-connection');
       } else {
         // Returning user logging in → go to daily check-in
+        console.log('[AuthCallback] Navigating to: /daily-check-in');
         navigate('/daily-check-in');
       }
     }

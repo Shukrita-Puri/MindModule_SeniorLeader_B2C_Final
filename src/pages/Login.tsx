@@ -8,43 +8,83 @@ const Login = () => {
   const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
   const navigate = useNavigate();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState(0);
 
   useEffect(() => {
-    if (isLoading) return;
+    console.log('[Login] State:', { 
+      isLoading, 
+      isAuthenticated, 
+      error: error?.message, 
+      localError,
+      retryAttempts,
+      pathname: window.location.pathname
+    });
 
-    // Don't keep trying if there's already an error
-    if (error || localError) return;
+    if (isLoading) return;
 
     // If already authenticated, redirect to daily check-in
     if (isAuthenticated) {
+      console.log('[Login] Already authenticated, redirecting to daily-check-in');
       navigate('/daily-check-in');
       return;
     }
 
-    // Redirect to Auth0 Universal Login
-    const doLogin = async () => {
-      try {
-        await loginWithRedirect({
-          authorizationParams: {
-            redirect_uri: `${window.location.origin}/callback`,
-            screen_hint: 'login',
-          },
-        });
-      } catch (e) {
-        console.error('Login redirect failed:', e);
-        setLocalError(e instanceof Error ? e.message : 'Failed to redirect to login');
-      }
-    };
+    // Only auto-redirect if there's no error
+    if (!error && !localError) {
+      // Redirect to Auth0 Universal Login
+      const doLogin = async () => {
+        try {
+          const redirect_uri = `${window.location.origin}/callback`;
+          console.log('[Login] Calling loginWithRedirect with:', { redirect_uri, screen_hint: 'login' });
+          
+          await loginWithRedirect({
+            authorizationParams: {
+              redirect_uri,
+              screen_hint: 'login',
+            },
+          });
+        } catch (e) {
+          console.error('[Login] Redirect failed:', e);
+          setLocalError(e instanceof Error ? e.message : 'Failed to redirect to login');
+        }
+      };
 
-    void doLogin();
-  }, [isAuthenticated, isLoading, loginWithRedirect, navigate, error, localError]);
+      void doLogin();
+    }
+  }, [isAuthenticated, isLoading, loginWithRedirect, navigate, error, localError, retryAttempts]);
+
+  const handleRetry = () => {
+    console.log('[Login] Retry button clicked, clearing errors');
+    setLocalError(null);
+    setRetryAttempts(prev => prev + 1);
+  };
+
+  const handleManualLogin = async () => {
+    console.log('[Login] Manual login button clicked');
+    try {
+      const redirect_uri = `${window.location.origin}/callback`;
+      console.log('[Login] Manual redirect with:', { redirect_uri });
+      
+      await loginWithRedirect({
+        authorizationParams: {
+          redirect_uri,
+          screen_hint: 'login',
+        },
+      });
+    } catch (e) {
+      console.error('[Login] Manual redirect failed:', e);
+      setLocalError(e instanceof Error ? e.message : 'Failed to redirect to login');
+    }
+  };
 
   // Show loading state while redirecting
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center max-w-md px-4">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-        <p className="text-muted-foreground mb-4">Redirecting to login...</p>
+        <p className="text-muted-foreground mb-4">
+          {error || localError ? 'Login failed' : 'Redirecting to login...'}
+        </p>
         
         {error && (
           <ErrorMessage 
@@ -61,12 +101,26 @@ const Login = () => {
         )}
 
         {(error || localError) && (
-          <button
-            onClick={() => navigate('/')}
-            className="mt-4 text-sm text-primary underline"
-          >
-            Back to start
-          </button>
+          <div className="mt-6 space-y-3">
+            <button
+              onClick={handleRetry}
+              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Retry Login
+            </button>
+            <button
+              onClick={handleManualLogin}
+              className="w-full px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+            >
+              Continue to Login
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="mt-4 text-sm text-muted-foreground underline"
+            >
+              Back to start
+            </button>
+          </div>
         )}
       </div>
     </div>
