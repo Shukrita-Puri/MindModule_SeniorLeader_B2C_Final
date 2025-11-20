@@ -12,6 +12,9 @@ const Login = () => {
   useEffect(() => {
     if (isLoading) return;
 
+    // Don't keep trying if there's already an error
+    if (error || localError) return;
+
     // If already authenticated, redirect to daily check-in
     if (isAuthenticated) {
       navigate('/daily-check-in');
@@ -34,7 +37,7 @@ const Login = () => {
     };
 
     void doLogin();
-  }, [isAuthenticated, isLoading, loginWithRedirect, navigate]);
+  }, [isAuthenticated, isLoading, loginWithRedirect, navigate, error, localError]);
 
   // Show loading state while redirecting
   return (
@@ -55,6 +58,15 @@ const Login = () => {
             message={localError}
             className="mt-4"
           />
+        )}
+
+        {(error || localError) && (
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 text-sm text-primary underline"
+          >
+            Back to start
+          </button>
         )}
       </div>
     </div>

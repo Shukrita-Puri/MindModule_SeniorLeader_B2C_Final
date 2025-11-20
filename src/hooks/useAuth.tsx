@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth0, User as Auth0User } from '@auth0/auth0-react';
-import { supabase } from '@/integrations/supabase/client';
 
 // Custom user type that includes subscription metadata
 interface AppUser {
@@ -44,25 +43,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setAppUser(mappedUser);
-        
-        // Sync to Supabase profiles table
-        const { error } = await supabase
-          .from('profiles')
-          .upsert({
-            id: mappedUser.id,
-            email: mappedUser.email,
-            full_name: mappedUser.name,
-            avatar_url: mappedUser.picture,
-            subscription_status: mappedUser.subscription_status,
-            subscription_plan: mappedUser.subscription_plan,
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'id'
-          });
-        
-        if (error) {
-          console.error('Failed to sync user to Supabase:', error);
-        }
       } catch (error) {
         console.error('Error syncing user:', error);
       } finally {
