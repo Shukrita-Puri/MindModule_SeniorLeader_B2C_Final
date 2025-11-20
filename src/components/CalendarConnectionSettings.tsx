@@ -113,10 +113,11 @@ const CalendarConnectionSettings = ({
   if (compact) {
     return <div className="space-y-3">
         {!connected ? <>
-            
             <div className="flex gap-2">
-              
-              
+              <Button onClick={() => handleConnect('google')} disabled={loading} variant="outline" className="flex-1">
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
+                Connect Google Calendar
+              </Button>
             </div>
           </> : <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
