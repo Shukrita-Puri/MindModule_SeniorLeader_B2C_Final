@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, ArrowRight, Lock } from "lucide-react";
-import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
+import { Calendar, ArrowRight, Lock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
@@ -13,6 +12,7 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
+  const [connecting, setConnecting] = useState(false);
 
   // Check if calendar is actually connected
   useEffect(() => {
@@ -49,6 +49,36 @@ export default function Stage7ContextConnection() {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  const handleToggleCalendar = async (checked: boolean) => {
+    if (!checked || calendarConnected) return;
+    
+    setConnecting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please log in to connect your calendar");
+        setConnecting(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('calendar-auth', {
+        body: { action: 'connect', provider: 'google' }
+      });
+
+      if (error) throw error;
+
+      if (data?.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('No authorization URL received');
+      }
+    } catch (error) {
+      console.error('Calendar connection error:', error);
+      toast.error("Failed to connect calendar. Please try again.");
+      setConnecting(false);
+    }
+  };
 
   const handleComplete = (skipCalendar = false) => {
     // Save context connection data
@@ -95,7 +125,11 @@ export default function Stage7ContextConnection() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
-                <Calendar className="w-5 h-5 text-primary" />
+                {connecting ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                ) : (
+                  <Calendar className="w-5 h-5 text-primary" />
+                )}
               </div>
               <div>
                 <h3 className="font-medium text-lg">Calendar Integration</h3>
@@ -104,13 +138,12 @@ export default function Stage7ContextConnection() {
                 </p>
               </div>
             </div>
-            <Switch checked={calendarConnected} disabled />
+            <Switch 
+              checked={calendarConnected} 
+              onCheckedChange={handleToggleCalendar}
+              disabled={checkingConnection || connecting}
+            />
           </div>
-
-          {/* Show CalendarConnectionSettings inline when not connected */}
-          {!calendarConnected && !checkingConnection && <div className="mb-4">
-              <CalendarConnectionSettings compact={true} />
-            </div>}
 
           {/* Value Prop Section */}
           <div className="mt-4 pt-4 border-t">
