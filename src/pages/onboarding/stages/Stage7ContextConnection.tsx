@@ -24,6 +24,31 @@ export default function Stage7ContextConnection() {
       console.log('[Stage7] OAuth callback detected, marking calendar as connected');
       toast.success("Calendar connected successfully!");
       setCalendarConnected(true);
+      
+      // Trigger initial calendar sync
+      const syncCalendar = async () => {
+        try {
+          console.log('[Stage7] Triggering initial calendar sync');
+          const { error } = await supabase.functions.invoke('sync-calendar', {
+            body: { provider: 'google' }
+          });
+          
+          if (error) {
+            console.error('[Stage7] Sync error:', error);
+            toast.error("Calendar connected but sync failed", {
+              description: "You can try syncing again from settings."
+            });
+          } else {
+            console.log('[Stage7] Initial sync completed successfully');
+            toast.success("Calendar synced successfully!");
+          }
+        } catch (error) {
+          console.error('[Stage7] Sync failed:', error);
+        }
+      };
+      
+      syncCalendar();
+      
       // Clean up URL
       setSearchParams({});
     }

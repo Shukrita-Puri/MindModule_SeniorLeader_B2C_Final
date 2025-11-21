@@ -157,10 +157,7 @@ serve(async (req) => {
         throw insertError;
       }
 
-      // Trigger initial sync
-      await supabaseClient.functions.invoke('sync-calendar', {
-        body: { provider: validProvider }
-      });
+      console.log('[calendar-auth] Calendar connection stored successfully for user:', state);
 
       // Redirect back to app with success using FRONTEND_URL
       const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://5bd59ee0-ab8c-409f-bc56-72fe64069377.lovableproject.com';
