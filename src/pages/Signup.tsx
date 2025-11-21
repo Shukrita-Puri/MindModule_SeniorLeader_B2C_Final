@@ -1,31 +1,39 @@
 import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
+    const isOnboardingFlow = location.pathname.includes('/onboarding') || 
+                             location.search.includes('from=onboarding');
+
     console.log('[Signup] Component mounted:', { 
       isLoading, 
       isAuthenticated,
-      pathname: window.location.pathname,
-      search: window.location.search
+      pathname: location.pathname,
+      search: location.search,
+      isOnboardingFlow
     });
 
     if (isLoading) return;
 
     if (isAuthenticated) {
-      console.log('[Signup] Already authenticated, redirecting to executive-home');
-      navigate('/executive-home');
+      if (isOnboardingFlow) {
+        console.log('[Signup] Already authenticated in onboarding, redirecting to /onboarding/results');
+        navigate('/onboarding/results');
+      } else {
+        console.log('[Signup] Already authenticated, redirecting to executive-home');
+        navigate('/executive-home');
+      }
       return;
     }
 
     // Use Auth0 SDK loginWithRedirect for proper PKCE flow
-    const isOnboardingFlow = window.location.pathname.includes('/onboarding') || 
-                             window.location.search.includes('from=onboarding');
     const redirectUri = `${window.location.origin}/callback${isOnboardingFlow ? '?from=onboarding' : ''}`;
     
     console.log('[Signup] Redirecting to Auth0 with loginWithRedirect:', { redirectUri });
@@ -37,7 +45,7 @@ const Signup = () => {
         scope: 'openid profile email',
       },
     });
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate, location]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

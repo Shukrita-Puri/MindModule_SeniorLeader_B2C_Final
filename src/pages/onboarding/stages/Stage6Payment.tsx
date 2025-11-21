@@ -98,7 +98,7 @@ export default function Stage6Payment() {
       <div className="text-center space-y-2 text-sm text-muted-foreground">
         <p>🔒 Secure payment via Stripe</p>
         <p>💯 14-day money-back guarantee</p>
-        <Button variant="ghost" size="sm" onClick={() => navigate("/executive-home")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/onboarding/context-connection")}>
           I'll decide later
         </Button>
       </div>
