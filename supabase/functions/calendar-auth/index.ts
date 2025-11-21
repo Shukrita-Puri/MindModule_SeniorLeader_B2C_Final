@@ -28,6 +28,9 @@ serve(async (req) => {
       userId = body.userId || userId;
     }
     
+    // Default provider to Google when not explicitly provided (e.g. OAuth callback)
+    provider = provider || 'google';
+
     console.log('[calendar-auth] Action:', action, 'Provider:', provider, 'UserId:', userId);
 
     // Validate input
@@ -48,7 +51,7 @@ serve(async (req) => {
       
       let authUrl = '';
       let clientId = '';
-      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${provider}`;
+      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
       if (validProvider === 'google') {
         clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
@@ -64,7 +67,7 @@ serve(async (req) => {
         JSON.stringify({ authUrl }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } else if (action === 'callback') {
+    } else if (action === 'callback' || url.searchParams.get('code')) {
       // Step 2: Handle OAuth callback
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state'); // userId
@@ -76,7 +79,7 @@ serve(async (req) => {
       let tokenUrl = '';
       let clientId = '';
       let clientSecret = '';
-      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth?action=callback&provider=${validProvider}`;
+      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
       if (validProvider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
