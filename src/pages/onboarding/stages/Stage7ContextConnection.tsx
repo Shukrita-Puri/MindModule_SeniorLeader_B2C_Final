@@ -30,11 +30,10 @@ export default function Stage7ContextConnection() {
   }, [searchParams, setSearchParams]);
 
   const handleToggleCalendar = async (checked: boolean) => {
-    console.log('[Toggle] Called with checked:', checked, 'calendarConnected:', calendarConnected, 'connecting:', connecting);
-    console.log('[Toggle] Auth0 user ID:', appUser?.id);
+    console.log('[Calendar] Toggle called:', { checked, calendarConnected, connecting, userId: appUser?.id });
     
     if (connecting) {
-      console.log('[Toggle] Already connecting, returning');
+      console.log('[Calendar] Already connecting, skipping');
       return;
     }
 
@@ -45,7 +44,7 @@ export default function Stage7ContextConnection() {
     
     // Handle DISCONNECT (toggle OFF)
     if (!checked && calendarConnected) {
-      console.log('[Toggle] DISCONNECT branch triggered');
+      console.log('[Calendar] Disconnecting calendar');
       setConnecting(true);
       setCalendarConnected(false); // Optimistic update
       
@@ -54,13 +53,13 @@ export default function Stage7ContextConnection() {
           body: { action: 'disconnect', provider: 'google', userId: appUser.id }
         });
 
-        console.log('[Toggle] Disconnect response:', { data, error });
+        console.log('[Calendar] Disconnect response:', { data, error });
 
         if (error) throw error;
 
         toast.success("Calendar disconnected");
       } catch (error) {
-        console.error('[Toggle] Calendar disconnect error:', error);
+        console.error('[Calendar] Disconnect error:', error);
         toast.error("Failed to disconnect calendar. Please try again.");
         setCalendarConnected(true);
       } finally {
@@ -71,7 +70,7 @@ export default function Stage7ContextConnection() {
     
     // Handle CONNECT (toggle ON)
     if (checked && !calendarConnected) {
-      console.log('[Toggle] CONNECT branch triggered');
+      console.log('[Calendar] Initiating connection flow');
       setConnecting(true);
       setCalendarConnected(true); // Optimistic update
       
@@ -80,22 +79,39 @@ export default function Stage7ContextConnection() {
           body: { action: 'connect', provider: 'google', userId: appUser.id }
         });
 
-        console.log('[Toggle] Connect response:', { data, error });
+        console.log('[Calendar] Connect response:', { data, error });
 
         if (error) {
-          console.error('[Toggle] Function error:', error);
+          console.error('[Calendar] Edge function error:', error);
           throw error;
         }
 
         if (data?.authUrl) {
-          console.log('[Toggle] Redirecting to:', data.authUrl);
+          console.log('[Calendar] Redirecting to Google OAuth:', data.authUrl);
           window.location.href = data.authUrl;
         } else {
-          throw new Error('No authorization URL received');
+          throw new Error('No authorization URL received from server');
         }
       } catch (error) {
-        console.error('[Toggle] Calendar connection error:', error);
-        toast.error("Failed to connect calendar. Please try again.");
+        console.error('[Calendar] Connection failed:', error);
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        
+        toast.error("Failed to connect calendar", {
+          description: errorMsg.includes('403') || errorMsg.includes('access') 
+            ? "Google OAuth may need verification. See tip below." 
+            : errorMsg
+        });
+        
+        // Show helpful tip for 403/access errors
+        if (errorMsg.includes('403') || errorMsg.includes('access')) {
+          setTimeout(() => {
+            toast.info("Tip: Google OAuth 403 Fix", {
+              description: "In Google Cloud Console, ensure your OAuth consent screen's Privacy Policy and Terms URLs are publicly accessible (not private Google Docs).",
+              duration: 10000,
+            });
+          }, 1500);
+        }
+        
         setCalendarConnected(false);
         setConnecting(false);
       }
@@ -157,6 +173,9 @@ export default function Stage7ContextConnection() {
                 <h3 className="font-medium text-lg">Calendar Integration</h3>
                 <p className="text-sm text-muted-foreground">
                   Connect Google Calendar for contextual insights
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Optional • Can be set up later in Settings
                 </p>
               </div>
             </div>
