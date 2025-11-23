@@ -28,6 +28,8 @@ const MicroPracticesLibrary = lazy(() => import("./pages/MicroPracticesLibrary")
 const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
 const HRVInsightsDashboard = lazy(() => import("./pages/HRVInsightsDashboard"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
@@ -201,6 +203,14 @@ const router = createBrowserRouter([
       {
         path: "hrv-insights",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "privacy",
+        element: <Suspense fallback={<LoadingFallback />}><Privacy /></Suspense>,
+      },
+      {
+        path: "terms",
+        element: <Suspense fallback={<LoadingFallback />}><Terms /></Suspense>,
       },
       {
         path: "onboarding",
