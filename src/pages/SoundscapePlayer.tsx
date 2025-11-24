@@ -19,6 +19,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Card, CardContent } from "@/components/ui/card";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
@@ -46,7 +47,8 @@ const getSoundscapeData = (id: string) => {
     technique: content.technique || "",
     benefits: content.benefits || [],
     completionQuote: content.completionQuote || "",
-    audioSrc: content.audioSrc || ""
+    audioSrc: content.audioSrc || "",
+    thumbnail: content.thumbnail
   };
 };
 
@@ -68,210 +70,6 @@ const soundscapeData: Record<string, any> = {
       "Promotes cellular relaxation"
     ],
     completionQuote: "In stillness, all sounds arise and dissolve. You are the space in which they dance."
-  },
-  "gamma-frequency": {
-    id: "gamma-frequency",
-    title: "40Hz Gamma Focus",
-    category: "power-up",
-    duration: 720,
-    origin: "MIT Neuroscience Protocol",
-    fullStory: "Researchers at MIT's McGovern Institute discovered that 40Hz gamma frequency stimulation enhances cognitive function, memory consolidation, and neural synchronization. This specific frequency has been shown to increase attention span, improve processing speed, and support the brain's natural cleaning mechanisms. Used by knowledge workers, researchers, and students worldwide for peak mental performance.",
-    creator: "Based on MIT neuroscience research",
-    technique: "The 40Hz tone creates a carrier wave for focused attention. Let your awareness ride this frequency like a laser beam, cutting through mental fog with precision.",
-    benefits: [
-      "Enhances cognitive processing speed",
-      "Improves working memory capacity",
-      "Increases sustained attention",
-      "Supports brain's natural detoxification"
-    ],
-    completionQuote: "Clarity is not found—it is revealed when the mind stops searching."
-  },
-  "navy-seal-calm": {
-    id: "navy-seal-calm",
-    title: "Pre-Mission Calm",
-    category: "pause",
-    duration: 300,
-    origin: "Navy SEAL Protocol",
-    fullStory: "Navy SEALs face life-or-death situations that require absolute composure under extreme pressure. This protocol combines rhythmic tones with binaural beats designed to rapidly shift the nervous system from sympathetic (fight-or-flight) to parasympathetic (rest-and-digest) activation. The result is a state of calm alertness—relaxed but ready. Surgeons, athletes, and diplomats use this same approach before critical moments.",
-    creator: "Military performance protocol",
-    technique: "Breathe naturally as the soundscape guides your nervous system downward. Notice tension releasing from your jaw, shoulders, and chest. You're becoming simultaneously calmer and more alert.",
-    benefits: [
-      "Rapidly reduces physiological stress markers",
-      "Enhances decision-making under pressure",
-      "Maintains alertness while releasing tension",
-      "Improves emotional regulation"
-    ],
-    completionQuote: "True power lies not in force, but in the stillness before action."
-  },
-  "forest-bathing": {
-    id: "forest-bathing",
-    title: "Forest Bathing",
-    category: "presence",
-    duration: 900,
-    origin: "Japanese Shinrin-yoku",
-    fullStory: "In the 1980s, Japanese researchers discovered that spending time immersed in forest environments significantly reduces stress hormones, lowers blood pressure, and boosts immune function. This practice, called Shinrin-yoku (forest bathing), has become a cornerstone of preventive healthcare in Japan. This soundscape recreates the acoustic signature of old-growth forests—gentle rustling leaves, distant bird calls, and the subtle white noise of wind through trees.",
-    creator: "Traditional Japanese practice",
-    technique: "Imagine yourself standing in an ancient forest. Feel the cool air on your skin, smell the earth and pine. Let the forest sounds transport you to a place of deep natural belonging.",
-    benefits: [
-      "Lowers cortisol and stress hormones",
-      "Boosts natural killer cell activity (immunity)",
-      "Reduces blood pressure and heart rate",
-      "Enhances mood and emotional wellbeing"
-    ],
-    completionQuote: "Nature does not hurry, yet everything is accomplished."
-  },
-  "athlete-activation": {
-    id: "athlete-activation",
-    title: "Athletic Activation",
-    category: "power-up",
-    duration: 360,
-    origin: "Olympic Performance Protocol",
-    fullStory: "Olympic athletes use pre-competition soundscapes to enter an optimal arousal state—energized but not anxious, focused but not tight. This protocol uses rhythmic beats at 120-140 BPM paired with motivational tones to activate the sympathetic nervous system gradually. Studies show this approach improves reaction time, power output, and competitive mindset. Used by swimmers, sprinters, and combat athletes before major competitions.",
-    creator: "Sports psychology protocol",
-    technique: "Feel energy building in your body with each beat. Your muscles are waking up, your mind is sharpening. You're becoming a coiled spring—ready to explode into action.",
-    benefits: [
-      "Optimizes pre-performance arousal levels",
-      "Enhances reaction time and explosiveness",
-      "Builds competitive confidence",
-      "Improves mind-body coordination"
-    ],
-    completionQuote: "Champions are not made in the arena—they are revealed there."
-  },
-  "vedic-om": {
-    id: "vedic-om",
-    title: "Vedic Om Chanting",
-    category: "presence",
-    duration: 600,
-    origin: "Ancient Indian Tradition",
-    fullStory: "The sacred syllable 'Om' has been chanted for over 3000 years in Vedic traditions. Modern research shows that chanting Om creates a vibrational frequency that resonates through the body, synchronizing breath, heart rate, and brainwaves. The three sounds (A-U-M) represent the waking, dreaming, and deep sleep states—with the silence after representing pure consciousness. This soundscape features traditional Vedic chanting that creates a sonic field for deep meditation.",
-    creator: "Traditional Vedic lineage",
-    technique: "Allow the Om vibrations to penetrate your entire being. Feel your body resonating with the ancient sound. You're connecting to thousands of years of unbroken practice.",
-    benefits: [
-      "Synchronizes breath and heart rhythms",
-      "Creates deep meditative absorption",
-      "Connects to ancient wisdom lineages",
-      "Balances left and right brain hemispheres"
-    ],
-    completionQuote: "The self is not heard but is the hearer; not seen but is the seer; not known but is the knower."
-  },
-  "himalayan-monastery": {
-    id: "himalayan-monastery",
-    title: "Himalayan Mountain Monastery",
-    category: "pause",
-    duration: 82,
-    origin: "Tibetan Buddhist Monasteries",
-    fullStory: "High upon a snow-laden summit, where silence reigns supreme and the air itself feels sacred, there stands a monastery carved from volcanic stone—austere, eternal, unyielding. Within its echoing chambers, sound becomes devotion. This soundbath is a study in reverence—a confluence of monastic chant, ethereal chime, and resonant void. It evokes a sanctified stillness, a gravity beyond words, where each vibration carries the weight of prayer. The tonality is ascetic yet sumptuous—a ritual in frequency, composed not for entertainment but for elevation. Every element—from the solemn voices to the mystic timepiece pulse—was sculpted with intention, not assembled from loops. The atmosphere recalls ancient orders and forgotten vows, an auditory architecture of faith and frost.",
-    creator: "Mystical monastic atmosphere composition",
-    technique: "Enter this space as one enters a temple: slowly, without thought. Allow the chants to unfurl across your awareness, the chimes to mark the passage of invisible hours. The frequencies align with alpha waves, guiding consciousness toward the lucid threshold between thought and stillness. There is no melody to follow, only resonance—a continuous unfolding of tone that invites the listener to dissolve.",
-    benefits: [
-      "Transcendental Calm — The layered voices and harmonic gongs induce a monastic serenity, emptying the mind of noise",
-      "Cognitive Clarity — Alpha-wave entrainment refines perception, expanding awareness into luminous focus",
-      "Somatic Resonance — The frequencies move through the body like ritual smoke, loosening the architecture of tension",
-      "Temporal Suspension — Time becomes circular, like prayer beads—infinite, patient, absolute"
-    ],
-    completionQuote: "This is not a song; it is a sanctuary."
-  },
-  "cathedral-choir-flow": {
-    id: "cathedral-choir-flow",
-    title: "Cathedral Choir Flow",
-    category: "presence",
-    duration: 198,
-    origin: "Sacred Cathedral Resonance",
-    fullStory: "Step into a grand cathedral, where sunlight spills across vaulted ceilings and every stone resonates with history. Within this vast space, sound takes on dimension: a choir of voices rises and falls, interwoven with bells, subtle percussion, and reverberant harmonics. This soundbath captures the interplay of clarity and calm. Each note carries intention, creating a sonic environment that encourages focus, mindfulness, and rejuvenation. Movement and stillness coexist here—the architecture of sound itself becomes a guide for alignment, energy, and presence.",
-    creator: "Sacred harmonic composition",
-    technique: "Sit or move comfortably. Allow the choir's harmonics to wash over you, expanding your awareness without effort. The sustained tones of the instruments anchor your attention, while gentle rhythmic elements create a natural pulse for meditation, stretching, or mindful flow. This is flow in sound: a space to cultivate focus, clarity, and a calm, centered energy. Let the vibrations guide your breathing and your attention, bringing body and mind into alignment.",
-    benefits: [
-      "Enhanced Focus — Layered harmonics and rhythmic pulses sharpen attention and support deep concentration",
-      "Mindful Presence — Sustained tones create a sense of spatial and mental clarity, ideal for meditation or contemplative work",
-      "Energetic Alignment — Resonances move through the body, encouraging balance and subtle energetic flow",
-      "Flow Induction — The gentle interplay of voices and instruments fosters a natural state of ease and continuity"
-    ],
-    completionQuote: "This soundbath is a sanctuary of resonance. It is not performance, but presence. A space where listening cultivates calm, energy, and sustained focus."
-  },
-  "ina-night-fields": {
-    id: "ina-night-fields",
-    title: "Ina Night Fields (Tsukiyomi)",
-    category: "presence",
-    duration: 242,
-    origin: "Nagano Countryside, Japan",
-    fullStory: "In the quiet heart of Nagano's countryside, where the land folds gently into mist and memory, night hums in perfect rhythm. Through the open window of a farmhouse in Ina—wooden beams breathing the scent of cedar and cool earth—the living orchestra of the fields begins. This soundscape is not composed; it is discovered. The world performs itself here—crickets tracing invisible constellations in the dark, cicadas pulsing like a heartbeat beneath the sky. Every sound is a brushstroke in a landscape of restraint and reverence, painted in tones of dew, soil, and starlight. It is a portrait of solitude, but never loneliness—the still vitality of a night that listens back.",
-    creator: "Natural field recording",
-    technique: "Sit as though beside that farmhouse window. Do not seek melody or meaning—let the field speak for itself. The crickets' dialogue is subtle yet precise, an organic metronome for the attentive mind. Their rhythm invites a state of soft focus, where thought dissolves into perception. The beauty lies not in the sound itself, but in the space it reveals.",
-    benefits: [
-      "Lucid Stillness — The ambient field tones foster calm concentration, grounding attention in the present moment",
-      "Textural Awareness — Layers of natural resonance awaken sensory detail—wind, timber, wing, breath",
-      "Organic Focus — The steady pulse of insect song becomes a meditative anchor for creative or contemplative work",
-      "Temporal Drift — Minutes expand into a gentle continuum; productivity becomes peace"
-    ],
-    completionQuote: "No instruments. No synthesis. Only the night itself—ancient in rhythm, immediate in presence."
-  },
-  "earth-resonance-power": {
-    id: "earth-resonance-power",
-    title: "Earth Resonance",
-    category: "power-up",
-    duration: 145,
-    origin: "Ancient Sound Traditions",
-    fullStory: "Morning hums awake—the first breath of a living street. Between the rustle of canvas stalls and the pulse of passing footsteps, a single vibration begins to bloom. The didgeridoo exhales, low and molten, stirring the ground beneath your awareness. Its drone is elemental—an ancient frequency of life-force and motion. Around it, singing bowls emerge like light on water—luminous, crystalline, harmonizing the earthbound tone with higher resonance. What begins as a street performance becomes something else: a spontaneous alignment of rhythm, breath, and intention. The marketplace becomes a temple; the listener becomes a participant. This soundbath is an energize and flow practice—a transition from root to crown, from kinetic activation to focused presence.",
-    creator: "Street performance meets sacred ritual",
-    technique: "Phase I — Energize: Begin upright. Feel your spine like a column of sound. The didgeridoo's breath ignites movement—sway, stretch, or pulse in time with its resonance. Let the vibrations gather in your lower body, awakening dormant strength and vitality. This is the sound of grounding—primal, circular, continuous. As the bowls begin to shimmer through the drone, imagine energy rising—not rushed, but inevitable—a slow ignition of the inner current. Phase II — Flow / Focus: Allow stillness to return. Breathe with the bowls now—light, deliberate, clear. Their tones become a bridge between motion and mind. Here, attention sharpens without effort. Focus is no longer forced—it flows.",
-    benefits: [
-      "Energizing Resonance — Didgeridoo frequencies awaken the body's core, stimulating breath and circulation",
-      "Dynamic Grounding — Low drones anchor physical presence, fostering strength and stability before focus",
-      "Cognitive Flow — Singing bowls elevate awareness into a tranquil yet alert state, ideal for creative work",
-      "Spatial Clarity — The binaural field enhances immersion, engaging both hemispheres for unified attention"
-    ],
-    completionQuote: "From earth to sky, from stillness to motion—you are the instrument through which all frequencies flow."
-  },
-  "earth-resonance-presence": {
-    id: "earth-resonance-presence",
-    title: "Earth Resonance",
-    category: "presence",
-    duration: 145,
-    origin: "Ancient Sound Traditions",
-    fullStory: "Morning hums awake—the first breath of a living street. Between the rustle of canvas stalls and the pulse of passing footsteps, a single vibration begins to bloom. The didgeridoo exhales, low and molten, stirring the ground beneath your awareness. Its drone is elemental—an ancient frequency of life-force and motion. Around it, singing bowls emerge like light on water—luminous, crystalline, harmonizing the earthbound tone with higher resonance. What begins as a street performance becomes something else: a spontaneous alignment of rhythm, breath, and intention. The marketplace becomes a temple; the listener becomes a participant. This soundbath is an energize and flow practice—a transition from root to crown, from kinetic activation to focused presence.",
-    creator: "Street performance meets sacred ritual",
-    technique: "Phase I — Energize: Begin upright. Feel your spine like a column of sound. The didgeridoo's breath ignites movement—sway, stretch, or pulse in time with its resonance. Let the vibrations gather in your lower body, awakening dormant strength and vitality. This is the sound of grounding—primal, circular, continuous. As the bowls begin to shimmer through the drone, imagine energy rising—not rushed, but inevitable—a slow ignition of the inner current. Phase II — Flow / Focus: Allow stillness to return. Breathe with the bowls now—light, deliberate, clear. Their tones become a bridge between motion and mind. Here, attention sharpens without effort. Focus is no longer forced—it flows.",
-    benefits: [
-      "Energizing Resonance — Didgeridoo frequencies awaken the body's core, stimulating breath and circulation",
-      "Dynamic Grounding — Low drones anchor physical presence, fostering strength and stability before focus",
-      "Cognitive Flow — Singing bowls elevate awareness into a tranquil yet alert state, ideal for creative work",
-      "Spatial Clarity — The binaural field enhances immersion, engaging both hemispheres for unified attention"
-    ],
-    completionQuote: "From earth to sky, from stillness to motion—you are the instrument through which all frequencies flow."
-  },
-  "warrior-drums-power": {
-    id: "warrior-drums-power",
-    title: "Ancestral Pulse",
-    category: "power-up",
-    duration: 240,
-    origin: "Ancient Warrior Traditions",
-    fullStory: "There is a moment before every battle—ancient or modern—when silence is no longer calm, but charged. The air thickens with intent. Muscles remember what they were made for. The heartbeat becomes a weapon. Warrior Drums captures that moment—the breath before impact, the gathering of courage before stepping into the unknown. Built with elemental simplicity, these drums are not performance but invocation: a primal pulse designed to awaken the archetype of the warrior within. Each strike echoes across time—not from the field of medieval conquest, but from the inner arena of the present day: pre-exam, pre-stage, pre-meeting, pre-challenge. Wherever courage is needed, this rhythm becomes your ally. The sound is pure percussion—no melody, no distraction—only movement, weight, and purpose.",
-    creator: "Ritual of preparation and power",
-    technique: "Stand tall. Breathe deep into the belly. Let the first rhythm set your pulse—slow, grounded, deliberate. With each beat, shed hesitation. The drums are your spine now, your heart's external voice. As the tempo builds, feel the energy rise through your core—focus sharpening, blood alive, mind narrowing to a single, unwavering point. This is your pre-war ritual: Not for destruction, but for precision. Not for rage, but for power under control. When the final strikes fade, you are not exhausted—you are aligned. Centered. Electric. Ready.",
-    benefits: [
-      "Primal Activation — Deep drum resonance stimulates the body's natural rhythm, awakening strength and alertness",
-      "Focus Under Pressure — The repetition induces a trance-like state, enhancing concentration and reaction time",
-      "Controlled Aggression — The sound invites power without chaos—intensity tempered by clarity",
-      "Embodied Confidence — The drums anchor attention in the body, grounding anxiety into physical readiness"
-    ],
-    completionQuote: "This is the sound of preparation—of the mind sharpening its blade, of fear transforming into fuel. No armies. No banners. Just you—and the drums."
-  },
-  "warrior-drums-presence": {
-    id: "warrior-drums-presence",
-    title: "Ancestral Pulse",
-    category: "presence",
-    duration: 240,
-    origin: "Ancient Warrior Traditions",
-    fullStory: "There is a moment before every battle—ancient or modern—when silence is no longer calm, but charged. The air thickens with intent. Muscles remember what they were made for. The heartbeat becomes a weapon. Warrior Drums captures that moment—the breath before impact, the gathering of courage before stepping into the unknown. Built with elemental simplicity, these drums are not performance but invocation: a primal pulse designed to awaken the archetype of the warrior within. Each strike echoes across time—not from the field of medieval conquest, but from the inner arena of the present day: pre-exam, pre-stage, pre-meeting, pre-challenge. Wherever courage is needed, this rhythm becomes your ally. The sound is pure percussion—no melody, no distraction—only movement, weight, and purpose.",
-    creator: "Ritual of preparation and power",
-    technique: "Stand tall. Breathe deep into the belly. Let the first rhythm set your pulse—slow, grounded, deliberate. With each beat, shed hesitation. The drums are your spine now, your heart's external voice. As the tempo builds, feel the energy rise through your core—focus sharpening, blood alive, mind narrowing to a single, unwavering point. This is your pre-war ritual: Not for destruction, but for precision. Not for rage, but for power under control. When the final strikes fade, you are not exhausted—you are aligned. Centered. Electric. Ready.",
-    benefits: [
-      "Primal Activation — Deep drum resonance stimulates the body's natural rhythm, awakening strength and alertness",
-      "Focus Under Pressure — The repetition induces a trance-like state, enhancing concentration and reaction time",
-      "Controlled Aggression — The sound invites power without chaos—intensity tempered by clarity",
-      "Embodied Confidence — The drums anchor attention in the body, grounding anxiety into physical readiness"
-    ],
-    completionQuote: "This is the sound of preparation—of the mind sharpening its blade, of fear transforming into fuel. No armies. No banners. Just you—and the drums."
   }
 };
 
@@ -293,6 +91,8 @@ const SoundscapePlayer = () => {
   const [actualDuration, setActualDuration] = useState<number | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Practice Queue State
@@ -301,6 +101,23 @@ const SoundscapePlayer = () => {
   const [isInQueue, setIsInQueue] = useState(false);
 
   const displayDuration = actualDuration || soundscape?.duration || 0;
+
+  // Swipe handler for queue navigation
+  useSwipeHandler({
+    onSwipeLeft: () => {
+      if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+        navigateToNext();
+      }
+    },
+    onSwipeRight: () => {
+      if (isInQueue && currentQueueIndex > 0) {
+        const prev = practiceQueue[currentQueueIndex - 1];
+        if (prev.contentType === 'soundbath') {
+          navigate(`/soundscapes/${prev.id}`, { state: { category: prev.category } });
+        }
+      }
+    }
+  });
 
   useEffect(() => {
     // Check if this is part of a practice queue
@@ -370,6 +187,10 @@ const SoundscapePlayer = () => {
 
   const handlePlayPause = () => {
     if (!audioRef.current) return;
+
+    if (!hasStarted) {
+      setHasStarted(true);
+    }
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -446,52 +267,57 @@ const SoundscapePlayer = () => {
   };
 
   const handleAudioEnded = async () => {
-    if (isLooping && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => {
-        console.error("Audio loop error:", err);
-        setIsPlaying(false);
-      });
-    } else {
-      setIsPlaying(false);
-      
-      // Save practice session to database
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && soundscape) {
-          const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
-          const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+    setIsPlaying(false);
+    
+    if (isLooping) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        await audioRef.current.play();
+        setIsPlaying(true);
+      }
+      return;
+    }
+
+    // Save practice session
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user && soundscape) {
+        const session = {
+          user_id: user.id,
+          content_id: soundscape.id,
+          content_type: 'soundbath',
+          category: soundscape.category,
+          started_at: new Date(Date.now() - displayDuration * 1000).toISOString(),
+          completed_at: new Date().toISOString(),
+          duration_seconds: displayDuration,
+          completed: true,
+          part_of_ritual: isInQueue
+        };
+
+        const { data: insertedSession, error } = await supabase
+          .from('practice_sessions')
+          .insert([session])
+          .select()
+          .single();
+
+        if (error) throw error;
+        setSessionId(insertedSession.id);
+
+        // If part of ritual, update daily ritual completion
+        if (isInQueue && user) {
+          const today = new Date().toISOString().split('T')[0];
           
-          const { data, error } = await supabase.from('practice_sessions').insert({
-            user_id: user.id,
-            content_id: soundscape.id,
-            content_type: 'soundbath',
-            category: soundscape.category,
-            duration_seconds: displayDuration,
-            started_at: new Date(Date.now() - displayDuration * 1000).toISOString(),
-            completed_at: new Date().toISOString(),
-            completed: true,
-            part_of_ritual: isPartOfRitual,
-            metadata: { title: soundscape.title }
-          }).select('id').single();
-          
-          if (data) {
-            setSessionId(data.id);
-          }
-          
-          // Update ritual completion if part of ritual
-          if (isPartOfRitual) {
-            const today = new Date().toISOString().split('T')[0];
-            
-            // Step 1: Upsert the specific completion field WITHOUT setting status
+          if (user) {
+            // Step 1: Upsert soundscape completion
             await supabase
               .from('daily_ritual_completions')
               .upsert({
                 user_id: user.id,
                 ritual_date: today,
                 soundscape_completed: true,
-                soundscape_completed_at: new Date().toISOString()
-                // DON'T set completion_status here
+                soundscape_completed_at: new Date().toISOString(),
+                recommended_practice_ids: practiceQueue.map(p => p.id),
+                recommended_practices_count: practiceQueue.length
               }, {
                 onConflict: 'user_id,ritual_date'
               });
@@ -526,28 +352,20 @@ const SoundscapePlayer = () => {
                 .update({ completion_status: newStatus })
                 .eq('user_id', user.id)
                 .eq('ritual_date', today);
-              
-              console.log('🎯 Soundscape completed:', {
-                type: 'soundscape',
-                completedCount: completed,
-                totalRecommended,
-                newStatus,
-                timestamp: new Date().toISOString()
-              });
             }
           }
         }
-      } catch (error) {
-        console.error('Failed to save practice session:', error);
       }
-      
-      // Show rating modal instead of completion screen
-      setShowRatingModal(true);
-      
-      // If in queue, auto-navigate to next after 2 seconds
-      if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
-        setTimeout(() => handleQueueComplete(), 2000);
-      }
+    } catch (error) {
+      console.error('Failed to save practice session:', error);
+    }
+    
+    // Show rating modal instead of completion screen
+    setShowRatingModal(true);
+    
+    // If in queue, auto-navigate to next after 2 seconds
+    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+      setTimeout(() => handleQueueComplete(), 2000);
     }
   };
 
@@ -608,6 +426,7 @@ const SoundscapePlayer = () => {
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const duration = Math.floor(e.currentTarget.duration);
     setActualDuration(duration);
+    setActualDurationMinutes(Math.ceil(duration / 60));
   };
 
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -691,14 +510,15 @@ const SoundscapePlayer = () => {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Full-screen background */}
+      {/* Full-screen background with luxury filter */}
       <div className="fixed inset-0 -z-10">
         <img
-          src={getContentById(id!)?.thumbnail}
+          src={soundscape.thumbnail || getContentById(id!)?.thumbnail}
           alt={soundscape.title}
           className="w-full h-full object-cover"
+          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.15) sepia(0.08)' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-orange-900/20 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-orange-900/15 to-black/50" />
       </div>
 
       {/* Transparent navigation */}
@@ -718,203 +538,230 @@ const SoundscapePlayer = () => {
         />
       )}
 
-      {/* Content overlay */}
-      <div className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-8">
-        <div className="w-full max-w-2xl space-y-8 flex flex-col items-center">
-          {/* Title Section */}
-          <div className="text-center space-y-3">
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+      {!hasStarted ? (
+        /* Initial State - Center everything */
+        <div className="relative flex flex-col items-center justify-center min-h-screen px-4">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-5xl font-serif text-white mb-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               {soundscape.title}
             </h1>
-            {soundscape.origin && (
-              <p className="text-sm md:text-base text-white/80 font-light tracking-wide max-w-xl mx-auto">
-                {soundscape.origin}
-              </p>
+            <p className="text-white/80 text-sm md:text-base drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {soundscape.origin}
+            </p>
+          </div>
+
+          {/* Large play button */}
+          <Button
+            onClick={handlePlayPause}
+            className={cn(
+              "w-24 h-24 md:w-32 md:h-32 rounded-full mb-4",
+              "bg-gradient-to-br from-orange-500 to-orange-600",
+              "hover:scale-105 transition-all duration-300",
+              "shadow-[0_0_40px_rgba(249,115,22,0.5)]",
+              "hover:shadow-[0_0_60px_rgba(249,115,22,0.7)]"
             )}
+          >
+            <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1" />
+          </Button>
+
+          <p className="text-white/70 text-sm md:text-base font-light tracking-wide">
+            Swipe to start
+          </p>
+        </div>
+      ) : (
+        /* Playing State - Title at top, controls at bottom */
+        <>
+          <div className="relative pt-20 px-4 text-center">
+            <h1 className="text-2xl md:text-3xl font-serif text-white mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {soundscape.title}
+            </h1>
+            <p className="text-white/70 text-xs md:text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {soundscape.origin} • {actualDurationMinutes || soundscape.duration} min session
+            </p>
           </div>
 
-          {/* Large Play Button */}
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              onClick={handlePlayPause}
-              className={`rounded-full w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 shadow-[0_0_40px_rgba(249,115,22,0.5)] hover:shadow-[0_0_60px_rgba(249,115,22,0.7)] hover:scale-105 transition-all duration-300 ${
-                isPlaying ? 'animate-pulse' : ''
-              }`}
-            >
-              {isPlaying ? (
-                <Pause className="w-10 h-10 md:w-12 md:h-12 text-white" />
-              ) : (
-                <Play className="w-10 h-10 md:w-12 md:h-12 ml-1 text-white" />
-              )}
-            </Button>
-            {!isPlaying && (
-              <p className="text-white/70 text-sm md:text-base font-light tracking-wide animate-fade-in">
-                Tap to begin
-              </p>
-            )}
-          </div>
+          {/* Bottom control bar */}
+          <div className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 rounded-t-2xl px-4 py-3 pb-safe">
+            {/* Progress bar */}
+            <div className="mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-white/80 font-mono min-w-[40px]">
+                  {formatTime(currentTime)}
+                </span>
+                
+                <div className="flex-1 relative">
+                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={displayDuration}
+                    value={currentTime}
+                    onChange={(e) => {
+                      const time = Number(e.target.value);
+                      setCurrentTime(time);
+                      if (audioRef.current) {
+                        audioRef.current.currentTime = time;
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer"
+                  />
+                </div>
 
-          {/* Transport Controls */}
-          <div className="flex items-center justify-center gap-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleSkip(-15)}
-              disabled={currentTime === 0}
-              className="text-white hover:text-orange-400 hover:bg-white/10 backdrop-blur-sm transition-colors"
-            >
-              <SkipBack className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleSkip(15)}
-              disabled={currentTime >= displayDuration}
-              className="text-white hover:text-orange-400 hover:bg-white/10 backdrop-blur-sm transition-colors"
-            >
-              <SkipForward className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full space-y-3">
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/20 backdrop-blur-sm">
-              <div
-                className="h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
-                style={{ width: `${progress}%` }}
-              />
-              <div
-                className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300 bg-orange-500/30"
-                style={{ left: `${Math.max(0, progress - 10)}%` }}
-              />
+                <span className="text-xs text-white/80 font-mono min-w-[40px] text-right">
+                  {formatTime(displayDuration)}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center text-sm text-white/90">
-              <span className="font-mono">{formatTime(currentTime)}</span>
-              <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-xs font-medium">
-                {soundscape.duration} min session
-              </span>
-              <span className="font-mono">{formatTime(displayDuration)}</span>
-            </div>
-          </div>
 
-          {/* Volume Controls */}
-          <div className="flex items-center gap-4 w-full max-w-md mx-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMuteToggle}
-              className="text-white hover:text-orange-400 hover:bg-white/10"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-5 h-5" />
-              ) : volume < 50 ? (
-                <Volume1 className="w-5 h-5" />
-              ) : (
-                <Volume2 className="w-5 h-5" />
-              )}
-            </Button>
-            <div className="flex-1 relative">
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                onValueChange={handleVolumeChange}
-                max={100}
-                step={1}
-                className="[&_[role=slider]]:bg-orange-500 [&_[role=slider]]:border-white"
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsLooping(!isLooping)}
-              className={cn(
-                "text-white hover:bg-white/10",
-                isLooping && "bg-orange-500/30 text-orange-400"
-              )}
-            >
-              <Repeat className="w-5 h-5" />
-            </Button>
-          </div>
+            {/* Single row controls */}
+            <div className="flex items-center justify-center gap-2 md:gap-3 mb-3">
+              {/* Mute/Volume Icon */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleMuteToggle}
+                className="text-white hover:text-orange-400 hover:bg-white/10"
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-5 h-5" />
+                ) : volume < 50 ? (
+                  <Volume1 className="w-5 h-5" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
+              </Button>
 
-          {/* Origin Story Collapsible */}
-          {soundscape.fullStory && (
-            <Collapsible open={showStory} onOpenChange={setShowStory} className="w-full">
-              <div className="space-y-4">
+              {/* Skip Back 15s */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleSkip(-15)}
+                disabled={currentTime === 0}
+                className="text-white hover:text-orange-400 hover:bg-white/10"
+              >
+                <SkipBack className="w-5 h-5" />
+              </Button>
+
+              {/* Play/Pause - slightly larger */}
+              <Button
+                onClick={handlePlayPause}
+                className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 hover:scale-105 transition-all"
+              >
+                {isPlaying ? (
+                  <Pause className="w-6 h-6 text-white" />
+                ) : (
+                  <Play className="w-6 h-6 text-white ml-0.5" />
+                )}
+              </Button>
+
+              {/* Skip Forward 15s */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleSkip(15)}
+                disabled={currentTime >= displayDuration}
+                className="text-white hover:text-orange-400 hover:bg-white/10"
+              >
+                <SkipForward className="w-5 h-5" />
+              </Button>
+
+              {/* Loop Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsLooping(!isLooping)}
+                className={cn(
+                  "text-white hover:text-orange-400 hover:bg-white/10",
+                  isLooping && "text-orange-400 bg-white/10"
+                )}
+              >
+                <Repeat className="w-5 h-5" />
+              </Button>
+
+              {/* Volume Slider - compact */}
+              <div className="w-16 md:w-32">
+                <Slider
+                  value={[isMuted ? 0 : volume]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  step={1}
+                  className="[&_[role=slider]]:bg-orange-500 [&_[role=slider]]:border-white"
+                />
+              </div>
+            </div>
+
+            {/* Origin Story */}
+            {soundscape.fullStory && (
+              <Collapsible open={showStory} onOpenChange={setShowStory}>
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-full justify-between bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:border-orange-400/50 transition-colors"
+                    size="sm"
+                    className="w-full bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:border-orange-400/50"
                   >
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-orange-400" />
+                    <span className="flex items-center gap-2 text-xs">
                       Origin Story
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "w-4 h-4 transition-transform duration-200",
+                      <ChevronDown className={cn(
+                        "w-3 h-3 transition-transform",
                         showStory && "rotate-180"
-                      )}
-                    />
+                      )} />
+                    </span>
                   </Button>
                 </CollapsibleTrigger>
+
                 <CollapsibleContent>
-                  <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-6">
-                    {/* Full Story */}
-                    <div className="space-y-3">
-                      <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
-                        <Sparkles className="w-5 h-5" />
-                        The Story
-                      </h3>
-                      <p className="text-sm text-white/80 leading-relaxed">
-                        {soundscape.fullStory}
-                      </p>
-                    </div>
-
-                    {/* Technique */}
-                    {soundscape.technique && (
-                      <div className="space-y-3">
-                        <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
-                          <Brain className="w-5 h-5" />
-                          How to Practice
-                        </h3>
-                        <p className="text-sm text-white/80 leading-relaxed">
-                          {soundscape.technique}
+                  <Card className="mt-2 bg-black/60 backdrop-blur-xl border border-white/10">
+                    <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                      <div>
+                        <h3 className="text-orange-400 font-semibold text-sm mb-1">The Story</h3>
+                        <p className="text-white/80 text-xs leading-relaxed">
+                          {soundscape.fullStory}
                         </p>
                       </div>
-                    )}
 
-                    {/* Benefits */}
-                    {soundscape.benefits && soundscape.benefits.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
-                          <Zap className="w-5 h-5" />
-                          Benefits
-                        </h3>
-                        <ul className="space-y-2">
-                          {soundscape.benefits.map((benefit, index) => (
-                            <li key={index} className="flex items-start gap-2 text-sm text-white/80">
-                              <span className="text-orange-400 mt-1">•</span>
-                              <span>{benefit}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                      {soundscape.technique && (
+                        <div>
+                          <h3 className="text-orange-400 font-semibold text-sm mb-1">Technique</h3>
+                          <p className="text-white/80 text-xs leading-relaxed">
+                            {soundscape.technique}
+                          </p>
+                        </div>
+                      )}
 
-                    {/* Completion Quote */}
-                    {soundscape.completionQuote && (
-                      <div className="pt-4 border-t border-white/10">
-                        <p className="text-sm italic text-white/70 text-center leading-relaxed">
-                          "{soundscape.completionQuote}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                      {soundscape.benefits && soundscape.benefits.length > 0 && (
+                        <div>
+                          <h3 className="text-orange-400 font-semibold text-sm mb-1">Benefits</h3>
+                          <ul className="space-y-1">
+                            {soundscape.benefits.map((benefit, index) => (
+                              <li key={index} className="flex items-start gap-2 text-white/80 text-xs">
+                                <span className="text-orange-400 mt-0.5">•</span>
+                                <span>{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {soundscape.completionQuote && (
+                        <div className="pt-2 border-t border-white/10">
+                          <p className="text-orange-300 text-xs italic">
+                            "{soundscape.completionQuote}"
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
-        </div>
-      </div>
+              </Collapsible>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Hidden Audio Element */}
       <audio

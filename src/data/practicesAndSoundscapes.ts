@@ -114,7 +114,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     voice: 'none',
     language: 'en',
     deliveryModality: ['headphones', 'speaker'],
-    duration: 2.5,
+    duration: 2.47,
     creator: "Didgeridoo traditions and harmonic bowl practices",
     origin: "Didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
     storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
