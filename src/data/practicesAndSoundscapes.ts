@@ -94,7 +94,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // POWER-UP Soundbaths
   {
     id: "energised-focus-didgeridoo-bowls",
-    title: "Energised Focus with Didgeridoo & Bowls",
+    title: "Bazaar Sound Journey with Didgeridoo & Bowls",
     contentType: "soundbath",
     category: "power-up",
     tags: ['fire', 'focus', 'moderate', 'energy', 'activation'],
@@ -116,7 +116,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     deliveryModality: ['headphones', 'speaker'],
     duration: 2.47,
     creator: "Didgeridoo traditions and harmonic bowl practices",
-    origin: "Didgeridoo traditions and harmonic bowl practices that channel energy into sustained attention",
+    origin: "Feel the pulse of the crowd, the breath of the didgeridoo, and the shimmering bowls guiding your mind from raw energy to sharp clarity.",
     storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
     thumbnail: didgeridooHero,
     audioSrc: "/soundscapes/didgeridoo-bowls.mp3",

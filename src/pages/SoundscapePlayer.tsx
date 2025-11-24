@@ -516,9 +516,9 @@ const SoundscapePlayer = () => {
           src={soundscape.thumbnail || getContentById(id!)?.thumbnail}
           alt={soundscape.title}
           className="w-full h-full object-cover"
-          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.15) sepia(0.08)' }}
+          style={{ filter: 'brightness(0.80) contrast(1.15) saturate(1.20) sepia(0.12) hue-rotate(-5deg)' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-orange-900/15 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-taupe-rich/20 to-black/70" />
       </div>
 
       {/* Transparent navigation */}
@@ -540,12 +540,12 @@ const SoundscapePlayer = () => {
 
       {!hasStarted ? (
         /* Initial State - Center everything */
-        <div className="relative flex flex-col items-center justify-center min-h-screen px-4">
+        <div className="relative flex flex-col items-center justify-center min-h-screen px-6">
           <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-serif text-white mb-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            <h1 className="text-3xl md:text-5xl font-headline text-white mb-4 leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
               {soundscape.title}
             </h1>
-            <p className="text-white/80 text-sm md:text-base drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            <p className="text-white/70 text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               {soundscape.origin}
             </p>
           </div>
@@ -554,45 +554,45 @@ const SoundscapePlayer = () => {
           <Button
             onClick={handlePlayPause}
             className={cn(
-              "w-24 h-24 md:w-32 md:h-32 rounded-full mb-4",
-              "bg-gradient-to-br from-orange-500 to-orange-600",
+              "w-24 h-24 md:w-32 md:h-32 rounded-full mb-6",
+              "bg-gradient-to-br from-saffron via-gold to-gold",
               "hover:scale-105 transition-all duration-300",
-              "shadow-[0_0_40px_rgba(249,115,22,0.5)]",
-              "hover:shadow-[0_0_60px_rgba(249,115,22,0.7)]"
+              "shadow-[0_0_40px_rgba(212,175,55,0.6)]",
+              "hover:shadow-[0_0_60px_rgba(212,175,55,0.8)]"
             )}
           >
             <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1" />
           </Button>
 
-          <p className="text-white/70 text-sm md:text-base font-light tracking-wide">
-            Swipe to start
+          <p className="text-white/70 text-sm md:text-base font-hint tracking-wide">
+            Tap to begin
           </p>
         </div>
       ) : (
         /* Playing State - Title at top, controls at bottom */
         <>
-          <div className="relative pt-20 px-4 text-center">
-            <h1 className="text-2xl md:text-3xl font-serif text-white mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+          <div className="relative z-20 pt-24 px-4 text-center">
+            <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
               {soundscape.title}
             </h1>
-            <p className="text-white/70 text-xs md:text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-              {soundscape.origin} • {actualDurationMinutes || soundscape.duration} min session
+            <p className="text-white/60 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+              {actualDurationMinutes || soundscape.duration} min session
             </p>
           </div>
 
           {/* Bottom control bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 rounded-t-2xl px-4 py-3 pb-safe">
+          <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-taupe-rich/20 to-black/60 backdrop-blur-xl border-t border-gold/10 rounded-t-2xl px-4 py-3 pb-safe">
             {/* Progress bar */}
             <div className="mb-4">
               <div className="flex items-center gap-3">
-                <span className="text-xs text-white/80 font-mono min-w-[40px]">
+                <span className="text-xs text-white/80 font-hint min-w-[40px]">
                   {formatTime(currentTime)}
                 </span>
                 
                 <div className="flex-1 relative">
-                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-taupe/30 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-gold via-saffron to-gold transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -612,37 +612,21 @@ const SoundscapePlayer = () => {
                   />
                 </div>
 
-                <span className="text-xs text-white/80 font-mono min-w-[40px] text-right">
+                <span className="text-xs text-white/80 font-hint min-w-[40px] text-right">
                   {formatTime(displayDuration)}
                 </span>
               </div>
             </div>
 
-            {/* Single row controls */}
+            {/* Single row controls - reordered */}
             <div className="flex items-center justify-center gap-2 md:gap-3 mb-3">
-              {/* Mute/Volume Icon */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMuteToggle}
-                className="text-white hover:text-orange-400 hover:bg-white/10"
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : volume < 50 ? (
-                  <Volume1 className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </Button>
-
               {/* Skip Back 15s */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSkip(-15)}
                 disabled={currentTime === 0}
-                className="text-white hover:text-orange-400 hover:bg-white/10"
+                className="text-white hover:text-gold hover:bg-gold/10"
               >
                 <SkipBack className="w-5 h-5" />
               </Button>
@@ -650,7 +634,7 @@ const SoundscapePlayer = () => {
               {/* Play/Pause - slightly larger */}
               <Button
                 onClick={handlePlayPause}
-                className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 hover:scale-105 transition-all"
+                className="w-12 h-12 rounded-full bg-gradient-to-br from-saffron via-gold to-gold hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.4)]"
               >
                 {isPlaying ? (
                   <Pause className="w-6 h-6 text-white" />
@@ -665,34 +649,53 @@ const SoundscapePlayer = () => {
                 size="sm"
                 onClick={() => handleSkip(15)}
                 disabled={currentTime >= displayDuration}
-                className="text-white hover:text-orange-400 hover:bg-white/10"
+                className="text-white hover:text-gold hover:bg-gold/10"
               >
                 <SkipForward className="w-5 h-5" />
               </Button>
 
-              {/* Loop Toggle */}
+              {/* Volume Icon */}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsLooping(!isLooping)}
-                className={cn(
-                  "text-white hover:text-orange-400 hover:bg-white/10",
-                  isLooping && "text-orange-400 bg-white/10"
-                )}
+                onClick={handleMuteToggle}
+                className="text-white hover:text-gold hover:bg-gold/10"
               >
-                <Repeat className="w-5 h-5" />
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-5 h-5" />
+                ) : volume < 50 ? (
+                  <Volume1 className="w-5 h-5" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
               </Button>
 
-              {/* Volume Slider - compact */}
-              <div className="w-16 md:w-32">
+              {/* Volume Slider - adjacent to volume icon */}
+              <div className="w-20 md:w-32">
                 <Slider
                   value={[isMuted ? 0 : volume]}
                   onValueChange={handleVolumeChange}
                   max={100}
                   step={1}
-                  className="[&_[role=slider]]:bg-orange-500 [&_[role=slider]]:border-white"
+                  className="[&_[role=slider]]:bg-gold [&_[role=slider]]:border-white [&_[role=slider]]:shadow-[0_0_10px_rgba(212,175,55,0.5)]"
                 />
               </div>
+
+              {/* Spacer for visual separation */}
+              <div className="w-3 md:w-6" />
+
+              {/* Loop Toggle - far right */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsLooping(!isLooping)}
+                className={cn(
+                  "text-white hover:text-gold hover:bg-gold/10",
+                  isLooping && "text-gold bg-gold/10"
+                )}
+              >
+                <Repeat className="w-5 h-5" />
+              </Button>
             </div>
 
             {/* Origin Story */}
@@ -702,9 +705,9 @@ const SoundscapePlayer = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:border-orange-400/50"
+                    className="w-full bg-gradient-to-r from-taupe/20 to-gold/10 backdrop-blur-md border border-gold/30 text-white hover:from-taupe/30 hover:to-gold/20 hover:border-gold/50"
                   >
-                    <span className="flex items-center gap-2 text-xs">
+                    <span className="flex items-center gap-2 text-xs font-hint">
                       Origin Story
                       <ChevronDown className={cn(
                         "w-3 h-3 transition-transform",
@@ -715,19 +718,19 @@ const SoundscapePlayer = () => {
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                  <Card className="mt-2 bg-black/60 backdrop-blur-xl border border-white/10">
+                  <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
                     <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
                       <div>
-                        <h3 className="text-orange-400 font-semibold text-sm mb-1">The Story</h3>
-                        <p className="text-white/80 text-xs leading-relaxed">
+                        <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">The Story</h3>
+                        <p className="text-white/80 text-xs leading-relaxed font-body">
                           {soundscape.fullStory}
                         </p>
                       </div>
 
                       {soundscape.technique && (
                         <div>
-                          <h3 className="text-orange-400 font-semibold text-sm mb-1">Technique</h3>
-                          <p className="text-white/80 text-xs leading-relaxed">
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                          <p className="text-white/80 text-xs leading-relaxed font-body">
                             {soundscape.technique}
                           </p>
                         </div>
@@ -735,11 +738,11 @@ const SoundscapePlayer = () => {
 
                       {soundscape.benefits && soundscape.benefits.length > 0 && (
                         <div>
-                          <h3 className="text-orange-400 font-semibold text-sm mb-1">Benefits</h3>
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
                           <ul className="space-y-1">
                             {soundscape.benefits.map((benefit, index) => (
-                              <li key={index} className="flex items-start gap-2 text-white/80 text-xs">
-                                <span className="text-orange-400 mt-0.5">•</span>
+                              <li key={index} className="flex items-start gap-2 text-white/80 text-xs font-body">
+                                <span className="text-gold mt-0.5">•</span>
                                 <span>{benefit}</span>
                               </li>
                             ))}
@@ -748,8 +751,8 @@ const SoundscapePlayer = () => {
                       )}
 
                       {soundscape.completionQuote && (
-                        <div className="pt-2 border-t border-white/10">
-                          <p className="text-orange-300 text-xs italic">
+                        <div className="pt-2 border-t border-gold/10">
+                          <p className="text-gold/80 text-xs italic font-subheadline">
                             "{soundscape.completionQuote}"
                           </p>
                         </div>
