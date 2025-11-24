@@ -120,7 +120,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "A two-phase soundscape designed to awaken the body's core and guide energy into focused mental flow. Low didgeridoo frequencies activate vitality, while crystalline bowls elevate awareness — turning primal momentum into calm, precise focus.",
     thumbnail: didgeridooHero,
     audioSrc: "/soundscapes/didgeridoo-bowls.mp3",
-    fullStory: "On ancient Australian plains, the didgeridoo's deep drone stirred courage, balance, and healing. In Himalayan monasteries, bowls were forged to refine the mind with clear, rising tones. True preparation isn't stillness or adrenaline—it is energy with direction. The didgeridoo gives the power; the bowls give the aim. Together, they move you from the body's ancient rhythms to the mind's highest clarity—not to relax you, but to prepare you.",
+    fullStory: "On ancient Australian plains, the didgeridoo's deep drone stirred courage, balance, and healing. In Himalayan monasteries, bowls were forged to refine the mind with clear, rising tones. True preparation isn't stillness or adrenaline—it is energy with direction. The didgeridoo gives the power; the bowls give the aim. Together, they move you from the body's ancient rhythms to the mind's highest clarity—not to relax you, but to prepare you.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
     technique: "This is a two-phase practice. Phase 1 (Didgeridoo): Feel the low frequencies in your body—your chest, your belly, your legs. Don't just hear it; let it vibrate through you. This awakens your core energy and vitality. Phase 2 (Singing Bowls): As the bowls enter, feel the energy shift upward—into your heart, your throat, your head. The raw power becomes refined focus. Breathe deeply throughout. This isn't relaxation—it's energized presence. You're learning to transform primal momentum into laser-sharp attention.",
     benefits: [
       "Awakens core vitality and physical energy",
@@ -133,7 +133,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "warrior-drums",
-    title: "Warrior Drums",
+    title: "Warrior Drums Activation Ritual",
     contentType: "soundbath",
     category: "power-up",
     tags: ['fire', 'pre-meeting', 'intense', 'power', 'courage'],
@@ -147,18 +147,28 @@ export const sanctuaryContent: SanctuaryContent[] = [
       equipment: ['headphones', 'speaker'],
       cognitiveLoadHelp: ['supports_decision'],
       socialTag: 'solo',
-      intensityLevel: 'medium',
-      energyDirection: 'stabilize'
+      intensityLevel: 'high',
+      energyDirection: 'activate'
     },
     voice: 'none',
     language: 'en',
     deliveryModality: ['headphones', 'speaker'],
-    duration: 4,
-    creator: "Ritual of preparation and power",
-    origin: "Ancient Warrior Traditions",
-    storyHook: "The breath before impact—primal percussion invoking the warrior archetype for modern challenges. Pure drums, no melody, only courage and readiness.",
-    thumbnail: renewalVisual,
-    audioSrc: "/soundscapes/earth-resonance.mp3"
+    duration: 3.5,
+    creator: "Ancient warrior drum traditions",
+    origin: "Feel the tension in the silence, the heartbeat in the drums, and the rising rhythm guiding your body from quiet resolve to fearless readiness.",
+    storyHook: "Primal percussion invoking the warrior archetype—pure drums, no melody, only courage and readiness.",
+    thumbnail: "/lovable-uploads/warrior-drums-hero.jpg",
+    audioSrc: "/soundscapes/warrior-drums.mp3",
+    fullStory: "In cultures across continents—from African battlefields to Japanese dojos, from Mongolian steppes to Māori war parties—drums were never background noise. They were the heartbeat before action. The silence before the first beat is where fear lives. The first strike breaks hesitation. The rising rhythm synchronizes the body's ancient systems: heartbeat, breath, movement. This is not music for listening. It is a ritual of activation—turning apprehension into readiness, doubt into decisiveness. Warriors did not walk into battle distracted; they walked in synchronized with the pulse of preparation. The drums don't relax you. They align you.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
+    technique: "Find a private space. Stand or sit with your spine tall. Press play. Phase 1 (Silence & Opening): Feel the tension in the quiet. Don't fight it—notice it. Phase 2 (First Drums): As the first beats land, let them anchor in your chest. Match your breath to the rhythm. Phase 3 (Building Intensity): Feel the tempo rise. Let your body want to move—shoulders, chest, even small movements. You're not listening passively; you're synchronizing. Phase 4 (Peak): At the climax, you are no longer nervous—you are ready. When it ends, carry that readiness into your next action immediately. Do not pause. Do not second-guess. Act.",
+    benefits: [
+      "Transforms nervous tension into focused energy",
+      "Synchronizes breath, heartbeat, and mental state",
+      "Breaks hesitation and activates decisive action",
+      "Builds resilience through controlled intensity",
+      "Creates embodied confidence before high-stakes moments"
+    ],
+    completionQuote: "Courage is not the absence of fear. It is the rhythm that carries you through it. The warrior does not wait until ready—the ritual makes them ready."
   },
 
   // PAUSE Soundbaths
