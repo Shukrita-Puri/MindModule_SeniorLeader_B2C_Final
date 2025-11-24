@@ -2,18 +2,21 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { GradientProgress } from "@/components/ui/gradient-progress";
-import { GoldCard } from "@/components/ui/gold-card";
+import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import { 
   Play, 
   Pause, 
   SkipBack, 
   SkipForward, 
   Volume2, 
+  Volume1,
   VolumeX,
-  BookOpen,
   CheckCircle2,
-  Repeat
+  Repeat,
+  Sparkles,
+  Brain,
+  Zap,
+  ChevronDown
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TopNavigation from "@/components/simulation/TopNavigation";
@@ -25,6 +28,7 @@ import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
+import { cn } from "@/lib/utils";
 
 // Soundscape data now comes from practicesAndSoundscapes.ts
 const getSoundscapeData = (id: string) => {
@@ -283,7 +287,7 @@ const SoundscapePlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(70);
   const [isMuted, setIsMuted] = useState(false);
-  const [isStoryOpen, setIsStoryOpen] = useState(false);
+  const [showStory, setShowStory] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [actualDuration, setActualDuration] = useState<number | null>(null);
@@ -686,10 +690,23 @@ const SoundscapePlayer = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col">
-      <TopNavigation backPath={getCategoryPath()} />
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Full-screen background */}
+      <div className="fixed inset-0 -z-10">
+        <img
+          src={getContentById(id!)?.thumbnail}
+          alt={soundscape.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-orange-900/20 to-black/60" />
+      </div>
 
-      {/* Practice Queue Progress */}
+      {/* Transparent navigation */}
+      <TopNavigation 
+        backPath={getCategoryPath()} 
+        transparent 
+      />
+      
       {isInQueue && (
         <PracticeQueueProgress
           currentIndex={currentQueueIndex}
@@ -701,172 +718,221 @@ const SoundscapePlayer = () => {
         />
       )}
 
-      {/* Main Player Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 pb-8 md:pb-12 pt-20">
-        {/* Title */}
-        <div className="text-center mb-6 md:mb-8 max-w-2xl">
-          <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent mb-2">
-            {soundscape.title}
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground">{soundscape.origin}</p>
-        </div>
-
-        <GoldCard variant="glowing" className="w-full max-w-2xl p-4 md:p-6 mb-6 md:mb-8">
-          {/* Visual Element */}
-          <div className="mb-6 md:mb-8">
-            <div className="relative w-full aspect-[4/3] max-w-md mx-auto rounded-xl overflow-hidden">
-              <img 
-                src={getContentById(id!)?.thumbnail} 
-                alt={soundscape.title}
-                className="w-full h-full object-contain"
-              />
-              {isPlaying && (
-                <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-primary/5 to-accent/10 animate-pulse" />
-              )}
-            </div>
+      {/* Content overlay */}
+      <div className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-8">
+        <div className="w-full max-w-2xl space-y-8 flex flex-col items-center">
+          {/* Title Section */}
+          <div className="text-center space-y-3">
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {soundscape.title}
+            </h1>
+            {soundscape.origin && (
+              <p className="text-sm md:text-base text-white/80 font-light tracking-wide max-w-xl mx-auto">
+                {soundscape.origin}
+              </p>
+            )}
           </div>
 
-          {/* Timer and Progress */}
-          <div className="w-full space-y-2 md:space-y-3 mb-6 md:mb-8">
-            <div className="flex justify-between text-xs md:text-sm text-muted-foreground">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(displayDuration)}</span>
-            </div>
-            <GradientProgress value={progress} className="h-2 md:h-2.5" />
-          </div>
-
-          {/* Playback Controls */}
-          <div className="flex items-center justify-center gap-4 md:gap-6 mb-4 md:mb-6">
+          {/* Large Play Button */}
+          <div className="flex flex-col items-center gap-4">
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSkip(-15)}
-              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
-            >
-              <SkipBack className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
               onClick={handlePlayPause}
-              className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-primary/10 hover:bg-primary/20"
+              className={`rounded-full w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 shadow-[0_0_40px_rgba(249,115,22,0.5)] hover:shadow-[0_0_60px_rgba(249,115,22,0.7)] hover:scale-105 transition-all duration-300 ${
+                isPlaying ? 'animate-pulse' : ''
+              }`}
             >
               {isPlaying ? (
-                <Pause className="h-5 w-5 md:h-6 md:w-6" />
+                <Pause className="w-10 h-10 md:w-12 md:h-12 text-white" />
               ) : (
-                <Play className="h-5 w-5 md:h-6 md:w-6 ml-0.5" />
+                <Play className="w-10 h-10 md:w-12 md:h-12 ml-1 text-white" />
               )}
             </Button>
-            
+            {!isPlaying && (
+              <p className="text-white/70 text-sm md:text-base font-light tracking-wide animate-fade-in">
+                Tap to begin
+              </p>
+            )}
+          </div>
+
+          {/* Transport Controls */}
+          <div className="flex items-center justify-center gap-6">
             <Button
               variant="ghost"
-              size="icon"
-              onClick={() => handleSkip(15)}
-              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
+              size="sm"
+              onClick={() => handleSkip(-15)}
+              disabled={currentTime === 0}
+              className="text-white hover:text-orange-400 hover:bg-white/10 backdrop-blur-sm transition-colors"
             >
-              <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
+              <SkipBack className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleSkip(15)}
+              disabled={currentTime >= displayDuration}
+              className="text-white hover:text-orange-400 hover:bg-white/10 backdrop-blur-sm transition-colors"
+            >
+              <SkipForward className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* Volume Control */}
-          <div className="w-full max-w-sm mx-auto flex items-center gap-4">
+          {/* Progress Bar */}
+          <div className="w-full space-y-3">
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/20 backdrop-blur-sm">
+              <div
+                className="h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
+                style={{ width: `${progress}%` }}
+              />
+              <div
+                className="absolute top-0 h-full w-20 blur-xl opacity-50 transition-all duration-300 bg-orange-500/30"
+                style={{ left: `${Math.max(0, progress - 10)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-sm text-white/90">
+              <span className="font-mono">{formatTime(currentTime)}</span>
+              <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-xs font-medium">
+                {soundscape.duration} min session
+              </span>
+              <span className="font-mono">{formatTime(displayDuration)}</span>
+            </div>
+          </div>
+
+          {/* Volume Controls */}
+          <div className="flex items-center gap-4 w-full max-w-md mx-auto">
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={handleMuteToggle}
-              className="h-10 w-10 rounded-full shrink-0"
+              className="text-white hover:text-orange-400 hover:bg-white/10"
             >
               {isMuted || volume === 0 ? (
-                <VolumeX className="h-4 w-4" />
+                <VolumeX className="w-5 h-5" />
+              ) : volume < 50 ? (
+                <Volume1 className="w-5 h-5" />
               ) : (
-                <Volume2 className="h-4 w-4" />
+                <Volume2 className="w-5 h-5" />
               )}
             </Button>
-            <Slider
-              value={[isMuted ? 0 : volume]}
-              onValueChange={handleVolumeChange}
-              max={100}
-              step={1}
-              className="flex-1"
-            />
+            <div className="flex-1 relative">
+              <Slider
+                value={[isMuted ? 0 : volume]}
+                onValueChange={handleVolumeChange}
+                max={100}
+                step={1}
+                className="[&_[role=slider]]:bg-orange-500 [&_[role=slider]]:border-white"
+              />
+            </div>
             <Button
-              variant={isLooping ? "default" : "ghost"}
-              size="icon"
+              variant="ghost"
+              size="sm"
               onClick={() => setIsLooping(!isLooping)}
-              title={isLooping ? "Loop enabled" : "Enable loop"}
-              className={isLooping ? "bg-gold/20 text-gold hover:bg-gold/30 h-10 w-10 rounded-full shrink-0" : "h-10 w-10 rounded-full shrink-0"}
+              className={cn(
+                "text-white hover:bg-white/10",
+                isLooping && "bg-orange-500/30 text-orange-400"
+              )}
             >
-              <Repeat className="h-4 w-4" />
+              <Repeat className="w-5 h-5" />
             </Button>
           </div>
-        </GoldCard>
 
-        {/* Hidden Audio Element */}
-        <audio
-          ref={audioRef}
-          src={
-            soundscape?.audioSrc ||
-            (id === 'earth-resonance-power' || id === 'earth-resonance-presence' 
-              ? '/soundscapes/earth-resonance.mp3'
-              : id === 'warrior-drums-power' || id === 'warrior-drums-presence'
-              ? '/soundscapes/warrior-drums.mp3'
-              : `/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`)
-          }
-          onLoadedMetadata={handleLoadedMetadata}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={handleAudioEnded}
-          onError={handleAudioError}
-          preload="metadata"
-        />
+          {/* Origin Story Collapsible */}
+          {soundscape.fullStory && (
+            <Collapsible open={showStory} onOpenChange={setShowStory} className="w-full">
+              <div className="space-y-4">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:border-orange-400/50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-orange-400" />
+                      Origin Story
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "w-4 h-4 transition-transform duration-200",
+                        showStory && "rotate-180"
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-6">
+                    {/* Full Story */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
+                        <Sparkles className="w-5 h-5" />
+                        The Story
+                      </h3>
+                      <p className="text-sm text-white/80 leading-relaxed">
+                        {soundscape.fullStory}
+                      </p>
+                    </div>
 
-        {/* Storytelling Panel */}
-        <div className="w-full max-w-2xl">
-          <Collapsible open={isStoryOpen} onOpenChange={setIsStoryOpen}>
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="w-full rounded-full h-11 text-sm md:text-base font-medium border-gold/30 hover:border-gold/60 hover:bg-gold/10 hover:scale-[1.02] transition-all duration-300 ease-out shadow-sm hover:shadow-md"
-              >
-                {isStoryOpen ? "Hide" : "Show"} Origin Story
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4">
-              <GoldCard variant="subtle" className="p-6 space-y-4">
-                <div>
-                  <h3 className="text-gold font-semibold mb-2">Origin & History</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {soundscape.fullStory}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-gold font-semibold mb-2">How to Practice</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {soundscape.technique}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-gold font-semibold mb-2">Benefits</h3>
-                  <ul className="space-y-2">
-                    {soundscape.benefits.map((benefit, index) => (
-                      <li key={index} className="text-muted-foreground text-sm flex items-start gap-2">
-                        <span className="text-gold mt-1">•</span>
-                        <span>{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                <p className="text-xs text-muted-foreground italic pt-4 border-t border-border">
-                  {soundscape.creator}
-                </p>
-              </GoldCard>
-            </CollapsibleContent>
-          </Collapsible>
+                    {/* Technique */}
+                    {soundscape.technique && (
+                      <div className="space-y-3">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
+                          <Brain className="w-5 h-5" />
+                          How to Practice
+                        </h3>
+                        <p className="text-sm text-white/80 leading-relaxed">
+                          {soundscape.technique}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Benefits */}
+                    {soundscape.benefits && soundscape.benefits.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-400">
+                          <Zap className="w-5 h-5" />
+                          Benefits
+                        </h3>
+                        <ul className="space-y-2">
+                          {soundscape.benefits.map((benefit, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-white/80">
+                              <span className="text-orange-400 mt-1">•</span>
+                              <span>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Completion Quote */}
+                    {soundscape.completionQuote && (
+                      <div className="pt-4 border-t border-white/10">
+                        <p className="text-sm italic text-white/70 text-center leading-relaxed">
+                          "{soundscape.completionQuote}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
         </div>
       </div>
+
+      {/* Hidden Audio Element */}
+      <audio
+        ref={audioRef}
+        src={
+          soundscape?.audioSrc ||
+          (id === 'earth-resonance-power' || id === 'earth-resonance-presence' 
+            ? '/soundscapes/earth-resonance.mp3'
+            : id === 'warrior-drums-power' || id === 'warrior-drums-presence'
+            ? '/soundscapes/warrior-drums.mp3'
+            : `/soundscapes/${id === 'tibetan-bowls' || id === 'cathedral-choir-flow' || id === 'ina-night-fields' ? `${id}.mp3` : `${id}.wav`}`)
+        }
+        onLoadedMetadata={handleLoadedMetadata}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleAudioEnded}
+        onError={handleAudioError}
+        preload="metadata"
+      />
     </div>
   );
 };
