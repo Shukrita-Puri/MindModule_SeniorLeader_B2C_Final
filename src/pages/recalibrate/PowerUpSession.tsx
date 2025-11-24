@@ -69,8 +69,8 @@ const PowerUpSession = () => {
                       </span>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground font-body mb-4 leading-relaxed whitespace-pre-line">
-                      {soundscape.origin}
+                    <p className="text-sm text-muted-foreground font-body mb-4 leading-relaxed">
+                      {soundscape.storyHook}
                     </p>
                     
                     <p className="text-muted-foreground font-body leading-relaxed text-sm">
