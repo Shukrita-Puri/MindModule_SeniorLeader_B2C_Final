@@ -16,9 +16,9 @@ const PowerUpSession = () => {
   );
 
   const extractTechniqueTease = (technique: string) => {
-    // Get first 2-3 sentences as a tease
+    // Get first sentence as a tease
     const sentences = technique.split('. ');
-    return sentences.slice(0, 3).join('. ') + (sentences.length > 3 ? '...' : '');
+    return sentences[0] + '.';
   };
 
   return (
