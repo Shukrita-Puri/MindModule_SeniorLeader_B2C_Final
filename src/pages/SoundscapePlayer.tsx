@@ -555,12 +555,13 @@ const SoundscapePlayer = () => {
             className={cn(
               "w-24 h-24 md:w-32 md:h-32 rounded-full mb-6",
               "bg-gradient-to-br from-saffron via-gold to-gold",
-              "hover:scale-105 transition-all duration-300",
+              "hover:scale-110 active:scale-95 transition-all duration-500 ease-out",
               "shadow-[0_0_40px_rgba(212,175,55,0.6)]",
-              "hover:shadow-[0_0_60px_rgba(212,175,55,0.8)]"
+              "hover:shadow-[0_0_80px_rgba(212,175,55,0.9)]",
+              "animate-[pulse_3s_ease-in-out_infinite]"
             )}
           >
-            <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1" />
+            <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
           </Button>
 
           <p className="text-white/80 text-sm md:text-base font-hint tracking-wide">
@@ -591,9 +592,16 @@ const SoundscapePlayer = () => {
                 <div className="flex-1 relative">
                   <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-gold via-saffron to-gold transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-gold via-saffron to-gold transition-all duration-500 ease-out relative overflow-hidden"
                       style={{ width: `${progress}%` }}
-                    />
+                    >
+                      {isPlaying && (
+                        <div 
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                          style={{ backgroundSize: '200% 100%' }}
+                        />
+                      )}
+                    </div>
                   </div>
                   <input
                     type="range"
@@ -633,12 +641,12 @@ const SoundscapePlayer = () => {
               {/* Play/Pause - slightly larger */}
               <Button
                 onClick={handlePlayPause}
-                className="w-12 h-12 rounded-full bg-gradient-to-br from-saffron via-gold to-gold hover:scale-105 transition-all shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                className="w-12 h-12 rounded-full bg-gradient-to-br from-saffron via-gold to-gold hover:scale-110 active:scale-95 transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.7)]"
               >
                 {isPlaying ? (
-                  <Pause className="w-6 h-6 text-white" />
+                  <Pause className="w-6 h-6 text-white transition-all duration-200" />
                 ) : (
-                  <Play className="w-6 h-6 text-white ml-0.5" />
+                  <Play className="w-6 h-6 text-white ml-0.5 transition-all duration-200" />
                 )}
               </Button>
 
