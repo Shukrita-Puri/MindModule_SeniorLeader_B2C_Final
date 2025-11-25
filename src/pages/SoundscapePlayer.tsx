@@ -516,9 +516,9 @@ const SoundscapePlayer = () => {
           src={soundscape.thumbnail || getContentById(id!)?.thumbnail}
           alt={soundscape.title}
           className="w-full h-full object-cover"
-          style={{ filter: 'brightness(1.05) contrast(1.08) saturate(1.15)' }}
+          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-taupe/10 via-white/20 to-taupe/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
       </div>
 
       {/* Light navigation */}
@@ -541,10 +541,10 @@ const SoundscapePlayer = () => {
         /* Initial State - Center everything */
         <div className="relative flex flex-col items-center justify-center min-h-screen px-6">
           <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-5xl font-headline text-foreground mb-4 leading-tight drop-shadow-[0_4px_12px_rgba(255,255,255,0.95)]">
+            <h1 className="text-3xl md:text-5xl font-headline text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
               {soundscape.title}
             </h1>
-            <p className="text-muted-foreground text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">
+            <p className="text-white/80 text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
               {soundscape.origin}
             </p>
           </div>
@@ -563,7 +563,7 @@ const SoundscapePlayer = () => {
             <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1" />
           </Button>
 
-          <p className="text-muted-foreground text-sm md:text-base font-hint tracking-wide">
+          <p className="text-white/80 text-sm md:text-base font-hint tracking-wide">
             Tap to begin
           </p>
         </div>
@@ -571,25 +571,25 @@ const SoundscapePlayer = () => {
         /* Playing State - Title at top, controls at bottom */
         <>
           <div className="relative z-20 pt-24 px-4 text-center">
-            <h1 className="text-xl md:text-2xl font-headline text-foreground mb-2 leading-tight drop-shadow-[0_4px_12px_rgba(255,255,255,0.95)]">
+            <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
               {soundscape.title}
             </h1>
-            <p className="text-muted-foreground text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">
+            <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
               {actualDurationMinutes || soundscape.duration} min session
             </p>
           </div>
 
           {/* Bottom control bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-taupe/80 via-white/60 to-white/40 backdrop-blur-xl border-t border-gold/20 rounded-t-2xl px-4 py-3 pb-safe">
+          <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-taupe-rich/50 to-black/40 backdrop-blur-xl border-t border-gold/20 rounded-t-2xl px-4 py-3 pb-safe">
             {/* Progress bar */}
             <div className="mb-4">
               <div className="flex items-center gap-3">
-                <span className="text-xs text-foreground font-hint min-w-[40px]">
+                <span className="text-xs text-white/90 font-hint min-w-[40px]">
                   {formatTime(currentTime)}
                 </span>
                 
                 <div className="flex-1 relative">
-                  <div className="h-1.5 bg-taupe/30 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-gold via-saffron to-gold transition-all duration-300"
                       style={{ width: `${progress}%` }}
@@ -611,7 +611,7 @@ const SoundscapePlayer = () => {
                   />
                 </div>
 
-                <span className="text-xs text-foreground font-hint min-w-[40px] text-right">
+                <span className="text-xs text-white/90 font-hint min-w-[40px] text-right">
                   {formatTime(displayDuration)}
                 </span>
               </div>
@@ -625,7 +625,7 @@ const SoundscapePlayer = () => {
                 size="sm"
                 onClick={() => handleSkip(-15)}
                 disabled={currentTime === 0}
-                className="text-foreground hover:text-gold hover:bg-gold/10"
+                className="text-white/80 hover:text-gold hover:bg-gold/10"
               >
                 <SkipBack className="w-5 h-5" />
               </Button>
@@ -648,7 +648,7 @@ const SoundscapePlayer = () => {
                 size="sm"
                 onClick={() => handleSkip(15)}
                 disabled={currentTime >= displayDuration}
-                className="text-foreground hover:text-gold hover:bg-gold/10"
+                className="text-white/80 hover:text-gold hover:bg-gold/10"
               >
                 <SkipForward className="w-5 h-5" />
               </Button>
@@ -658,7 +658,7 @@ const SoundscapePlayer = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleMuteToggle}
-                className="text-foreground hover:text-gold hover:bg-gold/10"
+                className="text-white/80 hover:text-gold hover:bg-gold/10"
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-5 h-5" />
@@ -689,7 +689,7 @@ const SoundscapePlayer = () => {
                 size="sm"
                 onClick={() => setIsLooping(!isLooping)}
                 className={cn(
-                  "text-foreground hover:text-gold hover:bg-gold/10",
+                  "text-white/80 hover:text-gold hover:bg-gold/10",
                   isLooping && "text-gold bg-gold/10"
                 )}
               >
