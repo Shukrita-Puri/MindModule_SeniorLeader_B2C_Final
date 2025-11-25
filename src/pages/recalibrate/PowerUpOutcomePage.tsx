@@ -99,6 +99,12 @@ const PowerUpOutcomePage = () => {
     }
   };
 
+  const getTechniqueTease = (technique: string | undefined): string => {
+    if (!technique) return "";
+    const sentences = technique.split('. ');
+    return sentences[0] + '.';
+  };
+
   const getCompletionTracking = (item: SanctuaryContent): string => {
     const count = completionCounts[item.id] || 0;
     const duration = formatDuration(item.duration);
@@ -187,13 +193,13 @@ const PowerUpOutcomePage = () => {
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {getCredibilitySubtitle(item)}
+                    {item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.storyHook}
+                    {getTechniqueTease(item.technique)}
                   </p>
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
@@ -256,13 +262,13 @@ const PowerUpOutcomePage = () => {
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {getCredibilitySubtitle(item)}
+                    {item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.storyHook}
+                    {getTechniqueTease(item.technique)}
                   </p>
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
@@ -325,11 +331,11 @@ const PowerUpOutcomePage = () => {
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {getCredibilitySubtitle(item)}
+                    {item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{getTechniqueTease(item.technique)}</p>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
