@@ -170,6 +170,45 @@ export const sanctuaryContent: SanctuaryContent[] = [
     ],
     completionQuote: "Courage is not the absence of fear. It is the rhythm that carries you through it. The warrior does not wait until ready—the ritual makes them ready."
   },
+  {
+    id: "basque-txalaparta",
+    title: "Basque Txalaparta — Raw Rhythm for Inner Grit and Resilience",
+    contentType: "soundbath",
+    category: "power-up",
+    tags: ['fire', 'resilience', 'intense', 'grit', 'activation', 'rhythm'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge', 'restore', 'activate'],
+      goalTags: ['energize', 'resilience', 'focus', 'decision_readiness', 'confidence'],
+      physioTarget: ['alertness_increase', 'hrv_increase', 'sympathetic_modulation'],
+      contextTags: ['morning_ritual', 'pre-performance', 'afternoon_slump', 'pre-meeting'],
+      environmentSuitability: ['private', 'home'],
+      equipment: ['headphones', 'speaker'],
+      cognitiveLoadHelp: ['improves_concentration', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'high',
+      energyDirection: 'activate'
+    },
+    voice: 'none',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
+    duration: 5,
+    creator: "Traditional Basque Txalaparta percussion traditions",
+    origin: "Ancient Basque wooden percussion rituals from the mountain villages",
+    storyHook: "Hear the striking energy of traditional Basque wood percussion, deep resonant textures, and hypnotic rhythms guiding your body from inertia or drain to energised, ready-to-act clarity.",
+    thumbnail: "/lovable-uploads/basque-txalaparta-hero.jpg",
+    audioSrc: "/soundscapes/basque-txalaparta.mp3",
+    fullStory: "The Txalaparta was born not in temples or armies, but in the fields and villages of the Basque mountains. After long harvest days, families crushed apples on wooden boards, which later became instruments. Two people struck wood against wood—not to perform, but to revive themselves after exhaustion. The sound is raw, rhythmic, and unmistakably physical. It doesn't promise calm—it offers readiness. Rhythm transforms tension into focus, repetition builds resilience, and every strike aligns body, breath, and mind. This is ancestral practicality: stress transformed into momentum.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
+    technique: "Find a quiet space. Sit or stand with your spine tall. Press play.\n\nPhase 1 — Silence & Opening: Let the quiet sharpen your nerves. Notice where tension lives.\n\nPhase 2 — First Wooden Strikes: Feel the strikes in your chest, shoulders, and arms. Breathe with the rhythm.\n\nPhase 3 — Evolving Patterns: The rhythm grows. Micro-movements arise naturally. Sync your body with the pulse.\n\nPhase 4 — Peak Resonance: Your focus narrows. You are no longer preparing—you are ready. When the sound ends, act immediately. Do not hesitate.",
+    benefits: [
+      "Transform fatigue or mental inertia into energy and clarity",
+      "Anchor attention and align body, breath, and mind",
+      "Boost confidence, focus, and readiness before challenging moments",
+      "Support decision-making, performance, and social engagement",
+      "Cultivate self-mastery meta-skills: emotional resilience, focus, perseverance, and stress management"
+    ],
+    completionQuote: "The rhythm doesn't wait until you feel ready—it makes you ready. Each strike is organic, rhythmic, and unmistakably physical."
+  },
 
   // PAUSE Soundbaths
   {
