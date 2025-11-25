@@ -174,7 +174,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
   {
     id: "basque-txalaparta",
     title: "Basque Txalaparta — Raw Rhythm for Inner Grit and Resilience",
-    introSummary: "This soundscape channels the raw power of Basque wooden percussion. Each strike is organic, rhythmic, and unmistakably physical—designed to awaken your body, sharpen your mind, and build resilience. Perfect for high-pressure moments, overcoming mental lulls, or recharging when you need to keep going. The rhythm doesn't wait until you feel ready—it makes you ready.",
     contentType: "soundbath",
     category: "power-up",
     tags: ['fire', 'resilience', 'intense', 'grit', 'activation', 'rhythm'],
@@ -196,7 +195,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     deliveryModality: ['headphones', 'speaker'],
     duration: 5,
     creator: "Traditional Basque Txalaparta percussion traditions",
-    origin: "Ancient Basque wooden percussion rituals from the mountain villages",
+    origin: "This soundscape channels the raw power of Basque wooden percussion. Each strike is organic, rhythmic, and unmistakably physical—designed to awaken your body, sharpen your mind, and build resilience. Perfect for high-pressure moments, overcoming mental lulls, or recharging when you need to keep going. The rhythm doesn't wait until you feel ready—it makes you ready.",
     storyHook: "Hear the striking energy of traditional Basque wood percussion, deep resonant textures, and hypnotic rhythms guiding your body from inertia or drain to energised, ready-to-act clarity.",
     thumbnail: "/lovable-uploads/basque-txalaparta-hero.jpg",
     audioSrc: "/soundscapes/basque-txalaparta.mp3",
