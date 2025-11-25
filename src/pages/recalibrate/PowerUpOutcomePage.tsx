@@ -145,11 +145,72 @@ const PowerUpOutcomePage = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">
-        {/* Soundscapes Section */}
+        {/* Mindset Protocol Section (formerly Micro Exercises) */}
         <section className="mb-12">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Sonic Studio</h2>
+              <h2 className="text-2xl font-headline text-foreground">Mindset Protocol</h2>
+              <Badge variant="outline" className="text-xs">{microPractices.length} {microPractices.length === 1 ? 'Item' : 'Items'}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {microPractices.map((item) => (
+              <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
+                  <div className="absolute bottom-4 left-4">
+                    <Badge className="bg-background/50 text-foreground border-border">
+                      {item.subType === 'mindset' ? 'Mindset' : 'Tool'}
+                    </Badge>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id, item.contentType, 'power-up');
+                    }}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-5 w-5 transition-colors",
+                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                  </button>
+                </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 flex-shrink-0" />
+                    {item.storyHook}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{getTechniqueTease(item.technique)}</p>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="text-xs">{getCompletionTracking(item)}</span>
+                    </div>
+                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* Somatic Protocol Section (formerly Sonic Studio) */}
+        <section className="mb-12">
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-2xl font-headline text-foreground">Somatic Protocol</h2>
               <Badge variant="outline" className="text-xs">{soundscapes.length} Soundscapes</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
@@ -214,11 +275,11 @@ const PowerUpOutcomePage = () => {
           </div>
         </section>
 
-        {/* Guided Sessions Section */}
+        {/* Performance Protocol Section (formerly Guided Sessions) */}
         <section className="mb-12">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Guided Sessions</h2>
+              <h2 className="text-2xl font-headline text-foreground">Performance Protocol</h2>
               <Badge variant="outline" className="text-xs">{practices.length} Practices</Badge>
             </div>
             <p className="text-sm text-muted-foreground italic">intentional exercises drawn from ancient traditions and elite performance protocols</p>
@@ -281,67 +342,6 @@ const PowerUpOutcomePage = () => {
                         {item.steps} steps
                       </span>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Micro Exercises Section */}
-        <section className="mb-12">
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Micro Exercises</h2>
-              <Badge variant="outline" className="text-xs">{microPractices.length} {microPractices.length === 1 ? 'Item' : 'Items'}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {microPractices.map((item) => (
-              <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
-                <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
-                  <div className="absolute bottom-4 left-4">
-                    <Badge className="bg-background/50 text-foreground border-border">
-                      {item.subType === 'mindset' ? 'Mindset' : 'Tool'}
-                    </Badge>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(item.id, item.contentType, 'power-up');
-                    }}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
-                  >
-                    <Heart
-                      className={cn(
-                        "h-5 w-5 transition-colors",
-                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
-                      )}
-                    />
-                  </button>
-                </div>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
-                    <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {item.storyHook}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{getTechniqueTease(item.technique)}</p>
-                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">{getCompletionTracking(item)}</span>
-                    </div>
-                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
                   </div>
                 </CardContent>
               </Card>
