@@ -541,10 +541,10 @@ const SoundscapePlayer = () => {
         /* Initial State - Center everything */
         <div className="relative flex flex-col items-center justify-center min-h-screen px-6">
           <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-5xl font-headline text-foreground mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(255,255,255,0.8)]">
+            <h1 className="text-3xl md:text-5xl font-headline text-foreground mb-4 leading-tight drop-shadow-[0_4px_12px_rgba(255,255,255,0.95)]">
               {soundscape.title}
             </h1>
-            <p className="text-muted-foreground text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(255,255,255,0.6)]">
+            <p className="text-muted-foreground text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">
               {soundscape.origin}
             </p>
           </div>
@@ -571,10 +571,10 @@ const SoundscapePlayer = () => {
         /* Playing State - Title at top, controls at bottom */
         <>
           <div className="relative z-20 pt-24 px-4 text-center">
-            <h1 className="text-xl md:text-2xl font-headline text-foreground mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(255,255,255,0.8)]">
+            <h1 className="text-xl md:text-2xl font-headline text-foreground mb-2 leading-tight drop-shadow-[0_4px_12px_rgba(255,255,255,0.95)]">
               {soundscape.title}
             </h1>
-            <p className="text-muted-foreground text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(255,255,255,0.6)]">
+            <p className="text-muted-foreground text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_2px_8px_rgba(255,255,255,0.9)]">
               {actualDurationMinutes || soundscape.duration} min session
             </p>
           </div>
