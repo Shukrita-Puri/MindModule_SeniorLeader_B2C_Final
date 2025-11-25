@@ -40,7 +40,7 @@ const PowerUpSession = () => {
             Power Up
           </h2>
           
-          <p className="text-muted-foreground font-body">
+          <p className="text-muted-foreground font-body leading-relaxed">
             Energy Boost Before Big moments or during Low energy moments
           </p>
         </div>
