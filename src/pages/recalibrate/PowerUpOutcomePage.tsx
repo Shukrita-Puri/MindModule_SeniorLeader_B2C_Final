@@ -16,7 +16,7 @@ const PowerUpOutcomePage = () => {
   const content = getContentByCategory('power-up');
   const soundscapes = content.filter(item => item.contentType === 'soundbath');
   const practices = content.filter(item => item.contentType === 'guided-practice');
-  const microPractices = content.filter(item => item.contentType === 'micro-practice');
+  const allMicroPractices = content.filter(item => item.contentType === 'micro-practice');
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
@@ -25,8 +25,12 @@ const PowerUpOutcomePage = () => {
     item.id === 'kapalabhati-pranayama' || item.id === 'box-breathing'
   );
 
-  // Combined items for Somatic Protocol (soundscapes + breathing practices)
-  const somaticItems = [...soundscapes, ...breathingPractices];
+  // Move kinesthetic movement micro-practice to Somatic Protocol
+  const somaticMicroPractices = allMicroPractices.filter(item => item.id === 'energy-shift');
+  const microPractices = allMicroPractices.filter(item => item.id !== 'energy-shift');
+
+  // Combined items for Somatic Protocol (soundscapes + breathing practices + kinesthetic movement)
+  const somaticItems = [...soundscapes, ...breathingPractices, ...somaticMicroPractices];
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
