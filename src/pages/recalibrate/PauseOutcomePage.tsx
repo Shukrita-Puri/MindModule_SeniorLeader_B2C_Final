@@ -20,6 +20,9 @@ const PauseOutcomePage = () => {
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
+  // Combine soundscapes and practices for Somatic Protocol
+  const somaticItems = [...soundscapes, ...practices];
+
   useEffect(() => {
     const fetchCompletionCounts = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -131,6 +134,16 @@ const PauseOutcomePage = () => {
     }
   };
 
+  const getBadgeLabel = (item: SanctuaryContent): string => {
+    if (item.contentType === 'micro-practice') {
+      return item.subType === 'mindset' ? 'Mindset' : 'Tool';
+    }
+    if (item.contentType === 'soundbath') {
+      return 'Soundscape';
+    }
+    return 'Practice';
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <TopNavigation backPath="/recalibrate" />
@@ -144,14 +157,11 @@ const PauseOutcomePage = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-4">
-        {/* Mindset Protocol Section (formerly Micro Exercises) */}
+        {/* Mindset Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Mindset Protocol</h2>
-              <Badge variant="outline" className="text-xs">{microPractices.length} {microPractices.length === 1 ? 'Item' : 'Items'}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground italic">quick, high-impact interventions designed for moments that matter</p>
+            <h2 className="text-2xl font-headline text-foreground mb-2">Mindset Protocol</h2>
+            <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {microPractices.map((item) => (
@@ -165,7 +175,7 @@ const PauseOutcomePage = () => {
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
-                      {item.subType === 'mindset' ? 'Mindset' : 'Tool'}
+                      {getBadgeLabel(item)}
                     </Badge>
                   </div>
                   <button
@@ -205,17 +215,14 @@ const PauseOutcomePage = () => {
           </div>
         </section>
 
-        {/* Somatic Protocol Section (formerly Sonic Studio) */}
+        {/* Somatic Protocol Section */}
         <section className="mb-12">
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Somatic Protocol</h2>
-              <Badge variant="outline" className="text-xs">{soundscapes.length} Soundscapes</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground italic">immersive audio experiences curated from timeless wisdom and practices proven by high performers</p>
+            <h2 className="text-2xl font-headline text-foreground mb-2">Somatic Protocol</h2>
+            <p className="text-sm text-muted-foreground italic">Body-centered interventions to regulate your nervous system, align energy, and prepare your body</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {soundscapes.map((item) => (
+            {somaticItems.map((item) => (
               <Card
                 key={item.id}
                 className="cursor-pointer group overflow-hidden"
@@ -230,76 +237,7 @@ const PauseOutcomePage = () => {
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
-                      Soundscape
-                    </Badge>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(item.id, item.contentType, 'pause');
-                    }}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
-                  >
-                    <Heart
-                      className={cn(
-                        "h-5 w-5 transition-colors",
-                        isFavorite(item.id) ? "fill-primary text-primary" : "text-muted-foreground"
-                      )}
-                    />
-                  </button>
-                </div>
-                
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
-                    <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {getCredibilitySubtitle(item)}
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.storyHook}
-                  </p>
-                  
-                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">{getCompletionTracking(item)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Performance Protocol Section (formerly Guided Sessions) */}
-        <section className="mb-12">
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl font-headline text-foreground">Performance Protocol</h2>
-              <Badge variant="outline" className="text-xs">{practices.length} Practices</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground italic">intentional exercises drawn from ancient traditions and elite performance protocols</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {practices.map((item) => (
-              <Card
-                key={item.id}
-                className="cursor-pointer group overflow-hidden"
-                onClick={() => handleItemClick(item)}
-              >
-                <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
-                  <div className="absolute bottom-4 left-4">
-                    <Badge className="bg-background/50 text-foreground border-border">
-                      Practice
+                      {getBadgeLabel(item)}
                     </Badge>
                   </div>
                   <button
