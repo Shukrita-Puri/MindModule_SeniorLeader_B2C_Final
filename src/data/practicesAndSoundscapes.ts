@@ -134,10 +134,10 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "warrior-drums",
-    title: "Warrior Drums Activation Ritual",
+    title: "Warrior Drums Activation — Primal Percussive Pulse for Power and Readiness",
     contentType: "soundbath",
     category: "power-up",
-    tags: ['fire', 'pre-meeting', 'intense', 'power', 'courage'],
+    tags: ['fire', 'pre-meeting', 'intense', 'power', 'courage', 'resilience', 'activation'],
     structuredTags: {
       pillar: 'renewal',
       masterySubtypes: ['recharge', 'restore'],
@@ -156,18 +156,18 @@ export const sanctuaryContent: SanctuaryContent[] = [
     deliveryModality: ['headphones', 'speaker'],
     duration: 3.5,
     creator: "Ancient warrior drum traditions",
-    origin: "Warrior Drums — The Call Before the Storm\n\nWhen silence turns electric, the heartbeat becomes a weapon.\n\nThere is a moment before every challenge when the air thickens with intent and the body remembers its purpose.\nThese drums capture that breath before impact—a primal pulse calling the inner warrior awake.\nEach strike is not violence, but readiness: a rhythm for exams, stages, meetings, and all modern battles.\nNo melody, only movement and resolve—strength rising, focus sharpening, mind narrowing to a single point.\nWhen the final echo fades, you are not drained—you are centered, steady, and ready.",
-    storyHook: "Feel the tension in the silence, the heartbeat in the drums, and the rising rhythm guiding your body from quiet resolve to fearless readiness.",
+    origin: "The Warrior Drums Activation Ritual is a primal reset for high-stakes moments. Each thunderous strike of the drum is a call to rebuild energy, sharpen focus, and awaken resilience. This soundscape doesn't relax you—it recharges and mobilizes your mind and body, transforming fatigue, hesitation, or scattered attention into decisive, embodied readiness. Perfect for moments when stakes are high—before exams, performances, presentations, or critical decisions—Warrior Drums reinforce confidence, resilience, and momentum, so you step into any challenge fully prepared.",
+    storyHook: "Feel the primal beat of warrior drums, percussive intensity, and hypnotic rhythmic patterns guiding your body from hesitation to sharp focus, energy, and readiness.",
     thumbnail: "/lovable-uploads/warrior-drums-hero.jpg",
     audioSrc: "/soundscapes/warrior-drums.mp3",
-    fullStory: "In cultures across continents—from African battlefields to Japanese dojos, from Mongolian steppes to Māori war parties—drums were never background noise. They were the heartbeat before action. The silence before the first beat is where fear lives. The first strike breaks hesitation. The rising rhythm synchronizes the body's ancient systems: heartbeat, breath, movement. This is not music for listening. It is a ritual of activation—turning apprehension into readiness, doubt into decisiveness. Warriors did not walk into battle distracted; they walked in synchronized with the pulse of preparation. The drums don't relax you. They align you.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
-    technique: "Find a private space. Stand or sit with your spine tall. Press play. Phase 1 (Silence & Opening): Feel the tension in the quiet. Don't fight it—notice it. Phase 2 (First Drums): As the first beats land, let them anchor in your chest. Match your breath to the rhythm. Phase 3 (Building Intensity): Feel the tempo rise. Let your body want to move—shoulders, chest, even small movements. You're not listening passively; you're synchronizing. Phase 4 (Peak): At the climax, you are no longer nervous—you are ready. When it ends, carry that readiness into your next action immediately. Do not pause. Do not second-guess. Act.",
+    fullStory: "Warrior drums were never background music—they were the heartbeat before action. Across continents—from African battlefields to Japanese dojos, Mongolian steppes, and Māori war parties—drums signaled readiness and courage. The silence before the first strike is where fear lives; the first beat breaks hesitation. The rising rhythm synchronises heartbeat, breath, and movement. This is not music to relax to—it is a ritual of activation. Each strike trains the body and mind, transforming apprehension into decisiveness and chaos into rhythm.",
+    technique: "Find a private space. Stand or sit tall. Press play.\n\nPhase 1 — Silence & Opening: Notice the tension in the quiet. Observe it without resisting.\n\nPhase 2 — First Drums: Feel the initial strikes anchor in your chest. Breathe in sync with the rhythm.\n\nPhase 3 — Building Intensity: Allow micro-movements—shoulders, chest, hands—to synchronize with the tempo. You are actively engaging, not just listening.\n\nPhase 4 — Peak: At the climax, focus sharpens, confidence rises, and hesitation fades. When the rhythm ends, act immediately. Do not pause or second-guess.",
     benefits: [
-      "Transforms nervous tension into focused energy",
-      "Synchronizes breath, heartbeat, and mental state",
-      "Breaks hesitation and activates decisive action",
-      "Builds resilience through controlled intensity",
-      "Creates embodied confidence before high-stakes moments"
+      "Restore focus and mental clarity in high-pressure moments",
+      "Activate resilience and decisive action under stress",
+      "Sharpen embodied confidence for any challenge",
+      "Synchronise mind and body to carry readiness into action",
+      "Supports pre-presentations, pre-power events, and overcoming hesitation"
     ],
     completionQuote: "Courage is not the absence of fear. It is the rhythm that carries you through it. The warrior does not wait until ready—the ritual makes them ready."
   },
