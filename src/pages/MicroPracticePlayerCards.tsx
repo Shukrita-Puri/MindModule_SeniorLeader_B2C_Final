@@ -115,6 +115,75 @@ const BUDDHIST_PHOENIX_CARDS = [
   },
 ];
 
+// Energy Through Reframe practice card content
+const ENERGY_REFRAME_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Energy Through Reframe",
+    subtitle: "Rapid activation when energy runs low",
+    source: "Cognitive reappraisal + Yerkes-Dodson arousal curve + Polyvagal Theory (Porges) — Physiological state-shifting techniques observed in athletes, performers and special forces for pre-mission.",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Mental fatigue, low motivation, feeling 'too tired'",
+    whenToUse: "When energy is low but demands are high. Before important tasks when you feel resistance.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Question the Narrative",
+    duration: "30 sec",
+    instruction: "Ask yourself: \"Am I actually exhausted, or am I bored/anxious/avoiding?\"",
+    examples: [
+      "True fatigue = body & mind needs rest",
+      "False fatigue = mind needs reengagement",
+    ],
+    insight: {
+      text: "Name which you're experiencing. Often what feels like exhaustion is actually avoidance in disguise.",
+      source: "Cognitive Reappraisal Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Reframe the Task",
+    duration: "30 sec",
+    instruction: "If false fatigue: Change how you think about what's next.",
+    reframing: {
+      from: "\"I have to...\"",
+      to: "\"I choose to...\" or \"I get to...\"",
+    },
+    insight: {
+      text: "Autonomy restores energy faster than caffeine",
+      source: "Self-Determination Theory",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Set a Micro-Win",
+    duration: "30 sec",
+    instruction: "Commit to 10 minutes only. \"I'll work for 10 min, then reassess.\"",
+    guidance: "Momentum generates energy. You'll likely continue.",
+    insight: {
+      text: "Small starts beat perfect conditions",
+      source: "Behavioral Momentum",
+    },
+    closingWisdom: "Pattern: Small starts beat perfect conditions.",
+  },
+];
+
+// Helper to get cards for practice
+const getCardsForPractice = (practiceId: string | undefined) => {
+  switch (practiceId) {
+    case "buddhist-phoenix":
+      return BUDDHIST_PHOENIX_CARDS;
+    case "energy-through-reframe":
+      return ENERGY_REFRAME_CARDS;
+    default:
+      return [];
+  }
+};
+
 // Haptic feedback helper
 const triggerHaptic = () => {
   if (navigator.vibrate) {
@@ -135,8 +204,8 @@ const MicroPracticePlayerCards = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
-  // Only buddhist-phoenix is supported currently
-  const cards = id === "buddhist-phoenix" ? BUDDHIST_PHOENIX_CARDS : [];
+  // Get cards for the current practice
+  const cards = getCardsForPractice(id);
 
   // Swipe handlers for navigation
   const handlePrev = useCallback(() => {
