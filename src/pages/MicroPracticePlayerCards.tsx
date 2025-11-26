@@ -8,7 +8,6 @@ import {
   CarouselItem,
   CarouselApi,
 } from "@/components/ui/carousel";
-import PracticeCard from "@/components/practice/PracticeCard";
 import CardProgress from "@/components/practice/CardProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import TopNavigation from "@/components/simulation/TopNavigation";
@@ -17,6 +16,7 @@ import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import phoenixHero from "@/assets/phoenix-mindset-hero.png";
 
 // Buddhist Phoenix practice card content
@@ -115,7 +115,7 @@ const BUDDHIST_PHOENIX_CARDS = [
 // Haptic feedback helper
 const triggerHaptic = () => {
   if (navigator.vibrate) {
-    navigator.vibrate(10); // Light 10ms vibration
+    navigator.vibrate(10);
   }
 };
 
@@ -135,13 +135,35 @@ const MicroPracticePlayerCards = () => {
   // Only buddhist-phoenix is supported currently
   const cards = id === "buddhist-phoenix" ? BUDDHIST_PHOENIX_CARDS : [];
 
+  // Swipe handlers for navigation
+  const handlePrev = useCallback(() => {
+    if (api && current > 0) {
+      api.scrollPrev();
+      triggerHaptic();
+    }
+  }, [api, current]);
+
+  const handleNext = useCallback(() => {
+    if (api) {
+      api.scrollNext();
+      triggerHaptic();
+    }
+  }, [api]);
+
+  // Enable swipe gestures
+  useSwipeHandler({
+    onSwipeLeft: handleNext,
+    onSwipeRight: handlePrev,
+    threshold: 50,
+  });
+
   useEffect(() => {
     if (!api) return;
 
     setCurrent(api.selectedScrollSnap());
     api.on("select", () => {
       setCurrent(api.selectedScrollSnap());
-      triggerHaptic(); // Haptic feedback on card change
+      triggerHaptic();
     });
   }, [api]);
 
@@ -169,13 +191,6 @@ const MicroPracticePlayerCards = () => {
     }
   }, [practice, id]);
 
-  const handleNext = useCallback(() => {
-    if (api) {
-      api.scrollNext();
-      triggerHaptic();
-    }
-  }, [api]);
-
   const handleComplete = async () => {
     if (!practice) return;
 
@@ -183,7 +198,10 @@ const MicroPracticePlayerCards = () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setShowRatingModal(true);
+        return;
+      }
 
       const practiceQueue = JSON.parse(
         localStorage.getItem("practiceQueue") || "null"
@@ -312,7 +330,18 @@ const MicroPracticePlayerCards = () => {
   const isLastCard = current === cards.length - 1;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Fixed full-bleed background - visible on ALL cards */}
+      <div className="fixed inset-0 -z-10">
+        <img
+          src={phoenixHero}
+          alt="Phoenix rising"
+          className="w-full h-full object-cover"
+        />
+        {/* Light overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
+      </div>
+
       {/* Top Navigation */}
       <TopNavigation backPath="/recalibrate/power-up" />
 
@@ -328,20 +357,11 @@ const MicroPracticePlayerCards = () => {
         <CarouselContent className="-ml-0">
           {cards.map((card, index) => (
             <CarouselItem key={index} className="pl-0">
-              <div className="p-4 pt-16 pb-32 min-h-screen">
-                {card.type === "overview" && (
-                  <PracticeCard variant="overview">
-                    {/* Hero image */}
-                    <div className="relative h-40 md:h-48 -mx-6 -mt-6 md:-mx-8 md:-mt-8 mb-6 overflow-hidden rounded-t-3xl">
-                      <img
-                        src={phoenixHero}
-                        alt="Phoenix rising"
-                        className="w-full h-full object-cover opacity-80"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F6] via-[#FAF9F6]/50 to-transparent" />
-                    </div>
-
-                    <div className="flex-1 space-y-5">
+              <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
+                {/* Translucent frosted glass container */}
+                <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/50 shadow-lg">
+                  {card.type === "overview" && (
+                    <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
                       <div className="space-y-2">
                         <h1 className="text-2xl md:text-3xl font-serif text-foreground leading-tight">
@@ -352,8 +372,8 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       </div>
 
-                      {/* Source */}
-                      <div className="px-4 py-3 bg-primary/5 rounded-xl border border-primary/10">
+                      {/* Source - in box */}
+                      <div className="w-full px-4 py-3 bg-primary/5 rounded-xl border border-primary/10">
                         <p className="text-xs text-primary uppercase tracking-wide mb-1">
                           Source
                         </p>
@@ -375,7 +395,7 @@ const MicroPracticePlayerCards = () => {
                       </div>
 
                       {/* Trigger */}
-                      <div className="space-y-2">
+                      <div className="space-y-2 w-full">
                         <p className="text-xs text-primary uppercase tracking-wide">
                           Trigger
                         </p>
@@ -385,7 +405,7 @@ const MicroPracticePlayerCards = () => {
                       </div>
 
                       {/* When to use */}
-                      <div className="space-y-2">
+                      <div className="space-y-2 w-full">
                         <p className="text-xs text-primary uppercase tracking-wide">
                           When to Use
                         </p>
@@ -394,12 +414,17 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       </div>
                     </div>
-                  </PracticeCard>
-                )}
+                  )}
 
-                {card.type === "step" && (
-                  <PracticeCard variant="step" stepNumber={card.stepNumber}>
-                    <div className="flex-1 space-y-5 pt-12">
+                  {card.type === "step" && (
+                    <div className="flex flex-col items-center text-center space-y-5">
+                      {/* Step number badge */}
+                      <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <span className="text-primary font-semibold text-lg">
+                          {card.stepNumber}
+                        </span>
+                      </div>
+
                       {/* Title & Duration */}
                       <div className="space-y-1">
                         <h2 className="text-xl md:text-2xl font-serif text-foreground">
@@ -422,26 +447,23 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       )}
 
-                      {/* Question (if exists) */}
+                      {/* Question - NOT in box, with Q prefix */}
                       {card.question && (
-                        <div className="px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
-                          <p className="text-sm text-foreground">
-                            🔍 {card.question}
-                          </p>
-                        </div>
+                        <p className="text-base font-medium text-foreground">
+                          <span className="text-primary font-bold mr-2">Q</span>
+                          {card.question}
+                        </p>
                       )}
 
-                      {/* Examples */}
+                      {/* Examples - bullets only */}
                       {card.examples && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 w-full">
                           {card.examples.map((example, i) => (
                             <div
                               key={i}
-                              className="flex items-start gap-2 text-sm text-foreground/80"
+                              className="flex items-start gap-2 text-sm text-foreground/80 text-left"
                             >
-                              <span className="text-primary">
-                                {card.stepNumber === 3 ? "✓" : "💬"}
-                              </span>
+                              <span className="text-primary mt-1">•</span>
                               <span>{example}</span>
                             </div>
                           ))}
@@ -462,10 +484,10 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       )}
 
-                      {/* Insight box */}
+                      {/* Insight box - for research/wisdom only */}
                       {card.insight && (
-                        <div className="mt-auto pt-4">
-                          <div className="px-4 py-4 bg-primary/5 rounded-xl border border-primary/10 space-y-3">
+                        <div className="w-full mt-auto pt-4">
+                          <div className="px-4 py-4 bg-primary/5 rounded-xl border border-primary/10 space-y-3 text-left">
                             <div className="flex items-start gap-2">
                               <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                               <div className="space-y-1">
@@ -500,12 +522,10 @@ const MicroPracticePlayerCards = () => {
                         </div>
                       )}
                     </div>
-                  </PracticeCard>
-                )}
+                  )}
 
-                {card.type === "science" && (
-                  <PracticeCard variant="science">
-                    <div className="flex-1 flex flex-col justify-center space-y-6">
+                  {card.type === "science" && (
+                    <div className="flex flex-col items-center text-center space-y-6">
                       <h2 className="text-2xl md:text-3xl font-serif text-foreground">
                         {card.title}
                       </h2>
@@ -521,14 +541,14 @@ const MicroPracticePlayerCards = () => {
                         ))}
                       </div>
 
-                      <div className="pt-4 border-t border-primary/10">
+                      <div className="pt-4 border-t border-primary/10 w-full">
                         <p className="text-lg text-foreground font-medium italic">
                           {card.closing}
                         </p>
                       </div>
                     </div>
-                  </PracticeCard>
-                )}
+                  )}
+                </div>
               </div>
             </CarouselItem>
           ))}
@@ -536,7 +556,7 @@ const MicroPracticePlayerCards = () => {
       </Carousel>
 
       {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/30 via-black/10 to-transparent">
         <div className="max-w-md mx-auto space-y-4">
           {/* Progress dots */}
           <CardProgress total={cards.length} current={current} />
