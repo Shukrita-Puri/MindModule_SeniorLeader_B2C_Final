@@ -101,7 +101,8 @@ const BUDDHIST_PHOENIX_CARDS = [
     guidance: "Make it small. Make it soon. Make it specific.",
     reframingNote: "Every comeback starts with one deliberate step forward.",
     insight: {
-      wisdom: "Amor fati — Practice of loving all events in one's life, good or bad. — Ancient Wisdom",
+      wisdom: "Amor fati — Practice of loving all events in one's life, good or bad.",
+      wisdomSource: "Ancient Wisdom",
       quote: {
         text: "We will make it work. Failure is an option here. If things are not failing, you are not innovating enough.",
         author: "Musk after SpaceX's third rocket failure",
@@ -847,9 +848,16 @@ const MicroPracticePlayerCards = () => {
                                   </p>
                                 )}
                                 {card.insight.wisdom && (
-                                  <p className="text-sm text-muted-foreground italic">
-                                    {card.insight.wisdom}
-                                  </p>
+                                  <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground italic">
+                                      {card.insight.wisdom}
+                                    </p>
+                                    {card.insight.wisdomSource && (
+                                      <p className="text-xs text-primary">
+                                        — {card.insight.wisdomSource}
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                                 {card.insight.quote && (
                                   <div className="pt-2 border-t border-primary/10">
