@@ -25,7 +25,7 @@ const BUDDHIST_PHOENIX_CARDS = [
     type: "overview" as const,
     title: "Resilience Through The Phoenix",
     subtitle: "Reframe setbacks into strength and clarity",
-    source: "Growth through adversity — a pattern observed across millennia — Stoic Amor Fati (love of fate) + Bezos's 'Disagree and Commit' + Growth Mindset Research (Dweck)",
+    source: "Growth through adversity — a pattern observed across millennia — Stoic Amor Fati (love of fate) + Growth Mindset Research (Dweck)",
     duration: "2 min",
     steps: "4 Steps",
     trigger: "Setbacks, failures, rejection, unexpected obstacles, moments when you feel defeated",
@@ -95,7 +95,6 @@ const BUDDHIST_PHOENIX_CARDS = [
     duration: "40 sec",
     instruction: "Write down your own: \"The next action I take is [specific behavior] by [specific time].\"",
     guidance: "Make it small. Make it soon. Make it specific.",
-    principle: "Momentum rebuilds through motion, not planning.",
     reframingNote: "Every comeback starts with one deliberate step forward.",
     insight: {
       wisdom: "Amor fati translates to \"love of fate\" and is the practice of loving all events in one's life, good or bad.",
@@ -335,15 +334,16 @@ const MicroPracticePlayerCards = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Fixed full-bleed background - visible on ALL cards */}
+      {/* Fixed full-bleed background with warm/dark filter like Soundscapes */}
       <div className="fixed inset-0 -z-10">
         <img
           src={phoenixHero}
           alt="Phoenix rising"
           className="w-full h-full object-cover"
+          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
         />
-        {/* Light overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
+        {/* Warm/dark overlay for immersive feel */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-amber-900/20 to-black/50" />
       </div>
 
       {/* Top Navigation */}
@@ -357,6 +357,17 @@ const MicroPracticePlayerCards = () => {
           aria-label="Previous card"
         >
           <ChevronLeft className="w-5 h-5 text-foreground/70" />
+        </button>
+      )}
+
+      {/* Forward indicator - shows on all cards except last */}
+      {!isLastCard && (
+        <button
+          onClick={handleNext}
+          className="fixed right-3 top-1/2 -translate-y-1/2 z-40 p-2 rounded-full bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm active:scale-95 transition-transform"
+          aria-label="Next card"
+        >
+          <ChevronRight className="w-5 h-5 text-foreground/70" />
         </button>
       )}
 
@@ -463,9 +474,9 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       )}
 
-                      {/* Reframing pattern - From → To */}
+                      {/* Reframing pattern - NO box, plain text */}
                       {card.reframing && (
-                        <div className="w-full px-4 py-3 bg-primary/5 rounded-xl border border-primary/10 space-y-2">
+                        <div className="w-full space-y-2">
                           <p className="text-xs text-primary uppercase tracking-wide">Reframing the Pattern</p>
                           <div className="flex flex-col gap-1 text-sm">
                             <div className="flex items-center gap-2">
@@ -502,23 +513,16 @@ const MicroPracticePlayerCards = () => {
                         </p>
                       )}
 
-                      {/* Principle (if exists) */}
-                      {card.principle && (
-                        <p className="text-sm text-muted-foreground italic">
-                          {card.principle}
-                        </p>
-                      )}
-
-                      {/* Reframing note (if exists) */}
+                      {/* Reframing note - Big, Bold, Italic, Primary color */}
                       {card.reframingNote && (
-                        <p className="text-sm text-primary font-medium">
+                        <p className="text-lg text-primary font-bold italic">
                           {card.reframingNote}
                         </p>
                       )}
 
-                      {/* Closing wisdom (if exists) */}
+                      {/* Closing wisdom - Big, Bold, Italic, Primary color */}
                       {card.closingWisdom && (
-                        <p className="text-sm text-foreground/70 italic text-center pt-2">
+                        <p className="text-lg text-primary font-bold italic text-center pt-2">
                           {card.closingWisdom}
                         </p>
                       )}
@@ -580,8 +584,9 @@ const MicroPracticePlayerCards = () => {
                         ))}
                       </div>
 
+                      {/* Closing quote - Big, Bold, Italic, Primary color */}
                       <div className="pt-4 border-t border-primary/10 w-full">
-                        <p className="text-lg text-foreground font-medium italic">
+                        <p className="text-lg text-primary font-bold italic">
                           {card.closing}
                         </p>
                       </div>
@@ -600,22 +605,14 @@ const MicroPracticePlayerCards = () => {
           {/* Progress dots */}
           <CardProgress total={cards.length} current={current} />
 
-          {/* Action button */}
-          {isLastCard ? (
+          {/* Mark Complete button - only on last card */}
+          {isLastCard && (
             <Button
               onClick={handleComplete}
               className="w-full h-14 text-base font-medium rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <CheckCircle2 className="w-5 h-5 mr-2" />
               Mark Complete
-            </Button>
-          ) : (
-            <Button
-              onClick={handleNext}
-              className="w-full h-14 text-base font-medium rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Continue
-              <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           )}
         </div>
