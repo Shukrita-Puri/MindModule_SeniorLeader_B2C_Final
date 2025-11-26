@@ -323,11 +323,11 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
-// Courage Through The Arena practice card content
+// Courage Through Brave Action practice card content
 const COURAGE_ARENA_CARDS = [
   {
     type: "overview" as const,
-    title: "Courage Through The Arena",
+    title: "Courage Through Brave Action",
     subtitle: "Step into visibility knowing you might fail — and choose to show up anyway",
     source: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius (simplified)",
     duration: "2 min",

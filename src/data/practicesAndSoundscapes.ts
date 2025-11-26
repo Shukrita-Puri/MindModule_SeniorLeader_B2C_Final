@@ -1481,7 +1481,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "courage-arena",
-    title: "Courage Through The Arena",
+    title: "Courage Through Brave Action",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['courage', 'fear', 'vulnerability', 'bravery', 'social-risk'],
