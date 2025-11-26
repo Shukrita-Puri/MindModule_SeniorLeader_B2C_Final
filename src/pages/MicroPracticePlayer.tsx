@@ -20,6 +20,13 @@ const MicroPracticePlayer = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
+  // Redirect buddhist-phoenix to card-based player
+  useEffect(() => {
+    if (id === 'buddhist-phoenix') {
+      navigate(`/micro-practice/${id}/cards`, { replace: true });
+    }
+  }, [id, navigate]);
+
   // Track engagement on page load
   useEffect(() => {
     if (practice) {
