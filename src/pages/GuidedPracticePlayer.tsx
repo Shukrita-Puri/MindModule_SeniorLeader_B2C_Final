@@ -730,7 +730,7 @@ const GuidedPracticePlayer = () => {
   const contentData = id ? getContentById(id) : null;
 
   // Determine if this is an audio-based practice
-  const isAudioPractice = contentData?.audioSrc && (id === 'kapalabhati-pranayama' || id === 'box-breathing');
+  const isAudioPractice = contentData?.audioSrc && (id === 'kapalabhati-pranayama' || id === 'box-breathing' || id === 'energy-forge');
 
   // Auto-set view to audio if it's an audio practice
   useEffect(() => {

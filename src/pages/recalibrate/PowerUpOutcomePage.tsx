@@ -169,10 +169,8 @@ const PowerUpOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      if (item.id === 'buddhist-phoenix' || item.id === 'energy-through-reframe' || item.id === 'courage-future-self' || item.id === 'confidence-through-evidence' || item.id === 'courage-arena') {
-        return 'Reframe';
-      }
-      return item.subType === 'mindset' ? 'Mindset' : 'Tool';
+      // All micro-practices under Mindset Protocol should show "Reframe"
+      return 'Reframe';
     }
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
