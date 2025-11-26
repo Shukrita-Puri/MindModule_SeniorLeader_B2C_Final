@@ -16,6 +16,7 @@ import energyCompletionHero from "@/assets/energy-completion-hero.png";
 import braveActionHero from "@/assets/brave-action-hero.png";
 import kapalabhatiHero from "@/assets/kapalabhati-hero.png";
 import boxBreathingHero from "@/assets/box-breathing-hero.png";
+import energyForgeHero from "@/assets/energy-forge-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -776,62 +777,43 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // ============= MICRO PRACTICES =============
 
-  // POWER-UP Micro Practices
+  // POWER-UP Guided Practices (Audio-based Somatic Protocols)
   {
-    id: "energy-shift",
-    title: "Energy Revival Through Kinesthetic Movement",
-    contentType: "micro-practice",
+    id: "energy-forge",
+    title: "Energy Through The Forge",
+    contentType: "guided-practice",
     category: "power-up",
-    tags: ['energy', 'movement', 'fatigue', 'creativity'],
+    tags: ['energy', 'activation', 'somatic', 'movement', 'state-shift'],
     structuredTags: {
       pillar: 'renewal',
-      masterySubtypes: ['recharge', 'restore'],
-      goalTags: ['energize', 'vitality', 'movement', 'creativity'],
-      physioTarget: ['alertness_increase', 'circulation_increase', 'vagal_tone'],
-      contextTags: ['afternoon_slump', 'midday_slump', 'creative_block', 'energy_dip'],
+      masterySubtypes: ['recharge', 'activate'],
+      goalTags: ['energize', 'vitality', 'alertness', 'readiness'],
+      physioTarget: ['alertness_increase', 'circulation_increase', 'catecholamine_release', 'sympathetic_activation'],
+      contextTags: ['afternoon_slump', 'pre-performance', 'fatigue', 'mental_fog', 'energy_dip'],
       environmentSuitability: ['private', 'office', 'home'],
       equipment: ['none'],
-      cognitiveLoadHelp: ['restores_attention', 'creative_thinking'],
+      cognitiveLoadHelp: ['restores_attention', 'supports_decision'],
       socialTag: 'solo',
-      intensityLevel: 'medium',
-      energyDirection: 'upshift'
+      intensityLevel: 'high',
+      energyDirection: 'uplift'
     },
-    duration: 3,
+    duration: 1.5,
     difficulty: "beginner",
-    creator: "Somatic movement principles",
-    origin: "Somatic movement principles — rooted in practices like Qigong, yoga, and modern somatic therapy",
-    storyHook: "When energy stagnates in the mind, move it through the body. Motion creates emotion. Activation precedes motivation.",
-    essence: "When energy stagnates in the mind, move it through the body. Motion creates emotion. Activation precedes motivation.",
-    parallel: "Embodied cognition; vagus nerve regulation; psychophysiological state shifts",
-    cue: "Move the body, shift the state.",
-    usedBy: "Afternoon fatigue, mental fog, emotional heaviness, creative stagnation, when energy feels flat or stuck",
-    thumbnail: renewalColorful,
-    steps: 4,
-    subType: "tool",
-    instructions: [
-      "Notice the energy level (30 seconds): Pause. Close your eyes. Ask: \"What's my energy signal right now—tense, drained, frozen, scattered?\" Notice where the stagnation lives in your body: shoulders slumped, jaw tight, breath shallow, spine collapsed. Don't fix—just feel.",
-      "Activate through micro-movement (2 minutes): Start small: shake out your hands, roll your shoulders, tap your chest or thighs, rotate wrists and ankles. If you're sitting, stand. If you're standing, walk. Let movement be irregular, instinctive, almost childlike. You're thawing frozen energy, not doing a workout.",
-      "Integrate breath and rhythm (1 minute): Inhale through the nose for 4 counts, exhale through the mouth with sound (a sigh, hum, or gentle \"ha\"). Match breath to movement—inhale rise, exhale release. Feel circulation return, attention widen.",
-      "Re-enter with embodiment (ongoing): Return to your task but stay in your body. Keep a subtle rhythm—rolling your shoulders every few minutes, standing when thoughts get sticky, walking during calls. Energy maintenance is movement maintenance."
+    creator: "Physiological state-shifting techniques from athletes, performers and Special Forces",
+    origin: "Physiological state-shifting techniques observed in athletes, performers and Special Forces pre-mission protocols + Polyvagal Theory (Porges)",
+    storyHook: "Rapid activation when energy runs low—when rest isn't an option but energy is required now.",
+    thumbnail: energyForgeHero,
+    audioSrc: "/soundscapes/energy-forge.mp3",
+    fullStory: "When fatigue hits and rest isn't an option, the body has built-in systems for rapid energy recovery. Elite athletes know this instinctively—the cold water splash before competition, the explosive movement to prime the nervous system, the verbal command that shifts mental state. Special Forces operators use these same principles during extended operations when alertness is non-negotiable. This isn't about caffeine or willpower—it's about leveraging your physiology.\n\nThe science is clear: movement increases oxygen to the brain and triggers catecholamine release (adrenaline, dopamine). Novel sensory input activates the reticular activating system—your brain's 'wake up' switch. And verbal declarations engage the prefrontal cortex, creating cognitive commitment to action.\n\nThis 90-second protocol combines all three mechanisms into a rapid state-shift you can deploy anywhere, anytime energy flags but performance must continue.",
+    technique: "This is a three-phase somatic activation protocol.\n\nPhase 1 — Move with Intensity (30 sec): Pick one high-intensity movement: 10 push-ups, 20 squats, 30-second wall sit, or 1-minute fast walk. Push hard enough to breathe differently. Your body creates energy through demand, not rest.\n\nPhase 2 — Disrupt Your Senses (30 sec): Choose one sharp sensory input: cold water on face/wrists, strong scent (peppermint, citrus), bright light (step outside, face window), or loud sound (clap 3 times). Shock equals reset. Novel sensory input activates your brain's wake-up switch.\n\nPhase 3 — Declare Readiness (30 sec): Stand tall. Say aloud with force: \"I am awake. I am capable. I begin now.\" Verbal declaration creates cognitive commitment and primes the mind for action.",
+    benefits: [
+      "Rapid energy restoration when rest isn't available",
+      "Activates catecholamine release for immediate alertness",
+      "Engages reticular activating system through sensory disruption",
+      "Creates cognitive commitment through verbal declaration",
+      "Ideal for afternoon dips, pre-performance, or mental fog"
     ],
-    realExamples: [
-      {
-        scenario: "Afternoon crash at your desk",
-        trigger: "You reach for caffeine, still feel sluggish.",
-        response: "You stand, stretch arms overhead, shake out hands for 60 seconds, breathe deeply. Heart rate lifts, focus returns. You bought another productive hour—naturally."
-      },
-      {
-        scenario: "Creative block while writing or designing",
-        trigger: "You're staring at the screen, looping.",
-        response: "You put on one song, let your body move without choreography. By the second chorus, an idea surfaces. Movement unblocked cognition."
-      },
-      {
-        scenario: "Emotional heaviness after tough feedback",
-        trigger: "Chest tight, mind replaying words.",
-        response: "You walk outside, swing your arms, shake out tension. The emotion metabolizes through motion instead of rumination."
-      }
-    ],
-    whyThisWorks: "Your body is not separate from your mind—it is your mind in motion. Movement stimulates blood flow, activates proprioceptive and vestibular systems, and signals safety to the nervous system through the vagus nerve. Research in embodied cognition shows physical state shifts precede cognitive ones: when you move, you change brain chemistry and perception. Somatic movement interrupts mental rumination loops and re-engages vitality. You don't think your way out of low energy—you move your way out."
+    completionQuote: "Energy isn't found—it's created. Your body responds to demand, not rest, when performance calls."
   },
 
   // PAUSE Micro Practices
