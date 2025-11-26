@@ -12,6 +12,7 @@ import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
+import energyCompletionHero from "@/assets/energy-completion-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1446,7 +1447,36 @@ export const sanctuaryContent: SanctuaryContent[] = [
     usedBy: "Self-doubt, imposter feelings, pre-performance anxiety, comparing yourself to others",
     subType: "mindset",
     thumbnail: confidenceEvidenceHero,
-    steps: 4
+    steps: 3
+  },
+  {
+    id: "energy-through-completion",
+    title: "Restore Energy Through Completion",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['energy', 'completion', 'focus', 'clarity', 'open-loops'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['restore', 'recharge'],
+      goalTags: ['clarity', 'focus', 'cognitive_bandwidth', 'stress_reduction'],
+      physioTarget: ['cortisol_reduce', 'prefrontal_activation'],
+      contextTags: ['overwhelm', 'scattered', 'decision_fatigue', 'mental_exhaustion'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'improves_concentration'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Zeigarnik Effect + GTD (David Allen) + Hemingway technique",
+    origin: "Psychology research, productivity methodology, creative process",
+    storyHook: "Close open loops, reclaim mental bandwidth to regain energy",
+    usedBy: "Open loops, unfinished tasks, feeling scattered, decision fatigue, mental exhaustion",
+    subType: "mindset",
+    thumbnail: energyCompletionHero,
+    steps: 3
   }
 ];
 

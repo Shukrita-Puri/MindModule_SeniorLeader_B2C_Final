@@ -21,6 +21,7 @@ import phoenixHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
+import energyCompletionHero from "@/assets/energy-completion-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -320,6 +321,66 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
+// Energy Through Completion practice card content
+const ENERGY_COMPLETION_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Restore Energy Through Completion",
+    subtitle: "Close open loops, reclaim mental bandwidth to regain energy",
+    source: "Zeigarnik Effect (psychology) + GTD \"Mind Sweep\" (David Allen) + Hemingway's \"Stop mid-sentence\" technique",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Open loops, unfinished tasks, feeling scattered, decision fatigue, mental exhaustion",
+    whenToUse: "When you feel overwhelmed not by what you're doing, but by all the things you're NOT doing. When your mind is a cluttered browser with 47 open tabs.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Brain Dump the Loops",
+    duration: "45 sec",
+    instruction: "List every unfinished commitment swirling in your head. Don't organize, just capture: \"Email Sarah, fix bug, buy gift, schedule dentist...\" Externalize to free RAM.",
+    examples: [
+      "\"Reply to client\"",
+      "\"Book appointment\"",
+      "\"Research that thing\"",
+    ],
+    insight: {
+      text: "Unfinished tasks create intrusive thoughts. Writing them down reduces cognitive load by 20%.",
+      source: "Zeigarnik Effect (Bluma Zeigarnik, 1927)",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Decide: Do, Defer, or Delete",
+    duration: "60 sec",
+    instruction: "For each item, choose one action:",
+    examples: [
+      "Do now (< 2 min): Email Boss, quick reply",
+      "Defer (schedule it): Interview prep → Calendar, Friday 2pm",
+      "Delete (let it go): That \"someday\" project sitting for 6 months",
+    ],
+    insight: {
+      text: "\"Your mind is for having ideas, not holding them.\"",
+      source: "David Allen, GTD methodology",
+    },
+    closingWisdom: "Every unprocessed item is a tiny weight. Process it to release it.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Declare What's Closed",
+    duration: "15 sec",
+    instruction: "Speak aloud: \"These loops are closed. My mind is clear.\" Physical act of closing notebook or app.",
+    guidance: "Hemingway stopped writing mid-sentence so he always knew where to restart — create closure on YOUR terms.",
+    insight: {
+      text: "Jeff Bezos uses \"two-pizza teams\" to limit cognitive load — small, self-contained projects that finish.",
+      source: "High Performer Pattern",
+    },
+    closingWisdom: "A clear mind is a powerful mind. Close the tabs to open the focus.",
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -331,6 +392,8 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return COURAGE_FUTURE_SELF_CARDS;
     case "confidence-through-evidence":
       return CONFIDENCE_EVIDENCE_CARDS;
+    case "energy-through-completion":
+      return ENERGY_COMPLETION_CARDS;
     default:
       return [];
   }
@@ -347,6 +410,8 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return courageFutureSelfHero;
     case "confidence-through-evidence":
       return confidenceEvidenceHero;
+    case "energy-through-completion":
+      return energyCompletionHero;
     default:
       return phoenixHero;
   }

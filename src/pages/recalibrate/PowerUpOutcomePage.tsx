@@ -69,6 +69,9 @@ const PowerUpOutcomePage = () => {
     if (item.id === 'confidence-through-evidence') {
       return 'Confidence & Readiness Through Evidence';
     }
+    if (item.id === 'energy-through-completion') {
+      return 'Restore Energy Through Completion';
+    }
     
     // For other micro practices, use the title directly
     if (item.contentType === 'micro-practice') {
