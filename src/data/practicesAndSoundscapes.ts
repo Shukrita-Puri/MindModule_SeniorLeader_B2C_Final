@@ -11,6 +11,7 @@ import didgeridooHero from "@/assets/didgeridoo-bowls-hero.jpg";
 import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
+import energyReframeHero from "@/assets/energy-reframe-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1386,7 +1387,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "Rapid activation when energy runs low",
     usedBy: "Mental fatigue, low motivation, feeling 'too tired'",
     subType: "mindset",
-    thumbnail: renewalColorful,
+    thumbnail: energyReframeHero,
     steps: 3
   },
   {

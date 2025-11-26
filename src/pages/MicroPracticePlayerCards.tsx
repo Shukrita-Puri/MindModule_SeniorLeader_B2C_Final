@@ -20,6 +20,7 @@ import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import phoenixHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
+import energyReframeHero from "@/assets/energy-reframe-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -339,8 +340,9 @@ const getCardsForPractice = (practiceId: string | undefined) => {
 const getBackgroundForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
     case "buddhist-phoenix":
-    case "energy-through-reframe":
       return phoenixHero;
+    case "energy-through-reframe":
+      return energyReframeHero;
     case "courage-future-self":
       return courageFutureSelfHero;
     case "confidence-through-evidence":
