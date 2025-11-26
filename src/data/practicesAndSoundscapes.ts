@@ -15,6 +15,7 @@ import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
 import braveActionHero from "@/assets/brave-action-hero.png";
 import kapalabhatiHero from "@/assets/kapalabhati-hero.png";
+import boxBreathingHero from "@/assets/box-breathing-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -516,11 +517,20 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Navy SEAL Tactical Protocol",
     storyHook: "Navy SEALs use this 4-4-4-4 breathing pattern before high-stakes missions to regulate heart rate and sharpen decision-making under pressure.",
     usedBy: "Special Forces, Surgeons, First Responders, Athletes",
-    thumbnail: renewalStretchIllustration,
+    thumbnail: boxBreathingHero,
     steps: 4,
     creator: "Navy SEAL Tactical Protocol",
-    audioSrc: "/guided-practices/box-breathing.mp3",
-    fullStory: "Navy SEALs developed box breathing for tactical composure before high-stakes missions. The 4-4-4-4 pattern (inhale-hold-exhale-hold) activates the parasympathetic nervous system, creating calm alertness. Used by elite operators, surgeons, and first responders to make sharp decisions under extreme pressure.",
+    audioSrc: "/soundscapes/box-breathing.mp3",
+    fullStory: "Navy SEALs didn't invent box breathing—they perfected it for the battlefield. In the chaos of combat, where milliseconds determine outcomes, operators needed a tool to control their physiology instantly. The 4-4-4-4 pattern emerged from understanding that the breath-hold phases activate the vagus nerve, creating a parasympathetic response that counteracts adrenaline without dulling alertness. Special operations teams now train this technique as rigorously as marksmanship. Surgeons use it before entering the operating room. First responders practice it en route to emergencies. The pattern has been validated by modern neuroscience—just 90 seconds of box breathing measurably reduces cortisol and improves cognitive performance under stress.\n\nRitual of Use\n\nBefore the high-stakes moment — press play.\nClose your eyes.\nLet the rhythm anchor you until composure becomes automatic.\nWhen it ends: you're ready.",
+    technique: "Find a quiet space. Sit with spine tall, shoulders relaxed. Press play.\n\nPhase 1 — Settle: Take 2-3 natural breaths. Notice where tension lives in your body.\n\nPhase 2 — Inhale (4 counts): Draw breath slowly through your nose, filling your lungs completely.\n\nPhase 3 — Hold Full (4 counts): Retain the breath without tension. This is where the vagus nerve activates.\n\nPhase 4 — Exhale (4 counts): Release slowly through your mouth, emptying completely.\n\nPhase 5 — Hold Empty (4 counts): Pause at the bottom. This completes the parasympathetic circuit.\n\nRepeat for 8-10 cycles. Your heart rate will slow, your mind will clear, and composure will become automatic.",
+    benefits: [
+      "Activates parasympathetic nervous system within 60 seconds",
+      "Reduces cortisol and stress hormones measurably",
+      "Sharpens decision-making under pressure",
+      "Creates calm alertness—relaxed but ready",
+      "Builds tactical composure for high-stakes moments"
+    ],
+    completionQuote: "Control the breath, control the moment. The warrior's power lies not in strength, but in stillness.",
     whatYouNeed: [
       "Essential: Quiet space for 5 minutes",
       "Essential: Comfortable seated position",
