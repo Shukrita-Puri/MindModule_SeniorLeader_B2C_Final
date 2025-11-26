@@ -36,16 +36,15 @@ const BUDDHIST_PHOENIX_CARDS = [
     stepNumber: 1,
     title: "State What Happened",
     duration: "40 sec",
-    instruction: "Write one sentence: What occurred. No interpretation, no 'should have,' no blame. Just the event.",
+    instruction: "Write one sentence: What occurred? No interpretation, no 'should have,' no blame. Just the event.",
     examples: [
-      "\"I didn't get selected\"",
-      "\"The project failed\"",
-      "\"They said no\"",
+      '"I didn\'t get selected"',
+      '"The project failed"',
+      '"They said no"',
     ],
     insight: {
       text: "Separating event from story reduces emotional intensity by 40%",
       source: "Lieberman, 2007",
-      wisdom: "Buddhist equanimity — 'This too is arising.'",
     },
   },
   {
@@ -53,9 +52,12 @@ const BUDDHIST_PHOENIX_CARDS = [
     stepNumber: 2,
     title: "Find What It Revealed",
     duration: "50 sec",
-    instruction: "Complete: 'This showed me I need to develop [specific capability or knowledge].'",
-    prompt: "Not 'I'm not good enough' → 'I need to learn X'",
+    instruction: "Write down your own: \"This showed me I need to develop [specific capability or knowledge].\"",
     question: "What's the skill gap or blind spot this exposed?",
+    reframing: {
+      from: "\"I'm not good enough\"",
+      to: "\"I need to learn X\" / \"I noticed I need to be more Y\"",
+    },
     insight: {
       text: "Reframing failure as information activates growth mindset circuitry",
       source: "Dweck, 2006",
@@ -70,11 +72,11 @@ const BUDDHIST_PHOENIX_CARDS = [
     stepNumber: 3,
     title: "Name What Remains Strong",
     duration: "40 sec",
-    instruction: "List three things this setback didn't touch:",
+    instruction: "List three things this setback didn't touch: capabilities, relationships, or values still intact.",
     examples: [
-      "My work ethic",
-      "My curiosity",
-      "My ability to start again",
+      '"My work ethic"',
+      '"My curiosity"',
+      '"My ability to start again"',
     ],
     insight: {
       text: "Anchoring to stable identity prevents learned helplessness",
@@ -84,19 +86,21 @@ const BUDDHIST_PHOENIX_CARDS = [
         author: "Marcus Aurelius",
       },
     },
+    closingWisdom: "Your foundation is larger than this moment. Failure tests methods, not worth.",
   },
   {
     type: "step" as const,
     stepNumber: 4,
     title: "Commit to One Move Forward",
     duration: "40 sec",
-    instruction: "\"The next action I take is [specific behavior] by [specific time].\"",
+    instruction: "Write down your own: \"The next action I take is [specific behavior] by [specific time].\"",
     guidance: "Make it small. Make it soon. Make it specific.",
     principle: "Momentum rebuilds through motion, not planning.",
+    reframingNote: "Every comeback starts with one deliberate step forward.",
     insight: {
-      wisdom: "Amor fati means loving what happened enough to use it.",
+      wisdom: "Amor fati translates to \"love of fate\" and is the practice of loving all events in one's life, good or bad.",
       quote: {
-        text: "Failure is an option here. If things are not failing, you are not innovating enough.",
+        text: "We will make it work. Failure is an option here. If things are not failing, you are not innovating enough.",
         author: "Musk after SpaceX's third rocket failure",
       },
     },
@@ -106,9 +110,9 @@ const BUDDHIST_PHOENIX_CARDS = [
     title: "Why This Works",
     content: [
       "Your brain rewires most dramatically during stress and recovery. You're building new neural pathways through adversity.",
-      "Hormetic stress (the right dose of challenge) makes you antifragile—stronger than before.",
+      "Hormetic stress (the right dose of challenge) makes you antifragile — stronger than before.",
     ],
-    closing: "You're not waiting to get through the mud. You're using the mud.",
+    closing: "Find the upgrade hiding in the rubble. Every failure is tuition paid toward mastery.",
   },
 ];
 
@@ -451,19 +455,29 @@ const MicroPracticePlayerCards = () => {
                         {card.instruction}
                       </p>
 
-                      {/* Prompt (if exists) */}
-                      {card.prompt && (
-                        <p className="text-sm text-muted-foreground italic">
-                          {card.prompt}
-                        </p>
-                      )}
-
                       {/* Question - NOT in box, with Q prefix */}
                       {card.question && (
                         <p className="text-base font-medium text-foreground">
                           <span className="text-primary font-bold mr-2">Q</span>
                           {card.question}
                         </p>
+                      )}
+
+                      {/* Reframing pattern - From → To */}
+                      {card.reframing && (
+                        <div className="w-full px-4 py-3 bg-primary/5 rounded-xl border border-primary/10 space-y-2">
+                          <p className="text-xs text-primary uppercase tracking-wide">Reframing the Pattern</p>
+                          <div className="flex flex-col gap-1 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">From:</span>
+                              <span className="text-foreground/80">{card.reframing.from}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-primary font-medium">To:</span>
+                              <span className="text-foreground">{card.reframing.to}</span>
+                            </div>
+                          </div>
+                        </div>
                       )}
 
                       {/* Examples - bullets only */}
@@ -492,6 +506,20 @@ const MicroPracticePlayerCards = () => {
                       {card.principle && (
                         <p className="text-sm text-muted-foreground italic">
                           {card.principle}
+                        </p>
+                      )}
+
+                      {/* Reframing note (if exists) */}
+                      {card.reframingNote && (
+                        <p className="text-sm text-primary font-medium">
+                          {card.reframingNote}
+                        </p>
+                      )}
+
+                      {/* Closing wisdom (if exists) */}
+                      {card.closingWisdom && (
+                        <p className="text-sm text-foreground/70 italic text-center pt-2">
+                          {card.closingWisdom}
                         </p>
                       )}
 
