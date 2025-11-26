@@ -27,7 +27,7 @@ const BUDDHIST_PHOENIX_CARDS = [
     subtitle: "Reframe setbacks into strength and clarity",
     source: "Stoic Amor Fati + Bezos's 'Disagree and Commit' + Dweck's Growth Mindset",
     duration: "2 min",
-    steps: "3 steps + optional 4th",
+    steps: "4 steps",
     trigger: "Setbacks, failures, rejection, moments when you feel defeated",
     whenToUse: "After any loss, rejection, or mistake—big or small. When you need to move from 'what happened to me' to 'what I do next.'",
   },
