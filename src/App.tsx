@@ -26,6 +26,7 @@ const GuidedPracticesLibrary = lazy(() => import("./pages/GuidedPracticesLibrary
 const GuidedPracticePlayer = lazy(() => import("./pages/GuidedPracticePlayer"));
 const MicroPracticesLibrary = lazy(() => import("./pages/MicroPracticesLibrary"));
 const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
+const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
 const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
 const HRVInsightsDashboard = lazy(() => import("./pages/HRVInsightsDashboard"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -195,6 +196,10 @@ const router = createBrowserRouter([
       {
         path: "micro-practice/:id",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayer /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "micro-practice/:id/cards",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayerCards /></ProtectedRoute></Suspense>,
       },
       {
         path: "insights-dashboard",
