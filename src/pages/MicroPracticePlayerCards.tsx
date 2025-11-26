@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronRight, Clock, Sparkles, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -23,13 +23,13 @@ import phoenixHero from "@/assets/phoenix-mindset-hero.png";
 const BUDDHIST_PHOENIX_CARDS = [
   {
     type: "overview" as const,
-    title: "Resilience Through The Phoenix Mindset",
+    title: "Resilience Through The Phoenix",
     subtitle: "Reframe setbacks into strength and clarity",
-    source: "Stoic Amor Fati + Bezos's 'Disagree and Commit' + Dweck's Growth Mindset",
+    source: "Growth through adversity — a pattern observed across millennia — Stoic Amor Fati (love of fate) + Bezos's 'Disagree and Commit' + Growth Mindset Research (Dweck)",
     duration: "2 min",
-    steps: "4 steps",
-    trigger: "Setbacks, failures, rejection, moments when you feel defeated",
-    whenToUse: "After any loss, rejection, or mistake—big or small. When you need to move from 'what happened to me' to 'what I do next.'",
+    steps: "4 Steps",
+    trigger: "Setbacks, failures, rejection, unexpected obstacles, moments when you feel defeated",
+    whenToUse: "After any loss/rejection/failures/mistakes — big or small. When you need to move from 'what happened to me' to 'what I do next.'",
   },
   {
     type: "step" as const,
@@ -343,7 +343,18 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath="/recalibrate/power-up" />
+      <TopNavigation backPath="/recalibrate/power-up" transparent />
+
+      {/* Back indicator - shows from Card 2 onwards */}
+      {current > 0 && (
+        <button
+          onClick={handlePrev}
+          className="fixed left-3 top-1/2 -translate-y-1/2 z-40 p-2 rounded-full bg-white/40 backdrop-blur-sm border border-white/30 shadow-sm active:scale-95 transition-transform"
+          aria-label="Previous card"
+        >
+          <ChevronLeft className="w-5 h-5 text-foreground/70" />
+        </button>
+      )}
 
       {/* Carousel */}
       <Carousel
@@ -359,7 +370,7 @@ const MicroPracticePlayerCards = () => {
             <CarouselItem key={index} className="pl-0">
               <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
                 {/* Translucent frosted glass container */}
-                <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/50 shadow-lg">
+                <div className="w-full max-w-md bg-white/60 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/50 shadow-lg">
                   {card.type === "overview" && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
@@ -556,7 +567,7 @@ const MicroPracticePlayerCards = () => {
       </Carousel>
 
       {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/30 via-black/10 to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/10 to-transparent">
         <div className="max-w-md mx-auto space-y-4">
           {/* Progress dots */}
           <CardProgress total={cards.length} current={current} />
