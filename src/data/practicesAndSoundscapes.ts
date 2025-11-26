@@ -13,6 +13,7 @@ import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
+import courageArenaHero from "@/assets/courage-arena-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1476,6 +1477,35 @@ export const sanctuaryContent: SanctuaryContent[] = [
     usedBy: "Open loops, unfinished tasks, feeling scattered, decision fatigue, mental exhaustion",
     subType: "mindset",
     thumbnail: energyCompletionHero,
+    steps: 3
+  },
+  {
+    id: "courage-arena",
+    title: "Courage Through The Arena",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['courage', 'fear', 'vulnerability', 'bravery', 'social-risk'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['activate', 'optimize'],
+      goalTags: ['courage', 'authenticity', 'self_expression', 'vulnerability'],
+      physioTarget: ['prefrontal_activation', 'amygdala_regulation'],
+      contextTags: ['social_anxiety', 'public_speaking', 'tryouts', 'standing_up'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'emotional_processing'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius",
+    origin: "Vulnerability research, sports psychology, Stoic philosophy",
+    storyHook: "Step into visibility knowing you might fail — and choose to show up anyway",
+    usedBy: "Afraid to speak up, try out, take social risk, be seen, choose authenticity over fitting in",
+    subType: "mindset",
+    thumbnail: courageArenaHero,
     steps: 3
   }
 ];
