@@ -14,6 +14,7 @@ import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
 import braveActionHero from "@/assets/brave-action-hero.png";
+import kapalabhatiHero from "@/assets/kapalabhati-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -401,11 +402,21 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Energizing Breath",
     storyHook: "Yogis used this rapid-fire breathing for thousands of years to generate instant vitality—nature's alternative to caffeine.",
     usedBy: "Yogis, Warriors, High Performers",
-    thumbnail: renewalStretchIllustration,
+    thumbnail: kapalabhatiHero,
     steps: 6,
     creator: "Ancient Yogic Energizing Breath",
-    audioSrc: "/guided-practices/kapalabhati-pranayama.mp3",
-    fullStory: "Kapalabhati, meaning 'skull shining' in Sanskrit, is an ancient yogic cleansing technique from the Hatha Yoga Pradipika. Yogis discovered that rapid, forceful exhalations generate immediate vitality and mental clarity. The vigorous diaphragmatic pumping creates an internal organ massage, stimulates the sympathetic nervous system, and floods the body with oxygen and energy.",
+    audioSrc: "/soundscapes/kapalabhati-pranayama.mp3",
+    fullStory: "Kapalabhati, meaning 'skull shining' in Sanskrit, is an ancient yogic cleansing technique from the Hatha Yoga Pradipika. Yogis discovered that rapid, forceful exhalations generate immediate vitality and mental clarity. The vigorous diaphragmatic pumping creates an internal organ massage, stimulates the sympathetic nervous system, and floods the body with oxygen and energy. Modern studies confirm it increases metabolic rate, improves lung capacity, and triggers endorphin release.",
+    technique: "Sharp, forceful exhales through the nose while the belly contracts. The inhale is passive and automatic. Start with 30 breaths, build to 100. End each round with a breath hold.",
+    benefits: [
+      "Immediate surge of energy and vitality",
+      "Complete mental clarity and alertness",
+      "Feeling of internal heat and activation",
+      "Increased lung capacity and respiratory health",
+      "Stronger core muscles",
+      "Enhanced metabolic rate"
+    ],
+    completionQuote: "Your skull is shining. Your fire is lit. You are fully activated.",
     whatYouNeed: [
       "⚠️ DO NOT PRACTICE IF: Pregnant, heart disease, high blood pressure, hernia, gastric ulcers, recent abdominal surgery, epilepsy/seizures, vertigo/migraine, severe asthma/COPD",
       "⚠️ PRACTICE WITH SUPERVISION: Diabetes, mild back/neck problems",

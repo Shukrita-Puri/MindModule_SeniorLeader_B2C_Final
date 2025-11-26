@@ -14,10 +14,12 @@ import {
   TrendingUp,
   Lightbulb,
   Volume2,
+  Volume1,
   VolumeX,
   SkipBack,
   SkipForward,
-  ChevronDown
+  ChevronDown,
+  Repeat
 } from "lucide-react";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
@@ -30,6 +32,7 @@ import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/pra
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface PracticeStep {
   stepNumber: number;
@@ -703,7 +706,7 @@ const GuidedPracticePlayer = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [view, setView] = useState<"intro" | "practice" | "complete" | "rating">("intro");
+  const [view, setView] = useState<"intro" | "practice" | "complete" | "rating" | "audio">("intro");
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [stepTimeLeft, setStepTimeLeft] = useState(0);
@@ -718,9 +721,23 @@ const GuidedPracticePlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isOriginOpen, setIsOriginOpen] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [showStory, setShowStory] = useState(false);
+  const [isLooping, setIsLooping] = useState(false);
 
   // Try to get practice from new data structure first, fallback to legacy
   const practice = id ? (getPracticeData(id) || practiceData[id]) : null;
+  const contentData = id ? getContentById(id) : null;
+
+  // Determine if this is an audio-based practice
+  const isAudioPractice = contentData?.audioSrc && id === 'kapalabhati-pranayama';
+
+  // Auto-set view to audio if it's an audio practice
+  useEffect(() => {
+    if (isAudioPractice && view === "intro") {
+      setView("audio");
+    }
+  }, [isAudioPractice]);
 
   useEffect(() => {
     if (isPlaying && view === "practice" && practice) {
@@ -919,6 +936,363 @@ const GuidedPracticePlayer = () => {
       audioRef.current.volume = isMuted ? 0 : volume / 100;
     }
   }, [volume, isMuted]);
+
+  const formatTimeAudio = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleAudioPlayPause = () => {
+    if (!audioRef.current) return;
+
+    if (!hasStarted) {
+      setHasStarted(true);
+    }
+
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+      setIsAudioPlaying(false);
+    } else {
+      // Track engagement when audio starts
+      const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+      const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
+      
+      if (isPartOfRitual) {
+        trackEngagement('daily_ritual_practice');
+      } else if (practice?.category === 'power-up') {
+        trackEngagement('renew_session');
+      }
+
+      audioRef.current.play().catch(err => {
+        toast.error("Failed to play audio");
+        console.error("Audio play error:", err);
+      });
+      setIsAudioPlaying(true);
+      toast.success("Practice started");
+    }
+  };
+
+  const handleAudioSkip = (seconds: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.max(
+      0, 
+      Math.min(audioRef.current.currentTime + seconds, duration)
+    );
+  };
+
+  const handleAudioEnded = async () => {
+    setIsAudioPlaying(false);
+    
+    if (isLooping && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+      setIsAudioPlaying(true);
+      return;
+    }
+
+    // Save practice session
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && practice) {
+        const { data, error } = await supabase.from('practice_sessions').insert({
+          user_id: user.id,
+          content_id: practice.id,
+          content_type: 'guided',
+          category: practice.category,
+          duration_seconds: Math.floor(duration),
+          started_at: new Date(Date.now() - duration * 1000).toISOString(),
+          completed_at: new Date().toISOString(),
+          completed: true,
+          metadata: { title: practice.title }
+        }).select('id').single();
+        
+        if (data) {
+          setSessionId(data.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save practice session:', error);
+    }
+    
+    setView("rating");
+  };
+
+  const audioProgress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  // Audio View (Soundscape-style for audio practices like Kapalabhati)
+  if (view === "audio" && isAudioPractice && contentData) {
+    return (
+      <div className="relative min-h-screen overflow-hidden">
+        {/* Full-screen background with luxury filter */}
+        <div className="fixed inset-0 -z-10">
+          <img
+            src={contentData.thumbnail}
+            alt={practice?.title}
+            className="w-full h-full object-cover"
+            style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
+        </div>
+
+        {/* Navigation */}
+        <TopNavigation backPath={getCategoryPath()} />
+
+        {!hasStarted ? (
+          /* Initial State - Center everything */
+          <div className="relative flex flex-col items-center justify-center min-h-screen px-6">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl md:text-5xl font-headline text-white mb-4 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+                {practice?.title}
+              </h1>
+              <p className="text-white/80 text-sm md:text-base font-subheadline leading-relaxed max-w-md mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                {contentData.storyHook}
+              </p>
+            </div>
+
+            {/* Large play button */}
+            <Button
+              onClick={handleAudioPlayPause}
+              className={cn(
+                "w-24 h-24 md:w-32 md:h-32 rounded-full mb-6",
+                "bg-gradient-to-br from-saffron via-gold to-gold",
+                "hover:scale-110 active:scale-95 transition-all duration-500 ease-out",
+                "shadow-[0_0_40px_rgba(212,175,55,0.6)]",
+                "hover:shadow-[0_0_80px_rgba(212,175,55,0.9)]",
+                "animate-[pulse_3s_ease-in-out_infinite]"
+              )}
+            >
+              <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
+            </Button>
+
+            <p className="text-white/80 text-sm md:text-base font-hint tracking-wide">
+              Tap to begin
+            </p>
+          </div>
+        ) : (
+          /* Playing State - Title at top, controls at bottom */
+          <>
+            <div className="relative z-20 pt-24 px-4 text-center">
+              <h1 className="text-xl md:text-2xl font-headline text-white mb-2 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+                {practice?.title}
+              </h1>
+              <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                {Math.ceil(duration / 60)} min session
+              </p>
+            </div>
+
+            {/* Bottom control bar */}
+            <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-taupe-rich/50 to-black/40 backdrop-blur-xl border-t border-gold/20 rounded-t-2xl px-4 py-3 pb-safe">
+              {/* Progress bar */}
+              <div className="mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-white/90 font-hint min-w-[40px]">
+                    {formatTimeAudio(currentTime)}
+                  </span>
+                  
+                  <div className="flex-1 relative">
+                    <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-gold via-saffron to-gold transition-all duration-500 ease-out relative overflow-hidden"
+                        style={{ width: `${audioProgress}%` }}
+                      >
+                        {isAudioPlaying && (
+                          <div 
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                            style={{ backgroundSize: '200% 100%' }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={duration || 0}
+                      value={currentTime}
+                      onChange={(e) => {
+                        const time = Number(e.target.value);
+                        setCurrentTime(time);
+                        if (audioRef.current) {
+                          audioRef.current.currentTime = time;
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-1.5 opacity-0 cursor-pointer"
+                    />
+                  </div>
+
+                  <span className="text-xs text-white/90 font-hint min-w-[40px] text-right">
+                    {formatTimeAudio(duration)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Single row controls */}
+              <div className="flex items-center justify-center gap-2 md:gap-3 mb-3">
+                {/* Skip Back 15s */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAudioSkip(-15)}
+                  disabled={currentTime === 0}
+                  className="text-white/80 hover:text-gold hover:bg-gold/10"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </Button>
+
+                {/* Play/Pause */}
+                <Button
+                  onClick={handleAudioPlayPause}
+                  className="w-12 h-12 rounded-full bg-gradient-to-br from-saffron via-gold to-gold hover:scale-110 active:scale-95 transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.7)]"
+                >
+                  {isAudioPlaying ? (
+                    <Pause className="w-6 h-6 text-white transition-all duration-200" />
+                  ) : (
+                    <Play className="w-6 h-6 text-white ml-0.5 transition-all duration-200" />
+                  )}
+                </Button>
+
+                {/* Skip Forward 15s */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAudioSkip(15)}
+                  disabled={currentTime >= duration}
+                  className="text-white/80 hover:text-gold hover:bg-gold/10"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </Button>
+
+                {/* Spacer */}
+                <div className="w-3 md:w-6" />
+
+                {/* Volume Controls */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="text-white/80 hover:text-gold hover:bg-gold/10"
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-5 h-5" />
+                  ) : volume < 50 ? (
+                    <Volume1 className="w-5 h-5" />
+                  ) : (
+                    <Volume2 className="w-5 h-5" />
+                  )}
+                </Button>
+
+                <div className="w-20 md:w-32">
+                  <Slider
+                    value={[isMuted ? 0 : volume]}
+                    onValueChange={(val) => {
+                      setVolume(val[0]);
+                      if (val[0] > 0) setIsMuted(false);
+                    }}
+                    max={100}
+                    step={1}
+                    className="[&_[role=slider]]:bg-gold [&_[role=slider]]:border-white [&_[role=slider]]:shadow-[0_0_10px_rgba(212,175,55,0.5)]"
+                  />
+                </div>
+
+                {/* Spacer */}
+                <div className="w-3 md:w-6" />
+
+                {/* Loop Toggle */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsLooping(!isLooping)}
+                  className={cn(
+                    "text-white/80 hover:text-gold hover:bg-gold/10",
+                    isLooping && "text-gold bg-gold/10"
+                  )}
+                >
+                  <Repeat className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Origin Story Collapsible */}
+              <Collapsible open={showStory} onOpenChange={setShowStory}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-gradient-to-r from-taupe/20 to-gold/10 backdrop-blur-md border border-gold/30 text-white hover:from-taupe/30 hover:to-gold/20 hover:border-gold/50"
+                  >
+                    <span className="flex items-center gap-2 text-xs font-hint">
+                      Origin & Technique
+                      <ChevronDown className={cn(
+                        "w-3 h-3 transition-transform",
+                        showStory && "rotate-180"
+                      )} />
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
+                    <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                      <div>
+                        <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">The Story</h3>
+                        <p className="text-white/80 text-xs leading-relaxed font-body">
+                          {contentData.fullStory}
+                        </p>
+                      </div>
+
+                      {contentData.technique && (
+                        <div>
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                          <p className="text-white/80 text-xs leading-relaxed font-body">
+                            {contentData.technique}
+                          </p>
+                        </div>
+                      )}
+
+                      {contentData.benefits && contentData.benefits.length > 0 && (
+                        <div>
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
+                          <ul className="space-y-1">
+                            {contentData.benefits.map((benefit, index) => (
+                              <li key={index} className="flex items-start gap-2 text-white/80 text-xs font-body">
+                                <span className="text-gold mt-0.5">•</span>
+                                <span>{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {contentData.completionQuote && (
+                        <div className="pt-2 border-t border-gold/10">
+                          <p className="text-gold/80 text-xs italic font-subheadline">
+                            "{contentData.completionQuote}"
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </>
+        )}
+
+        {/* Hidden Audio Element */}
+        <audio
+          ref={audioRef}
+          src={contentData.audioSrc}
+          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+          onEnded={handleAudioEnded}
+          onError={(e) => {
+            toast.error("Failed to load audio");
+            console.error("Audio error:", e);
+          }}
+          preload="metadata"
+        />
+      </div>
+    );
+  }
 
   // Intro View
   if (view === "intro") {
