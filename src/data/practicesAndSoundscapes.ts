@@ -9,6 +9,7 @@ import flowMeditationColorful from "@/assets/flow-meditation-colorful.jpg";
 import renewalStretchIllustration from "@/assets/renewal-stretch-illustration.jpg";
 import didgeridooHero from "@/assets/didgeridoo-bowls-hero.jpg";
 import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
+import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1442,6 +1443,35 @@ export const sanctuaryContent: SanctuaryContent[] = [
     subType: "mindset",
     thumbnail: renewalColorful,
     steps: 3
+  },
+  {
+    id: "courage-future-self",
+    title: "Courage Through The Future Self",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['courage', 'fear', 'decision', 'growth', 'regret-minimization'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['activate', 'optimize'],
+      goalTags: ['courage', 'decision_readiness', 'clarity', 'values_alignment'],
+      physioTarget: ['prefrontal_activation', 'amygdala_regulation'],
+      contextTags: ['major_decision', 'risk_taking', 'career_choice', 'standing_up'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'long_term_thinking'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'clarify'
+    },
+    duration: 3,
+    difficulty: "beginner",
+    creator: "Stoic philosophy + Regret Minimization Framework + Fear-Setting",
+    origin: "Perspective-taking across time horizons — Memento Mori, Bezos, Ferriss",
+    storyHook: "Act with courage to choose growth over comfort in key moments that matter",
+    usedBy: "Afraid to act, stuck in comfort zone, procrastinating on meaningful risk",
+    subType: "mindset",
+    thumbnail: courageFutureSelfHero,
+    steps: 5
   },
   {
     id: "bezos-regret-framework",
