@@ -1,113 +1,81 @@
 import { useNavigate } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
-import { Music } from "lucide-react";
+import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
-import { sanctuaryContent } from "@/data/practicesAndSoundscapes";
+import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
 
 const PowerUpSession = () => {
   const navigate = useNavigate();
-  useScrollToTop(); // Scroll to top when this page loads
-
-  // Filter soundscapes for power-up category
-  const powerUpSoundscapes = sanctuaryContent.filter(
-    (content) => content.category === 'power-up' && content.contentType === 'soundbath'
-  );
-
-  const extractTechniqueTease = (technique: string) => {
-    // Get first sentence as a tease
-    const sentences = technique.split('. ');
-    return sentences[0] + '.';
-  };
+  useScrollToTop();
 
   return (
     <div className="min-h-screen font-body pb-32">
       <TopNavigation backPath="/recalibrate" />
       
-      <div className="px-8 py-20 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <div className="w-28 h-28 mx-auto mb-8 rounded-sm bg-card border border-border overflow-hidden shadow-md">
+      <div className="px-8 py-20 max-w-lg mx-auto">
+        {/* Header with Phoenix Visual */}
+        <div className="text-center mb-10">
+          {/* Hero Visual */}
+          <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
             <img 
-              src={architecturalPowerUp} 
-              alt="Power Up"
-              className="w-full h-full object-cover img-card"
+              src={phoenixRisingHero} 
+              alt="Phoenix Rising"
+              className="w-full h-full object-cover"
+              style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
             />
           </div>
           
-          <h2 className="text-2xl font-headline font-medium text-foreground mb-4 leading-tight">
-            Power Up
+          <h2 className="text-2xl font-headline font-medium text-foreground mb-3 leading-tight">
+            Resilience Through The Phoenix
           </h2>
           
-          <p className="text-muted-foreground font-body leading-relaxed">
-            Energy Boost Before Big moments or during Low energy moments
+          <p className="text-muted-foreground font-body leading-relaxed italic">
+            Reframe setbacks into strength and clarity
           </p>
+
+          {/* Duration/Steps Badges */}
+          <div className="flex items-center justify-center gap-4 mt-5">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full text-sm text-muted-foreground">
+              <Clock size={14} /> 2 min
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full text-sm text-muted-foreground">
+              <Sparkles size={14} /> 4 Steps
+            </span>
+          </div>
         </div>
 
-        {/* Content Cards */}
-        <div className="space-y-8">
-          {powerUpSoundscapes.map((soundscape, index) => (
-            <article 
-              key={soundscape.id}
-              className="group cursor-pointer bg-card border border-border rounded-sm p-8 hover:border-gold/30 transition-all duration-300 animate-fade-in hover:shadow-lg hover:-translate-y-1"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 rounded-full bg-muted/30 border border-border flex items-center justify-center flex-shrink-0 group-hover:border-gold/40 group-hover:bg-primary/5 transition-all duration-300">
-                    <Music size={20} className="text-secondary group-hover:text-primary transition-colors duration-300" strokeWidth={1.5} />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-headline font-medium text-foreground group-hover:text-primary transition-colors">
-                        {soundscape.title}
-                      </h3>
-                      <span className="px-3 py-1 bg-muted rounded-full text-xs font-body text-muted-foreground">
-                        {soundscape.duration} min
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground font-body mb-4 leading-relaxed">
-                      {soundscape.storyHook}
-                    </p>
-                    
-                    <p className="text-muted-foreground font-body leading-relaxed text-sm">
-                      {extractTechniqueTease(soundscape.technique)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="ml-6 flex-shrink-0">
-                  <div className="w-20 h-20 rounded-sm overflow-hidden border border-border group-hover:border-gold/40 transition-all">
-                    <img 
-                      src={soundscape.thumbnail} 
-                      alt={soundscape.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="pt-6 border-t border-border">
-                <Button 
-                  variant="default"
-                  className="w-full rounded-sm py-3 font-body"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/soundscapes/${soundscape.id}`);
-                  }}
-                >
-                  Begin session
-                </Button>
-              </div>
-            </article>
-          ))}
+        {/* Trigger & When to Use Sections */}
+        <div className="space-y-6 text-left bg-card border border-border rounded-xl p-6 mb-8">
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">Best For</h4>
+            <p className="text-foreground leading-relaxed">
+              Setbacks, failures, rejection, unexpected obstacles, moments when you feel defeated
+            </p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">When to Use</h4>
+            <p className="text-foreground leading-relaxed">
+              After any loss, rejection, failure, or mistake — big or small. When you need to move from 'what happened to me' to 'what I do next.'
+            </p>
+          </div>
         </div>
+
+        {/* Source Attribution */}
+        <p className="text-xs text-muted-foreground text-center italic mb-8">
+          Growth through adversity — a pattern observed across millennia — Stoic Amor Fati (love of fate) + Growth Mindset Research (Dweck)
+        </p>
+
+        {/* Begin Practice Button */}
+        <Button 
+          className="w-full rounded-xl py-6 text-base font-body"
+          onClick={() => navigate('/micro-practice/buddhist-phoenix/cards')}
+        >
+          Begin Practice
+        </Button>
         
         {/* Back to tools */}
-        <div className="text-center mt-16 pt-12 border-t border-gold/20">
+        <div className="text-center mt-8">
           <Button 
             variant="ghost"
             onClick={() => navigate('/recalibrate')}
@@ -117,7 +85,6 @@ const PowerUpSession = () => {
           </Button>
         </div>
       </div>
-
     </div>
   );
 };
