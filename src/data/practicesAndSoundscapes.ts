@@ -8,12 +8,12 @@ import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
 import flowMeditationColorful from "@/assets/flow-meditation-colorful.jpg";
 import renewalStretchIllustration from "@/assets/renewal-stretch-illustration.jpg";
 import didgeridooHero from "@/assets/didgeridoo-bowls-hero.jpg";
-import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
-import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
+import phoenixResilienceHero from "@/assets/phoenix-resilience-hero.png";
+import courageFutureHero from "@/assets/courage-future-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
-import courageArenaHero from "@/assets/courage-arena-hero.png";
+import braveActionHero from "@/assets/brave-action-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1360,7 +1360,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Neuroplasticity research shows the brain rewires itself most dramatically during stress and recovery. You're literally building new neural pathways through adversity. Hormetic stress (the right dose of challenge) makes you antifragile—stronger than before. The lotus metaphor is ancient, but the science is modern: struggle, when metabolized intentionally, becomes strength. You're not waiting to get through the mud. You're using the mud.",
-    thumbnail: phoenixRisingHero,
+    thumbnail: phoenixResilienceHero,
     steps: 4
   },
   {
@@ -1418,7 +1418,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "Act with courage to choose growth over comfort in key moments that matter",
     usedBy: "Afraid to act, stuck in comfort zone, procrastinating on meaningful risk",
     subType: "mindset",
-    thumbnail: courageFutureSelfHero,
+    thumbnail: courageFutureHero,
     steps: 5
   },
   {
@@ -1481,7 +1481,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   },
   {
     id: "courage-arena",
-    title: "Courage Through Brave Action",
+    title: "Resilience Through Brave Action",
     contentType: "micro-practice",
     category: "power-up",
     tags: ['courage', 'fear', 'vulnerability', 'bravery', 'social-risk'],
@@ -1505,7 +1505,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     storyHook: "Step into visibility knowing you might fail — and choose to show up anyway",
     usedBy: "Afraid to speak up, try out, take social risk, be seen, choose authenticity over fitting in",
     subType: "mindset",
-    thumbnail: courageArenaHero,
+    thumbnail: braveActionHero,
     steps: 3
   }
 ];

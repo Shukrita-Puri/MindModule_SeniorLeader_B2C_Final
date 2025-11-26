@@ -17,12 +17,12 @@ import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
-import phoenixHero from "@/assets/phoenix-rising-hero.png";
-import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
+import phoenixResilienceHero from "@/assets/phoenix-resilience-hero.png";
+import courageFutureHero from "@/assets/courage-future-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
-import courageArenaHero from "@/assets/courage-arena-hero.png";
+import braveActionHero from "@/assets/brave-action-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -323,11 +323,11 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
-// Courage Through Brave Action practice card content
+// Resilience Through Brave Action practice card content
 const COURAGE_ARENA_CARDS = [
   {
     type: "overview" as const,
-    title: "Courage Through Brave Action",
+    title: "Resilience Through Brave Action",
     subtitle: "Step into visibility knowing you might fail — and choose to show up anyway",
     source: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius (simplified)",
     duration: "2 min",
@@ -459,19 +459,19 @@ const getCardsForPractice = (practiceId: string | undefined) => {
 const getBackgroundForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
     case "buddhist-phoenix":
-      return phoenixHero;
+      return phoenixResilienceHero;
     case "energy-through-reframe":
       return energyReframeHero;
     case "courage-future-self":
-      return courageFutureSelfHero;
+      return courageFutureHero;
     case "confidence-through-evidence":
       return confidenceEvidenceHero;
     case "energy-through-completion":
       return energyCompletionHero;
     case "courage-arena":
-      return courageArenaHero;
+      return braveActionHero;
     default:
-      return phoenixHero;
+      return phoenixResilienceHero;
   }
 };
 

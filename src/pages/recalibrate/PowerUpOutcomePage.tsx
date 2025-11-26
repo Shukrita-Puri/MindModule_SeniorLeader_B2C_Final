@@ -73,7 +73,7 @@ const PowerUpOutcomePage = () => {
       return 'Restore Energy Through Completion';
     }
     if (item.id === 'courage-arena') {
-      return 'Courage Through Brave Action';
+      return 'Resilience Through Brave Action';
     }
     
     // For other micro practices, use the title directly
