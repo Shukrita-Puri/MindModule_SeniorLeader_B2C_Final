@@ -17,8 +17,8 @@ export const CardProgress = ({ total, current, className }: CardProgressProps) =
             index === current
               ? "w-6 bg-primary"
               : index < current
-                ? "w-2 bg-primary/60"
-                : "w-2 bg-primary/20"
+                ? "w-2 bg-primary/50"
+                : "w-2 bg-muted-foreground/20"
           )}
         />
       ))}

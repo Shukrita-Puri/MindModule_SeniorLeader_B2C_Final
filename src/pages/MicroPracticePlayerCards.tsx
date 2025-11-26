@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronRight, Clock, Sparkles, CheckCircle2, ArrowLeft } from "lucide-react";
+import { ChevronRight, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -11,6 +11,7 @@ import {
 import PracticeCard from "@/components/practice/PracticeCard";
 import CardProgress from "@/components/practice/CardProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
+import TopNavigation from "@/components/simulation/TopNavigation";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
@@ -111,6 +112,13 @@ const BUDDHIST_PHOENIX_CARDS = [
   },
 ];
 
+// Haptic feedback helper
+const triggerHaptic = () => {
+  if (navigator.vibrate) {
+    navigator.vibrate(10); // Light 10ms vibration
+  }
+};
+
 const MicroPracticePlayerCards = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -133,6 +141,7 @@ const MicroPracticePlayerCards = () => {
     setCurrent(api.selectedScrollSnap());
     api.on("select", () => {
       setCurrent(api.selectedScrollSnap());
+      triggerHaptic(); // Haptic feedback on card change
     });
   }, [api]);
 
@@ -163,6 +172,7 @@ const MicroPracticePlayerCards = () => {
   const handleNext = useCallback(() => {
     if (api) {
       api.scrollNext();
+      triggerHaptic();
     }
   }, [api]);
 
@@ -269,16 +279,12 @@ const MicroPracticePlayerCards = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    navigate("/recalibrate");
+    navigate("/recalibrate/power-up");
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    navigate("/recalibrate");
-  };
-
-  const handleBack = () => {
-    navigate(-1);
+    navigate("/recalibrate/power-up");
   };
 
   if (!practice || cards.length === 0) {
@@ -306,17 +312,9 @@ const MicroPracticePlayerCards = () => {
   const isLastCard = current === cards.length - 1;
 
   return (
-    <div className="min-h-screen bg-stone-950 relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/20 via-stone-950 to-stone-950" />
-
-      {/* Back button */}
-      <button
-        onClick={handleBack}
-        className="absolute top-6 left-6 z-50 w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:bg-white/20"
-      >
-        <ArrowLeft className="w-5 h-5 text-white/80" />
-      </button>
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Top Navigation */}
+      <TopNavigation backPath="/recalibrate/power-up" />
 
       {/* Carousel */}
       <Carousel
@@ -338,60 +336,60 @@ const MicroPracticePlayerCards = () => {
                       <img
                         src={phoenixHero}
                         alt="Phoenix rising"
-                        className="w-full h-full object-cover opacity-60"
+                        className="w-full h-full object-cover opacity-80"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-amber-900/90 via-amber-900/50 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F6] via-[#FAF9F6]/50 to-transparent" />
                     </div>
 
                     <div className="flex-1 space-y-5">
                       {/* Title */}
                       <div className="space-y-2">
-                        <h1 className="text-2xl md:text-3xl font-serif text-amber-100 leading-tight">
+                        <h1 className="text-2xl md:text-3xl font-serif text-foreground leading-tight">
                           {card.title}
                         </h1>
-                        <p className="text-amber-200/80 text-sm md:text-base">
+                        <p className="text-muted-foreground text-sm md:text-base">
                           {card.subtitle}
                         </p>
                       </div>
 
                       {/* Source */}
-                      <div className="px-4 py-3 bg-white/5 rounded-xl border border-white/10">
-                        <p className="text-xs text-amber-300/70 uppercase tracking-wide mb-1">
+                      <div className="px-4 py-3 bg-primary/5 rounded-xl border border-primary/10">
+                        <p className="text-xs text-primary uppercase tracking-wide mb-1">
                           Source
                         </p>
-                        <p className="text-sm text-amber-100/90">
+                        <p className="text-sm text-foreground/90">
                           {card.source}
                         </p>
                       </div>
 
                       {/* Duration & Steps */}
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-amber-200/80">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span className="text-sm">{card.duration}</span>
                         </div>
-                        <span className="text-amber-500/50">•</span>
-                        <span className="text-sm text-amber-200/80">
+                        <span className="text-muted-foreground/50">•</span>
+                        <span className="text-sm text-muted-foreground">
                           {card.steps}
                         </span>
                       </div>
 
                       {/* Trigger */}
                       <div className="space-y-2">
-                        <p className="text-xs text-amber-300/70 uppercase tracking-wide">
+                        <p className="text-xs text-primary uppercase tracking-wide">
                           Trigger
                         </p>
-                        <p className="text-sm text-amber-100/80">
+                        <p className="text-sm text-foreground/80">
                           {card.trigger}
                         </p>
                       </div>
 
                       {/* When to use */}
                       <div className="space-y-2">
-                        <p className="text-xs text-amber-300/70 uppercase tracking-wide">
+                        <p className="text-xs text-primary uppercase tracking-wide">
                           When to Use
                         </p>
-                        <p className="text-sm text-amber-100/80">
+                        <p className="text-sm text-foreground/80">
                           {card.whenToUse}
                         </p>
                       </div>
@@ -404,30 +402,30 @@ const MicroPracticePlayerCards = () => {
                     <div className="flex-1 space-y-5 pt-12">
                       {/* Title & Duration */}
                       <div className="space-y-1">
-                        <h2 className="text-xl md:text-2xl font-serif text-amber-100">
+                        <h2 className="text-xl md:text-2xl font-serif text-foreground">
                           {card.title}
                         </h2>
-                        <p className="text-amber-400/60 text-sm">
+                        <p className="text-primary text-sm">
                           {card.duration}
                         </p>
                       </div>
 
                       {/* Instruction */}
-                      <p className="text-base text-amber-100/90 leading-relaxed">
+                      <p className="text-base text-foreground/90 leading-relaxed">
                         {card.instruction}
                       </p>
 
                       {/* Prompt (if exists) */}
                       {card.prompt && (
-                        <p className="text-sm text-amber-200/70 italic">
+                        <p className="text-sm text-muted-foreground italic">
                           {card.prompt}
                         </p>
                       )}
 
                       {/* Question (if exists) */}
                       {card.question && (
-                        <div className="px-4 py-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                          <p className="text-sm text-amber-200">
+                        <div className="px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
+                          <p className="text-sm text-foreground">
                             🔍 {card.question}
                           </p>
                         </div>
@@ -439,9 +437,9 @@ const MicroPracticePlayerCards = () => {
                           {card.examples.map((example, i) => (
                             <div
                               key={i}
-                              className="flex items-start gap-2 text-sm text-amber-100/80"
+                              className="flex items-start gap-2 text-sm text-foreground/80"
                             >
-                              <span className="text-amber-500/60">
+                              <span className="text-primary">
                                 {card.stepNumber === 3 ? "✓" : "💬"}
                               </span>
                               <span>{example}</span>
@@ -452,14 +450,14 @@ const MicroPracticePlayerCards = () => {
 
                       {/* Guidance (if exists) */}
                       {card.guidance && (
-                        <p className="text-sm text-amber-200/80 font-medium">
+                        <p className="text-sm text-foreground/80 font-medium">
                           {card.guidance}
                         </p>
                       )}
 
                       {/* Principle (if exists) */}
                       {card.principle && (
-                        <p className="text-sm text-amber-200/70 italic">
+                        <p className="text-sm text-muted-foreground italic">
                           {card.principle}
                         </p>
                       )}
@@ -467,38 +465,37 @@ const MicroPracticePlayerCards = () => {
                       {/* Insight box */}
                       {card.insight && (
                         <div className="mt-auto pt-4">
-                          <div className="px-4 py-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                          <div className="px-4 py-4 bg-primary/5 rounded-xl border border-primary/10 space-y-3">
                             <div className="flex items-start gap-2">
-                              <Sparkles className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                              <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                               <div className="space-y-1">
                                 {card.insight.text && (
-                                  <p className="text-sm text-amber-100/90">
+                                  <p className="text-sm text-foreground/90">
                                     {card.insight.text}
                                   </p>
                                 )}
                                 {card.insight.source && (
-                                  <p className="text-xs text-amber-400/60">
+                                  <p className="text-xs text-primary">
                                     — {card.insight.source}
                                   </p>
                                 )}
                                 {card.insight.wisdom && (
-                                  <p className="text-sm text-amber-200/70 italic">
+                                  <p className="text-sm text-muted-foreground italic">
                                     {card.insight.wisdom}
                                   </p>
                                 )}
+                                {card.insight.quote && (
+                                  <div className="pt-2 border-t border-primary/10">
+                                    <p className="text-sm text-foreground/80 italic">
+                                      "{card.insight.quote.text}"
+                                    </p>
+                                    <p className="text-xs text-primary mt-1">
+                                      — {card.insight.quote.author}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </div>
-
-                            {card.insight.quote && (
-                              <div className="pt-2 border-t border-white/10">
-                                <p className="text-sm text-amber-100/80 italic">
-                                  "{card.insight.quote.text}"
-                                </p>
-                                <p className="text-xs text-amber-400/60 mt-1">
-                                  — {card.insight.quote.author}
-                                </p>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}
@@ -509,34 +506,24 @@ const MicroPracticePlayerCards = () => {
                 {card.type === "science" && (
                   <PracticeCard variant="science">
                     <div className="flex-1 flex flex-col justify-center space-y-6">
-                      {/* Brain icon */}
-                      <div className="flex justify-center">
-                        <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-400/30 flex items-center justify-center">
-                          <span className="text-3xl">🧠</span>
-                        </div>
-                      </div>
-
-                      {/* Title */}
-                      <h2 className="text-xl md:text-2xl font-serif text-amber-100 text-center">
+                      <h2 className="text-2xl md:text-3xl font-serif text-foreground">
                         {card.title}
                       </h2>
 
-                      {/* Content */}
                       <div className="space-y-4">
                         {card.content.map((paragraph, i) => (
                           <p
                             key={i}
-                            className="text-sm md:text-base text-amber-100/80 leading-relaxed text-center"
+                            className="text-base text-foreground/80 leading-relaxed"
                           >
                             {paragraph}
                           </p>
                         ))}
                       </div>
 
-                      {/* Closing */}
-                      <div className="pt-4">
-                        <p className="text-base md:text-lg text-amber-200 font-medium text-center">
-                          ✨ {card.closing}
+                      <div className="pt-4 border-t border-primary/10">
+                        <p className="text-lg text-foreground font-medium italic">
+                          {card.closing}
                         </p>
                       </div>
                     </div>
@@ -549,33 +536,30 @@ const MicroPracticePlayerCards = () => {
       </Carousel>
 
       {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 pb-8 pt-4 px-6 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent">
-        {/* Progress */}
-        <CardProgress
-          total={cards.length}
-          current={current}
-          className="mb-4"
-        />
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+        <div className="max-w-md mx-auto space-y-4">
+          {/* Progress dots */}
+          <CardProgress total={cards.length} current={current} />
 
-        {/* Action button */}
-        {isLastCard ? (
-          <Button
-            onClick={handleComplete}
-            className="w-full h-14 text-base font-medium bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 border-0 shadow-lg shadow-amber-900/30"
-          >
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            Mark Complete
-          </Button>
-        ) : (
-          <Button
-            onClick={handleNext}
-            variant="ghost"
-            className="w-full h-14 text-base text-amber-200/80 hover:text-amber-100 hover:bg-white/5"
-          >
-            Tap to continue
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </Button>
-        )}
+          {/* Action button */}
+          {isLastCard ? (
+            <Button
+              onClick={handleComplete}
+              className="w-full h-14 text-base font-medium rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Mark Complete
+            </Button>
+          ) : (
+            <Button
+              onClick={handleNext}
+              className="w-full h-14 text-base font-medium rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              Continue
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

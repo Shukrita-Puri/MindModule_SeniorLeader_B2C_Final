@@ -148,6 +148,9 @@ const PowerUpOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
+      if (item.id === 'buddhist-phoenix') {
+        return 'Reframe';
+      }
       return item.subType === 'mindset' ? 'Mindset' : 'Tool';
     }
     if (item.contentType === 'soundbath') {
