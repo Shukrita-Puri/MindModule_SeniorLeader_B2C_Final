@@ -139,6 +139,8 @@ const PowerUpOutcomePage = () => {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'power-up' } });
     } else if (item.contentType === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'power-up' } });
+    } else if (item.contentType === 'micro-practice' && item.id === 'buddhist-phoenix') {
+      navigate(`/micro-practice/${item.id}/cards`, { state: { category: 'power-up' } });
     } else {
       navigate(`/micro-practice/${item.id}`, { state: { category: 'power-up' } });
     }
