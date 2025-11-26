@@ -218,7 +218,9 @@ const PowerUpOutcomePage = () => {
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {item.storyHook}
+                    {item.id === 'buddhist-phoenix' 
+                      ? 'Reframe setbacks into strength and clarity' 
+                      : item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">

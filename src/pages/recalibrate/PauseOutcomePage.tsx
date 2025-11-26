@@ -129,6 +129,9 @@ const PauseOutcomePage = () => {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'pause' } });
     } else if (item.contentType === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'pause' } });
+    } else if (item.contentType === 'micro-practice' && item.steps) {
+      // Card-based micro-practices go directly to cards (no intro)
+      navigate(`/micro-practice/${item.id}/cards`, { state: { category: 'pause' } });
     } else {
       navigate(`/micro-practice/${item.id}`, { state: { category: 'pause' } });
     }
