@@ -700,10 +700,10 @@ const MicroPracticePlayerCards = () => {
           src={getBackgroundForPractice(id)}
           alt="Practice background"
           className="w-full h-full object-cover"
-          style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
+          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
         />
-        {/* Subtle warm overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-amber-900/10 to-black/25" />
+        {/* Luxury warm overlay - matching soundscapes */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
       </div>
 
       {/* Top Navigation */}
