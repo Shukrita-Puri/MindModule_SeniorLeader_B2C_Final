@@ -56,7 +56,12 @@ const PowerUpOutcomePage = () => {
   }, []);
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
-    // For micro practices, use the title directly as it's already formatted with outcome + origin
+    // For card-based micro practices, use the card title
+    if (item.id === 'buddhist-phoenix') {
+      return 'Resilience Through The Phoenix';
+    }
+    
+    // For other micro practices, use the title directly
     if (item.contentType === 'micro-practice') {
       return item.title;
     }
@@ -139,8 +144,10 @@ const PowerUpOutcomePage = () => {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'power-up' } });
     } else if (item.contentType === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'power-up' } });
+    } else if (item.contentType === 'micro-practice' && item.steps) {
+      // Card-based micro-practices go directly to cards (no intro)
+      navigate(`/micro-practice/${item.id}/cards`, { state: { category: 'power-up' } });
     } else {
-      // All micro-practices go through the intro page first
       navigate(`/micro-practice/${item.id}`, { state: { category: 'power-up' } });
     }
   };
