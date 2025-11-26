@@ -8,6 +8,7 @@ import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
 import flowMeditationColorful from "@/assets/flow-meditation-colorful.jpg";
 import renewalStretchIllustration from "@/assets/renewal-stretch-illustration.jpg";
 import didgeridooHero from "@/assets/didgeridoo-bowls-hero.jpg";
+import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1410,7 +1411,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Neuroplasticity research shows the brain rewires itself most dramatically during stress and recovery. You're literally building new neural pathways through adversity. Hormetic stress (the right dose of challenge) makes you antifragile—stronger than before. The lotus metaphor is ancient, but the science is modern: struggle, when metabolized intentionally, becomes strength. You're not waiting to get through the mud. You're using the mud.",
-    thumbnail: renewalColorful,
+    thumbnail: phoenixRisingHero,
     steps: 4
   },
   {
