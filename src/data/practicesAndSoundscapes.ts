@@ -1415,6 +1415,35 @@ export const sanctuaryContent: SanctuaryContent[] = [
     steps: 4
   },
   {
+    id: "energy-through-reframe",
+    title: "Energy Through Reframe",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['energy', 'reframe', 'motivation', 'fatigue'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['recharge', 'restore'],
+      goalTags: ['energize', 'motivation', 'focus', 'autonomy'],
+      physioTarget: ['alertness_increase', 'cortisol_regulate'],
+      contextTags: ['afternoon_slump', 'low_energy', 'pre-meeting', 'resistance'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['improves_concentration', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'uplift'
+    },
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Cognitive reappraisal + Yerkes-Dodson arousal curve + Polyvagal Theory (Porges)",
+    origin: "Physiological state-shifting techniques observed in athletes, performers and special forces for pre-mission",
+    storyHook: "Rapid activation when energy runs low",
+    usedBy: "Mental fatigue, low motivation, feeling 'too tired'",
+    subType: "mindset",
+    thumbnail: renewalColorful,
+    steps: 3
+  },
+  {
     id: "bezos-regret-framework",
     title: "Bold Action Through Regret Minimization",
     contentType: "micro-practice",

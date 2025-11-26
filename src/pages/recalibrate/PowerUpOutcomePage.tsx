@@ -60,6 +60,9 @@ const PowerUpOutcomePage = () => {
     if (item.id === 'buddhist-phoenix') {
       return 'Resilience Through The Phoenix';
     }
+    if (item.id === 'energy-through-reframe') {
+      return 'Energy Through Reframe';
+    }
     
     // For other micro practices, use the title directly
     if (item.contentType === 'micro-practice') {
@@ -154,7 +157,7 @@ const PowerUpOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      if (item.id === 'buddhist-phoenix') {
+      if (item.id === 'buddhist-phoenix' || item.id === 'energy-through-reframe') {
         return 'Reframe';
       }
       return item.subType === 'mindset' ? 'Mindset' : 'Tool';
@@ -220,7 +223,9 @@ const PowerUpOutcomePage = () => {
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
                     {item.id === 'buddhist-phoenix' 
                       ? 'Reframe setbacks into strength and clarity' 
-                      : item.storyHook}
+                      : item.id === 'energy-through-reframe'
+                        ? 'Rapid activation when energy runs low'
+                        : item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
