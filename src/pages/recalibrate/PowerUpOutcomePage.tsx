@@ -177,6 +177,9 @@ const PowerUpOutcomePage = () => {
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
     }
+    if (item.contentType === 'guided-practice') {
+      return 'Guided Practice';
+    }
     return 'Practice';
   };
 
