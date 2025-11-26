@@ -20,17 +20,13 @@ const PowerUpOutcomePage = () => {
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  // Move breathing practices to Somatic Protocol
-  const breathingPractices = practices.filter(item => 
-    item.id === 'kapalabhati-pranayama' || item.id === 'box-breathing'
+  // Move somatic practices to Somatic Protocol (breathing + energy forge)
+  const somaticPractices = practices.filter(item => 
+    item.id === 'kapalabhati-pranayama' || item.id === 'box-breathing' || item.id === 'energy-forge'
   );
 
-  // Move kinesthetic movement micro-practice to Somatic Protocol
-  const somaticMicroPractices = allMicroPractices.filter(item => item.id === 'energy-shift');
-  const microPractices = allMicroPractices.filter(item => item.id !== 'energy-shift');
-
-  // Combined items for Somatic Protocol (soundscapes + breathing practices + kinesthetic movement)
-  const somaticItems = [...soundscapes, ...breathingPractices, ...somaticMicroPractices];
+  // Combined items for Somatic Protocol (soundscapes + somatic practices)
+  const somaticItems = [...soundscapes, ...somaticPractices];
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
@@ -201,7 +197,7 @@ const PowerUpOutcomePage = () => {
             <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {microPractices.map((item) => (
+            {allMicroPractices.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
                 <div className="relative h-48 overflow-hidden">
                   <img 
