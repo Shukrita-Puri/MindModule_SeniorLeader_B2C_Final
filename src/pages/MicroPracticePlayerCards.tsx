@@ -17,7 +17,7 @@ import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
-import phoenixHero from "@/assets/phoenix-mindset-hero.png";
+import phoenixHero from "@/assets/phoenix-rising-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
