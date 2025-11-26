@@ -27,11 +27,11 @@ const PowerUpSession = () => {
           </div>
           
           <h2 className="text-2xl font-headline font-medium text-foreground mb-3 leading-tight">
-            Resilience Through The Phoenix
+            Resilience Through the Buddhist Phoenix
           </h2>
           
           <p className="text-muted-foreground font-body leading-relaxed italic">
-            Reframe setbacks into strength and clarity
+            Beauty and enlightenment emerge from suffering. The lotus grows in muddy water, not pristine pools.
           </p>
 
           {/* Duration/Steps Badges */}
