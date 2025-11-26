@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import phoenixHero from "@/assets/phoenix-rising-hero.png";
+import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -172,6 +173,90 @@ const ENERGY_REFRAME_CARDS = [
   },
 ];
 
+// Courage Through The Future Self practice card content
+const COURAGE_FUTURE_SELF_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Courage Through The Future Self",
+    subtitle: "Act with courage to choose growth over comfort in key moments that matter",
+    source: "Perspective-taking across time horizons — Stoic philosophy (Memento Mori), Regret Minimisation Framework (Bezos), Fear-Setting (Ferriss)",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "Afraid to act, stuck in comfort zone, procrastinating on meaningful risk, choosing safety over growth",
+    whenToUse: "When facing a significant choice where fear of failure or judgment keeps you frozen — big conversations, tryouts, applications, career moves, creative risks.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Project Forward in Time",
+    duration: "45 sec",
+    instruction: "Close your eyes. Imagine your future self looking back at this exact moment from far ahead — next month, 1 year, or 5 years.",
+    question: "Will I regret NOT taking this action?",
+    examples: [
+      "Usually, regret comes from never trying — not from trying and failing",
+      "Fear fades. Wondering \"what if\" never does",
+    ],
+    insight: {
+      text: "Those who take risks regret some outcomes. Those who avoid risks regret the absence of experiences.",
+      source: "Regret Minimization Research",
+    },
+    closingWisdom: "Which version feels more like who you want to become — the one who tried, or the one who stayed safe?",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Name What You're Actually Afraid Of",
+    duration: "45 sec",
+    instruction: "Complete this sentence: \"What I'm actually afraid of is [specific outcome].\" Not \"failure\" — that's too vague. Get precise.",
+    examples: [
+      '"Being judged by people who matter to me"',
+      '"Losing the security I have now"',
+      '"Discovering I\'m not as capable as I think"',
+      '"Being rejected publicly"',
+    ],
+    insight: {
+      text: "Labeling emotions activates prefrontal cortex and dampens the amygdala. Precision reduces intensity by ~40%.",
+      source: "Lieberman, 2007",
+    },
+    closingWisdom: "Is this fear protecting you from real danger, or just discomfort?",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Plan for the Worst Case",
+    duration: "45 sec",
+    instruction: "If the worst outcome happens, what would you actually do? Write one sentence: \"If it doesn't work, I will [specific action].\"",
+    examples: [
+      '"If I don\'t make the team, I\'ll train harder and try again next year"',
+      '"If the pitch fails, I\'ll learn what didn\'t land and refine my approach"',
+      '"If they say no, I\'ll ask someone else or adjust my ask"',
+    ],
+    insight: {
+      text: "Fear-setting: define, prevent, repair. When you see you can handle the worst case, the risk becomes manageable.",
+      source: "Tim Ferriss",
+    },
+    closingWisdom: "You're more resilient than your fear believes. Having a recovery plan removes the paralyzing fear of the unknown.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Commit to One Brave Step",
+    duration: "45 sec",
+    instruction: "No more \"maybe\" or \"someday.\" Complete this: \"The action I will take is [specific behavior] by [specific time].\"",
+    examples: [
+      '"I will send the message by tomorrow night"',
+      '"I will sign up for auditions by Friday"',
+      '"I will have the conversation this week"',
+    ],
+    guidance: "Make it small if you need to. Make it soon. Courage builds through action, not waiting.",
+    insight: {
+      text: "Fear doesn't go away before you act. Courage is acting while afraid.",
+      source: "Every person you admire who did something brave felt the fear and moved anyway",
+    },
+    closingWisdom: "What's the smallest version of this brave action you can take in the next 24 hours?",
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -179,8 +264,23 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return BUDDHIST_PHOENIX_CARDS;
     case "energy-through-reframe":
       return ENERGY_REFRAME_CARDS;
+    case "courage-future-self":
+      return COURAGE_FUTURE_SELF_CARDS;
     default:
       return [];
+  }
+};
+
+// Helper to get background image for practice
+const getBackgroundForPractice = (practiceId: string | undefined) => {
+  switch (practiceId) {
+    case "buddhist-phoenix":
+    case "energy-through-reframe":
+      return phoenixHero;
+    case "courage-future-self":
+      return courageFutureSelfHero;
+    default:
+      return phoenixHero;
   }
 };
 
@@ -406,8 +506,8 @@ const MicroPracticePlayerCards = () => {
       {/* Fixed full-bleed background with optimized filter */}
       <div className="fixed inset-0 -z-10">
         <img
-          src={phoenixHero}
-          alt="Phoenix rising"
+          src={getBackgroundForPractice(id)}
+          alt="Practice background"
           className="w-full h-full object-cover"
           style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
         />
