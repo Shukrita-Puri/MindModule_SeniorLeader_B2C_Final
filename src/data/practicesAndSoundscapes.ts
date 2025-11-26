@@ -10,6 +10,7 @@ import renewalStretchIllustration from "@/assets/renewal-stretch-illustration.jp
 import didgeridooHero from "@/assets/didgeridoo-bowls-hero.jpg";
 import phoenixRisingHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
+import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1416,6 +1417,35 @@ export const sanctuaryContent: SanctuaryContent[] = [
     subType: "mindset",
     thumbnail: courageFutureSelfHero,
     steps: 5
+  },
+  {
+    id: "confidence-through-evidence",
+    title: "Confidence & Readiness Through Evidence",
+    contentType: "micro-practice",
+    category: "power-up",
+    tags: ['confidence', 'self-belief', 'performance', 'evidence', 'readiness'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['activate', 'optimize'],
+      goalTags: ['confidence', 'self_belief', 'decision_readiness', 'performance'],
+      physioTarget: ['prefrontal_activation', 'cortisol_reduce'],
+      contextTags: ['pre-meeting', 'pre-performance', 'interview', 'presentation'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_decision', 'improves_concentration'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "CBT (Beck) + Athlete Mental Training + Satya Nadella's \"Learn-It-All\" mindset",
+    origin: "Cognitive Behavioral Therapy, sports psychology, growth mindset research",
+    storyHook: "Rebuild self-belief with your own proof",
+    usedBy: "Self-doubt, imposter feelings, pre-performance anxiety, comparing yourself to others",
+    subType: "mindset",
+    thumbnail: confidenceEvidenceHero,
+    steps: 4
   }
 ];
 

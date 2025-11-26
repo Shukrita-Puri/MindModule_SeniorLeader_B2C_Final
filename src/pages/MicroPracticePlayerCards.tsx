@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import phoenixHero from "@/assets/phoenix-rising-hero.png";
 import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
+import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -257,6 +258,67 @@ const COURAGE_FUTURE_SELF_CARDS = [
   },
 ];
 
+// Confidence & Readiness Through Evidence practice card content
+const CONFIDENCE_EVIDENCE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Confidence & Readiness Through Evidence",
+    subtitle: "Rebuild self-belief with your own proof",
+    source: "CBT (Beck) + Athlete Mental Training + Satya Nadella's \"Learn-It-All\" mindset",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Self-doubt, imposter feelings, pre-performance anxiety, comparing yourself to others",
+    whenToUse: "Before high-stakes moments — presentations, tough conversations, interviews, or any moment when you need to remember your own capability.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Recall Three Wins",
+    duration: "40 sec",
+    instruction: "Name three times you succeeded at something hard. Be specific — not \"I'm good at speaking,\" but \"I convinced 10 people to join my idea in 5 minutes.\"",
+    question: "When have you already done something like this?",
+    examples: [
+      '"I closed the deal when everyone said it was impossible"',
+      '"I presented to 50 people and held their attention"',
+      '"I learned a new skill in half the expected time"',
+    ],
+    insight: {
+      text: "Serena Williams reviews footage of her best games before Grand Slams.",
+      source: "High Performer Pattern",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Identify the Transferable Skill",
+    duration: "40 sec",
+    instruction: "For each win, name one capability you used.",
+    examples: [
+      '"I stayed calm under questioning"',
+      '"I simplified complexity"',
+      '"I read what people needed"',
+    ],
+    insight: {
+      text: "Skill transfer recognition makes future performance seem more achievable and less intimidating.",
+      source: "CBT Principle",
+    },
+    closingWisdom: "The skills that got you here are the same skills that will carry you forward.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "State Your Readiness",
+    duration: "40 sec",
+    instruction: "Complete: \"I am ready because I have [skill 1], [skill 2], and [skill 3].\" Say it once out loud.",
+    guidance: "Evidence-based confidence doesn't waver. You're not hoping you're capable — you're remembering you already proved it.",
+    insight: {
+      text: "Competence remembered becomes confidence available.",
+      source: "Performance Psychology",
+    },
+    closingWisdom: "You've done hard things before. This is the next one.",
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -266,6 +328,8 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return ENERGY_REFRAME_CARDS;
     case "courage-future-self":
       return COURAGE_FUTURE_SELF_CARDS;
+    case "confidence-through-evidence":
+      return CONFIDENCE_EVIDENCE_CARDS;
     default:
       return [];
   }
@@ -279,6 +343,8 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return phoenixHero;
     case "courage-future-self":
       return courageFutureSelfHero;
+    case "confidence-through-evidence":
+      return confidenceEvidenceHero;
     default:
       return phoenixHero;
   }
