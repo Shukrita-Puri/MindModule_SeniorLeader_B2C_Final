@@ -334,16 +334,16 @@ const MicroPracticePlayerCards = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Fixed full-bleed background with warm/dark filter like Soundscapes */}
+      {/* Fixed full-bleed background with optimized filter */}
       <div className="fixed inset-0 -z-10">
         <img
           src={phoenixHero}
           alt="Phoenix rising"
           className="w-full h-full object-cover"
-          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+          style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
         />
-        {/* Warm/dark overlay for immersive feel */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-amber-900/20 to-black/50" />
+        {/* Subtle warm overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-amber-900/10 to-black/25" />
       </div>
 
       {/* Top Navigation */}
@@ -385,7 +385,7 @@ const MicroPracticePlayerCards = () => {
             <CarouselItem key={index} className="pl-0">
               <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
                 {/* Translucent frosted glass container */}
-                <div className="w-full max-w-md bg-white/60 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/50 shadow-lg">
+                <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/60 shadow-lg">
                   {card.type === "overview" && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
