@@ -1472,7 +1472,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     difficulty: "beginner",
     creator: "Zeigarnik Effect + GTD (David Allen) + Hemingway technique",
     origin: "Psychology research, productivity methodology, creative process",
-    storyHook: "Close open loops, reclaim mental bandwidth to regain energy",
+    storyHook: "Close open loops, reclaim mental bandwidth and regain energy.",
     usedBy: "Open loops, unfinished tasks, feeling scattered, decision fatigue, mental exhaustion",
     subType: "mindset",
     thumbnail: energyCompletionHero,

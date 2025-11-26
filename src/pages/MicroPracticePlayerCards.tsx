@@ -101,7 +101,7 @@ const BUDDHIST_PHOENIX_CARDS = [
     guidance: "Make it small. Make it soon. Make it specific.",
     reframingNote: "Every comeback starts with one deliberate step forward.",
     insight: {
-      wisdom: "Amor fati translates to \"love of fate\" and is the practice of loving all events in one's life, good or bad.",
+      wisdom: "Amor fati — Practice of loving all events in one's life, good or bad. — Ancient Wisdom",
       quote: {
         text: "We will make it work. Failure is an option here. If things are not failing, you are not innovating enough.",
         author: "Musk after SpaceX's third rocket failure",
@@ -326,7 +326,7 @@ const ENERGY_COMPLETION_CARDS = [
   {
     type: "overview" as const,
     title: "Restore Energy Through Completion",
-    subtitle: "Close open loops, reclaim mental bandwidth to regain energy",
+    subtitle: "Close open loops, reclaim mental bandwidth and regain energy.",
     source: "Zeigarnik Effect (psychology) + GTD \"Mind Sweep\" (David Allen) + Hemingway's \"Stop mid-sentence\" technique",
     duration: "2 min",
     steps: "3 Steps",
