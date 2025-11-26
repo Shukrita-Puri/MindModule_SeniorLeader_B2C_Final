@@ -22,6 +22,7 @@ import courageFutureSelfHero from "@/assets/courage-future-self-hero.png";
 import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
+import courageArenaHero from "@/assets/courage-arena-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -322,6 +323,58 @@ const CONFIDENCE_EVIDENCE_CARDS = [
   },
 ];
 
+// Courage Through The Arena practice card content
+const COURAGE_ARENA_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Courage Through The Arena",
+    subtitle: "Step into visibility knowing you might fail — and choose to show up anyway",
+    source: "Brené Brown's \"Daring Greatly\" + Athlete pre-game rituals + Marcus Aurelius (simplified)",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Afraid to speak up, try out, take social risk, be seen, choose authenticity over fitting in",
+    whenToUse: "When fear of judgment or rejection is holding you back from action you know matters.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name What You're Avoiding",
+    duration: "40 sec",
+    instruction: "Complete: \"I'm avoiding [trying out / speaking up / asking them / showing my work] because I'm afraid of [being rejected / looking stupid / being alone].\" Say it clearly. Fear named is fear tamed.",
+    insight: {
+      wisdom: "I learned that courage was not the absence of fear, but the triumph over it. The brave man is not he who does not feel afraid, but he who conquers that fear.",
+      wisdomSource: "Nelson Mandela",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Remember Who You Admire",
+    duration: "40 sec",
+    instruction: "Think of someone you respect — friend, athlete, artist, character. Did they play it safe? No. They stepped into the arena knowing they might fail. You're doing what they did.",
+    examples: [
+      "Your favorite artist posted their first song knowing people might hate it. They did it anyway.",
+    ],
+    insight: {
+      text: "Every person you admire took a risk you can see, and a hundred more you can't.",
+      source: "Pattern Recognition",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Commit to 10 Seconds of Courage",
+    duration: "40 sec",
+    instruction: "You don't need to be brave forever. Just 10 seconds: raise your hand, send the message, walk up to the group. After 10 seconds, momentum takes over.",
+    guidance: "Every athlete, before the big play, commits to the first move. Then instinct kicks in.",
+    insight: {
+      text: "Courage is a muscle. Small brave acts make bigger brave acts possible.",
+      source: "Behavioral Psychology",
+    },
+    closingWisdom: "10 seconds. That's all. The rest will follow.",
+  },
+];
+
 // Energy Through Completion practice card content
 const ENERGY_COMPLETION_CARDS = [
   {
@@ -395,6 +448,8 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return CONFIDENCE_EVIDENCE_CARDS;
     case "energy-through-completion":
       return ENERGY_COMPLETION_CARDS;
+    case "courage-arena":
+      return COURAGE_ARENA_CARDS;
     default:
       return [];
   }
@@ -413,6 +468,8 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return confidenceEvidenceHero;
     case "energy-through-completion":
       return energyCompletionHero;
+    case "courage-arena":
+      return courageArenaHero;
     default:
       return phoenixHero;
   }

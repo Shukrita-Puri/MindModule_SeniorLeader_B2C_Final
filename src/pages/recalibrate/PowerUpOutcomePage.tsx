@@ -72,6 +72,9 @@ const PowerUpOutcomePage = () => {
     if (item.id === 'energy-through-completion') {
       return 'Restore Energy Through Completion';
     }
+    if (item.id === 'courage-arena') {
+      return 'Courage Through The Arena';
+    }
     
     // For other micro practices, use the title directly
     if (item.contentType === 'micro-practice') {
@@ -166,7 +169,7 @@ const PowerUpOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      if (item.id === 'buddhist-phoenix' || item.id === 'energy-through-reframe' || item.id === 'courage-future-self' || item.id === 'confidence-through-evidence') {
+      if (item.id === 'buddhist-phoenix' || item.id === 'energy-through-reframe' || item.id === 'courage-future-self' || item.id === 'confidence-through-evidence' || item.id === 'courage-arena') {
         return 'Reframe';
       }
       return item.subType === 'mindset' ? 'Mindset' : 'Tool';
@@ -238,7 +241,9 @@ const PowerUpOutcomePage = () => {
                           ? 'Act with courage to choose growth over comfort in key moments that matter'
                           : item.id === 'confidence-through-evidence'
                             ? 'Rebuild self-belief with your own proof'
-                            : item.storyHook}
+                            : item.id === 'courage-arena'
+                              ? 'Step into visibility knowing you might fail — and choose to show up anyway'
+                              : item.storyHook}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
