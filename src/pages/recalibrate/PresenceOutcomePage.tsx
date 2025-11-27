@@ -152,6 +152,24 @@ const PresenceOutcomePage = () => {
     return 'Practice';
   };
 
+  const getSubtitle = (item: SanctuaryContent): string => {
+    // Map practice IDs to their outcome-focused subtitles
+    const subtitleMap: Record<string, string> = {
+      'single-thread-focus': 'Lock attention by choosing one anchor',
+      'first-move-momentum': 'Overcome inertia with the smallest possible start',
+      'depth-subtraction': 'Achieve clarity by removing, not adding',
+      'eternal-now-presence': 'Anchor in this moment, the only one that exists',
+      'rhythm-pulse': 'Sustain performance through strategic oscillation',
+      'mastery-constraint': 'Accelerate learning by limiting options',
+      'wu-wei-flow': 'Flow arises when you align effort with natural conditions',
+      'mushin-no-mind': 'Think less, execute more',
+      "jobs-simplicity": "Mastery isn't adding complexity—it's ruthless elimination",
+      'ikigai-purpose': 'When task meets meaning, energy flows naturally',
+      "stoic-reflection": "Review actions, align with virtue at day's end",
+    };
+    return subtitleMap[item.id] || item.storyHook || '';
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <TopNavigation backPath="/recalibrate" />
@@ -205,11 +223,10 @@ const PresenceOutcomePage = () => {
                   <CardTitle className="text-lg">{getOutcomeFocusedTitle(item)}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" />
-                    {getCredibilitySubtitle(item)}
+                    {getSubtitle(item)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
@@ -273,10 +290,6 @@ const PresenceOutcomePage = () => {
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.storyHook}
-                  </p>
-                  
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />

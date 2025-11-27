@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -1232,6 +1232,8 @@ const triggerHaptic = () => {
 const MicroPracticePlayerCards = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const category = location.state?.category || 'power-up'; // Default to power-up if no category
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
@@ -1454,7 +1456,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath="/recalibrate/power-up" transparent />
+      <TopNavigation backPath={`/recalibrate/${category}`} transparent />
 
       {/* Back indicator - shows from Card 2 onwards */}
       {current > 0 && (
