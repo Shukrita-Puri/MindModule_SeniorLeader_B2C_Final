@@ -710,7 +710,21 @@ export const sanctuaryContent: SanctuaryContent[] = [
     steps: 6,
     creator: "Ancient Vedic Meditation Sound",
     audioSrc: "/soundscapes/bhramari-pranayama.mp3",
-    fullStory: "Bhramari Pranayama originates from ancient India, dating back 5,000 years to the Vedic period. Named after the Sanskrit word 'bhramari' (bee), the practice mimics a bee's humming sound. Ancient yogis discovered that internal vibration creates deep meditative states where the mind naturally absorbs into sound—one of the most effective techniques for entering flow states. Modern neuroscience confirms the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while focusing attention.",
+    fullStory: "Bhramari Pranayama originates from ancient India, dating back 5,000 years to the Vedic period. Named after the Sanskrit word 'bhramari' (bee), the practice mimics a bee's humming sound. Ancient yogis discovered that internal vibration creates deep meditative states where the mind naturally absorbs into sound—one of the most effective techniques for entering flow states.\n\nModern neuroscience confirms the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while focusing attention. Research shows the practice increases alpha and theta brainwave activity associated with meditative states and reduces beta waves linked to anxiety and mental chatter.\n\nThe technique is deceptively simple but profoundly effective. The continuous humming creates a feedback loop where the sound becomes an anchor for attention. As the mind locks onto the vibration, thoughts naturally dissolve. This is Dharana—one-pointed concentration—the gateway to all flow states.",
+    technique: "This is a six-phase guided breathwork meditation combining ancient Vedic pranayama with modern nervous system science.\n\nPhase 1 — Sacred Arrival (90 sec): Settle into a comfortable seated position with spine naturally upright. Close eyes and notice your natural breath. Feel your body grounding. Take three deep breaths to signal your nervous system it's time to turn inward.\n\nPhase 2 — Pranayama Preparation (90 sec): Learn the optional ear closure technique: Place index or middle fingers gently over ear canals (not pressing hard, just sealing). This amplifies internal sound. Or leave ears open for your first practices.\n\nPhase 3 — First Humming Cycle (2 min): Inhale deeply through nose. On exhale, close mouth and hum softly—'mmmmm'—like a bee. Let the hum last the entire exhale. Notice vibration in face, head, chest. Repeat 3 times, learning the rhythm.\n\nPhase 4 — Deep Immersion Rounds (5 min): Begin 12 continuous rounds of Bhramari. Deep inhale through nose, then exhale with humming bee sound. With each round, go deeper into the vibration. Stop thinking about technique—become the sound. Notice how the mind quiets, how the hum absorbs your attention.\n\nPhase 5 — Silent Absorption (90 sec): Release hands from ears. Sit in complete stillness. Notice the resonance remaining in body and mind. Observe the quality of silence—deeper, more spacious. This is Pratyahara, where external distractions withdraw.\n\nPhase 6 — Return & Integration (30 sec): Slowly open eyes. Take one final deep breath and bow head gently, sealing the practice. Carry this clarity and stillness into whatever comes next.",
+    benefits: [
+      "Immediate: Profound mental stillness and clarity",
+      "Immediate: Pleasant vibration sensation in skull and face",
+      "Immediate: Reduction in mental chatter and anxiety",
+      "Immediate: Feeling centered and present",
+      "Immediate: Instant access to focused attention state",
+      "Regular Practice: Enhanced ability to drop into flow states quickly",
+      "Regular Practice: Improved concentration and sustained attention",
+      "Regular Practice: Better emotional regulation and stress resilience",
+      "Stimulates vagus nerve for parasympathetic activation",
+      "Increases alpha and theta brainwave activity (meditative states)"
+    ],
+    completionQuote: "The mind follows sound. When sound becomes vibration, vibration becomes focus, and focus becomes flow. You've practiced a 5,000-year-old gateway to presence.",
     whatYouNeed: [
       "Essential: Quiet space where you can sit comfortably for 12 minutes",
       "Essential: Ability to hum without disturbing others",
@@ -769,7 +783,23 @@ export const sanctuaryContent: SanctuaryContent[] = [
     steps: 6,
     creator: "Ancient Yogic Focus Meditation",
     audioSrc: "/soundscapes/trataka-single-focus.mp3",
-    fullStory: "Trataka is one of six purification practices from the Hatha Yoga Pradipika (15th century). The word means 'to gaze steadily.' Ancient yogis discovered that training the eyes to remain perfectly still naturally draws the mind into deep concentration. The flame was chosen because fire represents consciousness itself in Vedic philosophy. Modern research shows Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
+    fullStory: "Trataka is one of six purification practices (Shatkarma) from the Hatha Yoga Pradipika (15th century). The word means 'to gaze steadily.' Ancient yogis discovered that training the eyes to remain perfectly still naturally draws the mind into deep concentration. The flame was chosen because fire represents consciousness itself in Vedic philosophy—pure, unchanging awareness.\n\nModern research shows Trataka increases gamma brainwave activity (40-100 Hz) associated with peak concentration, heightened awareness, and flow states. The practice also enhances visual processing in the occipital cortex and activates the prefrontal cortex—the brain's executive attention network.\n\nThis is not meditation in the traditional sense. It's concentration training at its purest. By anchoring visual attention to a single point, the mind stops wandering. Distractions dissolve. You enter Dharana—one-pointed focus—which is the gateway to Dhyana (meditation) and Samadhi (absorption). Elite performers across domains use variations of this technique to enter flow states on demand.",
+    technique: "This is a six-phase guided concentration practice combining ancient Trataka technique with modern neuroscience.\n\nPhase 1 — Sacred Setup (60 sec): Light the candle. Place it 3-4 feet away at eye level. Sit comfortably with spine upright. Set your intention: What requires your deepest focus today? Close eyes briefly to center.\n\nPhase 2 — Soft Gazing Preparation (60 sec): Open eyes. Look at the flame gently—not staring hard, but resting your gaze on it. Notice its shape, color, movement. Relax face, jaw, shoulders. Blink naturally when needed. This is soft gazing, not forcing.\n\nPhase 3 — First Gaze Cycle (90 sec): Gaze at flame for 30 seconds without blinking. When you must blink or eyes water, close them gently. Observe the afterimage behind eyelids—the flame's impression on your inner vision. Rest for 30 seconds with eyes closed.\n\nPhase 4 — Deep Immersion Cycles (210 sec): Repeat three more rounds: 45 sec gazing / 30 sec closed; 60 sec gazing / 30 sec closed; 60 sec gazing / 30 sec closed. With each round, notice distractions falling away. You're becoming absorbed in the flame.\n\nPhase 5 — Final Extended Gaze (60 sec): One final gaze: Look at flame for as long as comfortable without blinking. When you close eyes, hold the afterimage as long as possible. This is concentration training at its purest—Dharana, one-pointed focus.\n\nPhase 6 — Integration (30 sec): Slowly return. Take a deep breath. Bow head slightly to the flame, honoring the practice. Notice the quality of your attention now—sharp, clear, focused. Carry this into your work.",
+    benefits: [
+      "Immediate: Profound mental clarity and focus",
+      "Immediate: Complete cessation of mental chatter",
+      "Immediate: Sense of absorption where time disappears",
+      "Immediate: Slight tingling or pressure at third eye center",
+      "Immediate: Instant entry into flow state",
+      "Regular Practice: Dramatically improved concentration span",
+      "Regular Practice: Ability to enter flow states at will",
+      "Regular Practice: Enhanced visualization abilities",
+      "Regular Practice: Deeper meditation experiences",
+      "Increases gamma brainwave activity (peak concentration)",
+      "Activates prefrontal cortex (executive attention network)",
+      "Develops the meta-skill of voluntary attention control"
+    ],
+    completionQuote: "Where the gaze goes, the mind follows. Where the mind goes, energy flows. You've trained the ancient art of one-pointed awareness—the foundation of all mastery.",
     whatYouNeed: [
       "Essential: One candle (any size, unscented works best)",
       "Essential: Matches or lighter",
@@ -802,7 +832,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   {
     id: "stoic-reflection",
     title: "Stoic Evening Reflection",
-    contentType: "guided-practice",
+    contentType: "micro-practice",
     category: "presence",
     tags: ['air', 'evening-ritual', 'gentle', 'clarity'],
     structuredTags: {
@@ -825,7 +855,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     usedBy: "CEOs, Leaders, Philosophers",
     thumbnail: stoicReflectionHero,
     steps: 5,
-    creator: "Stoic Philosophy"
+    creator: "Stoic Philosophy",
+    subType: "mindset"
   },
 
   // ============= MICRO PRACTICES =============
