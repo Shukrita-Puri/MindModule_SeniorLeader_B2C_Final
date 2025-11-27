@@ -646,21 +646,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
 
   // PAUSE Practices
   {
-    id: "tonglen-breathing",
-    title: "Tonglen Compassion Practice",
-    contentType: "guided-practice",
-    category: "pause",
-    tags: ['earth', 'post-conflict', 'gentle', 'compassion'],
-    duration: 12,
-    difficulty: "intermediate",
-    origin: "Buddhist Meditation | Tibet, 9th Century",
-    storyHook: "For 1200 years, Tibetan monks have practiced Tonglen to transform suffering into compassion by breathing in pain and breathing out relief.",
-    usedBy: "Backed by Stanford neuroscience",
-    thumbnail: "/lovable-uploads/909c474b-063c-47f3-aae1-2ef5c7098a8e.png",
-    steps: 5,
-    creator: "Tibetan Buddhist Lineage"
-  },
-  {
     id: "pranayama-clarity",
     title: "Pranayama Clarity Breath",
     contentType: "guided-practice",
@@ -689,37 +674,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Regular Practice: Improved focus and mental sharpness",
       "Regular Practice: Greater emotional regulation"
     ]
-  },
-  {
-    id: "vipassana-body-scan",
-    title: "Vipassana Body Scan",
-    contentType: "guided-practice",
-    category: "pause",
-    tags: ['earth', 'grounding', 'moderate', 'awareness'],
-    structuredTags: {
-      pillar: 'pause',
-      masterySubtypes: ['grounding', 'deep-calm'],
-      goalTags: ['breathing_regulation', 'stress_reduction', 'grounding', 'release'],
-      physioTarget: ['hr_decrease', 'cortisol_reduce', 'parasympathetic_activation'],
-      contextTags: ['quick_reset', 'between-meetings', 'post-meeting'],
-      environmentSuitability: ['office', 'shared_space', 'public', 'on_the_go'],
-      equipment: ['none'],
-      cognitiveLoadHelp: ['lowers_cognitive_load'],
-      socialTag: 'solo',
-      intensityLevel: 'low',
-      energyDirection: 'downshift'
-    },
-    voice: 'neutral',
-    language: 'en',
-    deliveryModality: ['none'],
-    duration: 20,
-    difficulty: "intermediate",
-    origin: "Buddhist Mindfulness | 2500 years",
-    storyHook: "Ancient technique of systematically observing bodily sensations to develop equanimity and insight.",
-    usedBy: "Meditators, Mindfulness Practitioners",
-    thumbnail: "/lovable-uploads/f0c69073-c184-4d25-baaa-c8e5d07cfbd9.png",
-    steps: 8,
-    creator: "Vipassana Tradition"
   },
 
   // PRESENCE Practices
@@ -1155,62 +1109,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Your nervous system can't tell the difference between 20 threats and 1 threat—it just goes into overload. By consciously choosing ONE thing to control, you signal: \"We're not drowning. We're taking one stroke at a time.\" The eye of the storm isn't calm because the storm stopped. It's calm because you stopped trying to fight all of it at once."
-  },
-  {
-    id: "djokovic-reset",
-    title: "Instant Reset Through Performance Ritual",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'after-mistakes', 'performance', 'recovery', 'quick-reset'],
-    structuredTags: {
-      pillar: 'pause',
-      masterySubtypes: ['grounding', 'composure'],
-      goalTags: ['reset', 'recovery', 'composure', 'release'],
-      physioTarget: ['hr_decrease', 'cortisol_reduce', 'prefrontal_activation'],
-      contextTags: ['post-mistake', 'performance_recovery', 'quick_reset', 'between_tasks'],
-      environmentSuitability: ['office', 'public', 'on_the_go', 'shared_space'],
-      equipment: ['none'],
-      cognitiveLoadHelp: ['emotional_processing', 'supports_decision'],
-      socialTag: 'solo',
-      intensityLevel: 'low',
-      energyDirection: 'stabilize'
-    },
-    duration: 1,
-    difficulty: "beginner",
-    creator: "Inspired from Novak Djokovic's performance psychology principles",
-    origin: "\"The most important point is the next point.\" — Novak Djokovic",
-    storyHook: "For moments after mistakes, during performance slumps, when past failures cloud present execution",
-    essence: "The last point is dead. The future doesn't exist. Only this breath, this shot, this moment can be controlled.",
-    parallel: "Present-moment awareness; resetting attentional focus; letting go of rumination",
-    cue: "\"This point only.\"",
-    usedBy: "After mistakes, during performance slumps, when past failures cloud present execution",
-    thumbnail: pauseMauve,
-    steps: 4,
-    subType: "tool",
-    instructions: [
-      "Physical break from the past (2 seconds): Do something that marks a boundary: turn away, shake out your hands, touch something (desk, doorframe, your leg).",
-      "The release breath (5 seconds): Big inhale through nose, forceful exhale through mouth (like blowing out birthday candles). Imagine the last moment leaving your body with that breath.",
-      "State the present moment (3 seconds): Say aloud or internally: \"That point is over. This point starts now.\" Or simply: \"Next.\"",
-      "Narrow your attention to immediate task (ongoing): What is the literal next action? Not the next 10 things. Just the one thing in front of you right now."
-    ],
-    realExamples: [
-      {
-        scenario: "You bombed a question in an interview",
-        trigger: "\"I blew it. They think I'm an idiot. This interview is over.\"",
-        response: "Pause. Look down. Touch your notebook. Release breath. Look back up. \"Okay, next question.\" You re-engage with this moment, not the last one."
-      },
-      {
-        scenario: "You just lost a major client",
-        trigger: "Replaying the conversation, blaming yourself, catastrophizing",
-        response: "Set a timer for 5 minutes. Let yourself feel it fully. When timer goes off, stand up, shake out your body, say \"Next point.\" Open your calendar. \"What's the next call I can win?\""
-      },
-      {
-        scenario: "Mistake in a live presentation",
-        trigger: "Face goes red, you stumble on next three sentences thinking about the error",
-        response: "You pause. Take a sip of water (physical break). Smile slightly. \"Let me refocus that...\" (You just gave yourself permission to start fresh mid-sentence)"
-      }
-    ],
-    whyThisWorks: "Your brain wants to ruminate because it thinks replaying the past will prevent future pain. But when performing, rumination is cognitive load you can't afford. The physical ritual (shake, breath, touch) acts as a pattern interrupt. Djokovic does this between EVERY point—not because he's always failing, but because he's always resetting. Champions don't have fewer setbacks; they have faster resets."
   },
 
   // PRESENCE Micro Practices
