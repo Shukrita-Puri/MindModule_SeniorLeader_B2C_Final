@@ -87,7 +87,7 @@ const PresenceOutcomePage = () => {
     if (origin.includes("Navy SEAL") || origin.includes("Military") || origin.includes("Special Forces")) {
       return `Based on ${origin}`;
     }
-    if (origin.includes("Tibetan") || origin.includes("Ancient") || origin.includes("Traditional") || origin.includes("Vedic") || origin.includes("Buddhist") || origin.includes("Himalayan") || origin.includes("Stoic") || origin.includes("Yoga")) {
+    if (origin.includes("Tibetan") || origin.includes("Ancient") || origin.includes("Traditional") || origin.includes("Vedic") || origin.includes("Buddhist") || origin.includes("Himalayan") || origin.includes("Stoic") || origin.includes("Yoga") || origin.includes("Zen")) {
       return `Drawn from ${origin}`;
     }
     if (origin.includes("Olympic") || origin.includes("Sports")) {
@@ -144,7 +144,7 @@ const PresenceOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      return item.subType === 'mindset' ? 'Mindset' : 'Tool';
+      return 'Reframe';
     }
     if (item.contentType === 'soundbath') {
       return 'Soundscape';

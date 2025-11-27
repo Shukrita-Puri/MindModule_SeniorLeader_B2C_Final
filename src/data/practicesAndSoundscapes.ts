@@ -17,6 +17,12 @@ import braveActionHero from "@/assets/brave-action-hero.png";
 import kapalabhatiHero from "@/assets/kapalabhati-hero.png";
 import boxBreathingHero from "@/assets/box-breathing-hero.png";
 import energyForgeHero from "@/assets/energy-forge-hero.png";
+import singleThreadFocusHero from "@/assets/single-thread-focus-hero.png";
+import firstMoveMomentumHero from "@/assets/first-move-momentum-hero.png";
+import depthSubtractionHero from "@/assets/depth-subtraction-hero.png";
+import eternalNowPresenceHero from "@/assets/eternal-now-presence-hero.png";
+import rhythmPulseHero from "@/assets/rhythm-pulse-hero.png";
+import masteryConstraintHero from "@/assets/mastery-constraint-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -1510,6 +1516,182 @@ export const sanctuaryContent: SanctuaryContent[] = [
     subType: "mindset",
     thumbnail: braveActionHero,
     steps: 3
+  },
+  
+  // === NEW: Flow Mastery Mindset Protocols ===
+  {
+    id: "single-thread-focus",
+    title: "Entry Through The Single Thread",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['focus', 'attention', 'deep-work', 'concentration', 'single-tasking'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['activate', 'optimize'],
+      goalTags: ['focus', 'concentration', 'attention', 'deep_work'],
+      physioTarget: ['prefrontal_activation'],
+      contextTags: ['pre-work', 'scattered_focus', 'task_switching', 'deep_work_session'],
+      environmentSuitability: ['private', 'office', 'home'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['improves_concentration', 'lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Zen monk single-pointed concentration (zazen) + Flow research (Csikszentmihalyi) + Cal Newport's \"Deep Work\"",
+    origin: "Zen meditation + Flow research + Deep Work methodology",
+    storyHook: "Lock attention by choosing one anchor",
+    usedBy: "Before entering deep work, when attention keeps fragmenting, starting sessions with scattered focus, task-switching exhaustion",
+    subType: "mindset",
+    thumbnail: singleThreadFocusHero,
+    steps: 4
+  },
+  {
+    id: "first-move-momentum",
+    title: "Momentum Through The First Move",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['procrastination', 'inertia', 'starting', 'momentum', 'action'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['activate'],
+      goalTags: ['momentum', 'overcome_inertia', 'starting', 'action'],
+      physioTarget: ['prefrontal_activation', 'dopamine_boost'],
+      contextTags: ['procrastination', 'task_paralysis', 'perfectionism', 'overwhelm'],
+      environmentSuitability: ['any'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_starting'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'uplift'
+    },
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Newton's First Law (physics) + Atomic Habits (James Clear) + Hemingway's \"one true sentence\"",
+    origin: "Physics + Habit formation + Creative process",
+    storyHook: "Overcome inertia with the smallest possible start",
+    usedBy: "Procrastination, task paralysis, perfectionism preventing start, feeling overwhelmed by scope, resistance to beginning",
+    subType: "mindset",
+    thumbnail: firstMoveMomentumHero,
+    steps: 3
+  },
+  {
+    id: "depth-subtraction",
+    title: "Depth Through Subtraction",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['essentialism', 'priorities', 'subtraction', 'clarity', 'focus'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['clarity', 'focus', 'essentialism', 'priorities'],
+      physioTarget: ['prefrontal_activation', 'cortisol_reduce'],
+      contextTags: ['overwhelm', 'decision_fatigue', 'multitasking', 'unclear_priorities'],
+      environmentSuitability: ['private', 'office'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'clarify'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Michelangelo's \"sculpture inside the marble\" + Essentialism (Greg McKeown) + Dieter Rams's design principle",
+    origin: "Renaissance art + Minimalism + Design philosophy",
+    storyHook: "Achieve clarity by removing, not adding",
+    usedBy: "Overwhelmed by options, multitasking temptation, unclear priorities, decision fatigue, doing many things poorly",
+    subType: "mindset",
+    thumbnail: depthSubtractionHero,
+    steps: 4
+  },
+  {
+    id: "eternal-now-presence",
+    title: "Presence Through The Eternal Now",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['mindfulness', 'present-moment', 'awareness', 'attention', 'grounding'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['maintain-peak'],
+      goalTags: ['presence', 'mindfulness', 'awareness', 'grounding'],
+      physioTarget: ['amygdala_regulation', 'default_mode_deactivation'],
+      contextTags: ['mind_wandering', 'distraction', 'rumination', 'anxiety'],
+      environmentSuitability: ['any'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['improves_concentration', 'emotional_regulation'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'stabilize'
+    },
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Buddhist mindfulness + Eckhart Tolle's \"The Power of Now\" + Flow state research",
+    origin: "Buddhist meditation + Contemporary mindfulness + Flow research",
+    storyHook: "Anchor in this moment, the only one that exists",
+    usedBy: "Mental time-traveling (ruminating on past, anxious about future), distracted during work, mind wandering, feeling disconnected from task",
+    subType: "mindset",
+    thumbnail: eternalNowPresenceHero,
+    steps: 3
+  },
+  {
+    id: "rhythm-pulse",
+    title: "Rhythm Through The Pulse",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['recovery', 'ultradian-rhythm', 'breaks', 'sustainability', 'energy-management'],
+    structuredTags: {
+      pillar: 'renewal',
+      masterySubtypes: ['restore', 'optimize'],
+      goalTags: ['energy_management', 'sustainability', 'recovery', 'performance'],
+      physioTarget: ['glucose_replenishment', 'cortisol_regulate'],
+      contextTags: ['energy_crash', 'diminishing_returns', 'long_session', 'exhaustion'],
+      environmentSuitability: ['any'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['supports_recovery', 'sustainable_performance'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'stabilize'
+    },
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Ultradian rhythms (biology) + Pomodoro Technique + Tony Schwartz's \"The Way We're Working Isn't Working\"",
+    origin: "Biological science + Time management + Performance psychology",
+    storyHook: "Sustain performance through strategic oscillation",
+    usedBy: "Energy crash mid-session, diminishing returns despite more hours, forcing focus past exhaustion, guilt about taking breaks",
+    subType: "mindset",
+    thumbnail: rhythmPulseHero,
+    steps: 4
+  },
+  {
+    id: "mastery-constraint",
+    title: "Mastery Through Constraint",
+    contentType: "micro-practice",
+    category: "presence",
+    tags: ['deliberate-practice', 'skill-building', 'constraint', 'mastery', 'learning'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize'],
+      goalTags: ['skill_mastery', 'learning', 'deliberate_practice', 'improvement'],
+      physioTarget: ['neuroplasticity', 'myelin_building'],
+      contextTags: ['skill_plateau', 'scattered_practice', 'slow_progress', 'training'],
+      environmentSuitability: ['private', 'training_space'],
+      equipment: ['none'],
+      cognitiveLoadHelp: ['focused_learning', 'skill_acquisition'],
+      socialTag: 'solo',
+      intensityLevel: 'high',
+      energyDirection: 'clarify'
+    },
+    duration: 2.5,
+    difficulty: "intermediate",
+    creator: "Theory of Constraints (Goldratt) + Deliberate Practice (Ericsson) + Haiku poetry structure",
+    origin: "Systems thinking + Performance psychology + Japanese aesthetics",
+    storyHook: "Accelerate learning by limiting options",
+    usedBy: "Skill plateau, learning feels scattered, overwhelmed by what to practice, slow progress despite effort, trying to improve everything at once",
+    subType: "mindset",
+    thumbnail: masteryConstraintHero,
+    steps: 4
   }
 ];
 
