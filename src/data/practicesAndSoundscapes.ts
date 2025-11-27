@@ -32,6 +32,7 @@ import sustainedFocusChoirHero from "@/assets/sustained-focus-choir-hero.jpg";
 import inaHero from "@/assets/ina-night-fields-hero.jpg";
 import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
 import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
+import vagusWindDownHero from "@/assets/vagus-wind-down-hero.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -313,6 +314,48 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Connects you to natural rhythms and grounding presence"
     ],
     completionQuote: "In nature's embrace, the mind remembers how to be still. The forest teaches what words cannot."
+  },
+  {
+    id: "vagus-wind-down",
+    title: "The Vagus Wind-Down",
+    contentType: "soundbath",
+    category: "pause",
+    tags: ['water', 'evening', 'gentle', 'nervous-system', 'sleep-prep', 'calm'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['deep-calm', 'grounding', 'composure'],
+      goalTags: ['grounding', 'calming', 'deep_reset', 'stress_reduction', 'sleep_preparation'],
+      physioTarget: ['vagus_activation', 'parasympathetic_activation', 'hr_decrease', 'cortisol_reduce'],
+      contextTags: ['evening_winddown', 'bedtime', 'post-stress', 'post-performance'],
+      environmentSuitability: ['private', 'home'],
+      equipment: ['none', 'headphones'],
+      cognitiveLoadHelp: ['lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    voice: 'female',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
+    duration: 5,
+    creator: "Taoist monks and elite combat athletes",
+    origin: "Ancient tuning meets modern neuroscience",
+    storyHook: "Calm the throat, settle the breath, and signal your nervous system to rest — as taught by Taoist monks and elite combat athletes.",
+    thumbnail: vagusWindDownHero,
+    audioSrc: "/soundscapes/vagus-wind-down.mp3",
+    fullStory: "The Vagus Wind-Down comes from the intersection of ancient tuning and modern neuroscience. For thousands of years, meditative traditions have used touch and breath to signal safety to the body. In Buddhist and yogic practices, gentle neck and chest touches were used to 'invite the heart to soften,' a way to drop tension held in the throat and jaw — the places most activated by fear, speech, and effort.\n\nModern science later revealed why those practices worked. Running from the brainstem down through the neck to the heart, lungs, and gut is the vagus nerve — the superhighway of calm. When activated, it slows the heart, lowers blood pressure, and tells the body: 'The danger is gone. You can rest.'\n\nElite military sleep protocols, trauma-informed therapy, and Olympic recovery routines use this principle: Stimulate the vagus nerve gently → the nervous system downshifts. The Vagus Wind-Down adapts these teachings into a simple ritual. A slow downward stroke — from jaw to collarbone — tells your system the hunt is over.",
+    technique: "1. Place the thumb under your ear.\nRight or left side — the soft place beneath the jawline.\n\n2. Glide downward to the collarbone.\nNot pressing. Not pushing.\nJust moving the skin in one smooth line.\n\n3. Breathe with the stroke.\nInhale through the nose…\nExhale longer through the mouth.\n\nAlternate sides.\nRight → down.\nLeft → down.\nJust like drawing rain down a window.\n\nThe nervous system understands this pattern.\nSlow downward motion + extended exhale = safety signal.",
+    benefits: [
+      "Signals safety to the nervous system through vagus nerve stimulation",
+      "Releases tension held in the throat, jaw, and shoulders",
+      "Downshifts from 'ON' mode to deep rest",
+      "Prepares body and mind for quality sleep",
+      "Calms racing thoughts and restlessness",
+      "Perfect after intense performance, stress, or competition"
+    ],
+    completionQuote: "You're not trying to 'force sleep.' You're giving the body a signal it understands: It's safe now. You can let go.",
+    introSummary: "A guided vagus nerve activation practice that uses gentle touch and extended exhales to signal safety and rest to your nervous system. Perfect for when your body is stuck in 'ON' mode.",
+    usedBy: "Elite military sleep protocols, trauma-informed therapy, and Olympic recovery routines"
   },
 
   // PRESENCE Soundbaths
