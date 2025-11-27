@@ -135,6 +135,10 @@ body {
     mix-blend-mode: multiply;
   }
 
+  .img-presence-natural {
+    filter: contrast(1.02) saturate(0.6);
+  }
+
   /* Elevated Taupe Effects */
   .taupe-gradient {
     background: linear-gradient(135deg, hsl(var(--taupe)) 0%, hsl(var(--taupe-highlight)) 50%, hsl(var(--taupe)) 100%);
