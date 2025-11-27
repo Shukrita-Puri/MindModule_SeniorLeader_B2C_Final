@@ -61,13 +61,11 @@ const PresenceOutcomePage = () => {
     
     // For soundscapes and guided practices, use the mapping
     const titleMap: Record<string, string> = {
-      "Primal Resonance": "Ancient Focus Activation",
-      "Warrior Drums": "Courage & Readiness Ritual",
+      "Deep Focus with Monastic Resonance": "Sustained Focus with Monastic Chant",
+      "Sustained Focus with Choir Harmonic": "Sustained Focus with Cathedral Choir",
       "Ina Night Fields (Tsukiyomi)": "Nature's Perfect Rhythm",
-      "Monastery Flow": "Mindful Walking Meditation",
-      "Pre-Performance Ritual": "Peak Performance State Activation",
-      "Bhramari Pranayama": "Deep Focus Through Bhramari Pranayama",
-      "Trataka - The Steady Flame Gaze": "One-Pointed Focus Through Trataka",
+      "Deep Focus Through Bhramari Pranayama": "Deep Focus Through Bhramari Pranayama",
+      "One-Pointed Focus Through Trataka": "One-Pointed Focus Through Trataka",
       "Stoic Evening Reflection": "Daily Virtue Alignment",
     };
     return titleMap[item.title] || item.title;
