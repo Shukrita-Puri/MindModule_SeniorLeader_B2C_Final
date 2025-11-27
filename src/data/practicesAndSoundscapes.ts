@@ -28,6 +28,10 @@ import mushinFlowHero from "@/assets/mushin-flow-hero.png";
 import jobsSimplicityHero from "@/assets/jobs-simplicity-hero.png";
 import ikigaiPurposeHero from "@/assets/ikigai-purpose-hero.png";
 import stoicReflectionHero from "@/assets/stoic-reflection-hero.png";
+import sustainedFocusChoirHero from "@/assets/sustained-focus-choir-hero.jpg";
+import inaHero from "@/assets/ina-night-fields-hero.jpg";
+import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
+import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -357,11 +361,27 @@ export const sanctuaryContent: SanctuaryContent[] = [
     contentType: "soundbath",
     category: "presence",
     tags: ['air', 'focus', 'moderate', 'sacred', 'resonance'],
+    structuredTags: {
+      pillar: 'flow',
+      masterySubtypes: ['optimize', 'maintain-peak'],
+      goalTags: ['focus', 'mental_clarity', 'meditation', 'sustained_attention'],
+      physioTarget: ['focus_enhancement', 'coherence'],
+      contextTags: ['deep_work', 'creative_work', 'study'],
+      environmentSuitability: ['private', 'home', 'office'],
+      equipment: ['headphones', 'speaker'],
+      cognitiveLoadHelp: ['improves_concentration', 'supports_decision'],
+      socialTag: 'solo',
+      intensityLevel: 'medium',
+      energyDirection: 'clarify'
+    },
+    voice: 'none',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
     duration: 3.5,
     creator: "Sacred harmonic compositions",
     origin: "Sacred harmonic compositions in grand cathedrals",
     storyHook: "Used to enhance focus, cultivate mindful presence, and align energy through layered choirs, bells, and reverberant harmonics.",
-    thumbnail: flowVisual,
+    thumbnail: sustainedFocusChoirHero,
     audioSrc: "/soundscapes/cathedral-choir-flow.mp3",
     fullStory: "The great cathedrals of Europe were designed not just as buildings but as instruments—acoustic spaces engineered to amplify the human voice into something transcendent. Gregorian chant and sacred polyphony weren't simply religious music; they were technologies for altering consciousness through harmonic resonance. The layered voices, the deep bells, the reverberant acoustics—all combined to create an environment where individual awareness could merge with something larger while maintaining crystalline focus. Modern neuroscience has confirmed what medieval monks knew intuitively: these harmonic patterns synchronize brainwaves, enhance coherence, and create optimal states for sustained mental clarity.",
     technique: "Find a comfortable position where you can remain alert yet relaxed. As the choir begins, imagine yourself standing in the center of a vast cathedral. The voices aren't coming from outside—they're surrounding you, creating a sonic architecture. Let the harmonics wash over you while keeping a thread of awareness on your breath. Notice how the bells punctuate moments of transition, how the reverb creates space. This isn't about passive listening—you're learning to hold sustained focus within a rich, complex environment. The choir becomes a mirror for your mind: multiple layers working in harmony toward a single purpose.",
@@ -380,11 +400,27 @@ export const sanctuaryContent: SanctuaryContent[] = [
     contentType: "soundbath",
     category: "presence",
     tags: ['water', 'nature', 'gentle', 'evening', 'ambient'],
+    structuredTags: {
+      pillar: 'pause',
+      masterySubtypes: ['deep-calm', 'grounding'],
+      goalTags: ['grounding', 'calming', 'deep_reset'],
+      physioTarget: ['hrv_increase', 'parasympathetic_activation'],
+      contextTags: ['evening_winddown', 'bedtime', 'rest'],
+      environmentSuitability: ['private', 'home'],
+      equipment: ['headphones', 'speaker'],
+      cognitiveLoadHelp: ['lowers_cognitive_load'],
+      socialTag: 'solo',
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
+    },
+    voice: 'none',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
     duration: 42,
     creator: "Natural field recording",
     origin: "Nagano Countryside, Japan",
     storyHook: "In the quiet heart of Nagano's countryside, where the land folds gently into mist and memory, night hums in perfect rhythm. Through the open window of a farmhouse in Ina, the living orchestra of the fields begins.",
-    thumbnail: flowVisual,
+    thumbnail: inaHero,
     audioSrc: "/soundscapes/ina-night-fields.mp3"
   },
 
@@ -662,15 +698,18 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'low',
       energyDirection: 'stabilize'
     },
+    voice: 'male',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
     duration: 12,
     difficulty: "beginner",
     origin: "Ancient Vedic Meditation Sound",
     storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
     usedBy: "Yogis, Meditators, Focus Seekers",
-    thumbnail: flowMeditationColorful,
+    thumbnail: bhramariHero,
     steps: 6,
     creator: "Ancient Vedic Meditation Sound",
-    audioSrc: "/guided-practices/bhramari-pranayama.mp3",
+    audioSrc: "/soundscapes/bhramari-pranayama.mp3",
     fullStory: "Bhramari Pranayama originates from ancient India, dating back 5,000 years to the Vedic period. Named after the Sanskrit word 'bhramari' (bee), the practice mimics a bee's humming sound. Ancient yogis discovered that internal vibration creates deep meditative states where the mind naturally absorbs into sound—one of the most effective techniques for entering flow states. Modern neuroscience confirms the vibration stimulates the vagus nerve, activating the parasympathetic nervous system while focusing attention.",
     whatYouNeed: [
       "Essential: Quiet space where you can sit comfortably for 12 minutes",
@@ -718,15 +757,18 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'medium',
       energyDirection: 'stabilize'
     },
+    voice: 'male',
+    language: 'en',
+    deliveryModality: ['headphones', 'speaker'],
     duration: 8,
     difficulty: "beginner",
     origin: "Ancient Yogic Focus Meditation",
     storyHook: "Yogis gazed at flames for centuries to develop superhuman focus—training the eyes trains the mind, creating instant flow states.",
     usedBy: "Yogis, Meditators, High Performers",
-    thumbnail: flowMeditationColorful,
+    thumbnail: tratakaHero,
     steps: 6,
     creator: "Ancient Yogic Focus Meditation",
-    audioSrc: "/guided-practices/trataka-flame-gaze.mp3",
+    audioSrc: "/soundscapes/trataka-single-focus.mp3",
     fullStory: "Trataka is one of six purification practices from the Hatha Yoga Pradipika (15th century). The word means 'to gaze steadily.' Ancient yogis discovered that training the eyes to remain perfectly still naturally draws the mind into deep concentration. The flame was chosen because fire represents consciousness itself in Vedic philosophy. Modern research shows Trataka increases gamma brainwave activity associated with peak concentration and flow states.",
     whatYouNeed: [
       "Essential: One candle (any size, unscented works best)",
