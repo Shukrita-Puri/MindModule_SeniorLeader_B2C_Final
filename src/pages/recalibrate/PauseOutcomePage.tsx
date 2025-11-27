@@ -16,12 +16,25 @@ const PauseOutcomePage = () => {
   const content = getContentByCategory('pause');
   const soundscapes = content.filter(item => item.contentType === 'soundbath');
   const practices = content.filter(item => item.contentType === 'guided-practice');
-  const microPractices = content.filter(item => item.contentType === 'micro-practice');
+  
+  // IDs of somatic micro-practices that should be in Somatic Protocol
+  const somaticMicroPracticeIds = ['grounding-touch', 'djokovic-reset'];
+  
+  // Filter micro-practices: exclude somatic ones from Mindset
+  const microPractices = content.filter(item => 
+    item.contentType === 'micro-practice' && !somaticMicroPracticeIds.includes(item.id)
+  );
+  
+  // Get somatic micro-practices
+  const somaticMicroPractices = content.filter(item => 
+    item.contentType === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
+  );
+  
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  // Combine soundscapes and practices for Somatic Protocol
-  const somaticItems = [...soundscapes, ...practices];
+  // Combine soundscapes, practices, and somatic micro-practices for Somatic Protocol
+  const somaticItems = [...soundscapes, ...practices, ...somaticMicroPractices];
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
