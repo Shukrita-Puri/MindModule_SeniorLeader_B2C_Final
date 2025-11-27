@@ -14,6 +14,8 @@ createRoot(document.getElementById("root")!).render(
     authorizationParams={{
       redirect_uri: `${window.location.origin}/callback`
     }}
+    useRefreshTokens={true}
+    cacheLocation="localstorage"
   >
     <AuthProvider>
       <App />
