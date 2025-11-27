@@ -23,6 +23,11 @@ import depthSubtractionHero from "@/assets/depth-subtraction-hero.png";
 import eternalNowPresenceHero from "@/assets/eternal-now-presence-hero.png";
 import rhythmPulseHero from "@/assets/rhythm-pulse-hero.png";
 import masteryConstraintHero from "@/assets/mastery-constraint-hero.png";
+import wuWeiFlowHero from "@/assets/wu-wei-flow-hero.png";
+import mushinFlowHero from "@/assets/mushin-flow-hero.png";
+import jobsSimplicityHero from "@/assets/jobs-simplicity-hero.png";
+import ikigaiPurposeHero from "@/assets/ikigai-purpose-hero.png";
+import stoicReflectionHero from "@/assets/stoic-reflection-hero.png";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -776,7 +781,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Rome | Marcus Aurelius",
     storyHook: "The Roman Emperor's daily practice of reviewing actions, thoughts, and alignment with virtue at day's end.",
     usedBy: "CEOs, Leaders, Philosophers",
-    thumbnail: flowMeditationColorful,
+    thumbnail: stoicReflectionHero,
     steps: 5,
     creator: "Stoic Philosophy"
   },
@@ -1145,7 +1150,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Cognitive load theory: your working memory has limited slots. Over-effort (physical tension, mental forcing) fills those slots with noise. When you release 20%, you free up bandwidth for pattern recognition and intuition. Flow states emerge when challenge matches skill AND effort is optimized, not maximized. \"Try less hard\" sounds wrong but is often right.",
-    thumbnail: flowBlue,
+    thumbnail: wuWeiFlowHero,
     steps: 4
   },
   {
@@ -1201,7 +1206,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "The conscious mind processes 40-50 bits of information per second. The unconscious processes 11 million. When you \"try to think\" during performance, you bottleneck a massive parallel processor through a tiny serial one. Experts perform best when they stop consciously monitoring. \"Choking\" is what happens when thinking interrupts doing. Mushin is getting out of your own way.",
-    thumbnail: flowBlue,
+    thumbnail: mushinFlowHero,
     steps: 4
   },
   {
@@ -1257,7 +1262,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Context-switching costs 20-40% of your productive time. Every additional priority fractures your attention. Jobs killed 70% of Apple's product line when he returned. The company became the most valuable in the world by doing LESS, better. Your brain can only hold one complex thing in working memory at a time. \"Do one thing\" isn't limiting—it's liberating. You're not avoiding work; you're avoiding waste.",
-    thumbnail: flowBlue,
+    thumbnail: jobsSimplicityHero,
     steps: 4
   },
   {
@@ -1313,7 +1318,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Intrinsic motivation (purpose, autonomy, mastery) outperforms extrinsic motivation (money, status) for complex cognitive work. When you connect your task to meaning, your prefrontal cortex releases dopamine—the fuel for sustained effort. People with strong Ikigai live longer and report higher life satisfaction. It's not woo-woo—it's how the reward system in your brain is designed. Meaning isn't found; it's created through framing.",
-    thumbnail: flowBlue,
+    thumbnail: ikigaiPurposeHero,
     steps: 4
   },
   {

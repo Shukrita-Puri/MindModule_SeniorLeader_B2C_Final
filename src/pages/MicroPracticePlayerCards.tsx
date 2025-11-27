@@ -29,6 +29,11 @@ import depthSubtractionHero from "@/assets/depth-subtraction-hero.png";
 import eternalNowPresenceHero from "@/assets/eternal-now-presence-hero.png";
 import rhythmPulseHero from "@/assets/rhythm-pulse-hero.png";
 import masteryConstraintHero from "@/assets/mastery-constraint-hero.png";
+import wuWeiFlowHero from "@/assets/wu-wei-flow-hero.png";
+import mushinFlowHero from "@/assets/mushin-flow-hero.png";
+import jobsSimplicityHero from "@/assets/jobs-simplicity-hero.png";
+import ikigaiPurposeHero from "@/assets/ikigai-purpose-hero.png";
+import stoicReflectionHero from "@/assets/stoic-reflection-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -789,6 +794,350 @@ const MASTERY_CONSTRAINT_CARDS = [
   },
 ];
 
+// Wu Wei Flow practice card content
+const WU_WEI_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Effortless Action Through Wu Wei",
+    subtitle: "Flow, don't force",
+    source: "Laozi's Tao Te Ching — 無為 (Wu Wei) Daoist principle + Flow state research (Csíkszentmihályi)",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Micromanaging, overthinking technique, feeling stuck or effortful, creative blocks",
+    whenToUse: "When you're forcing progress, gripping too hard, or creating unnecessary friction in your work.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Notice Where You're Forcing",
+    duration: "30 sec",
+    instruction: "Scan your body: Where am I holding tension? Jaw? Shoulders? Typing too hard? Scan your mind: Am I overthinking this?",
+    insight: {
+      text: "Over-effort fills working memory slots with noise, reducing bandwidth for pattern recognition",
+      source: "Cognitive Load Theory",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Release 20% of Effort",
+    duration: "10 sec",
+    instruction: "Intentionally reduce grip, soften muscles, slow down slightly. You're looking for the minimum effective dose of effort.",
+    insight: {
+      text: "Flow states emerge when challenge matches skill AND effort is optimized, not maximized",
+      source: "Flow Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Find the Natural Rhythm",
+    duration: "1 min",
+    instruction: "If writing: Just write next thought. If problem-solving: Ask \"What wants to emerge here?\" If in conversation: Listen and respond naturally.",
+    examples: [
+      "Stop trying to write perfectly — just write",
+      "Stop forcing the solution — ask what wants to emerge",
+      "Stop planning your next sentence — just respond naturally",
+    ],
+    closingWisdom: "The river doesn't push water. Align effort with natural conditions, not against them.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "The Ease Check",
+    duration: "ongoing",
+    instruction: "Every 10 minutes ask: \"Am I swimming with the current or against it?\" Adjust accordingly.",
+    insight: {
+      text: "Mastery isn't more effort — it's precise effort with less tension",
+      source: "Expert Performance Research",
+    },
+  },
+  {
+    type: "science" as const,
+    title: "Why This Works",
+    content: [
+      "When you release 20% effort, you free up bandwidth for pattern recognition and intuition.",
+      "Flow states emerge when challenge matches skill AND effort is optimized, not maximized.",
+    ],
+    closing: "\"Try less hard\" sounds wrong but is often right.",
+  },
+];
+
+// Mushin Flow practice card content
+const MUSHIN_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Fluid Performance Through Mushin",
+    subtitle: "Empty mind, full action",
+    source: "無心 (Mushin) — Zen Buddhism, martial arts philosophy + Expert automaticity research",
+    duration: "1 min",
+    steps: "4 Steps",
+    trigger: "High-stakes performance, when self-doubt interferes, during practiced skills that don't need thinking",
+    whenToUse: "Before and during performance moments when overthinking would disrupt what your body already knows.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Pre-Performance Discharge",
+    duration: "15 sec",
+    instruction: "Before the event, do a \"thought dump\": write every worry, doubt, and \"what if\" on paper. Close the notebook. \"Those thoughts stay here. I'm going in empty.\"",
+    insight: {
+      text: "Externalizing worries reduces cognitive load and frees working memory for performance",
+      source: "Expressive Writing Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Shift From Thinking to Sensing",
+    duration: "5 sec",
+    instruction: "Stop rehearsing in your head. Instead, tune into physical sensations: What do I see? Hear? Feel in my body? Become the action, not the narrator.",
+    insight: {
+      text: "The conscious mind processes 40-50 bits/sec. The unconscious processes 11 million",
+      source: "Neuroscience Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Trust the Training",
+    duration: "moment of action",
+    instruction: "When it's time to perform, don't think your way through it. Let your body do what it's practiced 100 times. If a thought arises, notice it like a cloud passing and return to sensation.",
+    closingWisdom: "Your body knows. Trust it.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "The Redirect Mantra",
+    duration: "ongoing",
+    instruction: "When thoughts hook you mid-performance, say internally: \"Not now. Do.\"",
+    insight: {
+      text: "Experts perform best when they stop consciously monitoring. \"Choking\" is thinking interrupting doing",
+      source: "Performance Psychology",
+    },
+  },
+  {
+    type: "science" as const,
+    title: "Why This Works",
+    content: [
+      "When you \"try to think\" during performance, you bottleneck a massive parallel processor through a tiny serial one.",
+      "Experts perform best when they stop consciously monitoring and let procedural memory take over.",
+    ],
+    closing: "Mushin is getting out of your own way.",
+  },
+];
+
+// Jobs Simplicity practice card content
+const JOBS_SIMPLICITY_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Ruthless Focus Through Simplicity",
+    subtitle: "One thing. Nothing else.",
+    source: "\"Focus is about saying no.\" — Steve Jobs + Essentialism (Greg McKeown)",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Overwhelm by options, multitasking temptation, unclear priorities, decision fatigue",
+    whenToUse: "When you have too many priorities and need to identify the ONE thing that actually matters.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "The Brutal Prioritization Question",
+    duration: "2 min",
+    instruction: "Write down everything you think you need to do. Then ask: \"If I could only do ONE of these today, and the rest disappeared, which one actually moves the mission forward?\" Circle it. Cross out the rest (for now).",
+    insight: {
+      text: "Context-switching costs 20-40% of your productive time. Every additional priority fractures attention",
+      source: "Cognitive Research",
+      quote: {
+        text: "Jobs killed 70% of Apple's product line when he returned. The company became the most valuable in the world by doing LESS, better.",
+        author: "Business History",
+      },
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Create Environmental Constraints",
+    duration: "10 sec",
+    instruction: "Close all browser tabs except the one for your priority task. Put phone in another room. Set a timer for 25 minutes of single-focus work. Tell yourself: \"For the next 25 minutes, this is the only thing that exists.\"",
+    insight: {
+      text: "Your environment is an extension of your attention. What's visible competes for focus",
+      source: "Environmental Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "The \"Is This It?\" Filter",
+    duration: "ongoing",
+    instruction: "Every time you're tempted to switch tasks or add something, ask: \"Is this THE thing right now?\" If no, write it on a \"later\" list and return to your one thing.",
+    closingWisdom: "\"Do one thing\" isn't limiting — it's liberating. You're not avoiding work; you're avoiding waste.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "The Simplicity Review",
+    duration: "end of day",
+    instruction: "\"Did I do my one thing? If not, why? What distracted me?\" Adjust tomorrow's environment accordingly.",
+    insight: {
+      text: "Your brain can only hold one complex thing in working memory at a time",
+      source: "Working Memory Research",
+    },
+  },
+  {
+    type: "science" as const,
+    title: "Why This Works",
+    content: [
+      "Context-switching costs 20-40% of productive time. Every additional priority fractures your attention.",
+      "Your brain can only hold one complex thing in working memory at a time.",
+    ],
+    closing: "Mastery isn't adding complexity — it's ruthless elimination of everything that doesn't serve the mission.",
+  },
+];
+
+// Ikigai Purpose practice card content
+const IKIGAI_PURPOSE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Purpose-Driven Flow Through Ikigai",
+    subtitle: "This is why I'm here",
+    source: "生き甲斐 (Ikigai) — Japanese philosophy of purpose + Self-determination theory",
+    duration: "3 min",
+    steps: "4 Steps",
+    trigger: "Mundane work, motivation dips, when questioning the point, energy depletion from meaningless tasks",
+    whenToUse: "When you've lost sight of why your work matters and need to reconnect with deeper purpose.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Connect Task to Larger Meaning",
+    duration: "2 min",
+    instruction: "Before starting work, answer: \"Who benefits if I do this well? How does this serve something bigger than me?\" Even mundane tasks have downstream impact.",
+    examples: [
+      "Not \"filling out reports\" — \"creating clarity for the team to make better decisions\"",
+      "Not \"answering emails\" — \"unblocking people so they can move forward\"",
+    ],
+    insight: {
+      text: "When you connect your task to meaning, your prefrontal cortex releases dopamine — the fuel for sustained effort",
+      source: "Motivation Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Reframe the Task",
+    duration: "30 sec",
+    instruction: "Find the human impact hiding in the task. Who does this help? What problem does this solve?",
+    insight: {
+      text: "Intrinsic motivation (purpose, autonomy, mastery) outperforms extrinsic motivation for complex cognitive work",
+      source: "Self-Determination Theory",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "The Energy Check",
+    duration: "ongoing",
+    instruction: "If a task consistently drains you with no sense of purpose, ask: \"Is this in my Ikigai zone? If not, can I delegate it, automate it, or say no to it?\" Protect your energy for work that lights you up.",
+    closingWisdom: "When your task sits at the intersection of what you love, what you're good at, what the world needs, and what you can be rewarded for — energy flows naturally.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "The Ikigai Audit",
+    duration: "weekly",
+    instruction: "Draw four overlapping circles (love, good at, world needs, paid for). Plot your tasks. If most are outside the center, something needs to change.",
+    insight: {
+      text: "People with strong Ikigai live longer and report higher life satisfaction",
+      source: "Japanese Longevity Research",
+    },
+  },
+  {
+    type: "science" as const,
+    title: "Why This Works",
+    content: [
+      "Intrinsic motivation outperforms extrinsic motivation for complex cognitive work.",
+      "When you connect your task to meaning, your brain releases dopamine — the fuel for sustained effort.",
+    ],
+    closing: "Meaning isn't found; it's created through framing.",
+  },
+];
+
+// Stoic Reflection practice card content
+const STOIC_REFLECTION_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Daily Virtue Alignment",
+    subtitle: "Marcus Aurelius's evening practice",
+    source: "Ancient Rome — Stoic Philosophy, Marcus Aurelius's Meditations",
+    duration: "10 min",
+    steps: "5 Steps",
+    trigger: "End of day, need for clarity, desire to align actions with values",
+    whenToUse: "Every evening to review the day, extract wisdom, and align with your highest values.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Review the Day",
+    duration: "2 min",
+    instruction: "Ask yourself: \"What happened today? What challenged me? What went well?\" Write it down without judgment.",
+    insight: {
+      text: "Reflection creates distance from events, allowing wisdom to emerge",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Examine Your Responses",
+    duration: "2 min",
+    instruction: "For each challenge: \"How did I respond? Was I ruled by impulse or guided by reason?\" Notice patterns.",
+    insight: {
+      text: "Self-awareness is the foundation of self-mastery",
+      source: "Ancient Wisdom",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Identify Virtue Alignment",
+    duration: "2 min",
+    instruction: "Ask: \"Where did I act with courage, wisdom, justice, or temperance? Where did I fall short?\" Be honest but not harsh.",
+    closingWisdom: "The goal isn't perfection — it's progress toward who you want to become.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Extract the Lesson",
+    duration: "2 min",
+    instruction: "For tomorrow: \"What will I do differently? What principle will I remember?\" Write one clear commitment.",
+    insight: {
+      text: "Every day is an opportunity to practice virtue",
+      source: "Marcus Aurelius",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 5,
+    title: "Close With Gratitude",
+    duration: "2 min",
+    instruction: "Name three things from today you're grateful for. End the day with appreciation, not regret.",
+    insight: {
+      text: "Gratitude transforms ordinary days into extraordinary lives",
+      source: "Stoic Practice",
+    },
+  },
+  {
+    type: "science" as const,
+    title: "Why This Works",
+    content: [
+      "Daily reflection creates a feedback loop for continuous improvement.",
+      "Stoic practice builds emotional resilience and aligns actions with values over time.",
+    ],
+    closing: "The examined life is the path to wisdom.",
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -816,6 +1165,16 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return RHYTHM_PULSE_CARDS;
     case "mastery-constraint":
       return MASTERY_CONSTRAINT_CARDS;
+    case "wu-wei-flow":
+      return WU_WEI_CARDS;
+    case "mushin-no-mind":
+      return MUSHIN_CARDS;
+    case "jobs-simplicity":
+      return JOBS_SIMPLICITY_CARDS;
+    case "ikigai-purpose":
+      return IKIGAI_PURPOSE_CARDS;
+    case "stoic-reflection":
+      return STOIC_REFLECTION_CARDS;
     default:
       return [];
   }
@@ -848,6 +1207,16 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return rhythmPulseHero;
     case "mastery-constraint":
       return masteryConstraintHero;
+    case "wu-wei-flow":
+      return wuWeiFlowHero;
+    case "mushin-no-mind":
+      return mushinFlowHero;
+    case "jobs-simplicity":
+      return jobsSimplicityHero;
+    case "ikigai-purpose":
+      return ikigaiPurposeHero;
+    case "stoic-reflection":
+      return stoicReflectionHero;
     default:
       return phoenixResilienceHero;
   }
