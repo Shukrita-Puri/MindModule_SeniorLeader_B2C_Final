@@ -318,7 +318,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   {
     id: "vagus-wind-down",
     title: "The Vagus Wind-Down",
-    contentType: "soundbath",
+    contentType: "guided-practice",
     category: "pause",
     tags: ['water', 'evening', 'gentle', 'nervous-system', 'sleep-prep', 'calm'],
     structuredTags: {
