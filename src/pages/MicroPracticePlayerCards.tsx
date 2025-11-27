@@ -23,6 +23,12 @@ import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
 import braveActionHero from "@/assets/brave-action-hero.png";
+import singleThreadFocusHero from "@/assets/single-thread-focus-hero.png";
+import firstMoveMomentumHero from "@/assets/first-move-momentum-hero.png";
+import depthSubtractionHero from "@/assets/depth-subtraction-hero.png";
+import eternalNowPresenceHero from "@/assets/eternal-now-presence-hero.png";
+import rhythmPulseHero from "@/assets/rhythm-pulse-hero.png";
+import masteryConstraintHero from "@/assets/mastery-constraint-hero.png";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -435,6 +441,354 @@ const ENERGY_COMPLETION_CARDS = [
   },
 ];
 
+// Single Thread Focus practice cards
+const SINGLE_THREAD_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Entry Through The Single Thread",
+    subtitle: "Lock attention by choosing one anchor",
+    source: "Zen monk single-pointed concentration (zazen) + Flow research (Csikszentmihalyi) + Cal Newport's \"Deep Work\"",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Before entering deep work, when attention keeps fragmenting, starting sessions with scattered focus, task-switching exhaustion",
+    whenToUse: "At the threshold of focus sessions—before writing, studying, coding, creating, or any work requiring sustained attention.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name the single target",
+    duration: "30 sec",
+    instruction: "Complete: \"For the next [time block], the only thing that exists is [specific task].\" Not \"work on project\"—be surgical: \"Write the introduction\" or \"Solve equations 12-15\" or \"Draft slide 3.\"",
+    guidance: "The brain can't multitask; it context-switches. Each switch costs 23 minutes of refocus time (Leroy, 2009). Single-threading eliminates the tax.",
+    insight: {
+      text: "Neuroscience: The brain can't multitask; it context-switches. Each switch costs 23 minutes of refocus time. Single-threading eliminates the tax.",
+      source: "Research (Leroy, 2009)",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Eliminate competing threads",
+    duration: "30 sec",
+    instruction: "Physically remove distractions: Close tabs/apps, silence phone, clear desk, face away from movement. Your environment is an extension of your attention. What's visible competes for focus.",
+    guidance: "Ancient wisdom: Zen masters face blank walls during meditation. The eyes lead the mind.",
+    insight: {
+      text: "Your environment is an extension of your attention. What's visible competes for focus.",
+      source: "Environmental Psychology",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Set the re-entry condition",
+    duration: "30 sec",
+    instruction: "Declare when you'll surface: \"I emerge when [specific milestone] or [specific time].\" Examples: \"After 3 paragraphs\" / \"At 4:00pm\" / \"When I solve this problem.\" Commitment before entry prevents premature exit.",
+    guidance: "High performer: Hemingway stopped writing mid-sentence so he always knew where to re-enter. Define your exit before you dive.",
+    insight: {
+      text: "Commitment before entry prevents premature exit.",
+      source: "Hemingway's Technique",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Speak the intention",
+    duration: "30 sec",
+    instruction: "Say aloud: \"I am here. This is enough. I begin.\" Verbal declaration activates motor commitment. Your brain treats spoken words as contracts.",
+    guidance: "The pattern: Attention follows intention. State where you're going, then go.",
+    insight: {
+      text: "Verbal declaration activates motor commitment. Your brain treats spoken words as contracts.",
+      source: "Behavioral Psychology",
+    },
+  },
+];
+
+// First Move Momentum practice cards
+const FIRST_MOVE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Momentum Through The First Move",
+    subtitle: "Overcome inertia with the smallest possible start",
+    source: "Newton's First Law (physics) + Atomic Habits (James Clear) + Hemingway's \"one true sentence\"",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Procrastination, task paralysis, perfectionism preventing start, feeling overwhelmed by scope, resistance to beginning",
+    whenToUse: "When you know what to do but can't start—staring at blank page, avoiding the first step, waiting for \"the right time.\"",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Shrink the start to absurd",
+    duration: "30 sec",
+    instruction: "What's the smallest first action? Not \"write the essay\"—just \"Write one sentence.\" Not \"study for test\"—just \"Read one page.\" Not \"clean room\"—just \"Put away one item.\" The brain resists big. It can't resist tiny.",
+    guidance: "Physics: Objects at rest stay at rest. Objects in motion stay in motion. Your first move creates momentum.",
+    insight: {
+      text: "The brain resists big. It can't resist tiny.",
+      source: "Newton's First Law Applied",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Commit to 2 minutes only",
+    duration: "30 sec",
+    instruction: "Set a timer. Tell yourself: \"I'll do this for 2 minutes, then stop if I want.\" You'll rarely stop. Starting is the hard part. Continuing is automatic once in motion.",
+    guidance: "Neuroscience: The anterior cingulate cortex (your \"effort center\") quiets after 2-3 minutes of sustained action. Resistance fades once you're moving.",
+    insight: {
+      text: "Resistance fades once you're moving. The anterior cingulate cortex quiets after 2-3 minutes.",
+      source: "Neuroscience Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Execute the first move now",
+    duration: "30 sec",
+    instruction: "Not in 5 minutes. Now. Open the document. Pick up the book. Write the word. Momentum exists only in the present tense.",
+    guidance: "High performer: Hemingway's rule—\"Write one true sentence. The truest sentence you know.\" Then the next. Then the next. Books are built from first sentences.",
+    insight: {
+      text: "Momentum exists only in the present tense.",
+      source: "Hemingway's Method",
+    },
+  },
+];
+
+// Depth Subtraction practice cards
+const DEPTH_SUBTRACTION_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Depth Through Subtraction",
+    subtitle: "Achieve clarity by removing, not adding",
+    source: "Michelangelo's \"sculpture inside the marble\" + Essentialism (Greg McKeown) + Dieter Rams's design principle",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Overwhelmed by options, multitasking temptation, unclear priorities, decision fatigue, doing many things poorly",
+    whenToUse: "When your to-do list feels impossible, when quality suffers from quantity, when you need to choose what NOT to do.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "List what's demanding attention",
+    duration: "30 sec",
+    instruction: "Write every task, project, or commitment pulling at you. Don't filter. Just capture. Visibility precedes choice.",
+    guidance: "Ancient wisdom: Before the sculptor carves, they see the stone completely.",
+    insight: {
+      text: "Visibility precedes choice.",
+      source: "Michelangelo's Process",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Ask the essential question",
+    duration: "45 sec",
+    instruction: "For each item: \"If I could only do ONE thing today, would this be it?\" If no, cross it out or defer it. Repeat until one remains. Essential means \"if you don't do this, nothing else matters.\"",
+    guidance: "High performer: Warren Buffett's 5/25 rule—List 25 goals. Circle top 5. Avoid the other 20 at all costs. They're distractions disguised as priorities.",
+    insight: {
+      text: "Avoid distractions disguised as priorities.",
+      source: "Warren Buffett's 5/25 Rule",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Eliminate or automate the rest",
+    duration: "30 sec",
+    instruction: "For non-essential items: Delete, delegate, or schedule for later (not today). Your energy is finite. Depth requires saying no to good things to say yes to great things.",
+    guidance: "Design principle: Dieter Rams—\"Good design is as little design as possible.\" Good work is as few priorities as necessary.",
+    insight: {
+      text: "Depth requires saying no to good things to say yes to great things.",
+      source: "Essentialism",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Commit the next hour to the essential",
+    duration: "15 sec",
+    instruction: "Block time. Protect it. Do the one thing that matters most.",
+    guidance: "The pattern: Mastery comes from depth, not breadth. Do less. Do it better.",
+    insight: {
+      text: "Mastery comes from depth, not breadth.",
+      source: "Cal Newport, Deep Work",
+    },
+  },
+];
+
+// Eternal Now practice cards
+const ETERNAL_NOW_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Presence Through The Eternal Now",
+    subtitle: "Anchor in this moment, the only one that exists",
+    source: "Buddhist mindfulness + Eckhart Tolle's \"The Power of Now\" + Flow state research",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Mental time-traveling (ruminating on past, anxious about future), distracted during work, mind wandering, feeling disconnected from task",
+    whenToUse: "Mid-session when focus drifts, when past mistakes or future worries intrude, when you catch yourself physically present but mentally absent.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Notice where your mind went",
+    duration: "30 sec",
+    instruction: "Pause. Ask: \"Where was I just now?\" Past (replaying)? Future (rehearsing)? Judging? Planning? Name it without judgment. \"I was worrying about tomorrow.\"",
+    guidance: "Neuroscience: The default mode network activates during mind-wandering. Awareness of mind-wandering deactivates it (Brewer, 2011).",
+    insight: {
+      text: "Awareness of mind-wandering deactivates the default mode network.",
+      source: "Neuroscience (Brewer, 2011)",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Return to sensory present",
+    duration: "30 sec",
+    instruction: "Name three immediate sensations: What you see, hear, or feel right now. \"I see the screen. I hear the fan. I feel the chair.\" Sensation only exists now. Your senses are an anchor to the present.",
+    guidance: "Ancient wisdom: Zen teaching—\"When you eat, eat. When you walk, walk.\" The present moment is the only moment.",
+    insight: {
+      text: "Your senses are an anchor to the present moment.",
+      source: "Zen Mindfulness",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Re-engage the task",
+    duration: "30 sec",
+    instruction: "Return to what's in front of you. Ask: \"What's the next smallest action?\" Do that. Then the next. Flow lives in sequential now-moments.",
+    guidance: "Flow research: Csikszentmihalyi—Flow occurs when attention is fully absorbed in the present challenge. Past and future disappear.",
+    insight: {
+      text: "Flow lives in sequential now-moments.",
+      source: "Csikszentmihalyi, Flow Research",
+    },
+  },
+];
+
+// Rhythm Pulse practice cards
+const RHYTHM_PULSE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Rhythm Through The Pulse",
+    subtitle: "Sustain performance through strategic oscillation",
+    source: "Ultradian rhythms (biology) + Pomodoro Technique + Tony Schwartz's \"The Way We're Working Isn't Working\"",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Energy crash mid-session, diminishing returns despite more hours, forcing focus past exhaustion, guilt about taking breaks",
+    whenToUse: "When planning a long work session, when feeling guilty about breaks, when pushing through diminishing returns, before multi-hour focus blocks.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Accept the biological truth",
+    duration: "30 sec",
+    instruction: "Your brain operates in 90-minute cycles (ultradian rhythms). After 90 minutes, performance drops sharply. Fighting biology creates burnout, not productivity. Work with your rhythm, not against it.",
+    guidance: "Neuroscience: The brain's prefrontal cortex (focus center) depletes glucose after 90 minutes. Breaks replenish it (Baumeister, 2007).",
+    insight: {
+      text: "Work with your rhythm, not against it.",
+      source: "Ultradian Rhythm Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Design your pulse",
+    duration: "45 sec",
+    instruction: "Choose your sprint/recovery ratio: 25 min work / 5 min break (Pomodoro), 50 min work / 10 min break (standard), 90 min work / 20 min break (ultradian). Write it: \"I will work [X] minutes, then recover [Y] minutes.\"",
+    guidance: "High performer: Elite musicians practice in 60-90 minute blocks with mandatory breaks. More isn't better. Recovery enables repetition.",
+    insight: {
+      text: "Recovery enables repetition.",
+      source: "Elite Performance Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Define true recovery",
+    duration: "30 sec",
+    instruction: "Recovery ≠ scrolling social media (that depletes). Recovery = Movement, nature, hydration, stillness, or social connection. Ask: \"Does this replenish or distract?\" Choose replenishment.",
+    guidance: "Ancient wisdom: Greek philosophers walked between thinking sessions. Movement restores the mind.",
+    insight: {
+      text: "Movement restores the mind.",
+      source: "Ancient Greek Philosophy",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Honor the break as training",
+    duration: "15 sec",
+    instruction: "Breaks aren't weakness. They're part of the protocol. Marathon runners don't sprint the full 26 miles. Neither can your brain.",
+    guidance: "The pattern: Sustainable intensity beats heroic exhaustion. Pulse, don't push.",
+    insight: {
+      text: "Sustainable intensity beats heroic exhaustion.",
+      source: "Sports Psychology",
+    },
+  },
+];
+
+// Mastery Constraint practice cards
+const MASTERY_CONSTRAINT_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Mastery Through Constraint",
+    subtitle: "Accelerate learning by limiting options",
+    source: "Theory of Constraints (Goldratt) + Deliberate Practice (Ericsson) + Haiku poetry structure",
+    duration: "2.5 min",
+    steps: "4 Steps",
+    trigger: "Skill plateau, learning feels scattered, overwhelmed by what to practice, slow progress despite effort, trying to improve everything at once",
+    whenToUse: "When planning practice sessions, feeling stuck at current skill level, when improvement feels impossible, designing training routines.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Identify the bottleneck",
+    duration: "40 sec",
+    instruction: "What ONE skill, if improved, would unlock everything else? Not five things. One. Your weakest link limits the whole chain.",
+    guidance: "Theory of Constraints: Every system has one bottleneck. Improve it first. Everything else becomes easier.",
+    insight: {
+      text: "Your weakest link limits the whole chain.",
+      source: "Theory of Constraints (Goldratt)",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Isolate and exaggerate",
+    duration: "50 sec",
+    instruction: "Practice ONLY that skill in isolation. Remove everything else. If it's \"asking clarifying questions,\" practice 20 questions with no other goals. If it's \"thesis statements,\" write 10 thesis statements and nothing else. Constraint forces mastery. Abundance creates mediocrity.",
+    guidance: "High performer: Basketball players practice free throws (one skill) for 30 minutes daily. Not \"playing games\"—drilling the constraint.",
+    insight: {
+      text: "Constraint forces mastery. Abundance creates mediocrity.",
+      source: "Deliberate Practice Research",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Set the micro-boundary",
+    duration: "40 sec",
+    instruction: "How long? How many reps? Define completion. \"I will practice [skill] for [15 minutes] or [10 repetitions], then stop.\" Bounded practice prevents burnout and measures progress.",
+    guidance: "Ancient wisdom: Haiku has 17 syllables. The constraint creates the art. Limits liberate creativity.",
+    insight: {
+      text: "Limits liberate creativity.",
+      source: "Japanese Haiku Tradition",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "Return tomorrow to the same constraint",
+    duration: "40 sec",
+    instruction: "Don't switch to a new skill yet. Return to the bottleneck for 3-5 sessions. Progress comes from depth, not variety. When the bottleneck breaks, the whole system levels up.",
+    guidance: "Deliberate practice: Ericsson—Experts spend 80% of practice time on their weakest skills. Amateurs avoid them.",
+    insight: {
+      text: "Experts spend 80% of practice time on their weakest skills.",
+      source: "Ericsson, Deliberate Practice",
+    },
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -450,6 +804,18 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return ENERGY_COMPLETION_CARDS;
     case "courage-arena":
       return COURAGE_ARENA_CARDS;
+    case "single-thread-focus":
+      return SINGLE_THREAD_CARDS;
+    case "first-move-momentum":
+      return FIRST_MOVE_CARDS;
+    case "depth-subtraction":
+      return DEPTH_SUBTRACTION_CARDS;
+    case "eternal-now-presence":
+      return ETERNAL_NOW_CARDS;
+    case "rhythm-pulse":
+      return RHYTHM_PULSE_CARDS;
+    case "mastery-constraint":
+      return MASTERY_CONSTRAINT_CARDS;
     default:
       return [];
   }
@@ -470,6 +836,18 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return energyCompletionHero;
     case "courage-arena":
       return braveActionHero;
+    case "single-thread-focus":
+      return singleThreadFocusHero;
+    case "first-move-momentum":
+      return firstMoveMomentumHero;
+    case "depth-subtraction":
+      return depthSubtractionHero;
+    case "eternal-now-presence":
+      return eternalNowPresenceHero;
+    case "rhythm-pulse":
+      return rhythmPulseHero;
+    case "mastery-constraint":
+      return masteryConstraintHero;
     default:
       return phoenixResilienceHero;
   }
