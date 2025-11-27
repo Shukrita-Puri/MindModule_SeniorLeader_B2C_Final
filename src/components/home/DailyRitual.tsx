@@ -9,6 +9,26 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+// Helper to determine protocol type
+const getProtocolType = (practice: Recommendation): string => {
+  // Somatic Protocol: Audio-based practices, breathwork, body-based
+  const somaticIds = [
+    'box-breathing', 'kapalabhati-pranayama', 'energy-forge',
+    'tibetan-bowls', 'warrior-drums', 'monastic-resonance',
+    'forest-bathing', 'didgeridoo-bowls', 'earth-resonance',
+    'basque-txalaparta', 'cathedral-choir-flow', 'himalayan-monastery',
+    'ina-night-fields', 'harmonic-calm'
+  ];
+  
+  // Check if it's a soundscape or breathing practice
+  if (practice.contentType === 'soundbath' || somaticIds.includes(practice.id)) {
+    return 'Somatic Protocol';
+  }
+  
+  // Everything else is Mindset Protocol (reframing, visualization, cognitive)
+  return 'Mindset Protocol';
+};
+
 const DailyRitual = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -291,6 +311,13 @@ const DailyRitual = () => {
                 <h4 className="text-sm font-medium text-foreground">
                   {practice.title}
                 </h4>
+                {/* Protocol Badge */}
+                <Badge 
+                  variant="secondary" 
+                  className="mt-1.5 text-[10px] px-1.5 py-0"
+                >
+                  {getProtocolType(practice)}
+                </Badge>
               </div>
               
               {/* Duration badge on TOP RIGHT */}
