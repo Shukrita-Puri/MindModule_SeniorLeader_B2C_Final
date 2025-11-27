@@ -9,23 +9,51 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-// Helper to determine protocol type
+// Helper to determine protocol type based on practice characteristics
 const getProtocolType = (practice: Recommendation): string => {
-  // Somatic Protocol: Audio-based practices, breathwork, body-based
-  const somaticIds = [
-    'box-breathing', 'kapalabhati-pranayama', 'energy-forge',
-    'tibetan-bowls', 'warrior-drums', 'monastic-resonance',
-    'forest-bathing', 'didgeridoo-bowls', 'earth-resonance',
-    'basque-txalaparta', 'cathedral-choir-flow', 'himalayan-monastery',
-    'ina-night-fields', 'harmonic-calm'
-  ];
-  
-  // Check if it's a soundscape or breathing practice
-  if (practice.contentType === 'soundbath' || somaticIds.includes(practice.id)) {
+  // All soundbaths are Somatic Protocol
+  if (practice.contentType === 'soundbath') {
     return 'Somatic Protocol';
   }
   
-  // Everything else is Mindset Protocol (reframing, visualization, cognitive)
+  // Check if practice has 'somatic' in its tags (explicit marker)
+  if (practice.tags && practice.tags.some(tag => 
+    tag.toLowerCase().includes('somatic') || 
+    tag.toLowerCase().includes('breathing') ||
+    tag.toLowerCase().includes('breathwork')
+  )) {
+    return 'Somatic Protocol';
+  }
+  
+  // Body-based guided practices (yogic, physical, sensory)
+  const somaticGuidedPractices = [
+    'trataka-flame-gaze', // Yogic gazing meditation
+    'energy-forge', // Physical activation
+    'box-breathing', // Breathwork
+    'kapalabhati-pranayama', // Breathwork
+    'body-scan', // Body awareness
+    'progressive-relaxation', // Body-based
+  ];
+  
+  if (practice.contentType === 'guided-practice' && somaticGuidedPractices.includes(practice.id)) {
+    return 'Somatic Protocol';
+  }
+  
+  // For micro-practices, check if they're tools (somatic) vs mindset
+  // Tools are body-based techniques, mindset are cognitive reframes
+  const somaticMicroPractices = [
+    'grounding-touch',
+    'physiological-sigh',
+    'power-pose',
+    'cold-exposure',
+    'rhythmic-breathing'
+  ];
+  
+  if (practice.contentType === 'micro-practice' && somaticMicroPractices.includes(practice.id)) {
+    return 'Somatic Protocol';
+  }
+  
+  // Everything else is Mindset Protocol (cognitive reframing, visualization, mental models)
   return 'Mindset Protocol';
 };
 
