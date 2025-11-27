@@ -241,10 +241,7 @@ const PauseOutcomePage = () => {
             {somaticItems.map((item) => (
               <Card
                 key={item.id}
-                className={cn(
-                  "cursor-pointer group overflow-hidden",
-                  item.id === "vagus-wind-down" && "ring-2 ring-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.15)]"
-                )}
+                className="cursor-pointer group overflow-hidden"
                 onClick={() => handleItemClick(item)}
               >
                 <div className="relative h-48 overflow-hidden">
@@ -253,10 +250,7 @@ const PauseOutcomePage = () => {
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className={cn(
-                    "absolute inset-0 bg-gradient-to-b from-transparent to-card/60",
-                    item.id === "vagus-wind-down" && "from-blue-500/5 via-transparent to-card/60"
-                  )} />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
                       {getBadgeLabel(item)}
