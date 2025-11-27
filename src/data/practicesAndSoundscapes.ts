@@ -33,6 +33,7 @@ import inaHero from "@/assets/ina-night-fields-hero.jpg";
 import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
 import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
 import vagusWindDownHero from "@/assets/vagus-wind-down-hero.jpg";
+import harmonicCalmBowl from "@/assets/harmonic-calm-singing-bowl.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -239,22 +240,22 @@ export const sanctuaryContent: SanctuaryContent[] = [
   // PAUSE Soundbaths
   {
     id: "harmonic-calm",
-    title: "Harmonic Calm",
+    title: "Deep Rest & Grounding with Harmonic Calm",
     contentType: "soundbath",
     category: "pause",
     tags: ['earth', 'post-stress', 'gentle', 'healing', 'meditation'],
     structuredTags: {
-      pillar: 'flow',
-      masterySubtypes: ['optimize', 'maintain-peak'],
-      goalTags: ['centering', 'mental_clarity', 'focus', 'balancing'],
-      physioTarget: ['hrv_increase', 'cortisol_reduce'],
-      contextTags: ['pre-meeting', 'between-meetings', 'pre-performance'],
+      pillar: 'pause',
+      masterySubtypes: ['deep-calm', 'grounding', 'composure'],
+      goalTags: ['grounding', 'centering', 'deep_reset', 'stress_reduction', 'calming'],
+      physioTarget: ['hrv_increase', 'cortisol_reduce', 'parasympathetic_activation'],
+      contextTags: ['post-stress', 'evening_winddown', 'between-meetings', 'rest'],
       environmentSuitability: ['private', 'home', 'office'],
       equipment: ['headphones', 'speaker'],
-      cognitiveLoadHelp: ['improves_concentration', 'supports_decision'],
+      cognitiveLoadHelp: ['lowers_cognitive_load', 'supports_decision'],
       socialTag: 'solo',
-      intensityLevel: 'medium',
-      energyDirection: 'clarify'
+      intensityLevel: 'low',
+      energyDirection: 'downshift'
     },
     voice: 'none',
     language: 'en',
@@ -262,8 +263,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     duration: 3,
     creator: "Tibetan Buddhist singing bowl traditions",
     origin: "Tibetan Buddhist singing bowl traditions",
-    storyHook: "Used to reduce stress, restore emotional balance, and create a sense of grounded presence through harmonic resonance.",
-    thumbnail: pauseVisual,
+    storyHook: "Ancient Tibetan singing bowls create harmonic resonance for deep rest, nervous system regulation, and grounded presence.",
+    thumbnail: harmonicCalmBowl,
     audioSrc: "/soundscapes/harmonic-calm.mp3",
     fullStory: "For over a thousand years, Tibetan Buddhist monks have used singing bowls as sacred instruments for meditation and healing. These bronze bowls, traditionally crafted in the Himalayan regions, produce harmonic overtones that are believed to align the body's energy centers and quiet the restless mind. The practice was traditionally reserved for monastic meditation halls, where monks would strike and circle the bowls' rims to create cascading waves of sound that filled the space with resonance. Today, this ancient tradition offers a pathway to restore emotional balance and cultivate a sense of grounded presence amid modern life's turbulence.",
     technique: "Find a comfortable seated or lying position. Close your eyes and allow your body to settle. As the singing bowls begin, notice how the sound waves seem to move through your body rather than just your ears. Don't try to control your thoughts—simply let the harmonic frequencies wash over you like gentle waves. When your mind wanders, use the sound as an anchor to return to the present moment. Notice how different tones resonate in different parts of your body. This is not passive listening; it's active presence with sound as your guide.",
