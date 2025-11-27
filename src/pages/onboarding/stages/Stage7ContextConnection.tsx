@@ -113,7 +113,16 @@ export default function Stage7ContextConnection() {
 
         if (data?.authUrl) {
           console.log('[Calendar] Redirecting to Google OAuth:', data.authUrl);
-          window.location.href = data.authUrl;
+          
+          // Show warning about Google OAuth requirements
+          toast.info("Opening Google Calendar authorization", {
+            description: "If you see a 403 error, check that your OAuth app is properly configured in Google Cloud Console.",
+            duration: 5000,
+          });
+          
+          setTimeout(() => {
+            window.location.href = data.authUrl;
+          }, 1000);
         } else {
           throw new Error('No authorization URL received from server');
         }
