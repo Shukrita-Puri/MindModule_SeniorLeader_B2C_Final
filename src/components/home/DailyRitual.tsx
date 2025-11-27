@@ -314,7 +314,7 @@ const DailyRitual = () => {
                 {/* Protocol Badge */}
                 <Badge 
                   variant="secondary" 
-                  className="mt-1.5 text-[10px] px-1.5 py-0"
+                  className="mt-1.5 text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground font-medium"
                 >
                   {getProtocolType(practice)}
                 </Badge>
