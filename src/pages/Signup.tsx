@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const Signup = () => {
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,19 +33,29 @@ const Signup = () => {
       return;
     }
 
-    // Use Auth0 SDK loginWithRedirect for proper PKCE flow
-    const redirectUri = `${window.location.origin}/callback${isOnboardingFlow ? '?from=onboarding' : ''}`;
-    
-    console.log('[Signup] Redirecting to Auth0 with loginWithRedirect:', { redirectUri });
-    
-    loginWithRedirect({
-      authorizationParams: {
-        redirect_uri: redirectUri,
-        screen_hint: 'signup',
-        scope: 'openid profile email',
-      },
-    });
-  }, [isLoading, isAuthenticated, navigate, location]);
+    (async () => {
+      console.log('[Signup] Opening Auth0 signup popup', { isOnboardingFlow });
+      try {
+        await loginWithPopup({
+          authorizationParams: {
+            screen_hint: 'signup',
+            scope: 'openid profile email',
+          },
+        });
+
+        if (isOnboardingFlow) {
+          console.log('[Signup] Popup signup complete, redirecting to /onboarding/results');
+          navigate('/onboarding/results');
+        } else {
+          console.log('[Signup] Popup signup complete, redirecting to /executive-home');
+          navigate('/executive-home');
+        }
+      } catch (error) {
+        console.error('[Signup] Popup signup error:', error);
+        navigate('/signup?error=auth_failed');
+      }
+    })();
+  }, [isLoading, isAuthenticated, navigate, location, loginWithPopup]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
