@@ -34,6 +34,13 @@ import mushinFlowHero from "@/assets/mushin-flow-hero.png";
 import jobsSimplicityHero from "@/assets/jobs-simplicity-hero.png";
 import ikigaiPurposeHero from "@/assets/ikigai-purpose-hero.png";
 import stoicReflectionHero from "@/assets/stoic-reflection-hero.png";
+import fudoshinHero from "@/assets/fudoshin-immovable-mind.jpg";
+import presenceGroundingHero from "@/assets/presence-grounding.jpg";
+import releaseExhaleHero from "@/assets/release-exhale.jpg";
+import clarityEyeStormHero from "@/assets/clarity-eye-of-storm.jpg";
+import stillnessGapHero from "@/assets/stillness-gap.jpg";
+import detachmentObserverHero from "@/assets/detachment-observer.jpg";
+import softnessReleaseHero from "@/assets/softness-release.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -1138,6 +1145,377 @@ const STOIC_REFLECTION_CARDS = [
   },
 ];
 
+// Calm in Chaos Through Fudōshin card content
+const FUDOSHIN_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Calm in Chaos Through Fudōshin",
+    subtitle: "Maintain unshakeable mind when everything moves",
+    source: "Samurai principle Fudōshin (不動心 — 'immovable mind') from Miyamoto Musashi's Book of Five Rings + Elite athlete 'eye of the storm' training + Michael Jordan's pre-shot ritual",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Critical performances, leadership under crisis, public speaking, confrontation, when chaos surrounds you and all eyes are on you",
+    whenToUse: "Before stepping into the arena—presentations, difficult conversations, competition, emergency leadership, any moment requiring poise under pressure.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Center in your body",
+    duration: "30 sec",
+    instruction: "Feel your feet on the ground. Press them down deliberately. Lower your awareness to your center—two inches below your navel. The Japanese call this hara, your body's gravity point.",
+    guidance: "Chaos exists outside. Your center is internal and unmovable. Stand or sit with spine straight. You are a mountain.",
+    insight: {
+      text: "Before battle, samurai warriors grounded their energy in hara. External storm, internal stillness. This is the foundation of immovable mind.",
+      source: "Ancient Wisdom",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Widen your gaze",
+    duration: "30 sec",
+    instruction: "Soften your eyes. Don't fixate on one thing—take in the whole scene at once. Peripheral vision, not tunnel vision.",
+    guidance: "When you fixate, you react to every stimulus. When you observe broadly, you respond from choice. Let everything enter your awareness without grabbing onto anything.",
+    insight: {
+      text: "Observe with both eyes, but see with the mind. Perceive that which cannot be seen with the eye. Peripheral vision activates parasympathetic calm awareness.",
+      source: "Musashi",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Declare your ground",
+    duration: "30 sec",
+    instruction: "Say silently or aloud: 'I am here. I am steady. Nothing moves me.' Or use the samurai declaration: 'Fudōshin—immovable mind.'",
+    guidance: "Your inner stability creates outer composure. What you declare, you embody. Feel the truth of immovability in your center. You are the eye of the storm.",
+    insight: {
+      text: "Michael Jordan used the same free-throw ritual 8,000+ times—same breath, same stance, same unshakeable presence regardless of 20,000 screaming fans.",
+      source: "Elite Performance Research",
+    },
+  },
+];
+
+// Presence Through Grounding card content
+const PRESENCE_GROUNDING_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Presence Through Grounding",
+    subtitle: "Return to now when mind spirals elsewhere",
+    source: "Buddhist mindfulness practice (sati — present-moment awareness) + Eckhart Tolle's The Power of Now + Grounding techniques from trauma therapy (Bessel van der Kolk)",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Ruminating on past mistakes, anxious about future outcomes, mental time-traveling during stress, feeling disconnected or dissociated, racing thoughts that won't stop",
+    whenToUse: "When your body is here but your mind is elsewhere—replaying arguments, rehearsing disasters, or lost in worry. This brings you back.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Notice where you went",
+    duration: "30 sec",
+    instruction: "Pause. Ask yourself: 'Where was my mind just now?' Past (replaying what happened)? Future (worrying what might happen)? Judging myself? Planning obsessively?",
+    guidance: "Name it without shame: 'I was catastrophizing about tomorrow' or 'I was replaying that conversation.' Just notice. No fixing yet.",
+    insight: {
+      text: "Awareness of mind-wandering itself interrupts the default mode network—the brain's 'autopilot' that creates rumination.",
+      source: "Brewer et al., 2011",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Anchor in three sensations",
+    duration: "30 sec",
+    instruction: "Bring your attention to RIGHT NOW through your senses. Name one thing you see. Name one thing you hear. Name one thing you feel.",
+    guidance: "Sensation only exists in the present moment. Your senses are your tether back to now.",
+    insight: {
+      text: "When walking, just walk. When sitting, just sit. Don't wobble. The present moment is the only moment that actually exists.",
+      source: "Buddhist Teaching",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Speak your location",
+    duration: "30 sec",
+    instruction: "Say aloud or silently: 'I am here. I am now. This moment is enough.' Or simply: 'Here. Now.'",
+    guidance: "Your body believes what you declare. Verbal grounding completes the return. Take one full breath. Feel yourself arrive.",
+    insight: {
+      text: "Grounding statements restore 'felt safety'—the body's sense that it's okay to be present. The body keeps the score.",
+      source: "Van der Kolk",
+    },
+  },
+];
+
+// Release Through The Exhale card content
+const RELEASE_EXHALE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Release Through The Exhale",
+    subtitle: "Discharge intensity through controlled breath",
+    source: "Ancient Pranayama (yogic breath control) + Polyvagal Theory (Stephen Porges) + Navy SEAL combat breathing protocols",
+    duration: "90 sec",
+    steps: "3 Steps",
+    trigger: "Physical tension, shallow breathing, fight-or-flight activation, wired/manic energy at night, post-adrenaline crash, body feeling 'locked up,' overstimulated after long day",
+    whenToUse: "When intensity is stored in your body—anxiety that manifests as chest tightness, post-stress tension, or when you have too much energy at the end of the day and need to wind down.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Locate the intensity",
+    duration: "30 sec",
+    instruction: "Scan your body from head to feet. Where is tension or excess energy held? Jaw clenched? Shoulders tight? Chest constricted? Legs restless?",
+    guidance: "Name the location: 'Tension in my shoulders' or 'Wired energy in my chest.' Don't try to change it yet. Just acknowledge where it lives.",
+    insight: {
+      text: "Dysregulation creates a 'vagal brake' that locks your nervous system. Tension is a roadblock. You're about to clear it.",
+      source: "Polyvagal Theory",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Elongate the exhale",
+    duration: "40 sec",
+    instruction: "Breathe in through your nose for 4 counts. Breathe out through your nose or mouth for 8 counts (twice as long as the inhale). Repeat this pattern 3 times.",
+    guidance: "Focus only on making the exhale long and complete. Each long exhale is a message to your nervous system: 'Threat is over. Reset to baseline.'",
+    insight: {
+      text: "Inhale is energy. Exhale is release. The exhale activates the parasympathetic nervous system—your body's rest-and-digest mode.",
+      source: "Pranayama Teaching",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Discharge physically",
+    duration: "20 sec",
+    instruction: "After your third long exhale, shake your hands vigorously for 10 seconds. Let them be loose and wild. Or shiver your whole body like you're shaking off water.",
+    guidance: "Let sound escape if it wants to—sigh, groan, exhale sharply. You're completing the stress cycle your body started but couldn't finish.",
+    insight: {
+      text: "Animals shake after escaping predators—discharging trapped cortisol and adrenaline. Physical discharge releases stress hormones that breath alone can't clear.",
+      source: "Levine, 1997",
+    },
+  },
+];
+
+// Clarity in Chaos Through The Eye card content
+const CLARITY_EYE_STORM_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Clarity in Chaos Through The Eye",
+    subtitle: "See through confusion by naming what's real",
+    source: "Sun Tzu's The Art of War ('Know yourself, know the enemy') + Dwight Eisenhower's Urgent/Important Matrix + Cognitive Behavioral Therapy (Aaron Beck)",
+    duration: "2 min",
+    steps: "4 Steps",
+    trigger: "Overwhelming situations, information overload, when multiple demands hit simultaneously, decision paralysis under pressure, feeling like everything is urgent",
+    whenToUse: "When everything feels critical and you don't know where to look first—project crises, simultaneous deadlines, family emergencies overlapping with work demands.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name what you see",
+    duration: "30 sec",
+    instruction: "List the facts without interpretation. Not 'Everything's falling apart' but: 'Three deadlines. One angry email. Two people need answers.'",
+    guidance: "Write them if possible. Or speak them aloud. Strip away the drama. State only what's actually in front of you.",
+    insight: {
+      text: "If you know the enemy and know yourself, you need not fear the result of a hundred battles. Start by knowing what IS.",
+      source: "Sun Tzu",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Separate urgent from important",
+    duration: "45 sec",
+    instruction: "For each item, ask: Does this demand immediate action? (Urgent) Does this create long-term value? (Important)",
+    guidance: "Sort into: Urgent + Important = Do now. Important, not urgent = Schedule. Urgent, not important = Minimize. Neither = Delete.",
+    insight: {
+      text: "What is important is seldom urgent, and what is urgent is seldom important. This matrix won World War II logistics decisions.",
+      source: "Eisenhower",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Choose the one critical action",
+    duration: "30 sec",
+    instruction: "Of what remains (urgent AND important), ask: 'Which one action unblocks everything else?' Not 'What can I do?' but 'What MUST I do first?'",
+    guidance: "That's your clarity. Write it down.",
+    insight: {
+      text: "Jeff Bezos aims to make one high-quality decision per day. Not ten rushed ones. One clear one.",
+      source: "Modern Leadership",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 4,
+    title: "State the first move",
+    duration: "15 sec",
+    instruction: "Complete this sentence: 'The one thing I do next is [specific action].' Not 'work on project' but 'write the introduction' or 'call Sarah.'",
+    guidance: "Make it physical. Make it immediate. Make it singular. Clarity becomes direction. Direction becomes motion.",
+    insight: {
+      text: "A journey of a thousand miles begins with a single step. Not the plan for 1,000 miles. The first step.",
+      source: "Lao Tzu",
+    },
+  },
+];
+
+// Stillness Through The Gap card content
+const STILLNESS_GAP_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Stillness Through The Gap",
+    subtitle: "Find the quiet between thoughts",
+    source: "Zen ma (間 — the space between) + Vipassana meditation (sankara observation) + Elite sniper 'breath pause' training",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Mental noise, thoughts colliding, feeling trapped in your own head, pre-decision overwhelm, when you need to hear your intuition but can't access it",
+    whenToUse: "Before important decisions when you need to hear your own wisdom, when thoughts are too loud to think clearly, when you need to access intuition buried under noise.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Notice the stream",
+    duration: "40 sec",
+    instruction: "Close your eyes or soften your gaze. Notice thoughts moving through your mind like cars on a highway. Don't grab onto any thought. Don't follow any thought into its story.",
+    guidance: "Just observe: 'Thought about work. Thought about dinner. Worry thought. Planning thought.' You are not the cars. You are the road.",
+    insight: {
+      text: "Thoughts arise (uppada), exist briefly, and pass away (vaya). Your job isn't to stop them—it's to stop identifying with them.",
+      source: "Vipassana Teaching",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Find the gap",
+    duration: "60 sec",
+    instruction: "Between each thought, there is a tiny space of silence. A gap. Your task: Notice the gap. Even if it's only a fraction of a second.",
+    guidance: "Thought arises → Gap → Next thought arises. Rest your attention in that gap. It's where stillness lives. When the next thought comes (it will), just wait for the next gap.",
+    insight: {
+      text: "Ma (間) is the void, the pause, the breath between notes in music. Without ma, music is noise. Without the gap, thoughts are chaos.",
+      source: "Zen Concept",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Expand the silence",
+    duration: "20 sec",
+    instruction: "After finding a few gaps, ask one question into the silence: 'What do I actually need right now?' or 'What's true here?' Don't answer it. Just ask it into the gap and listen.",
+    guidance: "The answer won't come from thinking. It will arrive in the next gap—sudden, clear, quiet. Trust the first thing that emerges from silence. That's your intuition.",
+    insight: {
+      text: "The quieter you become, the more you can hear. Intuition doesn't shout. It whispers in gaps.",
+      source: "Rumi",
+    },
+  },
+];
+
+// Detachment Through The Observer card content
+const DETACHMENT_OBSERVER_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Detachment Through The Observer",
+    subtitle: "Step outside yourself to see clearly",
+    source: "Stoic prosoche (attention discipline) + Buddhist sakshi (witness consciousness) + Psychological distancing research (Ethan Kross)",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Taking things too personally, reactive defensiveness, feeling attacked by feedback, when emotions cloud judgment, losing objectivity about your own situation",
+    whenToUse: "After harsh feedback, when criticism feels like identity assault, during conflicts where you're losing perspective, when you need to separate fact from story.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Shift to third-person narration",
+    duration: "40 sec",
+    instruction: "Describe what's happening as if you're a narrator watching someone else. Don't say: 'I'm furious.' Say: 'They are feeling anger' or 'They received feedback that triggered defensiveness.'",
+    guidance: "Use your name or 'they' instead of 'I.' Create distance without denying reality. You're not suppressing emotion—you're changing your viewing angle.",
+    insight: {
+      text: "Third-person self-talk reduces emotional reactivity by 30% and increases problem-solving by 20%.",
+      source: "Kross et al., 2014",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Name the story, not the fact",
+    duration: "40 sec",
+    instruction: "Ask: 'What story am I telling about what happened?' Separate fact from interpretation.",
+    examples: [
+      "Fact: 'They disagreed with my idea.' Story: 'They think I'm incompetent.'",
+      "Fact: 'I didn't get the role.' Story: 'I'm not talented enough.'",
+    ],
+    guidance: "Speak this out loud: 'The fact is [X]. The story I'm telling is [Y].' Stories create suffering. Facts create information.",
+    insight: {
+      text: "People are disturbed not by things, but by the views they take of them. The event is neutral. Your interpretation creates the pain.",
+      source: "Epictetus",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Return as witness",
+    duration: "40 sec",
+    instruction: "Say to yourself: 'I notice I'm having the thought that [story]. That's a thought, not a truth.' Example: 'I notice I'm having the thought that I'm not good enough. That's a thought, not a truth.'",
+    guidance: "You don't have to believe every thought your mind produces. You are not your thoughts. You are the awareness that notices them. Sit in that awareness for three breaths. Observer, not participant.",
+    insight: {
+      text: "You are the sky, not the weather. Thoughts and emotions are weather patterns passing through. The sky remains unchanged.",
+      source: "Buddhist Teaching",
+    },
+  },
+];
+
+// Softness Through Release card content
+const SOFTNESS_RELEASE_CARDS = [
+  {
+    type: "overview" as const,
+    title: "Softness Through Release",
+    subtitle: "Let go of what you cannot control",
+    source: "Taoist Wu Wei (effortless action) + Serenity Prayer tradition + Acceptance and Commitment Therapy (ACT — Russ Harris)",
+    duration: "2 min",
+    steps: "3 Steps",
+    trigger: "Trying to control the uncontrollable, white-knuckling outcomes, exhaustion from forcing, resistance creating more suffering, fixated on what you can't change",
+    whenToUse: "When you're fighting reality, when effort creates more tension, when you need to accept what is before you can act, when resistance is the problem—not the situation.",
+  },
+  {
+    type: "step" as const,
+    stepNumber: 1,
+    title: "Name what you're gripping",
+    duration: "40 sec",
+    instruction: "Ask: 'What am I trying to control right now?' Be specific. Write it or speak it.",
+    examples: [
+      "'I'm trying to control what they think of me'",
+      "'I'm trying to control the outcome of this interview'",
+      "'I'm trying to make them understand'",
+    ],
+    guidance: "Naming reveals the grip. You can't release what you don't acknowledge you're holding.",
+    insight: {
+      text: "God, grant me the serenity to accept the things I cannot change, courage to change the things I can, and wisdom to know the difference.",
+      source: "Serenity Prayer",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 2,
+    title: "Separate what's yours to hold",
+    duration: "40 sec",
+    instruction: "For what you named, ask: 'Can I directly influence this outcome?' and 'Is my effort creating the result I want?'",
+    guidance: "If both answers are NO, you're gripping the uncontrollable. Speak: 'I cannot control [X]. I release my grip on [X].' If YES to either, identify your one actual leverage point: 'What I CAN do is [specific action].'",
+    insight: {
+      text: "Wu Wei doesn't mean 'do nothing.' It means 'don't force what doesn't need force.' Water doesn't fight the rock—it flows around.",
+      source: "Taoist Teaching",
+    },
+  },
+  {
+    type: "step" as const,
+    stepNumber: 3,
+    title: "Open your hands",
+    duration: "40 sec",
+    instruction: "Physically: Make tight fists. Squeeze hard for 5 seconds. Then open your hands completely. Palms up. Fingers relaxed. Feel the difference. That's the sensation of release.",
+    guidance: "Say aloud or silently: 'I release. I allow. I accept what is.' Take three breaths with open hands. Each exhale, imagine releasing more grip. You're not giving up. You're putting down what was never yours to carry.",
+    insight: {
+      text: "Open palms (varada mudra)—the gesture of giving and releasing. Used for 2,500+ years to signal surrender to what is.",
+      source: "Buddhist Mudra",
+    },
+  },
+];
+
 // Helper to get cards for practice
 const getCardsForPractice = (practiceId: string | undefined) => {
   switch (practiceId) {
@@ -1175,6 +1553,25 @@ const getCardsForPractice = (practiceId: string | undefined) => {
       return IKIGAI_PURPOSE_CARDS;
     case "stoic-reflection":
       return STOIC_REFLECTION_CARDS;
+    case "fudoshin-immovable-mind":
+      return FUDOSHIN_CARDS;
+    case "presence-grounding":
+    case "presence-grounding-new":
+      return PRESENCE_GROUNDING_CARDS;
+    case "release-exhale":
+    case "release-exhale-new":
+      return RELEASE_EXHALE_CARDS;
+    case "eye-of-storm":
+      return CLARITY_EYE_STORM_CARDS;
+    case "stillness-gap":
+    case "stillness-gap-new":
+      return STILLNESS_GAP_CARDS;
+    case "detachment-observer":
+    case "detachment-observer-new":
+      return DETACHMENT_OBSERVER_CARDS;
+    case "softness-release":
+    case "softness-release-new":
+      return SOFTNESS_RELEASE_CARDS;
     default:
       return [];
   }
@@ -1217,6 +1614,25 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
       return ikigaiPurposeHero;
     case "stoic-reflection":
       return stoicReflectionHero;
+    case "fudoshin-immovable-mind":
+      return fudoshinHero;
+    case "presence-grounding":
+    case "presence-grounding-new":
+      return presenceGroundingHero;
+    case "release-exhale":
+    case "release-exhale-new":
+      return releaseExhaleHero;
+    case "eye-of-storm":
+      return clarityEyeStormHero;
+    case "stillness-gap":
+    case "stillness-gap-new":
+      return stillnessGapHero;
+    case "detachment-observer":
+    case "detachment-observer-new":
+      return detachmentObserverHero;
+    case "softness-release":
+    case "softness-release-new":
+      return softnessReleaseHero;
     default:
       return phoenixResilienceHero;
   }
@@ -1233,7 +1649,7 @@ const MicroPracticePlayerCards = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const category = location.state?.category || 'power-up'; // Default to power-up if no category
+  const category = location.state?.category || 'power-up';
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"

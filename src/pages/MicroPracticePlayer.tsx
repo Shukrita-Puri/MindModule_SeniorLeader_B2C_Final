@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { useContentById } from "@/hooks/useContent";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,15 +15,14 @@ const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   useScrollToTop();
-  const allContent = getAllContent();
-  const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
+  const { data: practice, isLoading } = useContentById(id || '');
   
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
   // Track engagement on page load
   useEffect(() => {
-    if (practice) {
+    if (practice && practice.content_type === 'micro-practice') {
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
@@ -33,7 +32,7 @@ const MicroPracticePlayer = () => {
         trackEngagement('pause_session');
       } else if (practice.category === 'power-up') {
         trackEngagement('renew_session');
-      } else if (practice.category === 'presence' || practice.category === 'flow') {
+      } else if (practice.category === 'presence') {
         trackEngagement('flow_session');
       }
     }
@@ -194,7 +193,7 @@ const MicroPracticePlayer = () => {
           {/* Hero Visual */}
           <div className="w-full max-w-sm mx-auto mb-8 aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
             <img 
-              src={practice.thumbnail} 
+              src={practice.thumbnail_url || ''} 
               alt={practice.title}
               className="w-full h-full object-cover"
               style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
@@ -208,7 +207,7 @@ const MicroPracticePlayer = () => {
           
           {/* Subtitle - Essence */}
           <p className="text-muted-foreground font-body leading-relaxed italic">
-            {practice.essence}
+            {practice.metadata?.essence || ''}
           </p>
 
           {/* Duration/Steps Badges */}
@@ -216,9 +215,9 @@ const MicroPracticePlayer = () => {
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full text-sm text-muted-foreground">
               <Clock size={14} /> {practice.duration} min
             </span>
-            {practice.steps && (
+            {practice.steps_count && practice.steps_count > 0 && (
               <span className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-full text-sm text-muted-foreground">
-                <Sparkles size={14} /> {practice.steps} Steps
+                <Sparkles size={14} /> {practice.steps_count} Steps
               </span>
             )}
           </div>
@@ -226,19 +225,19 @@ const MicroPracticePlayer = () => {
 
         {/* Best For & When to Use Sections */}
         <div className="space-y-6 text-left bg-card border border-border rounded-xl p-6 mb-8">
-          {practice.storyHook && (
+          {practice.story_hook && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Best For</h4>
               <p className="text-foreground leading-relaxed">
-                {practice.storyHook}
+                {practice.story_hook}
               </p>
             </div>
           )}
-          {practice.usedBy && (
+          {practice.used_by && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">When to Use</h4>
               <p className="text-foreground leading-relaxed">
-                {practice.usedBy}
+                {practice.used_by}
               </p>
             </div>
           )}

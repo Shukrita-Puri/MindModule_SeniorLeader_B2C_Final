@@ -122,33 +122,6 @@ export type Database = {
         }
         Relationships: []
       }
-      checkin_tag_definitions: {
-        Row: {
-          description: string | null
-          display_name: string
-          energy_balance_max: number | null
-          energy_balance_min: number | null
-          key: string
-          mapped_outcome: string | null
-        }
-        Insert: {
-          description?: string | null
-          display_name: string
-          energy_balance_max?: number | null
-          energy_balance_min?: number | null
-          key: string
-          mapped_outcome?: string | null
-        }
-        Update: {
-          description?: string | null
-          display_name?: string
-          energy_balance_max?: number | null
-          energy_balance_min?: number | null
-          key?: string
-          mapped_outcome?: string | null
-        }
-        Relationships: []
-      }
       content_relevance_feedback: {
         Row: {
           content_id: string
@@ -386,33 +359,6 @@ export type Database = {
           streak_bonus?: number | null
           trend?: string | null
           user_id?: string
-        }
-        Relationships: []
-      }
-      meta_skill_definitions: {
-        Row: {
-          cluster: string
-          core_function: string | null
-          description: string | null
-          display_name: string
-          display_order: number | null
-          key: string
-        }
-        Insert: {
-          cluster: string
-          core_function?: string | null
-          description?: string | null
-          display_name: string
-          display_order?: number | null
-          key: string
-        }
-        Update: {
-          cluster?: string
-          core_function?: string | null
-          description?: string | null
-          display_name?: string
-          display_order?: number | null
-          key?: string
         }
         Relationships: []
       }
@@ -700,7 +646,6 @@ export type Database = {
           is_active: boolean | null
           language: string | null
           origin: string | null
-          protocol_type: string | null
           steps_count: number | null
           story_hook: string | null
           sub_type: string | null
@@ -724,7 +669,6 @@ export type Database = {
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
-          protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null
           sub_type?: string | null
@@ -748,7 +692,6 @@ export type Database = {
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
-          protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null
           sub_type?: string | null
@@ -764,7 +707,6 @@ export type Database = {
       sanctuary_content_metadata: {
         Row: {
           benefits: string[] | null
-          checkin_tags: Json | null
           completion_quote: string | null
           content_id: string
           created_at: string | null
@@ -775,22 +717,16 @@ export type Database = {
           full_story: string | null
           id: string
           intro_summary: string | null
-          mastery_category: Json | null
-          meta_skills: Json | null
           parallel: string | null
           real_examples: Json | null
-          soft_skills: string[] | null
           structured_tags: Json | null
-          sub_skills: Json | null
           technique: string | null
           updated_at: string | null
-          usage_occasions: string[] | null
           what_you_need: string[] | null
           why_this_works: string | null
         }
         Insert: {
           benefits?: string[] | null
-          checkin_tags?: Json | null
           completion_quote?: string | null
           content_id: string
           created_at?: string | null
@@ -801,22 +737,16 @@ export type Database = {
           full_story?: string | null
           id?: string
           intro_summary?: string | null
-          mastery_category?: Json | null
-          meta_skills?: Json | null
           parallel?: string | null
           real_examples?: Json | null
-          soft_skills?: string[] | null
           structured_tags?: Json | null
-          sub_skills?: Json | null
           technique?: string | null
           updated_at?: string | null
-          usage_occasions?: string[] | null
           what_you_need?: string[] | null
           why_this_works?: string | null
         }
         Update: {
           benefits?: string[] | null
-          checkin_tags?: Json | null
           completion_quote?: string | null
           content_id?: string
           created_at?: string | null
@@ -827,16 +757,11 @@ export type Database = {
           full_story?: string | null
           id?: string
           intro_summary?: string | null
-          mastery_category?: Json | null
-          meta_skills?: Json | null
           parallel?: string | null
           real_examples?: Json | null
-          soft_skills?: string[] | null
           structured_tags?: Json | null
-          sub_skills?: Json | null
           technique?: string | null
           updated_at?: string | null
-          usage_occasions?: string[] | null
           what_you_need?: string[] | null
           why_this_works?: string | null
         }
@@ -936,77 +861,6 @@ export type Database = {
           tags?: string[] | null
           timestamp?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      soft_skill_definitions: {
-        Row: {
-          description: string | null
-          display_name: string
-          key: string
-          related_meta_skills: string[] | null
-        }
-        Insert: {
-          description?: string | null
-          display_name: string
-          key: string
-          related_meta_skills?: string[] | null
-        }
-        Update: {
-          description?: string | null
-          display_name?: string
-          key?: string
-          related_meta_skills?: string[] | null
-        }
-        Relationships: []
-      }
-      sub_skill_definitions: {
-        Row: {
-          description: string | null
-          display_name: string
-          key: string
-          parent_meta_skill: string | null
-        }
-        Insert: {
-          description?: string | null
-          display_name: string
-          key: string
-          parent_meta_skill?: string | null
-        }
-        Update: {
-          description?: string | null
-          display_name?: string
-          key?: string
-          parent_meta_skill?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sub_skill_definitions_parent_meta_skill_fkey"
-            columns: ["parent_meta_skill"]
-            isOneToOne: false
-            referencedRelation: "meta_skill_definitions"
-            referencedColumns: ["key"]
-          },
-        ]
-      }
-      usage_occasion_definitions: {
-        Row: {
-          category: string | null
-          description: string | null
-          display_name: string
-          key: string
-        }
-        Insert: {
-          category?: string | null
-          description?: string | null
-          display_name: string
-          key: string
-        }
-        Update: {
-          category?: string | null
-          description?: string | null
-          display_name?: string
-          key?: string
         }
         Relationships: []
       }

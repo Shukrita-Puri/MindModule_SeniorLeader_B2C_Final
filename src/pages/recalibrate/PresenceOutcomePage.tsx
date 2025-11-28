@@ -21,13 +21,16 @@ const PresenceOutcomePage = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // Move specific guided practices to different sections
-  const stoicReflection = practices.find(item => item.id === 'stoic-reflection');
   const breathingPractices = practices.filter(item => 
     item.id === 'bhramari-pranayama' || item.id === 'trataka-flame-gaze'
   );
 
+  // Hide stoic-reflection from Presence page
+  const hiddenPracticeIds = ['stoic-reflection'];
+  const filteredMicroPractices = microPractices.filter(item => !hiddenPracticeIds.includes(item.id));
+
   // Combined items for each section
-  const mindsetItems = [...microPractices, ...(stoicReflection ? [stoicReflection] : [])];
+  const mindsetItems = filteredMicroPractices;
   const somaticItems = [...soundscapes, ...breathingPractices];
 
   useEffect(() => {
@@ -196,6 +199,7 @@ const PresenceOutcomePage = () => {
                     alt={item.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
+                  <div className="absolute inset-0 bg-white/25" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
@@ -257,6 +261,7 @@ const PresenceOutcomePage = () => {
                     alt={item.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
+                  <div className="absolute inset-0 bg-white/25" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
