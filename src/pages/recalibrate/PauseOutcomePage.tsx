@@ -20,9 +20,14 @@ const PauseOutcomePage = () => {
   // IDs of somatic micro-practices that should be in Somatic Protocol
   const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind', 'stoic-reflection'];
   
-  // Filter micro-practices: exclude somatic ones from Mindset
+  // IDs to exclude entirely from display
+  const excludedIds = ['grounding-touch'];
+  
+  // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
   const microPractices = content.filter(item => 
-    item.contentType === 'micro-practice' && !somaticMicroPracticeIds.includes(item.id)
+    item.contentType === 'micro-practice' && 
+    !somaticMicroPracticeIds.includes(item.id) &&
+    !excludedIds.includes(item.id)
   );
   
   // Get somatic micro-practices
