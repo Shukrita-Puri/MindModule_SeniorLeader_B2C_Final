@@ -329,7 +329,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   {
     id: "vagus-wind-down",
     title: "The Vagus Wind-Down",
-    contentType: "guided-practice",
+    contentType: "soundbath",
     category: "pause",
     tags: ['water', 'evening', 'gentle', 'nervous-system', 'sleep-prep', 'calm'],
     structuredTags: {
@@ -658,7 +658,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
   {
     id: "pranayama-clarity",
     title: "Pranayama Clarity Breath",
-    contentType: "guided-practice",
+    contentType: "soundbath",
     category: "pause",
     tags: ['earth', 'decision-making', 'gentle', 'mental-clarity', 'calm'],
     duration: 3,

@@ -30,9 +30,10 @@ const PauseOutcomePage = () => {
     !excludedIds.includes(item.id)
   );
   
-  // Get stoic-reflection from all content (it's categorized as 'presence' in data)
+  // Get stoic-reflection and wu-wei-flow from all content (they're categorized as 'presence' in data)
   const allContent = getAllContent();
   const stoicReflection = allContent.find(item => item.id === 'stoic-reflection');
+  const wuWeiFlow = allContent.find(item => item.id === 'wu-wei-flow');
   
   // Add stoic-reflection to mindset items
   const mindsetItems = stoicReflection ? [...microPractices, stoicReflection] : microPractices;
@@ -45,8 +46,10 @@ const PauseOutcomePage = () => {
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  // Combine soundscapes, practices, and somatic micro-practices for Somatic Protocol
-  const somaticItems = [...soundscapes, ...practices, ...somaticMicroPractices];
+  // Combine soundscapes, practices, somatic micro-practices, and wu-wei-flow for Somatic Protocol
+  const somaticItems = wuWeiFlow 
+    ? [...soundscapes, ...practices, ...somaticMicroPractices, wuWeiFlow]
+    : [...soundscapes, ...practices, ...somaticMicroPractices];
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
@@ -163,6 +166,10 @@ const PauseOutcomePage = () => {
   };
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
+    // Keep "Guided Practice" label for these specific items even though they're soundbath contentType
+    if (item.id === 'vagus-wind-down' || item.id === 'pranayama-clarity') {
+      return 'Guided Practice';
+    }
     if (item.contentType === 'micro-practice') {
       return item.subType === 'mindset' ? 'Reframe' : 'Tool';
     }
