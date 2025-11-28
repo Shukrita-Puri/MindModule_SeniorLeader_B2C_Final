@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,13 @@ const PauseOutcomePage = () => {
     !somaticMicroPracticeIds.includes(item.id) &&
     !excludedIds.includes(item.id)
   );
+  
+  // Get stoic-reflection from all content (it's categorized as 'presence' in data)
+  const allContent = getAllContent();
+  const stoicReflection = allContent.find(item => item.id === 'stoic-reflection');
+  
+  // Add stoic-reflection to mindset items
+  const mindsetItems = stoicReflection ? [...microPractices, stoicReflection] : microPractices;
   
   // Get somatic micro-practices
   const somaticMicroPractices = content.filter(item => 
@@ -185,7 +192,7 @@ const PauseOutcomePage = () => {
             <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {microPractices.map((item) => (
+            {mindsetItems.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
                 <div className="relative h-48 overflow-hidden">
                   <img 
