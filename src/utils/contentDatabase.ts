@@ -59,11 +59,7 @@ export interface SanctuaryContentStep {
 export async function getAllContent(): Promise<SanctuaryContent[]> {
   const { data, error } = await supabase
     .from('sanctuary_content')
-    .select(`
-      *,
-      metadata:sanctuary_content_metadata(*),
-      steps:sanctuary_content_steps(*)
-    `)
+    .select(`*`)
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
@@ -72,14 +68,9 @@ export async function getAllContent(): Promise<SanctuaryContent[]> {
     return [];
   }
 
-  return (data || []).map(item => ({
-    ...item,
-    metadata: Array.isArray(item.metadata) ? item.metadata[0] : item.metadata,
-    steps: Array.isArray(item.steps) 
-      ? item.steps.sort((a, b) => a.step_order - b.step_order)
-      : []
-  })) as SanctuaryContent[];
+  return (data || []) as SanctuaryContent[];
 }
+
 
 /**
  * Fetch content filtered by category
@@ -87,11 +78,7 @@ export async function getAllContent(): Promise<SanctuaryContent[]> {
 export async function getContentByCategory(category: Category): Promise<SanctuaryContent[]> {
   const { data, error } = await supabase
     .from('sanctuary_content')
-    .select(`
-      *,
-      metadata:sanctuary_content_metadata(*),
-      steps:sanctuary_content_steps(*)
-    `)
+    .select(`*`)
     .eq('category', category)
     .eq('is_active', true)
     .order('display_order', { ascending: true });
@@ -101,14 +88,9 @@ export async function getContentByCategory(category: Category): Promise<Sanctuar
     return [];
   }
 
-  return (data || []).map(item => ({
-    ...item,
-    metadata: Array.isArray(item.metadata) ? item.metadata[0] : item.metadata,
-    steps: Array.isArray(item.steps) 
-      ? item.steps.sort((a, b) => a.step_order - b.step_order)
-      : []
-  })) as SanctuaryContent[];
+  return (data || []) as SanctuaryContent[];
 }
+
 
 /**
  * Fetch content filtered by type
@@ -116,11 +98,7 @@ export async function getContentByCategory(category: Category): Promise<Sanctuar
 export async function getContentByType(type: ContentType): Promise<SanctuaryContent[]> {
   const { data, error } = await supabase
     .from('sanctuary_content')
-    .select(`
-      *,
-      metadata:sanctuary_content_metadata(*),
-      steps:sanctuary_content_steps(*)
-    `)
+    .select(`*`)
     .eq('content_type', type)
     .eq('is_active', true)
     .order('display_order', { ascending: true });
@@ -130,14 +108,9 @@ export async function getContentByType(type: ContentType): Promise<SanctuaryCont
     return [];
   }
 
-  return (data || []).map(item => ({
-    ...item,
-    metadata: Array.isArray(item.metadata) ? item.metadata[0] : item.metadata,
-    steps: Array.isArray(item.steps) 
-      ? item.steps.sort((a, b) => a.step_order - b.step_order)
-      : []
-  })) as SanctuaryContent[];
+  return (data || []) as SanctuaryContent[];
 }
+
 
 /**
  * Fetch a single content item by ID
@@ -145,11 +118,7 @@ export async function getContentByType(type: ContentType): Promise<SanctuaryCont
 export async function getContentById(id: string): Promise<SanctuaryContent | null> {
   const { data, error } = await supabase
     .from('sanctuary_content')
-    .select(`
-      *,
-      metadata:sanctuary_content_metadata(*),
-      steps:sanctuary_content_steps(*)
-    `)
+    .select(`*`)
     .eq('id', id)
     .eq('is_active', true)
     .maybeSingle();
@@ -161,11 +130,6 @@ export async function getContentById(id: string): Promise<SanctuaryContent | nul
 
   if (!data) return null;
 
-  return {
-    ...data,
-    metadata: Array.isArray(data.metadata) ? data.metadata[0] : data.metadata,
-    steps: Array.isArray(data.steps) 
-      ? data.steps.sort((a, b) => a.step_order - b.step_order)
-      : []
-  } as SanctuaryContent;
+  return data as SanctuaryContent;
 }
+
