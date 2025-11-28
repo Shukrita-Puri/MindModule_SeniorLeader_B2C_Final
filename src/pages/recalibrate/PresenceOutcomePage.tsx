@@ -25,8 +25,12 @@ const PresenceOutcomePage = () => {
     item.id === 'bhramari-pranayama' || item.id === 'trataka-flame-gaze'
   );
 
+  // Hide stoic-reflection from Presence page
+  const hiddenPracticeIds = ['stoic-reflection'];
+  const filteredMicroPractices = microPractices.filter(item => !hiddenPracticeIds.includes(item.id));
+
   // Combined items for each section
-  const mindsetItems = microPractices;
+  const mindsetItems = filteredMicroPractices;
   const somaticItems = [...soundscapes, ...breathingPractices];
 
   useEffect(() => {
