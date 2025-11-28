@@ -95,6 +95,24 @@ const PauseOutcomePage = () => {
     return titleMap[item.id] || item.title;
   };
 
+  const getThumbnailSrc = (item: SanctuaryContent): string => {
+    if (item.thumbnail_url) {
+      if (item.thumbnail_url.includes('/content-assets/')) {
+        const filename = item.thumbnail_url.split('/').pop();
+        if (filename) {
+          return `/lovable-uploads/${filename}`;
+        }
+      }
+      return item.thumbnail_url;
+    }
+
+    if (item.content_type === 'soundbath') {
+      return '/textures/ivory-paper-texture.jpg';
+    }
+
+    return '/textures/ivory-paper-luxury.jpg';
+  };
+
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
     if (item.origin) {
       return item.origin.length > 80 ? `${item.origin.substring(0, 80)}...` : item.origin;
@@ -166,7 +184,7 @@ const PauseOutcomePage = () => {
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={item.thumbnail_url || ''}
+                    src={getThumbnailSrc(item)}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
@@ -228,7 +246,7 @@ const PauseOutcomePage = () => {
               >
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={item.thumbnail_url || ''}
+                    src={getThumbnailSrc(item)}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
