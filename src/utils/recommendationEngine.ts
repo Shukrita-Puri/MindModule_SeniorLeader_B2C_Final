@@ -1,10 +1,18 @@
-// Recommendation Engine - Generates personalized practice recommendations
+// Recommendation Engine - Generates personalized practice recommendations using database tagging
 
-import { mapCheckInToTags, getEnergyStateFromCheckIn } from './checkInToTags';
-import { CONTEXT_TAGS, getTimeOfDayTags, ENERGY_TAGS } from './tagMappings';
-import { getContentByTags } from '@/data/practicesAndSoundscapes';
+import { supabase } from "@/integrations/supabase/client";
 import { CurrentEnergyState } from './energyStateEngine';
 import { type MasteryType, type MasterySubtype } from './energyStateScoring';
+import { 
+  CHECKIN_TAGS, 
+  META_SKILLS,
+  type MetaSkillKey,
+  type CheckinTagKey,
+  type ContentMetaSkills,
+  type ContentSubSkills,
+  type ContentCheckinTags,
+  type ContentMasteryCategory
+} from "@/constants/contentTags";
 
 export interface Recommendation {
   id: string;
@@ -16,6 +24,9 @@ export interface Recommendation {
   tags: string[];
   whyNow: string;
   matchScore: number;
+  metaSkills?: ContentMetaSkills;
+  checkinTags?: ContentCheckinTags;
+  usageOccasions?: string[];
 }
 
 interface PracticeConfig {
@@ -116,18 +127,110 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   const practiceConfig = determineOptimalPracticeCount(energyState);
   const { primary, primarySubtype, secondary, secondarySubtype, contextStatement } = energyState.recommendation;
   
-  const primaryTags = getMasteryTags(primary, primarySubtype);
-  const secondaryTags = secondary ? getMasteryTags(secondary, secondarySubtype) : [];
-  const recommendationTags = [...primaryTags, ...secondaryTags];
+  // Determine check-in tags based on energy state
+  const checkinOutcome = (energyState as any).checkInOutcome; // e.g., 'stressed_overwhelmed'
+  const usageOccasion = (energyState as any).usageOccasion; // e.g., 'pre_meeting' (can be extended later)
+  const userGrowthPriorities = (energyState as any).userGrowthPriorities || []; // Meta skills from onboarding (can be extended later)
   
-  const allContent = getContentByTags(recommendationTags);
+  console.log(`🎯 Fetching recommendations for ${primary} (check-in: ${checkinOutcome}, occasion: ${usageOccasion})`);
   
-  const scoredContent = allContent.map(content => ({
-    content,
-    score: matchesStructuredTags(content, primary, primarySubtype, recommendationTags)
-  }));
+  // Get all active content with metadata from database
+  const { data: allContent, error } = await supabase
+    .from('sanctuary_content')
+    .select(`
+      *,
+      sanctuary_content_metadata (*)
+    `)
+    .eq('is_active', true);
+    
+  if (error) {
+    console.error('Error fetching content:', error);
+    return { 
+      practices: [],
+      recommendedCount: 0,
+      reasoning: 'Unable to fetch content from database' 
+    };
+  }
   
-  scoredContent.sort((a, b) => b.score - a.score);
+  if (!allContent || allContent.length === 0) {
+    console.warn('⚠️ No content found in database');
+    return { 
+      practices: [],
+      recommendedCount: 0,
+      reasoning: 'No content available' 
+    };
+  }
+  
+  // Score and filter content based on new tagging system
+  const scoredContent = allContent
+    .map(content => {
+      const metadata = Array.isArray(content.sanctuary_content_metadata) 
+        ? content.sanctuary_content_metadata[0] 
+        : content.sanctuary_content_metadata;
+      
+      let score = 0;
+      
+      // 1. Check-in tag matching (highest priority)
+      if (checkinOutcome && metadata?.checkin_tags) {
+        const checkinTags = metadata.checkin_tags as ContentCheckinTags;
+        if (checkinTags.primary?.includes(checkinOutcome as CheckinTagKey)) {
+          score += 50; // Strong match
+        } else if (checkinTags.secondary?.includes(checkinOutcome as CheckinTagKey)) {
+          score += 25; // Secondary match
+        }
+      }
+      
+      // 2. Usage occasion matching
+      if (usageOccasion && metadata?.usage_occasions) {
+        const occasions = metadata.usage_occasions as string[];
+        if (occasions.includes(usageOccasion)) {
+          score += 40;
+        }
+      }
+      
+      // 3. Meta skill alignment (based on user's growth priorities)
+      if (userGrowthPriorities.length > 0 && metadata?.meta_skills) {
+        const metaSkills = metadata.meta_skills as ContentMetaSkills;
+        const primaryMatches = metaSkills.primary?.filter((skill: MetaSkillKey) => 
+          userGrowthPriorities.includes(skill)
+        ).length || 0;
+        const secondaryMatches = metaSkills.secondary?.filter((skill: MetaSkillKey) => 
+          userGrowthPriorities.includes(skill)
+        ).length || 0;
+        
+        score += primaryMatches * 30;
+        score += secondaryMatches * 15;
+      }
+      
+      // 4. Mastery category matching
+      if (metadata?.mastery_category) {
+        const masteryCategory = metadata.mastery_category as ContentMasteryCategory;
+        if (masteryCategory.primary === primary) {
+          score += 35;
+        } else if (masteryCategory.secondary?.includes(primary as any)) {
+          score += 20;
+        }
+      }
+      
+      // 5. Legacy structured tags matching (fallback for old content)
+      const primaryTags = getMasteryTags(primary, primarySubtype);
+      score += matchesStructuredTags(content, primary, primarySubtype, primaryTags);
+      
+      // 6. Category match
+      if (content.category === primary) {
+        score += 15;
+      }
+      
+      return {
+        content,
+        metadata,
+        score
+      };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+    
+  console.log(`🎯 ${scoredContent.length} relevant items after filtering`);
   
   const practices: Recommendation[] = [];
   const usedIds = new Set<string>();
@@ -135,11 +238,11 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
   // First pass: try to match exact content types
   for (const type of practiceConfig.types) {
     const matching = scoredContent.find(c => 
-      c.content.contentType === type && !usedIds.has(c.content.id)
+      c.content.content_type === type && !usedIds.has(c.content.id)
     );
     
     if (matching) {
-      practices.push(createRecommendation(matching.content, primary, getWhyNow(type, primary)));
+      practices.push(createRecommendation(matching.content, primary, getWhyNow(type, primary), matching.metadata));
       usedIds.add(matching.content.id);
     }
   }
@@ -156,7 +259,8 @@ export async function generateRecommendations(energyState: CurrentEnergyState): 
     practices.push(createRecommendation(
       nextBest.content, 
       primary, 
-      getWhyNow(nextBest.content.contentType, primary)
+      getWhyNow(nextBest.content.content_type, primary),
+      nextBest.metadata
     ));
     usedIds.add(nextBest.content.id);
   }
@@ -242,18 +346,22 @@ function matchesStructuredTags(content: any, masteryType: MasteryType, masterySu
 function createRecommendation(
   content: any,
   category: string,
-  whyNow: string
+  whyNow: string,
+  metadata: any
 ): Recommendation {
   return {
     id: content.id,
     title: content.title,
-    contentType: content.contentType,
-    category: content.category,
+    contentType: content.content_type,
+    category: content.category || category,
     duration: content.duration,
-    thumbnail: content.thumbnail,
-    tags: content.tags,
+    thumbnail: content.thumbnail_url || content.thumbnail,
+    tags: content.tags || [],
     whyNow,
-    matchScore: 85 // Placeholder - would calculate based on tag overlap
+    matchScore: 85,
+    metaSkills: metadata?.meta_skills,
+    checkinTags: metadata?.checkin_tags,
+    usageOccasions: metadata?.usage_occasions
   };
 }
 
