@@ -1554,7 +1554,6 @@ const getCardsForPractice = (practiceId: string | undefined) => {
     case "stoic-reflection":
       return STOIC_REFLECTION_CARDS;
     case "fudoshin-immovable-mind":
-    case "fudoshin-new":
       return FUDOSHIN_CARDS;
     case "presence-grounding":
     case "presence-grounding-new":
@@ -1563,7 +1562,6 @@ const getCardsForPractice = (practiceId: string | undefined) => {
     case "release-exhale-new":
       return RELEASE_EXHALE_CARDS;
     case "eye-of-storm":
-    case "clarity-eye-new":
       return CLARITY_EYE_STORM_CARDS;
     case "stillness-gap":
     case "stillness-gap-new":
@@ -1617,7 +1615,6 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
     case "stoic-reflection":
       return stoicReflectionHero;
     case "fudoshin-immovable-mind":
-    case "fudoshin-new":
       return fudoshinHero;
     case "presence-grounding":
     case "presence-grounding-new":
@@ -1626,7 +1623,6 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
     case "release-exhale-new":
       return releaseExhaleHero;
     case "eye-of-storm":
-    case "clarity-eye-new":
       return clarityEyeStormHero;
     case "stillness-gap":
     case "stillness-gap-new":
