@@ -2,6 +2,7 @@
 import pauseVisual from "@/assets/soundscape-pause-visual.jpg";
 import renewalVisual from "@/assets/soundscape-renewal-visual.jpg";
 import flowVisual from "@/assets/soundscape-flow-visual.jpg";
+import pranayamaClarityHero from "@/assets/pranayama-clarity-hero.jpg";
 import pauseMauve from "@/assets/mindset-pause-mauve.jpg";
 import flowBlue from "@/assets/mindset-flow-blue.jpg";
 import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
@@ -41,6 +42,8 @@ import clarityEyeOfStorm from "@/assets/clarity-eye-of-storm.jpg";
 import stillnessGap from "@/assets/stillness-gap.jpg";
 import detachmentObserver from "@/assets/detachment-observer.jpg";
 import softnessRelease from "@/assets/softness-release.jpg";
+import composureResponseSpace from "@/assets/composure-response-space.jpg";
+import somaticTouchGrounding from "@/assets/somatic-touch-grounding.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -663,7 +666,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Pranayama | 3000+ years",
     storyHook: "For over 3,000 years, yogis have used alternate nostril breathing to clear mental fog and balance the nervous system before important decisions.",
     usedBy: "Yogis, Meditators, Decision Makers",
-    thumbnail: pauseVisual,
+    thumbnail: pranayamaClarityHero,
     steps: 4,
     creator: "Nadi Shodhana (Channel Purification)",
     audioSrc: "/guided-practices/pranayama-clarity.mp3",
@@ -934,7 +937,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Polyvagal theory; vagus nerve activation through self-touch; interoceptive awareness; embodied safety",
     cue: "\"Touch. Feel. Soften.\"",
     usedBy: "Moments of anxiety, overwhelm, panic, emotional flooding, or after receiving hard news",
-    thumbnail: presenceGrounding,
+    thumbnail: somaticTouchGrounding,
     steps: 4,
     subType: "tool",
     instructions: [
@@ -977,7 +980,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
     cue: "\"Breathe. Space. Choose.\"",
     usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
-    thumbnail: fudoshinImmovableMind,
+    thumbnail: composureResponseSpace,
     steps: 4,
     subType: "mindset",
     instructions: [
