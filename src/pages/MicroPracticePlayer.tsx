@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { useContentById } from "@/hooks/useContent";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,15 +15,14 @@ const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   useScrollToTop();
-  const allContent = getAllContent();
-  const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
+  const { data: practice, isLoading } = useContentById(id || '');
   
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
   // Track engagement on page load
   useEffect(() => {
-    if (practice) {
+    if (practice && practice.content_type === 'micro-practice') {
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
@@ -33,7 +32,7 @@ const MicroPracticePlayer = () => {
         trackEngagement('pause_session');
       } else if (practice.category === 'power-up') {
         trackEngagement('renew_session');
-      } else if (practice.category === 'presence' || practice.category === 'flow') {
+      } else if (practice.category === 'presence') {
         trackEngagement('flow_session');
       }
     }

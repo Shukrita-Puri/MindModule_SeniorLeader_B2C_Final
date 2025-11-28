@@ -9,6 +9,9 @@ import {
   type SanctuaryContent
 } from '@/utils/contentDatabase';
 
+// Re-export types for convenience
+export type { SanctuaryContent, Category, ContentType };
+
 /**
  * Hook to fetch all active content
  */
