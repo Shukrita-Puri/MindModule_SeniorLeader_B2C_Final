@@ -1647,8 +1647,6 @@ const triggerHaptic = () => {
 
 const MicroPracticePlayerCards = () => {
   const { id } = useParams();
-const MicroPracticePlayerCards = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const category = location.state?.category || 'power-up';
