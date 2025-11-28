@@ -6,45 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import { useContentByCategory, useAllContent, type SanctuaryContent } from "@/hooks/useContent";
+import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { cn } from "@/lib/utils";
 
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
-  const { data: categoryContent = [], isLoading } = useContentByCategory('pause');
-  const { data: allContent = [] } = useAllContent();
-
-  const content = (categoryContent && categoryContent.length > 0)
-    ? categoryContent
-    : allContent.filter(item => item.category === 'pause');
-  
-  const soundscapes = content.filter(item => item.content_type === 'soundbath');
-  const practices = content.filter(item => item.content_type === 'guided-practice');
+  const content = getContentByCategory('pause');
+  const soundscapes = content.filter(item => item.contentType === 'soundbath');
+  const practices = content.filter(item => item.contentType === 'guided-practice');
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
-  const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
+  const somaticMicroPracticeIds = ['grounding-touch', 'djokovic-reset'];
   
-  // IDs to exclude entirely from display
-  const excludedIds = ['grounding-touch'];
-  
-  // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
+  // Filter micro-practices: exclude somatic ones from Mindset
   const microPractices = content.filter(item => 
-    item.content_type === 'micro-practice' && 
-    !somaticMicroPracticeIds.includes(item.id) &&
-    !excludedIds.includes(item.id)
+    item.contentType === 'micro-practice' && !somaticMicroPracticeIds.includes(item.id)
   );
-  
-  // Get stoic-reflection from all content (it's categorized as 'presence' in data)
-  const stoicReflection = allContent.find(item => item.id === 'stoic-reflection');
-  
-  // Add stoic-reflection to mindset items
-  const mindsetItems = stoicReflection ? [...microPractices, stoicReflection] : microPractices;
   
   // Get somatic micro-practices
   const somaticMicroPractices = content.filter(item => 
-    item.content_type === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
+    item.contentType === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
   );
   
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
@@ -78,86 +61,103 @@ const PauseOutcomePage = () => {
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
     // For micro practices, use the title directly as it's already formatted with outcome + origin
-    if (item.content_type === 'micro-practice') {
+    if (item.contentType === 'micro-practice') {
       return item.title;
     }
     
     // For soundscapes and guided practices, use the mapping
     const titleMap: Record<string, string> = {
-      "harmonic-calm": "Deep Rest & Grounding",
-      "deep-calm-forest-bathing": "Deep Calm",
-      "vagus-wind-down": "Settle The Nervous System",
-      "deep-focus-monastic-resonance": "Deep Focus & Grounded Presence",
-      "sustained-focus-choir-harmonic": "Sustained Focus",
-      "ina-night-fields": "Presence & Deep Calm"
+      "Tibetan Bowl Resonance": "Deep Meditative Flow",
+      "Pre-Mission Calm": "Tactical Composure Before Critical Moments",
+      "Forest Bathing": "Natural Stress Relief & Immune Boost",
+      "Himalayan Mountain Monastery": "Sacred Devotional Calm",
+      "Cathedral Choir Flow": "Resonant Focus & Healing",
+      "Earth Resonance": "Grounded Nervous System Reset",
+      "Tonglen Compassion Practice": "Transform Suffering Into Compassion",
+      "Vipassana Body Scan": "Body Awareness & Equanimity",
+      "Tactical Pause": "60-Second Nervous System Reset",
+      "Grounding Touch": "Instant Anxiety Relief",
     };
-
-    return titleMap[item.id] || item.title;
-  };
-
-  const getThumbnailSrc = (item: SanctuaryContent): string => {
-    if (item.thumbnail_url) {
-      if (item.thumbnail_url.includes('/content-assets/')) {
-        const filename = item.thumbnail_url.split('/').pop();
-        if (filename) {
-          return `/lovable-uploads/${filename}`;
-        }
-      }
-      return item.thumbnail_url;
-    }
-
-    if (item.content_type === 'soundbath') {
-      return '/textures/ivory-paper-texture.jpg';
-    }
-
-    return '/textures/ivory-paper-luxury.jpg';
+    return titleMap[item.title] || item.title;
   };
 
   const getCredibilitySubtitle = (item: SanctuaryContent): string => {
-    if (item.origin) {
-      return item.origin.length > 80 ? `${item.origin.substring(0, 80)}...` : item.origin;
+    if (!item.origin && !item.creator) return "";
+    
+    // For micro practices with creator field, prioritize that
+    if (item.contentType === 'micro-practice' && item.creator) {
+      return item.creator;
     }
-    return item.creator || '';
+    
+    const origin = item.origin || "";
+    const creator = item.creator || "";
+    
+    if (origin.includes("Navy SEAL") || origin.includes("Military") || origin.includes("Special Forces")) {
+      return `Based on ${origin}`;
+    }
+    if (origin.includes("Tibetan") || origin.includes("Ancient") || origin.includes("Traditional") || origin.includes("Vedic") || origin.includes("Buddhist") || origin.includes("Himalayan")) {
+      return `Drawn from ${origin}`;
+    }
+    if (origin.includes("Olympic") || origin.includes("Sports")) {
+      return `Based on ${origin}`;
+    }
+    if (creator && !origin) {
+      return `Inspired by ${creator}`;
+    }
+    
+    return `Drawn from ${origin || creator}`;
   };
 
   const formatDuration = (minutes: number): string => {
     if (minutes < 1) {
-      return `${Math.round(minutes * 60)}s`;
+      return `${minutes * 60} sec`;
     } else if (minutes >= 60) {
       const hours = Math.floor(minutes / 60);
-      const mins = Math.round(minutes % 60);
-      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+    } else {
+      return `${minutes} mins`;
     }
-    return `${Math.round(minutes)}m`;
   };
 
   const getCompletionTracking = (item: SanctuaryContent): string => {
-    const duration = formatDuration(item.duration);
     const count = completionCounts[item.id] || 0;
-    const completionText = count > 0 ? ` • Done ${count}x` : '';
-    return `${duration}${completionText}`;
+    const duration = formatDuration(item.duration);
+    
+    if (count === 0) {
+      return duration;
+    }
+    
+    if (item.contentType === 'soundbath') {
+      return `${duration} — Listened ${count}x`;
+    } else if (item.contentType === 'guided-practice') {
+      return `${duration} — Completed ${count}x`;
+    } else {
+      return `${duration} — Used ${count}x`;
+    }
   };
 
-  const getBadgeLabel = (item: SanctuaryContent): string => {
-    if (item.content_type === 'micro-practice') {
-      return item.sub_type === 'tool' ? 'SOMATIC' : 'MINDSET';
-    }
-    if (item.content_type === 'soundbath') {
-      return 'SOUNDSCAPE';
-    }
-    return 'PRACTICE';
-  };
-
-  const handleItemClick = (item: SanctuaryContent) => {
-    if (item.content_type === 'soundbath') {
+  const handleItemClick = (item: typeof content[0]) => {
+    if (item.contentType === 'soundbath') {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'pause' } });
-    } else if (item.content_type === 'guided-practice') {
+    } else if (item.contentType === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'pause' } });
-    } else if (item.content_type === 'micro-practice' && item.steps_count) {
+    } else if (item.contentType === 'micro-practice' && item.steps) {
+      // Card-based micro-practices go directly to cards (no intro)
       navigate(`/micro-practice/${item.id}/cards`, { state: { category: 'pause' } });
     } else {
       navigate(`/micro-practice/${item.id}`, { state: { category: 'pause' } });
     }
+  };
+
+  const getBadgeLabel = (item: SanctuaryContent): string => {
+    if (item.contentType === 'micro-practice') {
+      return item.subType === 'mindset' ? 'Mindset' : 'Tool';
+    }
+    if (item.contentType === 'soundbath') {
+      return 'Soundscape';
+    }
+    return 'Practice';
   };
 
   return (
@@ -180,11 +180,11 @@ const PauseOutcomePage = () => {
             <p className="text-sm text-muted-foreground italic">Cognitive and emotional interventions that frame perspective, build resilience, and prime you for moments that matter</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {mindsetItems.map((item) => (
+            {microPractices.map((item) => (
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={getThumbnailSrc(item)}
+                    src={item.thumbnail}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
@@ -197,7 +197,7 @@ const PauseOutcomePage = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(item.id, item.content_type, 'pause');
+                      toggleFavorite(item.id, item.contentType, 'pause');
                     }}
                     className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
                   >
@@ -217,13 +217,13 @@ const PauseOutcomePage = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.story_hook}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
-                    {item.steps_count && <span className="text-[10px] text-muted-foreground/70">{item.steps_count} steps</span>}
+                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
                   </div>
                 </CardContent>
               </Card>
@@ -246,7 +246,7 @@ const PauseOutcomePage = () => {
               >
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={getThumbnailSrc(item)}
+                    src={item.thumbnail}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
@@ -259,7 +259,7 @@ const PauseOutcomePage = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(item.id, item.content_type, 'pause');
+                      toggleFavorite(item.id, item.contentType, 'pause');
                     }}
                     className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
                   >
@@ -282,7 +282,7 @@ const PauseOutcomePage = () => {
                 
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.story_hook}
+                    {item.storyHook}
                   </p>
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
@@ -290,9 +290,9 @@ const PauseOutcomePage = () => {
                       <Clock className="h-3.5 w-3.5" />
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
-                    {item.steps_count && (
+                    {item.steps && (
                       <span className="text-[10px] text-muted-foreground/70">
-                        {item.steps_count} steps
+                        {item.steps} steps
                       </span>
                     )}
                   </div>

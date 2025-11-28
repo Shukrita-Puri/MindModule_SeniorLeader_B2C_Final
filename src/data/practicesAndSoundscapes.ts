@@ -2,7 +2,6 @@
 import pauseVisual from "@/assets/soundscape-pause-visual.jpg";
 import renewalVisual from "@/assets/soundscape-renewal-visual.jpg";
 import flowVisual from "@/assets/soundscape-flow-visual.jpg";
-import pranayamaClarityHero from "@/assets/pranayama-clarity-hero.jpg";
 import pauseMauve from "@/assets/mindset-pause-mauve.jpg";
 import flowBlue from "@/assets/mindset-flow-blue.jpg";
 import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
@@ -35,15 +34,6 @@ import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
 import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
 import vagusWindDownHero from "@/assets/vagus-wind-down-hero.jpg";
 import harmonicCalmBowl from "@/assets/harmonic-calm-singing-bowl.jpg";
-import forestBathingVisual from "@/assets/forest-bathing-visual.jpg";
-import fudoshinImmovableMind from "@/assets/fudoshin-immovable-mind.jpg";
-import presenceGrounding from "@/assets/presence-grounding.jpg";
-import releaseExhale from "@/assets/release-exhale.jpg";
-import clarityEyeOfStorm from "@/assets/clarity-eye-of-storm.jpg";
-import stillnessGap from "@/assets/stillness-gap.jpg";
-import detachmentObserver from "@/assets/detachment-observer.jpg";
-import softnessRelease from "@/assets/softness-release.jpg";
-import somaticTouchGrounding from "@/assets/somatic-touch-grounding.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -313,7 +303,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Japanese Shinrin-yoku practices",
     origin: "Japanese Shinrin-yoku (forest bathing) practices",
     storyHook: "Used to cultivate deep calm, restore mental clarity, and anchor attention in the present through gentle rain and subtle village sounds.",
-    thumbnail: forestBathingVisual,
+    thumbnail: pauseVisual,
     audioSrc: "/soundscapes/forest-bathing.mp3",
     fullStory: "In the 1980s, the Japanese government formally recognized Shinrin-yoku—'forest bathing'—as a cornerstone of preventive healthcare and healing. But the practice itself is ancient, rooted in Shinto beliefs about the sacred presence of nature. Japanese physicians discovered that simply being present in a forest environment significantly reduced stress hormones, lowered blood pressure, and improved immune function. The practice isn't about hiking or exercise—it's about opening your senses fully to the forest atmosphere: the rustle of leaves, the patter of rain, the distant sounds of village life. This soundscape captures that essence, transporting you to a rain-soaked forest where time moves slowly and the mind finds space to breathe.",
     technique: "Close your eyes and imagine yourself standing at the edge of an ancient forest after a gentle rain. Feel the cool air on your skin. As you listen, notice the layers: the soft rain, the rustling leaves, the distant village sounds. Don't try to identify every sound—instead, let the soundscape become a living environment around you. Breathe deeply and slowly, as if inhaling the forest air itself. When thoughts arise, acknowledge them gently and return your attention to the natural sounds. This is not an escape from life, but a return to your natural state of calm awareness.",
@@ -666,7 +656,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     origin: "Ancient Yogic Pranayama | 3000+ years",
     storyHook: "For over 3,000 years, yogis have used alternate nostril breathing to clear mental fog and balance the nervous system before important decisions.",
     usedBy: "Yogis, Meditators, Decision Makers",
-    thumbnail: pranayamaClarityHero,
+    thumbnail: pauseVisual,
     steps: 4,
     creator: "Nadi Shodhana (Channel Purification)",
     audioSrc: "/guided-practices/pranayama-clarity.mp3",
@@ -937,7 +927,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Polyvagal theory; vagus nerve activation through self-touch; interoceptive awareness; embodied safety",
     cue: "\"Touch. Feel. Soften.\"",
     usedBy: "Moments of anxiety, overwhelm, panic, emotional flooding, or after receiving hard news",
-    thumbnail: somaticTouchGrounding,
+    thumbnail: pauseMauve,
     steps: 4,
     subType: "tool",
     instructions: [
@@ -964,6 +954,49 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Your skin is a direct access point to your autonomic nervous system. Gentle, intentional touch releases oxytocin and endorphins, lowers cortisol, and slows the heart rate. According to polyvagal theory (Stephen Porges), warm, steady contact activates the vagal brake — a physiological mechanism that signals safety to the brain. When you self-touch with presence, you're not \"comforting yourself like a child.\" You're sending a biological message: \"The threat has passed. You are safe enough to relax.\" The body leads; the mind follows."
+  },
+  {
+    id: "space-between-stimulus-response",
+    title: "Composure Through Response Space",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],
+    duration: 1,
+    difficulty: "beginner",
+    creator: "Inspired from Viktor Frankl's choice of response",
+    origin: "\"Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth and our freedom.\" — Viktor Frankl",
+    storyHook: "For high-pressure moments, provocations, and receiving criticism with composure",
+    essence: "The gap between what happens and how you react is where mastery lives. Expand that space.",
+    parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
+    cue: "\"Breathe. Space. Choose.\"",
+    usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
+    thumbnail: pauseMauve,
+    steps: 4,
+    subType: "mindset",
+    instructions: [
+      "Catch the trigger moment (3 seconds): Notice the sensation: heart racing, jaw clenching, heat rising. Name it: \"I'm triggered.\"",
+      "Create physical space (5 seconds): If standing, take one step back. If sitting, lean back in chair, uncross arms. Anywhere: Place your hand on your chest or belly.",
+      "The triple breath (10 seconds): Breathe in for 4, hold for 4, out for 6. During the exhale, say internally: \"I choose my response.\"",
+      "The bridging question (ongoing): \"What do I want to be true about me in 5 minutes when I look back at this moment?\""
+    ],
+    realExamples: [
+      {
+        scenario: "Someone insults your work in a meeting",
+        trigger: "Your face flushes, you want to defend yourself immediately",
+        response: "You pause, take one breath, then say: \"Help me understand what specifically concerns you.\" (You just bought 30 seconds to think, and shifted from defensive to curious)"
+      },
+      {
+        scenario: "Your teenager slams a door",
+        trigger: "Instant anger, you want to storm in yelling",
+        response: "You stop at the door. Hand on doorknob. Three breaths. Ask yourself: \"Do I want them to remember me as someone who matches their chaos, or someone who stayed steady?\" Then knock gently."
+      },
+      {
+        scenario: "You get a rejection email",
+        trigger: "Stomach drops, immediate spiral into \"I'm not good enough\"",
+        response: "Close laptop. Stand up. Walk to window. Feel your feet on ground. One minute of just breathing. Then choose: \"This is data, not destiny.\""
+      }
+    ],
+    whyThisWorks: "The amygdala hijack happens in 0.2 seconds. Your prefrontal cortex needs 6-10 seconds to come back online. The breath physiologically activates your parasympathetic nervous system. You're not suppressing emotion—you're giving your wise brain time to catch up to your reactive brain."
   },
   {
     id: "fudoshin-immovable-mind",
@@ -993,7 +1026,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Psychological composure under stress; \"calm is contagious\" (Navy SEAL principle); emotional steadiness",
     cue: "\"Still center, moving world.\"",
     usedBy: "Before critical performances, leadership under crisis, public speaking, confrontation",
-    thumbnail: fudoshinImmovableMind,
+    thumbnail: pauseMauve,
     steps: 4,
     subType: "tool",
     instructions: [
@@ -1049,7 +1082,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Attentional control; metacognitive awareness; the \"observer self\" in mindfulness",
     cue: "\"Find the eye.\"",
     usedBy: "Overwhelming situations, information overload, when multiple demands hit simultaneously",
-    thumbnail: clarityEyeOfStorm,
+    thumbnail: pauseMauve,
     steps: 4,
     subType: "mindset",
     instructions: [
@@ -1076,121 +1109,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Your nervous system can't tell the difference between 20 threats and 1 threat—it just goes into overload. By consciously choosing ONE thing to control, you signal: \"We're not drowning. We're taking one stroke at a time.\" The eye of the storm isn't calm because the storm stopped. It's calm because you stopped trying to fight all of it at once."
-  },
-  {
-    id: "presence-grounding-new",
-    title: "Presence Through Grounding",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'rumination', 'anxiety', 'presence', 'mindfulness'],
-    duration: 1.5,
-    difficulty: "beginner",
-    creator: "Buddhist mindfulness + Eckhart Tolle",
-    origin: "Buddhist mindfulness practice (sati) + Eckhart Tolle's The Power of Now",
-    storyHook: "Return to now when mind spirals elsewhere—ruminating on past mistakes, anxious about future outcomes, mental time-traveling during stress.",
-    essence: "The present moment is the only moment that actually exists. Past and future are thoughts happening now.",
-    cue: "Here. Now.",
-    usedBy: "When your body is here but your mind is elsewhere—replaying arguments, rehearsing disasters, or lost in worry",
-    thumbnail: presenceGrounding,
-    steps: 3,
-    subType: "mindset",
-    instructions: [
-      "Notice where you went (30 sec): Pause. Ask yourself: 'Where was my mind just now?' Past? Future? Judging myself? Name it without shame: 'I was catastrophizing about tomorrow' or 'I was replaying that conversation.'",
-      "Anchor in three sensations (30 sec): Bring your attention to RIGHT NOW through your senses. Name one thing you see, one thing you hear, one thing you feel right now. Sensation only exists in the present moment.",
-      "Speak your location (30 sec): Say aloud or silently: 'I am here. I am now. This moment is enough.' Take one full breath. Feel yourself arrive."
-    ]
-  },
-  {
-    id: "release-exhale-new",
-    title: "Release Through The Exhale",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'breath', 'tension-release', 'nervous-system', 'stress'],
-    duration: 1.5,
-    difficulty: "beginner",
-    creator: "Ancient Pranayama + Navy SEAL protocols",
-    origin: "Ancient Pranayama (yogic breath control) + Polyvagal Theory + Navy SEAL combat breathing",
-    storyHook: "Discharge intensity through controlled breath—when physical tension, shallow breathing, fight-or-flight activation, wired energy needs release.",
-    essence: "Each long exhale is a message to your nervous system: threat is over, reset to baseline.",
-    cue: "Exhale is release.",
-    usedBy: "When intensity is stored in your body—anxiety manifesting as chest tightness, post-stress tension, too much energy at end of day",
-    thumbnail: releaseExhale,
-    steps: 3,
-    subType: "tool",
-    instructions: [
-      "Locate the intensity (30 sec): Scan your body from head to feet. Where is tension or excess energy held? Jaw clenched? Shoulders tight? Chest constricted? Name the location without trying to change it yet.",
-      "Elongate the exhale (40 sec): Breathe in through nose for 4 counts, out through nose or mouth for 8 counts (twice as long). Repeat this pattern 3 times. Each long exhale activates parasympathetic rest-and-digest mode.",
-      "Discharge physically (20 sec): After your third long exhale, shake your hands vigorously for 10 seconds. Or shiver your whole body like shaking off water. Let sound escape if it wants to—sigh, groan, exhale sharply."
-    ]
-  },
-  {
-    id: "stillness-gap-new",
-    title: "Stillness Through The Gap",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['air', 'mental-noise', 'intuition', 'clarity', 'meditation'],
-    duration: 2,
-    difficulty: "intermediate",
-    creator: "Zen ma + Vipassana meditation",
-    origin: "Zen ma (間 — the space between) + Vipassana meditation + Elite sniper breath pause training",
-    storyHook: "Find the quiet between thoughts—when mental noise, thoughts colliding, feeling trapped in your own head, need to access intuition.",
-    essence: "The gap between thoughts is where stillness lives. Intuition whispers in gaps.",
-    cue: "Find the gap.",
-    usedBy: "Before important decisions when you need to hear your own wisdom, when thoughts are too loud to think clearly",
-    thumbnail: stillnessGap,
-    steps: 3,
-    subType: "mindset",
-    instructions: [
-      "Notice the stream (40 sec): Close your eyes or soften your gaze. Notice thoughts moving through your mind like cars on a highway. Don't grab onto any thought. Just observe: 'Thought about work. Worry thought. Planning thought.' You are not the cars. You are the road.",
-      "Find the gap (60 sec): Between each thought, there is a tiny space of silence. Notice the gap. Even if it's only a fraction of a second. Thought arises → Gap → Next thought arises. Rest your attention in that gap.",
-      "Expand the silence (20 sec): After finding a few gaps, ask one question into the silence: 'What do I actually need right now?' Don't answer it. Just ask it into the gap and listen. The answer will arrive in the next gap—sudden, clear, quiet."
-    ]
-  },
-  {
-    id: "detachment-observer-new",
-    title: "Detachment Through The Observer",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'defensiveness', 'perspective', 'objectivity', 'emotional-regulation'],
-    duration: 2,
-    difficulty: "intermediate",
-    creator: "Stoic prosoche + Buddhist sakshi",
-    origin: "Stoic prosoche (attention discipline) + Buddhist sakshi (witness consciousness) + Psychological distancing research",
-    storyHook: "Step outside yourself to see clearly—when taking things too personally, reactive defensiveness, feeling attacked by feedback, emotions cloud judgment.",
-    essence: "You are not your thoughts. You are the awareness that notices them. You are the sky, not the weather.",
-    cue: "I notice I'm having the thought that...",
-    usedBy: "After harsh feedback, when criticism feels like identity assault, during conflicts where you're losing perspective",
-    thumbnail: detachmentObserver,
-    steps: 3,
-    subType: "mindset",
-    instructions: [
-      "Shift to third-person narration (40 sec): Describe what's happening as if you're a narrator watching someone else. Don't say: 'I'm furious.' Say: 'They are feeling anger' or 'They received feedback that triggered defensiveness.' Use your name or 'they' instead of 'I.'",
-      "Name the story, not the fact (40 sec): Ask: 'What story am I telling about what happened?' Fact: 'They disagreed with my idea.' Story: 'They think I'm incompetent.' Speak this: 'The fact is [X]. The story I'm telling is [Y].'",
-      "Return as witness (40 sec): Say to yourself: 'I notice I'm having the thought that [story]. That's a thought, not a truth.' You don't have to believe every thought your mind produces. Sit in that awareness for three breaths."
-    ]
-  },
-  {
-    id: "softness-release-new",
-    title: "Softness Through Release",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['water', 'acceptance', 'surrender', 'control', 'letting-go'],
-    duration: 2,
-    difficulty: "beginner",
-    creator: "Taoist Wu Wei + ACT therapy",
-    origin: "Taoist Wu Wei (effortless action) + Serenity Prayer tradition + Acceptance and Commitment Therapy",
-    storyHook: "Let go of what you cannot control—when trying to control the uncontrollable, white-knuckling outcomes, exhaustion from forcing, resistance creating more suffering.",
-    essence: "Water doesn't fight the rock—it flows around. You're learning to flow.",
-    cue: "I release. I allow. I accept what is.",
-    usedBy: "When fighting reality, when effort creates more tension, when you need to accept what is before you can act",
-    thumbnail: softnessRelease,
-    steps: 3,
-    subType: "mindset",
-    instructions: [
-      "Name what you're gripping (40 sec): Ask: 'What am I trying to control right now?' Be specific: 'I'm trying to control what they think of me' or 'I'm trying to control the outcome of this interview.' Naming reveals the grip.",
-      "Separate what's yours to hold (40 sec): For what you named, ask: 'Can I directly influence this outcome?' and 'Is my effort creating the result I want?' If both answers are NO, speak this: 'I cannot control [X]. I release my grip on [X].'",
-      "Open your hands (40 sec): Physically make tight fists. Squeeze hard for 5 seconds. Then open your hands completely. Palms up. Fingers relaxed. Say: 'I release. I allow. I accept what is.' Take three breaths with open hands."
-    ]
   },
 
   // PRESENCE Micro Practices

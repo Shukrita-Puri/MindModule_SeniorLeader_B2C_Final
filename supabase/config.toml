@@ -17,9 +17,3 @@ verify_jwt = true
 
 [functions.generate-energy-insight]
 verify_jwt = true
-
-[functions.migrate-media-to-storage]
-verify_jwt = false
-
-[functions.seed-sanctuary-content]
-verify_jwt = false
