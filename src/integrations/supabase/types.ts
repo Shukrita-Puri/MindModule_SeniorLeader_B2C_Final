@@ -700,6 +700,7 @@ export type Database = {
           is_active: boolean | null
           language: string | null
           origin: string | null
+          protocol_type: string | null
           steps_count: number | null
           story_hook: string | null
           sub_type: string | null
@@ -723,6 +724,7 @@ export type Database = {
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
+          protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null
           sub_type?: string | null
@@ -746,6 +748,7 @@ export type Database = {
           is_active?: boolean | null
           language?: string | null
           origin?: string | null
+          protocol_type?: string | null
           steps_count?: number | null
           story_hook?: string | null
           sub_type?: string | null
