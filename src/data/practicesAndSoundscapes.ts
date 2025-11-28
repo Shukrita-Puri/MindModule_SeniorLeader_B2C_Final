@@ -42,7 +42,6 @@ import clarityEyeOfStorm from "@/assets/clarity-eye-of-storm.jpg";
 import stillnessGap from "@/assets/stillness-gap.jpg";
 import detachmentObserver from "@/assets/detachment-observer.jpg";
 import softnessRelease from "@/assets/softness-release.jpg";
-import composureResponseSpace from "@/assets/composure-response-space.jpg";
 import somaticTouchGrounding from "@/assets/somatic-touch-grounding.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
@@ -964,49 +963,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Your skin is a direct access point to your autonomic nervous system. Gentle, intentional touch releases oxytocin and endorphins, lowers cortisol, and slows the heart rate. According to polyvagal theory (Stephen Porges), warm, steady contact activates the vagal brake — a physiological mechanism that signals safety to the brain. When you self-touch with presence, you're not \"comforting yourself like a child.\" You're sending a biological message: \"The threat has passed. You are safe enough to relax.\" The body leads; the mind follows."
-  },
-  {
-    id: "space-between-stimulus-response",
-    title: "Composure Through Response Space",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'high-pressure', 'gentle', 'mastery', 'composure'],
-    duration: 1,
-    difficulty: "beginner",
-    creator: "Inspired from Viktor Frankl's choice of response",
-    origin: "\"Between stimulus and response there is a space. In that space is our power to choose our response. In our response lies our growth and our freedom.\" — Viktor Frankl",
-    storyHook: "For high-pressure moments, provocations, and receiving criticism with composure",
-    essence: "The gap between what happens and how you react is where mastery lives. Expand that space.",
-    parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
-    cue: "\"Breathe. Space. Choose.\"",
-    usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
-    thumbnail: composureResponseSpace,
-    steps: 4,
-    subType: "mindset",
-    instructions: [
-      "Catch the trigger moment (3 seconds): Notice the sensation: heart racing, jaw clenching, heat rising. Name it: \"I'm triggered.\"",
-      "Create physical space (5 seconds): If standing, take one step back. If sitting, lean back in chair, uncross arms. Anywhere: Place your hand on your chest or belly.",
-      "The triple breath (10 seconds): Breathe in for 4, hold for 4, out for 6. During the exhale, say internally: \"I choose my response.\"",
-      "The bridging question (ongoing): \"What do I want to be true about me in 5 minutes when I look back at this moment?\""
-    ],
-    realExamples: [
-      {
-        scenario: "Someone insults your work in a meeting",
-        trigger: "Your face flushes, you want to defend yourself immediately",
-        response: "You pause, take one breath, then say: \"Help me understand what specifically concerns you.\" (You just bought 30 seconds to think, and shifted from defensive to curious)"
-      },
-      {
-        scenario: "Your teenager slams a door",
-        trigger: "Instant anger, you want to storm in yelling",
-        response: "You stop at the door. Hand on doorknob. Three breaths. Ask yourself: \"Do I want them to remember me as someone who matches their chaos, or someone who stayed steady?\" Then knock gently."
-      },
-      {
-        scenario: "You get a rejection email",
-        trigger: "Stomach drops, immediate spiral into \"I'm not good enough\"",
-        response: "Close laptop. Stand up. Walk to window. Feel your feet on ground. One minute of just breathing. Then choose: \"This is data, not destiny.\""
-      }
-    ],
-    whyThisWorks: "The amygdala hijack happens in 0.2 seconds. Your prefrontal cortex needs 6-10 seconds to come back online. The breath physiologically activates your parasympathetic nervous system. You're not suppressing emotion—you're giving your wise brain time to catch up to your reactive brain."
   },
   {
     id: "fudoshin-immovable-mind",

@@ -18,7 +18,7 @@ const PauseOutcomePage = () => {
   const practices = content.filter(item => item.contentType === 'guided-practice');
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
-  const somaticMicroPracticeIds = ['grounding-touch', 'djokovic-reset'];
+  const somaticMicroPracticeIds = ['grounding-touch', 'djokovic-reset', 'release-exhale-new'];
   
   // Filter micro-practices: exclude somatic ones from Mindset
   const microPractices = content.filter(item => 
@@ -152,7 +152,7 @@ const PauseOutcomePage = () => {
 
   const getBadgeLabel = (item: SanctuaryContent): string => {
     if (item.contentType === 'micro-practice') {
-      return item.subType === 'mindset' ? 'Mindset' : 'Tool';
+      return item.subType === 'mindset' ? 'Reframe' : 'Tool';
     }
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
