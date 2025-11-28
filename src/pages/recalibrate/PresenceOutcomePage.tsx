@@ -21,13 +21,12 @@ const PresenceOutcomePage = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // Move specific guided practices to different sections
-  const stoicReflection = practices.find(item => item.id === 'stoic-reflection');
   const breathingPractices = practices.filter(item => 
     item.id === 'bhramari-pranayama' || item.id === 'trataka-flame-gaze'
   );
 
   // Combined items for each section
-  const mindsetItems = [...microPractices, ...(stoicReflection ? [stoicReflection] : [])];
+  const mindsetItems = microPractices;
   const somaticItems = [...soundscapes, ...breathingPractices];
 
   useEffect(() => {

@@ -18,7 +18,7 @@ const PauseOutcomePage = () => {
   const practices = content.filter(item => item.contentType === 'guided-practice');
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
-  const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
+  const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind', 'stoic-reflection'];
   
   // Filter micro-practices: exclude somatic ones from Mindset
   const microPractices = content.filter(item => 
