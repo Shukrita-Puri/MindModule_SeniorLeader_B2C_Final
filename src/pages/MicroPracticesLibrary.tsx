@@ -4,16 +4,26 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Zap } from "lucide-react";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import MainNavigation from "@/components/MainNavigation";
-import { getAllContent } from "@/data/practicesAndSoundscapes";
+import { useContentByType } from "@/hooks/useContent";
 
 const MicroPracticesLibrary = () => {
   const navigate = useNavigate();
-  const allContent = getAllContent();
-  const microPractices = allContent.filter(item => item.contentType === 'micro-practice');
+  const { data: microPractices = [], isLoading } = useContentByType('micro-practice');
 
   const handlePracticeClick = (id: string, category: string) => {
     navigate(`/micro-practice/${id}`, { state: { category } });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <UnifiedTopBar backPath="/recalibrate" />
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-muted-foreground">Loading practices...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -45,7 +55,7 @@ const MicroPracticesLibrary = () => {
             >
               <div 
                 className="h-40 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                style={{ backgroundImage: `url('${practice.thumbnail}')` }}
+                style={{ backgroundImage: `url('${practice.thumbnail_url}')` }}
               >
                 <div className="h-full bg-gradient-to-b from-transparent to-mocha/80 flex items-end p-4">
                   <Badge className="bg-gold/20 text-gold border-gold/30">
@@ -64,7 +74,7 @@ const MicroPracticesLibrary = () => {
               
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                  {practice.storyHook}
+                  {practice.story_hook}
                 </p>
                 
                 <div className="flex items-center justify-between pt-2 border-t border-border/50">

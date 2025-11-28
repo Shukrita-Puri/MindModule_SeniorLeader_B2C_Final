@@ -128,105 +128,14 @@ const PauseOutcomePage = () => {
 
   const handleItemClick = (item: SanctuaryContent) => {
     if (item.content_type === 'soundbath') {
-      navigate(`/soundscape/${item.id}`);
-    } else if (item.content_type === 'guided-practice') {
-      navigate(`/practice/${item.id}`);
-    } else if (item.content_type === 'micro-practice') {
-      navigate(`/micro-practice/${item.id}`);
-    }
-  };
-    const titleMap: Record<string, string> = {
-      "Tibetan Bowl Resonance": "Deep Meditative Flow",
-      "Pre-Mission Calm": "Tactical Composure Before Critical Moments",
-      "Forest Bathing": "Natural Stress Relief & Immune Boost",
-      "Himalayan Mountain Monastery": "Sacred Devotional Calm",
-      "Cathedral Choir Flow": "Resonant Focus & Healing",
-      "Earth Resonance": "Grounded Nervous System Reset",
-      "Tonglen Compassion Practice": "Transform Suffering Into Compassion",
-      "Vipassana Body Scan": "Body Awareness & Equanimity",
-      "Tactical Pause": "60-Second Nervous System Reset",
-      "Grounding Touch": "Instant Anxiety Relief",
-    };
-    return titleMap[item.title] || item.title;
-  };
-
-  const getCredibilitySubtitle = (item: SanctuaryContent): string => {
-    if (!item.origin && !item.creator) return "";
-    
-    // For micro practices with creator field, prioritize that
-    if (item.contentType === 'micro-practice' && item.creator) {
-      return item.creator;
-    }
-    
-    const origin = item.origin || "";
-    const creator = item.creator || "";
-    
-    if (origin.includes("Navy SEAL") || origin.includes("Military") || origin.includes("Special Forces")) {
-      return `Based on ${origin}`;
-    }
-    if (origin.includes("Tibetan") || origin.includes("Ancient") || origin.includes("Traditional") || origin.includes("Vedic") || origin.includes("Buddhist") || origin.includes("Himalayan")) {
-      return `Drawn from ${origin}`;
-    }
-    if (origin.includes("Olympic") || origin.includes("Sports")) {
-      return `Based on ${origin}`;
-    }
-    if (creator && !origin) {
-      return `Inspired by ${creator}`;
-    }
-    
-    return `Drawn from ${origin || creator}`;
-  };
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 1) {
-      return `${minutes * 60} sec`;
-    } else if (minutes >= 60) {
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
-    } else {
-      return `${minutes} mins`;
-    }
-  };
-
-  const getCompletionTracking = (item: SanctuaryContent): string => {
-    const count = completionCounts[item.id] || 0;
-    const duration = formatDuration(item.duration);
-    
-    if (count === 0) {
-      return duration;
-    }
-    
-    if (item.contentType === 'soundbath') {
-      return `${duration} — Listened ${count}x`;
-    } else if (item.contentType === 'guided-practice') {
-      return `${duration} — Completed ${count}x`;
-    } else {
-      return `${duration} — Used ${count}x`;
-    }
-  };
-
-  const handleItemClick = (item: typeof content[0]) => {
-    if (item.contentType === 'soundbath') {
       navigate(`/soundscapes/${item.id}`, { state: { category: 'pause' } });
-    } else if (item.contentType === 'guided-practice') {
+    } else if (item.content_type === 'guided-practice') {
       navigate(`/guided-practices/${item.id}`, { state: { category: 'pause' } });
-    } else if (item.contentType === 'micro-practice' && item.steps) {
-      // Card-based micro-practices go directly to cards (no intro)
+    } else if (item.content_type === 'micro-practice' && item.steps_count) {
       navigate(`/micro-practice/${item.id}/cards`, { state: { category: 'pause' } });
     } else {
       navigate(`/micro-practice/${item.id}`, { state: { category: 'pause' } });
     }
-  };
-
-  const getBadgeLabel = (item: SanctuaryContent): string => {
-    if (item.contentType === 'micro-practice') {
-      return item.subType === 'mindset' ? 'Reframe' : 'Tool';
-    }
-    if (item.contentType === 'soundbath') {
-      return 'Soundscape';
-    }
-    return 'Guided Practice';
   };
 
   return (
@@ -253,7 +162,7 @@ const PauseOutcomePage = () => {
               <Card key={item.id} className="cursor-pointer group overflow-hidden" onClick={() => handleItemClick(item)}>
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={item.thumbnail}
+                    src={item.thumbnail_url || ''}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
@@ -266,7 +175,7 @@ const PauseOutcomePage = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(item.id, item.contentType, 'pause');
+                      toggleFavorite(item.id, item.content_type, 'pause');
                     }}
                     className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
                   >
@@ -286,13 +195,13 @@ const PauseOutcomePage = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.storyHook}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{item.story_hook}</p>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
-                    {item.steps && <span className="text-[10px] text-muted-foreground/70">{item.steps} steps</span>}
+                    {item.steps_count && <span className="text-[10px] text-muted-foreground/70">{item.steps_count} steps</span>}
                   </div>
                 </CardContent>
               </Card>
@@ -315,7 +224,7 @@ const PauseOutcomePage = () => {
               >
                 <div className="relative h-48 overflow-hidden">
                   <img 
-                    src={item.thumbnail}
+                    src={item.thumbnail_url || ''}
                     alt={item.title}
                     className="w-full h-full object-cover img-card img-taupe-overlay transition-transform duration-300 group-hover:scale-105"
                   />
@@ -328,7 +237,7 @@ const PauseOutcomePage = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(item.id, item.contentType, 'pause');
+                      toggleFavorite(item.id, item.content_type, 'pause');
                     }}
                     className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
                   >
@@ -351,7 +260,7 @@ const PauseOutcomePage = () => {
                 
                 <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.storyHook}
+                    {item.story_hook}
                   </p>
                   
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
@@ -359,9 +268,9 @@ const PauseOutcomePage = () => {
                       <Clock className="h-3.5 w-3.5" />
                       <span className="text-xs">{getCompletionTracking(item)}</span>
                     </div>
-                    {item.steps && (
+                    {item.steps_count && (
                       <span className="text-[10px] text-muted-foreground/70">
-                        {item.steps} steps
+                        {item.steps_count} steps
                       </span>
                     )}
                   </div>
