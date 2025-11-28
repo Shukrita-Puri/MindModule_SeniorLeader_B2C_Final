@@ -34,6 +34,13 @@ import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
 import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
 import vagusWindDownHero from "@/assets/vagus-wind-down-hero.jpg";
 import harmonicCalmBowl from "@/assets/harmonic-calm-singing-bowl.jpg";
+import fudoshinImmovableMind from "@/assets/fudoshin-immovable-mind.jpg";
+import presenceGrounding from "@/assets/presence-grounding.jpg";
+import releaseExhale from "@/assets/release-exhale.jpg";
+import clarityEyeOfStorm from "@/assets/clarity-eye-of-storm.jpg";
+import stillnessGap from "@/assets/stillness-gap.jpg";
+import detachmentObserver from "@/assets/detachment-observer.jpg";
+import softnessRelease from "@/assets/softness-release.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -927,7 +934,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Polyvagal theory; vagus nerve activation through self-touch; interoceptive awareness; embodied safety",
     cue: "\"Touch. Feel. Soften.\"",
     usedBy: "Moments of anxiety, overwhelm, panic, emotional flooding, or after receiving hard news",
-    thumbnail: pauseMauve,
+    thumbnail: presenceGrounding,
     steps: 4,
     subType: "tool",
     instructions: [
@@ -970,7 +977,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Prefrontal cortex override of amygdala; response inhibition in neuroscience; the psychological \"pause button\"",
     cue: "\"Breathe. Space. Choose.\"",
     usedBy: "High-pressure negotiations, receiving criticism, moments of provocation, when anger or fear spike",
-    thumbnail: pauseMauve,
+    thumbnail: fudoshinImmovableMind,
     steps: 4,
     subType: "mindset",
     instructions: [
@@ -1026,7 +1033,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Psychological composure under stress; \"calm is contagious\" (Navy SEAL principle); emotional steadiness",
     cue: "\"Still center, moving world.\"",
     usedBy: "Before critical performances, leadership under crisis, public speaking, confrontation",
-    thumbnail: pauseMauve,
+    thumbnail: fudoshinImmovableMind,
     steps: 4,
     subType: "tool",
     instructions: [
@@ -1082,7 +1089,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     parallel: "Attentional control; metacognitive awareness; the \"observer self\" in mindfulness",
     cue: "\"Find the eye.\"",
     usedBy: "Overwhelming situations, information overload, when multiple demands hit simultaneously",
-    thumbnail: pauseMauve,
+    thumbnail: clarityEyeOfStorm,
     steps: 4,
     subType: "mindset",
     instructions: [
@@ -1109,6 +1116,168 @@ export const sanctuaryContent: SanctuaryContent[] = [
       }
     ],
     whyThisWorks: "Your nervous system can't tell the difference between 20 threats and 1 threat—it just goes into overload. By consciously choosing ONE thing to control, you signal: \"We're not drowning. We're taking one stroke at a time.\" The eye of the storm isn't calm because the storm stopped. It's calm because you stopped trying to fight all of it at once."
+  },
+  {
+    id: "fudoshin-new",
+    title: "Calm in Chaos Through Fudōshin",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'high-pressure', 'performance', 'leadership', 'composure'],
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Samurai principle Fudōshin from Miyamoto Musashi",
+    origin: "不動心 (Fudōshin — immovable mind) from Miyamoto Musashi's Book of Five Rings",
+    storyHook: "Maintain unshakeable mind when everything moves—for critical performances, leadership under crisis, public speaking, confrontation.",
+    essence: "Your center remains still even when the world around you moves violently. Calm presence in chaos.",
+    cue: "Fudōshin—immovable mind.",
+    usedBy: "Before stepping into the arena—presentations, difficult conversations, competition, emergency leadership, any moment requiring poise under pressure",
+    thumbnail: fudoshinImmovableMind,
+    steps: 3,
+    subType: "tool",
+    instructions: [
+      "Center in your body (30 sec): Feel your feet on the ground. Press them down deliberately. Lower your awareness to your center—two inches below your navel. The Japanese call this hara, your body's gravity point. Chaos exists outside. Your center is internal and unmovable.",
+      "Widen your gaze (30 sec): Soften your eyes. Don't fixate on one thing—take in the whole scene at once. Peripheral vision, not tunnel vision. When you fixate, you react to every stimulus. When you observe broadly, you respond from choice.",
+      "Declare your ground (30 sec): Say silently or aloud: 'I am here. I am steady. Nothing moves me.' Or use the samurai declaration: 'Fudōshin—immovable mind.' Your inner stability creates outer composure."
+    ]
+  },
+  {
+    id: "presence-grounding-new",
+    title: "Presence Through Grounding",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'rumination', 'anxiety', 'presence', 'mindfulness'],
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Buddhist mindfulness + Eckhart Tolle",
+    origin: "Buddhist mindfulness practice (sati) + Eckhart Tolle's The Power of Now",
+    storyHook: "Return to now when mind spirals elsewhere—ruminating on past mistakes, anxious about future outcomes, mental time-traveling during stress.",
+    essence: "The present moment is the only moment that actually exists. Past and future are thoughts happening now.",
+    cue: "Here. Now.",
+    usedBy: "When your body is here but your mind is elsewhere—replaying arguments, rehearsing disasters, or lost in worry",
+    thumbnail: presenceGrounding,
+    steps: 3,
+    subType: "mindset",
+    instructions: [
+      "Notice where you went (30 sec): Pause. Ask yourself: 'Where was my mind just now?' Past? Future? Judging myself? Name it without shame: 'I was catastrophizing about tomorrow' or 'I was replaying that conversation.'",
+      "Anchor in three sensations (30 sec): Bring your attention to RIGHT NOW through your senses. Name one thing you see, one thing you hear, one thing you feel right now. Sensation only exists in the present moment.",
+      "Speak your location (30 sec): Say aloud or silently: 'I am here. I am now. This moment is enough.' Take one full breath. Feel yourself arrive."
+    ]
+  },
+  {
+    id: "release-exhale-new",
+    title: "Release Through The Exhale",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'breath', 'tension-release', 'nervous-system', 'stress'],
+    duration: 1.5,
+    difficulty: "beginner",
+    creator: "Ancient Pranayama + Navy SEAL protocols",
+    origin: "Ancient Pranayama (yogic breath control) + Polyvagal Theory + Navy SEAL combat breathing",
+    storyHook: "Discharge intensity through controlled breath—when physical tension, shallow breathing, fight-or-flight activation, wired energy needs release.",
+    essence: "Each long exhale is a message to your nervous system: threat is over, reset to baseline.",
+    cue: "Exhale is release.",
+    usedBy: "When intensity is stored in your body—anxiety manifesting as chest tightness, post-stress tension, too much energy at end of day",
+    thumbnail: releaseExhale,
+    steps: 3,
+    subType: "tool",
+    instructions: [
+      "Locate the intensity (30 sec): Scan your body from head to feet. Where is tension or excess energy held? Jaw clenched? Shoulders tight? Chest constricted? Name the location without trying to change it yet.",
+      "Elongate the exhale (40 sec): Breathe in through nose for 4 counts, out through nose or mouth for 8 counts (twice as long). Repeat this pattern 3 times. Each long exhale activates parasympathetic rest-and-digest mode.",
+      "Discharge physically (20 sec): After your third long exhale, shake your hands vigorously for 10 seconds. Or shiver your whole body like shaking off water. Let sound escape if it wants to—sigh, groan, exhale sharply."
+    ]
+  },
+  {
+    id: "clarity-eye-new",
+    title: "Clarity in Chaos Through The Eye",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'overwhelm', 'clarity', 'prioritization', 'decision-making'],
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Sun Tzu + Eisenhower Matrix",
+    origin: "Sun Tzu's The Art of War + Dwight Eisenhower's Urgent/Important Matrix",
+    storyHook: "See through confusion by naming what's real—for overwhelming situations, information overload, when multiple demands hit simultaneously.",
+    essence: "The hurricane's center is silent. Position yourself there mentally, not in the violent outer winds.",
+    cue: "Find the eye.",
+    usedBy: "When everything feels critical and you don't know where to look first—project crises, simultaneous deadlines, decision paralysis under pressure",
+    thumbnail: clarityEyeOfStorm,
+    steps: 4,
+    subType: "mindset",
+    instructions: [
+      "Name what you see (30 sec): List the facts without interpretation. Not 'Everything's falling apart' but: 'Three deadlines. One angry email. Two people need answers.' Write them if possible.",
+      "Separate urgent from important (45 sec): For each item, ask: Does this demand immediate action? Does this create long-term value? Sort into four categories: Urgent+Important=Do now, Important not urgent=Schedule, Urgent not important=Minimize, Neither=Delete.",
+      "Choose the one critical action (30 sec): Of what remains (urgent AND important), ask: 'Which one action unblocks everything else?' That's your clarity.",
+      "State the first move (15 sec): Complete this sentence: 'The one thing I do next is [specific action].' Not 'work on project' but 'write the introduction' or 'call Sarah.'"
+    ]
+  },
+  {
+    id: "stillness-gap-new",
+    title: "Stillness Through The Gap",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['air', 'mental-noise', 'intuition', 'clarity', 'meditation'],
+    duration: 2,
+    difficulty: "intermediate",
+    creator: "Zen ma + Vipassana meditation",
+    origin: "Zen ma (間 — the space between) + Vipassana meditation + Elite sniper breath pause training",
+    storyHook: "Find the quiet between thoughts—when mental noise, thoughts colliding, feeling trapped in your own head, need to access intuition.",
+    essence: "The gap between thoughts is where stillness lives. Intuition whispers in gaps.",
+    cue: "Find the gap.",
+    usedBy: "Before important decisions when you need to hear your own wisdom, when thoughts are too loud to think clearly",
+    thumbnail: stillnessGap,
+    steps: 3,
+    subType: "mindset",
+    instructions: [
+      "Notice the stream (40 sec): Close your eyes or soften your gaze. Notice thoughts moving through your mind like cars on a highway. Don't grab onto any thought. Just observe: 'Thought about work. Worry thought. Planning thought.' You are not the cars. You are the road.",
+      "Find the gap (60 sec): Between each thought, there is a tiny space of silence. Notice the gap. Even if it's only a fraction of a second. Thought arises → Gap → Next thought arises. Rest your attention in that gap.",
+      "Expand the silence (20 sec): After finding a few gaps, ask one question into the silence: 'What do I actually need right now?' Don't answer it. Just ask it into the gap and listen. The answer will arrive in the next gap—sudden, clear, quiet."
+    ]
+  },
+  {
+    id: "detachment-observer-new",
+    title: "Detachment Through The Observer",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['earth', 'defensiveness', 'perspective', 'objectivity', 'emotional-regulation'],
+    duration: 2,
+    difficulty: "intermediate",
+    creator: "Stoic prosoche + Buddhist sakshi",
+    origin: "Stoic prosoche (attention discipline) + Buddhist sakshi (witness consciousness) + Psychological distancing research",
+    storyHook: "Step outside yourself to see clearly—when taking things too personally, reactive defensiveness, feeling attacked by feedback, emotions cloud judgment.",
+    essence: "You are not your thoughts. You are the awareness that notices them. You are the sky, not the weather.",
+    cue: "I notice I'm having the thought that...",
+    usedBy: "After harsh feedback, when criticism feels like identity assault, during conflicts where you're losing perspective",
+    thumbnail: detachmentObserver,
+    steps: 3,
+    subType: "mindset",
+    instructions: [
+      "Shift to third-person narration (40 sec): Describe what's happening as if you're a narrator watching someone else. Don't say: 'I'm furious.' Say: 'They are feeling anger' or 'They received feedback that triggered defensiveness.' Use your name or 'they' instead of 'I.'",
+      "Name the story, not the fact (40 sec): Ask: 'What story am I telling about what happened?' Fact: 'They disagreed with my idea.' Story: 'They think I'm incompetent.' Speak this: 'The fact is [X]. The story I'm telling is [Y].'",
+      "Return as witness (40 sec): Say to yourself: 'I notice I'm having the thought that [story]. That's a thought, not a truth.' You don't have to believe every thought your mind produces. Sit in that awareness for three breaths."
+    ]
+  },
+  {
+    id: "softness-release-new",
+    title: "Softness Through Release",
+    contentType: "micro-practice",
+    category: "pause",
+    tags: ['water', 'acceptance', 'surrender', 'control', 'letting-go'],
+    duration: 2,
+    difficulty: "beginner",
+    creator: "Taoist Wu Wei + ACT therapy",
+    origin: "Taoist Wu Wei (effortless action) + Serenity Prayer tradition + Acceptance and Commitment Therapy",
+    storyHook: "Let go of what you cannot control—when trying to control the uncontrollable, white-knuckling outcomes, exhaustion from forcing, resistance creating more suffering.",
+    essence: "Water doesn't fight the rock—it flows around. You're learning to flow.",
+    cue: "I release. I allow. I accept what is.",
+    usedBy: "When fighting reality, when effort creates more tension, when you need to accept what is before you can act",
+    thumbnail: softnessRelease,
+    steps: 3,
+    subType: "mindset",
+    instructions: [
+      "Name what you're gripping (40 sec): Ask: 'What am I trying to control right now?' Be specific: 'I'm trying to control what they think of me' or 'I'm trying to control the outcome of this interview.' Naming reveals the grip.",
+      "Separate what's yours to hold (40 sec): For what you named, ask: 'Can I directly influence this outcome?' and 'Is my effort creating the result I want?' If both answers are NO, speak this: 'I cannot control [X]. I release my grip on [X].'",
+      "Open your hands (40 sec): Physically make tight fists. Squeeze hard for 5 seconds. Then open your hands completely. Palms up. Fingers relaxed. Say: 'I release. I allow. I accept what is.' Take three breaths with open hands."
+    ]
   },
 
   // PRESENCE Micro Practices
