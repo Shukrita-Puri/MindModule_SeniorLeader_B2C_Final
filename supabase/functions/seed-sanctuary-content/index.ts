@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
 
     console.log('Starting sanctuary content seeding...');
 
-    // Import all content data
-    const contentData = await import('../../../src/data/practicesAndSoundscapes.ts');
-    const allContent = contentData.sanctuaryContent;
+    // Import seed content data
+    const { seedContent } = await import('./contentData.ts');
+    const allContent = seedContent;
 
     console.log(`Processing ${allContent.length} content items...`);
 
@@ -34,27 +34,30 @@ Deno.serve(async (req) => {
 
     for (const item of allContent) {
       try {
+        // Use any to handle varying data structures
+        const data: any = item;
+        
         // Insert main content
-        const { data: contentRecord, error: contentError } = await supabaseClient
+        const { error: contentError } = await supabaseClient
           .from('sanctuary_content')
           .upsert({
-            id: item.id,
-            title: item.title,
-            content_type: item.contentType,
-            category: item.category,
-            duration: item.duration,
-            difficulty: item.difficulty || null,
-            creator: item.creator || null,
-            origin: item.origin || null,
-            story_hook: item.storyHook || null,
-            used_by: item.usedBy || null,
-            sub_type: item.subType || null,
-            voice: item.voice || null,
-            language: item.language || 'en',
-            thumbnail_url: item.thumbnail || null,
-            audio_url: item.audioSrc || null,
-            steps_count: item.steps || 0,
-            tags: item.tags || [],
+            id: data.id,
+            title: data.title,
+            content_type: data.contentType,
+            category: data.category,
+            duration: data.duration,
+            difficulty: data.difficulty ?? null,
+            creator: data.creator ?? null,
+            origin: data.origin ?? null,
+            story_hook: data.storyHook ?? null,
+            used_by: data.usedBy ?? null,
+            sub_type: data.subType ?? null,
+            voice: data.voice ?? null,
+            language: data.language ?? 'en',
+            thumbnail_url: data.thumbnail ?? null,
+            audio_url: data.audioSrc ?? null,
+            steps_count: data.steps ?? 0,
+            tags: data.tags ?? [],
             is_active: true,
             display_order: allContent.indexOf(item),
           }, {
@@ -62,54 +65,54 @@ Deno.serve(async (req) => {
           });
 
         if (contentError) {
-          console.error(`Error inserting content ${item.id}:`, contentError);
+          console.error(`Error inserting content ${data.id}:`, contentError);
           errorCount++;
           continue;
         }
 
         // Insert metadata if present
-        const hasMetadata = item.introSummary || item.fullStory || item.technique || 
-                           item.benefits || item.completionQuote || item.whatYouNeed || 
-                           item.expectedOutcomes || item.essence || item.parallel || 
-                           item.cue || item.realExamples || item.whyThisWorks || 
-                           item.deliveryModality || item.structuredTags;
+        const hasMetadata = data.introSummary || data.fullStory || data.technique || 
+                           data.benefits || data.completionQuote || data.whatYouNeed || 
+                           data.expectedOutcomes || data.essence || data.parallel || 
+                           data.cue || data.realExamples || data.whyThisWorks || 
+                           data.deliveryModality || data.structuredTags;
 
         if (hasMetadata) {
           const { error: metadataError } = await supabaseClient
             .from('sanctuary_content_metadata')
             .upsert({
-              content_id: item.id,
-              intro_summary: item.introSummary || null,
-              full_story: item.fullStory || null,
-              technique: item.technique || null,
-              benefits: item.benefits || null,
-              completion_quote: item.completionQuote || null,
-              what_you_need: item.whatYouNeed || null,
-              expected_outcomes: item.expectedOutcomes || null,
-              essence: item.essence || null,
-              parallel: item.parallel || null,
-              cue: item.cue || null,
-              real_examples: item.realExamples || null,
-              why_this_works: item.whyThisWorks || null,
-              delivery_modality: item.deliveryModality || null,
-              structured_tags: item.structuredTags || null,
+              content_id: data.id,
+              intro_summary: data.introSummary ?? null,
+              full_story: data.fullStory ?? null,
+              technique: data.technique ?? null,
+              benefits: data.benefits ?? null,
+              completion_quote: data.completionQuote ?? null,
+              what_you_need: data.whatYouNeed ?? null,
+              expected_outcomes: data.expectedOutcomes ?? null,
+              essence: data.essence ?? null,
+              parallel: data.parallel ?? null,
+              cue: data.cue ?? null,
+              real_examples: data.realExamples ?? null,
+              why_this_works: data.whyThisWorks ?? null,
+              delivery_modality: data.deliveryModality ?? null,
+              structured_tags: data.structuredTags ?? null,
             }, {
               onConflict: 'content_id'
             });
 
           if (metadataError) {
-            console.error(`Error inserting metadata for ${item.id}:`, metadataError);
+            console.error(`Error inserting metadata for ${data.id}:`, metadataError);
           }
         }
 
         // Insert practice steps if present
-        if (item.practiceSteps && item.practiceSteps.length > 0) {
-          for (const step of item.practiceSteps) {
+        if (data.practiceSteps && data.practiceSteps.length > 0) {
+          for (const step of data.practiceSteps) {
             const { error: stepError } = await supabaseClient
               .from('sanctuary_content_steps')
               .upsert({
-                content_id: item.id,
-                step_order: item.practiceSteps.indexOf(step) + 1,
+                content_id: data.id,
+                step_order: data.practiceSteps.indexOf(step) + 1,
                 title: step.title,
                 instruction: step.instruction,
                 duration: step.duration || null,
@@ -118,33 +121,33 @@ Deno.serve(async (req) => {
               });
 
             if (stepError) {
-              console.error(`Error inserting step for ${item.id}:`, stepError);
+              console.error(`Error inserting step for ${data.id}:`, stepError);
             }
           }
         }
 
         // For micro-practices, convert instructions array to steps
-        if (item.instructions && item.instructions.length > 0) {
-          for (let i = 0; i < item.instructions.length; i++) {
+        if (data.instructions && data.instructions.length > 0) {
+          for (let i = 0; i < data.instructions.length; i++) {
             const { error: stepError } = await supabaseClient
               .from('sanctuary_content_steps')
               .upsert({
-                content_id: item.id,
+                content_id: data.id,
                 step_order: i + 1,
                 title: `Step ${i + 1}`,
-                instruction: item.instructions[i],
+                instruction: data.instructions[i],
               });
 
             if (stepError) {
-              console.error(`Error inserting instruction step for ${item.id}:`, stepError);
+              console.error(`Error inserting instruction step for ${data.id}:`, stepError);
             }
           }
         }
 
         successCount++;
-        console.log(`✓ Seeded: ${item.id}`);
+        console.log(`✓ Seeded: ${data.id}`);
       } catch (err) {
-        console.error(`Error processing ${item.id}:`, err);
+        console.error(`Error processing ${(item as any).id}:`, err);
         errorCount++;
       }
     }
