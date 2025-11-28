@@ -1118,29 +1118,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
     whyThisWorks: "Your nervous system can't tell the difference between 20 threats and 1 threat—it just goes into overload. By consciously choosing ONE thing to control, you signal: \"We're not drowning. We're taking one stroke at a time.\" The eye of the storm isn't calm because the storm stopped. It's calm because you stopped trying to fight all of it at once."
   },
   {
-    id: "fudoshin-new",
-    title: "Calm in Chaos Through Fudōshin",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'high-pressure', 'performance', 'leadership', 'composure'],
-    duration: 1.5,
-    difficulty: "beginner",
-    creator: "Samurai principle Fudōshin from Miyamoto Musashi",
-    origin: "不動心 (Fudōshin — immovable mind) from Miyamoto Musashi's Book of Five Rings",
-    storyHook: "Maintain unshakeable mind when everything moves—for critical performances, leadership under crisis, public speaking, confrontation.",
-    essence: "Your center remains still even when the world around you moves violently. Calm presence in chaos.",
-    cue: "Fudōshin—immovable mind.",
-    usedBy: "Before stepping into the arena—presentations, difficult conversations, competition, emergency leadership, any moment requiring poise under pressure",
-    thumbnail: fudoshinImmovableMind,
-    steps: 3,
-    subType: "tool",
-    instructions: [
-      "Center in your body (30 sec): Feel your feet on the ground. Press them down deliberately. Lower your awareness to your center—two inches below your navel. The Japanese call this hara, your body's gravity point. Chaos exists outside. Your center is internal and unmovable.",
-      "Widen your gaze (30 sec): Soften your eyes. Don't fixate on one thing—take in the whole scene at once. Peripheral vision, not tunnel vision. When you fixate, you react to every stimulus. When you observe broadly, you respond from choice.",
-      "Declare your ground (30 sec): Say silently or aloud: 'I am here. I am steady. Nothing moves me.' Or use the samurai declaration: 'Fudōshin—immovable mind.' Your inner stability creates outer composure."
-    ]
-  },
-  {
     id: "presence-grounding-new",
     title: "Presence Through Grounding",
     contentType: "micro-practice",
@@ -1184,30 +1161,6 @@ export const sanctuaryContent: SanctuaryContent[] = [
       "Locate the intensity (30 sec): Scan your body from head to feet. Where is tension or excess energy held? Jaw clenched? Shoulders tight? Chest constricted? Name the location without trying to change it yet.",
       "Elongate the exhale (40 sec): Breathe in through nose for 4 counts, out through nose or mouth for 8 counts (twice as long). Repeat this pattern 3 times. Each long exhale activates parasympathetic rest-and-digest mode.",
       "Discharge physically (20 sec): After your third long exhale, shake your hands vigorously for 10 seconds. Or shiver your whole body like shaking off water. Let sound escape if it wants to—sigh, groan, exhale sharply."
-    ]
-  },
-  {
-    id: "clarity-eye-new",
-    title: "Clarity in Chaos Through The Eye",
-    contentType: "micro-practice",
-    category: "pause",
-    tags: ['earth', 'overwhelm', 'clarity', 'prioritization', 'decision-making'],
-    duration: 2,
-    difficulty: "beginner",
-    creator: "Sun Tzu + Eisenhower Matrix",
-    origin: "Sun Tzu's The Art of War + Dwight Eisenhower's Urgent/Important Matrix",
-    storyHook: "See through confusion by naming what's real—for overwhelming situations, information overload, when multiple demands hit simultaneously.",
-    essence: "The hurricane's center is silent. Position yourself there mentally, not in the violent outer winds.",
-    cue: "Find the eye.",
-    usedBy: "When everything feels critical and you don't know where to look first—project crises, simultaneous deadlines, decision paralysis under pressure",
-    thumbnail: clarityEyeOfStorm,
-    steps: 4,
-    subType: "mindset",
-    instructions: [
-      "Name what you see (30 sec): List the facts without interpretation. Not 'Everything's falling apart' but: 'Three deadlines. One angry email. Two people need answers.' Write them if possible.",
-      "Separate urgent from important (45 sec): For each item, ask: Does this demand immediate action? Does this create long-term value? Sort into four categories: Urgent+Important=Do now, Important not urgent=Schedule, Urgent not important=Minimize, Neither=Delete.",
-      "Choose the one critical action (30 sec): Of what remains (urgent AND important), ask: 'Which one action unblocks everything else?' That's your clarity.",
-      "State the first move (15 sec): Complete this sentence: 'The one thing I do next is [specific action].' Not 'work on project' but 'write the introduction' or 'call Sarah.'"
     ]
   },
   {
