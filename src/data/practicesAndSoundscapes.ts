@@ -35,6 +35,7 @@ import bhramariHero from "@/assets/bhramari-pranayama-hero.jpg";
 import tratakaHero from "@/assets/trataka-flame-gaze-hero.jpg";
 import vagusWindDownHero from "@/assets/vagus-wind-down-hero.jpg";
 import harmonicCalmBowl from "@/assets/harmonic-calm-singing-bowl.jpg";
+import forestBathingVisual from "@/assets/forest-bathing-visual.jpg";
 import fudoshinImmovableMind from "@/assets/fudoshin-immovable-mind.jpg";
 import presenceGrounding from "@/assets/presence-grounding.jpg";
 import releaseExhale from "@/assets/release-exhale.jpg";
@@ -312,7 +313,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Japanese Shinrin-yoku practices",
     origin: "Japanese Shinrin-yoku (forest bathing) practices",
     storyHook: "Used to cultivate deep calm, restore mental clarity, and anchor attention in the present through gentle rain and subtle village sounds.",
-    thumbnail: pauseVisual,
+    thumbnail: forestBathingVisual,
     audioSrc: "/soundscapes/forest-bathing.mp3",
     fullStory: "In the 1980s, the Japanese government formally recognized Shinrin-yoku—'forest bathing'—as a cornerstone of preventive healthcare and healing. But the practice itself is ancient, rooted in Shinto beliefs about the sacred presence of nature. Japanese physicians discovered that simply being present in a forest environment significantly reduced stress hormones, lowered blood pressure, and improved immune function. The practice isn't about hiking or exercise—it's about opening your senses fully to the forest atmosphere: the rustle of leaves, the patter of rain, the distant sounds of village life. This soundscape captures that essence, transporting you to a rain-soaked forest where time moves slowly and the mind finds space to breathe.",
     technique: "Close your eyes and imagine yourself standing at the edge of an ancient forest after a gentle rain. Feel the cool air on your skin. As you listen, notice the layers: the soft rain, the rustling leaves, the distant village sounds. Don't try to identify every sound—instead, let the soundscape become a living environment around you. Breathe deeply and slowly, as if inhaling the forest air itself. When thoughts arise, acknowledge them gently and return your attention to the natural sounds. This is not an escape from life, but a return to your natural state of calm awareness.",
