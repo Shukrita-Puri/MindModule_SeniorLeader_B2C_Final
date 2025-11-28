@@ -157,7 +157,7 @@ const PauseOutcomePage = () => {
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
     }
-    return 'Practice';
+    return 'Guided Practice';
   };
 
   return (
