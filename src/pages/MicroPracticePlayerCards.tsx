@@ -1649,7 +1649,7 @@ const MicroPracticePlayerCards = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const category = location.state?.category || 'power-up';
+  const category = location.state?.category || 'power-up'; // Default to power-up if no category
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
