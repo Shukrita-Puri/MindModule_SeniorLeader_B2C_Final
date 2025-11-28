@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
+import { useContentByCategory, useAllContent, type SanctuaryContent } from "@/hooks/useContent";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { cn } from "@/lib/utils";
 
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
-  const content = getContentByCategory('pause');
-  const soundscapes = content.filter(item => item.contentType === 'soundbath');
-  const practices = content.filter(item => item.contentType === 'guided-practice');
+  const { data: content = [], isLoading } = useContentByCategory('pause');
+  const { data: allContent = [] } = useAllContent();
+  
+  const soundscapes = content.filter(item => item.content_type === 'soundbath');
+  const practices = content.filter(item => item.content_type === 'guided-practice');
   
   // IDs of somatic micro-practices that should be in Somatic Protocol
   const somaticMicroPracticeIds = ['djokovic-reset', 'release-exhale-new', 'fudoshin-immovable-mind'];
@@ -25,13 +27,12 @@ const PauseOutcomePage = () => {
   
   // Filter micro-practices: exclude somatic ones and excluded IDs from Mindset
   const microPractices = content.filter(item => 
-    item.contentType === 'micro-practice' && 
+    item.content_type === 'micro-practice' && 
     !somaticMicroPracticeIds.includes(item.id) &&
     !excludedIds.includes(item.id)
   );
   
   // Get stoic-reflection from all content (it's categorized as 'presence' in data)
-  const allContent = getAllContent();
   const stoicReflection = allContent.find(item => item.id === 'stoic-reflection');
   
   // Add stoic-reflection to mindset items
@@ -39,7 +40,7 @@ const PauseOutcomePage = () => {
   
   // Get somatic micro-practices
   const somaticMicroPractices = content.filter(item => 
-    item.contentType === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
+    item.content_type === 'micro-practice' && somaticMicroPracticeIds.includes(item.id)
   );
   
   const [completionCounts, setCompletionCounts] = useState<Record<string, number>>({});
@@ -73,11 +74,67 @@ const PauseOutcomePage = () => {
 
   const getOutcomeFocusedTitle = (item: SanctuaryContent): string => {
     // For micro practices, use the title directly as it's already formatted with outcome + origin
-    if (item.contentType === 'micro-practice') {
+    if (item.content_type === 'micro-practice') {
       return item.title;
     }
     
     // For soundscapes and guided practices, use the mapping
+    const titleMap: Record<string, string> = {
+      "harmonic-calm": "Deep Rest & Grounding",
+      "deep-calm-forest-bathing": "Deep Calm",
+      "vagus-wind-down": "Settle The Nervous System",
+      "deep-focus-monastic-resonance": "Deep Focus & Grounded Presence",
+      "sustained-focus-choir-harmonic": "Sustained Focus",
+      "ina-night-fields": "Presence & Deep Calm"
+    };
+
+    return titleMap[item.id] || item.title;
+  };
+
+  const getCredibilitySubtitle = (item: SanctuaryContent): string => {
+    if (item.origin) {
+      return item.origin.length > 80 ? `${item.origin.substring(0, 80)}...` : item.origin;
+    }
+    return item.creator || '';
+  };
+
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 1) {
+      return `${Math.round(minutes * 60)}s`;
+    } else if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.round(minutes % 60);
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return `${Math.round(minutes)}m`;
+  };
+
+  const getCompletionTracking = (item: SanctuaryContent): string => {
+    const duration = formatDuration(item.duration);
+    const count = completionCounts[item.id] || 0;
+    const completionText = count > 0 ? ` • Done ${count}x` : '';
+    return `${duration}${completionText}`;
+  };
+
+  const getBadgeLabel = (item: SanctuaryContent): string => {
+    if (item.content_type === 'micro-practice') {
+      return item.sub_type === 'tool' ? 'SOMATIC' : 'MINDSET';
+    }
+    if (item.content_type === 'soundbath') {
+      return 'SOUNDSCAPE';
+    }
+    return 'PRACTICE';
+  };
+
+  const handleItemClick = (item: SanctuaryContent) => {
+    if (item.content_type === 'soundbath') {
+      navigate(`/soundscape/${item.id}`);
+    } else if (item.content_type === 'guided-practice') {
+      navigate(`/practice/${item.id}`);
+    } else if (item.content_type === 'micro-practice') {
+      navigate(`/micro-practice/${item.id}`);
+    }
+  };
     const titleMap: Record<string, string> = {
       "Tibetan Bowl Resonance": "Deep Meditative Flow",
       "Pre-Mission Calm": "Tactical Composure Before Critical Moments",

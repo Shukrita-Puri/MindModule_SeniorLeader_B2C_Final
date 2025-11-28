@@ -24,30 +24,29 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { toast } from "sonner";
-import { getContentById } from "@/data/practicesAndSoundscapes";
+import { useContentById } from "@/hooks/useContent";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
 
-// Soundscape data now comes from practicesAndSoundscapes.ts
-const getSoundscapeData = (id: string) => {
-  const content = getContentById(id);
-  if (!content || content.contentType !== "soundbath") return null;
+// Soundscape data now comes from database
+const getSoundscapeData = (content: any) => {
+  if (!content || content.content_type !== "soundbath") return null;
   
   return {
     id: content.id,
     title: content.title,
     category: content.category,
     duration: content.duration * 60, // Convert minutes to seconds
-    origin: content.origin || content.storyHook,
-    introSummary: content.introSummary || "",
-    fullStory: content.fullStory || "",
+    origin: content.origin || content.story_hook,
+    introSummary: content.metadata?.intro_summary || "",
+    fullStory: content.metadata?.full_story || "",
     creator: content.creator,
-    technique: content.technique || "",
-    benefits: content.benefits || [],
-    completionQuote: content.completionQuote || "",
+    technique: content.metadata?.technique || "",
+    benefits: content.metadata?.benefits || [],
+    completionQuote: content.metadata?.completion_quote || "",
     audioSrc: content.audioSrc || "",
     thumbnail: content.thumbnail
   };
