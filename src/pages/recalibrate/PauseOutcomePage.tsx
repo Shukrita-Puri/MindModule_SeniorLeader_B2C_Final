@@ -13,8 +13,12 @@ import { cn } from "@/lib/utils";
 
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
-  const { data: content = [], isLoading } = useContentByCategory('pause');
+  const { data: categoryContent = [], isLoading } = useContentByCategory('pause');
   const { data: allContent = [] } = useAllContent();
+
+  const content = (categoryContent && categoryContent.length > 0)
+    ? categoryContent
+    : allContent.filter(item => item.category === 'pause');
   
   const soundscapes = content.filter(item => item.content_type === 'soundbath');
   const practices = content.filter(item => item.content_type === 'guided-practice');
