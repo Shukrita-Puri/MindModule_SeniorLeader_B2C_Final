@@ -632,6 +632,193 @@ export type Database = {
         }
         Relationships: []
       }
+      sanctuary_content: {
+        Row: {
+          audio_url: string | null
+          category: string
+          content_type: string
+          created_at: string | null
+          creator: string | null
+          difficulty: string | null
+          display_order: number | null
+          duration: number
+          id: string
+          is_active: boolean | null
+          language: string | null
+          origin: string | null
+          steps_count: number | null
+          story_hook: string | null
+          sub_type: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          used_by: string | null
+          voice: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          category: string
+          content_type: string
+          created_at?: string | null
+          creator?: string | null
+          difficulty?: string | null
+          display_order?: number | null
+          duration: number
+          id: string
+          is_active?: boolean | null
+          language?: string | null
+          origin?: string | null
+          steps_count?: number | null
+          story_hook?: string | null
+          sub_type?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          used_by?: string | null
+          voice?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string
+          content_type?: string
+          created_at?: string | null
+          creator?: string | null
+          difficulty?: string | null
+          display_order?: number | null
+          duration?: number
+          id?: string
+          is_active?: boolean | null
+          language?: string | null
+          origin?: string | null
+          steps_count?: number | null
+          story_hook?: string | null
+          sub_type?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          used_by?: string | null
+          voice?: string | null
+        }
+        Relationships: []
+      }
+      sanctuary_content_metadata: {
+        Row: {
+          benefits: string[] | null
+          completion_quote: string | null
+          content_id: string
+          created_at: string | null
+          cue: string | null
+          delivery_modality: string[] | null
+          essence: string | null
+          expected_outcomes: string[] | null
+          full_story: string | null
+          id: string
+          intro_summary: string | null
+          parallel: string | null
+          real_examples: Json | null
+          structured_tags: Json | null
+          technique: string | null
+          updated_at: string | null
+          what_you_need: string[] | null
+          why_this_works: string | null
+        }
+        Insert: {
+          benefits?: string[] | null
+          completion_quote?: string | null
+          content_id: string
+          created_at?: string | null
+          cue?: string | null
+          delivery_modality?: string[] | null
+          essence?: string | null
+          expected_outcomes?: string[] | null
+          full_story?: string | null
+          id?: string
+          intro_summary?: string | null
+          parallel?: string | null
+          real_examples?: Json | null
+          structured_tags?: Json | null
+          technique?: string | null
+          updated_at?: string | null
+          what_you_need?: string[] | null
+          why_this_works?: string | null
+        }
+        Update: {
+          benefits?: string[] | null
+          completion_quote?: string | null
+          content_id?: string
+          created_at?: string | null
+          cue?: string | null
+          delivery_modality?: string[] | null
+          essence?: string | null
+          expected_outcomes?: string[] | null
+          full_story?: string | null
+          id?: string
+          intro_summary?: string | null
+          parallel?: string | null
+          real_examples?: Json | null
+          structured_tags?: Json | null
+          technique?: string | null
+          updated_at?: string | null
+          what_you_need?: string[] | null
+          why_this_works?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanctuary_content_metadata_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: true
+            referencedRelation: "sanctuary_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sanctuary_content_steps: {
+        Row: {
+          breathing_pattern: string | null
+          content_id: string
+          created_at: string | null
+          duration: number | null
+          id: string
+          instruction: string
+          step_order: number
+          title: string
+          wisdom_note: string | null
+        }
+        Insert: {
+          breathing_pattern?: string | null
+          content_id: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          instruction: string
+          step_order: number
+          title: string
+          wisdom_note?: string | null
+        }
+        Update: {
+          breathing_pattern?: string | null
+          content_id?: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          instruction?: string
+          step_order?: number
+          title?: string
+          wisdom_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanctuary_content_steps_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "sanctuary_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sanctuary_events: {
         Row: {
           category: string
