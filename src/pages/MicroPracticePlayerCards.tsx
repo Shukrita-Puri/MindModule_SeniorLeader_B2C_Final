@@ -1554,18 +1554,25 @@ const getCardsForPractice = (practiceId: string | undefined) => {
     case "stoic-reflection":
       return STOIC_REFLECTION_CARDS;
     case "fudoshin-immovable-mind":
+    case "fudoshin-new":
       return FUDOSHIN_CARDS;
     case "presence-grounding":
+    case "presence-grounding-new":
       return PRESENCE_GROUNDING_CARDS;
     case "release-exhale":
+    case "release-exhale-new":
       return RELEASE_EXHALE_CARDS;
-    case "clarity-eye-storm":
+    case "eye-of-storm":
+    case "clarity-eye-new":
       return CLARITY_EYE_STORM_CARDS;
     case "stillness-gap":
+    case "stillness-gap-new":
       return STILLNESS_GAP_CARDS;
     case "detachment-observer":
+    case "detachment-observer-new":
       return DETACHMENT_OBSERVER_CARDS;
     case "softness-release":
+    case "softness-release-new":
       return SOFTNESS_RELEASE_CARDS;
     default:
       return [];
@@ -1610,18 +1617,25 @@ const getBackgroundForPractice = (practiceId: string | undefined) => {
     case "stoic-reflection":
       return stoicReflectionHero;
     case "fudoshin-immovable-mind":
+    case "fudoshin-new":
       return fudoshinHero;
     case "presence-grounding":
+    case "presence-grounding-new":
       return presenceGroundingHero;
     case "release-exhale":
+    case "release-exhale-new":
       return releaseExhaleHero;
-    case "clarity-eye-storm":
+    case "eye-of-storm":
+    case "clarity-eye-new":
       return clarityEyeStormHero;
     case "stillness-gap":
+    case "stillness-gap-new":
       return stillnessGapHero;
     case "detachment-observer":
+    case "detachment-observer-new":
       return detachmentObserverHero;
     case "softness-release":
+    case "softness-release-new":
       return softnessReleaseHero;
     default:
       return phoenixResilienceHero;
