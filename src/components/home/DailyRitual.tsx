@@ -303,29 +303,26 @@ const DailyRitual = () => {
     <div className="space-y-4">
       {/* Progress indicator */}
       {ritualStatus.status === 'partial' && (
-        <div className="text-xs text-muted-foreground px-1">
+        <div className="text-xs text-muted-foreground px-4 max-w-lg mx-auto">
           {ritualStatus.completedCount} of {ritualStatus.totalCount} practices completed
         </div>
       )}
 
-      {/* Recommended Content - Edge-to-Edge Carousel (Waking Up Style) */}
-      <div className="relative -mx-4">
+      {/* Recommended Content - Full Width Carousel */}
+      <div className="relative w-full">
         <Carousel 
           opts={{ align: 'start', loop: false }} 
           className="w-full"
           setApi={setCarouselApi}
         >
-          <CarouselContent className="ml-0">
+          <CarouselContent className="-ml-3 pl-4">
             {practices.map((practice, index) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               
               return (
                 <CarouselItem 
                   key={practice.id} 
-                  className={cn(
-                    "pl-0 basis-[85%] md:basis-[45%] lg:basis-[30%]",
-                    index === 0 && "pl-4"
-                  )}
+                  className="pl-3 basis-[85%] sm:basis-[75%] md:basis-[45%] lg:basis-[30%]"
                 >
                   <div
                     onClick={() => !isCompleted && navigateToPractice(practice)}
@@ -333,7 +330,8 @@ const DailyRitual = () => {
                       "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all",
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:shadow-md"
+                        : "hover:shadow-md",
+                      index === practices.length - 1 && "mr-4"
                     )}
                   >
                     {/* Thumbnail - fills height */}
@@ -396,42 +394,44 @@ const DailyRitual = () => {
         </div>
       )}
 
-      {/* Action Button */}
-      {ritualStatus.status === 'not_started' && (
-        <Button 
-          onClick={handleStartRitual}
-          className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
-        >
-          Start Your Ritual
-        </Button>
-      )}
-
-      {ritualStatus.status === 'partial' && (
-        <Button 
-          onClick={handleContinueRitual}
-          className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
-        >
-          Continue Your Ritual
-        </Button>
-      )}
-
-      {ritualStatus.status === 'completed' && (
-        <div className="flex items-center justify-between bg-card rounded-xl p-4 border border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-              <Check size={16} className="text-green-600" />
-            </div>
-            <span className="text-sm font-medium text-foreground">Ritual Completed</span>
-          </div>
+      {/* Action Button - constrained width */}
+      <div className="px-4 max-w-lg mx-auto">
+        {ritualStatus.status === 'not_started' && (
           <Button 
-            onClick={handleRestartRitual}
-            variant="outline"
-            size="sm"
+            onClick={handleStartRitual}
+            className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
           >
-            Restart
+            Start Your Ritual
           </Button>
-        </div>
-      )}
+        )}
+
+        {ritualStatus.status === 'partial' && (
+          <Button 
+            onClick={handleContinueRitual}
+            className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+          >
+            Continue Your Ritual
+          </Button>
+        )}
+
+        {ritualStatus.status === 'completed' && (
+          <div className="flex items-center justify-between bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                <Check size={16} className="text-green-600" />
+              </div>
+              <span className="text-sm font-medium text-foreground">Ritual Completed</span>
+            </div>
+            <Button 
+              onClick={handleRestartRitual}
+              variant="outline"
+              size="sm"
+            >
+              Restart
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
