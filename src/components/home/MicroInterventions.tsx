@@ -767,39 +767,39 @@ const MicroSelfRecalibrateInterventions = () => {
                 return (
                   <CarouselItem 
                     key={intervention.id} 
-                    className="pl-4 basis-[85%] md:basis-[48%] lg:basis-[32%]"
+                    className="pl-4 basis-[90%] md:basis-[48%] lg:basis-[32%]"
                   >
-                    <div className="flex items-center gap-4 bg-card rounded-xl border shadow-sm overflow-hidden h-24 cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
+                    <div className="flex items-center gap-4 bg-card rounded-xl border shadow-sm overflow-hidden h-32 cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
                       onClick={() => handleInterventionClick(intervention, cardRenderTime)}
                     >
                       {/* Large Square Thumbnail */}
                       <div
-                        className="w-24 h-24 bg-cover bg-center flex-shrink-0 relative"
+                        className="w-32 h-32 bg-cover bg-center flex-shrink-0 relative"
                         style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
                       >
                         {/* Urgency indicator */}
                         {intervention.priority > 80 && (
-                          <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                          <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
                         )}
                       </div>
                       
                       {/* Content */}
-                      <div className="flex-1 py-3 pr-3 min-w-0">
+                      <div className="flex-1 py-3 pr-4 min-w-0">
                         {/* Category/Timing Label */}
                         <span className={cn(
-                          "text-xs font-medium",
+                          "text-sm font-medium",
                           urgencyColor
                         )}>
                           {intervention.timing}
                         </span>
                         
                         {/* Title */}
-                        <h4 className="text-sm font-semibold text-foreground line-clamp-2 mt-0.5">
+                        <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1">
                           {intervention.content.title}
                         </h4>
                         
                         {/* Duration & Category */}
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground">
                           <span>{intervention.content.duration} min</span>
                           <span>•</span>
                           <span>{intervention.content.category}</span>
@@ -808,12 +808,12 @@ const MicroSelfRecalibrateInterventions = () => {
                       
                       {/* Icon indicator */}
                       <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0",
+                        "w-9 h-9 rounded-full flex items-center justify-center mr-3 flex-shrink-0",
                         intervention.urgencyLevel === 'critical' ? 'bg-destructive/10' :
                         intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
                         'bg-primary/10'
                       )}>
-                        <Icon className={cn("w-4 h-4", urgencyColor)} />
+                        <Icon className={cn("w-5 h-5", urgencyColor)} />
                       </div>
                     </div>
                   </CarouselItem>
