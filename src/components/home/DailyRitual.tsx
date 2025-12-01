@@ -308,52 +308,55 @@ const DailyRitual = () => {
         </div>
       )}
 
-      {/* Recommended Content - Edge-to-Edge Carousel */}
+      {/* Recommended Content - Edge-to-Edge Carousel (Waking Up Style) */}
       <div className="relative -mx-4">
         <Carousel 
           opts={{ align: 'start', loop: false }} 
           className="w-full"
           setApi={setCarouselApi}
         >
-          <CarouselContent className="-ml-3 px-4">
-            {practices.map((practice) => {
+          <CarouselContent className="ml-0">
+            {practices.map((practice, index) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               
               return (
                 <CarouselItem 
                   key={practice.id} 
-                  className="pl-3 basis-[88%] md:basis-[45%] lg:basis-[30%]"
+                  className={cn(
+                    "pl-0 basis-[85%] md:basis-[45%] lg:basis-[30%]",
+                    index === 0 && "pl-4"
+                  )}
                 >
                   <div
                     onClick={() => !isCompleted && navigateToPractice(practice)}
                     className={cn(
-                      "flex bg-card rounded-2xl border border-border shadow-md overflow-hidden h-36 cursor-pointer transition-all",
+                      "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all",
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:shadow-lg hover:border-primary/20"
+                        : "hover:shadow-md"
                     )}
                   >
-                    {/* Large Square Thumbnail */}
+                    {/* Thumbnail - fills height */}
                     <img 
                       src={practice.thumbnail} 
                       alt={practice.title}
-                      className="w-36 h-36 object-cover flex-shrink-0"
+                      className="w-32 h-full object-cover flex-shrink-0"
                     />
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                       {/* Category Label */}
-                      <span className="text-sm font-semibold text-primary uppercase tracking-wide">
+                      <span className="text-sm text-primary">
                         {getProtocolType(practice)}
                       </span>
                       
                       {/* Title */}
-                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1.5 leading-tight">
+                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
                         {practice.title}
                       </h4>
                       
                       {/* Duration */}
-                      <span className="text-sm text-muted-foreground mt-2">
+                      <span className="text-sm text-muted-foreground mt-1">
                         {practice.duration} min
                       </span>
                     </div>
@@ -372,7 +375,7 @@ const DailyRitual = () => {
         </Carousel>
         
         {/* Swipe hint gradient - mobile only */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
       </div>
 
       {/* Pagination Dots */}
