@@ -195,13 +195,18 @@ const DailyRitual = () => {
   };
 
   const navigateToPractice = (practice: Recommendation) => {
-    const baseRoute = practice.contentType === 'soundbath' 
-      ? '/soundscapes'
-      : practice.contentType === 'guided-practice'
-      ? '/guided-practices'
-      : '/micro-practice';
+    let route: string;
     
-    navigate(`${baseRoute}/${practice.id}`, { 
+    if (practice.contentType === 'soundbath') {
+      route = `/soundscapes/${practice.id}`;
+    } else if (practice.contentType === 'guided-practice') {
+      route = `/guided-practices/${practice.id}`;
+    } else {
+      // For micro-practices, go directly to cards page (skip intro)
+      route = `/micro-practice/${practice.id}/cards`;
+    }
+    
+    navigate(route, { 
       state: { 
         category: practice.category,
         fromRitual: true 
