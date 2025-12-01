@@ -28,6 +28,7 @@ import BreathingAnimation from "@/components/BreathingAnimation";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
+import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
@@ -725,9 +726,32 @@ const GuidedPracticePlayer = () => {
   const [showStory, setShowStory] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
 
+  // Practice Queue State
+  const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [isInQueue, setIsInQueue] = useState(false);
+
   // Try to get practice from new data structure first, fallback to legacy
   const practice = id ? (getPracticeData(id) || practiceData[id]) : null;
   const contentData = id ? getContentById(id) : null;
+
+  // Check if this is part of a practice queue
+  useEffect(() => {
+    const queue = localStorage.getItem('practiceQueue');
+    if (queue) {
+      try {
+        const parsed = JSON.parse(queue);
+        setPracticeQueue(parsed);
+        const index = parsed.findIndex((p: any) => p.id === id);
+        if (index !== -1) {
+          setCurrentQueueIndex(index);
+          setIsInQueue(true);
+        }
+      } catch (e) {
+        console.error('Error parsing practice queue:', e);
+      }
+    }
+  }, [id]);
 
   // Determine if this is an audio-based practice
   const isAudioPractice = contentData?.audioSrc && (
@@ -794,6 +818,43 @@ const GuidedPracticePlayer = () => {
     if (category === 'presence') return '/recalibrate/presence';
     if (category === 'flow') return '/recalibrate/flow';
     return '/guided-practices';
+  };
+
+  // Queue Handlers
+  const navigateToNext = () => {
+    const next = practiceQueue[currentQueueIndex + 1];
+    if (!next) return;
+    
+    if (next.contentType === 'soundbath') {
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'guided-practice') {
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'micro-practice') {
+      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+    }
+  };
+
+  const handleQueueSkip = () => {
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    }
+  };
+
+  const handleQueuePause = () => {
+    localStorage.removeItem('practiceQueue');
+    toast.success('Ritual paused');
+    navigate('/executive-home');
+  };
+
+  const handleQueueComplete = () => {
+    // Navigate to next or complete ritual
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    } else {
+      localStorage.removeItem('practiceQueue');
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+    }
   };
 
   const handlePracticeComplete = async () => {
@@ -1049,6 +1110,18 @@ const GuidedPracticePlayer = () => {
 
         {/* Navigation */}
         <TopNavigation backPath={getCategoryPath()} />
+
+        {/* Practice Queue Progress - show when part of ritual */}
+        {isInQueue && practice && (
+          <PracticeQueueProgress
+            currentIndex={currentQueueIndex}
+            totalCount={practiceQueue.length}
+            queue={practiceQueue}
+            onSkip={handleQueueSkip}
+            onPause={handleQueuePause}
+            onComplete={handleQueueComplete}
+          />
+        )}
 
         {!hasStarted ? (
           /* Initial State - Center everything */
@@ -1312,7 +1385,19 @@ const GuidedPracticePlayer = () => {
       <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background">
         <TopNavigation backPath={getCategoryPath()} />
         
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 pt-20 space-y-4 md:space-y-6">
+        {/* Practice Queue Progress - show when part of ritual */}
+        {isInQueue && practice && (
+          <PracticeQueueProgress
+            currentIndex={currentQueueIndex}
+            totalCount={practiceQueue.length}
+            queue={practiceQueue}
+            onSkip={handleQueueSkip}
+            onPause={handleQueuePause}
+            onComplete={handleQueueComplete}
+          />
+        )}
+        
+        <div className={cn("max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-4 md:space-y-6", isInQueue ? "pt-36" : "pt-20")}>
             {/* Hero Image */}
             {getContentById(id!)?.thumbnail && (
               <div className="w-full max-h-64 md:max-h-80 overflow-hidden rounded-xl bg-muted">
@@ -1653,11 +1738,29 @@ const GuidedPracticePlayer = () => {
     const handleRatingSubmit = async (rating: number, feedback?: string) => {
       await submitPracticeRating(sessionId, practice.id, 'guided-practice', rating, feedback);
       toast.success("Thank you for your feedback!");
-      setView("complete");
+      // If in queue and not last, navigate to next; otherwise show complete view
+      if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+        navigateToNext();
+      } else if (isInQueue) {
+        localStorage.removeItem('practiceQueue');
+        toast.success('🎉 Ritual complete!');
+        navigate('/executive-home');
+      } else {
+        setView("complete");
+      }
     };
 
     const handleRatingSkip = () => {
-      setView("complete");
+      // If in queue and not last, navigate to next; otherwise show complete view
+      if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+        navigateToNext();
+      } else if (isInQueue) {
+        localStorage.removeItem('practiceQueue');
+        toast.success('🎉 Ritual complete!');
+        navigate('/executive-home');
+      } else {
+        setView("complete");
+      }
     };
 
     return (
