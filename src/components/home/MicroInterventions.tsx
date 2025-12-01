@@ -31,6 +31,7 @@ import { trackInterventionEvent } from '@/utils/interventionTracking';
 import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
 import { useToast } from '@/hooks/use-toast';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 
 interface MicroIntervention {
   id: string;
@@ -738,155 +739,159 @@ const MicroSelfRecalibrateInterventions = () => {
         </Card>
       )}
 
-      {/* Interventions List */}
+      {/* Interventions List - Responsive Carousel */}
       {!loading && displayedInterventions.length > 0 && (
-        <>
-          {displayedInterventions.map((intervention) => {
-        const Icon = getIcon(intervention.icon);
-        const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
-        const cardRenderTime = Date.now();
-        
-        return (
-          <Card
-            key={intervention.id}
-            className="p-4 space-y-3 relative"
-          >
-            {/* X Dismiss Button */}
-            <button
-              onClick={(e) => handleDismissClick(intervention, e)}
-              className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/50 text-muted-foreground opacity-60 hover:opacity-100 transition-opacity z-10"
-              aria-label="Dismiss this suggestion"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        <Carousel opts={{ align: 'start', loop: false }} className="w-full">
+          <CarouselContent className="-ml-2">
+            {displayedInterventions.map((intervention) => {
+              const Icon = getIcon(intervention.icon);
+              const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
+              const cardRenderTime = Date.now();
+              
+              return (
+                <CarouselItem 
+                  key={intervention.id} 
+                  className="pl-2 basis-[85%] md:basis-[48%] lg:basis-[32%]"
+                >
+                  <Card className="p-4 space-y-3 relative h-full">
+                    {/* X Dismiss Button */}
+                    <button
+                      onClick={(e) => handleDismissClick(intervention, e)}
+                      className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted/50 text-muted-foreground opacity-60 hover:opacity-100 transition-opacity z-10"
+                      aria-label="Dismiss this suggestion"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
 
-            {/* Header */}
-            <div className="flex items-start gap-3 pr-8">
-              <div className={`w-8 h-8 rounded-full ${
-                intervention.urgencyLevel === 'critical' ? 'bg-red-100 dark:bg-red-900/20' :
-                intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
-                'bg-saffron/10'
-              } flex items-center justify-center flex-shrink-0`}>
-                <Icon className={`w-4 h-4 ${urgencyColor}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-foreground mb-1">
-                  {intervention.trigger}
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  {intervention.timing}
-                </p>
-              </div>
-              {intervention.priority > 80 && (
-                <Badge variant="destructive" className="text-xs">
-                  Urgent
-                </Badge>
-              )}
-            </div>
+                    {/* Header */}
+                    <div className="flex items-start gap-3 pr-8">
+                      <div className={`w-8 h-8 rounded-full ${
+                        intervention.urgencyLevel === 'critical' ? 'bg-red-100 dark:bg-red-900/20' :
+                        intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
+                        'bg-saffron/10'
+                      } flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`w-4 h-4 ${urgencyColor}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-foreground mb-1">
+                          {intervention.trigger}
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          {intervention.timing}
+                        </p>
+                      </div>
+                      {intervention.priority > 80 && (
+                        <Badge variant="destructive" className="text-xs">
+                          Urgent
+                        </Badge>
+                      )}
+                    </div>
 
-            {/* Content Preview */}
-            <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg">
-              <div
-                className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0"
-                style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
-              />
-              <div className="flex-1 min-w-0">
-                <h5 className="text-sm font-semibold text-foreground mb-1 line-clamp-1">
-                  {intervention.content.title}
-                </h5>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  <span>{intervention.content.duration} min</span>
-                  <span>•</span>
-                  <Badge variant="outline" className="text-xs">
-                    {intervention.content.category}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+                    {/* Content Preview */}
+                    <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg">
+                      <div
+                        className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0"
+                        style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h5 className="text-sm font-semibold text-foreground mb-1 line-clamp-1">
+                          {intervention.content.title}
+                        </h5>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          <span>{intervention.content.duration} min</span>
+                          <span>•</span>
+                          <Badge variant="outline" className="text-xs">
+                            {intervention.content.category}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
 
-            {/* Reasoning */}
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              💡 {intervention.reasoning}
-            </p>
+                    {/* Reasoning */}
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      💡 {intervention.reasoning}
+                    </p>
 
-            {/* Feedback buttons */}
-            <div className="flex items-center gap-2 pb-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFeedback(intervention, 'thumbs_up');
-                }}
-                className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
-                aria-label="This is helpful"
-              >
-                <ThumbsUp className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_up' ? 'fill-emerald-600 text-emerald-600' : ''}`} />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFeedback(intervention, 'thumbs_down');
-                }}
-                className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
-                aria-label="Not helpful"
-              >
-                <ThumbsDown className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_down' ? 'fill-orange-600 text-orange-600' : ''}`} />
-              </button>
-            </div>
+                    {/* Feedback buttons */}
+                    <div className="flex items-center gap-2 pb-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFeedback(intervention, 'thumbs_up');
+                        }}
+                        className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-emerald-600 transition-colors"
+                        aria-label="This is helpful"
+                      >
+                        <ThumbsUp className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_up' ? 'fill-emerald-600 text-emerald-600' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFeedback(intervention, 'thumbs_down');
+                        }}
+                        className="group flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
+                        aria-label="Not helpful"
+                      >
+                        <ThumbsDown className={`w-3.5 h-3.5 ${feedback[intervention.id] === 'thumbs_down' ? 'fill-orange-600 text-orange-600' : ''}`} />
+                      </button>
+                    </div>
 
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  
-                  // Track reminder set
-                  const timer = ignoreTimersRef.current.get(intervention.id);
-                  if (timer) {
-                    clearTimeout(timer);
-                    ignoreTimersRef.current.delete(intervention.id);
-                  }
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          
+                          // Track reminder set
+                          const timer = ignoreTimersRef.current.get(intervention.id);
+                          if (timer) {
+                            clearTimeout(timer);
+                            ignoreTimersRef.current.delete(intervention.id);
+                          }
 
-                  trackInterventionEvent({
-                    eventType: 'nudge_clicked',
-                    interventionId: intervention.id,
-                    interventionType: intervention.type,
-                    triggerReason: intervention.trigger,
-                    timingWindow: intervention.timing,
-                    urgencyLevel: intervention.urgencyLevel,
-                    recommendedContentId: intervention.content.id,
-                    recommendedContentType: intervention.content.contentType,
-                    timeToActionSeconds: Math.floor((Date.now() - cardRenderTime) / 1000),
-                    contextData: {
-                      priority: intervention.priority,
-                      action: 'set_reminder'
-                    }
-                  });
-                  
-                  // TODO: Implement notification scheduling
-                  alert('Notification set! We\'ll remind you at the right time.');
-                }}
-              >
-                Set Reminder
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 text-xs bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleInterventionClick(intervention, cardRenderTime);
-                }}
-              >
-                Start Now →
-              </Button>
-            </div>
-          </Card>
-          );
-        })}
-        </>
+                          trackInterventionEvent({
+                            eventType: 'nudge_clicked',
+                            interventionId: intervention.id,
+                            interventionType: intervention.type,
+                            triggerReason: intervention.trigger,
+                            timingWindow: intervention.timing,
+                            urgencyLevel: intervention.urgencyLevel,
+                            recommendedContentId: intervention.content.id,
+                            recommendedContentType: intervention.content.contentType,
+                            timeToActionSeconds: Math.floor((Date.now() - cardRenderTime) / 1000),
+                            contextData: {
+                              priority: intervention.priority,
+                              action: 'set_reminder'
+                            }
+                          });
+                          
+                          // TODO: Implement notification scheduling
+                          alert('Notification set! We\'ll remind you at the right time.');
+                        }}
+                      >
+                        Set Reminder
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 text-xs bg-gradient-to-r from-taupe via-taupe-highlight to-taupe hover:opacity-90 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInterventionClick(intervention, cardRenderTime);
+                        }}
+                      >
+                        Start Now →
+                      </Button>
+                    </div>
+                  </Card>
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
       )}
 
       {/* Dismissal Modal */}
