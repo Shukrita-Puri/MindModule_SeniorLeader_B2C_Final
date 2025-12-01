@@ -79,12 +79,34 @@ const DailyRitual = () => {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (!carouselApi) return;
     setSlideCount(carouselApi.scrollSnapList().length);
     setCurrentSlide(carouselApi.selectedScrollSnap());
     carouselApi.on("select", () => setCurrentSlide(carouselApi.selectedScrollSnap()));
+  }, [carouselApi]);
+
+  // Track dragging state to prevent click navigation while swiping
+  useEffect(() => {
+    if (!carouselApi) return;
+    
+    const onPointerDown = () => setIsDragging(false);
+    const onPointerUp = () => {
+      setTimeout(() => setIsDragging(false), 100);
+    };
+    const onScroll = () => setIsDragging(true);
+    
+    carouselApi.on('pointerDown', onPointerDown);
+    carouselApi.on('pointerUp', onPointerUp);
+    carouselApi.on('scroll', onScroll);
+    
+    return () => {
+      carouselApi.off('pointerDown', onPointerDown);
+      carouselApi.off('pointerUp', onPointerUp);
+      carouselApi.off('scroll', onScroll);
+    };
   }, [carouselApi]);
 
   useEffect(() => {
@@ -315,7 +337,7 @@ const DailyRitual = () => {
           className="w-full"
           setApi={setCarouselApi}
         >
-          <CarouselContent className="-ml-3 pl-4">
+          <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing">
             {practices.map((practice, index) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               
@@ -325,7 +347,7 @@ const DailyRitual = () => {
                   className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]"
                 >
                   <div
-                    onClick={() => !isCompleted && navigateToPractice(practice)}
+                    onClick={() => !isDragging && !isCompleted && navigateToPractice(practice)}
                     className={cn(
                       "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all",
                       isCompleted 
