@@ -11,6 +11,7 @@ import {
 import CardProgress from "@/components/practice/CardProgress";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import TopNavigation from "@/components/simulation/TopNavigation";
+import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
@@ -1661,8 +1662,31 @@ const MicroPracticePlayerCards = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
+  // Practice Queue State
+  const [practiceQueue, setPracticeQueue] = useState<any[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [isInQueue, setIsInQueue] = useState(false);
+
   // Get cards for the current practice
   const cards = getCardsForPractice(id);
+
+  // Check if this is part of a practice queue
+  useEffect(() => {
+    const queue = localStorage.getItem('practiceQueue');
+    if (queue) {
+      try {
+        const parsed = JSON.parse(queue);
+        setPracticeQueue(parsed);
+        const index = parsed.findIndex((p: any) => p.id === id);
+        if (index !== -1) {
+          setCurrentQueueIndex(index);
+          setIsInQueue(true);
+        }
+      } catch (e) {
+        console.error('Error parsing practice queue:', e);
+      }
+    }
+  }, [id]);
 
   // Swipe handlers for navigation
   const handlePrev = useCallback(() => {
@@ -1826,16 +1850,65 @@ const MicroPracticePlayerCards = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    // Navigate back to executive home if from ritual, otherwise to category page
-    const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
-    navigate(returnPath);
+    // If in queue and not last, navigate to next; otherwise go to return path
+    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    } else if (isInQueue) {
+      localStorage.removeItem('practiceQueue');
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+    } else {
+      const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+      navigate(returnPath);
+    }
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    // Navigate back to executive home if from ritual, otherwise to category page
-    const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
-    navigate(returnPath);
+    // If in queue and not last, navigate to next; otherwise go to return path
+    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    } else {
+      const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+      navigate(returnPath);
+    }
+  };
+
+  // Queue Handlers
+  const navigateToNext = () => {
+    const next = practiceQueue[currentQueueIndex + 1];
+    if (!next) return;
+    
+    if (next.contentType === 'soundbath') {
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'guided-practice') {
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'micro-practice') {
+      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+    }
+  };
+
+  const handleQueueSkip = () => {
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    }
+  };
+
+  const handleQueuePause = () => {
+    localStorage.removeItem('practiceQueue');
+    toast.success('Ritual paused');
+    navigate('/executive-home');
+  };
+
+  const handleQueueComplete = () => {
+    // Navigate to next or complete ritual
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    } else {
+      localStorage.removeItem('practiceQueue');
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+    }
   };
 
   if (!practice || cards.length === 0) {
@@ -1878,6 +1951,18 @@ const MicroPracticePlayerCards = () => {
 
       {/* Top Navigation */}
       <TopNavigation backPath={fromRitual ? '/executive-home' : `/recalibrate/${category}`} transparent />
+
+      {/* Practice Queue Progress - show when part of ritual */}
+      {isInQueue && practice && (
+        <PracticeQueueProgress
+          currentIndex={currentQueueIndex}
+          totalCount={practiceQueue.length}
+          queue={practiceQueue}
+          onSkip={handleQueueSkip}
+          onPause={handleQueuePause}
+          onComplete={handleQueueComplete}
+        />
+      )}
 
       {/* Back indicator - shows from Card 2 onwards */}
       {current > 0 && (

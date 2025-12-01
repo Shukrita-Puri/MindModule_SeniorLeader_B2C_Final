@@ -417,11 +417,11 @@ const SoundscapePlayer = () => {
   const navigateToNext = () => {
     const next = practiceQueue[currentQueueIndex + 1];
     if (next.contentType === 'soundbath') {
-      navigate(`/soundscapes/${next.id}`, { state: { category: next.category } });
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'guided-practice') {
-      navigate(`/guided-practices/${next.id}`, { state: { category: next.category } });
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'micro-practice') {
-      navigate(`/micro-practice/${next.id}`, { state: { category: next.category } });
+      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
     }
   };
 
