@@ -8,7 +8,7 @@ import { generateRecommendations, type Recommendation } from '@/utils/recommenda
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 // Helper to determine protocol type based on practice characteristics
 const getProtocolType = (practice: Recommendation): string => {
   // All soundbaths are Somatic Protocol
@@ -298,71 +298,77 @@ const DailyRitual = () => {
         </div>
       )}
 
-      {/* Recommended Content with Thumbnails */}
-      <div className="grid grid-cols-1 gap-3 mb-4">
-        {practices.map((practice) => {
-          const isCompleted = completedPracticeIds.includes(practice.id);
-          
-          return (
-            <div
-              key={practice.id}
-              onClick={() => !isCompleted && navigateToPractice(practice)}
-              onTouchStart={(e) => {
-                if (isCompleted) return;
-                const touch = e.touches[0];
-                (e.currentTarget as any).swipeStartX = touch.clientX;
-              }}
-              onTouchEnd={(e) => {
-                if (isCompleted) return;
-                const touch = e.changedTouches[0];
-                const startX = (e.currentTarget as any).swipeStartX;
-                if (startX && startX - touch.clientX > 100) {
-                  handleMarkComplete(practice.id);
-                }
-              }}
-              className={cn(
-                "relative w-full flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
-                isCompleted 
-                  ? "opacity-60 cursor-not-allowed border-black/5 bg-black/5"
-                  : "hover:shadow-sm hover:border-primary/20 border-black/10 bg-white/60"
-              )}
-            >
-              {/* Thumbnail on LEFT */}
-              <img 
-                src={practice.thumbnail} 
-                alt={practice.title}
-                className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-              />
-              
-              {/* Content NEXT TO thumbnail */}
-              <div className="flex-1 text-left">
-                <h4 className="text-sm font-medium text-foreground">
-                  {practice.title}
-                </h4>
-                {/* Protocol Badge */}
-                <Badge 
-                  variant="secondary" 
-                  className="mt-1.5 text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground font-medium"
+      {/* Recommended Content with Thumbnails - Responsive Carousel */}
+      <Carousel opts={{ align: 'start', loop: false }} className="w-full mb-4">
+        <CarouselContent className="-ml-2">
+          {practices.map((practice) => {
+            const isCompleted = completedPracticeIds.includes(practice.id);
+            
+            return (
+              <CarouselItem 
+                key={practice.id} 
+                className="pl-2 basis-[85%] md:basis-[48%] lg:basis-[32%]"
+              >
+                <div
+                  onClick={() => !isCompleted && navigateToPractice(practice)}
+                  onTouchStart={(e) => {
+                    if (isCompleted) return;
+                    const touch = e.touches[0];
+                    (e.currentTarget as any).swipeStartX = touch.clientX;
+                  }}
+                  onTouchEnd={(e) => {
+                    if (isCompleted) return;
+                    const touch = e.changedTouches[0];
+                    const startX = (e.currentTarget as any).swipeStartX;
+                    if (startX && startX - touch.clientX > 100) {
+                      handleMarkComplete(practice.id);
+                    }
+                  }}
+                  className={cn(
+                    "relative w-full flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer h-full",
+                    isCompleted 
+                      ? "opacity-60 cursor-not-allowed border-black/5 bg-black/5"
+                      : "hover:shadow-sm hover:border-primary/20 border-black/10 bg-white/60"
+                  )}
                 >
-                  {getProtocolType(practice)}
-                </Badge>
-              </div>
-              
-              {/* Duration badge on TOP RIGHT */}
-              <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
-                {practice.duration}m
-              </Badge>
-              
-              {/* Check icon on RIGHT (only when completed) */}
-              {isCompleted && (
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/90">
-                  <Check size={16} className="text-white" />
+                  {/* Thumbnail on LEFT */}
+                  <img 
+                    src={practice.thumbnail} 
+                    alt={practice.title}
+                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                  />
+                  
+                  {/* Content NEXT TO thumbnail */}
+                  <div className="flex-1 text-left">
+                    <h4 className="text-sm font-medium text-foreground">
+                      {practice.title}
+                    </h4>
+                    {/* Protocol Badge */}
+                    <Badge 
+                      variant="secondary" 
+                      className="mt-1.5 text-[10px] px-2 py-0.5 rounded-full bg-secondary/80 text-secondary-foreground font-medium"
+                    >
+                      {getProtocolType(practice)}
+                    </Badge>
+                  </div>
+                  
+                  {/* Duration badge on TOP RIGHT */}
+                  <Badge variant="outline" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
+                    {practice.duration}m
+                  </Badge>
+                  
+                  {/* Check icon on RIGHT (only when completed) */}
+                  {isCompleted && (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/90">
+                      <Check size={16} className="text-white" />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+      </Carousel>
 
       {/* Action Button */}
       {ritualStatus.status === 'not_started' && (
