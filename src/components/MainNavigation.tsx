@@ -24,7 +24,7 @@ const MainNavigation = () => {
     "/recalibrate/flow-state"
   ];
 
-  const navItems = [
+const navItems = [
     { 
       icon: Home, 
       label: "Atelier", 
@@ -36,6 +36,12 @@ const MainNavigation = () => {
       label: "Recalibrate", 
       route: "/recalibrate",
       isActive: recalibratePages.some(path => location.pathname.startsWith(path.split('/').slice(0, 3).join('/'))) || location.pathname === "/recalibrate"
+    },
+    { 
+      icon: UsersRound, 
+      label: "Dialogue", 
+      route: "/practice",
+      isActive: practicePages.some(path => location.pathname.startsWith(path)) || location.pathname.startsWith("/practice")
     },
     { 
       icon: BarChart3, 

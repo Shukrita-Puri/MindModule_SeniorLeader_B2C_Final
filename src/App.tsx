@@ -35,6 +35,12 @@ const Terms = lazy(() => import("./pages/Terms"));
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
 const PauseOutcomePage = lazy(() => import("./pages/recalibrate/PauseOutcomePage"));
+
+// Dialogue Room / Practice pages
+const Practice = lazy(() => import("./pages/Practice"));
+const PracticeConfigurePage = lazy(() => import("./pages/PracticeConfigurePage"));
+const PracticeSimulation = lazy(() => import("./pages/PracticeSimulation"));
+const PracticeSimulationInsights = lazy(() => import("./pages/PracticeSimulationInsights"));
 const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutcomePage"));
 
 // Onboarding pages
@@ -91,7 +97,8 @@ const Layout = () => {
     '/recalibrate/presence',
     '/practice',
     '/practice/configure',
-    '/practice/simulation'
+    '/practice/simulation',
+    '/practice/simulation-insights'
   ];
   
   // Also check if we're in a simulation practice
@@ -208,6 +215,23 @@ const router = createBrowserRouter([
       {
         path: "hrv-insights",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute></Suspense>,
+      },
+      // Dialogue Room routes
+      {
+        path: "practice",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Practice /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "practice/configure",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeConfigurePage /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "practice/simulation",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeSimulation /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "practice/simulation-insights",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeSimulationInsights /></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
