@@ -76,39 +76,44 @@ const ExecutiveHome = () => {
           <h2 className="text-2xl font-headline mb-4 text-foreground">Your Energy State Today</h2>
           <EnergyStateHeader />
         </section>
+      </div>
 
-        {/* Divider */}
-        <div className="h-px bg-black/[0.08]" />
+      {/* Divider - full width */}
+      <div className="h-px bg-black/[0.08] max-w-lg mx-auto my-8" />
 
-        {/* Recommended for You - Split into TWO sub-sections */}
-      <section>
-        <h2 className="text-2xl font-headline mb-4 text-foreground">Recommended for You</h2>
+      {/* Recommended for You - FULL WIDTH for carousels */}
+      <section className="pb-8">
+        <div className="px-4 max-w-lg mx-auto">
+          <h2 className="text-2xl font-headline mb-4 text-foreground">Recommended for You</h2>
+        </div>
         
         {/* Sub-section 1: Daily Ritual */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-lg font-semibold text-foreground">Your Daily Ritual</h3>
-            <MetricInfoModal
-              title="How Your Ritual is Created"
-              description={
-                user?.subscription_status === 'active'
-                  ? "Your ritual is personalized based on your Energy State Score (check-in + recovery data + circadian rhythm) and upcoming calendar demands."
-                  : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm). Upgrade to access calendar integration."
-              }
-            />
+          <div className="px-4 max-w-lg mx-auto">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-foreground">Your Daily Ritual</h3>
+              <MetricInfoModal
+                title="How Your Ritual is Created"
+                description={
+                  user?.subscription_status === 'active'
+                    ? "Your ritual is personalized based on your Energy State Score (check-in + recovery data + circadian rhythm) and upcoming calendar demands."
+                    : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm). Upgrade to access calendar integration."
+                }
+              />
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              A curated sequence of practices designed to shift your energy state and build lasting mental fitness.
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            A curated sequence of practices designed to shift your energy state and build lasting mental fitness.
-          </p>
+          {/* Carousel extends full width */}
           <DailyRitual />
         </div>
 
-          {/* Sub-section 2: Micro Self Recalibration */}
-          <div>
-            <MicroSelfRecalibrateInterventions />
-          </div>
-        </section>
-      </div>
+        {/* Sub-section 2: Micro Self Recalibration */}
+        <div>
+          <MicroSelfRecalibrateInterventions />
+        </div>
+      </section>
 
       <SecurityWatermark />
       <PrivacyFooter />
