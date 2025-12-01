@@ -1650,6 +1650,7 @@ const MicroPracticePlayerCards = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const category = location.state?.category || 'power-up'; // Default to power-up if no category
+  const fromRitual = location.state?.fromRitual || false;
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
@@ -1825,12 +1826,16 @@ const MicroPracticePlayerCards = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    navigate("/recalibrate/power-up");
+    // Navigate back to executive home if from ritual, otherwise to category page
+    const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+    navigate(returnPath);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    navigate("/recalibrate/power-up");
+    // Navigate back to executive home if from ritual, otherwise to category page
+    const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+    navigate(returnPath);
   };
 
   if (!practice || cards.length === 0) {
@@ -1872,7 +1877,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath={`/recalibrate/${category}`} transparent />
+      <TopNavigation backPath={fromRitual ? '/executive-home' : `/recalibrate/${category}`} transparent />
 
       {/* Back indicator - shows from Card 2 onwards */}
       {current > 0 && (

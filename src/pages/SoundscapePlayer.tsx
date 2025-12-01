@@ -139,7 +139,13 @@ const SoundscapePlayer = () => {
     }
   }, [id]);
 
+  // Check if navigated from ritual
+  const fromRitual = location.state?.fromRitual || false;
+
   const getCategoryPath = () => {
+    // If from daily ritual, return to executive home
+    if (fromRitual) return '/executive-home';
+    
     // Use the soundscape's actual category to determine back path
     if (!soundscape) return '/soundscapes';
     

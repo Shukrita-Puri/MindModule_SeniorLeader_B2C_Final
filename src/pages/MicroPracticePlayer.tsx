@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Clock, Sparkles } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
@@ -14,6 +14,8 @@ import useScrollToTop from "@/hooks/useScrollToTop";
 const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromRitual = location.state?.fromRitual || false;
   useScrollToTop();
   const allContent = getAllContent();
   const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
@@ -47,10 +49,10 @@ const MicroPracticePlayer = () => {
     );
   }
 
-  // Determine back path based on category
-  const backPath = practice.category 
-    ? `/recalibrate/${practice.category}` 
-    : "/micro-practices";
+  // Determine back path based on category and ritual context
+  const backPath = fromRitual 
+    ? '/executive-home'
+    : (practice.category ? `/recalibrate/${practice.category}` : "/micro-practices");
 
   const handleComplete = async () => {
     if (!practice) return;
@@ -151,12 +153,16 @@ const MicroPracticePlayer = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    navigate("/recalibrate");
+    // Navigate back to executive home if from ritual, otherwise to category page
+    const returnPath = fromRitual ? '/executive-home' : (practice.category ? `/recalibrate/${practice.category}` : '/recalibrate');
+    navigate(returnPath);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    navigate("/recalibrate");
+    // Navigate back to executive home if from ritual, otherwise to category page
+    const returnPath = fromRitual ? '/executive-home' : (practice.category ? `/recalibrate/${practice.category}` : '/recalibrate');
+    navigate(returnPath);
   };
 
   // Handle beginning practice - navigate to cards view for card-based practices
