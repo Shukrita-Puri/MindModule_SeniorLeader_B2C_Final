@@ -70,12 +70,34 @@ const MicroSelfRecalibrateInterventions = () => {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (!carouselApi) return;
     setSlideCount(carouselApi.scrollSnapList().length);
     setCurrentSlide(carouselApi.selectedScrollSnap());
     carouselApi.on("select", () => setCurrentSlide(carouselApi.selectedScrollSnap()));
+  }, [carouselApi]);
+
+  // Track dragging state to prevent click navigation while swiping
+  useEffect(() => {
+    if (!carouselApi) return;
+    
+    const onPointerDown = () => setIsDragging(false);
+    const onPointerUp = () => {
+      setTimeout(() => setIsDragging(false), 100);
+    };
+    const onScroll = () => setIsDragging(true);
+    
+    carouselApi.on('pointerDown', onPointerDown);
+    carouselApi.on('pointerUp', onPointerUp);
+    carouselApi.on('scroll', onScroll);
+    
+    return () => {
+      carouselApi.off('pointerDown', onPointerDown);
+      carouselApi.off('pointerUp', onPointerUp);
+      carouselApi.off('scroll', onScroll);
+    };
   }, [carouselApi]);
 
   useEffect(() => {
@@ -765,7 +787,7 @@ const MicroSelfRecalibrateInterventions = () => {
               className="w-full"
               setApi={setCarouselApi}
             >
-              <CarouselContent className="-ml-3 pl-4">
+              <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing">
                 {displayedInterventions.map((intervention, index) => {
                   const Icon = getIcon(intervention.icon);
                   const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
@@ -781,7 +803,7 @@ const MicroSelfRecalibrateInterventions = () => {
                           "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all hover:shadow-md",
                           index === displayedInterventions.length - 1 && "mr-4"
                         )}
-                        onClick={() => handleInterventionClick(intervention, cardRenderTime)}
+                        onClick={() => !isDragging && handleInterventionClick(intervention, cardRenderTime)}
                       >
                         {/* Thumbnail - fills height */}
                         <div
