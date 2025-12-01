@@ -750,7 +750,7 @@ const MicroSelfRecalibrateInterventions = () => {
         </Card>
       )}
 
-      {/* Interventions List - Edge-to-Edge Carousel */}
+      {/* Interventions List - Edge-to-Edge Carousel (Waking Up Style) */}
       {!loading && displayedInterventions.length > 0 && (
         <>
           <div className="relative -mx-4">
@@ -759,8 +759,8 @@ const MicroSelfRecalibrateInterventions = () => {
               className="w-full"
               setApi={setCarouselApi}
             >
-              <CarouselContent className="-ml-3 px-4">
-                {displayedInterventions.map((intervention) => {
+              <CarouselContent className="ml-0">
+                {displayedInterventions.map((intervention, index) => {
                   const Icon = getIcon(intervention.icon);
                   const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
                   const cardRenderTime = Date.now();
@@ -768,14 +768,17 @@ const MicroSelfRecalibrateInterventions = () => {
                   return (
                     <CarouselItem 
                       key={intervention.id} 
-                      className="pl-3 basis-[88%] md:basis-[45%] lg:basis-[30%]"
+                      className={cn(
+                        "pl-0 basis-[85%] md:basis-[45%] lg:basis-[30%]",
+                        index === 0 && "pl-4"
+                      )}
                     >
-                      <div className="flex bg-card rounded-2xl border border-border shadow-md overflow-hidden h-36 cursor-pointer transition-all hover:shadow-lg hover:border-primary/20"
+                      <div className="flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all hover:shadow-md"
                         onClick={() => handleInterventionClick(intervention, cardRenderTime)}
                       >
-                        {/* Large Square Thumbnail */}
+                        {/* Thumbnail - fills height */}
                         <div
-                          className="w-36 h-36 bg-cover bg-center flex-shrink-0 relative"
+                          className="w-32 h-full bg-cover bg-center flex-shrink-0 relative"
                           style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
                         >
                           {/* Urgency indicator */}
@@ -786,21 +789,18 @@ const MicroSelfRecalibrateInterventions = () => {
                         
                         {/* Content */}
                         <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                          {/* Category/Timing Label */}
-                          <span className={cn(
-                            "text-sm font-semibold uppercase tracking-wide",
-                            urgencyColor
-                          )}>
+                          {/* Timing Label */}
+                          <span className={cn("text-sm", urgencyColor)}>
                             {intervention.timing}
                           </span>
                           
                           {/* Title */}
-                          <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1.5 leading-tight">
+                          <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
                             {intervention.content.title}
                           </h4>
                           
                           {/* Duration & Category */}
-                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                             <span>{intervention.content.duration} min</span>
                             <span>•</span>
                             <span>{intervention.content.category}</span>
@@ -824,7 +824,7 @@ const MicroSelfRecalibrateInterventions = () => {
             </Carousel>
             
             {/* Swipe hint gradient - mobile only */}
-            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
           </div>
 
           {/* Pagination Dots */}
