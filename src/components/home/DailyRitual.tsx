@@ -322,7 +322,7 @@ const DailyRitual = () => {
               return (
                 <CarouselItem 
                   key={practice.id} 
-                  className="pl-3 basis-[85%] sm:basis-[75%] md:basis-[45%] lg:basis-[30%]"
+                  className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]"
                 >
                   <div
                     onClick={() => !isCompleted && navigateToPractice(practice)}
