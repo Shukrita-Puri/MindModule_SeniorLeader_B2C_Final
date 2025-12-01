@@ -300,79 +300,84 @@ const DailyRitual = () => {
   const { practices } = recommendations;
 
   return (
-    <div className="bg-white/40 border border-black/10 rounded-lg p-5 shadow-md">
+    <div className="space-y-4">
       {/* Progress indicator */}
       {ritualStatus.status === 'partial' && (
-        <div className="mb-3 text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground px-1">
           {ritualStatus.completedCount} of {ritualStatus.totalCount} practices completed
         </div>
       )}
 
-      {/* Recommended Content - Waking Up Style Carousel */}
-      <Carousel 
-        opts={{ align: 'start', loop: false }} 
-        className="w-full mb-4"
-        setApi={setCarouselApi}
-      >
-        <CarouselContent className="-ml-4">
-          {practices.map((practice) => {
-            const isCompleted = completedPracticeIds.includes(practice.id);
-            
-            return (
-              <CarouselItem 
-                key={practice.id} 
-                className="pl-4 basis-[90%] md:basis-[48%] lg:basis-[32%]"
-              >
-                <div
-                  onClick={() => !isCompleted && navigateToPractice(practice)}
-                  className={cn(
-                    "flex items-center gap-4 bg-card rounded-xl border shadow-sm overflow-hidden h-32 cursor-pointer transition-all",
-                    isCompleted 
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:shadow-md hover:border-primary/20"
-                  )}
+      {/* Recommended Content - Edge-to-Edge Carousel */}
+      <div className="relative -mx-4">
+        <Carousel 
+          opts={{ align: 'start', loop: false }} 
+          className="w-full"
+          setApi={setCarouselApi}
+        >
+          <CarouselContent className="-ml-3 px-4">
+            {practices.map((practice) => {
+              const isCompleted = completedPracticeIds.includes(practice.id);
+              
+              return (
+                <CarouselItem 
+                  key={practice.id} 
+                  className="pl-3 basis-[88%] md:basis-[45%] lg:basis-[30%]"
                 >
-                  {/* Large Square Thumbnail */}
-                  <img 
-                    src={practice.thumbnail} 
-                    alt={practice.title}
-                    className="w-32 h-32 object-cover flex-shrink-0"
-                  />
-                  
-                  {/* Content */}
-                  <div className="flex-1 py-3 pr-4 min-w-0">
-                    {/* Category Label */}
-                    <span className="text-sm font-medium text-primary">
-                      {getProtocolType(practice)}
-                    </span>
+                  <div
+                    onClick={() => !isCompleted && navigateToPractice(practice)}
+                    className={cn(
+                      "flex bg-card rounded-2xl border border-border shadow-md overflow-hidden h-36 cursor-pointer transition-all",
+                      isCompleted 
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:shadow-lg hover:border-primary/20"
+                    )}
+                  >
+                    {/* Large Square Thumbnail */}
+                    <img 
+                      src={practice.thumbnail} 
+                      alt={practice.title}
+                      className="w-36 h-36 object-cover flex-shrink-0"
+                    />
                     
-                    {/* Title */}
-                    <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1">
-                      {practice.title}
-                    </h4>
-                    
-                    {/* Duration */}
-                    <span className="text-sm text-muted-foreground mt-1.5 block">
-                      {practice.duration} min
-                    </span>
-                  </div>
-                  
-                  {/* Completed Check */}
-                  {isCompleted && (
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center mr-3 flex-shrink-0">
-                      <Check size={16} className="text-primary-foreground" />
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
+                      {/* Category Label */}
+                      <span className="text-sm font-semibold text-primary uppercase tracking-wide">
+                        {getProtocolType(practice)}
+                      </span>
+                      
+                      {/* Title */}
+                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1.5 leading-tight">
+                        {practice.title}
+                      </h4>
+                      
+                      {/* Duration */}
+                      <span className="text-sm text-muted-foreground mt-2">
+                        {practice.duration} min
+                      </span>
                     </div>
-                  )}
-                </div>
-              </CarouselItem>
-            );
-          })}
-        </CarouselContent>
-      </Carousel>
+                    
+                    {/* Completed Check */}
+                    {isCompleted && (
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                        <Check size={16} className="text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
+        
+        {/* Swipe hint gradient - mobile only */}
+        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+      </div>
 
       {/* Pagination Dots */}
       {slideCount > 1 && (
-        <div className="flex justify-center gap-1.5 mb-4">
+        <div className="flex justify-center gap-1.5">
           {Array.from({ length: slideCount }).map((_, index) => (
             <button
               key={index}
@@ -392,7 +397,7 @@ const DailyRitual = () => {
       {ritualStatus.status === 'not_started' && (
         <Button 
           onClick={handleStartRitual}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
         >
           Start Your Ritual
         </Button>
@@ -401,14 +406,14 @@ const DailyRitual = () => {
       {ritualStatus.status === 'partial' && (
         <Button 
           onClick={handleContinueRitual}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
         >
           Continue Your Ritual
         </Button>
       )}
 
       {ritualStatus.status === 'completed' && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
               <Check size={16} className="text-green-600" />

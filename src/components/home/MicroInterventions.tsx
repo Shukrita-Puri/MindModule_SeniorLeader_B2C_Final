@@ -750,81 +750,86 @@ const MicroSelfRecalibrateInterventions = () => {
         </Card>
       )}
 
-      {/* Interventions List - Waking Up Style Carousel */}
+      {/* Interventions List - Edge-to-Edge Carousel */}
       {!loading && displayedInterventions.length > 0 && (
         <>
-          <Carousel 
-            opts={{ align: 'start', loop: false }} 
-            className="w-full"
-            setApi={setCarouselApi}
-          >
-            <CarouselContent className="-ml-4">
-              {displayedInterventions.map((intervention) => {
-                const Icon = getIcon(intervention.icon);
-                const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
-                const cardRenderTime = Date.now();
-                
-                return (
-                  <CarouselItem 
-                    key={intervention.id} 
-                    className="pl-4 basis-[90%] md:basis-[48%] lg:basis-[32%]"
-                  >
-                    <div className="flex items-center gap-4 bg-card rounded-xl border shadow-sm overflow-hidden h-32 cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
-                      onClick={() => handleInterventionClick(intervention, cardRenderTime)}
+          <div className="relative -mx-4">
+            <Carousel 
+              opts={{ align: 'start', loop: false }} 
+              className="w-full"
+              setApi={setCarouselApi}
+            >
+              <CarouselContent className="-ml-3 px-4">
+                {displayedInterventions.map((intervention) => {
+                  const Icon = getIcon(intervention.icon);
+                  const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
+                  const cardRenderTime = Date.now();
+                  
+                  return (
+                    <CarouselItem 
+                      key={intervention.id} 
+                      className="pl-3 basis-[88%] md:basis-[45%] lg:basis-[30%]"
                     >
-                      {/* Large Square Thumbnail */}
-                      <div
-                        className="w-32 h-32 bg-cover bg-center flex-shrink-0 relative"
-                        style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
+                      <div className="flex bg-card rounded-2xl border border-border shadow-md overflow-hidden h-36 cursor-pointer transition-all hover:shadow-lg hover:border-primary/20"
+                        onClick={() => handleInterventionClick(intervention, cardRenderTime)}
                       >
-                        {/* Urgency indicator */}
-                        {intervention.priority > 80 && (
-                          <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
-                        )}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 py-3 pr-4 min-w-0">
-                        {/* Category/Timing Label */}
-                        <span className={cn(
-                          "text-sm font-medium",
-                          urgencyColor
+                        {/* Large Square Thumbnail */}
+                        <div
+                          className="w-36 h-36 bg-cover bg-center flex-shrink-0 relative"
+                          style={{ backgroundImage: `url('${intervention.content.thumbnail}')` }}
+                        >
+                          {/* Urgency indicator */}
+                          {intervention.priority > 80 && (
+                            <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+                          )}
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
+                          {/* Category/Timing Label */}
+                          <span className={cn(
+                            "text-sm font-semibold uppercase tracking-wide",
+                            urgencyColor
+                          )}>
+                            {intervention.timing}
+                          </span>
+                          
+                          {/* Title */}
+                          <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1.5 leading-tight">
+                            {intervention.content.title}
+                          </h4>
+                          
+                          {/* Duration & Category */}
+                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                            <span>{intervention.content.duration} min</span>
+                            <span>•</span>
+                            <span>{intervention.content.category}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Icon indicator */}
+                        <div className={cn(
+                          "w-9 h-9 rounded-full flex items-center justify-center mr-3 flex-shrink-0 self-center",
+                          intervention.urgencyLevel === 'critical' ? 'bg-destructive/10' :
+                          intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
+                          'bg-primary/10'
                         )}>
-                          {intervention.timing}
-                        </span>
-                        
-                        {/* Title */}
-                        <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1">
-                          {intervention.content.title}
-                        </h4>
-                        
-                        {/* Duration & Category */}
-                        <div className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground">
-                          <span>{intervention.content.duration} min</span>
-                          <span>•</span>
-                          <span>{intervention.content.category}</span>
+                          <Icon className={cn("w-5 h-5", urgencyColor)} />
                         </div>
                       </div>
-                      
-                      {/* Icon indicator */}
-                      <div className={cn(
-                        "w-9 h-9 rounded-full flex items-center justify-center mr-3 flex-shrink-0",
-                        intervention.urgencyLevel === 'critical' ? 'bg-destructive/10' :
-                        intervention.urgencyLevel === 'high' ? 'bg-orange-100 dark:bg-orange-900/20' :
-                        'bg-primary/10'
-                      )}>
-                        <Icon className={cn("w-5 h-5", urgencyColor)} />
-                      </div>
-                    </div>
-                  </CarouselItem>
-                );
-              })}
-            </CarouselContent>
-          </Carousel>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+            </Carousel>
+            
+            {/* Swipe hint gradient - mobile only */}
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+          </div>
 
           {/* Pagination Dots */}
           {slideCount > 1 && (
-            <div className="flex justify-center gap-1.5 mt-3">
+            <div className="flex justify-center gap-1.5 mt-4">
               {Array.from({ length: slideCount }).map((_, index) => (
                 <button
                   key={index}
