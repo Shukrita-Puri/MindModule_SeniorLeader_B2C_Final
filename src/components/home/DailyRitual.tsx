@@ -92,11 +92,20 @@ const DailyRitual = () => {
   useEffect(() => {
     if (!carouselApi) return;
     
-    const onPointerDown = () => setIsDragging(false);
+    console.log('🎠 Carousel API initialized, drag enabled:', carouselApi.plugins());
+    
+    const onPointerDown = () => {
+      console.log('🎠 Pointer down');
+      setIsDragging(false);
+    };
     const onPointerUp = () => {
+      console.log('🎠 Pointer up');
       setTimeout(() => setIsDragging(false), 100);
     };
-    const onScroll = () => setIsDragging(true);
+    const onScroll = () => {
+      console.log('🎠 Scrolling/dragging');
+      setIsDragging(true);
+    };
     
     carouselApi.on('pointerDown', onPointerDown);
     carouselApi.on('pointerUp', onPointerUp);
@@ -333,11 +342,11 @@ const DailyRitual = () => {
       {/* Recommended Content - Full Width Carousel */}
       <div className="relative w-full">
         <Carousel 
-          opts={{ align: 'start', loop: false }} 
+          opts={{ align: 'start', loop: false, watchDrag: true }} 
           className="w-full"
           setApi={setCarouselApi}
         >
-          <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing">
+          <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
             {practices.map((practice, index) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               

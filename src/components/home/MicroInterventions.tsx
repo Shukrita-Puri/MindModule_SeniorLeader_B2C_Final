@@ -783,11 +783,11 @@ const MicroSelfRecalibrateInterventions = () => {
         <>
           <div className="relative w-full">
             <Carousel 
-              opts={{ align: 'start', loop: false }} 
+              opts={{ align: 'start', loop: false, watchDrag: true }} 
               className="w-full"
               setApi={setCarouselApi}
             >
-              <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing">
+              <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
                 {displayedInterventions.map((intervention, index) => {
                   const Icon = getIcon(intervention.icon);
                   const urgencyColor = getUrgencyColor(intervention.urgencyLevel);
