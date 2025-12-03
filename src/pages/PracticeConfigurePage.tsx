@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/components/ui/select";
@@ -17,8 +17,15 @@ interface FileAttachment {
   url?: string;
 }
 
+interface LocationState {
+  preSelectedCategory?: string;
+  preSelectedScenario?: string;
+}
+
 const PracticeConfigurePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
   
   const [scenarioCategory, setScenarioCategory] = useState("");
   const [specificScenario, setSpecificScenario] = useState("");
@@ -39,8 +46,16 @@ const PracticeConfigurePage = () => {
 
   const [autoTaggedSkills, setAutoTaggedSkills] = useState<MetaSkillData[]>([]);
 
+  // Category mapping from Practice.tsx card IDs to configure page values
+  const categoryMapping: Record<string, string> = {
+    'academic': 'pressure',
+    'social': 'difficult',
+    'growth': 'leadership'
+  };
+
   const getMetaSkills = (scenario: string): MetaSkillData[] => {
     const skillMap: Record<string, MetaSkillData[]> = {
+      // Existing scenarios
       'navigating-uncertainty': [
         { cluster: "Cognitive Mastery", metaSkill: "Adaptability & Agility", subSkills: ["Decision-Making", "Ambiguity Navigation", "Adaptability"] }
       ],
@@ -94,9 +109,73 @@ const PracticeConfigurePage = () => {
         { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Coaching", "Empowerment", "Talent Development"] },
         { cluster: "Social Mastery", metaSkill: "Collaboration & Group Dynamics", subSkills: ["Mentorship", "Psychological Safety", "Inclusive Leadership"] }
       ],
+      // New student-focused scenarios
+      'presenting-in-class': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Self-Regulation", "Confidence", "Composure"] },
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Communication Leadership", "Presence", "Clarity"] }
+      ],
+      'university-interview': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Self-Mastery", "Composure", "Authenticity"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Impression Management", "Persuasion", "Active Listening"] }
+      ],
+      'defending-ideas': [
+        { cluster: "Self Mastery", metaSkill: "Emotional Intelligence", subSkills: ["Emotional Regulation", "Confidence", "Resilience"] },
+        { cluster: "Cognitive Mastery", metaSkill: "Critical Thinking", subSkills: ["Logical Argumentation", "Evidence-Based Reasoning"] }
+      ],
+      'asking-for-help': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Vulnerability", "Trust-Building", "Clear Communication"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Self-Awareness", "Humility"] }
+      ],
+      'friendship-dilemma': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Empathy", "Conflict Resolution", "Perspective-Taking"] },
+        { cluster: "Self Mastery", metaSkill: "Emotional Intelligence", subSkills: ["Emotional Regulation", "Self-Awareness"] }
+      ],
+      'group-conflict': [
+        { cluster: "Social Mastery", metaSkill: "Collaboration & Group Dynamics", subSkills: ["Conflict Resolution", "Mediation", "Team Facilitation"] },
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Influence", "Communication Leadership"] }
+      ],
+      'peer-pressure': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Self-Mastery", "Integrity", "Boundary Setting"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Assertiveness", "Social Awareness"] }
+      ],
+      'setting-boundaries': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Self-Mastery", "Integrity", "Self-Respect"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Assertiveness", "Clear Communication"] }
+      ],
+      'networking-internship': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Networking", "Impression Management", "Relationship Building"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Confidence", "Initiative"] }
+      ],
+      'making-friends-college': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Social Awareness", "Approachability", "Authenticity"] },
+        { cluster: "Self Mastery", metaSkill: "Emotional Intelligence", subSkills: ["Vulnerability", "Openness"] }
+      ],
+      'job-interview': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Composure", "Confidence", "Authenticity"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Persuasion", "Active Listening", "Impression Management"] }
+      ],
+      'mentor-conversation': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Relationship Building", "Active Listening", "Gratitude"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Initiative", "Curiosity", "Humility"] }
+      ],
     };
     return skillMap[scenario] || [];
   };
+
+  // Handle pre-selected values from Practice.tsx
+  useEffect(() => {
+    if (locationState?.preSelectedCategory) {
+      const mappedCategory = categoryMapping[locationState.preSelectedCategory] || locationState.preSelectedCategory;
+      setScenarioCategory(mappedCategory);
+    }
+  }, [locationState?.preSelectedCategory]);
+
+  // Set specific scenario after category is set
+  useEffect(() => {
+    if (locationState?.preSelectedScenario && scenarioCategory) {
+      setSpecificScenario(locationState.preSelectedScenario);
+    }
+  }, [locationState?.preSelectedScenario, scenarioCategory]);
 
   useEffect(() => {
     if (specificScenario && specificScenario !== 'custom') {
@@ -225,12 +304,22 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="difficult-conversation">Having a Difficult Conversation</SelectItem>
                       <SelectItem value="subtle-negotiations">Subtle Negotiations: Finding Win-Win</SelectItem>
                       <SelectSeparator />
+                      <SelectItem value="friendship-dilemma">Managing Friendship Dilemmas</SelectItem>
+                      <SelectItem value="group-conflict">Navigating Group Project Conflicts</SelectItem>
+                      <SelectItem value="peer-pressure">Handling Peer Pressure Moments</SelectItem>
+                      <SelectItem value="setting-boundaries">Setting Boundaries</SelectItem>
+                      <SelectSeparator />
                     </>
                   )}
                   {scenarioCategory === 'pressure' && (
                     <>
                       <SelectItem value="public-unexpected">Handling Public Conversations & Unexpected Questions</SelectItem>
                       <SelectItem value="staying-composed">Staying Composed Under Pressure</SelectItem>
+                      <SelectSeparator />
+                      <SelectItem value="presenting-in-class">Presenting in Class</SelectItem>
+                      <SelectItem value="university-interview">University Interview</SelectItem>
+                      <SelectItem value="defending-ideas">Defending Your Ideas</SelectItem>
+                      <SelectItem value="asking-for-help">Asking Teachers for Help</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
@@ -246,6 +335,11 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="leading-through-change">Leading Through Change</SelectItem>
                       <SelectItem value="inspiring-alignment">Inspiring Team Alignment</SelectItem>
                       <SelectItem value="elevating-others">Elevating Others' Performance</SelectItem>
+                      <SelectSeparator />
+                      <SelectItem value="networking-internship">Networking to Secure an Internship</SelectItem>
+                      <SelectItem value="making-friends-college">Making Friends in New Environments</SelectItem>
+                      <SelectItem value="job-interview">First Job Interview</SelectItem>
+                      <SelectItem value="mentor-conversation">Approaching a Mentor</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
