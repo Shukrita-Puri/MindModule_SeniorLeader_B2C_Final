@@ -131,79 +131,14 @@ export default function Stage7ContextConnection() {
         }
 
         if (data?.authUrl) {
-          console.log('[Calendar] Opening Google OAuth popup:', data.authUrl);
+          console.log('[Calendar] Redirecting to Google OAuth (full page):', data.authUrl);
           
-          // Open OAuth in popup window (works in iframe and deployed)
-          const width = 600;
-          const height = 700;
-          const left = window.screenX + (window.outerWidth - width) / 2;
-          const top = window.screenY + (window.outerHeight - height) / 2;
-          
-          const popup = window.open(
-            data.authUrl,
-            'google-calendar-auth',
-            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-          );
-          
-          if (!popup) {
-            toast.error("Popup blocked", {
-              description: "Please allow popups for this site and try again."
-            });
-            setCalendarConnected(false);
-            setConnecting(false);
+          // Use full-page redirect to avoid iframe/popup restrictions
+          // window.top works in iframe context (Lovable preview)
+          if (window.top) {
+            window.top.location.href = data.authUrl;
           } else {
-            toast.info("Complete authorization in the popup window");
-            
-            // Poll database for successful connection (fallback for postMessage failures)
-            const pollForConnection = async () => {
-              const { data } = await supabase
-                .from('calendar_connections')
-                .select('is_active')
-                .eq('user_id', appUser.id)
-                .eq('is_active', true)
-                .maybeSingle();
-              
-              return data?.is_active === true;
-            };
-            
-            // Monitor popup and poll database
-            const pollInterval = setInterval(async () => {
-              // Check if connection succeeded via database
-              const connected = await pollForConnection();
-              if (connected) {
-                clearInterval(pollInterval);
-                console.log('[Calendar] Connection detected via database poll');
-                setCalendarConnected(true);
-                setConnecting(false);
-                toast.success("Calendar connected successfully!");
-                
-                // Close popup if still open
-                if (popup && !popup.closed) {
-                  popup.close();
-                }
-                return;
-              }
-              
-              // Check if popup was closed without success
-              if (popup.closed) {
-                clearInterval(pollInterval);
-                // Final check before giving up
-                const finalCheck = await pollForConnection();
-                if (finalCheck) {
-                  console.log('[Calendar] Connection found on final check');
-                  setCalendarConnected(true);
-                  setConnecting(false);
-                  toast.success("Calendar connected successfully!");
-                } else {
-                  console.log('[Calendar] Popup closed without completing OAuth');
-                  setCalendarConnected(false);
-                  setConnecting(false);
-                  toast.error("Connection cancelled", {
-                    description: "The authorization window was closed."
-                  });
-                }
-              }
-            }, 1000);
+            window.location.href = data.authUrl;
           }
         } else {
           throw new Error('No authorization URL received from server');
@@ -217,16 +152,6 @@ export default function Stage7ContextConnection() {
             ? "Google OAuth may need verification. See tip below." 
             : errorMsg
         });
-        
-        // Show helpful tip for 403/access errors
-        if (errorMsg.includes('403') || errorMsg.includes('access')) {
-          setTimeout(() => {
-            toast.info("Tip: Google OAuth 403 Fix", {
-              description: "In Google Cloud Console, ensure your OAuth consent screen's Privacy Policy and Terms URLs are publicly accessible (not private Google Docs).",
-              duration: 10000,
-            });
-          }, 1500);
-        }
         
         setCalendarConnected(false);
         setConnecting(false);

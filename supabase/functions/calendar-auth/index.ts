@@ -130,38 +130,17 @@ serve(async (req) => {
 
       console.log('[calendar-auth] Calendar connection stored successfully for user:', state);
 
-      // Return HTML page that sends postMessage to parent window and closes popup
-      const successHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Calendar Connected</title>
-<style>
-body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f5f7fa}
-.box{text-align:center;padding:2rem;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
-h1{color:#22c55e;margin:0 0 0.5rem}
-p{color:#666;margin:0}
-</style>
-</head>
-<body>
-<div class="box">
-<h1>Connected!</h1>
-<p>Closing...</p>
-</div>
-<script>
-(function(){
-  var msg={type:'calendar_connected',success:true};
-  if(window.opener){window.opener.postMessage(msg,'*');setTimeout(function(){window.close()},1000);}
-  else if(window.parent!==window){window.parent.postMessage(msg,'*');}
-  else{window.location.href='/onboarding/context-connection?calendar_connected=true';}
-})();
-</script>
-</body>
-</html>`;
+      // Redirect back to the app with success parameter (works with iframe/full-page flow)
+      const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://5bd59ee0-ab8c-409f-bc56-72fe64069377.lovableproject.com';
+      const redirectUrl = `${frontendUrl}/onboarding/context-connection?calendar_connected=true`;
+      
+      console.log('[calendar-auth] Redirecting to:', redirectUrl);
 
-      return new Response(successHtml, {
-        status: 200,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      return new Response(null, {
+        status: 302,
+        headers: { 
+          'Location': redirectUrl,
+        },
       });
     } else if (action === 'disconnect') {
       // Disconnect calendar
