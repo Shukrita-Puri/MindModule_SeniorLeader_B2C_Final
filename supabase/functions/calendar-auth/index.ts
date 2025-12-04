@@ -59,7 +59,7 @@ serve(async (req) => {
           throw new Error('Google Calendar Client ID not configured');
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${userId}`;
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(userId)}`;
         console.log('[calendar-auth] Generated OAuth URL for user:', userId);
       }
 
