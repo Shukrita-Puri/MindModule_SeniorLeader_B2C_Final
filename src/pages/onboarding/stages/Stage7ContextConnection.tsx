@@ -131,28 +131,56 @@ export default function Stage7ContextConnection() {
         }
 
         if (data?.authUrl) {
-          console.log('[Calendar] Redirecting to Google OAuth (full page):', data.authUrl);
+          console.log('[Calendar] Opening Google OAuth in new window:', data.authUrl);
           
-          // Use full-page redirect to avoid iframe/popup restrictions
-          // window.top works in iframe context (Lovable preview)
-          if (window.top) {
-            window.top.location.href = data.authUrl;
-          } else {
-            window.location.href = data.authUrl;
+          // Open OAuth in a new window (popup blocked in iframe, but window.open works)
+          const authWindow = window.open(data.authUrl, '_blank');
+          
+          if (!authWindow) {
+            toast.error("Window blocked", {
+              description: "Please allow popups for this site and try again."
+            });
+            setCalendarConnected(false);
+            setConnecting(false);
+            return;
           }
+          
+          toast.info("Complete authorization in the new window", {
+            description: "This page will update automatically when complete."
+          });
+          
+          // Poll database to detect successful connection
+          const pollInterval = setInterval(async () => {
+            const { data: connection } = await supabase
+              .from('calendar_connections')
+              .select('is_active, updated_at')
+              .eq('user_id', appUser.id)
+              .eq('is_active', true)
+              .maybeSingle();
+            
+            if (connection?.is_active) {
+              clearInterval(pollInterval);
+              console.log('[Calendar] Connection detected via database poll');
+              setCalendarConnected(true);
+              setConnecting(false);
+              toast.success("Calendar connected successfully!");
+            }
+          }, 1500);
+          
+          // Stop polling after 2 minutes
+          setTimeout(() => {
+            clearInterval(pollInterval);
+            if (connecting) {
+              setConnecting(false);
+              setCalendarConnected(false);
+            }
+          }, 120000);
         } else {
           throw new Error('No authorization URL received from server');
         }
       } catch (error) {
         console.error('[Calendar] Connection failed:', error);
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        
-        toast.error("Failed to connect calendar", {
-          description: errorMsg.includes('403') || errorMsg.includes('access') 
-            ? "Google OAuth may need verification. See tip below." 
-            : errorMsg
-        });
-        
+        toast.error("Failed to connect calendar");
         setCalendarConnected(false);
         setConnecting(false);
       }
