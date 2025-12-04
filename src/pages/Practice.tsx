@@ -31,10 +31,10 @@ const Practice = () => {
       image: dialogueAcademicConfidence,
       metaSkill: "Self Mastery",
       scenarios: [
-        { id: "presenting-in-class", label: "Presenting in Class", category: "academic" },
-        { id: "university-interview", label: "University Interview", category: "academic" },
-        { id: "defending-ideas", label: "Defending Your Ideas", category: "academic" },
-        { id: "asking-for-help", label: "Asking Teachers for Help", category: "academic" },
+        { id: "oxbridge-interview", label: "Oxbridge Interview", category: "academic" },
+        { id: "model-un-speech", label: "Model UN Speech", category: "academic" },
+        { id: "debate-tournament", label: "Debate Tournament", category: "academic" },
+        { id: "scholarship-interview", label: "Scholarship Interview", category: "academic" },
       ]
     },
     {
@@ -44,10 +44,10 @@ const Practice = () => {
       image: dialogueSocialNavigation,
       metaSkill: "Social Mastery",
       scenarios: [
-        { id: "friendship-dilemma", label: "Friendship Dilemmas", category: "social" },
-        { id: "group-conflict", label: "Group Project Conflicts", category: "social" },
+        { id: "boarding-house-dynamics", label: "Boarding House Dynamics", category: "social" },
+        { id: "society-elections", label: "Society Elections", category: "social" },
         { id: "peer-pressure", label: "Peer Pressure Moments", category: "social" },
-        { id: "setting-boundaries", label: "Setting Boundaries", category: "social" },
+        { id: "prefect-responsibilities", label: "Prefect Responsibilities", category: "social" },
       ]
     },
     {
@@ -57,10 +57,10 @@ const Practice = () => {
       image: dialogueGrowthOpportunity,
       metaSkill: "Both",
       scenarios: [
-        { id: "networking-internship", label: "Networking for Internship", category: "growth" },
-        { id: "making-friends-college", label: "Making Friends in College", category: "growth" },
-        { id: "job-interview", label: "First Job Interview", category: "growth" },
-        { id: "mentor-conversation", label: "Approaching a Mentor", category: "growth" },
+        { id: "sports-captain-address", label: "Sports Captain Address", category: "growth" },
+        { id: "head-student-interview", label: "Head Boy/Girl Interview", category: "growth" },
+        { id: "gap-year-planning", label: "Gap Year Planning", category: "growth" },
+        { id: "alumni-networking", label: "Alumni Networking", category: "growth" },
       ]
     }
   ];

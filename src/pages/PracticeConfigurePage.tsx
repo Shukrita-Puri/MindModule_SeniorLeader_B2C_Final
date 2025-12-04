@@ -158,6 +158,51 @@ const PracticeConfigurePage = () => {
         { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Relationship Building", "Active Listening", "Gratitude"] },
         { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Initiative", "Curiosity", "Humility"] }
       ],
+      // Elite school-specific scenarios
+      'oxbridge-interview': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Composure", "Intellectual Confidence", "Authenticity"] },
+        { cluster: "Cognitive Mastery", metaSkill: "Critical Thinking", subSkills: ["Logical Argumentation", "Intellectual Curiosity", "Abstract Reasoning"] }
+      ],
+      'model-un-speech': [
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Public Speaking", "Persuasion", "Diplomatic Communication"] },
+        { cluster: "Cognitive Mastery", metaSkill: "Strategic Planning & Vision", subSkills: ["Policy Analysis", "Global Awareness"] }
+      ],
+      'debate-tournament': [
+        { cluster: "Cognitive Mastery", metaSkill: "Critical Thinking", subSkills: ["Logical Argumentation", "Quick Thinking", "Evidence Synthesis"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Persuasion", "Rebuttals", "Audience Awareness"] }
+      ],
+      'scholarship-interview': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Authenticity", "Purpose Articulation", "Composure"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Impression Management", "Storytelling", "Gratitude"] }
+      ],
+      'boarding-house-dynamics': [
+        { cluster: "Social Mastery", metaSkill: "Collaboration & Group Dynamics", subSkills: ["Community Building", "Conflict Resolution", "Shared Living"] },
+        { cluster: "Self Mastery", metaSkill: "Emotional Intelligence", subSkills: ["Empathy", "Boundary Setting", "Adaptability"] }
+      ],
+      'society-elections': [
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Campaign Strategy", "Public Speaking", "Vision Articulation"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Networking", "Influence", "Trust Building"] }
+      ],
+      'prefect-responsibilities': [
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Authority", "Role Modelling", "Mentorship"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Integrity", "Responsibility", "Time Management"] }
+      ],
+      'sports-captain-address': [
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Team Motivation", "Inspirational Speaking", "Leadership Presence"] },
+        { cluster: "Self Mastery", metaSkill: "Emotional Intelligence", subSkills: ["Emotional Awareness", "Resilience", "Composure Under Pressure"] }
+      ],
+      'head-student-interview': [
+        { cluster: "Social Mastery", metaSkill: "Leadership & Execution", subSkills: ["Vision Articulation", "Leadership Presence", "Stakeholder Management"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Purpose Alignment", "Authenticity", "Service Orientation"] }
+      ],
+      'gap-year-planning': [
+        { cluster: "Cognitive Mastery", metaSkill: "Strategic Planning & Vision", subSkills: ["Long-term Planning", "Goal Setting", "Resource Allocation"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Initiative", "Independence", "Growth Mindset"] }
+      ],
+      'alumni-networking': [
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Professional Networking", "Relationship Building", "Career Curiosity"] },
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Confidence", "Initiative", "Gratitude"] }
+      ],
     };
     return skillMap[scenario] || [];
   };
@@ -304,10 +349,10 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="difficult-conversation">Having a Difficult Conversation</SelectItem>
                       <SelectItem value="subtle-negotiations">Subtle Negotiations: Finding Win-Win</SelectItem>
                       <SelectSeparator />
-                      <SelectItem value="friendship-dilemma">Managing Friendship Dilemmas</SelectItem>
-                      <SelectItem value="group-conflict">Navigating Group Project Conflicts</SelectItem>
+                      <SelectItem value="boarding-house-dynamics">Boarding House Dynamics</SelectItem>
+                      <SelectItem value="society-elections">Society Elections</SelectItem>
                       <SelectItem value="peer-pressure">Handling Peer Pressure Moments</SelectItem>
-                      <SelectItem value="setting-boundaries">Setting Boundaries</SelectItem>
+                      <SelectItem value="prefect-responsibilities">Prefect Responsibilities</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
@@ -316,10 +361,10 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="public-unexpected">Handling Public Conversations & Unexpected Questions</SelectItem>
                       <SelectItem value="staying-composed">Staying Composed Under Pressure</SelectItem>
                       <SelectSeparator />
-                      <SelectItem value="presenting-in-class">Presenting in Class</SelectItem>
-                      <SelectItem value="university-interview">University Interview</SelectItem>
-                      <SelectItem value="defending-ideas">Defending Your Ideas</SelectItem>
-                      <SelectItem value="asking-for-help">Asking Teachers for Help</SelectItem>
+                      <SelectItem value="oxbridge-interview">Oxbridge Interview</SelectItem>
+                      <SelectItem value="model-un-speech">Model UN Speech</SelectItem>
+                      <SelectItem value="debate-tournament">Debate Tournament</SelectItem>
+                      <SelectItem value="scholarship-interview">Scholarship Interview</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
@@ -336,10 +381,10 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="inspiring-alignment">Inspiring Team Alignment</SelectItem>
                       <SelectItem value="elevating-others">Elevating Others' Performance</SelectItem>
                       <SelectSeparator />
-                      <SelectItem value="networking-internship">Networking to Secure an Internship</SelectItem>
-                      <SelectItem value="making-friends-college">Making Friends in New Environments</SelectItem>
-                      <SelectItem value="job-interview">First Job Interview</SelectItem>
-                      <SelectItem value="mentor-conversation">Approaching a Mentor</SelectItem>
+                      <SelectItem value="sports-captain-address">Sports Captain Address</SelectItem>
+                      <SelectItem value="head-student-interview">Head Boy/Girl Interview</SelectItem>
+                      <SelectItem value="gap-year-planning">Gap Year Planning</SelectItem>
+                      <SelectItem value="alumni-networking">Alumni Networking</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
