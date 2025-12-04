@@ -126,64 +126,37 @@ serve(async (req) => {
       console.log('[calendar-auth] Calendar connection stored successfully for user:', state);
 
       // Return HTML page that sends postMessage to parent window and closes popup
-      // This works for both iframe (Lovable preview) and deployed site
-      const successHtml = `
-<!DOCTYPE html>
+      const successHtml = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Calendar Connected</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-    .success-icon {
-      font-size: 48px;
-      margin-bottom: 1rem;
-    }
-    h1 { color: #22c55e; margin-bottom: 0.5rem; }
-    p { color: #666; }
-  </style>
+<meta charset="utf-8">
+<title>Calendar Connected</title>
+<style>
+body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f5f7fa}
+.box{text-align:center;padding:2rem;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+h1{color:#22c55e;margin:0 0 0.5rem}
+p{color:#666;margin:0}
+</style>
 </head>
 <body>
-  <div class="container">
-    <div class="success-icon">✓</div>
-    <h1>Calendar Connected!</h1>
-    <p>This window will close automatically...</p>
-  </div>
-  <script>
-    // Send message to parent window (works for both popup and iframe scenarios)
-    if (window.opener) {
-      window.opener.postMessage({ type: 'calendar_connected', success: true }, '*');
-      setTimeout(() => window.close(), 1500);
-    } else if (window.parent !== window) {
-      window.parent.postMessage({ type: 'calendar_connected', success: true }, '*');
-    } else {
-      // Fallback: redirect to app if opened directly
-      window.location.href = '${Deno.env.get('FRONTEND_URL') || 'https://5bd59ee0-ab8c-409f-bc56-72fe64069377.lovableproject.com'}/onboarding/context-connection?calendar_connected=true';
-    }
-  </script>
+<div class="box">
+<h1>Connected!</h1>
+<p>Closing...</p>
+</div>
+<script>
+(function(){
+  var msg={type:'calendar_connected',success:true};
+  if(window.opener){window.opener.postMessage(msg,'*');setTimeout(function(){window.close()},1000);}
+  else if(window.parent!==window){window.parent.postMessage(msg,'*');}
+  else{window.location.href='/onboarding/context-connection?calendar_connected=true';}
+})();
+</script>
 </body>
 </html>`;
 
       return new Response(successHtml, {
         status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/html',
-        },
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     } else if (action === 'disconnect') {
       // Disconnect calendar
