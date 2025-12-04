@@ -153,6 +153,24 @@ export default function Stage7ContextConnection() {
             setConnecting(false);
           } else {
             toast.info("Complete authorization in the popup window");
+            
+            // Monitor popup - if closed without success message, revert toggle
+            const popupChecker = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(popupChecker);
+                // Only revert if we're still in connecting state (no success message received)
+                setConnecting(prev => {
+                  if (prev) {
+                    console.log('[Calendar] Popup closed without completing OAuth');
+                    setCalendarConnected(false);
+                    toast.error("Connection cancelled", {
+                      description: "The authorization window was closed."
+                    });
+                  }
+                  return false;
+                });
+              }
+            }, 500);
           }
         } else {
           throw new Error('No authorization URL received from server');
