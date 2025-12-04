@@ -154,23 +154,56 @@ export default function Stage7ContextConnection() {
           } else {
             toast.info("Complete authorization in the popup window");
             
-            // Monitor popup - if closed without success message, revert toggle
-            const popupChecker = setInterval(() => {
-              if (popup.closed) {
-                clearInterval(popupChecker);
-                // Only revert if we're still in connecting state (no success message received)
-                setConnecting(prev => {
-                  if (prev) {
-                    console.log('[Calendar] Popup closed without completing OAuth');
-                    setCalendarConnected(false);
-                    toast.error("Connection cancelled", {
-                      description: "The authorization window was closed."
-                    });
-                  }
-                  return false;
-                });
+            // Poll database for successful connection (fallback for postMessage failures)
+            const pollForConnection = async () => {
+              const { data } = await supabase
+                .from('calendar_connections')
+                .select('is_active')
+                .eq('user_id', appUser.id)
+                .eq('is_active', true)
+                .maybeSingle();
+              
+              return data?.is_active === true;
+            };
+            
+            // Monitor popup and poll database
+            const pollInterval = setInterval(async () => {
+              // Check if connection succeeded via database
+              const connected = await pollForConnection();
+              if (connected) {
+                clearInterval(pollInterval);
+                console.log('[Calendar] Connection detected via database poll');
+                setCalendarConnected(true);
+                setConnecting(false);
+                toast.success("Calendar connected successfully!");
+                
+                // Close popup if still open
+                if (popup && !popup.closed) {
+                  popup.close();
+                }
+                return;
               }
-            }, 500);
+              
+              // Check if popup was closed without success
+              if (popup.closed) {
+                clearInterval(pollInterval);
+                // Final check before giving up
+                const finalCheck = await pollForConnection();
+                if (finalCheck) {
+                  console.log('[Calendar] Connection found on final check');
+                  setCalendarConnected(true);
+                  setConnecting(false);
+                  toast.success("Calendar connected successfully!");
+                } else {
+                  console.log('[Calendar] Popup closed without completing OAuth');
+                  setCalendarConnected(false);
+                  setConnecting(false);
+                  toast.error("Connection cancelled", {
+                    description: "The authorization window was closed."
+                  });
+                }
+              }
+            }, 1000);
           }
         } else {
           throw new Error('No authorization URL received from server');
