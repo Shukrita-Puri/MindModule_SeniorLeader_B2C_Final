@@ -101,9 +101,12 @@ serve(async (req) => {
       });
 
       const tokens = await tokenResponse.json();
+      console.log('[calendar-auth] Token response status:', tokenResponse.status);
+      console.log('[calendar-auth] Tokens received:', tokens.access_token ? 'yes' : 'no', 'error:', tokens.error);
 
       if (!tokens.access_token) {
-        throw new Error('Failed to get access token');
+        console.error('[calendar-auth] Token error details:', JSON.stringify(tokens));
+        throw new Error(tokens.error_description || tokens.error || 'Failed to get access token');
       }
 
       // Store tokens directly in calendar_connections table
@@ -182,9 +185,14 @@ p{color:#666;margin:0}
 
     throw new Error('Invalid action');
   } catch (error) {
-    console.error('Calendar auth error:', error);
+    console.error('[calendar-auth] Error:', error);
+    console.error('[calendar-auth] Error type:', typeof error);
+    if (error instanceof Error) {
+      console.error('[calendar-auth] Error message:', error.message);
+      console.error('[calendar-auth] Error stack:', error.stack);
+    }
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
