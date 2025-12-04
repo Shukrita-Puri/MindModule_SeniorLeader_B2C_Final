@@ -17,39 +17,58 @@ export default function Stage7ContextConnection() {
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
-  // Check if returning from OAuth with success
+  // Handle OAuth popup message
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Check if message is from our OAuth popup
+      if (event.data?.type === 'calendar_connected') {
+        console.log('[Stage7] Received OAuth popup message:', event.data);
+        
+        if (event.data.success) {
+          toast.success("Calendar connected successfully!");
+          setCalendarConnected(true);
+          setConnecting(false);
+          
+          // Trigger initial calendar sync
+          try {
+            console.log('[Stage7] Triggering initial calendar sync');
+            const { error } = await supabase.functions.invoke('sync-calendar', {
+              body: { provider: 'google' }
+            });
+            
+            if (error) {
+              console.error('[Stage7] Sync error:', error);
+              toast.error("Calendar connected but sync failed", {
+                description: "You can try syncing again from settings."
+              });
+            } else {
+              console.log('[Stage7] Initial sync completed successfully');
+              toast.success("Calendar synced successfully!");
+            }
+          } catch (error) {
+            console.error('[Stage7] Sync failed:', error);
+          }
+        } else {
+          toast.error("Calendar connection failed", {
+            description: event.data.error || "Please try again."
+          });
+          setCalendarConnected(false);
+          setConnecting(false);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Also check URL params for fallback (deployed site direct navigation)
   useEffect(() => {
     const calendarConnectedParam = searchParams.get('calendar_connected');
     if (calendarConnectedParam === 'true') {
-      console.log('[Stage7] OAuth callback detected, marking calendar as connected');
+      console.log('[Stage7] OAuth callback via URL param detected');
       toast.success("Calendar connected successfully!");
       setCalendarConnected(true);
-      
-      // Trigger initial calendar sync
-      const syncCalendar = async () => {
-        try {
-          console.log('[Stage7] Triggering initial calendar sync');
-          const { error } = await supabase.functions.invoke('sync-calendar', {
-            body: { provider: 'google' }
-          });
-          
-          if (error) {
-            console.error('[Stage7] Sync error:', error);
-            toast.error("Calendar connected but sync failed", {
-              description: "You can try syncing again from settings."
-            });
-          } else {
-            console.log('[Stage7] Initial sync completed successfully');
-            toast.success("Calendar synced successfully!");
-          }
-        } catch (error) {
-          console.error('[Stage7] Sync failed:', error);
-        }
-      };
-      
-      syncCalendar();
-      
-      // Clean up URL
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
@@ -112,17 +131,29 @@ export default function Stage7ContextConnection() {
         }
 
         if (data?.authUrl) {
-          console.log('[Calendar] Redirecting to Google OAuth:', data.authUrl);
+          console.log('[Calendar] Opening Google OAuth popup:', data.authUrl);
           
-          // Show warning about Google OAuth requirements
-          toast.info("Opening Google Calendar authorization", {
-            description: "If you see a 403 error, check that your OAuth app is properly configured in Google Cloud Console.",
-            duration: 5000,
-          });
+          // Open OAuth in popup window (works in iframe and deployed)
+          const width = 600;
+          const height = 700;
+          const left = window.screenX + (window.outerWidth - width) / 2;
+          const top = window.screenY + (window.outerHeight - height) / 2;
           
-          setTimeout(() => {
-            window.location.href = data.authUrl;
-          }, 1000);
+          const popup = window.open(
+            data.authUrl,
+            'google-calendar-auth',
+            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+          );
+          
+          if (!popup) {
+            toast.error("Popup blocked", {
+              description: "Please allow popups for this site and try again."
+            });
+            setCalendarConnected(false);
+            setConnecting(false);
+          } else {
+            toast.info("Complete authorization in the popup window");
+          }
         } else {
           throw new Error('No authorization URL received from server');
         }
