@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import architecturalPause from "@/assets/architectural-pause.jpg";
-import architecturalPresence from "@/assets/architectural-presence.jpg";
-import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
+import dialogueAcademicConfidence from "@/assets/dialogue-academic-confidence.jpg";
+import dialogueSocialNavigation from "@/assets/dialogue-social-navigation.jpg";
+import dialogueGrowthOpportunity from "@/assets/dialogue-growth-opportunity.jpg";
 
 interface ScenarioChip {
   id: string;
@@ -28,7 +28,7 @@ const Practice = () => {
       id: "academic",
       title: "Academic Confidence",
       description: "Present ideas with clarity, defend your work, and speak with authority in academic settings.",
-      image: architecturalPause,
+      image: dialogueAcademicConfidence,
       metaSkill: "Self Mastery",
       scenarios: [
         { id: "presenting-in-class", label: "Presenting in Class", category: "academic" },
@@ -41,8 +41,8 @@ const Practice = () => {
       id: "social",
       title: "Social Navigation",
       description: "Handle friendships, group dynamics, and peer relationships with emotional intelligence.",
-      image: architecturalPresence,
-      metaSkill: "Social Intelligence",
+      image: dialogueSocialNavigation,
+      metaSkill: "Social Mastery",
       scenarios: [
         { id: "friendship-dilemma", label: "Friendship Dilemmas", category: "social" },
         { id: "group-conflict", label: "Group Project Conflicts", category: "social" },
@@ -54,7 +54,7 @@ const Practice = () => {
       id: "growth",
       title: "Growth & Opportunity",
       description: "Seize opportunities, build connections, and navigate transitions with confidence.",
-      image: architecturalPowerUp,
+      image: dialogueGrowthOpportunity,
       metaSkill: "Both",
       scenarios: [
         { id: "networking-internship", label: "Networking for Internship", category: "growth" },

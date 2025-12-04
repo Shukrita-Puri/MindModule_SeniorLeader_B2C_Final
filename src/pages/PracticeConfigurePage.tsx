@@ -383,10 +383,13 @@ const PracticeConfigurePage = () => {
                   <SelectValue placeholder="Select a persona" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="interviewer">Interviewer / Admissions Officer</SelectItem>
-                  <SelectItem value="mentor">Mentor / Advisor</SelectItem>
-                  <SelectItem value="peer">Peer / Colleague</SelectItem>
-                  <SelectItem value="authority">Authority Figure</SelectItem>
+                  <SelectItem value="classmate">Classmate / Peer</SelectItem>
+                  <SelectItem value="teacher">Teacher / Professor</SelectItem>
+                  <SelectItem value="admissions">University Admissions Officer</SelectItem>
+                  <SelectItem value="student-leader">Club President / Student Leader</SelectItem>
+                  <SelectItem value="parent">Parent / Guardian</SelectItem>
+                  <SelectItem value="coach">Coach / Sports Mentor</SelectItem>
+                  <SelectItem value="counselor">School Counselor</SelectItem>
                   <SelectItem value="custom">Customise Persona</SelectItem>
                 </SelectContent>
               </Select>
