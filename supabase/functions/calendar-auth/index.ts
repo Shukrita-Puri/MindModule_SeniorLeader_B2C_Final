@@ -119,11 +119,13 @@ serve(async (req) => {
           refresh_token: tokens.refresh_token || null,
           token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
           is_active: true,
+        }, {
+          onConflict: 'user_id',
         });
 
       if (insertError) {
         console.error('Error storing calendar connection:', insertError);
-        throw insertError;
+        throw new Error(insertError.message || 'Failed to store calendar connection');
       }
 
       console.log('[calendar-auth] Calendar connection stored successfully for user:', state);
