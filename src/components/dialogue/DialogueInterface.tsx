@@ -1,10 +1,10 @@
 // Dialogue Room - Main Conversation Interface
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useDialogueSession } from '@/hooks/useDialogueSession';
+import { useDialogueSession, SessionConfig } from '@/hooks/useDialogueSession';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Loader2, Clock, MessageSquare } from 'lucide-react';
+import { Send, Loader2, Clock, MessageSquare, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import CoachingToaster from './CoachingToaster';
 
@@ -12,6 +12,10 @@ interface DialogueInterfaceProps {
   scenarioId: string;
   personaId: string;
   coachPersonality?: 'supportive' | 'challenging' | 'direct';
+  personalityStyle?: string;
+  voiceStyle?: string;
+  additionalContext?: string;
+  attachments?: Array<{ name: string; type: string; content?: string }>;
   onEndSession?: () => void;
 }
 
@@ -19,6 +23,10 @@ export default function DialogueInterface({
   scenarioId,
   personaId,
   coachPersonality = 'supportive',
+  personalityStyle,
+  voiceStyle,
+  additionalContext,
+  attachments,
   onEndSession
 }: DialogueInterfaceProps) {
   const {
@@ -30,6 +38,7 @@ export default function DialogueInterface({
     sessionStatus,
     durationSeconds,
     personaName,
+    personaRole,
     scenarioTitle,
     startSession,
     sendMessage,
@@ -40,12 +49,18 @@ export default function DialogueInterface({
   const [showIntervention, setShowIntervention] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-start session on mount
+  // Auto-start session on mount with full config
   useEffect(() => {
     if (!sessionId && sessionStatus === 'idle') {
-      startSession(scenarioId, personaId, coachPersonality);
+      const config: SessionConfig = {
+        personalityStyle,
+        voiceStyle,
+        additionalContext,
+        attachments
+      };
+      startSession(scenarioId, personaId, coachPersonality, config);
     }
-  }, [sessionId, sessionStatus, scenarioId, personaId, coachPersonality, startSession]);
+  }, [sessionId, sessionStatus, scenarioId, personaId, coachPersonality, personalityStyle, voiceStyle, additionalContext, attachments, startSession]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -99,7 +114,7 @@ export default function DialogueInterface({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
         <div>
           <h2 className="font-semibold text-foreground">{scenarioTitle}</h2>
-          <p className="text-sm text-muted-foreground">Speaking with {personaName}</p>
+          <p className="text-sm text-muted-foreground">Speaking with {personaRole || personaName}</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -110,6 +125,12 @@ export default function DialogueInterface({
             <MessageSquare className="w-4 h-4" />
             {messages.length}
           </div>
+          {attachments && attachments.length > 0 && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Paperclip className="w-4 h-4" />
+              {attachments.length}
+            </div>
+          )}
           <Button variant="outline" size="sm" onClick={handleEndSession}>
             End Session
           </Button>
@@ -134,7 +155,7 @@ export default function DialogueInterface({
             >
               {message.role !== 'user' && (
                 <p className="text-xs font-medium mb-1 opacity-70">
-                  {message.role === 'coach' ? '🎯 Coach' : personaName}
+                  {message.role === 'coach' ? '🎯 Coach' : personaRole || personaName}
                   {message.emotion && ` • ${message.emotion}`}
                 </p>
               )}

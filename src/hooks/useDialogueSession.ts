@@ -30,6 +30,13 @@ interface Intervention {
   wisdomQuote?: string;
 }
 
+export interface SessionConfig {
+  personalityStyle?: string;
+  voiceStyle?: string;
+  additionalContext?: string;
+  attachments?: Array<{ name: string; type: string; content?: string }>;
+}
+
 interface SessionState {
   sessionId: string | null;
   scenarioId: string;
@@ -41,6 +48,7 @@ interface SessionState {
   scenarioTitle: string;
   scenarioContext: Record<string, any>;
   coachPersonality: 'supportive' | 'challenging' | 'direct';
+  config: SessionConfig;
   messages: Message[];
   interventions: Intervention[];
   isLoading: boolean;
@@ -62,6 +70,7 @@ export function useDialogueSession() {
     scenarioTitle: '',
     scenarioContext: {},
     coachPersonality: 'supportive',
+    config: {},
     messages: [],
     interventions: [],
     isLoading: false,
@@ -91,7 +100,8 @@ export function useDialogueSession() {
   const startSession = useCallback(async (
     scenarioId: string,
     personaId: string,
-    coachPersonality: 'supportive' | 'challenging' | 'direct' = 'supportive'
+    coachPersonality: 'supportive' | 'challenging' | 'direct' = 'supportive',
+    config: SessionConfig = {}
   ) => {
     if (!user?.sub) {
       setState(prev => ({ ...prev, error: 'User not authenticated' }));
@@ -126,7 +136,13 @@ export function useDialogueSession() {
           context_type: scenario.context_type,
           scenario_context: scenario.scenario_context,
           coach_personality: coachPersonality,
-          session_status: 'active'
+          session_status: 'active',
+          meta_data: {
+            personalityStyle: config.personalityStyle,
+            voiceStyle: config.voiceStyle,
+            additionalContext: config.additionalContext,
+            attachmentNames: config.attachments?.map(a => a.name) || []
+          }
         })
         .select()
         .single();
@@ -153,6 +169,7 @@ export function useDialogueSession() {
         scenarioTitle: scenario.title,
         scenarioContext: (scenario.scenario_context as Record<string, any>) || {},
         coachPersonality,
+        config,
         messages: [{
           id: crypto.randomUUID(),
           role: 'persona',
@@ -233,7 +250,7 @@ export function useDialogueSession() {
         messages: [...prev.messages, userMessage]
       }));
 
-      // 4. Call LLM with signals as hints
+      // 4. Call LLM with signals and full config
       const response = await supabase.functions.invoke('dialogue-engine', {
         body: {
           userMessage: content,
@@ -248,7 +265,12 @@ export function useDialogueSession() {
             scenarioContext: state.scenarioContext,
             coachPersonality: state.coachPersonality,
             messageCount: state.messages.length,
-            interventionCount: state.interventions.length
+            interventionCount: state.interventions.length,
+            // Extended configuration
+            personalityStyle: state.config.personalityStyle,
+            voiceStyle: state.config.voiceStyle,
+            additionalContext: state.config.additionalContext,
+            attachments: state.config.attachments
           },
           conversationHistory: state.messages.map(m => ({
             role: m.role,
@@ -349,13 +371,24 @@ export function useDialogueSession() {
 // Helper functions
 
 function generateOpeningMessage(scenario: any, persona: any): string {
+  // Use generic role-based openings (no names)
   if (scenario.id === 'oxbridge_interview') {
-    return `Good morning. I'm ${persona.name}, and I'll be conducting your interview today. Please, take a seat. Before we begin with the academic questions, could you tell me what drew you to apply to study here?`;
+    return `Good morning. I'll be conducting your interview today. Please, take a seat. Before we begin with the academic questions, could you tell me what drew you to apply to study here?`;
   }
   if (scenario.id === 'alumni_networking') {
-    return `Hi there! I'm ${persona.name}. I graduated about 8 years ago and I'm now at Goldman Sachs. I remember these networking events well - they can feel a bit awkward! So, what year are you in, and what are you hoping to do after school?`;
+    return `Hi there! I graduated about 8 years ago. I remember these networking events well - they can feel a bit awkward! So, what year are you in, and what are you hoping to do after school?`;
   }
-  return `Hello, I'm ${persona.name}. Let's begin our conversation. What would you like to discuss?`;
+  if (scenario.id === 'scholarship_interview') {
+    return `Welcome. Thank you for applying for this scholarship. We've reviewed your application materials, and I'd like to learn more about you. Could you start by telling me what this opportunity means to you?`;
+  }
+  if (scenario.id === 'model_un_speech') {
+    return `Delegates, we are convened here today to address a matter of global significance. The floor is now open for opening statements. You may proceed when ready.`;
+  }
+  if (scenario.id === 'debate_tournament') {
+    return `Good afternoon. This is the semi-final round. You have three minutes to present your opening argument. The motion is on the board. You may begin when ready.`;
+  }
+  // Default generic opening
+  return `Hello. Let's begin our conversation. I'm interested to hear your thoughts. What would you like to discuss?`;
 }
 
 async function persistMessage(sessionId: string, message: Message, signals?: DetectedSignals) {
@@ -363,7 +396,7 @@ async function persistMessage(sessionId: string, message: Message, signals?: Det
     const { data, error } = await (supabase.from('dialogue_messages') as any)
       .insert({
         session_id: sessionId,
-        message_index: 0, // Would need proper indexing
+        message_index: 0,
         sender_type: message.role,
         content: message.content,
         emotion_displayed: message.emotion,
@@ -374,7 +407,7 @@ async function persistMessage(sessionId: string, message: Message, signals?: Det
 
     if (error) throw error;
 
-    // Persist signals if present (cast to any - types will regenerate)
+    // Persist signals if present
     if (signals && data) {
       await (supabase.from('detected_signals') as any).insert({
         session_id: sessionId,
@@ -401,12 +434,12 @@ async function persistIntervention(sessionId: string, intervention: Intervention
       session_id: sessionId,
       intervention_type: 'observation',
       meta_skill_target: intervention.metaSkill,
-        sub_skill_target: intervention.subSkill,
-        observation: intervention.observation,
-        framework_used: intervention.framework,
-        action_suggested: intervention.action,
-        wisdom_source: intervention.wisdomQuote ? { quote: intervention.wisdomQuote } : null
-      });
+      sub_skill_target: intervention.subSkill,
+      observation: intervention.observation,
+      framework_used: intervention.framework,
+      action_suggested: intervention.action,
+      wisdom_source: intervention.wisdomQuote ? { quote: intervention.wisdomQuote } : null
+    });
   } catch (error) {
     console.error('[persistIntervention] Error:', error);
   }
