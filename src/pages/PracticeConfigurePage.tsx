@@ -36,7 +36,7 @@ const PracticeConfigurePage = () => {
   const [customPersonality, setCustomPersonality] = useState("");
   const [voicePreference, setVoicePreference] = useState("");
   const [practiceDuration, setPracticeDuration] = useState("");
-  const [coachingStyle, setCoachingStyle] = useState("");
+  // Coaching style is now adaptive - the coach dynamically chooses its tone
   const [additionalContext, setAdditionalContext] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   
@@ -252,8 +252,7 @@ const PracticeConfigurePage = () => {
     personalityStyle &&
     (personalityStyle !== 'custom' || customPersonality.trim()) &&
     voicePreference &&
-    practiceDuration &&
-    coachingStyle;
+    practiceDuration;
 
   const handleStartDialogue = () => {
     navigate('/practice/simulation', {
@@ -274,7 +273,7 @@ const PracticeConfigurePage = () => {
         personaType: personaType,
         customPersona: customPersona,
         practiceDuration: parseInt(practiceDuration),
-        coachingStyle: coachingStyle,
+        coachingStyle: 'adaptive', // Coach will dynamically choose tone
       }
     });
   };
@@ -554,37 +553,14 @@ const PracticeConfigurePage = () => {
             </div>
           </Card>
 
-          {/* Step 7: Coaching Style */}
-          <Card className="p-5">
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="coaching-style" className="text-base font-headline font-medium text-foreground">
-                  Step 7: Coaching Style
-                </Label>
-                <p className="text-xs font-headline text-muted-foreground mt-1">
-                  What type of feedback do you prefer during the practice?
-                </p>
-              </div>
+          {/* Coaching style is now adaptive - removed user selection */}
 
-              <Select value={coachingStyle} onValueChange={setCoachingStyle}>
-                <SelectTrigger id="coaching-style" className="bg-background">
-                  <SelectValue placeholder="Select coaching style" />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  <SelectItem value="supportive">Supportive — Encouraging and confidence-building</SelectItem>
-                  <SelectItem value="challenging">Challenging — Pushes you out of your comfort zone</SelectItem>
-                  <SelectItem value="minimal">Minimal — Less interruption, more flow</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-
-          {/* Step 8: Additional Context */}
+          {/* Step 7: Additional Context */}
           <Card className="p-5">
             <div className="space-y-3">
               <div>
                 <Label htmlFor="additional-context" className="text-base font-headline font-medium text-foreground">
-                  Step 8: Additional Context (Optional)
+                  Step 7: Additional Context (Optional)
                 </Label>
                 <p className="text-xs font-headline text-muted-foreground mt-1">
                   Any specific details, background, or goals for this conversation?

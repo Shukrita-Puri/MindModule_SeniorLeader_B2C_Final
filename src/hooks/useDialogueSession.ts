@@ -312,9 +312,9 @@ export function useDialogueSession() {
           observation: result.coaching_intervention.observation,
           metaSkill: result.coaching_intervention.meta_skill,
           subSkill: result.coaching_intervention.sub_skill,
-          action: result.coaching_intervention.action,
-          framework: result.coaching_intervention.framework,
-          wisdomQuote: result.coaching_intervention.wisdom_quote
+          action: result.coaching_intervention.action_step || result.coaching_intervention.action || 'Reflect on this feedback and apply it in your next response.',
+          framework: result.coaching_intervention.framework_name || result.coaching_intervention.framework,
+          wisdomQuote: result.coaching_intervention.framework_wisdom || result.coaching_intervention.wisdom_quote
         };
       }
 

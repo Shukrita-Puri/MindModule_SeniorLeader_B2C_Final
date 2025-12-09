@@ -174,8 +174,30 @@ Frame questions inclusively. Show warmth while maintaining professionalism.`
     return voices[voice] || '';
   };
 
-  // Get coaching style guidance
+  // Get coaching style guidance - now ADAPTIVE based on conversation context
   const getCoachingStyleGuidance = (style: string): string => {
+    // If adaptive or unknown, return adaptive guidance
+    if (style === 'adaptive' || !['supportive', 'challenging', 'minimal'].includes(style)) {
+      return `**ADAPTIVE COACHING MODE:**
+You dynamically choose the most appropriate tone for each intervention based on:
+- User's current skill level and confidence in this exchange
+- Whether they need encouragement or a push
+- The emotional state of the conversation
+- How they've responded to previous feedback
+
+**CHOOSE YOUR TONE FOR THIS INTERVENTION:**
+- Use "supportive" when user needs encouragement, is struggling, or lacks confidence
+- Use "challenging" when user is coasting, not pushing themselves, or needs accountability
+- Use "direct" when user needs clear, no-nonsense guidance without extra warmth
+
+**TONE BEHAVIORS:**
+- Supportive: Celebrate progress, frame gaps as growth opportunities, use "Great attempt at...", "I noticed you're developing..."
+- Challenging: Call out missed opportunities, set high expectations, use "You missed an opportunity to...", "Push yourself to..."
+- Direct: Be clear and efficient, no fluff, just actionable feedback
+
+IMPORTANT: In your response, set the "tone" field to what you actually chose (supportive, challenging, or direct).`;
+    }
+    
     const styles: Record<string, string> = {
       'supportive': `**SUPPORTIVE COACHING MODE:**
 - Be encouraging and celebrate progress with each intervention
@@ -571,7 +593,7 @@ Respond with a JSON object containing:
     "framework_source": "ancient_wisdom" | "high_performer" | "psychology" | "practical",
     "framework_wisdom": "The actual quote or principle",
     "action_step": "MANDATORY - NEVER LEAVE EMPTY. Must be a specific, concrete action for the user's NEXT response. Examples: 'In your next response, directly answer their question about why you chose this university', 'Acknowledge their concern first, then explain your reasoning', 'Ask them a clarifying question about what they're looking for'. BAD examples (NEVER USE): empty string, 'be more confident', 'try harder', 'improve your response'",
-    "tone": "${coachConfig.style}"
+    "tone": "supportive | challenging | direct (CHOOSE the tone you used for THIS intervention)"
   },
 
   "refined_analysis": {
@@ -605,7 +627,7 @@ Respond with a JSON object containing:
 7. **End with action** - Every intervention MUST have a concrete action_step (NEVER empty)
 8. **Check context first** - Before any intervention, identify what the persona asked and whether the user addressed it
 9. **Detect off-topic responses** - If user's response doesn't match the persona's question, flag this as a skill gap
-10. **Lock your tone** - Your coaching tone MUST be "${coachConfig.style}" as selected by the user
+10. **Adaptive tone** - Choose the most appropriate tone (supportive, challenging, or direct) for each intervention based on context
 
 ## ACTION STEP REQUIREMENTS (MANDATORY)
 
