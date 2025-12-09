@@ -182,11 +182,11 @@ const PracticeSimulation = () => {
   };
 
   return (
-    <div className="min-h-screen font-body flex flex-col">
+    <div className="h-screen font-body flex flex-col overflow-hidden">
       <TopNavigation backPath="/practice/configure" />
       
       {/* Text-First Dialogue Interface with Voice Toggle */}
-      <div className="flex-1 relative pt-16">
+      <div className="flex-1 relative overflow-hidden">
         <TextFirstDialogue
           scenarioId={scenarioId}
           personaId={personaId}
@@ -210,8 +210,6 @@ const PracticeSimulation = () => {
         />
       )}
 
-      <PrivacyFooter />
-      <MainNavigation />
       {!showFeedback && <Toaster />}
     </div>
   );

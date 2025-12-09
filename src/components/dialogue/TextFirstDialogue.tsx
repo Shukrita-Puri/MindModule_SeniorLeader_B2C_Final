@@ -144,9 +144,9 @@ const TextFirstDialogue = ({
   const isAISpeaking = isLoading && messages[messages.length - 1]?.role === 'user';
 
   return (
-    <div className="h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
-      {/* Timer Bar - Fixed at top */}
-      <div className="fixed top-16 left-0 right-0 z-50 flex justify-center py-3">
+    <div className="h-full bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden flex flex-col">
+      {/* Timer Bar */}
+      <div className="flex justify-center py-3 shrink-0">
         <div className="flex items-center gap-2 px-4 py-2 bg-card/80 backdrop-blur-xl rounded-full border border-border/50 shadow-lg">
           <Clock size={16} className="text-muted-foreground" />
           <span className={cn(
@@ -160,9 +160,9 @@ const TextFirstDialogue = ({
       </div>
 
       {/* Main Split Content */}
-      <div className="flex flex-col h-full pt-28">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* AI Persona Section - Top with Cyan theme */}
-        <div className="flex-1 flex items-end justify-center py-2 px-6 relative overflow-hidden transition-all duration-500">
+        <div className="flex-1 flex items-end justify-center py-2 px-4 relative overflow-hidden transition-all duration-500 min-h-0">
           {/* Depth layer - cyan radial gradient background */}
           <div className={cn(
             "absolute inset-0 bg-[radial-gradient(ellipse_at_center_bottom,_var(--tw-gradient-stops))] transition-all duration-500",
@@ -217,7 +217,7 @@ const TextFirstDialogue = ({
         </div>
 
         {/* User Section - Bottom */}
-        <div className="flex-1 flex items-start justify-center py-2 px-6 pb-24 relative overflow-hidden transition-all duration-500">
+        <div className="flex-1 flex items-start justify-center py-2 px-4 pb-20 relative overflow-hidden transition-all duration-500 min-h-0">
           {/* Depth layer - radial gradient */}
           <div className={cn(
             "absolute inset-0 bg-[radial-gradient(ellipse_at_center_top,_var(--tw-gradient-stops))] transition-all duration-500",
@@ -250,7 +250,7 @@ const TextFirstDialogue = ({
                   onChange={(e) => setCurrentMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your response..."
-                  className="w-full min-h-[120px] p-4 bg-card/40 backdrop-blur-xl rounded-2xl border border-border/50 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-lg"
+                  className="w-full h-20 p-3 bg-card/40 backdrop-blur-xl rounded-2xl border border-border/50 text-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary shadow-lg"
                   disabled={isLoading}
                   aria-label="Type your response"
                 />
