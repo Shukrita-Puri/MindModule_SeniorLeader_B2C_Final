@@ -16,7 +16,7 @@ interface Intervention {
 
 interface CoachingToasterProps {
   intervention: Intervention;
-  personality: 'supportive' | 'challenging' | 'direct';
+  personality: 'supportive' | 'challenging' | 'minimal';
   onDismiss: () => void;
 }
 
@@ -41,12 +41,12 @@ export default function CoachingToaster({
           icon: '🔥',
           label: 'Challenging Coach'
         };
-      case 'direct':
+      case 'minimal':
         return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
-          border: 'border-blue-200 dark:border-blue-800',
-          icon: '⚡',
-          label: 'Direct Coach'
+          bg: 'bg-slate-50 dark:bg-slate-900/20',
+          border: 'border-slate-200 dark:border-slate-800',
+          icon: '🧘',
+          label: 'Minimal Coach'
         };
     }
   };

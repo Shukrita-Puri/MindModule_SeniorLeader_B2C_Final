@@ -573,8 +573,6 @@ const PracticeConfigurePage = () => {
                 <SelectContent className="bg-background z-50">
                   <SelectItem value="supportive">Supportive — Encouraging and confidence-building</SelectItem>
                   <SelectItem value="challenging">Challenging — Pushes you out of your comfort zone</SelectItem>
-                  <SelectItem value="analytical">Analytical — Detailed, precise feedback on technique</SelectItem>
-                  <SelectItem value="balanced">Balanced — Mix of support and challenge</SelectItem>
                   <SelectItem value="minimal">Minimal — Less interruption, more flow</SelectItem>
                 </SelectContent>
               </Select>
