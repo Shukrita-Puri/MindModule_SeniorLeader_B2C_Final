@@ -1,35 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import DialogueInterface from "@/components/dialogue/DialogueInterface";
+import TextFirstDialogue from "@/components/dialogue/TextFirstDialogue";
 import SessionFeedback from "@/components/SessionFeedback";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { Toaster } from "@/components/ui/toaster";
 
-// Map persona types to database persona IDs - generic fallback mapping
-// The LLM will intelligently infer the specific persona context from scenario + additionalContext
+// Map persona types to database persona IDs
 const PERSONA_ID_MAP: Record<string, string> = {
-  // Admissions personas
   'admissions': 'oxbridge_tutor',
   'university-admissions': 'oxbridge_tutor',
   'University Admissions Officer': 'oxbridge_tutor',
-  
-  // Dean personas (LLM infers university vs school from context)
   'dean': 'oxbridge_tutor',
   'Dean / Head of School': 'oxbridge_tutor',
-  
-  // Teacher personas
   'teacher': 'academic-teacher',
   'Teacher / Professor': 'academic-teacher',
-  
-  // Alumni personas
   'alumnus': 'successful_alumnus',
   'alumni': 'successful_alumnus',
   'Alumni / Graduate': 'successful_alumnus',
   'Recent University Alumnus': 'successful_alumnus',
-  
-  // Other personas
   'debate-judge': 'debate-judge',
   'Competition Judge': 'debate-judge',
   'counselor': 'careers-advisor',
@@ -50,9 +40,9 @@ const PERSONA_ID_MAP: Record<string, string> = {
 // Map scenario titles to database scenario IDs
 const SCENARIO_ID_MAP: Record<string, string> = {
   'Oxbridge Interview': 'oxbridge_interview',
-  'Scholarship Interview': 'oxbridge_interview', // fallback
-  'Model UN Speech': 'oxbridge_interview', // fallback
-  'Debate Tournament': 'oxbridge_interview', // fallback  
+  'Scholarship Interview': 'oxbridge_interview',
+  'Model UN Speech': 'oxbridge_interview',
+  'Debate Tournament': 'oxbridge_interview',
   'Alumni Networking': 'alumni_networking',
 };
 
@@ -96,8 +86,14 @@ const PracticeSimulation = () => {
   const mappedAttachments = attachments?.map((file: File) => ({
     name: file.name,
     type: file.type,
-    content: undefined // Would need FileReader to extract content
+    content: undefined
   })) || [];
+
+  // Build persona display from user configuration
+  const displayPersona = {
+    name: personaType || "Conversation Partner",
+    role: `${personalityStyle || "Professional"} - ${voicePreference || "Neutral"} Voice`
+  };
 
   const handleEndSession = () => {
     setShowFeedback(true);
@@ -114,7 +110,7 @@ const PracticeSimulation = () => {
         specificScenario,
         personaType,
         feedback,
-        sessionDuration: "15 minutes",
+        sessionDuration: `${practiceDuration || 15} minutes`,
       } 
     });
   };
@@ -128,7 +124,7 @@ const PracticeSimulation = () => {
         scenarioContext,
         specificScenario,
         personaType,
-        sessionDuration: "15 minutes",
+        sessionDuration: `${practiceDuration || 15} minutes`,
       } 
     });
   };
@@ -137,9 +133,9 @@ const PracticeSimulation = () => {
     <div className="min-h-screen font-body flex flex-col">
       <TopNavigation backPath="/practice/configure" />
       
-      {/* Dialogue Interface */}
+      {/* Text-First Dialogue Interface with Voice Toggle */}
       <div className="flex-1 relative pt-16">
-        <DialogueInterface
+        <TextFirstDialogue
           scenarioId={scenarioId}
           personaId={personaId}
           coachPersonality={coachingStyle || 'supportive'}
@@ -147,9 +143,10 @@ const PracticeSimulation = () => {
           voiceStyle={mappedVoiceStyle}
           additionalContext={additionalContext}
           attachments={mappedAttachments}
-          practiceDuration={practiceDuration}
-          coachingStyle={coachingStyle}
+          practiceDuration={practiceDuration || 15}
+          coachingStyle={coachingStyle || 'supportive'}
           onEndSession={handleEndSession}
+          aiPersona={displayPersona}
         />
       </div>
 
