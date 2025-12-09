@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.generate-energy-insight]
 verify_jwt = true
+
+[functions.dialogue-engine]
+verify_jwt = false
