@@ -25,7 +25,7 @@ interface SessionContext {
   personaCommunicationStyle: string;
   scenarioTitle: string;
   scenarioContext: Record<string, any>;
-  coachPersonality: 'supportive' | 'challenging' | 'direct';
+  coachPersonality: 'supportive' | 'challenging' | 'minimal';
   messageCount: number;
   interventionCount: number;
   // Extended configuration
@@ -33,6 +33,8 @@ interface SessionContext {
   voiceStyle?: string;
   additionalContext?: string;
   attachments?: Array<{ name: string; type: string; content?: string }>;
+  practiceDuration?: number; // in minutes
+  coachingStyle?: 'supportive' | 'challenging' | 'minimal';
 }
 
 interface ConversationMessage {
@@ -74,6 +76,36 @@ Frame questions inclusively. Show warmth while maintaining professionalism.`
   return voices[voice] || '';
 }
 
+function getCoachingStyleGuidance(style: string): string {
+  const styles: Record<string, string> = {
+    'supportive': `**SUPPORTIVE COACHING MODE:**
+- Be encouraging and confidence-building in all interventions
+- Acknowledge effort and progress before suggesting improvements
+- Frame gaps as growth opportunities, not criticisms
+- Use phrases like "Great attempt at...", "I noticed you're developing...", "One way to build on this..."
+- Celebrate strengths warmly and specifically
+- Keep interventions gentle and affirming`,
+    
+    'challenging': `**CHALLENGING COACHING MODE:**
+- Push the student out of their comfort zone
+- Directly call out missed opportunities and weak points
+- Be honest and direct about skill gaps
+- Use phrases like "You missed an opportunity to...", "That wasn't your best...", "You need to work on..."
+- Set high expectations and hold them accountable
+- Balance directness with respect—challenge, don't discourage`,
+    
+    'minimal': `**MINIMAL COACHING MODE:**
+- Intervene only for significant skill gaps or breakthrough moments
+- Let the conversation flow naturally without frequent interruptions
+- Save feedback for major teaching moments
+- Only intervene if opennessScore is high AND the gap/strength is significant
+- Prioritize user's flow state over comprehensive feedback
+- When you do intervene, be brief and impactful`
+  };
+  
+  return styles[style] || styles['supportive'];
+}
+
 function buildPrompt(
   userMessage: string,
   signals: DetectedSignals,
@@ -88,11 +120,22 @@ function buildPrompt(
 
   // Build personality and voice guidance sections
   const personalityGuidance = context.personalityStyle 
-    ? `\n**Personality Style: ${context.personalityStyle}**\n${getPersonalityStyleGuidance(context.personalityStyle)}`
+    ? `\n**Persona Personality Style: ${context.personalityStyle}**\n${getPersonalityStyleGuidance(context.personalityStyle)}`
     : '';
   
   const voiceGuidance = context.voiceStyle 
-    ? `\n**Voice Style: ${context.voiceStyle}**\n${getVoiceStyleGuidance(context.voiceStyle)}`
+    ? `\n**Persona Voice Style: ${context.voiceStyle}**\n${getVoiceStyleGuidance(context.voiceStyle)}`
+    : '';
+
+  // Build coaching style guidance
+  const coachingStyleUsed = context.coachingStyle || context.coachPersonality || 'supportive';
+  const coachingGuidance = getCoachingStyleGuidance(coachingStyleUsed);
+
+  // Build practice duration guidance
+  const durationGuidance = context.practiceDuration 
+    ? `\n**Practice Duration: ${context.practiceDuration} minutes**
+Pace the conversation appropriately. For shorter sessions (15-20min), get to the core scenario quickly.
+For longer sessions (25-30min), allow more depth and multiple exchanges.`
     : '';
 
   // Build user context section
@@ -110,6 +153,11 @@ function buildPrompt(
     ? `- Scenario Context: ${JSON.stringify(context.scenarioContext)}`
     : '';
 
+  // Determine if coach should intervene based on coaching style
+  const shouldCoachIntervene = coachingStyleUsed === 'minimal' 
+    ? signals.coachingReadiness.canIntervene && signals.coachingReadiness.opennessScore > 0.7
+    : signals.coachingReadiness.canIntervene;
+
   return `You are running a dialogue simulation with TWO roles:
 
 ## ROLE 1: PERSONA (${context.personaRole})
@@ -120,6 +168,7 @@ function buildPrompt(
 ${scenarioContextSection}
 ${personalityGuidance}
 ${voiceGuidance}
+${durationGuidance}
 ${userContextSection}
 
 **CRITICAL PERSONA INFERENCE:**
@@ -137,9 +186,11 @@ Always match your persona's vocabulary, expectations, and questions to the infer
 As the persona, you respond in-character to the student's messages. Be realistic and appropriately challenging based on the scenario.
 
 ## ROLE 2: META SKILLS COACH (Hidden from persona dialogue)
-- Personality: ${context.coachPersonality}
+- Coaching Style: ${coachingStyleUsed}
 - Purpose: Observe the student's communication skills and provide targeted feedback
 - Rate Limit: ${context.interventionCount}/5 interventions used this session
+
+${coachingGuidance}
 
 The coach provides brief, actionable feedback when skill gaps or strengths are detected. Coach interventions appear SEPARATELY from persona responses.
 ${attachmentsSection}
@@ -178,7 +229,7 @@ Respond with ONLY valid JSON in this exact structure:
     "emotion": "confident|curious|challenging|friendly|formal|concerned",
     "followup_question": "Optional follow-up question to keep conversation going"
   },
-  "coaching_intervention": ${signals.coachingReadiness.canIntervene ? `{
+  "coaching_intervention": ${shouldCoachIntervene ? `{
     "observation": "Brief observation about what the student did",
     "gap_or_strength": "gap|strength",
     "meta_skill": "Which meta-skill this relates to",
@@ -205,10 +256,10 @@ If action is "clarify", ask clarifying question about context.
 ` : ''}
 
 Remember:
-- Persona response should be realistic and challenging (this is practice!)
-- Coach intervention should be brief and actionable (only if canIntervene is true)
+- Persona response should be realistic and appropriately challenging (this is practice!)
+- Coach intervention should follow the ${coachingStyleUsed} coaching style guidelines
 - Focus on the most significant skill gap or strength
-- Use ${context.coachPersonality} tone for coach feedback`;
+- Coaching style "${coachingStyleUsed}" determines your intervention frequency and tone`;
 }
 
 serve(async (req) => {
@@ -236,6 +287,8 @@ serve(async (req) => {
     console.log('[dialogue-engine] Safety check action:', safetyCheck.action);
     console.log('[dialogue-engine] Personality style:', context.personalityStyle);
     console.log('[dialogue-engine] Voice style:', context.voiceStyle);
+    console.log('[dialogue-engine] Coaching style:', context.coachingStyle || context.coachPersonality);
+    console.log('[dialogue-engine] Practice duration:', context.practiceDuration);
     console.log('[dialogue-engine] Has additional context:', !!context.additionalContext);
     console.log('[dialogue-engine] Attachments count:', context.attachments?.length || 0);
 

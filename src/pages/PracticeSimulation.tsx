@@ -70,7 +70,9 @@ const PracticeSimulation = () => {
     customPersona,
     personalityStyle,
     voicePreference,
-    attachments
+    attachments,
+    practiceDuration,
+    coachingStyle
   } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
@@ -140,11 +142,13 @@ const PracticeSimulation = () => {
         <DialogueInterface
           scenarioId={scenarioId}
           personaId={personaId}
-          coachPersonality="supportive"
+          coachPersonality={coachingStyle || 'supportive'}
           personalityStyle={mappedPersonalityStyle}
           voiceStyle={mappedVoiceStyle}
           additionalContext={additionalContext}
           attachments={mappedAttachments}
+          practiceDuration={practiceDuration}
+          coachingStyle={coachingStyle}
           onEndSession={handleEndSession}
         />
       </div>

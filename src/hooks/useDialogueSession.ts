@@ -35,6 +35,8 @@ export interface SessionConfig {
   voiceStyle?: string;
   additionalContext?: string;
   attachments?: Array<{ name: string; type: string; content?: string }>;
+  practiceDuration?: number;
+  coachingStyle?: 'supportive' | 'challenging' | 'minimal';
 }
 
 interface SessionState {
@@ -47,7 +49,7 @@ interface SessionState {
   personaCommunicationStyle: string;
   scenarioTitle: string;
   scenarioContext: Record<string, any>;
-  coachPersonality: 'supportive' | 'challenging' | 'direct';
+  coachPersonality: 'supportive' | 'challenging' | 'minimal';
   config: SessionConfig;
   messages: Message[];
   interventions: Intervention[];
@@ -100,7 +102,7 @@ export function useDialogueSession() {
   const startSession = useCallback(async (
     scenarioId: string,
     personaId: string,
-    coachPersonality: 'supportive' | 'challenging' | 'direct' = 'supportive',
+    coachPersonality: 'supportive' | 'challenging' | 'minimal' = 'supportive',
     config: SessionConfig = {}
   ) => {
     if (!user?.sub) {
@@ -270,7 +272,9 @@ export function useDialogueSession() {
             personalityStyle: state.config.personalityStyle,
             voiceStyle: state.config.voiceStyle,
             additionalContext: state.config.additionalContext,
-            attachments: state.config.attachments
+            attachments: state.config.attachments,
+            practiceDuration: state.config.practiceDuration,
+            coachingStyle: state.config.coachingStyle
           },
           conversationHistory: state.messages.map(m => ({
             role: m.role,

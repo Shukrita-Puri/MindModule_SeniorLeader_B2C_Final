@@ -11,11 +11,13 @@ import CoachingToaster from './CoachingToaster';
 interface DialogueInterfaceProps {
   scenarioId: string;
   personaId: string;
-  coachPersonality?: 'supportive' | 'challenging' | 'direct';
+  coachPersonality?: 'supportive' | 'challenging' | 'minimal';
   personalityStyle?: string;
   voiceStyle?: string;
   additionalContext?: string;
   attachments?: Array<{ name: string; type: string; content?: string }>;
+  practiceDuration?: number;
+  coachingStyle?: 'supportive' | 'challenging' | 'minimal';
   onEndSession?: () => void;
 }
 
@@ -27,6 +29,8 @@ export default function DialogueInterface({
   voiceStyle,
   additionalContext,
   attachments,
+  practiceDuration,
+  coachingStyle,
   onEndSession
 }: DialogueInterfaceProps) {
   const {
@@ -56,7 +60,9 @@ export default function DialogueInterface({
         personalityStyle,
         voiceStyle,
         additionalContext,
-        attachments
+        attachments,
+        practiceDuration,
+        coachingStyle: coachingStyle || coachPersonality
       };
       startSession(scenarioId, personaId, coachPersonality, config);
     }
