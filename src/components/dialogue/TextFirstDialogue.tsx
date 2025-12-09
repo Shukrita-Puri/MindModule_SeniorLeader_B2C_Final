@@ -204,10 +204,13 @@ const TextFirstDialogue = ({
               </div>
             )}
 
-            {/* Latest AI message preview */}
-            {latestAiMessage && !isLoading && (
-              <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-4 text-sm text-muted-foreground italic max-h-32 overflow-y-auto mx-auto max-w-lg">
-                "{latestAiMessage.content.substring(0, 150)}{latestAiMessage.content.length > 150 ? '...' : ''}"
+            {/* Latest AI message - full text display */}
+            {latestAiMessage && (
+              <div className={cn(
+                "bg-card/50 backdrop-blur-sm rounded-2xl p-5 text-base text-foreground/90 italic max-h-48 overflow-y-auto mx-auto max-w-2xl border border-border/30 shadow-sm transition-opacity duration-300",
+                isLoading && "opacity-50"
+              )}>
+                <p className="leading-relaxed">"{latestAiMessage.content}"</p>
               </div>
             )}
           </div>
