@@ -7,22 +7,44 @@ import SessionFeedback from "@/components/SessionFeedback";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { Toaster } from "@/components/ui/toaster";
 
-// Map persona types to database persona IDs
+// Map persona types to database persona IDs - generic fallback mapping
+// The LLM will intelligently infer the specific persona context from scenario + additionalContext
 const PERSONA_ID_MAP: Record<string, string> = {
+  // Admissions personas
+  'admissions': 'oxbridge_tutor',
   'university-admissions': 'oxbridge_tutor',
   'University Admissions Officer': 'oxbridge_tutor',
+  
+  // Dean personas (LLM infers university vs school from context)
+  'dean': 'oxbridge_tutor',
+  'Dean / Head of School': 'oxbridge_tutor',
+  
+  // Teacher personas
   'teacher': 'academic-teacher',
   'Teacher / Professor': 'academic-teacher',
+  
+  // Alumni personas
   'alumnus': 'successful_alumnus',
+  'alumni': 'successful_alumnus',
+  'Alumni / Graduate': 'successful_alumnus',
   'Recent University Alumnus': 'successful_alumnus',
+  
+  // Other personas
   'debate-judge': 'debate-judge',
   'Competition Judge': 'debate-judge',
+  'counselor': 'careers-advisor',
   'careers-advisor': 'careers-advisor',
   'School Counselor': 'careers-advisor',
   'peer': 'peer-student',
+  'classmate': 'peer-student',
   'Classmate / Peer': 'peer-student',
+  'coach': 'head-teacher',
   'head-teacher': 'head-teacher',
   'Coach / Sports Mentor': 'head-teacher',
+  'student-leader': 'peer-student',
+  'Club President / Student Leader': 'peer-student',
+  'parent': 'head-teacher',
+  'Parent / Guardian': 'head-teacher',
 };
 
 // Map scenario titles to database scenario IDs
