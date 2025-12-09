@@ -145,17 +145,16 @@ const TextFirstDialogue = ({
 
   return (
     <div className="h-full bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden flex flex-col">
-      {/* Timer Bar */}
-      <div className="flex justify-center py-3 shrink-0">
-        <div className="flex items-center gap-2 px-4 py-2 bg-card/80 backdrop-blur-xl rounded-full border border-border/50 shadow-lg">
-          <Clock size={16} className="text-muted-foreground" />
+      {/* Timer Bar - Compact */}
+      <div className="flex justify-center py-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-card/60 backdrop-blur-sm rounded-full border border-border/30">
+          <Clock size={12} className="text-muted-foreground" />
           <span className={cn(
-            "font-mono text-lg font-semibold",
+            "font-mono text-sm font-medium",
             timeRemaining < 60 ? "text-destructive" : "text-foreground"
           )}>
             {formatTime(timeRemaining)}
           </span>
-          <span className="text-xs text-muted-foreground">remaining</span>
         </div>
       </div>
 
@@ -207,7 +206,7 @@ const TextFirstDialogue = ({
             {/* Latest AI message - full text display */}
             {latestAiMessage && (
               <div className={cn(
-                "bg-card/50 backdrop-blur-sm rounded-2xl p-5 text-base text-foreground/90 italic max-h-48 overflow-y-auto mx-auto max-w-2xl border border-border/30 shadow-sm transition-opacity duration-300",
+                "px-4 py-3 text-base text-foreground/90 italic max-h-40 overflow-y-auto mx-auto max-w-2xl transition-opacity duration-300",
                 isLoading && "opacity-50"
               )}>
                 <p className="leading-relaxed">"{latestAiMessage.content}"</p>
