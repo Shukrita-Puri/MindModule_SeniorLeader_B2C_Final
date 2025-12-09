@@ -35,6 +35,8 @@ const PracticeConfigurePage = () => {
   const [personalityStyle, setPersonalityStyle] = useState("");
   const [customPersonality, setCustomPersonality] = useState("");
   const [voicePreference, setVoicePreference] = useState("");
+  const [practiceDuration, setPracticeDuration] = useState("");
+  const [coachingStyle, setCoachingStyle] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   
@@ -249,7 +251,9 @@ const PracticeConfigurePage = () => {
     (personaType !== 'custom' || customPersona.trim()) &&
     personalityStyle &&
     (personalityStyle !== 'custom' || customPersonality.trim()) &&
-    voicePreference;
+    voicePreference &&
+    practiceDuration &&
+    coachingStyle;
 
   const handleStartDialogue = () => {
     navigate('/practice/simulation', {
@@ -269,6 +273,8 @@ const PracticeConfigurePage = () => {
         scenarioContext: specificScenario === 'custom' ? customScenario : (additionalContext || specificScenario),
         personaType: personaType,
         customPersona: customPersona,
+        practiceDuration: parseInt(practiceDuration),
+        coachingStyle: coachingStyle,
       }
     });
   };
@@ -522,12 +528,65 @@ const PracticeConfigurePage = () => {
             </div>
           </Card>
 
-          {/* Step 6: Additional Context */}
+          {/* Step 6: Practice Duration */}
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="practice-duration" className="text-base font-headline font-medium text-foreground">
+                  Step 6: Practice Duration
+                </Label>
+                <p className="text-xs font-headline text-muted-foreground mt-1">
+                  How long would you like to practice?
+                </p>
+              </div>
+
+              <Select value={practiceDuration} onValueChange={setPracticeDuration}>
+                <SelectTrigger id="practice-duration" className="bg-background">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="20">20 minutes</SelectItem>
+                  <SelectItem value="25">25 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+
+          {/* Step 7: Coaching Style */}
+          <Card className="p-5">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="coaching-style" className="text-base font-headline font-medium text-foreground">
+                  Step 7: Coaching Style
+                </Label>
+                <p className="text-xs font-headline text-muted-foreground mt-1">
+                  What type of feedback do you prefer during the practice?
+                </p>
+              </div>
+
+              <Select value={coachingStyle} onValueChange={setCoachingStyle}>
+                <SelectTrigger id="coaching-style" className="bg-background">
+                  <SelectValue placeholder="Select coaching style" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="supportive">Supportive — Encouraging and confidence-building</SelectItem>
+                  <SelectItem value="challenging">Challenging — Pushes you out of your comfort zone</SelectItem>
+                  <SelectItem value="analytical">Analytical — Detailed, precise feedback on technique</SelectItem>
+                  <SelectItem value="balanced">Balanced — Mix of support and challenge</SelectItem>
+                  <SelectItem value="minimal">Minimal — Less interruption, more flow</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+
+          {/* Step 8: Additional Context */}
           <Card className="p-5">
             <div className="space-y-3">
               <div>
                 <Label htmlFor="additional-context" className="text-base font-headline font-medium text-foreground">
-                  Step 6: Additional Context (Optional)
+                  Step 8: Additional Context (Optional)
                 </Label>
                 <p className="text-xs font-headline text-muted-foreground mt-1">
                   Any specific details, background, or goals for this conversation?
