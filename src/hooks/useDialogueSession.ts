@@ -101,10 +101,10 @@ export function useDialogueSession() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // Fetch scenario and persona details
+      // Fetch scenario and persona details (cast to any - types will regenerate)
       const [scenarioRes, personaRes] = await Promise.all([
-        supabase.from('scenario_definitions').select('*').eq('id', scenarioId).single(),
-        supabase.from('persona_definitions').select('*').eq('id', personaId).single()
+        (supabase.from('scenario_definitions') as any).select('*').eq('id', scenarioId).single(),
+        (supabase.from('persona_definitions') as any).select('*').eq('id', personaId).single()
       ]);
 
       if (scenarioRes.error || !scenarioRes.data) {
@@ -118,8 +118,7 @@ export function useDialogueSession() {
       const persona = personaRes.data;
 
       // Create session in database
-      const { data: session, error: sessionError } = await supabase
-        .from('dialogue_sessions')
+      const { data: session, error: sessionError } = await (supabase.from('dialogue_sessions') as any)
         .insert({
           user_id: user.sub,
           scenario_id: scenarioId,
@@ -323,8 +322,7 @@ export function useDialogueSession() {
     if (!state.sessionId) return;
 
     try {
-      await supabase
-        .from('dialogue_sessions')
+      await (supabase.from('dialogue_sessions') as any)
         .update({
           session_status: 'completed',
           ended_at: new Date().toISOString(),
@@ -362,8 +360,7 @@ function generateOpeningMessage(scenario: any, persona: any): string {
 
 async function persistMessage(sessionId: string, message: Message, signals?: DetectedSignals) {
   try {
-    const { data, error } = await supabase
-      .from('dialogue_messages')
+    const { data, error } = await (supabase.from('dialogue_messages') as any)
       .insert({
         session_id: sessionId,
         message_index: 0, // Would need proper indexing
@@ -377,23 +374,21 @@ async function persistMessage(sessionId: string, message: Message, signals?: Det
 
     if (error) throw error;
 
-    // Persist signals if present
+    // Persist signals if present (cast to any - types will regenerate)
     if (signals && data) {
-      await supabase
-        .from('detected_signals')
-        .insert({
-          session_id: sessionId,
-          message_id: data.id,
-          sentiment: signals.sentiment,
-          emotions: signals.emotions,
-          ei_behaviors: signals.eiBehaviors,
-          skill_gaps: signals.skillGaps,
-          skill_strengths: signals.skillStrengths,
-          conversation_flow: signals.conversationFlow,
-          risk_assessment: signals.riskAssessment,
-          coaching_readiness: signals.coachingReadiness,
-          raw_signals: signals
-        });
+      await (supabase.from('detected_signals') as any).insert({
+        session_id: sessionId,
+        message_id: data.id,
+        sentiment: signals.sentiment,
+        emotions: signals.emotions,
+        ei_behaviors: signals.eiBehaviors,
+        skill_gaps: signals.skillGaps,
+        skill_strengths: signals.skillStrengths,
+        conversation_flow: signals.conversationFlow,
+        risk_assessment: signals.riskAssessment,
+        coaching_readiness: signals.coachingReadiness,
+        raw_signals: signals
+      });
     }
   } catch (error) {
     console.error('[persistMessage] Error:', error);
@@ -402,12 +397,10 @@ async function persistMessage(sessionId: string, message: Message, signals?: Det
 
 async function persistIntervention(sessionId: string, intervention: Intervention) {
   try {
-    await supabase
-      .from('dialogue_interventions')
-      .insert({
-        session_id: sessionId,
-        intervention_type: 'observation',
-        meta_skill_target: intervention.metaSkill,
+    await (supabase.from('dialogue_interventions') as any).insert({
+      session_id: sessionId,
+      intervention_type: 'observation',
+      meta_skill_target: intervention.metaSkill,
         sub_skill_target: intervention.subSkill,
         observation: intervention.observation,
         framework_used: intervention.framework,
