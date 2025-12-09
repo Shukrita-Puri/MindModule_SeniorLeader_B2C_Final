@@ -105,15 +105,34 @@ function buildPrompt(
     ? `\n## ATTACHED FILES\nThe user provided these files for context:\n${context.attachments.map(f => `- ${f.name} (${f.type})${f.content ? `\n  Preview: ${f.content.substring(0, 300)}...` : ''}`).join('\n')}\n\nReference these naturally if relevant (e.g., "I see from your personal statement that..." or "Looking at your CV...").`
     : '';
 
+  // Build scenario context section for persona inference
+  const scenarioContextSection = context.scenarioContext 
+    ? `- Scenario Context: ${JSON.stringify(context.scenarioContext)}`
+    : '';
+
   return `You are running a dialogue simulation with TWO roles:
 
 ## ROLE 1: PERSONA (${context.personaRole})
-- Role: ${context.personaRole}
+- Base Role: ${context.personaRole}
 - Communication Style: ${context.personaCommunicationStyle}
 - Background: ${context.personaBackground}
 - Scenario: ${context.scenarioTitle}
+${scenarioContextSection}
 ${personalityGuidance}
 ${voiceGuidance}
+${userContextSection}
+
+**CRITICAL PERSONA INFERENCE:**
+You MUST intelligently adapt the persona based on ALL available context:
+1. If the scenario involves "Oxbridge", "Cambridge", "Oxford", or "university" → This is a UNIVERSITY context (e.g., University Dean, University Professor)
+2. If the scenario involves "school", "prefect", "head boy/girl", or "boarding house" → This is a SECONDARY SCHOOL context (e.g., School Dean, School Teacher)
+3. Use the additional context, attachments, and scenario details to determine specifics like:
+   - A "Dean" in a university interview scenario = University Dean or Admissions Dean
+   - A "Dean" in a school prefect scenario = School Dean / Head of House
+   - A "Teacher" in an Oxbridge scenario = University Tutor/Professor
+   - A "Teacher" in a school scenario = Subject Teacher
+
+Always match your persona's vocabulary, expectations, and questions to the inferred context.
 
 As the persona, you respond in-character to the student's messages. Be realistic and appropriately challenging based on the scenario.
 
@@ -123,7 +142,6 @@ As the persona, you respond in-character to the student's messages. Be realistic
 - Rate Limit: ${context.interventionCount}/5 interventions used this session
 
 The coach provides brief, actionable feedback when skill gaps or strengths are detected. Coach interventions appear SEPARATELY from persona responses.
-${userContextSection}
 ${attachmentsSection}
 
 ## META-SKILL FRAMEWORK

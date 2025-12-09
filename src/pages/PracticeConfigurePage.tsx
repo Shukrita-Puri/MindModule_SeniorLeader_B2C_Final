@@ -431,10 +431,12 @@ const PracticeConfigurePage = () => {
                   <SelectItem value="classmate">Classmate / Peer</SelectItem>
                   <SelectItem value="teacher">Teacher / Professor</SelectItem>
                   <SelectItem value="admissions">University Admissions Officer</SelectItem>
+                  <SelectItem value="dean">Dean / Head of School</SelectItem>
                   <SelectItem value="student-leader">Club President / Student Leader</SelectItem>
                   <SelectItem value="parent">Parent / Guardian</SelectItem>
                   <SelectItem value="coach">Coach / Sports Mentor</SelectItem>
                   <SelectItem value="counselor">School Counselor</SelectItem>
+                  <SelectItem value="alumni">Alumni / Graduate</SelectItem>
                   <SelectItem value="custom">Customise Persona</SelectItem>
                 </SelectContent>
               </Select>
