@@ -145,19 +145,6 @@ const TextFirstDialogue = ({
 
   return (
     <div className="h-full bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden flex flex-col">
-      {/* Timer Bar - Compact */}
-      <div className="flex justify-center py-1.5 shrink-0">
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-card/60 backdrop-blur-sm rounded-full border border-border/30">
-          <Clock size={12} className="text-muted-foreground" />
-          <span className={cn(
-            "font-mono text-sm font-medium",
-            timeRemaining < 60 ? "text-destructive" : "text-foreground"
-          )}>
-            {formatTime(timeRemaining)}
-          </span>
-        </div>
-      </div>
-
       {/* Main Split Content */}
       <div className="flex flex-col flex-1 min-h-0">
         {/* AI Persona Section - Top with Cyan theme */}
@@ -174,7 +161,20 @@ const TextFirstDialogue = ({
           <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 via-transparent to-background/20 pointer-events-none" />
           
           {/* Content */}
-          <div className="relative z-10 w-full text-center space-y-4">
+          <div className="relative z-10 w-full text-center space-y-3">
+            {/* Timer - Compact, positioned above persona */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-card/60 backdrop-blur-sm rounded-full border border-border/30">
+                <Clock size={12} className="text-muted-foreground" />
+                <span className={cn(
+                  "font-mono text-sm font-medium",
+                  timeRemaining < 60 ? "text-destructive" : "text-foreground"
+                )}>
+                  {formatTime(timeRemaining)}
+                </span>
+              </div>
+            </div>
+
             {/* Persona Name */}
             <div className="space-y-1">
               <h2 className="text-3xl md:text-4xl font-heading font-semibold text-foreground drop-shadow-sm">
