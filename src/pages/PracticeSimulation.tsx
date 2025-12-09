@@ -37,13 +37,37 @@ const PERSONA_ID_MAP: Record<string, string> = {
   'Parent / Guardian': 'head-teacher',
 };
 
-// Map scenario titles to database scenario IDs
+// Map scenario titles to database scenario IDs (supports both Title Case and kebab-case)
 const SCENARIO_ID_MAP: Record<string, string> = {
+  // Title case (for legacy/direct navigation)
   'Oxbridge Interview': 'oxbridge_interview',
-  'Scholarship Interview': 'oxbridge_interview',
-  'Model UN Speech': 'oxbridge_interview',
-  'Debate Tournament': 'oxbridge_interview',
+  'Scholarship Interview': 'scholarship_interview',
+  'Model UN Speech': 'model_un_speech',
+  'Debate Tournament': 'debate_tournament',
   'Alumni Networking': 'alumni_networking',
+  'Head Boy/Girl Interview': 'head_student_interview',
+  'Gap Year Planning': 'gap_year_planning',
+  'Sports Captain Address': 'leadership_speech',
+  'Presenting in Class': 'academic_presentation',
+  'Boarding House Dynamics': 'social_dynamics',
+  'Society Elections': 'leadership_speech',
+  'Peer Pressure Moments': 'social_dynamics',
+  'Prefect Responsibilities': 'leadership_role',
+  
+  // Kebab-case (matching Select values from configure page)
+  'oxbridge-interview': 'oxbridge_interview',
+  'scholarship-interview': 'scholarship_interview',
+  'model-un-speech': 'model_un_speech',
+  'debate-tournament': 'debate_tournament',
+  'alumni-networking': 'alumni_networking',
+  'head-student-interview': 'head_student_interview',
+  'gap-year-planning': 'gap_year_planning',
+  'sports-captain-address': 'leadership_speech',
+  'presenting-in-class': 'academic_presentation',
+  'boarding-house-dynamics': 'social_dynamics',
+  'society-elections': 'leadership_speech',
+  'peer-pressure-moments': 'social_dynamics',
+  'prefect-responsibilities': 'leadership_role',
 };
 
 const PracticeSimulation = () => {
