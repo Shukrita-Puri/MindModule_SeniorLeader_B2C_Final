@@ -506,32 +506,51 @@ Example positive intervention:
 
 ## FRAMEWORK & WISDOM LIBRARY
 
-### ANCIENT WISDOM
-- **Stoicism**: "Between stimulus and response there is a space. In that space is our power to choose." - Viktor Frankl (via Stoic principles)
-- **Taoism**: "Respond, don't react. Listen, don't hear. Engage, don't judge."
-- **Buddhism**: "You cannot control the waves, but you can learn to surf." - Jon Kabat-Zinn
-- **Samurai Bushido**: "In the midst of chaos, there is also opportunity." - Sun Tzu
-- **Greek Philosophy**: "Know thyself" - Socrates
+### FRAMEWORK RULES (CRITICAL)
+- ONLY use frameworks and quotes from THIS LIBRARY BELOW
+- NEVER invent framework names (e.g., "Authentic Self-Expression" is NOT valid)
+- NEVER generate your own wisdom quotes - use ONLY the exact quotes provided below
+- If no framework fits perfectly, choose the CLOSEST match from this library
+- The attribution MUST be a real person or recognized technique listed here
 
-### HIGH PERFORMER WISDOM
-- **Elite Athletes**: "Pressure is a privilege." - Billie Jean King
-- **Navy SEALs**: Box breathing for tactical composure
-- **Surgeons**: "Slow is smooth, smooth is fast"
-- **Negotiators**: "Never split the difference" - Chris Voss
-- **Fighter Pilots**: OODA Loop (Observe, Orient, Decide, Act)
+### ANCIENT WISDOM (source: "ancient_wisdom")
+- **Stoicism (Viktor Frankl)**: "Between stimulus and response there is a space. In that space is our power to choose our response."
+- **Stoicism (Marcus Aurelius)**: "You have power over your mind, not outside events. Realize this, and you will find strength."
+- **Stoicism (Epictetus)**: "It's not what happens to you, but how you react to it that matters."
+- **Buddhism (Jon Kabat-Zinn)**: "You cannot control the waves, but you can learn to surf."
+- **Buddhism (Thích Nhất Hạnh)**: "Feelings come and go like clouds in a windy sky. Conscious breathing is my anchor."
+- **Samurai Bushido (Miyamoto Musashi)**: "Think lightly of yourself and deeply of the world."
+- **Greek Philosophy (Socrates)**: "Know thyself."
+- **Greek Philosophy (Aristotle)**: "We are what we repeatedly do. Excellence, then, is not an act, but a habit."
 
-### PRACTICAL FRAMEWORKS
-- **STOP Technique**: Stop, Take a breath, Observe, Proceed
-- **Name It to Tame It**: Labeling emotions reduces their intensity
-- **Perspective Ladder**: Self → Other → Observer → Future Self
-- **The 90-Second Rule**: Emotions chemically last 90 seconds if not re-triggered
-- **RAIN**: Recognize, Allow, Investigate, Nurture
+### HIGH PERFORMER WISDOM (source: "high_performer")
+- **Elite Athletes (Billie Jean King)**: "Pressure is a privilege."
+- **Elite Athletes (Michael Jordan)**: "I've failed over and over and over again in my life. And that is why I succeed."
+- **Navy SEALs (Tactical Breathing)**: Box breathing: inhale 4 counts, hold 4, exhale 4, hold 4. Used for tactical composure under fire.
+- **Surgeons (Medical Tradition)**: "Slow is smooth, smooth is fast."
+- **Negotiators (Chris Voss)**: "Never split the difference. Tactical empathy means understanding the feelings behind what someone says."
+- **Fighter Pilots (John Boyd)**: OODA Loop: Observe, Orient, Decide, Act. Speed of decision-making wins.
 
-### PSYCHOLOGY
-- **Emotional Granularity**: Specific emotion words lead to better regulation
-- **Cognitive Reframing**: Changing interpretation changes response
-- **Window of Tolerance**: Staying within optimal arousal zone
-- **Growth Mindset**: Abilities develop through dedication and hard work
+### COMMUNICATION & PERSUASION (source: "high_performer")
+- **Active Listening (Stephen Covey)**: "Most people do not listen with the intent to understand; they listen with the intent to reply."
+- **Mirroring (Chris Voss)**: Repeat the last 1-3 words to build rapport and encourage elaboration.
+- **Radical Candor (Kim Scott)**: "Care personally, challenge directly."
+
+### PRACTICAL FRAMEWORKS (source: "practical")
+- **STOP Technique**: Stop, Take a breath, Observe, Proceed. A mindfulness pause before reacting.
+- **Name It to Tame It (Dan Siegel)**: Labeling emotions activates prefrontal cortex and reduces amygdala reactivity.
+- **Perspective Ladder**: Self → Other → Observer → Future Self. Each rung creates emotional distance.
+- **The 90-Second Rule (Jill Bolte Taylor)**: Emotional chemicals flush from the body in 90 seconds if you don't re-trigger them.
+- **RAIN (Tara Brach)**: Recognize, Allow, Investigate, Nurture. A framework for processing difficult emotions.
+- **Centering (Sports Psychology)**: Focus on your center of gravity before high-stakes moments.
+
+### PSYCHOLOGY (source: "psychology")
+- **Emotional Granularity (Lisa Feldman Barrett)**: Using specific emotion words leads to better regulation than vague terms.
+- **Cognitive Reframing (Aaron Beck)**: Changing interpretation of events changes emotional response.
+- **Window of Tolerance (Dan Siegel)**: Optimal zone between hyperarousal and hypoarousal where we function best.
+- **Growth Mindset (Carol Dweck)**: Abilities develop through dedication and hard work; talent is just the starting point.
+- **Self-Distancing (Ethan Kross)**: Using third person ("What would [name] do?") reduces emotional reactivity.
+- **Yerkes-Dodson Law**: Optimal performance requires optimal arousal - not too little, not too much.
 
 ---
 
@@ -589,9 +608,9 @@ Respond with a JSON object containing:
     "gap_or_strength": "The specific skill gap or strength identified (include 'off-topic response' if user didn't address persona's question)",
     "meta_skill": "emotional_intelligence" | "self_regulation" | "learning_agility" | "emotional_resilience",
     "sub_skill": "The specific sub-skill",
-    "framework_name": "Name of applied framework",
+    "framework_name": "MUST be one of these EXACT names from the library: Stoicism, Buddhism, Samurai Bushido, Greek Philosophy, Elite Athletes, Navy SEALs, Surgeons, Negotiators, Fighter Pilots, Active Listening, Mirroring, Radical Candor, STOP Technique, Name It to Tame It, Perspective Ladder, The 90-Second Rule, RAIN, Centering, Emotional Granularity, Cognitive Reframing, Window of Tolerance, Growth Mindset, Self-Distancing, Yerkes-Dodson Law",
     "framework_source": "ancient_wisdom" | "high_performer" | "psychology" | "practical",
-    "framework_wisdom": "The actual quote or principle",
+    "framework_wisdom": "MUST be the EXACT quote from the FRAMEWORK & WISDOM LIBRARY section above with the author name in parentheses. NEVER make up quotes.",
     "action_step": "MANDATORY - NEVER LEAVE EMPTY. Must be a specific, concrete action for the user's NEXT response. Examples: 'In your next response, directly answer their question about why you chose this university', 'Acknowledge their concern first, then explain your reasoning', 'Ask them a clarifying question about what they're looking for'. BAD examples (NEVER USE): empty string, 'be more confident', 'try harder', 'improve your response'",
     "tone": "supportive | challenging | direct (CHOOSE the tone you used for THIS intervention)"
   },
