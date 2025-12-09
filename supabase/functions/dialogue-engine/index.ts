@@ -28,11 +28,50 @@ interface SessionContext {
   coachPersonality: 'supportive' | 'challenging' | 'direct';
   messageCount: number;
   interventionCount: number;
+  // Extended configuration
+  personalityStyle?: string;
+  voiceStyle?: string;
+  additionalContext?: string;
+  attachments?: Array<{ name: string; type: string; content?: string }>;
 }
 
 interface ConversationMessage {
   role: 'user' | 'persona' | 'coach';
   content: string;
+}
+
+function getPersonalityStyleGuidance(style: string): string {
+  const styles: Record<string, string> = {
+    'warm-supportive': `Be encouraging, patient, and confidence-building. Use gentle probing questions.
+Acknowledge the student's efforts before offering suggestions. Create a safe space for exploration.
+Use phrases like "That's a great start...", "I appreciate that perspective...", "What if we explored..."`,
+    
+    'analytical-direct': `Be logical, precise, and cut to the chase. No unnecessary fluff or padding.
+Ask pointed, specific questions. Expect clear reasoning and evidence.
+Use phrases like "Let's be specific...", "What evidence supports...", "Walk me through the logic..."`,
+    
+    'challenging-probing': `Play devil's advocate and push back on assumptions. Test resilience and conviction.
+Challenge weak arguments constructively. Probe for depth of understanding.
+Use phrases like "But couldn't someone argue...", "What about the counterpoint...", "Convince me why..."`,
+    
+    'neutral-professional': `Stay balanced, formal, and objective throughout. Neither warm nor cold.
+Maintain professional distance while being fair. Ask standard interview questions.
+Use phrases like "Could you elaborate...", "Please explain...", "What are your thoughts on..."`
+  };
+  
+  return styles[style] || styles['neutral-professional'];
+}
+
+function getVoiceStyleGuidance(voice: string): string {
+  const voices: Record<string, string> = {
+    'masculine': `Use confident, assertive language patterns. Direct statements over hedged language.
+Speak with authority and decisiveness. Less collaborative framing, more declarative.`,
+    
+    'feminine': `Use collaborative, empathetic language patterns. Include more acknowledgment and validation.
+Frame questions inclusively. Show warmth while maintaining professionalism.`
+  };
+  
+  return voices[voice] || '';
 }
 
 function buildPrompt(
@@ -43,17 +82,38 @@ function buildPrompt(
   safetyCheck: { action: string; contextType: string; message?: string }
 ): string {
   const historyText = conversationHistory
-    .slice(-10) // Last 10 messages for context
+    .slice(-10)
     .map(m => `${m.role.toUpperCase()}: ${m.content}`)
     .join('\n');
 
+  // Build personality and voice guidance sections
+  const personalityGuidance = context.personalityStyle 
+    ? `\n**Personality Style: ${context.personalityStyle}**\n${getPersonalityStyleGuidance(context.personalityStyle)}`
+    : '';
+  
+  const voiceGuidance = context.voiceStyle 
+    ? `\n**Voice Style: ${context.voiceStyle}**\n${getVoiceStyleGuidance(context.voiceStyle)}`
+    : '';
+
+  // Build user context section
+  const userContextSection = context.additionalContext?.trim()
+    ? `\n## USER'S PREPARATION CONTEXT\nThe student has shared this context for the practice session:\n"${context.additionalContext}"\n\nConsider this when asking questions or providing responses. Respect any specific areas they want to focus on or avoid.`
+    : '';
+
+  // Build attachments section
+  const attachmentsSection = context.attachments && context.attachments.length > 0
+    ? `\n## ATTACHED FILES\nThe user provided these files for context:\n${context.attachments.map(f => `- ${f.name} (${f.type})${f.content ? `\n  Preview: ${f.content.substring(0, 300)}...` : ''}`).join('\n')}\n\nReference these naturally if relevant (e.g., "I see from your personal statement that..." or "Looking at your CV...").`
+    : '';
+
   return `You are running a dialogue simulation with TWO roles:
 
-## ROLE 1: PERSONA (${context.personaName})
+## ROLE 1: PERSONA (${context.personaRole})
 - Role: ${context.personaRole}
 - Communication Style: ${context.personaCommunicationStyle}
 - Background: ${context.personaBackground}
 - Scenario: ${context.scenarioTitle}
+${personalityGuidance}
+${voiceGuidance}
 
 As the persona, you respond in-character to the student's messages. Be realistic and appropriately challenging based on the scenario.
 
@@ -63,6 +123,8 @@ As the persona, you respond in-character to the student's messages. Be realistic
 - Rate Limit: ${context.interventionCount}/5 interventions used this session
 
 The coach provides brief, actionable feedback when skill gaps or strengths are detected. Coach interventions appear SEPARATELY from persona responses.
+${userContextSection}
+${attachmentsSection}
 
 ## META-SKILL FRAMEWORK
 **Self Mastery Cluster:**
@@ -154,7 +216,10 @@ serve(async (req) => {
 
     console.log('[dialogue-engine] Processing message for session:', context.scenarioId);
     console.log('[dialogue-engine] Safety check action:', safetyCheck.action);
-    console.log('[dialogue-engine] Can intervene:', signals.coachingReadiness.canIntervene);
+    console.log('[dialogue-engine] Personality style:', context.personalityStyle);
+    console.log('[dialogue-engine] Voice style:', context.voiceStyle);
+    console.log('[dialogue-engine] Has additional context:', !!context.additionalContext);
+    console.log('[dialogue-engine] Attachments count:', context.attachments?.length || 0);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -209,7 +274,6 @@ serve(async (req) => {
       parsedResponse = JSON.parse(content);
     } catch (parseError) {
       console.error('[dialogue-engine] JSON parse error:', parseError);
-      // Return a fallback response
       parsedResponse = {
         persona_response: {
           message: "I appreciate your response. Could you elaborate on that point?",

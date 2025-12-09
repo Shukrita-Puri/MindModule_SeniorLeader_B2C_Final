@@ -1,12 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import MainNavigation from "@/components/MainNavigation";
-import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
+import DialogueInterface from "@/components/dialogue/DialogueInterface";
 import SessionFeedback from "@/components/SessionFeedback";
-import ObservatoryModal from "@/components/ObservatoryModal";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { Toaster } from "@/components/ui/toaster";
+
+// Map persona types to database persona IDs
+const PERSONA_ID_MAP: Record<string, string> = {
+  'university-admissions': 'oxbridge-interviewer',
+  'teacher': 'academic-teacher',
+  'alumnus': 'oxbridge-student',
+  'debate-judge': 'debate-judge',
+  'careers-advisor': 'careers-advisor',
+  'peer': 'peer-student',
+  'head-teacher': 'head-teacher',
+};
+
+// Map scenario titles to database scenario IDs
+const SCENARIO_ID_MAP: Record<string, string> = {
+  'Oxbridge Interview': 'oxbridge_interview',
+  'Scholarship Interview': 'scholarship_interview',
+  'Model UN Speech': 'model_un_speech',
+  'Debate Tournament': 'debate_tournament',
+  'Alumni Networking': 'alumni_networking',
+};
 
 const PracticeSimulation = () => {
   const navigate = useNavigate();
@@ -14,23 +33,40 @@ const PracticeSimulation = () => {
   const { 
     scenarioDomain, 
     contextType, 
-    scenarioContext, 
+    scenarioContext,
+    specificScenario,
     aiPersona,
     additionalContext,
     personaType,
-    customPersona
+    customPersona,
+    personalityStyle,
+    voicePreference,
+    attachments
   } = location.state || {};
   
   const [showFeedback, setShowFeedback] = useState(false);
-  const [showObservatory, setShowObservatory] = useState(false);
 
-  // Demo: Show observatory after 5 seconds
-  useState(() => {
-    const timer = setTimeout(() => {
-      setShowObservatory(true);
-    }, 5000);
-    return () => clearTimeout(timer);
-  });
+  // Map the config page values to database IDs
+  const scenarioId = SCENARIO_ID_MAP[specificScenario] || 'oxbridge_interview';
+  const personaId = PERSONA_ID_MAP[personaType] || 'oxbridge-interviewer';
+
+  // Map personality style to LLM format
+  const mappedPersonalityStyle = personalityStyle === 'warm' ? 'warm-supportive'
+    : personalityStyle === 'analytical' ? 'analytical-direct'
+    : personalityStyle === 'challenging' ? 'challenging-probing'
+    : 'neutral-professional';
+
+  // Map voice preference to LLM format
+  const mappedVoiceStyle = voicePreference === 'masculine' ? 'masculine'
+    : voicePreference === 'feminine' ? 'feminine'
+    : undefined;
+
+  // Map attachments to expected format
+  const mappedAttachments = attachments?.map((file: File) => ({
+    name: file.name,
+    type: file.type,
+    content: undefined // Would need FileReader to extract content
+  })) || [];
 
   const handleEndSession = () => {
     setShowFeedback(true);
@@ -44,15 +80,10 @@ const PracticeSimulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
-        selectedPersonas: personaType && personaType !== 'custom' ? [personaType] : [],
-        customPersonas: personaType === 'custom' ? customPersona : '',
+        specificScenario,
+        personaType,
         feedback,
         sessionDuration: "15 minutes",
-        realtimeFeedback: [
-          { type: "coaching", message: "Great empathy! Try being more assertive with your solution.", timestamp: new Date() },
-          { type: "blindspot", message: "Consider their perspective before responding.", timestamp: new Date() },
-          { type: "achievement", message: "Excellent response! You've mastered this conversation style.", timestamp: new Date() }
-        ]
       } 
     });
   };
@@ -64,38 +95,28 @@ const PracticeSimulation = () => {
         scenarioDomain, 
         contextType,
         scenarioContext,
-        selectedPersonas: personaType && personaType !== 'custom' ? [personaType] : [],
-        customPersonas: personaType === 'custom' ? customPersona : '',
+        specificScenario,
+        personaType,
         sessionDuration: "15 minutes",
-        realtimeFeedback: [
-          { type: "coaching", message: "Great empathy! Try being more assertive with your solution.", timestamp: new Date() },
-          { type: "blindspot", message: "Consider their perspective before responding.", timestamp: new Date() },
-          { type: "achievement", message: "Excellent response! You've mastered this conversation style.", timestamp: new Date() }
-        ]
       } 
     });
-  };
-
-  // Build persona display from user configuration
-  const displayPersona = aiPersona ? {
-    name: aiPersona.type || "Conversation Partner",
-    role: `${aiPersona.personality || "Professional"} - ${aiPersona.voicePreference || "Neutral"} Voice`,
-    fullContext: additionalContext
-  } : { 
-    name: "Conversation Partner", 
-    role: "Professional" 
   };
 
   return (
     <div className="min-h-screen font-body flex flex-col">
       <TopNavigation backPath="/practice/configure" />
       
-      {/* Simulation */}
+      {/* Dialogue Interface */}
       <div className="flex-1 relative pt-16">
-        <CollegeAdmissionsSimulation
+        <DialogueInterface
+          scenarioId={scenarioId}
+          personaId={personaId}
+          coachPersonality="supportive"
+          personalityStyle={mappedPersonalityStyle}
+          voiceStyle={mappedVoiceStyle}
+          additionalContext={additionalContext}
+          attachments={mappedAttachments}
           onEndSession={handleEndSession}
-          sessionDuration={15}
-          aiPersona={displayPersona}
         />
       </div>
 
@@ -106,17 +127,6 @@ const PracticeSimulation = () => {
           onSkip={handleFeedbackSkip}
         />
       )}
-
-      {/* Mind Module: The Observatory Modal */}
-      <ObservatoryModal
-        isOpen={showObservatory}
-        onClose={() => setShowObservatory(false)}
-        variant="mirror"
-        signal="You're perceiving links between logic, emotion, and timing."
-        lens="From this altitude, patterns reveal themselves."
-        application="What principle connects these insights — trust, timing, or truth?"
-        ctaText="Synthesize"
-      />
 
       <PrivacyFooter />
       <MainNavigation />
