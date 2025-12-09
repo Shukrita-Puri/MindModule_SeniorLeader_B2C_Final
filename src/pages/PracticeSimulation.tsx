@@ -89,10 +89,58 @@ const PracticeSimulation = () => {
     content: undefined
   })) || [];
 
-  // Build persona display from user configuration
+  // Build persona display from user configuration with proper formatting
+  const formatPersonaName = (type: string) => {
+    // Handle specific persona type formatting
+    const nameMap: Record<string, string> = {
+      'admissions': 'Admissions Officer',
+      'university-admissions': 'University Admissions Officer',
+      'University Admissions Officer': 'Admissions Officer',
+      'dean': 'Dean',
+      'Dean / Head of School': 'Dean',
+      'teacher': 'Teacher',
+      'Teacher / Professor': 'Teacher',
+      'alumnus': 'Alumni',
+      'alumni': 'Alumni',
+      'Alumni / Graduate': 'Alumni',
+      'Recent University Alumnus': 'University Alumni',
+      'debate-judge': 'Competition Judge',
+      'Competition Judge': 'Competition Judge',
+      'counselor': 'School Counselor',
+      'careers-advisor': 'Careers Advisor',
+      'School Counselor': 'School Counselor',
+      'peer': 'Peer',
+      'classmate': 'Classmate',
+      'Classmate / Peer': 'Classmate',
+      'coach': 'Coach',
+      'head-teacher': 'Head Teacher',
+      'Coach / Sports Mentor': 'Sports Coach',
+      'student-leader': 'Student Leader',
+      'Club President / Student Leader': 'Student Leader',
+      'parent': 'Parent',
+      'Parent / Guardian': 'Parent',
+    };
+    return nameMap[type] || type || "Conversation Partner";
+  };
+
+  const formatPersonalityStyle = (style: string) => {
+    const styleMap: Record<string, string> = {
+      'warm': 'Warm & Supportive',
+      'warm-supportive': 'Warm & Supportive',
+      'analytical': 'Analytical & Direct',
+      'analytical-direct': 'Analytical & Direct',
+      'challenging': 'Challenging & Probing',
+      'challenging-probing': 'Challenging & Probing',
+      'Challenging & Probing': 'Challenging & Probing',
+      'neutral': 'Neutral & Professional',
+      'neutral-professional': 'Neutral & Professional',
+    };
+    return styleMap[style] || style || "Professional";
+  };
+
   const displayPersona = {
-    name: personaType || "Conversation Partner",
-    role: `${personalityStyle || "Professional"} - ${voicePreference || "Neutral"} Voice`
+    name: formatPersonaName(personaType),
+    role: formatPersonalityStyle(personalityStyle)
   };
 
   const handleEndSession = () => {
