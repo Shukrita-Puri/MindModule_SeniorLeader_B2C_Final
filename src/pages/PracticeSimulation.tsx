@@ -91,33 +91,33 @@ const PracticeSimulation = () => {
 
   // Build persona display from user configuration with proper formatting
   const formatPersonaName = (type: string) => {
-    // Handle specific persona type formatting
+    // Map dropdown values to display names
     const nameMap: Record<string, string> = {
+      // Dropdown values (from configure page)
       'admissions': 'Admissions Officer',
-      'university-admissions': 'University Admissions Officer',
-      'University Admissions Officer': 'Admissions Officer',
-      'dean': 'Dean',
-      'Dean / Head of School': 'Dean',
+      'classmate': 'Classmate',
       'teacher': 'Teacher',
-      'Teacher / Professor': 'Teacher',
-      'alumnus': 'Alumni',
+      'dean': 'Dean',
+      'student-leader': 'Student Leader',
+      'parent': 'Parent',
+      'coach': 'Coach',
+      'counselor': 'School Counselor',
       'alumni': 'Alumni',
+      // Fallback display labels
+      'university-admissions': 'Admissions Officer',
+      'University Admissions Officer': 'Admissions Officer',
+      'Dean / Head of School': 'Dean',
+      'Teacher / Professor': 'Teacher',
       'Alumni / Graduate': 'Alumni',
-      'Recent University Alumnus': 'University Alumni',
+      'Recent University Alumnus': 'Alumni',
       'debate-judge': 'Competition Judge',
       'Competition Judge': 'Competition Judge',
-      'counselor': 'School Counselor',
       'careers-advisor': 'Careers Advisor',
       'School Counselor': 'School Counselor',
-      'peer': 'Peer',
-      'classmate': 'Classmate',
       'Classmate / Peer': 'Classmate',
-      'coach': 'Coach',
       'head-teacher': 'Head Teacher',
-      'Coach / Sports Mentor': 'Sports Coach',
-      'student-leader': 'Student Leader',
+      'Coach / Sports Mentor': 'Coach',
       'Club President / Student Leader': 'Student Leader',
-      'parent': 'Parent',
       'Parent / Guardian': 'Parent',
     };
     return nameMap[type] || type || "Conversation Partner";
@@ -125,15 +125,17 @@ const PracticeSimulation = () => {
 
   const formatPersonalityStyle = (style: string) => {
     const styleMap: Record<string, string> = {
-      'warm': 'Warm & Supportive',
+      // Exact dropdown values from configure page
       'warm-supportive': 'Warm & Supportive',
-      'analytical': 'Analytical & Direct',
       'analytical-direct': 'Analytical & Direct',
-      'challenging': 'Challenging & Probing',
       'challenging-probing': 'Challenging & Probing',
-      'Challenging & Probing': 'Challenging & Probing',
-      'neutral': 'Neutral & Professional',
       'neutral-professional': 'Neutral & Professional',
+      // Legacy/fallback values
+      'warm': 'Warm & Supportive',
+      'analytical': 'Analytical & Direct',
+      'challenging': 'Challenging & Probing',
+      'neutral': 'Neutral & Professional',
+      'Challenging & Probing': 'Challenging & Probing',
     };
     return styleMap[style] || style || "Professional";
   };
