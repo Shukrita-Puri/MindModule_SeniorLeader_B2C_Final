@@ -144,7 +144,7 @@ const TextFirstDialogue = ({
   const isAISpeaking = isLoading && messages[messages.length - 1]?.role === 'user';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden">
       {/* Timer Bar - Fixed at top */}
       <div className="fixed top-16 left-0 right-0 z-50 flex justify-center py-3">
         <div className="flex items-center gap-2 px-4 py-2 bg-card/80 backdrop-blur-xl rounded-full border border-border/50 shadow-lg">
@@ -160,19 +160,19 @@ const TextFirstDialogue = ({
       </div>
 
       {/* Main Split Content */}
-      <div className="flex flex-col h-screen pt-28">
-        {/* AI Persona Section - Top */}
+      <div className="flex flex-col h-full pt-28">
+        {/* AI Persona Section - Top with Cyan theme */}
         <div className="flex-1 flex items-end justify-center py-2 px-6 relative overflow-hidden transition-all duration-500">
-          {/* Depth layer - radial gradient background */}
+          {/* Depth layer - cyan radial gradient background */}
           <div className={cn(
             "absolute inset-0 bg-[radial-gradient(ellipse_at_center_bottom,_var(--tw-gradient-stops))] transition-all duration-500",
             isAISpeaking 
-              ? "from-primary/15 via-primary/20 to-transparent brightness-110" 
-              : "from-primary/5 via-primary/10 to-transparent"
+              ? "from-cyan-500/20 via-cyan-400/15 to-transparent brightness-110" 
+              : "from-cyan-500/10 via-cyan-400/5 to-transparent"
           )} />
           
-          {/* Additional depth overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/5 to-background/20 pointer-events-none" />
+          {/* Additional cyan tint overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 via-transparent to-background/20 pointer-events-none" />
           
           {/* Content */}
           <div className="relative z-10 w-full text-center space-y-4">
