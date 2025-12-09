@@ -206,7 +206,7 @@ const TextFirstDialogue = ({
             {/* Latest AI message - full text display */}
             {latestAiMessage && (
               <div className={cn(
-                "px-4 py-3 text-base text-foreground/90 italic max-h-40 overflow-y-auto mx-auto max-w-2xl transition-opacity duration-300",
+                "px-4 py-3 text-sm md:text-base text-foreground/90 italic max-h-40 overflow-y-auto mx-auto max-w-2xl transition-opacity duration-300",
                 isLoading && "opacity-50"
               )}>
                 <p className="leading-relaxed">"{latestAiMessage.content}"</p>
@@ -326,13 +326,16 @@ const TextFirstDialogue = ({
         </div>
       </div>
 
-      {/* Coaching Intervention Toast */}
+      {/* Coaching Intervention Toast with Blur Overlay */}
       {activeIntervention && (
-        <CoachingToaster
-          intervention={activeIntervention}
-          personality={coachingStyle as 'supportive' | 'challenging' | 'minimal'}
-          onDismiss={() => setActiveIntervention(null)}
-        />
+        <>
+          <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40" onClick={() => setActiveIntervention(null)} />
+          <CoachingToaster
+            intervention={activeIntervention}
+            personality={coachingStyle as 'supportive' | 'challenging' | 'minimal'}
+            onDismiss={() => setActiveIntervention(null)}
+          />
+        </>
       )}
     </div>
   );
