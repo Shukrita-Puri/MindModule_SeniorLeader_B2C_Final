@@ -9,21 +9,28 @@ import { Toaster } from "@/components/ui/toaster";
 
 // Map persona types to database persona IDs
 const PERSONA_ID_MAP: Record<string, string> = {
-  'university-admissions': 'oxbridge-interviewer',
+  'university-admissions': 'oxbridge_tutor',
+  'University Admissions Officer': 'oxbridge_tutor',
   'teacher': 'academic-teacher',
-  'alumnus': 'oxbridge-student',
+  'Teacher / Professor': 'academic-teacher',
+  'alumnus': 'successful_alumnus',
+  'Recent University Alumnus': 'successful_alumnus',
   'debate-judge': 'debate-judge',
+  'Competition Judge': 'debate-judge',
   'careers-advisor': 'careers-advisor',
+  'School Counselor': 'careers-advisor',
   'peer': 'peer-student',
+  'Classmate / Peer': 'peer-student',
   'head-teacher': 'head-teacher',
+  'Coach / Sports Mentor': 'head-teacher',
 };
 
 // Map scenario titles to database scenario IDs
 const SCENARIO_ID_MAP: Record<string, string> = {
   'Oxbridge Interview': 'oxbridge_interview',
-  'Scholarship Interview': 'scholarship_interview',
-  'Model UN Speech': 'model_un_speech',
-  'Debate Tournament': 'debate_tournament',
+  'Scholarship Interview': 'oxbridge_interview', // fallback
+  'Model UN Speech': 'oxbridge_interview', // fallback
+  'Debate Tournament': 'oxbridge_interview', // fallback  
   'Alumni Networking': 'alumni_networking',
 };
 
