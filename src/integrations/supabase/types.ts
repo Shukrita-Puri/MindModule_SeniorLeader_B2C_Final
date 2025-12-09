@@ -296,6 +296,361 @@ export type Database = {
         }
         Relationships: []
       }
+      detected_signals: {
+        Row: {
+          coaching_readiness: Json | null
+          conversation_flow: Json | null
+          created_at: string | null
+          ei_behaviors: Json | null
+          emotions: Json | null
+          id: string
+          message_id: string | null
+          raw_signals: Json | null
+          risk_assessment: Json | null
+          sentiment: Json | null
+          session_id: string
+          skill_gaps: Json | null
+          skill_strengths: Json | null
+        }
+        Insert: {
+          coaching_readiness?: Json | null
+          conversation_flow?: Json | null
+          created_at?: string | null
+          ei_behaviors?: Json | null
+          emotions?: Json | null
+          id?: string
+          message_id?: string | null
+          raw_signals?: Json | null
+          risk_assessment?: Json | null
+          sentiment?: Json | null
+          session_id: string
+          skill_gaps?: Json | null
+          skill_strengths?: Json | null
+        }
+        Update: {
+          coaching_readiness?: Json | null
+          conversation_flow?: Json | null
+          created_at?: string | null
+          ei_behaviors?: Json | null
+          emotions?: Json | null
+          id?: string
+          message_id?: string | null
+          raw_signals?: Json | null
+          risk_assessment?: Json | null
+          sentiment?: Json | null
+          session_id?: string
+          skill_gaps?: Json | null
+          skill_strengths?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "detected_signals_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detected_signals_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialogue_analytics: {
+        Row: {
+          ai_summary: string | null
+          generated_at: string | null
+          growth_areas: Json | null
+          id: string
+          key_moments: Json | null
+          meta_skill_scores: Json | null
+          overall_performance_score: number | null
+          recommendations: Json | null
+          session_id: string
+          strengths_identified: Json | null
+          transcript_highlights: Json | null
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          generated_at?: string | null
+          growth_areas?: Json | null
+          id?: string
+          key_moments?: Json | null
+          meta_skill_scores?: Json | null
+          overall_performance_score?: number | null
+          recommendations?: Json | null
+          session_id: string
+          strengths_identified?: Json | null
+          transcript_highlights?: Json | null
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          generated_at?: string | null
+          growth_areas?: Json | null
+          id?: string
+          key_moments?: Json | null
+          meta_skill_scores?: Json | null
+          overall_performance_score?: number | null
+          recommendations?: Json | null
+          session_id?: string
+          strengths_identified?: Json | null
+          transcript_highlights?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogue_analytics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialogue_interventions: {
+        Row: {
+          action_suggested: string | null
+          coach_personality: string | null
+          dismissed_at: string | null
+          displayed_at: string | null
+          framework_used: string | null
+          id: string
+          intervention_type: string
+          meta_data: Json | null
+          meta_skill_target: string | null
+          observation: string | null
+          session_id: string
+          sub_skill_target: string | null
+          triggered_by_message_id: string | null
+          user_acknowledged: boolean | null
+          wisdom_source: Json | null
+        }
+        Insert: {
+          action_suggested?: string | null
+          coach_personality?: string | null
+          dismissed_at?: string | null
+          displayed_at?: string | null
+          framework_used?: string | null
+          id?: string
+          intervention_type: string
+          meta_data?: Json | null
+          meta_skill_target?: string | null
+          observation?: string | null
+          session_id: string
+          sub_skill_target?: string | null
+          triggered_by_message_id?: string | null
+          user_acknowledged?: boolean | null
+          wisdom_source?: Json | null
+        }
+        Update: {
+          action_suggested?: string | null
+          coach_personality?: string | null
+          dismissed_at?: string | null
+          displayed_at?: string | null
+          framework_used?: string | null
+          id?: string
+          intervention_type?: string
+          meta_data?: Json | null
+          meta_skill_target?: string | null
+          observation?: string | null
+          session_id?: string
+          sub_skill_target?: string | null
+          triggered_by_message_id?: string | null
+          user_acknowledged?: boolean | null
+          wisdom_source?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogue_interventions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialogue_interventions_triggered_by_message_id_fkey"
+            columns: ["triggered_by_message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialogue_messages: {
+        Row: {
+          audio_url: string | null
+          content: string
+          emotion_displayed: string | null
+          id: string
+          message_index: number
+          meta_data: Json | null
+          sender_type: string
+          session_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          content: string
+          emotion_displayed?: string | null
+          id?: string
+          message_index: number
+          meta_data?: Json | null
+          sender_type: string
+          session_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          emotion_displayed?: string | null
+          id?: string
+          message_index?: number
+          meta_data?: Json | null
+          sender_type?: string
+          session_id?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogue_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialogue_sessions: {
+        Row: {
+          coach_personality: string | null
+          context_type: string
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          meta_data: Json | null
+          persona_id: string | null
+          scenario_context: Json | null
+          scenario_id: string | null
+          session_status: string | null
+          started_at: string | null
+          total_interventions: number | null
+          total_messages: number | null
+          user_id: string
+        }
+        Insert: {
+          coach_personality?: string | null
+          context_type?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          meta_data?: Json | null
+          persona_id?: string | null
+          scenario_context?: Json | null
+          scenario_id?: string | null
+          session_status?: string | null
+          started_at?: string | null
+          total_interventions?: number | null
+          total_messages?: number | null
+          user_id: string
+        }
+        Update: {
+          coach_personality?: string | null
+          context_type?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          meta_data?: Json | null
+          persona_id?: string | null
+          scenario_context?: Json | null
+          scenario_id?: string | null
+          session_status?: string | null
+          started_at?: string | null
+          total_interventions?: number | null
+          total_messages?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogue_sessions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "persona_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialogue_sessions_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "scenario_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialogue_skill_events: {
+        Row: {
+          cluster: string | null
+          confidence: number | null
+          context_note: string | null
+          created_at: string | null
+          event_type: string
+          id: string
+          indicators: string[] | null
+          message_id: string | null
+          meta_skill: string
+          session_id: string
+          sub_skill: string | null
+        }
+        Insert: {
+          cluster?: string | null
+          confidence?: number | null
+          context_note?: string | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          indicators?: string[] | null
+          message_id?: string | null
+          meta_skill: string
+          session_id: string
+          sub_skill?: string | null
+        }
+        Update: {
+          cluster?: string | null
+          confidence?: number | null
+          context_note?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          indicators?: string[] | null
+          message_id?: string | null
+          meta_skill?: string
+          session_id?: string
+          sub_skill?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogue_skill_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialogue_skill_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       energy_snapshots: {
         Row: {
           calendar_density: number | null
@@ -551,6 +906,45 @@ export type Database = {
           sleep_score?: number | null
           summary_date?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      persona_definitions: {
+        Row: {
+          background_context: string | null
+          challenge_level: number | null
+          communication_style: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          personality_traits: Json | null
+          role: string
+          scenario_ids: string[] | null
+        }
+        Insert: {
+          background_context?: string | null
+          challenge_level?: number | null
+          communication_style?: string | null
+          created_at?: string | null
+          id: string
+          is_active?: boolean | null
+          name: string
+          personality_traits?: Json | null
+          role: string
+          scenario_ids?: string[] | null
+        }
+        Update: {
+          background_context?: string | null
+          challenge_level?: number | null
+          communication_style?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          personality_traits?: Json | null
+          role?: string
+          scenario_ids?: string[] | null
         }
         Relationships: []
       }
@@ -942,6 +1336,45 @@ export type Database = {
           tags?: string[] | null
           timestamp?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      scenario_definitions: {
+        Row: {
+          category: string
+          context_type: string
+          created_at: string | null
+          description: string | null
+          difficulty_level: string | null
+          id: string
+          is_active: boolean | null
+          scenario_context: Json | null
+          target_meta_skills: Json | null
+          title: string
+        }
+        Insert: {
+          category: string
+          context_type?: string
+          created_at?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          id: string
+          is_active?: boolean | null
+          scenario_context?: Json | null
+          target_meta_skills?: Json | null
+          title: string
+        }
+        Update: {
+          category?: string
+          context_type?: string
+          created_at?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          id?: string
+          is_active?: boolean | null
+          scenario_context?: Json | null
+          target_meta_skills?: Json | null
+          title?: string
         }
         Relationships: []
       }
