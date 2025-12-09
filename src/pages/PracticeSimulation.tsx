@@ -58,12 +58,14 @@ const PracticeSimulation = () => {
     additionalContext,
     personaType,
     customPersona,
-    personalityStyle,
-    voicePreference,
     attachments,
     practiceDuration,
     coachingStyle
   } = location.state || {};
+  
+  // Extract personalityStyle and voicePreference from aiPersona object (where configure page puts them)
+  const personalityStyle = aiPersona?.personality || '';
+  const voicePreference = aiPersona?.voicePreference || '';
   
   const [showFeedback, setShowFeedback] = useState(false);
 
