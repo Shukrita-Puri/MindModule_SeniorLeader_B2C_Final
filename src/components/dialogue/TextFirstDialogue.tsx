@@ -73,9 +73,9 @@ const TextFirstDialogue = ({
     });
   }, []);
 
-  // Session timer countdown
+  // Session timer countdown - pauses when coaching popup is active
   useEffect(() => {
-    if (sessionStatus === 'active' && timeRemaining > 0) {
+    if (sessionStatus === 'active' && timeRemaining > 0 && !activeIntervention) {
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -91,7 +91,7 @@ const TextFirstDialogue = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [sessionStatus]);
+  }, [sessionStatus, activeIntervention]);
 
   // Handle coaching interventions
   useEffect(() => {
