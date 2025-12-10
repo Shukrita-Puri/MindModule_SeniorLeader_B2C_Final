@@ -1603,6 +1603,14 @@ export type Database = {
       }
       migrate_calendar_tokens: { Args: never; Returns: undefined }
       migrate_oura_tokens: { Args: never; Returns: undefined }
+      store_calendar_access_token: {
+        Args: { _connection_id: string; _token: string }
+        Returns: undefined
+      }
+      store_calendar_refresh_token: {
+        Args: { _connection_id: string; _token: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "user" | "admin"
