@@ -156,8 +156,8 @@ export function useDialogueSession() {
       // Reset rate limiting for new session
       resetSessionRateLimit(session.id);
 
-      // Generate opening message from persona
-      const openingMessage = generateOpeningMessage(scenario, persona);
+      // Generate opening message from persona with personality style
+      const openingMessage = generateOpeningMessage(scenario, persona, config.personalityStyle);
 
       setState(prev => ({
         ...prev,
@@ -374,112 +374,335 @@ export function useDialogueSession() {
 
 // Helper functions
 
-function generateOpeningMessage(scenario: any, persona: any): string {
+function generateOpeningMessage(
+  scenario: any, 
+  persona: any, 
+  personalityStyle: string = 'warm-supportive'
+): string {
   const scenarioId = scenario.id;
   const personaRole = (persona.role || '').toLowerCase();
-  const communicationStyle = (persona.communication_style || '').toLowerCase();
+  const style = (personalityStyle || 'warm-supportive').toLowerCase();
   
-  // ALUMNI / GRADUATE personas - always casual and mentorship-oriented
+  // Personality style helpers
+  const isWarm = style.includes('warm') || style.includes('supportive');
+  const isAnalytical = style.includes('analytical') || style.includes('direct');
+  const isChallenging = style.includes('challenging') || style.includes('probing');
+  const isNeutral = style.includes('neutral') || style.includes('professional');
+
+  // ============================================
+  // ALUMNI / GRADUATE - Personality Matrix
+  // ============================================
   if (personaRole.includes('alumnus') || personaRole.includes('alumni') || personaRole.includes('graduate')) {
+    if (isWarm) {
+      if (scenarioId === 'alumni_networking') {
+        return `Hey! I graduated about 8 years ago. These networking events can feel a bit awkward, I know—I've been there! So, what year are you in? What's keeping you busy these days?`;
+      }
+      return `Hi! Great to meet you. I went through this exact process a few years back, so I know how it feels. Just relax—what would you like to chat about?`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'alumni_networking') {
+        return `I graduated 8 years ago. I've got about 20 minutes. What specifically would you like to know about my career path or the industry?`;
+      }
+      return `I've been where you are. Let's make this efficient—what's your main question or concern?`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'alumni_networking') {
+        return `So, networking event. Most students waste these. What makes you different? What do you actually want to achieve in the next five years?`;
+      }
+      return `I don't do small talk. Tell me—what's the real challenge you're facing right now?`;
+    }
+    // Neutral
     if (scenarioId === 'alumni_networking') {
-      return `Hey! I graduated about 8 years ago. These networking events can feel a bit awkward, I know—I've been there! So, what year are you in? What's keeping you busy these days?`;
+      return `Good to meet you. I'm class of 2016. What year are you in, and what are you hoping to discuss?`;
     }
-    // Alumni in other contexts (mock interview help, mentorship)
-    return `Hi! Great to meet you. I went through this exact process a few years back, so I know how it feels. Just relax—what would you like to chat about?`;
+    return `Hello. I understand you wanted to connect. How can I help?`;
   }
-  
-  // PEER / CLASSMATE personas - casual and friendly
+
+  // ============================================
+  // PEER / CLASSMATE - Personality Matrix
+  // ============================================
   if (personaRole.includes('classmate') || personaRole.includes('student') || personaRole.includes('peer')) {
+    if (isWarm) {
+      if (scenarioId === 'social_dynamics') {
+        return `Hey! What's going on? You seemed like you wanted to talk about something?`;
+      }
+      return `Hey! Good to see you. So, what's up? I heard you wanted to chat about something?`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'social_dynamics') {
+        return `Hey. You wanted to talk? What's the situation?`;
+      }
+      return `What's up? You said you needed to discuss something—what is it?`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'social_dynamics') {
+        return `So what's actually going on? I've noticed things have been weird lately. Just say it.`;
+      }
+      return `Alright, let's not dance around it. What do you really want to talk about?`;
+    }
+    // Neutral
     if (scenarioId === 'social_dynamics') {
-      return `Hey! What's going on? You seemed like you wanted to talk about something?`;
+      return `Hey. I got your message. What did you want to discuss?`;
     }
-    return `Hey! Good to see you. So, what's up? I heard you wanted to chat about something?`;
+    return `Hi. You mentioned wanting to chat. What's on your mind?`;
   }
-  
-  // TEACHER / PROFESSOR personas - authoritative but encouraging
+
+  // ============================================
+  // TEACHER / PROFESSOR - Personality Matrix
+  // ============================================
   if (personaRole.includes('teacher') || personaRole.includes('professor') || personaRole.includes('instructor')) {
+    if (isWarm) {
+      if (scenarioId === 'academic_presentation') {
+        return `Alright, whenever you're ready, the floor is yours. Take your time and begin when you feel comfortable.`;
+      }
+      return `Good morning. Come in and take a seat. I wanted to have a word with you. How are you finding things this term?`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'academic_presentation') {
+        return `You have 10 minutes. I'll be evaluating structure, argument quality, and evidence. Begin when ready.`;
+      }
+      return `Take a seat. I've been reviewing your recent work and have specific observations. Let's discuss.`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'academic_presentation') {
+        return `The floor is yours. Convince me your thesis holds up under scrutiny. Begin.`;
+      }
+      return `Sit. I've noticed some patterns in your work that concern me. I want to understand your thinking. Explain.`;
+    }
+    // Neutral
     if (scenarioId === 'academic_presentation') {
-      return `Alright, whenever you're ready, the floor is yours. Take your time and begin when you feel comfortable.`;
+      return `Good morning. Please begin your presentation when ready. I'll hold questions until the end.`;
     }
-    return `Good morning. Come in and take a seat. I wanted to have a word with you. How are you finding things this term?`;
+    return `Good morning. Please sit down. I'd like to discuss your progress this term.`;
   }
-  
-  // COACH / SPORTS MENTOR personas - motivating and direct
+
+  // ============================================
+  // COACH / SPORTS MENTOR - Personality Matrix
+  // ============================================
   if (personaRole.includes('coach') || personaRole.includes('mentor') || personaRole.includes('sports')) {
+    if (isWarm) {
+      if (scenarioId === 'leadership_speech') {
+        return `Alright captain, the team's waiting. This is your moment. Take a breath, gather yourself, and speak from the heart. You've got this.`;
+      }
+      return `Come sit down. I've been watching your progress and I'm proud of how far you've come. Let's talk about what's next.`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'leadership_speech') {
+        return `The team's assembled. You have two minutes. What's your message? Be specific about what you need from them.`;
+      }
+      return `Let's review your performance data. I've identified three areas we need to address. Listen carefully.`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'leadership_speech') {
+        return `Team's waiting. You wanted to be captain—now lead. What are you going to say that they'll actually remember?`;
+      }
+      return `Sit. I'm going to be straight with you—your recent performance isn't captain material. Change my mind.`;
+    }
+    // Neutral
     if (scenarioId === 'leadership_speech') {
-      return `Right, the team's waiting. This is your moment as captain. Take a breath, then address them. What do you want to say?`;
+      return `Right, the team's waiting. This is your moment as captain. Take a breath, then address them.`;
     }
-    return `Alright, let's talk. I've been watching your progress and I think we need to discuss something. What's on your mind?`;
+    return `Let's talk. I've been watching your progress. What's on your mind?`;
   }
-  
-  // PARENT / GUARDIAN personas - warm and concerned
+
+  // ============================================
+  // PARENT / GUARDIAN - Personality Matrix
+  // ============================================
   if (personaRole.includes('parent') || personaRole.includes('guardian') || personaRole.includes('family')) {
-    return `Come sit down. I've been wanting to talk to you about something. How are you feeling about everything lately?`;
-  }
-  
-  // COUNSELOR / ADVISOR personas - supportive and non-judgmental
-  if (personaRole.includes('counselor') || personaRole.includes('advisor') || personaRole.includes('careers')) {
-    if (scenarioId === 'gap_year_planning') {
-      return `So you're thinking about taking a gap year? That's a big decision. Let's talk through what you're considering. What's drawing you to this idea?`;
+    if (isWarm) {
+      return `Come sit down, love. I've been wanting to talk to you about something. How are you feeling about everything lately?`;
     }
-    return `Thanks for coming in. This is a safe space to talk about whatever's on your mind. What would you like to discuss today?`;
+    if (isAnalytical) {
+      return `We need to talk. I've noticed some things and I want to understand what's happening. Walk me through your thinking.`;
+    }
+    if (isChallenging) {
+      return `Sit down. We need to have a serious conversation. I want the truth—what's really going on?`;
+    }
+    // Neutral
+    return `Come sit down. I wanted to discuss something with you. How have things been going?`;
   }
-  
-  // ADMISSIONS / INTERVIEWER personas - formal and evaluative
+
+  // ============================================
+  // COUNSELOR / ADVISOR - Personality Matrix
+  // ============================================
+  if (personaRole.includes('counselor') || personaRole.includes('advisor') || personaRole.includes('careers')) {
+    if (isWarm) {
+      if (scenarioId === 'gap_year_planning') {
+        return `So you're thinking about taking a gap year? That's exciting—and I know it's a big decision. Let's explore what's drawing you to this idea.`;
+      }
+      return `Thanks for coming in. This is a safe space to talk about whatever's on your mind. I'm here to listen. What would you like to discuss?`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'gap_year_planning') {
+        return `Gap year consideration. Let's be systematic: what are your objectives, and how does this fit your five-year plan?`;
+      }
+      return `I've reviewed your file. Let's identify your key decision points and work through them methodically.`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'gap_year_planning') {
+        return `A gap year. Interesting choice. Most students who take one don't have a clear plan. What makes yours different?`;
+      }
+      return `Let's cut to it—what's the real issue you're avoiding? Students usually come here when something deeper is going on.`;
+    }
+    // Neutral
+    if (scenarioId === 'gap_year_planning') {
+      return `I understand you're considering a gap year. Let's discuss the factors involved in this decision.`;
+    }
+    return `Thanks for coming in. What would you like to discuss today?`;
+  }
+
+  // ============================================
+  // ADMISSIONS / INTERVIEWER - Personality Matrix
+  // ============================================
   if (personaRole.includes('admissions') || personaRole.includes('interviewer') || personaRole.includes('dean')) {
+    if (isWarm) {
+      if (scenarioId === 'oxbridge_interview') {
+        return `Good morning! Please, come in and make yourself comfortable. Before we dive into the academic questions, I'd love to hear what drew you to apply here.`;
+      }
+      if (scenarioId === 'scholarship_interview') {
+        return `Welcome! Thank you so much for applying. We're impressed with what we've read. Could you start by telling me what this scholarship would mean for your journey?`;
+      }
+      if (scenarioId === 'head_student_interview') {
+        return `Hello! Thank you for applying for Head Student. We've been impressed with your contributions. Tell us—what does this role mean to you personally?`;
+      }
+      return `Welcome! Thank you for coming in. I've enjoyed reading your application. Tell me a bit about yourself—what should we know beyond what's on paper?`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'oxbridge_interview') {
+        return `Good morning. I have your application here. We have 25 minutes. Let's begin: why this subject, and why here specifically?`;
+      }
+      if (scenarioId === 'scholarship_interview') {
+        return `Thank you for coming. I've reviewed your application. Walk me through your academic trajectory and how this scholarship fits your plans.`;
+      }
+      if (scenarioId === 'head_student_interview') {
+        return `Good morning. We're evaluating candidates on three criteria: leadership evidence, school contribution, and vision. Start with your strongest leadership example.`;
+      }
+      return `Thank you for coming. I've reviewed your materials. Let's begin with your qualifications—what specifically makes you suitable?`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'oxbridge_interview') {
+        return `Sit down. I've read hundreds of applications like yours. What makes you genuinely different? Why should we choose you over them?`;
+      }
+      if (scenarioId === 'scholarship_interview') {
+        return `This scholarship is highly competitive. Many applicants have strong academics. What makes you deserve this funding over someone else?`;
+      }
+      if (scenarioId === 'head_student_interview') {
+        return `You want to lead this school. Why should students follow you? What have you actually achieved—not planned, achieved?`;
+      }
+      return `I'll be direct: we see many candidates. What genuinely distinguishes you? Don't tell me what you think I want to hear.`;
+    }
+    // Neutral
     if (scenarioId === 'oxbridge_interview') {
-      return `Good morning. I'll be conducting your interview today. Please, take a seat. Before we begin with the academic questions, could you tell me what drew you to apply to study here?`;
+      return `Good morning. I'll be conducting your interview today. Please take a seat. Could you tell me what drew you to apply to study here?`;
     }
     if (scenarioId === 'scholarship_interview') {
-      return `Welcome. Thank you for applying for this scholarship. We've reviewed your application materials, and I'd like to learn more about you. Could you start by telling me what this opportunity means to you?`;
+      return `Welcome. Thank you for applying for this scholarship. Could you start by telling me what this opportunity means to you?`;
     }
     if (scenarioId === 'head_student_interview') {
-      return `Thank you for applying for Head Student. We've reviewed your application and are impressed with your track record. Could you start by telling us what this role means to you?`;
+      return `Thank you for applying for Head Student. We've reviewed your application. Could you start by telling us what this role means to you?`;
     }
     return `Thank you for coming in today. I've reviewed your application materials. Let's begin—could you tell me a bit about yourself?`;
   }
-  
-  // JUDGE / COMPETITION personas - formal and procedural
+
+  // ============================================
+  // JUDGE / COMPETITION - Personality Matrix
+  // ============================================
   if (personaRole.includes('judge') || personaRole.includes('competition')) {
+    if (isWarm) {
+      if (scenarioId === 'model_un_speech') {
+        return `Good morning, delegates. Welcome to this session. Remember, this is as much about learning as competing. The floor is open—please begin when ready.`;
+      }
+      if (scenarioId === 'debate_tournament') {
+        return `Good afternoon and welcome to the semi-finals. Take a moment to collect your thoughts. When you're ready, please begin your opening argument.`;
+      }
+      return `Welcome. Take your time, and begin when you feel ready.`;
+    }
+    if (isAnalytical) {
+      if (scenarioId === 'model_un_speech') {
+        return `Delegates. This session follows standard UN procedure. Opening statements: two minutes maximum. Evidence and precedent will be weighted heavily. Proceed.`;
+      }
+      if (scenarioId === 'debate_tournament') {
+        return `Semi-final round. Three minutes for opening arguments. Scoring criteria: logic, evidence, delivery. The motion is on the board. Begin.`;
+      }
+      return `Scoring criteria are posted. You may begin.`;
+    }
+    if (isChallenging) {
+      if (scenarioId === 'model_un_speech') {
+        return `Delegates, real diplomacy has consequences. Your arguments here should reflect that gravity. The floor is open. Impress us.`;
+      }
+      if (scenarioId === 'debate_tournament') {
+        return `Semi-finals. The weak arguments have been eliminated. Show us why you deserve to be here. Begin.`;
+      }
+      return `This is where the competition gets serious. The floor is yours. Make it count.`;
+    }
+    // Neutral
     if (scenarioId === 'model_un_speech') {
-      return `Delegates, we are convened here today to address a matter of global significance. The floor is now open for opening statements. You may proceed when ready.`;
+      return `Delegates, we are convened to address a matter of global significance. The floor is now open for opening statements. You may proceed.`;
     }
     if (scenarioId === 'debate_tournament') {
-      return `Good afternoon. This is the semi-final round. You have three minutes to present your opening argument. The motion is on the board. You may begin when ready.`;
+      return `Good afternoon. This is the semi-final round. You have three minutes for your opening argument. The motion is on the board. You may begin.`;
     }
     return `The floor is yours. Please proceed when ready.`;
   }
-  
-  // Scenario-based fallbacks (if persona role doesn't match above)
+
+  // ============================================
+  // SCENARIO-BASED FALLBACKS with Personality
+  // ============================================
   if (scenarioId === 'alumni_networking') {
-    return `Hey! Great to meet you. These events can be a bit overwhelming—I remember my first one! What brings you here today?`;
+    if (isWarm) return `Hey! Great to meet you. These events can be a bit overwhelming—I remember my first one! What brings you here today?`;
+    if (isAnalytical) return `Hi. I have limited time at these events. What specifically would you like to know?`;
+    if (isChallenging) return `So, what's your pitch? Why should I spend my limited networking time with you?`;
+    return `Good to meet you. What would you like to discuss?`;
   }
+  
   if (scenarioId === 'oxbridge_interview') {
-    return `Good morning. I'll be conducting your interview today. Please, take a seat. Before we begin, could you tell me what drew you to apply here?`;
+    if (isWarm) return `Good morning! Please come in and make yourself comfortable. Before we begin, what drew you to apply here?`;
+    if (isAnalytical) return `Good morning. Let's begin. Why this subject and why this institution?`;
+    if (isChallenging) return `Sit down. I've seen many applications. Tell me what makes yours worth my time.`;
+    return `Good morning. I'll be conducting your interview today. Please take a seat. Could you tell me what drew you to apply here?`;
   }
+  
   if (scenarioId === 'leadership_speech') {
+    if (isWarm) return `Everyone's gathered and ready to hear from you. Take your time—speak from the heart.`;
+    if (isAnalytical) return `The group is assembled. You have their attention. What's your key message?`;
+    if (isChallenging) return `They're all watching. This is your moment to prove you belong in this role. Go.`;
     return `Everyone's gathered and waiting. This is your moment. Whenever you're ready, address the group.`;
   }
+  
   if (scenarioId === 'leadership_role') {
-    return `So, you've taken on this responsibility. Let's discuss how you're approaching it. What's been on your mind?`;
+    if (isWarm) return `So, you've taken on this responsibility—that's exciting! How are you finding it? What's been on your mind?`;
+    if (isAnalytical) return `You're in a leadership position now. What's your strategy? What challenges are you anticipating?`;
+    if (isChallenging) return `You wanted this role. What have you actually done with it so far?`;
+    return `So, you've taken on this responsibility. Let's discuss how you're approaching it.`;
   }
+  
   if (scenarioId === 'social_dynamics') {
+    if (isWarm) return `Hey. I noticed something's been going on. Want to talk about it? I'm here to listen.`;
+    if (isAnalytical) return `I've noticed some tension. What's the situation, and what are you thinking of doing about it?`;
+    if (isChallenging) return `Something's clearly going on. Stop dancing around it—what's the actual problem?`;
     return `Hey. I noticed something's been going on. Want to talk about it?`;
   }
+  
   if (scenarioId === 'academic_presentation') {
+    if (isWarm) return `Alright, whenever you're ready. Take your time and begin when you feel comfortable.`;
+    if (isAnalytical) return `You may begin. I'll be evaluating structure, evidence, and argumentation.`;
+    if (isChallenging) return `The floor is yours. Convince me your thesis is worth defending.`;
     return `Alright, whenever you're ready. The floor is yours.`;
   }
-  
-  // Communication style fallback
-  if (communicationStyle.includes('friendly') || communicationStyle.includes('casual') || communicationStyle.includes('relatable')) {
-    return `Hey there! Thanks for taking the time. So, what's on your mind?`;
+
+  // ============================================
+  // ULTIMATE FALLBACK with Personality
+  // ============================================
+  if (isWarm) {
+    return `Hi! Thanks for taking the time. I'm looking forward to our conversation. So, what's on your mind?`;
   }
-  if (communicationStyle.includes('formal') || communicationStyle.includes('professional')) {
-    return `Good morning. Thank you for meeting with me. Shall we begin?`;
+  if (isAnalytical) {
+    return `Let's begin. What would you like to discuss?`;
   }
-  
-  // Ultimate fallback
-  return `Hello. Let's begin our conversation. I'm interested to hear your thoughts. What would you like to discuss?`;
+  if (isChallenging) {
+    return `Alright. You have my attention. What do you want to talk about?`;
+  }
+  return `Hello. Let's begin our conversation. What would you like to discuss?`;
 }
 
 async function persistMessage(sessionId: string, message: Message, signals?: DetectedSignals) {
