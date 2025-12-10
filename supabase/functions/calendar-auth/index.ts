@@ -15,38 +15,71 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     
-    // For callback action, read from URL params
+    // Create Supabase client with user's auth token for authenticated requests
+    const authHeader = req.headers.get('Authorization');
+    
+    // Use service role client for database operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // For callback action (OAuth redirect), read from URL params - this is the only unauthenticated path
     let action = url.searchParams.get('action');
     let provider = url.searchParams.get('provider');
-    let userId = url.searchParams.get('userId');
     
-    // For connect/disconnect actions, read from request body
+    // State contains the userId for OAuth callback (passed during OAuth initiation)
+    const stateUserId = url.searchParams.get('state');
+    
+    // For connect/disconnect actions, require authentication and get userId from JWT
+    let authenticatedUserId: string | null = null;
+    
     if (req.method === 'POST') {
       const body = await req.json();
       action = body.action || action;
       provider = body.provider || provider;
-      userId = body.userId || userId;
+      
+      // For POST requests (connect/disconnect), extract user from JWT - DO NOT trust client-provided userId
+      if (authHeader) {
+        const supabaseUser = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        
+        const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+        if (userError || !user) {
+          console.error('[calendar-auth] Auth error:', userError);
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized - valid authentication required' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        authenticatedUserId = user.id;
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - missing authorization header' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
     
-    // Default provider to Google when not explicitly provided (e.g. OAuth callback)
+    // Default provider to Google when not explicitly provided
     provider = provider || 'google';
 
-    console.log('[calendar-auth] Action:', action, 'Provider:', provider, 'UserId:', userId);
+    console.log('[calendar-auth] Action:', action, 'Provider:', provider, 'AuthenticatedUserId:', authenticatedUserId);
 
     // Validate input
     const providerSchema = z.enum(['google', 'outlook']);
     const validProvider = providerSchema.parse(provider);
 
-    // Use service role client for database operations since we're not using backend JWT
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     if (action === 'connect') {
-      // Step 1: Generate OAuth URL
-      if (!userId) {
-        throw new Error('Missing user identifier for connect action');
+      // Step 1: Generate OAuth URL - requires authenticated user
+      if (!authenticatedUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required for connect action' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
       let authUrl = '';
@@ -59,8 +92,9 @@ serve(async (req) => {
           throw new Error('Google Calendar Client ID not configured');
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(userId)}`;
-        console.log('[calendar-auth] Generated OAuth URL for user:', userId);
+        // Pass authenticated userId in state for OAuth callback
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(authenticatedUserId)}`;
+        console.log('[calendar-auth] Generated OAuth URL for authenticated user:', authenticatedUserId);
       }
 
       return new Response(
@@ -68,13 +102,16 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'callback' || url.searchParams.get('code')) {
-      // Step 2: Handle OAuth callback
+      // Step 2: Handle OAuth callback - userId comes from state parameter (set during connect)
       const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state'); // userId
       
-      if (!code || !state) {
+      if (!code || !stateUserId) {
         throw new Error('Missing code or state');
       }
+
+      // Validate the userId from state is a valid UUID format
+      const uuidSchema = z.string().uuid();
+      const validUserId = uuidSchema.parse(stateUserId);
 
       let tokenUrl = '';
       let clientId = '';
@@ -109,28 +146,94 @@ serve(async (req) => {
         throw new Error(tokens.error_description || tokens.error || 'Failed to get access token');
       }
 
-      // Store tokens directly in calendar_connections table
-      const { error: insertError } = await supabaseClient
+      // Store tokens securely in Vault using RPC functions
+      // First, check if connection exists
+      const { data: existingConn } = await supabaseAdmin
         .from('calendar_connections')
-        .upsert({
-          user_id: state,
-          provider: validProvider,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || null,
-          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          is_active: true,
-        }, {
-          onConflict: 'user_id',
-        });
+        .select('id')
+        .eq('user_id', validUserId)
+        .single();
 
-      if (insertError) {
-        console.error('Error storing calendar connection:', insertError);
-        throw new Error(insertError.message || 'Failed to store calendar connection');
+      if (existingConn) {
+        // Update existing connection - store tokens in vault
+        const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
+          _connection_id: existingConn.id,
+          _token: tokens.access_token
+        });
+        
+        if (accessTokenError) {
+          console.error('[calendar-auth] Error storing access token in vault:', accessTokenError);
+        }
+
+        if (tokens.refresh_token) {
+          const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
+            _connection_id: existingConn.id,
+            _token: tokens.refresh_token
+          });
+          
+          if (refreshTokenError) {
+            console.error('[calendar-auth] Error storing refresh token in vault:', refreshTokenError);
+          }
+        }
+
+        // Update connection metadata (without plaintext tokens)
+        const { error: updateError } = await supabaseAdmin
+          .from('calendar_connections')
+          .update({
+            provider: validProvider,
+            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingConn.id);
+
+        if (updateError) {
+          console.error('[calendar-auth] Error updating calendar connection:', updateError);
+          throw new Error(updateError.message || 'Failed to update calendar connection');
+        }
+      } else {
+        // Create new connection record first (without tokens)
+        const { data: newConn, error: insertError } = await supabaseAdmin
+          .from('calendar_connections')
+          .insert({
+            user_id: validUserId,
+            provider: validProvider,
+            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+            is_active: true,
+          })
+          .select('id')
+          .single();
+
+        if (insertError || !newConn) {
+          console.error('[calendar-auth] Error creating calendar connection:', insertError);
+          throw new Error(insertError?.message || 'Failed to create calendar connection');
+        }
+
+        // Now store tokens in vault
+        const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
+          _connection_id: newConn.id,
+          _token: tokens.access_token
+        });
+        
+        if (accessTokenError) {
+          console.error('[calendar-auth] Error storing access token in vault:', accessTokenError);
+        }
+
+        if (tokens.refresh_token) {
+          const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
+            _connection_id: newConn.id,
+            _token: tokens.refresh_token
+          });
+          
+          if (refreshTokenError) {
+            console.error('[calendar-auth] Error storing refresh token in vault:', refreshTokenError);
+          }
+        }
       }
 
-      console.log('[calendar-auth] Calendar connection stored successfully for user:', state);
+      console.log('[calendar-auth] Calendar connection stored securely for user:', validUserId);
 
-      // Redirect back to the app with success parameter (works with iframe/full-page flow)
+      // Redirect back to the app with success parameter
       const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://5bd59ee0-ab8c-409f-bc56-72fe64069377.lovableproject.com';
       const redirectUrl = `${frontendUrl}/onboarding/context-connection?calendar_connected=true`;
       
@@ -143,20 +246,23 @@ serve(async (req) => {
         },
       });
     } else if (action === 'disconnect') {
-      // Disconnect calendar
-      if (!userId) {
-        throw new Error('Missing user identifier for disconnect action');
+      // Disconnect calendar - requires authenticated user
+      if (!authenticatedUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required for disconnect action' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
-      const { error } = await supabaseClient
+      const { error } = await supabaseAdmin
         .from('calendar_connections')
         .update({ is_active: false })
-        .eq('user_id', userId)
+        .eq('user_id', authenticatedUserId)
         .eq('provider', validProvider);
 
       if (error) throw error;
       
-      console.log('[calendar-auth] Disconnected calendar for user:', userId);
+      console.log('[calendar-auth] Disconnected calendar for authenticated user:', authenticatedUserId);
 
       return new Response(
         JSON.stringify({ success: true }),
