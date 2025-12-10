@@ -1,10 +1,131 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// ============================================
+// INPUT VALIDATION SCHEMAS
+// ============================================
+
+const SignalsSchema = z.object({
+  sentiment: z.object({
+    polarity: z.string().optional(),
+    intensity: z.number().optional(),
+    confidence: z.number().optional(),
+    trendShift: z.number().optional(),
+    markers: z.array(z.string()).optional()
+  }).optional(),
+  emotions: z.object({
+    primary: z.string().optional(),
+    secondary: z.string().nullable().optional(),
+    markers: z.array(z.string()).optional()
+  }).optional(),
+  eiBehaviors: z.object({
+    empathyLevel: z.string().optional(),
+    selfRegulationLevel: z.string().optional(),
+    perspectiveTaking: z.boolean().optional(),
+    reflectiveStatements: z.boolean().optional(),
+    escalationPattern: z.string().optional()
+  }).optional(),
+  skillGaps: z.object({
+    selfMastery: z.array(z.string()).optional(),
+    socialMastery: z.array(z.string()).optional(),
+    severity: z.string().optional()
+  }).optional(),
+  conversationFlow: z.object({
+    responseType: z.string().optional(),
+    topicShift: z.boolean().optional(),
+    questionAsked: z.boolean().optional(),
+    assumptionsMade: z.boolean().optional(),
+    acknowledgedOther: z.boolean().optional()
+  }).optional(),
+  riskFlags: z.object({
+    crisisIndicators: z.boolean().optional(),
+    escalationRisk: z.string().optional(),
+    interventionUrgency: z.string().optional()
+  }).optional(),
+  coachingReadiness: z.object({
+    openToFeedback: z.boolean().optional(),
+    inBreakthroughMoment: z.boolean().optional(),
+    demonstratingMastery: z.boolean().optional(),
+    recommendIntervention: z.boolean().optional(),
+    reason: z.string().optional()
+  }).optional()
+}).optional();
+
+const ContextSchema = z.object({
+  persona: z.object({
+    name: z.string().max(200),
+    role: z.string().max(200),
+    background: z.string().max(2000).optional(),
+    personality_traits: z.array(z.string().max(100)).max(20).optional(),
+    voice_style: z.string().max(100).optional(),
+    evaluation_signals: z.record(z.any()).optional()
+  }).optional(),
+  coach: z.object({
+    style: z.enum(['supportive', 'challenging', 'minimal']).optional(),
+    intervention_count: z.number().int().min(0).max(100).optional()
+  }).optional(),
+  scenario: z.object({
+    name: z.string().max(200).optional(),
+    title: z.string().max(200).optional(),
+    context: z.record(z.any()).optional(),
+    target_meta_skills: z.array(z.string().max(100)).max(20).optional()
+  }).optional(),
+  scenarioId: z.string().max(200).optional(),
+  userArchetype: z.string().max(200).nullable().optional(),
+  growthPriority: z.string().max(200).nullable().optional(),
+  energyState: z.string().max(100).nullable().optional(),
+  energyBalance: z.number().nullable().optional(),
+  duration_minutes: z.number().int().min(1).max(120).optional(),
+  elapsed_minutes: z.number().min(0).max(120).optional(),
+  intervention_count: z.number().int().min(0).max(100).optional(),
+  message_count: z.number().int().min(0).max(500).optional(),
+  calendarContext: z.object({
+    upcoming_count: z.number().int().min(0).optional(),
+    high_stakes: z.boolean().optional()
+  }).nullable().optional(),
+  historicalPatterns: z.object({
+    session_count: z.number().int().min(0).optional(),
+    common_gaps: z.array(z.string().max(100)).max(20).optional(),
+    strengths: z.array(z.string().max(100)).max(20).optional(),
+    onboarding_gaps: z.array(z.string().max(100)).max(20).optional()
+  }).nullable().optional(),
+  additionalContext: z.string().max(5000).nullable().optional(),
+  attachments: z.array(z.object({
+    name: z.string().max(200),
+    type: z.string().max(100),
+    content: z.string().max(50000).optional()
+  })).max(10).optional(),
+  personalityStyle: z.string().max(100).optional(),
+  practiceDuration: z.number().int().min(1).max(120).optional()
+});
+
+const ConversationHistorySchema = z.array(z.object({
+  role: z.string().max(50).optional(),
+  sender: z.string().max(50).optional(),
+  content: z.string().max(10000)
+})).max(100);
+
+const SafetyCheckSchema = z.object({
+  triggered: z.boolean().optional(),
+  category: z.string().max(100).optional(),
+  severity: z.string().max(50).optional(),
+  reason: z.string().max(1000).optional(),
+  recommendedAction: z.string().max(500).optional()
+}).optional();
+
+const DialogueEngineInputSchema = z.object({
+  userMessage: z.string().min(1).max(5000),
+  signals: SignalsSchema,
+  context: ContextSchema,
+  conversationHistory: ConversationHistorySchema.optional(),
+  safetyCheck: SafetyCheckSchema
+});
 
 // ============================================
 // TYPE DEFINITIONS
@@ -801,13 +922,25 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      userMessage, 
-      signals, 
-      context, 
-      conversationHistory,
-      safetyCheck 
-    } = await req.json();
+    const rawBody = await req.json();
+    
+    // Validate input with Zod schema
+    const parseResult = DialogueEngineInputSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      console.error('[dialogue-engine] Input validation failed:', parseResult.error.errors);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input',
+        details: parseResult.error.errors.map(e => ({
+          path: e.path.join('.'),
+          message: e.message
+        }))
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const { userMessage, signals, context, conversationHistory, safetyCheck } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
