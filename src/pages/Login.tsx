@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -6,12 +6,14 @@ import { Loader2 } from 'lucide-react';
 const Login = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
+  const redirectInitiated = useRef(false);
 
   useEffect(() => {
     console.log('[Login] Component mounted:', { 
       isLoading, 
       isAuthenticated,
-      pathname: window.location.pathname
+      pathname: window.location.pathname,
+      redirectInitiated: redirectInitiated.current
     });
 
     if (isLoading) return;
@@ -22,8 +24,16 @@ const Login = () => {
       return;
     }
 
+    // Prevent multiple redirect attempts
+    if (redirectInitiated.current) {
+      console.log('[Login] Redirect already initiated, skipping');
+      return;
+    }
+
     // Use redirect instead of popup - works reliably on all devices including mobile
     console.log('[Login] Initiating Auth0 redirect flow');
+    redirectInitiated.current = true;
+    
     loginWithRedirect({
       authorizationParams: {
         redirect_uri: `${window.location.origin}/callback`,

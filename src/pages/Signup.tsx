@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -7,6 +7,7 @@ const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
+  const redirectInitiated = useRef(false);
 
   useEffect(() => {
     const isOnboardingFlow = location.pathname.includes('/onboarding') || 
@@ -17,7 +18,8 @@ const Signup = () => {
       isAuthenticated,
       pathname: location.pathname,
       search: location.search,
-      isOnboardingFlow
+      isOnboardingFlow,
+      redirectInitiated: redirectInitiated.current
     });
 
     if (isLoading) return;
@@ -33,8 +35,15 @@ const Signup = () => {
       return;
     }
 
+    // Prevent multiple redirect attempts
+    if (redirectInitiated.current) {
+      console.log('[Signup] Redirect already initiated, skipping');
+      return;
+    }
+
     // Use redirect instead of popup - works reliably on all devices including mobile
     console.log('[Signup] Initiating Auth0 redirect flow', { isOnboardingFlow });
+    redirectInitiated.current = true;
     
     const redirectUri = isOnboardingFlow 
       ? `${window.location.origin}/callback?from=onboarding`
