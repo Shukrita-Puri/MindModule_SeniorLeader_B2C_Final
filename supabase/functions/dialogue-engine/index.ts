@@ -128,15 +128,15 @@ const DialogueEngineInputSchema = z.object({
   safetyCheck: SafetyCheckSchema,
   // Configuration from /practice/configure for opening message generation
   configuration: z.object({
-    scenarioCategory: z.enum(['leadership', 'difficult', 'pressure', 'change', 'recovery']).optional(),
+    scenarioCategory: z.string().max(200).optional(), // Flexible - accepts any category from DB
     scenarioId: z.string().max(200).optional(),
     isCustomScenario: z.boolean().optional(),
     customScenarioText: z.string().max(2000).optional(),
-    personaType: z.enum(['classmate', 'teacher', 'admissions', 'dean', 'student-leader', 'parent', 'coach', 'counselor', 'alumni', 'custom']).optional(),
+    personaType: z.string().max(100).optional(), // Flexible - accepts any persona type
     customPersonaText: z.string().max(1000).optional(),
     personalityStyle: z.enum(['warm-supportive', 'analytical-direct', 'challenging-probing', 'neutral-professional', 'custom']).optional(),
     customPersonalityText: z.string().max(1000).optional(),
-    voiceStyle: z.enum(['masculine', 'feminine']).optional(),
+    voiceStyle: z.enum(['masculine', 'feminine', 'neutral']).optional(),
     practiceDuration: z.number().int().min(5).max(60).optional(),
     additionalContext: z.string().max(5000).optional(),
     attachments: z.array(z.object({
