@@ -13,47 +13,100 @@ const corsHeaders = {
 
 const SignalsSchema = z.object({
   sentiment: z.object({
+    score: z.number().optional(),
+    label: z.string().optional(),
     polarity: z.string().optional(),
     intensity: z.number().optional(),
     confidence: z.number().optional(),
     trendShift: z.number().optional(),
     markers: z.array(z.string()).optional()
   }).optional(),
-  emotions: z.object({
-    primary: z.string().optional(),
-    secondary: z.string().nullable().optional(),
-    markers: z.array(z.string()).optional()
-  }).optional(),
+  
+  // Client sends ARRAY of EmotionResult
+  emotions: z.array(z.object({
+    type: z.string(),
+    confidence: z.number().optional(),
+    indicators: z.array(z.string()).optional()
+  })).optional(),
+  
+  // Client sends objects with { detected, indicators, level? }
   eiBehaviors: z.object({
+    empathy: z.object({
+      detected: z.boolean().optional(),
+      indicators: z.array(z.string()).optional()
+    }).optional(),
+    selfRegulation: z.object({
+      detected: z.boolean().optional(),
+      indicators: z.array(z.string()).optional()
+    }).optional(),
+    perspectiveTaking: z.object({
+      detected: z.boolean().optional(),
+      indicators: z.array(z.string()).optional()
+    }).optional(),
+    reflectiveStatement: z.object({
+      detected: z.boolean().optional(),
+      indicators: z.array(z.string()).optional()
+    }).optional(),
+    escalationPattern: z.object({
+      detected: z.boolean().optional(),
+      level: z.number().optional(),
+      indicators: z.array(z.string()).optional()
+    }).optional(),
+    // Legacy fallbacks
     empathyLevel: z.string().optional(),
-    selfRegulationLevel: z.string().optional(),
-    perspectiveTaking: z.boolean().optional(),
-    reflectiveStatements: z.boolean().optional(),
-    escalationPattern: z.string().optional()
+    selfRegulationLevel: z.string().optional()
   }).optional(),
-  skillGaps: z.object({
-    selfMastery: z.array(z.string()).optional(),
-    socialMastery: z.array(z.string()).optional(),
-    severity: z.string().optional()
-  }).optional(),
+  
+  // Client sends ARRAY of SkillGap
+  skillGaps: z.array(z.object({
+    metaSkill: z.string(),
+    subSkill: z.string(),
+    cluster: z.string(),
+    confidence: z.number().optional(),
+    indicators: z.array(z.string()).optional()
+  })).optional(),
+  
+  skillStrengths: z.array(z.object({
+    metaSkill: z.string(),
+    subSkill: z.string(),
+    cluster: z.string(),
+    confidence: z.number().optional(),
+    indicators: z.array(z.string()).optional()
+  })).optional(),
+  
   conversationFlow: z.object({
     responseType: z.string().optional(),
     topicShift: z.boolean().optional(),
+    questionsAsked: z.number().optional(),
     questionAsked: z.boolean().optional(),
-    assumptionsMade: z.boolean().optional(),
+    assumptionsMade: z.union([z.boolean(), z.array(z.string())]).optional(),
+    acknowledgementsGiven: z.boolean().optional(),
     acknowledgedOther: z.boolean().optional()
   }).optional(),
+  
+  riskAssessment: z.object({
+    escalationRisk: z.string().optional(),
+    interventionUrgency: z.string().optional(),
+    riskFactors: z.array(z.string()).optional()
+  }).optional(),
+  
   riskFlags: z.object({
     crisisIndicators: z.boolean().optional(),
     escalationRisk: z.string().optional(),
     interventionUrgency: z.string().optional()
   }).optional(),
+  
   coachingReadiness: z.object({
+    opennessScore: z.number().optional(),
     openToFeedback: z.boolean().optional(),
+    breakthroughPotential: z.boolean().optional(),
     inBreakthroughMoment: z.boolean().optional(),
+    masteryDemonstrated: z.union([z.array(z.string()), z.boolean()]).optional(),
     demonstratingMastery: z.boolean().optional(),
+    canIntervene: z.boolean().optional(),
     recommendIntervention: z.boolean().optional(),
-    reason: z.string().optional()
+    reason: z.string().optional(),
+    reasonIfNot: z.string().optional()
   }).optional()
 }).optional();
 
@@ -1048,6 +1101,13 @@ ${attachments.length > 0 ? `   - User attached ${attachments.length} file(s): ${
 
 6. **OPENING LENGTH**: 1-3 sentences maximum. Natural, conversational.
 
+7. **FULL IMMERSION - THIS IS REAL**: 
+   - ❌ NEVER: "practice", "training", "session", "exercise", "simulation", "role-play"
+   - ❌ NEVER: "We have X minutes for this practice"
+   - ✅ ALWAYS: Treat this as the ACTUAL scenario (real interview, real meeting, real conversation)
+   - The persona NEVER breaks character to acknowledge this is practice
+   - You are THAT person, in THAT role, having a REAL conversation
+
 ## OUTPUT FORMAT
 
 Respond with ONLY a JSON object:
@@ -1112,7 +1172,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            { role: 'system', content: 'You are generating an opening message for a practice conversation. Respond with valid JSON only.' },
+            { role: 'system', content: 'You are generating an opening message from a persona in a realistic scenario. Stay fully in character. Never reference this as practice, training, or simulation. Respond with valid JSON only.' },
             { role: 'user', content: openingPrompt }
           ],
           max_tokens: 500
