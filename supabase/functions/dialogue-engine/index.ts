@@ -120,11 +120,31 @@ const SafetyCheckSchema = z.object({
 }).optional();
 
 const DialogueEngineInputSchema = z.object({
+  type: z.enum(['opening', 'response']).optional().default('response'),
   userMessage: z.string().min(1).max(5000),
   signals: SignalsSchema,
   context: ContextSchema,
   conversationHistory: ConversationHistorySchema.optional(),
-  safetyCheck: SafetyCheckSchema
+  safetyCheck: SafetyCheckSchema,
+  // Configuration from /practice/configure for opening message generation
+  configuration: z.object({
+    scenarioCategory: z.enum(['leadership', 'difficult', 'pressure', 'change', 'recovery']).optional(),
+    scenarioId: z.string().max(200).optional(),
+    isCustomScenario: z.boolean().optional(),
+    customScenarioText: z.string().max(2000).optional(),
+    personaType: z.enum(['classmate', 'teacher', 'admissions', 'dean', 'student-leader', 'parent', 'coach', 'counselor', 'alumni', 'custom']).optional(),
+    customPersonaText: z.string().max(1000).optional(),
+    personalityStyle: z.enum(['warm-supportive', 'analytical-direct', 'challenging-probing', 'neutral-professional', 'custom']).optional(),
+    customPersonalityText: z.string().max(1000).optional(),
+    voiceStyle: z.enum(['masculine', 'feminine']).optional(),
+    practiceDuration: z.number().int().min(5).max(60).optional(),
+    additionalContext: z.string().max(5000).optional(),
+    attachments: z.array(z.object({
+      name: z.string().max(200),
+      type: z.string().max(100),
+      content: z.string().max(50000).optional()
+    })).max(10).optional()
+  }).optional()
 });
 
 // ============================================
@@ -916,6 +936,135 @@ function transformSafetyCheck(legacySafety: any): SafetyCheck {
 // MAIN SERVER
 // ============================================
 
+// Build opening message prompt for session start
+function buildOpeningMessagePrompt(config: any, context: any): string {
+  const personaType = config?.personaType || 'admissions';
+  const personalityStyle = config?.personalityStyle || 'neutral-professional';
+  const scenarioId = config?.scenarioId || context?.scenarioId || 'general';
+  const scenarioCategory = config?.scenarioCategory || 'pressure';
+  const voiceStyle = config?.voiceStyle || 'neutral';
+  const practiceDuration = config?.practiceDuration || 20;
+  const additionalContext = config?.additionalContext || context?.additionalContext || '';
+  const attachments = config?.attachments || context?.attachments || [];
+  const isCustomScenario = config?.isCustomScenario || false;
+  const customScenarioText = config?.customScenarioText || '';
+  const customPersonaText = config?.customPersonaText || '';
+  const customPersonalityText = config?.customPersonalityText || '';
+  const personaName = context?.persona?.name || context?.personaName || 'Interviewer';
+  const personaRole = context?.persona?.role || context?.personaRole || 'Professional';
+
+  return `
+# OPENING MESSAGE GENERATION
+
+You are generating the FIRST message from an AI persona to start a practice conversation.
+This message sets the tone for the entire session.
+
+## CONFIGURATION CONSTRAINTS (FIXED OPTIONS)
+
+The user selected from predefined options. Your opening message MUST align with these exact selections:
+
+### SELECTED CONFIGURATION
+- **Scenario Category**: ${scenarioCategory}
+- **Specific Scenario**: ${isCustomScenario ? `CUSTOM: "${customScenarioText}"` : scenarioId}
+- **Persona Type**: ${personaType === 'custom' ? `CUSTOM: "${customPersonaText}"` : personaType}
+- **Personality Style**: ${personalityStyle === 'custom' ? `CUSTOM: "${customPersonalityText}"` : personalityStyle}
+- **Voice Style**: ${voiceStyle}
+- **Practice Duration**: ${practiceDuration} minutes
+- **Persona Name**: ${personaName}
+- **Persona Role**: ${personaRole}
+
+### VALID SCENARIO CATEGORIES (for reference)
+- "leadership" → Leadership Moments: inspire, align, elevate others
+- "difficult" → Difficult Conversations: navigate tension with composure
+- "pressure" → High-Pressure Situations: perform with precision under stress
+- "change" → Moments of Change: guide transitions with confidence
+- "recovery" → Recovery & Resilience: restore calm after disruption
+
+### VALID PERSONA TYPES (for reference)
+- "classmate" → Peer, same-age student (casual, age-appropriate)
+- "teacher" → Teacher/Professor with authority (authoritative but encouraging)
+- "admissions" → University Admissions Officer (evaluative role)
+- "dean" → Dean/Head of School (senior authority)
+- "student-leader" → Club President/Student Leader (peer leader)
+- "parent" → Parent/Guardian (family dynamic)
+- "coach" → Coach/Sports Mentor (motivational authority)
+- "counselor" → School Counselor (supportive guidance)
+- "alumni" → Graduate/Former Student (peer-ish, experience-sharing)
+
+### PERSONALITY STYLE BEHAVIORS (MANDATORY - Match Exactly)
+ONLY 4 predefined styles exist. Match the selected style EXACTLY:
+
+**warm-supportive**: 
+- Friendly, encouraging, builds rapport, puts at ease
+- Uses: "Great to meet you!", "I'm looking forward to...", "Take your time..."
+- Creates psychological safety before diving in
+
+**analytical-direct**:
+- Efficient, to-the-point, time-conscious, fact-focused
+- Uses: "Let's begin.", "We have X minutes.", "Walk me through..."
+- Values clarity and gets to business quickly
+
+**challenging-probing**:
+- Intellectually rigorous (NOT rude), tests thinking, asks "why"
+- Uses: "I'm curious what sets you apart...", "Convince me...", "What makes you different..."
+- Pushes for depth WITHOUT being dismissive or condescending
+- ⚠️ CRITICAL: "Challenging" means intellectually demanding, NOT rude, cold, or arrogant
+
+**neutral-professional**:
+- Balanced, formal, objective, measured
+- Uses: "Thank you for coming.", "Could you tell me...", "Please explain..."
+- Neither warm nor cold, standard professional demeanor
+
+### VOICE STYLE GUIDANCE
+- "masculine": Confident, assertive language. Direct statements over hedged language.
+- "feminine": Collaborative, empathetic language. More acknowledgment and validation.
+
+## OPENING MESSAGE RULES (CRITICAL)
+
+1. **LOCATION-NEUTRAL**: Never assume physical presence or location
+   - ❌ NEVER: "Sit down", "Come in", "These networking events", "Welcome to our office"
+   - ✅ ALWAYS: "Good morning", "Thanks for connecting", "I've been looking forward to this"
+
+2. **MATCH PERSONALITY EXACTLY**: Use the exact style selected above
+   - If warm-supportive: Be genuinely warm and encouraging
+   - If analytical-direct: Get to business efficiently
+   - If challenging-probing: Be intellectually demanding (NOT rude)
+   - If neutral-professional: Stay balanced and formal
+
+3. **CHALLENGING ≠ RUDE**: This is critical
+   - ✅ GOOD: "I'm genuinely curious what sets you apart from other candidates"
+   - ✅ GOOD: "Tell me something that's not on your application"
+   - ❌ BAD: "Sit down. I've read hundreds of applications like yours"
+   - ❌ BAD: "Why should I waste my time with you?"
+
+4. **SCENARIO-APPROPRIATE**: Match formality and context
+   - Interview scenarios → More formal opening
+   - Peer/social scenarios → More casual opening
+   - Leadership scenarios → Audience-aware, motivational
+
+5. **LEVERAGE USER CONTEXT IF PROVIDED**:
+${additionalContext ? `   - User's additional context: "${additionalContext}" - subtly reference this` : '   - No additional context provided'}
+${attachments.length > 0 ? `   - User attached ${attachments.length} file(s): ${attachments.map((a: any) => a.name).join(', ')} - acknowledge if relevant` : '   - No attachments'}
+
+6. **OPENING LENGTH**: 1-3 sentences maximum. Natural, conversational.
+
+## OUTPUT FORMAT
+
+Respond with ONLY a JSON object:
+
+\`\`\`json
+{
+  "opening_message": {
+    "content": "The opening message from the persona (1-3 sentences, location-neutral, personality-matched)",
+    "emotion": "friendly" | "professional" | "curious" | "warm" | "neutral" | "analytical"
+  }
+}
+\`\`\`
+
+Generate the opening message now.
+`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -940,13 +1089,73 @@ serve(async (req) => {
       });
     }
     
-    const { userMessage, signals, context, conversationHistory, safetyCheck } = parseResult.data;
+    const { type, userMessage, signals, context, conversationHistory, safetyCheck, configuration } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    // Handle opening message generation
+    if (type === 'opening') {
+      console.log('[dialogue-engine] Generating opening message');
+      console.log('[dialogue-engine] Configuration:', JSON.stringify(configuration || {}, null, 2));
+      
+      const openingPrompt = buildOpeningMessagePrompt(configuration, context);
+      
+      const openingResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'You are generating an opening message for a practice conversation. Respond with valid JSON only.' },
+            { role: 'user', content: openingPrompt }
+          ],
+          max_tokens: 500
+        }),
+      });
+
+      if (!openingResponse.ok) {
+        console.error('[dialogue-engine] Opening message generation failed:', openingResponse.status);
+        // Return fallback opening
+        return new Response(JSON.stringify({
+          opening_message: {
+            content: "Good morning. Thank you for joining me today. I'm looking forward to our conversation.",
+            emotion: "professional"
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const openingData = await openingResponse.json();
+      let openingContent = openingData.choices?.[0]?.message?.content || '';
+      openingContent = openingContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      try {
+        const parsedOpening = JSON.parse(openingContent);
+        console.log('[dialogue-engine] Opening message generated successfully');
+        return new Response(JSON.stringify(parsedOpening), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (parseError) {
+        console.error('[dialogue-engine] Opening parse error:', parseError);
+        return new Response(JSON.stringify({
+          opening_message: {
+            content: "Good morning. Thank you for joining me today. I'm looking forward to our conversation.",
+            emotion: "professional"
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Regular response flow (type === 'response')
     // Transform legacy formats to new unified format
     const detectedSignals = transformSignals(signals);
     const { personaConfig, coachConfig, scenarioConfig, sessionContext } = transformContext(context);
@@ -970,7 +1179,7 @@ serve(async (req) => {
       safetyCheck: safetyCk
     });
 
-    console.log('[dialogue-engine] Processing message for session:', context.scenarioId);
+    console.log('[dialogue-engine] Processing message for session:', context?.scenarioId);
     console.log('[dialogue-engine] Coaching style:', coachConfig.style);
     console.log('[dialogue-engine] Personality style:', sessionContext.personalityStyle);
     console.log('[dialogue-engine] Practice duration:', sessionContext.practiceDuration);
