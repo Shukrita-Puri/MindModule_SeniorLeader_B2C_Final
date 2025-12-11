@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
 
+// Mobile detection helper
+const isMobileDevice = () => {
+  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,10 +22,9 @@ export default function Stage7ContextConnection() {
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
-  // Handle OAuth popup message
+  // Handle OAuth callback (for both popup message and redirect)
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      // Check if message is from our OAuth popup
       if (event.data?.type === 'calendar_connected') {
         console.log('[Stage7] Received OAuth popup message:', event.data);
         
@@ -28,26 +32,7 @@ export default function Stage7ContextConnection() {
           toast.success("Calendar connected successfully!");
           setCalendarConnected(true);
           setConnecting(false);
-          
-          // Trigger initial calendar sync
-          try {
-            console.log('[Stage7] Triggering initial calendar sync');
-            const { error } = await supabase.functions.invoke('sync-calendar', {
-              body: { provider: 'google' }
-            });
-            
-            if (error) {
-              console.error('[Stage7] Sync error:', error);
-              toast.error("Calendar connected but sync failed", {
-                description: "You can try syncing again from settings."
-              });
-            } else {
-              console.log('[Stage7] Initial sync completed successfully');
-              toast.success("Calendar synced successfully!");
-            }
-          } catch (error) {
-            console.error('[Stage7] Sync failed:', error);
-          }
+          await triggerCalendarSync();
         } else {
           toast.error("Calendar connection failed", {
             description: event.data.error || "Please try again."
@@ -62,16 +47,76 @@ export default function Stage7ContextConnection() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Also check URL params for fallback (deployed site direct navigation)
+  // Handle OAuth redirect callback via URL params
   useEffect(() => {
     const calendarConnectedParam = searchParams.get('calendar_connected');
+    const calendarError = searchParams.get('calendar_error');
+    
     if (calendarConnectedParam === 'true') {
       console.log('[Stage7] OAuth callback via URL param detected');
       toast.success("Calendar connected successfully!");
       setCalendarConnected(true);
+      setConnecting(false);
+      setSearchParams({});
+      triggerCalendarSync();
+    } else if (calendarError) {
+      console.log('[Stage7] OAuth error via URL param:', calendarError);
+      toast.error("Calendar connection failed", {
+        description: calendarError || "Please try again."
+      });
+      setCalendarConnected(false);
+      setConnecting(false);
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
+
+  // Check existing connection on mount
+  useEffect(() => {
+    const checkExistingConnection = async () => {
+      if (!appUser?.id) return;
+      
+      setCheckingConnection(true);
+      try {
+        const { data: connection } = await supabase
+          .from('calendar_connections')
+          .select('is_active')
+          .eq('user_id', appUser.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (connection?.is_active) {
+          setCalendarConnected(true);
+        }
+      } catch (error) {
+        console.error('[Stage7] Error checking connection:', error);
+      } finally {
+        setCheckingConnection(false);
+      }
+    };
+
+    checkExistingConnection();
+  }, [appUser?.id]);
+
+  const triggerCalendarSync = async () => {
+    try {
+      console.log('[Stage7] Triggering initial calendar sync');
+      const { error } = await supabase.functions.invoke('sync-calendar', {
+        body: { provider: 'google' }
+      });
+      
+      if (error) {
+        console.error('[Stage7] Sync error:', error);
+        toast.error("Calendar connected but sync failed", {
+          description: "You can try syncing again from settings."
+        });
+      } else {
+        console.log('[Stage7] Initial sync completed successfully');
+        toast.success("Calendar synced successfully!");
+      }
+    } catch (error) {
+      console.error('[Stage7] Sync failed:', error);
+    }
+  };
 
   const handleToggleCalendar = async (checked: boolean) => {
     console.log('[Calendar] Toggle called:', { checked, calendarConnected, connecting, userId: appUser?.id });
@@ -90,7 +135,7 @@ export default function Stage7ContextConnection() {
     if (!checked && calendarConnected) {
       console.log('[Calendar] Disconnecting calendar');
       setConnecting(true);
-      setCalendarConnected(false); // Optimistic update
+      setCalendarConnected(false);
       
       try {
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
@@ -116,11 +161,19 @@ export default function Stage7ContextConnection() {
     if (checked && !calendarConnected) {
       console.log('[Calendar] Initiating connection flow');
       setConnecting(true);
-      setCalendarConnected(true); // Optimistic update
+      setCalendarConnected(true);
       
       try {
+        // Build the redirect URL for after OAuth completes
+        const callbackRedirect = `${window.location.origin}/onboarding/context-connection?calendar_connected=true`;
+        
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
-          body: { action: 'connect', provider: 'google', userId: appUser.id }
+          body: { 
+            action: 'connect', 
+            provider: 'google', 
+            userId: appUser.id,
+            redirectTo: callbackRedirect
+          }
         });
 
         console.log('[Calendar] Connect response:', { data, error });
@@ -131,50 +184,55 @@ export default function Stage7ContextConnection() {
         }
 
         if (data?.authUrl) {
-          console.log('[Calendar] Opening Google OAuth in new window:', data.authUrl);
+          const isMobile = isMobileDevice();
+          console.log('[Calendar] Opening Google OAuth:', { isMobile, authUrl: data.authUrl });
           
-          // Open OAuth in a new window (popup blocked in iframe, but window.open works)
-          const authWindow = window.open(data.authUrl, '_blank');
-          
-          if (!authWindow) {
-            toast.error("Window blocked", {
-              description: "Please allow popups for this site and try again."
-            });
-            setCalendarConnected(false);
-            setConnecting(false);
-            return;
-          }
-          
-          toast.info("Complete authorization in the new window", {
-            description: "This page will update automatically when complete."
-          });
-          
-          // Poll database to detect successful connection
-          const pollInterval = setInterval(async () => {
-            const { data: connection } = await supabase
-              .from('calendar_connections')
-              .select('is_active, updated_at')
-              .eq('user_id', appUser.id)
-              .eq('is_active', true)
-              .maybeSingle();
+          if (isMobile) {
+            // On mobile, use direct redirect - popups are unreliable
+            window.location.href = data.authUrl;
+          } else {
+            // On desktop, try popup first with fallback to redirect
+            const authWindow = window.open(data.authUrl, '_blank', 'width=600,height=700');
             
-            if (connection?.is_active) {
+            if (!authWindow || authWindow.closed) {
+              // Popup blocked - fall back to redirect
+              console.log('[Calendar] Popup blocked, falling back to redirect');
+              window.location.href = data.authUrl;
+              return;
+            }
+            
+            toast.info("Complete authorization in the new window", {
+              description: "This page will update automatically when complete."
+            });
+            
+            // Poll database to detect successful connection
+            const pollInterval = setInterval(async () => {
+              const { data: connection } = await supabase
+                .from('calendar_connections')
+                .select('is_active, updated_at')
+                .eq('user_id', appUser.id)
+                .eq('is_active', true)
+                .maybeSingle();
+              
+              if (connection?.is_active) {
+                clearInterval(pollInterval);
+                console.log('[Calendar] Connection detected via database poll');
+                setCalendarConnected(true);
+                setConnecting(false);
+                toast.success("Calendar connected successfully!");
+                triggerCalendarSync();
+              }
+            }, 1500);
+            
+            // Stop polling after 2 minutes
+            setTimeout(() => {
               clearInterval(pollInterval);
-              console.log('[Calendar] Connection detected via database poll');
-              setCalendarConnected(true);
-              setConnecting(false);
-              toast.success("Calendar connected successfully!");
-            }
-          }, 1500);
-          
-          // Stop polling after 2 minutes
-          setTimeout(() => {
-            clearInterval(pollInterval);
-            if (connecting) {
-              setConnecting(false);
-              setCalendarConnected(false);
-            }
-          }, 120000);
+              if (connecting) {
+                setConnecting(false);
+                setCalendarConnected(false);
+              }
+            }, 120000);
+          }
         } else {
           throw new Error('No authorization URL received from server');
         }
@@ -188,7 +246,6 @@ export default function Stage7ContextConnection() {
   };
 
   const handleComplete = (skipCalendar = false) => {
-    // Save context connection data
     const contextData = {
       calendar: {
         enabled: calendarConnected,
@@ -202,7 +259,6 @@ export default function Stage7ContextConnection() {
     
     localStorage.setItem('contextConnections', JSON.stringify(contextData));
     
-    // Mark onboarding as completed in session
     const session = getSession();
     if (session) {
       session.responses.onboardingCompleted = true;
@@ -211,12 +267,11 @@ export default function Stage7ContextConnection() {
     }
     
     console.log('[Stage7] Context connection saved, navigating to daily check-in');
-    
-    // Navigate to daily check-in (first-time completion of onboarding flow)
     navigate("/daily-check-in");
   };
 
-  return <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         
         {/* Header */}
@@ -304,5 +359,6 @@ export default function Stage7ContextConnection() {
           </Button>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 }

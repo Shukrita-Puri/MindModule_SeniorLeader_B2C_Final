@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const Signup = () => {
-  const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,29 +33,21 @@ const Signup = () => {
       return;
     }
 
-    (async () => {
-      console.log('[Signup] Opening Auth0 signup popup', { isOnboardingFlow });
-      try {
-        await loginWithPopup({
-          authorizationParams: {
-            screen_hint: 'signup',
-            scope: 'openid profile email',
-          },
-        });
+    // Use redirect instead of popup - works reliably on all devices including mobile
+    console.log('[Signup] Initiating Auth0 redirect flow', { isOnboardingFlow });
+    
+    const redirectUri = isOnboardingFlow 
+      ? `${window.location.origin}/callback?from=onboarding`
+      : `${window.location.origin}/callback`;
 
-        if (isOnboardingFlow) {
-          console.log('[Signup] Popup signup complete, redirecting to /onboarding/results');
-          navigate('/onboarding/results');
-        } else {
-          console.log('[Signup] Popup signup complete, redirecting to /executive-home');
-          navigate('/executive-home');
-        }
-      } catch (error) {
-        console.error('[Signup] Popup signup error:', error);
-        navigate('/signup?error=auth_failed');
-      }
-    })();
-  }, [isLoading, isAuthenticated, navigate, location, loginWithPopup]);
+    loginWithRedirect({
+      authorizationParams: {
+        redirect_uri: redirectUri,
+        screen_hint: 'signup',
+        scope: 'openid profile email',
+      },
+    });
+  }, [isLoading, isAuthenticated, navigate, location, loginWithRedirect]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
