@@ -211,7 +211,6 @@ export default function DialogueInterface({
       {showIntervention && latestIntervention && (
         <CoachingToaster
           intervention={latestIntervention}
-          personality={coachPersonality}
           onDismiss={() => setShowIntervention(false)}
         />
       )}

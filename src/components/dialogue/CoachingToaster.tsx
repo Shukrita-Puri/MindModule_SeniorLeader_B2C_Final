@@ -12,30 +12,18 @@ interface Intervention {
   action: string;
   framework?: string;
   wisdomQuote?: string;
+  frameworkApplication?: string;
 }
 
 interface CoachingToasterProps {
   intervention: Intervention;
-  personality: 'supportive' | 'challenging' | 'minimal';
   onDismiss: () => void;
 }
 
 export default function CoachingToaster({
   intervention,
-  personality,
   onDismiss
 }: CoachingToasterProps) {
-  const getPersonalityLabel = () => {
-    switch (personality) {
-      case 'supportive':
-        return 'Supportive';
-      case 'challenging':
-        return 'Challenging';
-      case 'minimal':
-        return 'Minimal';
-    }
-  };
-
   const formatSkillName = (skill: string) => {
     return skill
       .split('_')
@@ -53,7 +41,7 @@ export default function CoachingToaster({
   };
 
   return (
-    <div className="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-stone-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
+    <div className="fixed bottom-32 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[420px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-stone-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
       {/* Header with Close Button */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -61,10 +49,7 @@ export default function CoachingToaster({
           <h3 className="text-sm font-bold tracking-wide text-slate-800 dark:text-slate-100 uppercase">
             MIND MASTERY COACH
           </h3>
-          <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1 mb-2" />
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            ({getPersonalityLabel()})
-          </span>
+          <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1" />
         </div>
         <Button
           variant="ghost"
@@ -102,7 +87,7 @@ export default function CoachingToaster({
         <p className="text-xs text-slate-500 dark:text-slate-400 italic mb-2">
           Try this in your next response:
         </p>
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
           {intervention.action}
         </p>
       </div>
@@ -113,6 +98,11 @@ export default function CoachingToaster({
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
             Framework / Model
           </p>
+          {intervention.frameworkApplication && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
+              {intervention.frameworkApplication}
+            </p>
+          )}
           <div className="flex items-start gap-2">
             <Quote className="w-3 h-3 mt-1 text-slate-400 dark:text-slate-500 flex-shrink-0" />
             <p className="text-xs text-slate-600 dark:text-slate-300">
