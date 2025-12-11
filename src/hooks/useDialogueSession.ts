@@ -28,6 +28,7 @@ interface Intervention {
   action: string;
   framework?: string;
   wisdomQuote?: string;
+  frameworkApplication?: string;
 }
 
 export interface SessionConfig {
@@ -362,7 +363,8 @@ export function useDialogueSession() {
           subSkill: result.coaching_intervention.sub_skill,
           action: result.coaching_intervention.action_step || result.coaching_intervention.action || 'Reflect on this feedback and apply it in your next response.',
           framework: result.coaching_intervention.framework_name || result.coaching_intervention.framework,
-          wisdomQuote: result.coaching_intervention.framework_wisdom || result.coaching_intervention.wisdom_quote
+          wisdomQuote: result.coaching_intervention.framework_wisdom || result.coaching_intervention.wisdom_quote,
+          frameworkApplication: result.coaching_intervention.framework_application
         };
       }
 

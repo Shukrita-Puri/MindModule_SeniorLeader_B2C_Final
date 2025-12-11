@@ -332,7 +332,6 @@ const TextFirstDialogue = ({
           <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40" onClick={() => setActiveIntervention(null)} />
           <CoachingToaster
             intervention={activeIntervention}
-            personality={coachingStyle as 'supportive' | 'challenging' | 'minimal'}
             onDismiss={() => setActiveIntervention(null)}
           />
         </>

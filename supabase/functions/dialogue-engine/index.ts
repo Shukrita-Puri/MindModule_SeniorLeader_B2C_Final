@@ -707,6 +707,13 @@ Example positive intervention:
 - If no framework fits perfectly, choose the CLOSEST match from this library
 - The attribution MUST be a real person or recognized technique listed here
 
+### FRAMEWORK REPETITION RULES (IMPORTANT)
+- Track which frameworks have been used in recent interventions
+- Do NOT repeat the same framework within 2-3 consecutive interventions
+- With 24+ frameworks available, USE VARIETY
+- If the same framework is genuinely the best fit, wait at least 3 exchanges before reusing
+- Only repeat if absolutely no other framework applies
+
 ### ANCIENT WISDOM (source: "ancient_wisdom")
 - **Stoicism (Viktor Frankl)**: "Between stimulus and response there is a space. In that space is our power to choose our response."
 - **Stoicism (Marcus Aurelius)**: "You have power over your mind, not outside events. Realize this, and you will find strength."
@@ -805,6 +812,7 @@ Respond with a JSON object containing:
     "framework_name": "MUST be one of these EXACT names from the library: Stoicism, Buddhism, Samurai Bushido, Greek Philosophy, Elite Athletes, Navy SEALs, Surgeons, Negotiators, Fighter Pilots, Active Listening, Mirroring, Radical Candor, STOP Technique, Name It to Tame It, Perspective Ladder, The 90-Second Rule, RAIN, Centering, Emotional Granularity, Cognitive Reframing, Window of Tolerance, Growth Mindset, Self-Distancing, Yerkes-Dodson Law",
     "framework_source": "ancient_wisdom" | "high_performer" | "psychology" | "practical",
     "framework_wisdom": "MUST be the EXACT quote from the FRAMEWORK & WISDOM LIBRARY section above with the author name in parentheses. NEVER make up quotes.",
+    "framework_application": "1-line (max 20 words) explaining how THIS framework applies to THIS specific moment. Include a mini-example or how it helps right now. E.g., 'Here, pausing before responding would have let you address their actual concern about experience.' or 'Applying this: acknowledge their skepticism first, then share your genuine motivation.'",
     "action_step": "MANDATORY - NEVER LEAVE EMPTY. Must be a specific, concrete action for the user's NEXT response. Examples: 'In your next response, directly answer their question about why you chose this university', 'Acknowledge their concern first, then explain your reasoning', 'Ask them a clarifying question about what they're looking for'. BAD examples (NEVER USE): empty string, 'be more confident', 'try harder', 'improve your response'",
     "tone": "supportive | challenging | direct (CHOOSE the tone you used for THIS intervention)"
   },
