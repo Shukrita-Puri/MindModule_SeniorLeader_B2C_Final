@@ -97,11 +97,21 @@ const PracticeSimulation = () => {
   const scenarioId = SCENARIO_ID_MAP[specificScenario] || 'oxbridge_interview';
   const personaId = PERSONA_ID_MAP[personaType] || 'oxbridge-interviewer';
 
-  // Map personality style to LLM format
-  const mappedPersonalityStyle = personalityStyle === 'warm' ? 'warm-supportive'
-    : personalityStyle === 'analytical' ? 'analytical-direct'
-    : personalityStyle === 'challenging' ? 'challenging-probing'
-    : 'neutral-professional';
+  // Map personality style to LLM format (handles both full and abbreviated formats)
+  const mappedPersonalityStyle = (() => {
+    const style = (personalityStyle || '').toLowerCase();
+    // Full format values (from configure page)
+    if (style === 'warm-supportive') return 'warm-supportive';
+    if (style === 'analytical-direct') return 'analytical-direct';
+    if (style === 'challenging-probing') return 'challenging-probing';
+    if (style === 'neutral-professional') return 'neutral-professional';
+    // Partial/legacy fallbacks
+    if (style.includes('warm') || style.includes('supportive')) return 'warm-supportive';
+    if (style.includes('analytical') || style.includes('direct')) return 'analytical-direct';
+    if (style.includes('challenging') || style.includes('probing')) return 'challenging-probing';
+    // Default to warm-supportive
+    return 'warm-supportive';
+  })();
 
   // Map voice preference to LLM format
   const mappedVoiceStyle = voicePreference === 'masculine' ? 'masculine'
