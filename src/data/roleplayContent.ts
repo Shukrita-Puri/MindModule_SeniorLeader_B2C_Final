@@ -5,50 +5,69 @@
 
 import type { SanctuaryContent } from '@/data/practicesAndSoundscapes';
 
+// Import category thumbnails
+import dialogueAcademicConfidence from '@/assets/dialogue-academic-confidence.jpg';
+import dialogueSocialNavigation from '@/assets/dialogue-social-navigation.jpg';
+import dialogueGrowthOpportunity from '@/assets/dialogue-growth-opportunity.jpg';
+
 // Scenario mapping for different event types
 export interface RoleplayScenario {
-  category: string;
-  scenarioId: string;
+  category: string;           // Configure page category value (pressure, difficult, leadership)
+  scenarioId: string;         // Specific scenario ID for step 2
   title: string;
   description: string;
+  thumbnail: string;          // Category thumbnail image
 }
+
+// Category thumbnails mapping
+const CATEGORY_THUMBNAILS: Record<string, string> = {
+  'pressure': dialogueAcademicConfidence,      // Academic Confidence
+  'difficult': dialogueSocialNavigation,        // Social Navigation
+  'leadership': dialogueGrowthOpportunity       // Growth & Opportunity
+};
 
 export const EVENT_ROLEPLAY_MAPPING: Record<string, RoleplayScenario> = {
   interview: {
-    category: 'academic-confidence',
-    scenarioId: 'university-interview',
+    category: 'pressure',                        // Maps to Academic Confidence
+    scenarioId: 'oxbridge-interview',
     title: 'Interview Practice',
-    description: 'Practice answering tough questions with AI feedback'
+    description: 'Practice answering tough questions with AI feedback',
+    thumbnail: dialogueAcademicConfidence
   },
   presentation: {
-    category: 'academic-confidence',
-    scenarioId: 'class-presentation',
+    category: 'pressure',
+    scenarioId: 'model-un-speech',
     title: 'Presentation Rehearsal',
-    description: 'Rehearse your delivery and get real-time coaching'
+    description: 'Rehearse your delivery and get real-time coaching',
+    thumbnail: dialogueAcademicConfidence
   },
   exam: {
-    category: 'academic-confidence',
-    scenarioId: 'oral-exam',
+    category: 'pressure',
+    scenarioId: 'debate-tournament',
     title: 'Oral Exam Practice',
-    description: 'Practice explaining concepts under pressure'
+    description: 'Practice explaining concepts under pressure',
+    thumbnail: dialogueAcademicConfidence
   },
   competition: {
-    category: 'growth-opportunity',
-    scenarioId: 'sports-captain',
+    category: 'leadership',                      // Maps to Growth & Opportunity
+    scenarioId: 'sports-captain-address',
     title: 'Pre-Competition Visualization',
-    description: 'Mental rehearsal for peak performance'
+    description: 'Mental rehearsal for peak performance',
+    thumbnail: dialogueGrowthOpportunity
   },
   social: {
-    category: 'social-mastery',
+    category: 'difficult',                       // Maps to Social Navigation
     scenarioId: 'alumni-networking',
     title: 'Networking Practice',
-    description: 'Practice introductions and conversations'
+    description: 'Practice introductions and conversations',
+    thumbnail: dialogueSocialNavigation
   },
   leadership: {
-    category: 'growth-opportunity',
+    category: 'leadership',
     scenarioId: 'head-student-interview',
     title: 'Leadership Moment Practice',
-    description: 'Practice your key messages with feedback'
+    description: 'Practice your key messages with feedback',
+    thumbnail: dialogueGrowthOpportunity
   }
 };
 
@@ -67,7 +86,7 @@ export function createRoleplayContent(eventType: string, goalTags: string[]): Sa
     subType: 'roleplay',
     category: 'presence' as const,
     duration: 5,
-    thumbnail: '/placeholder.svg',
+    thumbnail: scenario.thumbnail,
     audioUrl: '',
     tags: ['roleplay', 'practice', ...goalTags],
     creator: 'Mind Module',

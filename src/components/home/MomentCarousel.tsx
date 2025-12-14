@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
-import { Clock, ChevronDown, X, MessageSquare } from 'lucide-react';
+import { Clock, ChevronDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isRoleplayContent, getRoleplayNavConfig } from '@/data/roleplayContent';
 import { useNavigate } from 'react-router-dom';
@@ -175,18 +175,12 @@ const MomentCarousel = ({
                       index === pack.steps.length - 1 && "mr-4"
                     )}
                   >
-                    {/* Thumbnail or Icon for roleplay */}
-                    {isRoleplay ? (
-                      <div className="w-32 h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                        <MessageSquare size={40} className="text-primary" />
-                      </div>
-                    ) : (
-                      <img 
-                        src={step.content.thumbnail} 
-                        alt={step.content.title}
-                        className="w-32 h-full object-cover flex-shrink-0"
-                      />
-                    )}
+                    {/* Thumbnail - use category image for roleplay */}
+                    <img 
+                      src={step.content.thumbnail} 
+                      alt={step.content.title}
+                      className="w-32 h-full object-cover flex-shrink-0"
+                    />
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
