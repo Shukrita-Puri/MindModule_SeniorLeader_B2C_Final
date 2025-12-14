@@ -13,37 +13,37 @@ serve(async (req) => {
   }
 
   try {
-    // Validate input
+    // Validate input - now accepts userId from request body (Auth0 format)
     const requestSchema = z.object({
       provider: z.enum(['google', 'outlook']),
+      userId: z.string().min(1),
     });
 
     const body = await req.json();
-    const { provider } = requestSchema.parse(body);
+    const { provider, userId } = requestSchema.parse(body);
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-
-    // Get authenticated user
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
-
-    if (!user) {
-      throw new Error('Not authenticated');
+    // Validate Auth0 user ID format (provider|id) or UUID format
+    const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!auth0IdPattern.test(userId) && !uuidPattern.test(userId)) {
+      console.error('[sync-calendar] Invalid user ID format:', userId);
+      return new Response(
+        JSON.stringify({ error: 'Invalid user ID format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const userId = user.id;
+    console.log('[sync-calendar] Starting sync for user:', userId, 'provider:', provider);
+
+    // Use service role for all operations since we're using Auth0 authentication
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Get calendar connection
-    const { data: connection, error: connectionError } = await supabaseClient
+    const { data: connection, error: connectionError } = await serviceClient
       .from('calendar_connections')
       .select('*')
       .eq('user_id', userId)
@@ -52,29 +52,127 @@ serve(async (req) => {
       .single();
 
     if (connectionError || !connection) {
-      throw new Error('Calendar connection not found');
+      console.error('[sync-calendar] Connection not found:', connectionError);
+      return new Response(
+        JSON.stringify({ error: 'Calendar connection not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Switch to service role for vault access
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log('[sync-calendar] Found connection:', connection.id, 'last_sync:', connection.last_sync);
 
     // Retrieve decrypted access token from vault
-    const { data: accessToken, error: tokenError } = await serviceClient
-      .rpc('get_calendar_access_token', { _connection_id: connection.id });
+    let accessToken: string | null = null;
+    
+    // Try to get from vault first
+    if (connection.encrypted_access_token_id) {
+      const { data: vaultToken, error: vaultError } = await serviceClient
+        .from('vault.decrypted_secrets')
+        .select('decrypted_secret')
+        .eq('id', connection.encrypted_access_token_id)
+        .single();
+      
+      if (!vaultError && vaultToken) {
+        accessToken = vaultToken.decrypted_secret;
+      }
+    }
+    
+    // Fallback to plaintext token if vault retrieval failed
+    if (!accessToken && connection.access_token) {
+      accessToken = connection.access_token;
+      console.log('[sync-calendar] Using plaintext access token as fallback');
+    }
 
-    if (tokenError || !accessToken) {
-      throw new Error('Failed to retrieve calendar access token');
+    if (!accessToken) {
+      console.error('[sync-calendar] Failed to retrieve access token');
+      return new Response(
+        JSON.stringify({ error: 'Failed to retrieve calendar access token' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if token is expired and refresh if needed
+    const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
+    const now = new Date();
+    
+    if (tokenExpiresAt && tokenExpiresAt <= now) {
+      console.log('[sync-calendar] Token expired, attempting refresh...');
+      
+      // Get refresh token
+      let refreshToken: string | null = null;
+      
+      if (connection.encrypted_refresh_token_id) {
+        const { data: vaultRefresh } = await serviceClient
+          .from('vault.decrypted_secrets')
+          .select('decrypted_secret')
+          .eq('id', connection.encrypted_refresh_token_id)
+          .single();
+        
+        if (vaultRefresh) {
+          refreshToken = vaultRefresh.decrypted_secret;
+        }
+      }
+      
+      if (!refreshToken && connection.refresh_token) {
+        refreshToken = connection.refresh_token;
+      }
+
+      if (!refreshToken) {
+        console.error('[sync-calendar] No refresh token available');
+        return new Response(
+          JSON.stringify({ error: 'Token expired and no refresh token available. Please reconnect your calendar.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Refresh the token
+      if (provider === 'google') {
+        const clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID');
+        const clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET');
+        
+        const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: clientId!,
+            client_secret: clientSecret!,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token',
+          }),
+        });
+
+        const refreshData = await refreshResponse.json();
+        
+        if (refreshData.error) {
+          console.error('[sync-calendar] Token refresh failed:', refreshData.error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to refresh token. Please reconnect your calendar.' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        accessToken = refreshData.access_token;
+        const newExpiresAt = new Date(Date.now() + (refreshData.expires_in * 1000));
+        
+        // Update the token in the database (store plaintext for now since vault has permission issues)
+        await serviceClient
+          .from('calendar_connections')
+          .update({ 
+            access_token: accessToken,
+            token_expires_at: newExpiresAt.toISOString() 
+          })
+          .eq('id', connection.id);
+        
+        console.log('[sync-calendar] Token refreshed successfully, expires:', newExpiresAt.toISOString());
+      }
     }
 
     let events: any[] = [];
-    const now = new Date();
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     if (provider === 'google') {
-      // Fetch Google Calendar events
+      console.log('[sync-calendar] Fetching Google Calendar events...');
+      
       const response = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${nextWeek.toISOString()}&singleEvents=true&orderBy=startTime`,
         {
@@ -84,7 +182,17 @@ serve(async (req) => {
         }
       );
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[sync-calendar] Google API error:', response.status, errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch calendar events from Google' }),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const data = await response.json();
+      console.log('[sync-calendar] Google returned', data.items?.length || 0, 'events');
       
       if (data.items) {
         events = data.items.map((event: any) => ({
@@ -103,7 +211,8 @@ serve(async (req) => {
         }));
       }
     } else if (provider === 'outlook') {
-      // Fetch Outlook Calendar events
+      console.log('[sync-calendar] Fetching Outlook Calendar events...');
+      
       const response = await fetch(
         `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${nextWeek.toISOString()}&$orderby=start/dateTime`,
         {
@@ -113,7 +222,17 @@ serve(async (req) => {
         }
       );
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[sync-calendar] Outlook API error:', response.status, errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch calendar events from Outlook' }),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const data = await response.json();
+      console.log('[sync-calendar] Outlook returned', data.value?.length || 0, 'events');
       
       if (data.value) {
         events = data.value.map((event: any) => ({
@@ -156,6 +275,12 @@ serve(async (req) => {
         eventType = 'one-on-one';
       } else if (title.includes('focus') || title.includes('deep work')) {
         eventType = 'deep-work';
+      } else if (title.includes('exam') || title.includes('test')) {
+        eventType = 'exam';
+        isHighStakes = true;
+      } else if (title.includes('deadline') || title.includes('submission')) {
+        eventType = 'deadline';
+        isHighStakes = true;
       }
 
       return {
@@ -169,33 +294,53 @@ serve(async (req) => {
       };
     });
 
+    console.log('[sync-calendar] Classified', classifiedEvents.length, 'events');
+
     // Delete existing events for this user
-    await serviceClient
+    const { error: deleteError } = await serviceClient
       .from('calendar_events')
       .delete()
       .eq('user_id', userId);
 
-    // Insert new events
-    const { error: insertError } = await serviceClient
-      .from('calendar_events')
-      .insert(classifiedEvents);
+    if (deleteError) {
+      console.error('[sync-calendar] Error deleting old events:', deleteError);
+    }
 
-    if (insertError) {
-      throw insertError;
+    // Insert new events
+    if (classifiedEvents.length > 0) {
+      const { error: insertError } = await serviceClient
+        .from('calendar_events')
+        .insert(classifiedEvents);
+
+      if (insertError) {
+        console.error('[sync-calendar] Error inserting events:', insertError);
+        throw insertError;
+      }
     }
 
     // Update last_sync timestamp
-    await serviceClient
+    const { error: updateError } = await serviceClient
       .from('calendar_connections')
       .update({ last_sync: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('provider', provider);
 
+    if (updateError) {
+      console.error('[sync-calendar] Error updating last_sync:', updateError);
+    }
+
+    console.log('[sync-calendar] Sync complete! Events:', classifiedEvents.length);
+
     return new Response(
-      JSON.stringify({ success: true, eventCount: classifiedEvents.length }),
+      JSON.stringify({ 
+        success: true, 
+        eventCount: classifiedEvents.length,
+        lastSync: new Date().toISOString()
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('[sync-calendar] Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -33,6 +33,7 @@ import { submitRelevanceFeedback } from '@/utils/relevanceFeedback';
 import { useToast } from '@/hooks/use-toast';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { useCalendarSync } from '@/hooks/useCalendarSync';
 
 interface MicroIntervention {
   id: string;
@@ -52,6 +53,7 @@ const MicroSelfRecalibrateInterventions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { events: calendarEvents, isLoading: calendarLoading, hasCalendar, isSyncing } = useCalendarSync();
   const [interventions, setInterventions] = useState<MicroIntervention[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -100,10 +102,17 @@ const MicroSelfRecalibrateInterventions = () => {
     };
   }, [carouselApi]);
 
+  // Load interventions when calendar events are ready or change
   useEffect(() => {
     loadUserPreferences();
-    loadInterventions();
   }, []);
+
+  // Re-detect interventions when calendar events change
+  useEffect(() => {
+    if (!calendarLoading) {
+      loadInterventions();
+    }
+  }, [calendarEvents, calendarLoading]);
 
   // Load user preferences for personalization
   const loadUserPreferences = async () => {
@@ -202,9 +211,10 @@ const MicroSelfRecalibrateInterventions = () => {
 
   const loadInterventions = async () => {
     setLoading(true);
-    const calendarEvents: CalendarEvent[] = JSON.parse(
-      localStorage.getItem('calendarEvents') || '[]'
-    );
+    
+    // Calendar events now come from useCalendarSync hook (fetched from database)
+    // No need to read from localStorage anymore
+    console.log('[MicroInterventions] Loading interventions with', calendarEvents.length, 'calendar events');
 
     // Get wearable context
     const wearableContext = await getWearableContext(user?.id);
