@@ -6,6 +6,7 @@
 
 import { sanctuaryContent, type SanctuaryContent } from '@/data/practicesAndSoundscapes';
 import { quickInterventions } from '@/data/quickInterventions';
+import { createRoleplayContent } from '@/data/roleplayContent';
 import type { MomentCandidate, StudentEventType } from './momentDetectionEngine';
 
 // Combined content pool including quick interventions
@@ -615,8 +616,14 @@ function selectContentForStep(
   stepDef: PackStepDefinition,
   excludeIds: Set<string>,
   favoriteIds: string[] = [],
-  preferQuick: boolean = false
+  preferQuick: boolean = false,
+  eventType?: string
 ): SanctuaryContent | null {
+  // Special handling for roleplay steps - create virtual content
+  if (stepDef.step_type === 'roleplay' && eventType) {
+    return createRoleplayContent(eventType, stepDef.goal_tags);
+  }
+  
   const scores: ContentScore[] = [];
   
   // Use combined content pool (includes quick interventions)
@@ -700,6 +707,9 @@ export function buildPack(
   const usedIds = new Set(excludeContentIds);
   let stepsAdded = 0;
   
+  // Derive event type from moment for roleplay content creation
+  const eventType = moment.event_context?.event_type || 'interview';
+  
   // First pass: Add required steps (up to maxSteps)
   for (const stepDef of template.steps) {
     if (stepsAdded >= maxSteps) break;
@@ -710,7 +720,7 @@ export function buildPack(
       ? { ...stepDef, duration_range: { min: 0.5, max: 1 } }
       : stepDef;
     
-    const content = selectContentForStep(adjustedStepDef, usedIds, favoriteIds, preferQuick);
+    const content = selectContentForStep(adjustedStepDef, usedIds, favoriteIds, preferQuick, eventType);
     
     if (content) {
       usedIds.add(content.id);
@@ -724,7 +734,7 @@ export function buildPack(
       stepsAdded++;
     } else {
       // Fallback to any content if quick content not found
-      const fallbackContent = selectContentForStep(stepDef, usedIds, favoriteIds, false);
+      const fallbackContent = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType);
       if (fallbackContent) {
         usedIds.add(fallbackContent.id);
         steps.push({
@@ -747,7 +757,7 @@ export function buildPack(
       if (stepsAdded >= maxSteps) break;
       if (stepDef.required) continue;
       
-      const content = selectContentForStep(stepDef, usedIds, favoriteIds, false);
+      const content = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType);
       
       if (content) {
         usedIds.add(content.id);

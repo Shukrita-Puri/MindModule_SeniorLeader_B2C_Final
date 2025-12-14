@@ -7,8 +7,10 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
-import { Clock, ChevronDown, X } from 'lucide-react';
+import { Clock, ChevronDown, X, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isRoleplayContent, getRoleplayNavConfig } from '@/data/roleplayContent';
+import { useNavigate } from 'react-router-dom';
 import type { MomentCandidate } from '@/utils/momentDetectionEngine';
 import type { BuiltPack, PackStep } from '@/utils/packBuilderSystem';
 
@@ -22,17 +24,40 @@ interface MomentCarouselProps {
 }
 
 const getStepLabel = (step: PackStep): string => {
-  if (step.content.contentType === 'soundbath') {
+  const { content, step_type } = step;
+  
+  // Roleplay steps
+  if (step_type === 'roleplay' || isRoleplayContent(content)) {
+    return 'Practice Session';
+  }
+  
+  // Use structuredTags.goalTags for accurate classification
+  const somaticGoalTags = ['breathing_regulation', 'grounding', 'activation', 'nervous_system_calm', 'recovery'];
+  if (content.structuredTags?.goalTags?.some((t: string) => somaticGoalTags.includes(t))) {
     return 'Somatic Protocol';
   }
-  if (step.content.contentType === 'guided-practice') {
-    return step.content.tags?.some(t => 
-      t.toLowerCase().includes('somatic') || 
-      t.toLowerCase().includes('breathing')
-    ) ? 'Somatic Protocol' : 'Mindset Protocol';
+  
+  // Soundbaths are always somatic
+  if (content.contentType === 'soundbath') {
+    return 'Somatic Protocol';
   }
-  // Micro-practices
-  return step.content.subType === 'mindset' ? 'Mindset Protocol' : 'Somatic Protocol';
+  
+  // Tool subType is somatic
+  if (content.subType === 'tool') {
+    return 'Somatic Protocol';
+  }
+  
+  // Legacy tag fallback for breathing/somatic
+  if (content.tags?.some((t: string) => 
+    t.toLowerCase().includes('breathing') || 
+    t.toLowerCase().includes('somatic') ||
+    t.toLowerCase().includes('box breathing')
+  )) {
+    return 'Somatic Protocol';
+  }
+  
+  // Default to mindset for mindset subType or unknown
+  return 'Mindset Protocol';
 };
 
 const MomentCarousel = ({
@@ -43,11 +68,26 @@ const MomentCarousel = ({
   onSnooze,
   onDismiss
 }: MomentCarouselProps) => {
+  const navigate = useNavigate();
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showSnoozeOptions, setShowSnoozeOptions] = useState(false);
+
+  const handleStepClick = (step: PackStep) => {
+    if (isDragging) return;
+    
+    // Handle roleplay navigation
+    const roleplayNav = getRoleplayNavConfig(step.content);
+    if (roleplayNav) {
+      navigate(roleplayNav.path, { state: roleplayNav.state });
+      return;
+    }
+    
+    // Normal step navigation
+    onStartStep(step);
+  };
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -94,6 +134,12 @@ const MomentCarousel = ({
           <p className="text-sm text-muted-foreground">
             {pack.template_name} · {pack.total_duration} min
           </p>
+          {/* Why this pack explanation */}
+          {pack.why_now && (
+            <p className="text-xs text-muted-foreground/80 italic mt-1 line-clamp-2">
+              {pack.why_now}
+            </p>
+          )}
         </div>
         
         {/* Dismiss button */}
@@ -114,46 +160,62 @@ const MomentCarousel = ({
           setApi={setCarouselApi}
         >
           <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
-            {pack.steps.map((step, index) => (
-              <CarouselItem 
-                key={step.content.id} 
-                className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]"
-              >
-                <div
-                  onClick={() => !isDragging && onStartStep(step)}
-                  className={cn(
-                    "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all hover:shadow-md",
-                    index === pack.steps.length - 1 && "mr-4"
-                  )}
+            {pack.steps.map((step, index) => {
+              const isRoleplay = isRoleplayContent(step.content);
+              
+              return (
+                <CarouselItem 
+                  key={step.content.id} 
+                  className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]"
                 >
-                  {/* Thumbnail */}
-                  <img 
-                    src={step.content.thumbnail} 
-                    alt={step.content.title}
-                    className="w-32 h-full object-cover flex-shrink-0"
-                  />
-                  
-                  {/* Content */}
-                  <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                    {/* Step Label */}
-                    <span className="text-sm text-primary">
-                      {getStepLabel(step)}
-                    </span>
+                  <div
+                    onClick={() => handleStepClick(step)}
+                    className={cn(
+                      "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all hover:shadow-md",
+                      index === pack.steps.length - 1 && "mr-4"
+                    )}
+                  >
+                    {/* Thumbnail or Icon for roleplay */}
+                    {isRoleplay ? (
+                      <div className="w-32 h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                        <MessageSquare size={40} className="text-primary" />
+                      </div>
+                    ) : (
+                      <img 
+                        src={step.content.thumbnail} 
+                        alt={step.content.title}
+                        className="w-32 h-full object-cover flex-shrink-0"
+                      />
+                    )}
                     
-                    {/* Title */}
-                    <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
-                      {step.content.title}
-                    </h4>
-                    
-                    {/* Duration */}
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                      <Clock size={12} />
-                      <span>{step.duration} min</span>
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
+                      {/* Step Label */}
+                      <span className="text-sm text-primary">
+                        {getStepLabel(step)}
+                      </span>
+                      
+                      {/* Title */}
+                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
+                        {step.content.title}
+                      </h4>
+                      
+                      {/* Duration or description for roleplay */}
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                        {isRoleplay ? (
+                          <span>AI-powered practice</span>
+                        ) : (
+                          <>
+                            <Clock size={12} />
+                            <span>{step.duration} min</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CarouselItem>
-            ))}
+                </CarouselItem>
+              );
+            })}
           </CarouselContent>
         </Carousel>
         
