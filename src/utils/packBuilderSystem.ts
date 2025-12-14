@@ -47,7 +47,10 @@ export interface BuiltPack {
 
 // Pack templates for different moment types
 export const PACK_TEMPLATES: Record<string, PackTemplate> = {
-  // Self Mastery Packs
+  // ============================================
+  // SAME-DAY PACKS (Mindset + Somatic, flexible steps)
+  // ============================================
+  
   'pre-exam-pack': {
     id: 'pre-exam-pack',
     name: 'Exam Prep Pack',
@@ -102,7 +105,7 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
         duration_range: { min: 3, max: 7 },
         intensity: 'medium',
         goal_tags: ['interview', 'social', 'communication'],
-        label: 'Quick Practice (Optional)'
+        label: 'Quick Practice'
       }
     ],
     total_duration_range: { min: 3, max: 14 }
@@ -180,13 +183,12 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
         duration_range: { min: 2, max: 4 },
         intensity: 'low',
         goal_tags: ['grounding', 'breathing_regulation'],
-        label: 'Grounding Tool (Optional)'
+        label: 'Grounding Tool'
       }
     ],
     total_duration_range: { min: 1, max: 7 }
   },
   
-  // Social Mastery Packs
   'pre-social-pack': {
     id: 'pre-social-pack',
     name: 'Social Prep Pack',
@@ -207,7 +209,7 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
         duration_range: { min: 2, max: 4 },
         intensity: 'low',
         goal_tags: ['grounding', 'breathing_regulation', 'nervous_system_calm'],
-        label: 'Calming Tool (Optional)'
+        label: 'Calming Tool'
       }
     ],
     total_duration_range: { min: 1, max: 7 }
@@ -234,7 +236,7 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
         duration_range: { min: 1, max: 2 },
         intensity: 'low',
         goal_tags: ['composure', 'boundaries', 'emotional_balance'],
-        label: 'Mindset Protocol (Optional)'
+        label: 'Mindset Protocol'
       }
     ],
     total_duration_range: { min: 2, max: 7 }
@@ -314,13 +316,12 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
         duration_range: { min: 1, max: 3 },
         intensity: 'medium',
         goal_tags: ['focus', 'intention', 'mental_clarity'],
-        label: 'Focus Mindset (Optional)'
+        label: 'Focus Mindset'
       }
     ],
     total_duration_range: { min: 3, max: 10 }
   },
   
-  // Default fallback
   'pre-performance-pack': {
     id: 'pre-performance-pack',
     name: 'Performance Prep Pack',
@@ -345,6 +346,193 @@ export const PACK_TEMPLATES: Record<string, PackTemplate> = {
       }
     ],
     total_duration_range: { min: 3, max: 8 }
+  },
+
+  // ============================================
+  // ADVANCE PREPARATION PACKS (2-7 days before)
+  // Role-Play focused for practice and mental rehearsal
+  // ============================================
+
+  'advance-exam-pack': {
+    id: 'advance-exam-pack',
+    name: 'Exam Preparation',
+    description: 'Build confidence and mental readiness for your exam',
+    mastery_focus: 'self',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 3, max: 10 },
+        intensity: 'medium',
+        goal_tags: ['exam', 'practice', 'mental_rehearsal', 'confidence'],
+        label: 'Practice Session'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 5 },
+        intensity: 'low',
+        goal_tags: ['confidence', 'composure', 'focus'],
+        label: 'Confidence Builder'
+      }
+    ],
+    total_duration_range: { min: 3, max: 15 }
+  },
+
+  'advance-interview-pack': {
+    id: 'advance-interview-pack',
+    name: 'Interview Preparation',
+    description: 'Practice answering tough interview questions',
+    mastery_focus: 'both',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 15 },
+        intensity: 'medium',
+        goal_tags: ['interview', 'communication', 'confidence', 'practice'],
+        label: 'Interview Practice'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 5 },
+        intensity: 'medium',
+        goal_tags: ['confidence', 'composure', 'presence'],
+        label: 'Confidence Builder'
+      }
+    ],
+    total_duration_range: { min: 5, max: 20 }
+  },
+
+  'advance-presentation-pack': {
+    id: 'advance-presentation-pack',
+    name: 'Presentation Practice',
+    description: 'Rehearse your delivery and key points',
+    mastery_focus: 'self',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 15 },
+        intensity: 'medium',
+        goal_tags: ['presentation', 'public_speaking', 'confidence', 'practice'],
+        label: 'Presentation Rehearsal'
+      },
+      {
+        step_type: 'somatic',
+        required: false,
+        duration_range: { min: 2, max: 4 },
+        intensity: 'low',
+        goal_tags: ['grounding', 'breathing_regulation'],
+        label: 'Calm Nerves'
+      }
+    ],
+    total_duration_range: { min: 5, max: 19 }
+  },
+
+  'advance-competition-pack': {
+    id: 'advance-competition-pack',
+    name: 'Competition Preparation',
+    description: 'Mental rehearsal and visualization for peak performance',
+    mastery_focus: 'self',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 10 },
+        intensity: 'medium',
+        goal_tags: ['competition', 'visualization', 'mental_rehearsal', 'performance'],
+        label: 'Mental Rehearsal'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 5 },
+        intensity: 'high',
+        goal_tags: ['confidence', 'focus', 'peak_performance'],
+        label: 'Peak Mindset'
+      }
+    ],
+    total_duration_range: { min: 5, max: 15 }
+  },
+
+  'advance-social-pack': {
+    id: 'advance-social-pack',
+    name: 'Social Event Preparation',
+    description: 'Practice introductions and conversation starters',
+    mastery_focus: 'social',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 10 },
+        intensity: 'low',
+        goal_tags: ['networking', 'social', 'communication', 'introduction'],
+        label: 'Networking Practice'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 4 },
+        intensity: 'low',
+        goal_tags: ['confidence', 'presence', 'social'],
+        label: 'Social Confidence'
+      }
+    ],
+    total_duration_range: { min: 5, max: 14 }
+  },
+
+  'advance-leadership-pack': {
+    id: 'advance-leadership-pack',
+    name: 'Leadership Preparation',
+    description: 'Practice your key messages and team address',
+    mastery_focus: 'both',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 12 },
+        intensity: 'medium',
+        goal_tags: ['leadership', 'communication', 'presence', 'authority'],
+        label: 'Leadership Practice'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 4 },
+        intensity: 'medium',
+        goal_tags: ['confidence', 'composure', 'presence'],
+        label: 'Presence Builder'
+      }
+    ],
+    total_duration_range: { min: 5, max: 16 }
+  },
+
+  'advance-performance-pack': {
+    id: 'advance-performance-pack',
+    name: 'Performance Preparation',
+    description: 'Full run-through and mental rehearsal',
+    mastery_focus: 'self',
+    steps: [
+      {
+        step_type: 'roleplay',
+        required: true,
+        duration_range: { min: 5, max: 12 },
+        intensity: 'medium',
+        goal_tags: ['performance', 'rehearsal', 'visualization', 'practice'],
+        label: 'Full Rehearsal'
+      },
+      {
+        step_type: 'mindset',
+        required: false,
+        duration_range: { min: 2, max: 4 },
+        intensity: 'medium',
+        goal_tags: ['confidence', 'focus', 'presence'],
+        label: 'Performance Mindset'
+      }
+    ],
+    total_duration_range: { min: 5, max: 16 }
   }
 };
 
@@ -451,7 +639,34 @@ function selectContentForStep(
 }
 
 /**
+ * Determine dynamic step count based on context
+ */
+function determineStepCount(moment: MomentCandidate, template: PackTemplate): number {
+  const minutesUntil = moment.event_context?.minutes_until || 60;
+  const isAdvancePrep = moment.moment_type === 'advance-preparation';
+  
+  // Advance preparation: Use full template (role-play focused)
+  if (isAdvancePrep) {
+    return template.steps.length;
+  }
+  
+  // Same-day, very limited time (<10 min): 1 step only
+  if (minutesUntil < 10) {
+    return 1;
+  }
+  
+  // Same-day, limited time (<20 min): max 2 steps
+  if (minutesUntil < 20) {
+    return Math.min(2, template.steps.length);
+  }
+  
+  // Otherwise: Full template
+  return template.steps.length;
+}
+
+/**
  * Build a pack for a detected moment
+ * Flexible step count (1-3) based on time available and context
  */
 export function buildPack(
   moment: MomentCandidate,
@@ -464,10 +679,16 @@ export function buildPack(
     return null;
   }
   
+  const maxSteps = determineStepCount(moment, template);
   const steps: PackStep[] = [];
   const usedIds = new Set(excludeContentIds);
+  let stepsAdded = 0;
   
+  // First pass: Add required steps (up to maxSteps)
   for (const stepDef of template.steps) {
+    if (stepsAdded >= maxSteps) break;
+    if (!stepDef.required) continue;
+    
     const content = selectContentForStep(stepDef, usedIds, favoriteIds);
     
     if (content) {
@@ -477,11 +698,31 @@ export function buildPack(
         content,
         label: stepDef.label,
         duration: content.duration,
-        is_optional: !stepDef.required
+        is_optional: false
       });
-    } else if (stepDef.required) {
-      // Required step couldn't be filled - pack is incomplete
+      stepsAdded++;
+    } else {
       console.warn(`Could not find content for required step: ${stepDef.step_type}`);
+    }
+  }
+  
+  // Second pass: Add optional steps if we have room
+  for (const stepDef of template.steps) {
+    if (stepsAdded >= maxSteps) break;
+    if (stepDef.required) continue;
+    
+    const content = selectContentForStep(stepDef, usedIds, favoriteIds);
+    
+    if (content) {
+      usedIds.add(content.id);
+      steps.push({
+        step_type: stepDef.step_type,
+        content,
+        label: stepDef.label,
+        duration: content.duration,
+        is_optional: true
+      });
+      stepsAdded++;
     }
   }
   
@@ -503,12 +744,12 @@ export function buildPack(
 }
 
 function generateWhyNow(moment: MomentCandidate, template: PackTemplate): string {
-  const { moment_type, event_context, signals } = moment;
-  
-  // Build context from signals
-  const signalDescriptions = signals.map(s => s.description).join(' + ');
+  const { moment_type, event_context } = moment;
+  const daysUntil = event_context?.days_until;
   
   switch (moment_type) {
+    case 'advance-preparation':
+      return `${event_context?.event_title || 'High-stakes event'} in ${daysUntil} days. Start preparing now with practice and mental rehearsal.`;
     case 'pre-performance':
       return `${event_context?.event_title || 'High-stakes event'} coming up. ${template.description}.`;
     case 'pre-social':
@@ -529,15 +770,35 @@ function generateWhyNow(moment: MomentCandidate, template: PackTemplate): string
 }
 
 /**
- * Get roleplay prompt for interview/presentation scenarios
+ * Get roleplay prompt based on event type and timing
  */
-export function getRoleplayPrompt(eventType: StudentEventType, eventTitle: string): string | null {
-  const prompts: Partial<Record<StudentEventType, string>> = {
-    'interview': `Prepare for "${eventTitle}": Practice answering 3-5 tough questions you might be asked.`,
-    'presentation': `Prepare for "${eventTitle}": Practice your opening and key transitions.`,
-    'networking': `Prepare for "${eventTitle}": Practice your introduction and 2-3 conversation starters.`,
-    'leadership': `Prepare for "${eventTitle}": Practice addressing your team with confidence.`
+export function getRoleplayPrompt(eventType: StudentEventType, eventTitle: string, daysUntil?: number): string | null {
+  // Advance preparation prompts (2+ days before)
+  if (daysUntil && daysUntil >= 2) {
+    const advancePrompts: Partial<Record<StudentEventType, string>> = {
+      'exam': `Prepare for "${eventTitle}": Practice explaining key concepts. What questions might you struggle with?`,
+      'interview': `Prepare for "${eventTitle}": Practice answering 5-7 common interview questions. Record yourself.`,
+      'presentation': `Prepare for "${eventTitle}": Practice your full presentation 2-3 times. Focus on opening and transitions.`,
+      'networking': `Prepare for "${eventTitle}": Practice your introduction and 3-4 conversation starters.`,
+      'competition': `Prepare for "${eventTitle}": Visualize yourself performing at your best. What does success look like?`,
+      'sports-match': `Prepare for "${eventTitle}": Mental rehearsal of key plays and strategies.`,
+      'leadership': `Prepare for "${eventTitle}": Practice your key messages and how you'll respond to questions.`,
+      'performance': `Prepare for "${eventTitle}": Full run-through focusing on tricky sections.`
+    };
+    return advancePrompts[eventType] || null;
+  }
+  
+  // Day-of prompts (same day)
+  const dayOfPrompts: Partial<Record<StudentEventType, string>> = {
+    'exam': `Before "${eventTitle}": Quick mental review of your key points. You've prepared for this.`,
+    'interview': `Before "${eventTitle}": Practice your opening statement and 2-3 key answers.`,
+    'presentation': `Before "${eventTitle}": Practice your opening 30 seconds with full energy.`,
+    'networking': `Before "${eventTitle}": Practice your introduction one more time.`,
+    'competition': `Before "${eventTitle}": Visualize your first few moves with confidence.`,
+    'sports-match': `Before "${eventTitle}": Quick mental rehearsal of your game plan.`,
+    'leadership': `Before "${eventTitle}": Center yourself and remember your key message.`,
+    'performance': `Before "${eventTitle}": Run through your opening mentally. Trust your preparation.`
   };
   
-  return prompts[eventType] || null;
+  return dayOfPrompts[eventType] || null;
 }

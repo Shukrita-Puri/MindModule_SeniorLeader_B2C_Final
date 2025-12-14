@@ -20,6 +20,8 @@ import {
   Coffee,
   Moon,
   Sun,
+  BookOpen,
+  Sparkles,
   Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,6 +43,8 @@ function getMomentIcon(momentType: string) {
   switch (momentType) {
     case 'pre-performance':
       return <Zap className="w-4 h-4" />;
+    case 'advance-preparation':
+      return <BookOpen className="w-4 h-4" />;
     case 'pre-social':
       return <Users className="w-4 h-4" />;
     case 'energy-protection':
@@ -113,20 +117,41 @@ export default function MomentCard({
   const requiredSteps = pack.steps.filter(s => !s.is_optional);
   const optionalSteps = pack.steps.filter(s => s.is_optional);
   
+  const isAdvancePrep = moment.moment_type === 'advance-preparation';
+  const hasRoleplay = pack.steps.some(s => s.step_type === 'roleplay');
+  
   return (
     <Card className="overflow-hidden border-border bg-card">
       {/* Header - Event Context */}
       <div className="p-4 pb-3 border-b border-border/50">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            {/* Moment Label */}
-            <div className="flex items-center gap-2 mb-1">
+            {/* Moment Label + Type Badges */}
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Badge 
                 variant="secondary" 
                 className="text-xs font-medium px-2 py-0.5"
               >
                 {moment.label}
               </Badge>
+              {isAdvancePrep && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20"
+                >
+                  <BookOpen className="w-3 h-3 mr-1" />
+                  Practice
+                </Badge>
+              )}
+              {hasRoleplay && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs px-2 py-0.5 bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Role-Play
+                </Badge>
+              )}
               <Badge 
                 variant="outline" 
                 className={cn("text-xs px-2 py-0.5", getConfidenceColor(moment.confidence))}
@@ -257,18 +282,19 @@ export default function MomentCard({
             onClick={onStartPack}
             className="flex-1 h-11"
           >
-            Start Pack
+            {isAdvancePrep ? 'Start Practice' : 'Start Pack'}
             <span className="ml-1 text-xs opacity-80">({pack.total_duration} min)</span>
           </Button>
           
           {/* Quick Actions */}
-          {requiredSteps[0] && (
+          {requiredSteps[0] && !isAdvancePrep && (
             <Button
               variant="outline"
               onClick={() => onStartStep(requiredSteps[0])}
               className="h-11 px-3"
             >
-              Just {requiredSteps[0].step_type === 'mindset' ? 'Mindset' : 'Breathing'}
+              Just {requiredSteps[0].step_type === 'mindset' ? 'Mindset' : 
+                    requiredSteps[0].step_type === 'roleplay' ? 'Practice' : 'Breathing'}
             </Button>
           )}
         </div>
