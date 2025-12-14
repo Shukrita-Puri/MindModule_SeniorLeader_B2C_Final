@@ -146,6 +146,8 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
   // Initial load: check connection and fetch events
   useEffect(() => {
+    let cancelled = false;
+    
     const init = async () => {
       if (!user?.id) {
         setIsLoading(false);
@@ -154,25 +156,75 @@ export function useCalendarSync(): UseCalendarSyncResult {
 
       setIsLoading(true);
       
-      const conn = await fetchConnection();
-      
-      if (conn) {
-        await fetchEvents();
+      try {
+        const { data: connData, error: connError } = await supabase
+          .from('calendar_connections')
+          .select('id, provider, is_active, last_sync')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
         
-        // If data is stale, trigger a background sync
-        const syncTime = conn.last_sync ? new Date(conn.last_sync) : null;
-        if (!syncTime || Date.now() - syncTime.getTime() > STALE_THRESHOLD_MS) {
-          console.log('[useCalendarSync] Data is stale, triggering background sync...');
-          // Don't await - let it run in background
-          triggerSync();
+        if (cancelled) return;
+        
+        if (connError && connError.code !== 'PGRST116') {
+          console.error('[useCalendarSync] Error fetching connection:', connError);
         }
+        
+        if (connData) {
+          setConnection(connData);
+          setHasCalendar(true);
+          setLastSync(connData.last_sync ? new Date(connData.last_sync) : null);
+          
+          // Fetch events
+          const { data: eventsData, error: eventsError } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('start_time', { ascending: true });
+          
+          if (cancelled) return;
+          
+          if (!eventsError && eventsData) {
+            const transformedEvents: CalendarEvent[] = eventsData.map(event => {
+              const metadata = event.event_metadata as Record<string, any> || {};
+              return {
+                id: event.external_id,
+                title: event.title || 'Untitled Event',
+                startTime: new Date(event.start_time),
+                endTime: new Date(event.end_time),
+                isHighStakes: metadata.isHighStakes || false,
+                eventType: metadata.eventType || 'meeting',
+              };
+            });
+            setEvents(transformedEvents);
+            console.log('[useCalendarSync] Fetched', transformedEvents.length, 'events');
+          }
+          
+          // If data is stale, trigger a background sync
+          const syncTime = connData.last_sync ? new Date(connData.last_sync) : null;
+          if (!syncTime || Date.now() - syncTime.getTime() > STALE_THRESHOLD_MS) {
+            console.log('[useCalendarSync] Data is stale, triggering background sync...');
+            // Background sync - don't await
+            supabase.functions.invoke('sync-calendar', {
+              body: { provider: connData.provider, userId: user.id }
+            }).then(() => {
+              if (!cancelled) fetchEvents();
+            }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
+          }
+        } else {
+          setHasCalendar(false);
+        }
+      } catch (err) {
+        console.error('[useCalendarSync] Init error:', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     init();
-  }, [user?.id, fetchConnection, fetchEvents, triggerSync]);
+    
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   return {
     events,
