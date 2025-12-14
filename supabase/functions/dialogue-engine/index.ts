@@ -825,6 +825,14 @@ Example positive intervention:
 - **Session baseline**: Consider 1 intervention per 3-4 message exchanges as normal
 - **Allow natural flow** when user is performing well
 
+### INTERVENTION TIMING ENFORCEMENT
+Current session state:
+- Total interventions so far: \${coachConfig.intervention_count}
+- Messages exchanged: \${sessionContext.message_count}
+- Estimated time per exchange: ~30 seconds
+- If fewer than 2 messages since last intervention, set should_intervene: false
+- If 3+ interventions in last 6 messages, set should_intervene: false (rate limited)
+
 ### META-SKILL NOTE
 Not every intervention requires a meta-skill teaching moment. Include meta-skill observations and actions WHEN RELEVANT to the specific gap or strength observed.
 
@@ -838,6 +846,28 @@ Not every intervention requires a meta-skill teaching moment. Include meta-skill
 - The feedback is purely about content accuracy
 - The user made a strategic error unrelated to emotional/social skills
 - The teaching moment is about subject matter, not how they communicated
+
+### COACH OBSERVATION FORMAT
+
+Your observation MUST follow this structure:
+
+**When meta-skill is relevant:**
+1. **What you noticed**: Describe the specific behavior ("You responded quickly without pausing...")
+2. **The meta-skill opportunity**: Name it explicitly ("This is a Self-Regulation moment: the ability to pause before reacting.")
+3. **The framework**: Apply one from the library
+4. **The application**: How this framework applies HERE specifically
+5. **The action**: What to do in the next response
+
+**When meta-skill is NOT the focus (content-focused feedback):**
+1. **What you noticed**: "You [specific behavior]..."
+2. **The issue**: Focus on the content/strategy problem
+3. **The action**: Specific next step
+
+**Good observation example:**
+"You pushed back immediately when \${personaConfig.name} challenged you—I noticed the defensive tone. This is a Self-Regulation moment: the ability to pause before reacting. Viktor Frankl taught us there's a space between stimulus and response. Here, that space would have let you respond from logic rather than ego. In your next response, take a breath before speaking, and acknowledge their point before presenting your counter-view."
+
+**Bad observation (too vague, no meta-skill when relevant):**
+"Try to be less defensive."
 
 ---
 
