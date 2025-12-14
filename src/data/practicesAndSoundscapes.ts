@@ -1817,5 +1817,15 @@ export const getContentByTags = (tags: string[]): SanctuaryContent[] => {
 };
 
 export const getContentById = (id: string): SanctuaryContent | undefined => {
-  return sanctuaryContent.find(c => c.id === id);
+  // First check main content, then quick interventions
+  const mainContent = sanctuaryContent.find(c => c.id === id);
+  if (mainContent) return mainContent;
+  
+  // Import quick interventions dynamically to avoid circular deps
+  try {
+    const { quickInterventions } = require('./quickInterventions');
+    return quickInterventions.find((c: SanctuaryContent) => c.id === id);
+  } catch {
+    return undefined;
+  }
 };
