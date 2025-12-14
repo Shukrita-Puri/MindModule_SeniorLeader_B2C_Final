@@ -6,7 +6,7 @@ import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
 import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
-import MicroSelfRecalibrateInterventions from "@/components/home/MicroInterventions";
+import PerformancePreparationInterventions from "@/components/home/MicroInterventions";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import executiveHomeBanner from "@/assets/executive-home-banner.png";
@@ -109,9 +109,9 @@ const ExecutiveHome = () => {
           <DailyRitual />
         </div>
 
-        {/* Sub-section 2: Micro Self Recalibration */}
+        {/* Sub-section 2: Performance Preparation */}
         <div>
-          <MicroSelfRecalibrateInterventions />
+          <PerformancePreparationInterventions />
         </div>
       </section>
 

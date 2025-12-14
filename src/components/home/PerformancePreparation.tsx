@@ -1,5 +1,5 @@
 /**
- * MicroSelfRecalibration v2 - Context-First Moment Detection
+ * PerformancePreparation - Context-First Moment Detection
  * Displays max 2 best moments per day with pack recommendations
  * Designed for elite private school students (13-18 years)
  */
@@ -24,7 +24,7 @@ interface MomentWithPack {
   pack: BuiltPack;
 }
 
-const MicroSelfRecalibration = () => {
+const PerformancePreparation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -106,7 +106,7 @@ const MicroSelfRecalibration = () => {
         completedPracticeIds
       );
       
-      console.log('[MicroSelfRecalibration] Detected moments:', detectedMoments.length);
+      console.log('[PerformancePreparation] Detected moments:', detectedMoments.length);
       
       // Filter out snoozed and dismissed moments
       const now = Date.now();
@@ -296,4 +296,4 @@ const MicroSelfRecalibration = () => {
   );
 };
 
-export default MicroSelfRecalibration;
+export default PerformancePreparation;
