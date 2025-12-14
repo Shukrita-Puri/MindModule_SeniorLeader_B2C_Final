@@ -5,7 +5,11 @@
  */
 
 import { sanctuaryContent, type SanctuaryContent } from '@/data/practicesAndSoundscapes';
+import { quickInterventions } from '@/data/quickInterventions';
 import type { MomentCandidate, StudentEventType } from './momentDetectionEngine';
+
+// Combined content pool including quick interventions
+const allContent: SanctuaryContent[] = [...sanctuaryContent, ...quickInterventions];
 
 export type PackStepType = 'mindset' | 'somatic' | 'roleplay';
 
@@ -610,11 +614,17 @@ function scoreContentForStep(
 function selectContentForStep(
   stepDef: PackStepDefinition,
   excludeIds: Set<string>,
-  favoriteIds: string[] = []
+  favoriteIds: string[] = [],
+  preferQuick: boolean = false
 ): SanctuaryContent | null {
   const scores: ContentScore[] = [];
   
-  sanctuaryContent.forEach(content => {
+  // Use combined content pool (includes quick interventions)
+  const contentPool = preferQuick 
+    ? allContent.filter(c => c.duration <= 1) // Only quick content for urgent situations
+    : allContent;
+  
+  contentPool.forEach(content => {
     const score = scoreContentForStep(content, stepDef, excludeIds, favoriteIds);
     if (score > 0) {
       scores.push({ content, score });
@@ -625,7 +635,7 @@ function selectContentForStep(
     // Try fallback tags if available
     if (stepDef.fallback_tags && stepDef.fallback_tags.length > 0) {
       const fallbackStep = { ...stepDef, goal_tags: stepDef.fallback_tags };
-      sanctuaryContent.forEach(content => {
+      contentPool.forEach(content => {
         const score = scoreContentForStep(content, fallbackStep, excludeIds, favoriteIds);
         if (score > 0) {
           scores.push({ content, score });
@@ -667,6 +677,7 @@ function determineStepCount(moment: MomentCandidate, template: PackTemplate): nu
 /**
  * Build a pack for a detected moment
  * Flexible step count (1-3) based on time available and context
+ * Prefers quick interventions when time is very limited
  */
 export function buildPack(
   moment: MomentCandidate,
@@ -680,6 +691,11 @@ export function buildPack(
   }
   
   const maxSteps = determineStepCount(moment, template);
+  const minutesUntil = moment.event_context?.minutes_until || 60;
+  
+  // Prefer quick interventions when time is very limited (<15 min)
+  const preferQuick = minutesUntil < 15 && moment.moment_type !== 'advance-preparation';
+  
   const steps: PackStep[] = [];
   const usedIds = new Set(excludeContentIds);
   let stepsAdded = 0;
@@ -689,7 +705,12 @@ export function buildPack(
     if (stepsAdded >= maxSteps) break;
     if (!stepDef.required) continue;
     
-    const content = selectContentForStep(stepDef, usedIds, favoriteIds);
+    // Adjust duration range for quick content preference
+    const adjustedStepDef = preferQuick 
+      ? { ...stepDef, duration_range: { min: 0.5, max: 1 } }
+      : stepDef;
+    
+    const content = selectContentForStep(adjustedStepDef, usedIds, favoriteIds, preferQuick);
     
     if (content) {
       usedIds.add(content.id);
@@ -702,27 +723,43 @@ export function buildPack(
       });
       stepsAdded++;
     } else {
-      console.warn(`Could not find content for required step: ${stepDef.step_type}`);
+      // Fallback to any content if quick content not found
+      const fallbackContent = selectContentForStep(stepDef, usedIds, favoriteIds, false);
+      if (fallbackContent) {
+        usedIds.add(fallbackContent.id);
+        steps.push({
+          step_type: stepDef.step_type,
+          content: fallbackContent,
+          label: stepDef.label,
+          duration: fallbackContent.duration,
+          is_optional: false
+        });
+        stepsAdded++;
+      } else {
+        console.warn(`Could not find content for required step: ${stepDef.step_type}`);
+      }
     }
   }
   
-  // Second pass: Add optional steps if we have room
-  for (const stepDef of template.steps) {
-    if (stepsAdded >= maxSteps) break;
-    if (stepDef.required) continue;
-    
-    const content = selectContentForStep(stepDef, usedIds, favoriteIds);
-    
-    if (content) {
-      usedIds.add(content.id);
-      steps.push({
-        step_type: stepDef.step_type,
-        content,
-        label: stepDef.label,
-        duration: content.duration,
-        is_optional: true
-      });
-      stepsAdded++;
+  // Second pass: Add optional steps if we have room (skip if preferring quick)
+  if (!preferQuick) {
+    for (const stepDef of template.steps) {
+      if (stepsAdded >= maxSteps) break;
+      if (stepDef.required) continue;
+      
+      const content = selectContentForStep(stepDef, usedIds, favoriteIds, false);
+      
+      if (content) {
+        usedIds.add(content.id);
+        steps.push({
+          step_type: stepDef.step_type,
+          content,
+          label: stepDef.label,
+          duration: content.duration,
+          is_optional: true
+        });
+        stepsAdded++;
+      }
     }
   }
   
