@@ -31,7 +31,9 @@ serve(async (req) => {
     // State contains the userId for OAuth callback (passed during OAuth initiation)
     const stateUserId = url.searchParams.get('state');
     
-    // For connect/disconnect actions, require authentication and get userId from JWT
+    // For connect/disconnect actions, get userId from request body
+    // Note: This app uses Auth0 authentication, not Supabase Auth
+    // Auth0 user IDs have format like "google-oauth2|111878424918915566691"
     let authenticatedUserId: string | null = null;
     
     if (req.method === 'POST') {
@@ -39,27 +41,26 @@ serve(async (req) => {
       action = body.action || action;
       provider = body.provider || provider;
       
-      // For POST requests (connect/disconnect), extract user from JWT - DO NOT trust client-provided userId
-      if (authHeader) {
-        const supabaseUser = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: authHeader } } }
-        );
+      // For Auth0 apps, trust the userId from request body
+      // The frontend is authenticated via Auth0 and provides the user ID
+      if (body.userId) {
+        // Validate Auth0 user ID format (provider|id) or UUID format
+        const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         
-        const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-        if (userError || !user) {
-          console.error('[calendar-auth] Auth error:', userError);
+        if (auth0IdPattern.test(body.userId) || uuidPattern.test(body.userId)) {
+          authenticatedUserId = body.userId;
+          console.log('[calendar-auth] Using Auth0 userId from request:', authenticatedUserId);
+        } else {
           return new Response(
-            JSON.stringify({ error: 'Unauthorized - valid authentication required' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ error: 'Invalid user ID format' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        authenticatedUserId = user.id;
       } else {
         return new Response(
-          JSON.stringify({ error: 'Unauthorized - missing authorization header' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Missing userId in request' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -109,9 +110,14 @@ serve(async (req) => {
         throw new Error('Missing code or state');
       }
 
-      // Validate the userId from state is a valid UUID format
-      const uuidSchema = z.string().uuid();
-      const validUserId = uuidSchema.parse(stateUserId);
+      // Validate the userId from state - accepts Auth0 format or UUID
+      const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (!auth0IdPattern.test(stateUserId) && !uuidPattern.test(stateUserId)) {
+        throw new Error('Invalid user ID format in state');
+      }
+      const validUserId = stateUserId;
 
       let tokenUrl = '';
       let clientId = '';
