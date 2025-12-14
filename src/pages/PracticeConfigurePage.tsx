@@ -20,6 +20,7 @@ interface FileAttachment {
 interface LocationState {
   preSelectedCategory?: string;
   preSelectedScenario?: string;
+  prePopulatedCustomScenario?: string;
 }
 
 const PracticeConfigurePage = () => {
@@ -221,8 +222,13 @@ const PracticeConfigurePage = () => {
   useEffect(() => {
     if (locationState?.preSelectedScenario && scenarioCategory) {
       setSpecificScenario(locationState.preSelectedScenario);
+      
+      // Pre-populate custom scenario text if provided
+      if (locationState.preSelectedScenario === 'custom' && locationState.prePopulatedCustomScenario) {
+        setCustomScenario(locationState.prePopulatedCustomScenario);
+      }
     }
-  }, [locationState?.preSelectedScenario, scenarioCategory]);
+  }, [locationState?.preSelectedScenario, locationState?.prePopulatedCustomScenario, scenarioCategory]);
 
   useEffect(() => {
     if (specificScenario && specificScenario !== 'custom') {

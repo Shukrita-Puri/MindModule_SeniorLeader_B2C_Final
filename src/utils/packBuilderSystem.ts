@@ -617,11 +617,12 @@ function selectContentForStep(
   excludeIds: Set<string>,
   favoriteIds: string[] = [],
   preferQuick: boolean = false,
-  eventType?: string
+  eventType?: string,
+  eventTitle?: string
 ): SanctuaryContent | null {
   // Special handling for roleplay steps - create virtual content
   if (stepDef.step_type === 'roleplay' && eventType) {
-    return createRoleplayContent(eventType, stepDef.goal_tags);
+    return createRoleplayContent(eventType, stepDef.goal_tags, eventTitle);
   }
   
   const scores: ContentScore[] = [];
@@ -707,8 +708,9 @@ export function buildPack(
   const usedIds = new Set(excludeContentIds);
   let stepsAdded = 0;
   
-  // Derive event type from moment for roleplay content creation
+  // Derive event type and title from moment for roleplay content creation
   const eventType = moment.event_context?.event_type || 'interview';
+  const eventTitle = moment.event_context?.event_title;
   
   // First pass: Add required steps (up to maxSteps)
   for (const stepDef of template.steps) {
@@ -720,7 +722,7 @@ export function buildPack(
       ? { ...stepDef, duration_range: { min: 0.5, max: 1 } }
       : stepDef;
     
-    const content = selectContentForStep(adjustedStepDef, usedIds, favoriteIds, preferQuick, eventType);
+    const content = selectContentForStep(adjustedStepDef, usedIds, favoriteIds, preferQuick, eventType, eventTitle);
     
     if (content) {
       usedIds.add(content.id);
@@ -734,7 +736,7 @@ export function buildPack(
       stepsAdded++;
     } else {
       // Fallback to any content if quick content not found
-      const fallbackContent = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType);
+      const fallbackContent = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType, eventTitle);
       if (fallbackContent) {
         usedIds.add(fallbackContent.id);
         steps.push({
@@ -757,7 +759,7 @@ export function buildPack(
       if (stepsAdded >= maxSteps) break;
       if (stepDef.required) continue;
       
-      const content = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType);
+      const content = selectContentForStep(stepDef, usedIds, favoriteIds, false, eventType, eventTitle);
       
       if (content) {
         usedIds.add(content.id);
