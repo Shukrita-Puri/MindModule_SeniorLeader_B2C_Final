@@ -1,14 +1,13 @@
 /**
  * PerformancePreparation - Context-First Moment Detection
  * Displays max 2 best moments per day with pack recommendations
- * Designed for elite private school students (13-18 years)
+ * Carousel-style design matching DailyRitual
  */
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +15,7 @@ import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { detectMoments, type MomentCandidate } from '@/utils/momentDetectionEngine';
 import { buildPack, type BuiltPack, type PackStep } from '@/utils/packBuilderSystem';
-import MomentCard from './MomentCard';
+import MomentCarousel from './MomentCarousel';
 import type { CalendarEvent } from '@/utils/historicalPatternEngine';
 
 interface MomentWithPack {
@@ -272,13 +271,12 @@ const PerformancePreparation = () => {
   }
 
   return (
-    <div className="space-y-4">
-      {moments.map((momentWithPack, index) => (
-        <MomentCard
+    <div className="space-y-8">
+      {moments.map((momentWithPack) => (
+        <MomentCarousel
           key={momentWithPack.moment.id}
           moment={momentWithPack.moment}
           pack={momentWithPack.pack}
-          isExpanded={index === 0}
           onStartPack={() => handleStartPack(momentWithPack)}
           onStartStep={(step) => handleStartStep(step, momentWithPack.pack, momentWithPack.moment)}
           onSnooze={(minutes) => handleSnooze(momentWithPack.moment.id, minutes)}
