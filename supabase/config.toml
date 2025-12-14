@@ -10,7 +10,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.calendar-auth]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-calendar]
 verify_jwt = true
