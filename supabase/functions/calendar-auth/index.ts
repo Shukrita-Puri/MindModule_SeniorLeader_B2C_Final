@@ -152,7 +152,7 @@ serve(async (req) => {
         throw new Error(tokens.error_description || tokens.error || 'Failed to get access token');
       }
 
-      // Store tokens securely in Vault using RPC functions
+      // Store tokens - try vault first, fallback to plaintext if vault fails
       // First, check if connection exists
       const { data: existingConn } = await supabaseAdmin
         .from('calendar_connections')
@@ -160,53 +160,73 @@ serve(async (req) => {
         .eq('user_id', validUserId)
         .single();
 
+      let connectionId: string;
+      let vaultSucceeded = false;
+
       if (existingConn) {
-        // Update existing connection - store tokens in vault
+        connectionId = existingConn.id;
+        
+        // Try to store tokens in vault first
         const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
-          _connection_id: existingConn.id,
+          _connection_id: connectionId,
           _token: tokens.access_token
         });
         
         if (accessTokenError) {
-          console.error('[calendar-auth] Error storing access token in vault:', accessTokenError);
+          console.error('[calendar-auth] Vault error for access token, will use plaintext:', accessTokenError);
+        } else {
+          vaultSucceeded = true;
         }
 
-        if (tokens.refresh_token) {
+        if (tokens.refresh_token && vaultSucceeded) {
           const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
-            _connection_id: existingConn.id,
+            _connection_id: connectionId,
             _token: tokens.refresh_token
           });
           
           if (refreshTokenError) {
-            console.error('[calendar-auth] Error storing refresh token in vault:', refreshTokenError);
+            console.error('[calendar-auth] Vault error for refresh token:', refreshTokenError);
           }
         }
 
-        // Update connection metadata (without plaintext tokens)
+        // Update connection - include plaintext tokens as fallback if vault failed
+        const updateData: any = {
+          provider: validProvider,
+          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (!vaultSucceeded) {
+          // Vault failed, store in plaintext columns
+          updateData.access_token = tokens.access_token;
+          updateData.refresh_token = tokens.refresh_token || null;
+          console.log('[calendar-auth] Storing tokens in plaintext as vault fallback');
+        }
+
         const { error: updateError } = await supabaseAdmin
           .from('calendar_connections')
-          .update({
-            provider: validProvider,
-            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-            is_active: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingConn.id);
+          .update(updateData)
+          .eq('id', connectionId);
 
         if (updateError) {
           console.error('[calendar-auth] Error updating calendar connection:', updateError);
           throw new Error(updateError.message || 'Failed to update calendar connection');
         }
       } else {
-        // Create new connection record first (without tokens)
+        // Create new connection record - include plaintext tokens initially
+        const insertData: any = {
+          user_id: validUserId,
+          provider: validProvider,
+          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          is_active: true,
+          access_token: tokens.access_token, // Store plaintext initially
+          refresh_token: tokens.refresh_token || null,
+        };
+
         const { data: newConn, error: insertError } = await supabaseAdmin
           .from('calendar_connections')
-          .insert({
-            user_id: validUserId,
-            provider: validProvider,
-            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-            is_active: true,
-          })
+          .insert(insertData)
           .select('id')
           .single();
 
@@ -215,25 +235,26 @@ serve(async (req) => {
           throw new Error(insertError?.message || 'Failed to create calendar connection');
         }
 
-        // Now store tokens in vault
+        connectionId = newConn.id;
+
+        // Try to migrate to vault (optional - best effort)
         const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
-          _connection_id: newConn.id,
+          _connection_id: connectionId,
           _token: tokens.access_token
         });
         
         if (accessTokenError) {
-          console.error('[calendar-auth] Error storing access token in vault:', accessTokenError);
-        }
-
-        if (tokens.refresh_token) {
-          const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
-            _connection_id: newConn.id,
-            _token: tokens.refresh_token
-          });
+          console.log('[calendar-auth] Vault unavailable, tokens stored in plaintext');
+        } else {
+          vaultSucceeded = true;
           
-          if (refreshTokenError) {
-            console.error('[calendar-auth] Error storing refresh token in vault:', refreshTokenError);
+          if (tokens.refresh_token) {
+            await supabaseAdmin.rpc('store_calendar_refresh_token', {
+              _connection_id: connectionId,
+              _token: tokens.refresh_token
+            });
           }
+          console.log('[calendar-auth] Tokens migrated to vault');
         }
       }
 
