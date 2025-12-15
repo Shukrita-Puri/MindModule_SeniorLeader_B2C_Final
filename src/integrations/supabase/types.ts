@@ -777,6 +777,59 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_skill_progress: {
+        Row: {
+          baseline_score: number | null
+          cluster: string
+          created_at: string
+          current_score: number | null
+          gaps_identified: number | null
+          id: string
+          last_session_id: string | null
+          meta_skill_key: string
+          scenarios_practiced: number | null
+          strengths_demonstrated: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          baseline_score?: number | null
+          cluster: string
+          created_at?: string
+          current_score?: number | null
+          gaps_identified?: number | null
+          id?: string
+          last_session_id?: string | null
+          meta_skill_key: string
+          scenarios_practiced?: number | null
+          strengths_demonstrated?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          baseline_score?: number | null
+          cluster?: string
+          created_at?: string
+          current_score?: number | null
+          gaps_identified?: number | null
+          id?: string
+          last_session_id?: string | null
+          meta_skill_key?: string
+          scenarios_practiced?: number | null
+          strengths_demonstrated?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_skill_progress_last_session_id_fkey"
+            columns: ["last_session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       micro_intervention_events: {
         Row: {
           context_data: Json | null
