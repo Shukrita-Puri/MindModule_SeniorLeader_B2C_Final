@@ -9,6 +9,7 @@ import DevelopmentAreasSection from "@/components/simulation/DevelopmentAreasSec
 import FrameworksUsedSection from "@/components/simulation/FrameworksUsedSection";
 import TranscriptReplaySection from "@/components/simulation/TranscriptReplaySection";
 import PersonalReflectionSection from "@/components/simulation/PersonalReflectionSection";
+import MetaSkillProgressSection from "@/components/simulation/MetaSkillProgressSection";
 import AchievementsDisplay from "@/components/achievements/AchievementsDisplay";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import ScheduleFollowupModal from "@/components/simulation/ScheduleFollowupModal";
@@ -16,9 +17,9 @@ import { useSessionDebrief } from "@/hooks/useSessionDebrief";
 import { useSavedDebriefs } from "@/hooks/useSavedDebriefs";
 import { useMetaSkillProgress } from "@/hooks/useMetaSkillProgress";
 import { useAchievements } from "@/hooks/useAchievements";
-import { generateDebriefPdf } from "@/utils/generateDebriefPdf";
+import { generateDebriefPdf, generateTranscriptPdf } from "@/utils/generateDebriefPdf";
 import { toast } from "sonner";
-import { Loader2, Save, Check } from "lucide-react";
+import { Loader2, Save, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PracticeSimulationInsights = () => {
@@ -51,7 +52,7 @@ const PracticeSimulationInsights = () => {
 
   // Hooks for saving and tracking
   const { saveDebrief, isSaving } = useSavedDebriefs();
-  const { updateAfterSession } = useMetaSkillProgress();
+  const { updateAfterSession, selfMastery, socialMastery } = useMetaSkillProgress();
   const { checkAndAwardAchievements } = useAchievements();
 
   // Use session data or fallback to location state
@@ -63,9 +64,6 @@ const PracticeSimulationInsights = () => {
 
   // Track if we've already processed this session
   const [hasUpdatedProgress, setHasUpdatedProgress] = useState(false);
-
-  // Get progress data for achievement checking
-  const { selfMastery, socialMastery } = useMetaSkillProgress();
 
   // Update meta-skill progress when session data loads
   useEffect(() => {
@@ -99,6 +97,17 @@ const PracticeSimulationInsights = () => {
     updateProgress();
   }, [sessionId, strengths, developmentAreas, displayDomain, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery]);
 
+  // Format meta-skill progress for display
+  const formatMetaSkillProgress = (progress: typeof selfMastery) => {
+    if (!progress) return null;
+    return {
+      currentScore: progress.currentScore,
+      baselineScore: progress.baselineScore,
+      change: progress.change,
+      scenariosPracticed: progress.scenariosPracticed
+    };
+  };
+
   const handleDownload = () => {
     generateDebriefPdf({
       scenarioDomain: displayDomain,
@@ -107,13 +116,25 @@ const PracticeSimulationInsights = () => {
       sessionDuration: displayDuration,
       mentalFitnessScore: undefined,
       mentalFitnessChange: undefined,
-      strengths: strengths.map(s => `${s.metaSkill}${s.subSkill ? ` - ${s.subSkill}` : ''}`),
+      strengths: strengths.map(s => `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}`),
       blindSpots: developmentAreas.map(d => d.observation),
       mentalModels: frameworks.map(f => f.name),
       personalNotes,
       date: new Date(),
+      transcript,
+      selfMastery: formatMetaSkillProgress(selfMastery),
+      socialMastery: formatMetaSkillProgress(socialMastery),
     });
     toast.success("Debrief exported as PDF");
+  };
+
+  const handleDownloadTranscript = () => {
+    if (transcript.length === 0) {
+      toast.error("No transcript available to download");
+      return;
+    }
+    generateTranscriptPdf(transcript, `${displayDomain || 'Dialogue'} - ${contextType || 'Session'}`);
+    toast.success("Transcript exported as PDF");
   };
 
   const handleScheduleFollowup = () => {
@@ -214,7 +235,7 @@ const PracticeSimulationInsights = () => {
             ) : isSaved ? (
               <>
                 <Check className="w-4 h-4 mr-2" />
-                Saved to Archive
+                Saved to My Archive
               </>
             ) : (
               <>
@@ -226,8 +247,30 @@ const PracticeSimulationInsights = () => {
           
           <div className="border-t border-gold/40 my-8" />
 
-          {/* Transcript Replay */}
-          <TranscriptReplaySection transcript={transcript} />
+          {/* Meta-Skill Progress */}
+          <MetaSkillProgressSection 
+            selfMastery={formatMetaSkillProgress(selfMastery)}
+            socialMastery={formatMetaSkillProgress(socialMastery)}
+          />
+
+          <div className="border-t border-gold/40 my-8" />
+
+          {/* Transcript Replay with Download Button */}
+          <div className="space-y-4">
+            <TranscriptReplaySection transcript={transcript} />
+            
+            {transcript.length > 0 && (
+              <Button
+                onClick={handleDownloadTranscript}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Download Transcript
+              </Button>
+            )}
+          </div>
           
           {transcript.length > 0 && <div className="border-t border-gold/40 my-8" />}
           
