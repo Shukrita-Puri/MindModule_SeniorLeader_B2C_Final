@@ -810,14 +810,14 @@ const GuidedPracticePlayer = () => {
     if (fromRitual) return '/executive-home';
     
     // Use the practice's actual category to determine back path
-    if (!practice) return '/guided-practices';
+    if (!practice) return '/recalibrate';
     
     const category = practice.category;
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
-    if (category === 'flow') return '/recalibrate/flow';
-    return '/guided-practices';
+    if (category === 'flow') return '/recalibrate/presence';
+    return '/recalibrate';
   };
 
   // Queue Handlers
@@ -952,8 +952,8 @@ const GuidedPracticePlayer = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Practice not found</p>
-          <Button onClick={() => navigate("/guided-practices")}>
-            Return to Library
+          <Button onClick={() => navigate("/recalibrate")}>
+            Return to Recalibrate
           </Button>
         </div>
       </div>
