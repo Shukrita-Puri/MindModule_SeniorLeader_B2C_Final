@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -70,10 +70,9 @@ const StrengthsSection = ({ strengths = [], isGenerating = false }: StrengthsSec
             {strengths.slice(0, 4).map((item, index) => (
               <div 
                 key={index}
-                className="flex items-start gap-3 py-2 animate-fade-in"
+                className="py-2 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <Sparkles size={14} className="text-forest mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-foreground font-body leading-relaxed">
                   <span className="font-medium">{item.metaSkill}</span>
                   {item.subSkill && (
