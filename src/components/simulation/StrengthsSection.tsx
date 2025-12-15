@@ -1,33 +1,35 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Strength } from "@/hooks/useSessionDebrief";
 
-const StrengthsSection = () => {
+interface StrengthsSectionProps {
+  strengths?: Strength[];
+}
+
+const StrengthsSection = ({ strengths = [] }: StrengthsSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const strengths = [
-    {
-      category: "Communication",
-      strength: "Excellent active listening and reading of emotional cues",
-      example: "You paused thoughtfully before responding to the professor's challenging question, showing you were truly listening."
-    },
-    {
-      category: "Empathy",
-      strength: "Natural ability to make others feel understood",
-      example: "When your peer expressed uncertainty, you validated their feelings before offering your perspective."
-    },
-    {
-      category: "Cognition",
-      strength: "Strong critical thinking; articulates complex ideas with clarity",
-      example: "You broke down the philosophical concept into relatable examples that made the discussion accessible."
-    },
-    {
-      category: "Adaptability",
-      strength: "Adjusts to group dynamics intuitively",
-      example: "You shifted your communication style when the conversation became more formal, matching the room's energy."
-    }
+
+  // Fallback demo data if no real strengths provided
+  const displayStrengths = strengths.length > 0 ? strengths : [
+    { metaSkill: "Communication", subSkill: "Active Listening", indicators: ["Paused thoughtfully before responding"] },
+    { metaSkill: "Empathy", subSkill: "Perspective Taking", indicators: ["Validated feelings before offering perspective"] },
+    { metaSkill: "Self-Regulation", subSkill: "Composure", indicators: ["Maintained calm under pressure"] }
   ];
+
+  if (!displayStrengths.length) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-heading font-medium text-foreground">
+          Your Strengths
+        </h3>
+        <p className="text-sm text-muted-foreground font-body">
+          Complete more dialogue sessions to identify your strengths.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -49,33 +51,39 @@ const StrengthsSection = () => {
         </CollapsibleTrigger>
 
         <CollapsibleContent className="mt-4">
-
-      <div className="border-l-2 border-gold/40 pl-4 space-y-6">
-        <TooltipProvider>
-          {strengths.map((item, index) => (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <div 
-                  className="cursor-pointer hover:border-gold/60 transition-colors animate-fade-in"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <h4 className="text-sm font-medium text-foreground font-body mb-1">
-                    {item.category}
-                  </h4>
-                  <p className="text-sm text-muted-foreground font-body leading-relaxed">
-                    {item.strength}
-                  </p>
+          <div className="space-y-4">
+            {displayStrengths.map((item, index) => (
+              <div 
+                key={index}
+                className="bg-forest/5 dark:bg-forest/10 rounded-xl p-4 animate-fade-in"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-forest/20 flex items-center justify-center">
+                    <Sparkles size={16} className="text-forest" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground font-body">
+                      {item.metaSkill}
+                      {item.subSkill && (
+                        <span className="text-muted-foreground font-normal"> → {item.subSkill}</span>
+                      )}
+                    </p>
+                    {item.indicators && item.indicators.length > 0 && (
+                      <p className="text-sm text-muted-foreground font-body mt-1">
+                        {item.indicators.join(', ')}
+                      </p>
+                    )}
+                    {item.transcriptExample && (
+                      <p className="text-xs text-muted-foreground/80 font-body mt-2 italic border-l-2 border-forest/30 pl-2">
+                        "{item.transcriptExample}"
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs bg-card border-gold/30">
-                <p className="text-sm font-body leading-relaxed">
-                  <span className="font-medium text-gold">Example:</span> {item.example}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </TooltipProvider>
-      </div>
+              </div>
+            ))}
+          </div>
         </CollapsibleContent>
       </Collapsible>
     </div>
