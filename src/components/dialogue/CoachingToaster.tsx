@@ -13,16 +13,20 @@ interface Intervention {
   framework?: string;
   wisdomQuote?: string;
   frameworkApplication?: string;
+  displayedAt?: string;
+  dbId?: string;
 }
 
 interface CoachingToasterProps {
   intervention: Intervention;
   onDismiss: () => void;
+  onAcknowledge?: () => void;
 }
 
 export default function CoachingToaster({
   intervention,
-  onDismiss
+  onDismiss,
+  onAcknowledge
 }: CoachingToasterProps) {
   const formatSkillName = (skill: string | undefined) => {
     if (!skill) return 'General Skill';
@@ -95,7 +99,7 @@ export default function CoachingToaster({
 
       {/* Framework / Model / Memory (Optional) */}
       {intervention.wisdomQuote && (
-        <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-700 mb-4">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
             Framework / Model
           </p>
@@ -115,6 +119,27 @@ export default function CoachingToaster({
           </div>
         </div>
       )}
+
+      {/* Action Buttons */}
+      <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </Button>
+        {onAcknowledge && (
+          <Button
+            size="sm"
+            className="flex-1 text-xs bg-forest hover:bg-forest/90"
+            onClick={onAcknowledge}
+          >
+            Got it, I'll try this
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
