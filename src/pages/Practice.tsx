@@ -101,6 +101,12 @@ const Practice = () => {
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Practice real conversations with an AI partner. Build confidence for the moments that matter — from classroom presentations to life-changing interviews.
           </p>
+          <button
+            onClick={() => navigate('/practice/history')}
+            className="mt-4 text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+          >
+            View Practice History →
+          </button>
         </div>
       </div>
 
