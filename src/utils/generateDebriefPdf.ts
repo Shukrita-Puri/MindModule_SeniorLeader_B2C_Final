@@ -361,11 +361,17 @@ export const generateTranscriptPdf = (transcript: TranscriptMessage[], scenarioC
     }
   };
 
-  // Header
-  doc.setFontSize(18);
+  // Header with branding
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(34, 97, 73); // Forest green
+  doc.text('Mind Module', margin, yPos);
+  yPos += 8;
+  
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(34, 97, 73);
-  doc.text('Dialogue Transcript', margin, yPos);
+  doc.text('DIALOGUE TRANSCRIPT', margin, yPos);
   yPos += 8;
 
   if (scenarioContext) {
@@ -376,12 +382,12 @@ export const generateTranscriptPdf = (transcript: TranscriptMessage[], scenarioC
     yPos += 6;
   }
 
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setTextColor(150);
   doc.text(new Date().toLocaleDateString('en-US', { 
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
   }), margin, yPos);
-  yPos += 10;
+  yPos += 12;
 
   // Divider
   doc.setDrawColor(200);
