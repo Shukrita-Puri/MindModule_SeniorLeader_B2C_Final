@@ -301,6 +301,20 @@ export function useDialogueSession() {
         messages: [...prev.messages, userMessage]
       }));
 
+      // Extract previous frameworks used in this session (for deduplication)
+      const previousFrameworks = state.interventions
+        .filter(i => i.framework)
+        .map(i => i.framework as string)
+        .slice(-5); // Last 5 frameworks used
+      
+      // Calculate when last intervention occurred (message index)
+      const lastInterventionMessageIndex = state.interventions.length > 0 
+        ? state.messages.length - 1 
+        : -1;
+      const messagesSinceLastIntervention = lastInterventionMessageIndex >= 0 
+        ? state.messages.length - lastInterventionMessageIndex 
+        : state.messages.length;
+
       // 4. Call LLM with signals and full config
       const response = await supabase.functions.invoke('dialogue-engine', {
         body: {
@@ -333,7 +347,10 @@ export function useDialogueSession() {
             action: safetyCheck.action,
             contextType: safetyCheck.contextType,
             message: safetyCheck.message
-          }
+          },
+          // Intervention control data
+          previousFrameworks,
+          messagesSinceLastIntervention
         }
       });
 

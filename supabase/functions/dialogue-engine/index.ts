@@ -179,6 +179,9 @@ const DialogueEngineInputSchema = z.object({
   context: ContextSchema,
   conversationHistory: ConversationHistorySchema.optional(),
   safetyCheck: SafetyCheckSchema,
+  // Intervention control data
+  previousFrameworks: z.array(z.string().max(200)).max(10).optional(),
+  messagesSinceLastIntervention: z.number().int().min(0).max(500).optional(),
   // Configuration from /practice/configure for opening message generation
   configuration: z.object({
     scenarioCategory: z.string().max(200).optional(), // Flexible - accepts any category from DB
@@ -326,6 +329,8 @@ function buildUnifiedPrompt(params: {
   scenarioConfig: ScenarioConfig;
   sessionContext: SessionContext;
   safetyCheck: SafetyCheck;
+  previousFrameworks?: string[];
+  messagesSinceLastIntervention?: number;
 }): string {
   const {
     userMessage,
@@ -335,7 +340,9 @@ function buildUnifiedPrompt(params: {
     coachConfig,
     scenarioConfig,
     sessionContext,
-    safetyCheck
+    safetyCheck,
+    previousFrameworks = [],
+    messagesSinceLastIntervention = 999
   } = params;
 
   // Get personality style guidance - EXPANDED with questioning approach and meta-skill opportunities
@@ -831,23 +838,40 @@ Example positive intervention:
 ### DO NOT INTERVENE WHEN (STRICTLY ENFORCED)
 1. **In breakthrough moment** - Let them complete the realization
 2. **Demonstrating mastery** - Let them practice their skills
-3. **Too soon after last intervention** - Wait at least 45 seconds
-4. **Rate limit reached** - Max 3 interventions in 2 minutes
+3. **Too soon after last intervention** - Wait at least 3 message exchanges
+4. **Rate limit reached** - Max 3 interventions in last 6 messages
 5. **User is in flow** - Performing well, natural conversation
+6. **Performance is high** - When user demonstrates strong skills, let them practice
 
-### INTERVENTION PACING RULES
-- **Minimum gap**: 45 seconds between interventions
-- **Maximum frequency**: 3 per 2-minute window
-- **Session baseline**: Consider 1 intervention per 3-4 message exchanges as normal
-- **Allow natural flow** when user is performing well
+### ⚠️ INTERVENTION GATE CHECK (MANDATORY - EVALUATE BEFORE SETTING should_intervene)
 
-### INTERVENTION TIMING ENFORCEMENT
-Current session state:
-- Total interventions so far: \${coachConfig.intervention_count}
-- Messages exchanged: \${sessionContext.message_count}
-- Estimated time per exchange: ~30 seconds
-- If fewer than 2 messages since last intervention, set should_intervene: false
-- If 3+ interventions in last 6 messages, set should_intervene: false (rate limited)
+**Current Session Data:**
+- Messages since last intervention: ${messagesSinceLastIntervention}
+- Total interventions so far: ${coachConfig.intervention_count}
+- Messages exchanged: ${sessionContext.message_count}
+
+**GATE 1 - Rate Limit Check:**
+${messagesSinceLastIntervention >= 3 ? '✅ PASS - At least 3 messages since last intervention' : '❌ FAIL - Only ' + messagesSinceLastIntervention + ' messages since last intervention. SET should_intervene: false'}
+
+**GATE 2 - Performance Assessment:**
+Based on detected signals:
+- Skill Gaps: ${detectedSignals.skillGaps.selfMastery.length + detectedSignals.skillGaps.socialMastery.length} detected
+- Skill Strengths: Demonstrated skills present
+- Self-Regulation: ${detectedSignals.eiBehaviors.selfRegulationLevel}
+- Perspective Taking: ${detectedSignals.eiBehaviors.perspectiveTaking ? 'Yes' : 'No'}
+
+${(detectedSignals.skillGaps.selfMastery.length + detectedSignals.skillGaps.socialMastery.length) === 0 && detectedSignals.eiBehaviors.selfRegulationLevel === 'high' 
+  ? '❌ FAIL - User is performing well. Let them practice without interruption. SET should_intervene: false' 
+  : '✅ PASS - Skill gap or learning opportunity detected'}
+
+**GATE 3 - Framework Variety Check:**
+${previousFrameworks.length > 0 
+  ? `Previously used frameworks (LAST 5): ${previousFrameworks.join(', ')}
+If you cannot use a DIFFERENT framework: ❌ FAIL - SET should_intervene: false`
+  : '✅ PASS - No frameworks used yet, full selection available'}
+
+**⚠️ CRITICAL: If ANY gate fails → should_intervene: false**
+**Only intervene when ALL gates pass AND there's a genuine teachable moment**
 
 ### META-SKILL NOTE
 Not every intervention requires a meta-skill teaching moment. Include meta-skill observations and actions WHEN RELEVANT to the specific gap or strength observed.
@@ -896,9 +920,15 @@ Your observation MUST follow this structure:
 - If no framework fits perfectly, choose the CLOSEST match from this library
 - The attribution MUST be a real person or recognized technique listed here
 
-### FRAMEWORK REPETITION RULES (IMPORTANT)
-- Track which frameworks have been used in recent interventions
-- Do NOT repeat the same framework within 2-3 consecutive interventions
+### ⚠️ FRAMEWORK DEDUPLICATION (STRICTLY ENFORCED)
+${previousFrameworks.length > 0 
+  ? `**FRAMEWORKS ALREADY USED THIS SESSION (DO NOT REPEAT):**
+${previousFrameworks.map((f, i) => `${i + 1}. ${f}`).join('\n')}
+
+❌ You MUST choose a DIFFERENT framework from the list below.
+With 24+ frameworks available, there is NO excuse for repetition.
+If the "best fit" framework was already used, pick the NEXT best option.`
+  : '✅ No frameworks used yet - you have full selection available.'}
 - With 24+ frameworks available, USE VARIETY
 - If the same framework is genuinely the best fit, wait at least 3 exchanges before reusing
 - Only repeat if absolutely no other framework applies
@@ -1368,7 +1398,7 @@ serve(async (req) => {
       });
     }
     
-    const { type, userMessage, signals, context, conversationHistory, safetyCheck, configuration } = parseResult.data;
+    const { type, userMessage, signals, context, conversationHistory, safetyCheck, configuration, previousFrameworks, messagesSinceLastIntervention } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -1455,7 +1485,9 @@ serve(async (req) => {
       coachConfig,
       scenarioConfig,
       sessionContext,
-      safetyCheck: safetyCk
+      safetyCheck: safetyCk,
+      previousFrameworks: previousFrameworks || [],
+      messagesSinceLastIntervention: messagesSinceLastIntervention ?? 999
     });
 
     console.log('[dialogue-engine] Processing message for session:', context?.scenarioId);
