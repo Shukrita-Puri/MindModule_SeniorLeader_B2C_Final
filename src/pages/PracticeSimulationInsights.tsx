@@ -109,6 +109,30 @@ const PracticeSimulationInsights = () => {
   };
 
   const handleDownload = () => {
+    // Prepare data for PDF - use all available data
+    const pdfStrengths = strengths.map(s => {
+      const indicators = s.indicators?.join(', ') || '';
+      return `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}${indicators ? `: ${indicators}` : ''}`;
+    });
+    
+    const pdfBlindSpots = developmentAreas.map(d => {
+      const parts = [];
+      if (d.metaSkill) parts.push(d.metaSkill);
+      if (d.subSkill) parts.push(`→ ${d.subSkill}`);
+      if (d.observation) parts.push(`: ${d.observation}`);
+      if (d.actionSuggested) parts.push(`\nAction: ${d.actionSuggested}`);
+      return parts.join(' ');
+    });
+    
+    const pdfFrameworks = frameworks.map(f => f.name);
+    
+    console.log('[PDF Export] Data being passed:', {
+      strengths: pdfStrengths,
+      blindSpots: pdfBlindSpots,
+      frameworks: pdfFrameworks,
+      transcript: transcript.length
+    });
+    
     generateDebriefPdf({
       scenarioDomain: displayDomain,
       contextType,
@@ -116,9 +140,9 @@ const PracticeSimulationInsights = () => {
       sessionDuration: displayDuration,
       mentalFitnessScore: undefined,
       mentalFitnessChange: undefined,
-      strengths: strengths.map(s => `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}`),
-      blindSpots: developmentAreas.map(d => d.observation),
-      mentalModels: frameworks.map(f => f.name),
+      strengths: pdfStrengths,
+      blindSpots: pdfBlindSpots,
+      mentalModels: pdfFrameworks,
       personalNotes,
       date: new Date(),
       transcript,
