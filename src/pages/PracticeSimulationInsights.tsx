@@ -162,35 +162,62 @@ const PracticeSimulationInsights = () => {
     generateInsights();
   }, [strengths, developmentAreas, displayDomain, displayContext, displayDuration, hasGeneratedInsights]);
 
+  // Meta-skill to cluster mapping
+  const SKILL_CLUSTER_MAP: Record<string, 'self_mastery' | 'social_mastery'> = {
+    // Self Mastery skills
+    'Emotional Intelligence': 'self_mastery',
+    'Self-Regulation': 'self_mastery',
+    'Learning Agility': 'self_mastery',
+    'Emotional Resilience': 'self_mastery',
+    'emotional_regulation': 'self_mastery',
+    'focus': 'self_mastery',
+    'discipline': 'self_mastery',
+    'self_awareness': 'self_mastery',
+    // Social Mastery skills
+    'Communication': 'social_mastery',
+    'Empathy': 'social_mastery',
+    'Perspective Taking': 'social_mastery',
+    'Influence': 'social_mastery',
+    'empathy': 'social_mastery',
+    'perspective_taking': 'social_mastery',
+    'communication': 'social_mastery',
+    'influence': 'social_mastery',
+  };
+
   // Update meta-skill progress when session data loads
   useEffect(() => {
     const updateProgress = async () => {
       if (!sessionId || hasUpdatedProgress) return;
       if (strengths.length === 0 && developmentAreas.length === 0) return;
 
-      const cluster = displayDomain?.includes('social') ? 'social_mastery' : 'self_mastery';
-      
+      // Map each skill to its correct cluster
       const strengthsForUpdate = strengths.map(s => ({
         metaSkill: s.metaSkill,
-        cluster
+        cluster: SKILL_CLUSTER_MAP[s.metaSkill] || 'self_mastery'
       }));
       
       const gapsForUpdate = developmentAreas.map(d => ({
         metaSkill: d.metaSkill,
-        cluster
+        cluster: SKILL_CLUSTER_MAP[d.metaSkill] || 'self_mastery'
       }));
 
       await updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
       setHasUpdatedProgress(true);
 
-      const progress = cluster === 'self_mastery' ? selfMastery : socialMastery;
-      if (progress) {
-        await checkAndAwardAchievements(cluster, progress.scenariosPracticed + 1, progress.currentScore);
+      // Check achievements for both clusters if applicable
+      const selfStrengths = strengthsForUpdate.filter(s => s.cluster === 'self_mastery');
+      const socialStrengths = strengthsForUpdate.filter(s => s.cluster === 'social_mastery');
+
+      if (selfStrengths.length > 0 && selfMastery) {
+        await checkAndAwardAchievements('self_mastery', selfMastery.scenariosPracticed + 1, selfMastery.currentScore);
+      }
+      if (socialStrengths.length > 0 && socialMastery) {
+        await checkAndAwardAchievements('social_mastery', socialMastery.scenariosPracticed + 1, socialMastery.currentScore);
       }
     };
 
     updateProgress();
-  }, [sessionId, strengths, developmentAreas, displayDomain, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery]);
+  }, [sessionId, strengths, developmentAreas, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery]);
 
   // Format meta-skill progress for display
   const formatMetaSkillProgress = (progress: typeof selfMastery) => {
@@ -373,17 +400,17 @@ const PracticeSimulationInsights = () => {
 
           <div className="border-t border-gold/40 my-8" />
 
-          {/* Achievements */}
-          <AchievementsDisplay />
-
-          <div className="border-t border-gold/40 my-8" />
-          
           {/* Personal Reflection */}
           <PersonalReflectionSection 
             personalNotes={personalNotes}
             setPersonalNotes={setPersonalNotes}
             onSaveNotes={handleSaveNotes}
           />
+
+          <div className="border-t border-gold/40 my-8" />
+
+          {/* Achievements - Celebratory finale */}
+          <AchievementsDisplay />
         </div>
       </div>
 

@@ -431,8 +431,8 @@ const DailyRitual = () => {
         </div>
       )}
 
-      {/* Action Button - constrained width */}
-      <div className="px-4 max-w-lg mx-auto">
+      {/* Action Button */}
+      <div className="px-4">
         {ritualStatus.status === 'not_started' && (
           <Button 
             onClick={handleStartRitual}
