@@ -19,7 +19,7 @@ const PersonalReflectionSection = ({ personalNotes, setPersonalNotes, onSaveNote
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
-              <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200 mb-1">
+              <h3 className="text-lg md:text-xl font-heading font-bold text-forest mb-1">
                 Your Reflection
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground font-body">
