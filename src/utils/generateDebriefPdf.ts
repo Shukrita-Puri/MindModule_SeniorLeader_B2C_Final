@@ -269,8 +269,8 @@ export const generateDebriefPdf = (data: DebriefData): void => {
     
     data.strengths.forEach((strength) => {
       checkPageOverflow(15);
-      doc.text(`• ${strength}`, margin + 4, yPos);
-      yPos += 6;
+      yPos = addWrappedText(`• ${strength}`, margin, yPos, pageWidth - margin * 2);
+      yPos += 2;
     });
     yPos += 6;
   }
@@ -285,7 +285,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
     
     data.blindSpots.forEach((blindSpot) => {
       checkPageOverflow(15);
-      yPos = addWrappedText(`• ${blindSpot}`, margin + 4, yPos, pageWidth - margin * 2 - 4);
+      yPos = addWrappedText(`• ${blindSpot}`, margin, yPos, pageWidth - margin * 2);
       yPos += 2;
     });
     yPos += 6;
@@ -301,7 +301,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
     
     data.mentalModels.forEach((model) => {
       checkPageOverflow(15);
-      doc.text(`• ${model}`, margin + 4, yPos);
+      doc.text(`• ${model}`, margin, yPos);
       yPos += 6;
     });
     yPos += 6;

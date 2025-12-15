@@ -9,7 +9,7 @@ const FrameworksUsedSection = ({ frameworks }: FrameworksUsedSectionProps) => {
   if (!frameworks.length) {
     return (
       <div className="space-y-4">
-        <h3 className="text-lg md:text-xl font-heading font-bold text-forest">
+        <h3 className="text-xl md:text-2xl font-heading font-bold text-primary">
           Frameworks & Models
         </h3>
         <p className="text-sm text-muted-foreground font-body">
@@ -21,7 +21,7 @@ const FrameworksUsedSection = ({ frameworks }: FrameworksUsedSectionProps) => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg md:text-xl font-heading font-bold text-forest">
+      <h3 className="text-xl md:text-2xl font-heading font-bold text-primary">
         Frameworks & Models
       </h3>
       
