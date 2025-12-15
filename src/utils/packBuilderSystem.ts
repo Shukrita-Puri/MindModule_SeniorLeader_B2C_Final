@@ -5,12 +5,16 @@
  */
 
 import { sanctuaryContent, type SanctuaryContent } from '@/data/practicesAndSoundscapes';
-import { quickInterventions } from '@/data/quickInterventions';
 import { createRoleplayContent } from '@/data/roleplayContent';
 import type { MomentCandidate, StudentEventType } from './momentDetectionEngine';
 
-// Combined content pool including quick interventions
-const allContent: SanctuaryContent[] = [...sanctuaryContent, ...quickInterventions];
+/**
+ * Content pool sourced ONLY from Recalibrate section
+ * - Mindset protocols: subType === 'mindset'
+ * - Somatic protocols: subType === 'tool'
+ * - Roleplay: via createRoleplayContent (Dialogue Room)
+ */
+const allContent: SanctuaryContent[] = sanctuaryContent;
 
 export type PackStepType = 'mindset' | 'somatic' | 'roleplay';
 
@@ -559,19 +563,23 @@ function scoreContentForStep(
   
   let score = 0;
   
-  // Match step type to content type
+  /**
+   * STRICT content type matching - only use Recalibrate content:
+   * - Mindset protocols: MUST have subType === 'mindset'
+   * - Somatic protocols: MUST have subType === 'tool' OR contentType === 'soundbath' OR 'guided-practice'
+   */
   if (stepDef.step_type === 'mindset') {
-    if (content.subType === 'mindset' || content.contentType === 'micro-practice') {
-      score += 30;
-    }
+    // Only match content explicitly marked as mindset
+    if (content.subType !== 'mindset') return -1;
+    score += 30;
   } else if (stepDef.step_type === 'somatic') {
-    if (content.subType === 'tool' || 
-        content.contentType === 'soundbath' ||
-        (content.structuredTags?.goalTags?.some(t => 
-          ['breathing_regulation', 'grounding', 'activation'].includes(t)
-        ))) {
-      score += 30;
-    }
+    // Match somatic tools (breathing, grounding) or soundbaths/guided practices
+    const isSomaticTool = content.subType === 'tool';
+    const isSoundbath = content.contentType === 'soundbath';
+    const isGuidedPractice = content.contentType === 'guided-practice';
+    
+    if (!isSomaticTool && !isSoundbath && !isGuidedPractice) return -1;
+    score += 30;
   }
   
   // Goal tag matching
