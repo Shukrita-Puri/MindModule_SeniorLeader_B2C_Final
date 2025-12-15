@@ -9,7 +9,8 @@ interface TranscriptReplaySectionProps {
 }
 
 const TranscriptReplaySection = ({ transcript }: TranscriptReplaySectionProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Default to expanded when transcript exists
+  const [isExpanded, setIsExpanded] = useState(transcript.length > 0);
 
   if (!transcript.length) return null;
 

@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
-import SessionContextCard from "@/components/simulation/SessionContextCard";
+// SessionContextCard removed - using inline summary
 import StrengthsSection from "@/components/simulation/StrengthsSection";
 import DevelopmentAreasSection from "@/components/simulation/DevelopmentAreasSection";
 import FrameworksUsedSection from "@/components/simulation/FrameworksUsedSection";
@@ -19,7 +19,7 @@ import { useMetaSkillProgress } from "@/hooks/useMetaSkillProgress";
 import { useAchievements } from "@/hooks/useAchievements";
 import { generateDebriefPdf, generateTranscriptPdf } from "@/utils/generateDebriefPdf";
 import { toast } from "sonner";
-import { Loader2, Save, Check, FileText } from "lucide-react";
+import { Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PracticeSimulationInsights = () => {
@@ -206,44 +206,34 @@ const PracticeSimulationInsights = () => {
         sessionDuration={displayDuration}
         onDownload={handleDownload}
         onScheduleFollowup={handleScheduleFollowup}
+        onSaveToArchive={handleSaveToArchive}
+        isSaving={isSaving}
+        isSaved={isSaved}
       />
 
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 md:px-8 py-8 space-y-8 max-w-5xl mx-auto pb-32">
-          {/* Compact Session Context */}
-          <SessionContextCard 
-            scenarioDomain={displayDomain}
-            contextType={contextType}
-            scenarioContext={displayContext}
-            selectedPersonas={displayPersonas}
-            customPersonas={displayCustomPersonas}
-            sessionDuration={displayDuration}
-          />
-
-          {/* Save to Archive Button */}
-          <Button
-            onClick={handleSaveToArchive}
-            disabled={isSaving || isSaved}
-            variant="outline"
-            className="w-full"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : isSaved ? (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                Saved to My Archive
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Save to My Archive
-              </>
-            )}
-          </Button>
+          {/* Session Summary Card */}
+          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Session Summary</h3>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
+              {displayDomain && <span className="font-medium">{displayDomain}</span>}
+              {displayDomain && contextType && <span className="text-muted-foreground">•</span>}
+              {contextType && <span>{contextType}</span>}
+              {displayDuration && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span>{Math.round(displayDuration / 60)} min</span>
+                </>
+              )}
+              {transcript.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span>{transcript.length} exchanges</span>
+                </>
+              )}
+            </div>
+          </div>
           
           <div className="border-t border-gold/40 my-8" />
 
