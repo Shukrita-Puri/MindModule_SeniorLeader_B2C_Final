@@ -147,14 +147,14 @@ const SoundscapePlayer = () => {
     if (fromRitual) return '/executive-home';
     
     // Use the soundscape's actual category to determine back path
-    if (!soundscape) return '/soundscapes';
+    if (!soundscape) return '/recalibrate';
     
     const category = soundscape.category;
     if (category === 'pause') return '/recalibrate/pause';
     if (category === 'power-up') return '/recalibrate/power-up';
     if (category === 'presence') return '/recalibrate/presence';
-    if (category === 'flow') return '/recalibrate/flow';
-    return '/soundscapes';
+    if (category === 'flow') return '/recalibrate/presence';
+    return '/recalibrate';
   };
 
   // Sync audio state on mount
@@ -178,8 +178,8 @@ const SoundscapePlayer = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Soundscape not found</p>
-          <Button onClick={() => navigate("/soundscapes")}>
-            Return to Library
+          <Button onClick={() => navigate("/recalibrate")}>
+            Return to Recalibrate
           </Button>
         </div>
       </div>
