@@ -194,17 +194,13 @@ const MomentCarousel = ({
                         {step.content.title}
                       </h4>
                       
-                      {/* Duration or description for roleplay */}
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                        {isRoleplay ? (
-                          <span>AI-powered practice</span>
-                        ) : (
-                          <>
-                            <Clock size={12} />
-                            <span>{step.duration} min</span>
-                          </>
-                        )}
-                      </div>
+                      {/* Duration - hide for roleplay since duration is unknown */}
+                      {!isRoleplay && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                          <Clock size={12} />
+                          <span>{step.duration} min</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CarouselItem>
