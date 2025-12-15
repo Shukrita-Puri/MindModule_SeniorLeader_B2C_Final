@@ -16,7 +16,7 @@ interface TextFirstDialogueProps {
   attachments?: Array<{ name: string; type: string; content?: string }>;
   practiceDuration?: number;
   coachingStyle?: string;
-  onEndSession: () => void;
+  onEndSession: (sessionId: string | null) => void;
   aiPersona?: {
     name: string;
     role: string;
@@ -49,6 +49,7 @@ const TextFirstDialogue = ({
     isLoading, 
     interventions,
     sessionStatus,
+    sessionId,
     startSession,
     sendMessage,
     endSession
@@ -121,7 +122,7 @@ const TextFirstDialogue = ({
 
   const handleEndSession = async () => {
     await endSession();
-    onEndSession();
+    onEndSession(sessionId);
   };
 
   const toggleListening = () => {

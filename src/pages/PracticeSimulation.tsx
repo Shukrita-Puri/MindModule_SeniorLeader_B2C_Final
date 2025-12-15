@@ -92,7 +92,7 @@ const PracticeSimulation = () => {
   const voicePreference = aiPersona?.voicePreference || '';
   
   const [showFeedback, setShowFeedback] = useState(false);
-
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   // Map the config page values to database IDs
   const scenarioId = SCENARIO_ID_MAP[specificScenario] || 'oxbridge_interview';
   const personaId = PERSONA_ID_MAP[personaType] || 'oxbridge-interviewer';
@@ -181,7 +181,8 @@ const PracticeSimulation = () => {
     role: formatPersonalityStyle(personalityStyle)
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = (sessionId: string | null) => {
+    setCompletedSessionId(sessionId);
     setShowFeedback(true);
   };
 
@@ -190,6 +191,7 @@ const PracticeSimulation = () => {
     setShowFeedback(false);
     navigate('/practice/simulation-insights', { 
       state: { 
+        sessionId: completedSessionId,
         scenarioDomain, 
         contextType,
         scenarioContext,
@@ -205,6 +207,7 @@ const PracticeSimulation = () => {
     setShowFeedback(false);
     navigate('/practice/simulation-insights', { 
       state: { 
+        sessionId: completedSessionId,
         scenarioDomain, 
         contextType,
         scenarioContext,
