@@ -238,6 +238,17 @@ const PracticeSimulationInsights = () => {
   };
 
   const handleDownload = () => {
+    // Get session context from session data or location state
+    const sessionContext = session?.scenario_context as Record<string, unknown> || {};
+    const category = sessionContext?.category || sessionContext?.scenarioDomain || displayDomain || 'Dialogue Practice';
+    const scenario = sessionContext?.scenario || sessionContext?.scenarioContext || contextType || displayContext || 'Practice Session';
+    const duration = displayDuration || session?.duration_seconds;
+    const exchangeCount = transcript.length || session?.total_messages || 0;
+    const interventionCount = session?.total_interventions || 0;
+
+    console.log('[PDF Generation] Session context:', { category, scenario, duration, exchangeCount, interventionCount });
+    console.log('[PDF Generation] Meta-skill progress:', { selfMastery, socialMastery });
+
     const pdfStrengths = (enhancedStrengths.length > 0 ? enhancedStrengths : strengths).map(s => {
       if ('description' in s && s.description) {
         return `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}: ${s.description}`;
@@ -258,10 +269,12 @@ const PracticeSimulationInsights = () => {
     const pdfFrameworks = frameworks.map(f => f.name);
     
     generateDebriefPdf({
-      scenarioDomain: displayDomain,
-      contextType,
+      scenarioDomain: category,
+      contextType: scenario,
       scenarioContext: displayContext,
-      sessionDuration: displayDuration,
+      sessionDuration: duration,
+      exchangeCount,
+      interventionCount,
       mentalFitnessScore: undefined,
       mentalFitnessChange: undefined,
       strengths: pdfStrengths,

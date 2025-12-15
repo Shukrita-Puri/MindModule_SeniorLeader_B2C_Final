@@ -29,6 +29,8 @@ interface DebriefData {
   contextType?: string;
   scenarioContext?: string;
   sessionDuration?: string | number;
+  exchangeCount?: number;
+  interventionCount?: number;
   mentalFitnessScore?: number;
   mentalFitnessChange?: number;
   strengths?: string[];
@@ -110,20 +112,33 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60);
   
-  if (data.scenarioDomain) {
-    doc.text(`Category: ${data.scenarioDomain}`, margin, yPos);
-    yPos += 6;
-  }
-  if (data.contextType) {
-    doc.text(`Scenario: ${data.contextType}`, margin, yPos);
-    yPos += 6;
-  }
+  // Always show some context info
+  const category = data.scenarioDomain || 'Dialogue Practice';
+  const scenario = data.contextType || 'Practice Session';
+  
+  doc.text(`Category: ${category}`, margin, yPos);
+  yPos += 6;
+  doc.text(`Scenario: ${scenario}`, margin, yPos);
+  yPos += 6;
+  
   if (data.sessionDuration) {
     const durationStr = typeof data.sessionDuration === 'number' 
       ? `${Math.floor(data.sessionDuration / 60)} minutes`
       : data.sessionDuration;
     doc.text(`Duration: ${durationStr}`, margin, yPos);
     yPos += 6;
+  }
+  
+  // Add exchange and intervention counts
+  if (data.exchangeCount !== undefined || data.interventionCount !== undefined) {
+    const statsLine = [
+      data.exchangeCount !== undefined ? `${data.exchangeCount} exchanges` : null,
+      data.interventionCount !== undefined ? `${data.interventionCount} coach interventions` : null
+    ].filter(Boolean).join(' • ');
+    if (statsLine) {
+      doc.text(statsLine, margin, yPos);
+      yPos += 6;
+    }
   }
   yPos += 8;
 
