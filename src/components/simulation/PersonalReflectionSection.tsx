@@ -45,7 +45,7 @@ const PersonalReflectionSection = ({ personalNotes, setPersonalNotes, onSaveNote
               className="w-full bg-forest hover:bg-forest/90 text-white"
             >
               <BookOpen size={16} className="mr-2" />
-              Save to Learning Archive
+              Save to My Archive
             </Button>
           </div>
         </CollapsibleContent>
