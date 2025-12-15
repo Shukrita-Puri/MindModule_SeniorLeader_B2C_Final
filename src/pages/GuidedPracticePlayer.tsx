@@ -886,15 +886,26 @@ const GuidedPracticePlayer = () => {
         if (isPartOfRitual) {
           const today = new Date().toISOString().split('T')[0];
           
-          // Step 1: Upsert the specific completion field WITHOUT setting status
+          // First, get existing data to append to completed_practice_ids
+          const { data: existingData } = await supabase
+            .from('daily_ritual_completions')
+            .select('completed_practice_ids, recommended_practices_count')
+            .eq('user_id', user.id)
+            .eq('ritual_date', today)
+            .single();
+          
+          const existingIds = existingData?.completed_practice_ids || [];
+          const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id];
+          
+          // Step 1: Upsert the specific completion field with completed_practice_ids
           await supabase
             .from('daily_ritual_completions')
             .upsert({
               user_id: user.id,
               ritual_date: today,
               guided_practice_completed: true,
-              guided_practice_completed_at: new Date().toISOString()
-              // DON'T set completion_status here
+              guided_practice_completed_at: new Date().toISOString(),
+              completed_practice_ids: newCompletedIds
             }, {
               onConflict: 'user_id,ritual_date'
             });
@@ -918,7 +929,7 @@ const GuidedPracticePlayer = () => {
             const totalRecommended = freshRitualData.recommended_practices_count || 3;
             
             // Step 4: Update status atomically
-            const newStatus = completed === totalRecommended && completed > 0 
+            const newStatus = completed >= totalRecommended && completed > 0 
               ? 'full' 
               : completed > 0 
                 ? 'partial' 
