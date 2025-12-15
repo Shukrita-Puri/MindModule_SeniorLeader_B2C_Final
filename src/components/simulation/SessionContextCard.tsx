@@ -1,18 +1,19 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
 interface SessionContextCardProps {
   scenarioDomain?: string;
   contextType?: string;
   scenarioContext?: string;
   selectedPersonas?: string[];
   customPersonas?: string;
+  sessionDuration?: number;
 }
 
-const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, selectedPersonas, customPersonas }: SessionContextCardProps) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+const SessionContextCard = ({ 
+  scenarioDomain, 
+  scenarioContext, 
+  selectedPersonas, 
+  customPersonas,
+  sessionDuration 
+}: SessionContextCardProps) => {
   
   const formatDomainName = (domain: string) => {
     const domainMap: Record<string, string> = {
@@ -22,73 +23,49 @@ const SessionContextCard = ({ scenarioDomain, contextType, scenarioContext, sele
       "romantic-relationships": "Dating & Romance",
       "group-leadership": "Group Leadership",
       "difficult-conversations": "Difficult Conversations",
-      "custom-scenario": "Custom Scenario"
+      "custom-scenario": "Custom Scenario",
+      "academic-confidence": "Academic Confidence",
+      "social-navigation": "Social Mastery",
+      "growth-opportunity": "Growth & Opportunity"
     };
     return domainMap[domain] || domain;
   };
 
-  const personasText = () => {
-    let text = "";
-    if (selectedPersonas && selectedPersonas.length > 0) {
-      text += selectedPersonas.join(", ");
-    }
-    if (customPersonas && customPersonas.trim()) {
-      text += (text ? "; " : "") + customPersonas;
-    }
-    return text;
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return null;
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes} min`;
   };
 
+  const getPersonaText = () => {
+    if (customPersonas?.trim()) return customPersonas;
+    if (selectedPersonas?.length) return selectedPersonas[0];
+    return null;
+  };
+
+  const category = scenarioDomain ? formatDomainName(scenarioDomain) : null;
+  const scenario = scenarioContext || null;
+  const duration = formatDuration(sessionDuration);
+  const persona = getPersonaText();
+
+  // Build compact display parts
+  const line1Parts = [category, scenario].filter(Boolean);
+  const line2Parts = [duration, persona ? `with ${persona}` : null].filter(Boolean);
+
+  if (!line1Parts.length && !line2Parts.length) return null;
+
   return (
-    <div className="space-y-6">
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between cursor-pointer group pb-3">
-            <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200">
-              Session Context
-            </h3>
-            <Button variant="ghost" size="sm" className="text-forest">
-              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </Button>
-          </div>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent>
-          <div className="space-y-4 mt-4">
-            {scenarioDomain && (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground font-body">
-                  Dialogue Category
-                </p>
-                <p className="text-sm text-muted-foreground font-body">
-                  {formatDomainName(scenarioDomain)}
-                </p>
-              </div>
-            )}
-
-            {personasText() && (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground font-body">
-                  Dialogue Participants
-                </p>
-                <p className="text-sm text-muted-foreground font-body">
-                  {personasText()}
-                </p>
-              </div>
-            )}
-
-            {scenarioContext && (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground font-body">
-                  Dialogue Scenario
-                </p>
-                <p className="text-sm text-muted-foreground font-body leading-relaxed">
-                  {scenarioContext}
-                </p>
-              </div>
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+    <div className="py-4">
+      {line1Parts.length > 0 && (
+        <p className="text-sm md:text-base font-medium text-foreground font-body">
+          {line1Parts.join(' • ')}
+        </p>
+      )}
+      {line2Parts.length > 0 && (
+        <p className="text-xs md:text-sm text-muted-foreground font-body mt-1">
+          {line2Parts.join(' • ')}
+        </p>
+      )}
     </div>
   );
 };
