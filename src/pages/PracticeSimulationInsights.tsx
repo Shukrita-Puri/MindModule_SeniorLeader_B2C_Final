@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
@@ -25,7 +26,7 @@ import { Button } from "@/components/ui/button";
 const PracticeSimulationInsights = () => {
   const location = useLocation();
   const { 
-    sessionId,
+    sessionId: stateSessionId,
     scenarioDomain, 
     contextType, 
     scenarioContext, 
@@ -38,6 +39,37 @@ const PracticeSimulationInsights = () => {
   const [personalNotes, setPersonalNotes] = useState("");
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [fallbackSessionId, setFallbackSessionId] = useState<string | null>(null);
+
+  // Use state sessionId or fallback to most recent session
+  const sessionId = stateSessionId || fallbackSessionId;
+
+  // If no sessionId from navigation, try to load the most recent session
+  useEffect(() => {
+    const loadMostRecentSession = async () => {
+      if (stateSessionId) return; // Already have sessionId from navigation
+      
+      try {
+        const { data, error } = await supabase
+          .from('dialogue_sessions')
+          .select('id')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (data && !error) {
+          console.log('[PracticeSimulationInsights] Loaded fallback sessionId:', data.id);
+          setFallbackSessionId(data.id);
+        }
+      } catch (err) {
+        console.error('[PracticeSimulationInsights] Failed to load recent session:', err);
+      }
+    };
+    
+    loadMostRecentSession();
+  }, [stateSessionId]);
+
+  console.log('[PracticeSimulationInsights] sessionId:', sessionId, 'from state:', !!stateSessionId);
 
   // Fetch real session data
   const { 
