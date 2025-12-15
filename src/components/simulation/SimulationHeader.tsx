@@ -1,4 +1,4 @@
-import { Download, Calendar } from "lucide-react";
+import { Download, Calendar, Save, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -7,13 +7,19 @@ interface SimulationHeaderProps {
   sessionDuration?: number;
   onDownload: () => void;
   onScheduleFollowup?: () => void;
+  onSaveToArchive?: () => void;
+  isSaving?: boolean;
+  isSaved?: boolean;
 }
 
 const SimulationHeader = ({ 
   contextType, 
   sessionDuration, 
   onDownload, 
-  onScheduleFollowup 
+  onScheduleFollowup,
+  onSaveToArchive,
+  isSaving,
+  isSaved
 }: SimulationHeaderProps) => {
   return (
     <div className="px-6 md:px-8 pt-24 pb-8">
@@ -40,9 +46,34 @@ const SimulationHeader = ({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Export Insights</p>
+                  <p>Export Full PDF</p>
                 </TooltipContent>
               </Tooltip>
+
+              {onSaveToArchive && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={onSaveToArchive}
+                      disabled={isSaving || isSaved}
+                      className="hover:bg-gold/10 rounded-full bg-gold/10 shadow-md"
+                    >
+                      {isSaving ? (
+                        <Loader2 size={20} strokeWidth={3} className="text-forest animate-spin" />
+                      ) : isSaved ? (
+                        <Check size={20} strokeWidth={3} className="text-forest" />
+                      ) : (
+                        <Save size={20} strokeWidth={3} className="text-forest" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isSaved ? 'Saved to Archive' : 'Save to Archive'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
 
               {onScheduleFollowup && (
                 <Tooltip>
