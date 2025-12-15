@@ -484,10 +484,26 @@ IMPORTANT: In your response, set the "tone" field to what you actually chose (su
     return styles[style] || styles['supportive'];
   };
 
-  // Build conversation history text
+  // Build conversation history text with message numbers for clarity
   const historyText = conversationHistory
-    .map(m => `**${m.sender.toUpperCase()}**: ${m.content}`)
+    .map((m, i) => `[Message ${i + 1}] **${m.sender.toUpperCase()}**: ${m.content}`)
     .join('\n\n');
+  
+  // Extract the last persona question for context
+  const lastPersonaMessage = conversationHistory
+    .filter(m => m.sender === 'persona')
+    .slice(-1)[0];
+  
+  // Calculate message exchange number (user messages sent)
+  const userMessageCount = conversationHistory.filter(m => m.sender === 'user').length;
+  const isFollowUp = userMessageCount > 0;
+  
+  console.log('[dialogue-engine] Conversation state:', {
+    historyLength: conversationHistory.length,
+    userMessageCount,
+    isFollowUp,
+    lastPersonaQuestion: lastPersonaMessage?.content?.substring(0, 100)
+  });
 
   // Build attachments section
   const attachmentsSection = sessionContext.attachments && sessionContext.attachments.length > 0
@@ -951,9 +967,31 @@ ${safetySection}
 
 ---
 
-## CONVERSATION HISTORY
+## ⚠️ CONVERSATION STATE (READ THIS FIRST)
 
-${historyText || 'No previous messages'}
+**Message Exchange #${userMessageCount + 1}** | ${isFollowUp ? '⚠️ THIS IS A FOLLOW-UP - NOT AN OPENING' : 'This is the OPENING message'}
+
+${isFollowUp ? `
+### ANTI-RESET RULE (MANDATORY - CRITICAL)
+You have received ${conversationHistory.length} messages of conversation history.
+Your response MUST:
+- Continue the existing conversation thread naturally
+- Reference specific points from the user's MOST RECENT response
+- Build toward deeper discussion
+- Ask a NEW substantive follow-up question
+
+Your response MUST NOT:
+- Be an opening/greeting message (this is NOT a new conversation)
+- Ignore what the user just said
+- Repeat questions you've already asked
+- Use generic phrases like "I see. Please continue" or "Tell me more"
+
+**LAST PERSONA QUESTION**: "${lastPersonaMessage?.content || 'N/A'}"
+The user should have addressed this. If they didn't, note that as a potential skill gap.
+` : ''}
+
+### CONVERSATION HISTORY
+${historyText || 'No previous messages - generate an opening.'}
 
 ---
 
@@ -970,7 +1008,7 @@ Respond with a JSON object containing:
 \`\`\`json
 {
   "persona_response": {
-    "content": "The in-character response from ${personaConfig.name}",
+    "content": "REQUIRED - A substantive in-character response from ${personaConfig.name}. ${isFollowUp ? "MUST reference something specific from the user's latest response. MUST ask a NEW follow-up question. NEVER repeat the opening message. NEVER use generic phrases like 'I see. Please continue.' Must be 25+ words minimum." : "Generate an appropriate opening for this scenario."}",
     "emotion": "The persona's emotional state",
     "internal_assessment": "What the persona thinks of the user's performance"
   },

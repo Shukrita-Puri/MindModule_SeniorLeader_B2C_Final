@@ -342,12 +342,23 @@ export function useDialogueSession() {
       }
 
       const result = response.data;
+      
+      // Debug: Log the LLM response to understand what's being returned
+      console.log('[useDialogueSession] LLM response:', JSON.stringify(result, null, 2));
 
-      // 5. Add persona response
+      // 5. Add persona response - validate content is substantive
+      const personaContent = result.persona_response?.content || result.persona_response?.message;
+      const isValidContent = personaContent && 
+        personaContent.trim() !== '' && 
+        personaContent.trim().length > 10 &&
+        !personaContent.toLowerCase().includes('i see. please continue');
+      
       const personaMessage: Message = {
         id: crypto.randomUUID(),
         role: 'persona',
-        content: result.persona_response?.content || result.persona_response?.message || "I see. Please continue.",
+        content: isValidContent 
+          ? personaContent 
+          : "That's an interesting perspective. Could you tell me more specifically about what drives that thinking?",
         timestamp: new Date().toISOString(),
         emotion: result.persona_response?.emotion
       };
