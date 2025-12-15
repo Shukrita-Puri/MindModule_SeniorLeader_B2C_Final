@@ -47,17 +47,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are an expert executive coach providing crisp, actionable feedback on dialogue practice sessions. Your role is to transform raw skill indicators into meaningful, personalized insights.
+    const systemPrompt = `You are an expert executive coach. Transform raw skill data into crisp, single-line feedback.
 
-GUIDELINES:
-- Write in second person ("You demonstrated...")
-- Be specific and behavioral, not generic
-- Keep descriptions concise but meaningful (2-3 sentences max per item)
-- For strengths: highlight what the person did well and why it matters
-- For blind spots: identify the pattern, explain the impact, and provide ONE concrete actionable step
-- Use professional, encouraging tone appropriate for high-achieving individuals
-- Never use jargon or buzzwords
-- Be direct and honest, not patronizing`;
+RULES:
+- ONE sentence max (15 words or less) per item
+- Maximum 3-4 strengths and 3-4 blind spots total
+- Write in second person ("You...")
+- Be specific and behavioral
+- No jargon or fluff`;
 
     const userPrompt = `Based on this dialogue practice session, generate crisp, meaningful feedback.
 
@@ -79,26 +76,26 @@ ${developmentAreas?.length > 0 ? developmentAreas.map((d, i) =>
    ${d.actionSuggested ? `Suggested Action: ${d.actionSuggested}` : ''}`
 ).join('\n\n') : 'No blind spots detected'}
 
-Generate enhanced feedback in this exact JSON format:
+Return MAX 3-4 of each, prioritizing most important. JSON format:
 {
   "enhancedStrengths": [
     {
-      "metaSkill": "original meta skill name",
-      "subSkill": "original sub skill name if any",
-      "description": "2-3 sentence crisp description of what they did well and why it matters"
+      "metaSkill": "skill name",
+      "subSkill": "sub skill if any",
+      "description": "ONE sentence (max 15 words) - what they did well"
     }
   ],
   "enhancedBlindSpots": [
     {
-      "metaSkill": "original meta skill name",
-      "subSkill": "original sub skill name if any",
-      "observation": "1-2 sentence clear observation of the behavioral pattern",
-      "actionSuggested": "1 sentence specific, actionable step to practice"
+      "metaSkill": "skill name", 
+      "subSkill": "sub skill if any",
+      "observation": "ONE sentence (max 15 words) - the pattern",
+      "actionSuggested": "ONE phrase (max 8 words) - the action"
     }
   ]
 }
 
-Return ONLY valid JSON, no markdown or explanation.`;
+Return ONLY valid JSON.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -160,12 +157,18 @@ Return ONLY valid JSON, no markdown or explanation.`;
       });
     }
 
+    // Limit to max 4 items each
+    const limitedResult = {
+      enhancedStrengths: (parsed.enhancedStrengths || []).slice(0, 4),
+      enhancedBlindSpots: (parsed.enhancedBlindSpots || []).slice(0, 4)
+    };
+
     console.log('[generate-debrief-insights] Success:', {
-      strengthsGenerated: parsed.enhancedStrengths?.length || 0,
-      blindSpotsGenerated: parsed.enhancedBlindSpots?.length || 0
+      strengthsGenerated: limitedResult.enhancedStrengths.length,
+      blindSpotsGenerated: limitedResult.enhancedBlindSpots.length
     });
 
-    return new Response(JSON.stringify(parsed), {
+    return new Response(JSON.stringify(limitedResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

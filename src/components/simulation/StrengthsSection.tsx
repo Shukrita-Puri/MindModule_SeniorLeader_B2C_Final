@@ -65,42 +65,26 @@ const StrengthsSection = ({ strengths = [], isGenerating = false }: StrengthsSec
           </div>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="mt-4">
-          <div className="space-y-4">
-            {strengths.map((item, index) => (
+        <CollapsibleContent className="mt-2">
+          <div className="space-y-2">
+            {strengths.slice(0, 4).map((item, index) => (
               <div 
                 key={index}
-                className="bg-forest/5 dark:bg-forest/10 rounded-xl p-4 animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="flex items-start gap-3 py-2 animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-forest/20 flex items-center justify-center">
-                    <Sparkles size={16} className="text-forest" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground font-body">
-                      {item.metaSkill}
-                      {item.subSkill && (
-                        <span className="text-muted-foreground font-normal"> → {item.subSkill}</span>
-                      )}
-                    </p>
-                    {/* LLM-generated description takes priority */}
-                    {item.description ? (
-                      <p className="text-sm text-muted-foreground font-body mt-1">
-                        {item.description}
-                      </p>
-                    ) : item.indicators && item.indicators.length > 0 ? (
-                      <p className="text-sm text-muted-foreground font-body mt-1">
-                        {item.indicators.join(', ')}
-                      </p>
-                    ) : null}
-                    {item.transcriptExample && (
-                      <p className="text-xs text-muted-foreground/80 font-body mt-2 italic border-l-2 border-forest/30 pl-2">
-                        "{item.transcriptExample}"
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <Sparkles size={14} className="text-forest mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-foreground font-body leading-relaxed">
+                  <span className="font-medium">{item.metaSkill}</span>
+                  {item.subSkill && (
+                    <span className="text-muted-foreground"> → {item.subSkill}</span>
+                  )}
+                  {(item.description || (item.indicators && item.indicators.length > 0)) && (
+                    <span className="text-muted-foreground">
+                      {" — "}{item.description || item.indicators?.join(', ')}
+                    </span>
+                  )}
+                </p>
               </div>
             ))}
           </div>
