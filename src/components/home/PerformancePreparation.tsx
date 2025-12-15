@@ -35,6 +35,7 @@ const PerformancePreparation = () => {
   const [dismissedMoments, setDismissedMoments] = useState<Set<string>>(new Set());
   const [ritualCompleted, setRitualCompleted] = useState(false);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
+  const [ritualRecommendedIds, setRitualRecommendedIds] = useState<string[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   // Load user preferences and ritual status
@@ -55,10 +56,10 @@ const PerformancePreparation = () => {
     const today = new Date().toISOString().split('T')[0];
     
     try {
-      // Check ritual completion status
+      // Check ritual completion status and get recommended IDs
       const { data: ritualData } = await supabase
         .from('daily_ritual_completions')
-        .select('completion_status, completed_practice_ids')
+        .select('completion_status, completed_practice_ids, recommended_practice_ids')
         .eq('user_id', user.id)
         .eq('ritual_date', today)
         .single();
@@ -66,6 +67,7 @@ const PerformancePreparation = () => {
       if (ritualData) {
         setRitualCompleted(ritualData.completion_status === 'full');
         setCompletedPracticeIds(ritualData.completed_practice_ids || []);
+        setRitualRecommendedIds(ritualData.recommended_practice_ids || []);
       }
       
       // Get user favorites
@@ -119,7 +121,8 @@ const PerformancePreparation = () => {
       });
       
       // Build packs for each moment
-      const excludeIds = new Set(completedPracticeIds);
+      // Exclude both completed and ritual-recommended content to avoid overlap
+      const excludeIds = new Set([...completedPracticeIds, ...ritualRecommendedIds]);
       const momentsWithPacks: MomentWithPack[] = [];
       
       for (const moment of activeMoments) {
@@ -173,12 +176,13 @@ const PerformancePreparation = () => {
     
     // Store pack queue for sequential navigation
     if (allSteps.length > 1) {
-      localStorage.setItem('pack_queue', JSON.stringify(allSteps.map(s => ({
+      localStorage.setItem('packQueue', JSON.stringify(allSteps.map(s => ({
         id: s.content.id,
-        type: s.content.contentType,
-        category: s.content.category
+        contentType: s.content.contentType,
+        category: s.content.category,
+        duration: s.content.duration
       }))));
-      localStorage.setItem('pack_queue_index', String(currentIndex));
+      localStorage.setItem('queueIndex', String(currentIndex));
     }
     
     navigate(route, {

@@ -337,15 +337,16 @@ export function detectMoments(
   }
 
   // 3. ENERGY PROTECTION (Low Energy + Heavy Schedule) - Priority 90
-  if (energyTier === 'depleted' && todayEvents.length >= 3) {
+  // Skip if ritual not completed (Daily Ritual handles energy management)
+  if (energyTier === 'depleted' && todayEvents.length >= 3 && ritualCompleted) {
     const firstEvent = todayEvents[0];
     const eventStart = new Date(firstEvent.startTime);
     
     candidates.push({
       id: 'energy-protection',
       moment_type: 'energy-protection',
-      priority_score: 90,
-      confidence: 'high',
+      priority_score: 70, // Reduced priority since ritual handles baseline
+      confidence: 'medium',
       signals: [
         { source: 'check-in', signal_type: 'low-energy', description: 'Energy depleted' },
         { source: 'calendar', signal_type: 'busy-day', description: `${todayEvents.length} events ahead` }
@@ -359,13 +360,14 @@ export function detectMoments(
   }
 
   // 4. SCHEDULE OVERLOAD (Back-to-back classes/events) - Priority 85
+  // Only show if ritual completed (Daily Ritual handles baseline energy)
   const backToBackCount = countBackToBack(todayEvents);
-  if (backToBackCount >= 3 || todayEvents.length >= 5) {
+  if ((backToBackCount >= 3 || todayEvents.length >= 5) && ritualCompleted) {
     candidates.push({
       id: 'schedule-overload',
       moment_type: 'schedule-overload',
-      priority_score: 85,
-      confidence: 'high',
+      priority_score: 65, // Reduced priority
+      confidence: 'medium',
       signals: [
         { source: 'calendar', signal_type: 'overload', description: `${todayEvents.length} events today` }
       ],
