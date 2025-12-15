@@ -64,39 +64,25 @@ const BlindSpotsSection = ({ blindSpots = [], isGenerating = false }: BlindSpots
           </div>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="mt-4">
-          <div className="space-y-4">
-            {blindSpots.map((item, index) => (
+        <CollapsibleContent className="mt-2">
+          <div className="space-y-2">
+            {blindSpots.slice(0, 4).map((item, index) => (
               <div 
                 key={index}
-                className="bg-muted/30 rounded-xl p-4 space-y-3 animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="flex items-start gap-3 py-2 animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <Target size={16} className="text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground font-body">
-                      {item.metaSkill}
-                      {item.subSkill && (
-                        <span className="text-muted-foreground font-normal"> → {item.subSkill}</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground font-body mt-1">
-                      {item.observation}
-                    </p>
-                  </div>
-                </div>
-                
-                {item.actionSuggested && (
-                  <div className="ml-11 bg-forest/5 dark:bg-forest/10 rounded-lg px-3 py-2">
-                    <p className="text-xs font-medium text-forest mb-1">Suggested Action</p>
-                    <p className="text-sm text-foreground font-body">
-                      {item.actionSuggested}
-                    </p>
-                  </div>
-                )}
+                <Target size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-foreground font-body leading-relaxed">
+                  <span className="font-medium">{item.metaSkill}</span>
+                  {item.subSkill && (
+                    <span className="text-muted-foreground"> → {item.subSkill}</span>
+                  )}
+                  <span className="text-muted-foreground">{" — "}{item.observation}</span>
+                  {item.actionSuggested && (
+                    <span className="text-forest font-medium">{" → "}{item.actionSuggested}</span>
+                  )}
+                </p>
               </div>
             ))}
           </div>
