@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -17,6 +17,45 @@ interface MetaSkillProgressSectionProps {
 
 const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgressSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [animatedSelfScore, setAnimatedSelfScore] = useState(0);
+  const [animatedSocialScore, setAnimatedSocialScore] = useState(0);
+
+  // Animate scores on mount and when data changes
+  useEffect(() => {
+    const targetSelf = selfMastery?.currentScore || 0;
+    const targetSocial = socialMastery?.currentScore || 0;
+    
+    // Reset to 0 first for animation effect
+    setAnimatedSelfScore(0);
+    setAnimatedSocialScore(0);
+    
+    // Animate after short delay
+    const timer = setTimeout(() => {
+      const duration = 1000; // 1 second animation
+      const steps = 30;
+      const stepDuration = duration / steps;
+      
+      let currentStep = 0;
+      const interval = setInterval(() => {
+        currentStep++;
+        const progress = currentStep / steps;
+        const easeOut = 1 - Math.pow(1 - progress, 3); // Cubic ease out
+        
+        setAnimatedSelfScore(Math.round(targetSelf * easeOut));
+        setAnimatedSocialScore(Math.round(targetSocial * easeOut));
+        
+        if (currentStep >= steps) {
+          clearInterval(interval);
+          setAnimatedSelfScore(targetSelf);
+          setAnimatedSocialScore(targetSocial);
+        }
+      }, stepDuration);
+      
+      return () => clearInterval(interval);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [selfMastery?.currentScore, socialMastery?.currentScore]);
 
   const getTrendIcon = (change: number) => {
     if (change > 0) return <TrendingUp className="w-4 h-4" />;
@@ -33,7 +72,8 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
     title: string, 
     data: ClusterProgress | null, 
     gradientClass: string,
-    accentColor: string
+    accentColor: string,
+    animatedScore: number
   ) => {
     if (!data) {
       return (
@@ -46,7 +86,7 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
       );
     }
 
-    const progressPercentage = Math.min(100, Math.max(0, data.currentScore));
+    const progressPercentage = Math.min(100, Math.max(0, animatedScore));
 
     return (
       <div className={`relative overflow-hidden rounded-2xl p-6 ${gradientClass}`}>
@@ -57,19 +97,19 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
           {/* Header */}
           <h4 className="font-medium text-sm text-white/70 uppercase tracking-wider">{title}</h4>
           
-          {/* Large Score Display */}
+          {/* Large Score Display with animation */}
           <div className="flex items-end gap-3">
-            <span className="text-5xl font-bold text-white leading-none">
-              {data.currentScore}
+            <span className="text-5xl font-bold text-white leading-none transition-all duration-300">
+              {animatedScore}
             </span>
             <span className="text-white/50 text-lg mb-1">/100</span>
           </div>
 
-          {/* Progress Bar */}
+          {/* Progress Bar with animation */}
           <div className="space-y-2">
             <div className="h-2 bg-white/20 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-white/80 rounded-full transition-all duration-500"
+                className="h-full bg-white/80 rounded-full transition-all duration-1000 ease-out"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
@@ -119,13 +159,15 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
               "Self Mastery", 
               selfMastery, 
               "bg-gradient-to-br from-taupe-rich/90 via-taupe/80 to-taupe-highlight/70 border border-taupe/30",
-              "bg-saffron/40"
+              "bg-saffron/40",
+              animatedSelfScore
             )}
             {renderClusterProgress(
               "Social Mastery", 
               socialMastery, 
               "bg-gradient-to-br from-slate-700/90 via-slate-600/80 to-slate-500/70 border border-slate-500/30",
-              "bg-slate-400/40"
+              "bg-slate-400/40",
+              animatedSocialScore
             )}
           </div>
         </CollapsibleContent>
