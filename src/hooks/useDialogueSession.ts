@@ -347,14 +347,14 @@ export function useDialogueSession() {
       const personaMessage: Message = {
         id: crypto.randomUUID(),
         role: 'persona',
-        content: result.persona_response?.message || "I see. Please continue.",
+        content: result.persona_response?.content || result.persona_response?.message || "I see. Please continue.",
         timestamp: new Date().toISOString(),
         emotion: result.persona_response?.emotion
       };
 
-      // 6. Handle coaching intervention if present
+      // 6. Handle coaching intervention if present (only when should_intervene is true)
       let newIntervention: Intervention | null = null;
-      if (result.coaching_intervention) {
+      if (result.coaching_intervention?.should_intervene === true) {
         recordIntervention(state.sessionId);
         newIntervention = {
           id: crypto.randomUUID(),
