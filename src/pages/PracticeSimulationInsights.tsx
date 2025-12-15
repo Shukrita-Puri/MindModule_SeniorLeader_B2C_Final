@@ -190,6 +190,8 @@ const PracticeSimulationInsights = () => {
       if (!sessionId || hasUpdatedProgress) return;
       if (strengths.length === 0 && developmentAreas.length === 0) return;
 
+      console.log('[MetaSkillTracking] Processing session:', sessionId);
+
       // Map each skill to its correct cluster
       const strengthsForUpdate = strengths.map(s => ({
         metaSkill: s.metaSkill,
@@ -201,8 +203,13 @@ const PracticeSimulationInsights = () => {
         cluster: SKILL_CLUSTER_MAP[d.metaSkill] || 'self_mastery'
       }));
 
+      console.log('[MetaSkillTracking] Strengths:', strengthsForUpdate);
+      console.log('[MetaSkillTracking] Gaps:', gapsForUpdate);
+
       await updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
       setHasUpdatedProgress(true);
+      
+      console.log('[MetaSkillTracking] Progress update complete');
 
       // Check achievements for both clusters if applicable
       const selfStrengths = strengthsForUpdate.filter(s => s.cluster === 'self_mastery');
