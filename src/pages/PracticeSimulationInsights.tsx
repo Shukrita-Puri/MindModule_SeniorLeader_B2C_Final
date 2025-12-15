@@ -61,9 +61,18 @@ const PracticeSimulationInsights = () => {
   const displayCustomPersonas = session?.scenario_context?.customPersonas || customPersonas;
   const displayDuration = session?.duration_seconds || sessionDuration;
 
+  // Track if we've already processed this session
+  const [hasUpdatedProgress, setHasUpdatedProgress] = useState(false);
+
+  // Get progress data for achievement checking
+  const { selfMastery, socialMastery } = useMetaSkillProgress();
+
   // Update meta-skill progress when session data loads
   useEffect(() => {
-    if (sessionId && strengths.length > 0 || developmentAreas.length > 0) {
+    const updateProgress = async () => {
+      if (!sessionId || hasUpdatedProgress) return;
+      if (strengths.length === 0 && developmentAreas.length === 0) return;
+
       // Determine cluster from scenario domain
       const cluster = displayDomain?.includes('social') ? 'social_mastery' : 'self_mastery';
       
@@ -77,9 +86,18 @@ const PracticeSimulationInsights = () => {
         cluster
       }));
 
-      updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
-    }
-  }, [sessionId, strengths, developmentAreas, displayDomain]);
+      await updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
+      setHasUpdatedProgress(true);
+
+      // Check for new achievements
+      const progress = cluster === 'self_mastery' ? selfMastery : socialMastery;
+      if (progress) {
+        await checkAndAwardAchievements(cluster, progress.scenariosPracticed + 1, progress.currentScore);
+      }
+    };
+
+    updateProgress();
+  }, [sessionId, strengths, developmentAreas, displayDomain, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery]);
 
   const handleDownload = () => {
     generateDebriefPdf({
