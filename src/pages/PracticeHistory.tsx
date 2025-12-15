@@ -36,7 +36,7 @@ const PracticeHistory = () => {
       <TopNavigation backPath="/practice" />
       
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 md:px-8 py-8 space-y-6 max-w-5xl mx-auto">
+        <div className="px-6 md:px-8 pt-16 pb-8 space-y-6 max-w-5xl mx-auto">
           <div className="space-y-2">
             <h1 className="text-2xl md:text-3xl font-heading font-semibold text-foreground">
               Practice History
