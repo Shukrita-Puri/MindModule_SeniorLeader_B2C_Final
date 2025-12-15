@@ -11,12 +11,8 @@ interface StrengthsSectionProps {
 const StrengthsSection = ({ strengths = [] }: StrengthsSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Fallback demo data if no real strengths provided
-  const displayStrengths = strengths.length > 0 ? strengths : [
-    { metaSkill: "Communication", subSkill: "Active Listening", indicators: ["Paused thoughtfully before responding"] },
-    { metaSkill: "Empathy", subSkill: "Perspective Taking", indicators: ["Validated feelings before offering perspective"] },
-    { metaSkill: "Self-Regulation", subSkill: "Composure", indicators: ["Maintained calm under pressure"] }
-  ];
+  // Only show real strengths from practice sessions - no fallback data
+  const displayStrengths = strengths;
 
   if (!displayStrengths.length) {
     return (
