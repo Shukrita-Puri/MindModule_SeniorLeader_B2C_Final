@@ -244,8 +244,9 @@ const DailyRitual = () => {
     localStorage.setItem('practiceQueue', JSON.stringify(practices.map(r => ({
       id: r.id,
       title: r.title,
-      type: r.contentType,
-      category: r.category
+      contentType: r.contentType,
+      category: r.category,
+      duration: r.duration
     }))));
     localStorage.setItem('queueIndex', '0');
     localStorage.setItem('ritualMode', 'true');
