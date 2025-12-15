@@ -377,7 +377,7 @@ const PracticeSimulationInsights = () => {
         <div className="px-6 md:px-8 py-8 space-y-8 max-w-5xl mx-auto pb-32">
           {/* Session Summary */}
           <div className="space-y-2">
-            <h3 className="text-lg md:text-xl font-heading font-bold text-forest">Session Summary</h3>
+            <h3 className="text-xl md:text-2xl font-heading font-bold text-primary">Session Summary</h3>
             <p className="text-sm text-muted-foreground">
               {[
                 displayDomain,
