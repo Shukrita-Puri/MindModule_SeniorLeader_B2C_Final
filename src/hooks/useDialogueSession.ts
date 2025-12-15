@@ -20,7 +20,7 @@ interface Message {
   emotion?: string;
 }
 
-interface Intervention {
+export interface Intervention {
   id: string;
   observation: string;
   metaSkill: string;
@@ -29,6 +29,8 @@ interface Intervention {
   framework?: string;
   wisdomQuote?: string;
   frameworkApplication?: string;
+  displayedAt: string; // Timestamp when intervention was shown to user
+  dbId?: string; // Database record ID for tracking dismissal
 }
 
 export interface SessionConfig {
@@ -384,6 +386,7 @@ export function useDialogueSession() {
       let newIntervention: Intervention | null = null;
       if (result.coaching_intervention?.should_intervene === true) {
         recordIntervention(state.sessionId);
+        const displayedAt = new Date().toISOString();
         newIntervention = {
           id: crypto.randomUUID(),
           observation: result.coaching_intervention.observation || 'Reflecting on your response...',
@@ -392,7 +395,8 @@ export function useDialogueSession() {
           action: result.coaching_intervention.action_step || result.coaching_intervention.action || 'Reflect on this feedback and apply it in your next response.',
           framework: result.coaching_intervention.framework_name || result.coaching_intervention.framework,
           wisdomQuote: result.coaching_intervention.framework_wisdom || result.coaching_intervention.wisdom_quote,
-          frameworkApplication: result.coaching_intervention.framework_application
+          frameworkApplication: result.coaching_intervention.framework_application,
+          displayedAt
         };
       }
 
@@ -409,7 +413,18 @@ export function useDialogueSession() {
       persistMessage(state.sessionId, userMessage, signals);
       persistMessage(state.sessionId, personaMessage);
       if (newIntervention) {
-        persistIntervention(state.sessionId, newIntervention);
+        // Persist intervention and get DB ID for dismissal tracking
+        persistIntervention(state.sessionId, newIntervention).then((dbId) => {
+          if (dbId) {
+            // Update the intervention with its database ID
+            setState(prev => ({
+              ...prev,
+              interventions: prev.interventions.map(i => 
+                i.id === newIntervention.id ? { ...i, dbId } : i
+              )
+            }));
+          }
+        });
       }
 
     } catch (error) {
@@ -492,19 +507,60 @@ async function persistMessage(sessionId: string, message: Message, signals?: Det
   }
 }
 
-async function persistIntervention(sessionId: string, intervention: Intervention) {
+async function persistIntervention(sessionId: string, intervention: Intervention): Promise<string | null> {
   try {
-    await (supabase.from('dialogue_interventions') as any).insert({
-      session_id: sessionId,
-      intervention_type: 'observation',
-      meta_skill_target: intervention.metaSkill,
-      sub_skill_target: intervention.subSkill,
-      observation: intervention.observation,
-      framework_used: intervention.framework,
-      action_suggested: intervention.action,
-      wisdom_source: intervention.wisdomQuote ? { quote: intervention.wisdomQuote } : null
-    });
+    const { data, error } = await (supabase.from('dialogue_interventions') as any)
+      .insert({
+        session_id: sessionId,
+        intervention_type: 'observation',
+        meta_skill_target: intervention.metaSkill,
+        sub_skill_target: intervention.subSkill,
+        observation: intervention.observation,
+        framework_used: intervention.framework,
+        action_suggested: intervention.action,
+        wisdom_source: intervention.wisdomQuote ? { quote: intervention.wisdomQuote } : null,
+        displayed_at: intervention.displayedAt
+      })
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return data?.id || null;
   } catch (error) {
     console.error('[persistIntervention] Error:', error);
+    return null;
+  }
+}
+
+// Track intervention dismissal for learning which coaching moments are valuable
+export async function trackInterventionDismissal(
+  interventionDbId: string,
+  displayedAt: string,
+  acknowledged: boolean = false
+): Promise<void> {
+  try {
+    const dismissedAt = new Date().toISOString();
+    const displayTime = new Date(displayedAt).getTime();
+    const dismissTime = new Date(dismissedAt).getTime();
+    const viewDurationMs = dismissTime - displayTime;
+    
+    await (supabase.from('dialogue_interventions') as any)
+      .update({
+        dismissed_at: dismissedAt,
+        user_acknowledged: acknowledged,
+        meta_data: {
+          view_duration_ms: viewDurationMs,
+          view_duration_seconds: Math.round(viewDurationMs / 1000)
+        }
+      })
+      .eq('id', interventionDbId);
+      
+    console.log('[trackInterventionDismissal] Tracked:', {
+      interventionDbId,
+      viewDurationMs,
+      acknowledged
+    });
+  } catch (error) {
+    console.error('[trackInterventionDismissal] Error:', error);
   }
 }

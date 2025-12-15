@@ -3,7 +3,7 @@ import { Mic, MicOff, X, MessageSquare, Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import SleekLineAnimation from "@/components/SleekLineAnimation";
-import { useDialogueSession } from "@/hooks/useDialogueSession";
+import { useDialogueSession, trackInterventionDismissal, Intervention } from "@/hooks/useDialogueSession";
 import CoachingToaster from "./CoachingToaster";
 
 interface TextFirstDialogueProps {
@@ -40,7 +40,7 @@ const TextFirstDialogue = ({
   const [isListening, setIsListening] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const [timeRemaining, setTimeRemaining] = useState(practiceDuration * 60);
-  const [activeIntervention, setActiveIntervention] = useState<any>(null);
+  const [activeIntervention, setActiveIntervention] = useState<Intervention | null>(null);
   const timerRef = useRef<NodeJS.Timeout>();
 
   const dialogueSession = useDialogueSession();
@@ -329,10 +329,32 @@ const TextFirstDialogue = ({
       {/* Coaching Intervention Toast with Blur Overlay */}
       {activeIntervention && (
         <>
-          <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40" onClick={() => setActiveIntervention(null)} />
+          <div 
+            className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40" 
+            onClick={() => {
+              // Track dismissal when clicking backdrop
+              if (activeIntervention.dbId) {
+                trackInterventionDismissal(activeIntervention.dbId, activeIntervention.displayedAt, false);
+              }
+              setActiveIntervention(null);
+            }} 
+          />
           <CoachingToaster
             intervention={activeIntervention}
-            onDismiss={() => setActiveIntervention(null)}
+            onDismiss={() => {
+              // Track dismissal when clicking close button
+              if (activeIntervention.dbId) {
+                trackInterventionDismissal(activeIntervention.dbId, activeIntervention.displayedAt, false);
+              }
+              setActiveIntervention(null);
+            }}
+            onAcknowledge={() => {
+              // Track acknowledgment when user explicitly acknowledges
+              if (activeIntervention.dbId) {
+                trackInterventionDismissal(activeIntervention.dbId, activeIntervention.displayedAt, true);
+              }
+              setActiveIntervention(null);
+            }}
           />
         </>
       )}
