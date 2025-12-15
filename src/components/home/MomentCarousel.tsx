@@ -60,6 +60,24 @@ const getStepLabel = (step: PackStep): string => {
   return 'Mindset Protocol';
 };
 
+// Fallback titles for moments without event_context
+const getMomentTitle = (moment: MomentCandidate): string => {
+  switch (moment.moment_type) {
+    case 'energy-protection':
+      return 'Energy Protection';
+    case 'schedule-overload':
+      return 'Schedule Reset';
+    case 'between-events':
+      return 'Reset Break';
+    case 'end-of-day':
+      return 'Evening Wind-Down';
+    case 'morning-prep':
+      return 'Morning Preparation';
+    default:
+      return moment.label;
+  }
+};
+
 const MomentCarousel = ({
   moment,
   pack,
@@ -129,7 +147,7 @@ const MomentCarousel = ({
             {moment.label}
           </Badge>
           <h3 className="text-base font-semibold text-foreground line-clamp-1">
-            {moment.event_context.event_title}
+            {moment.event_context?.event_title || getMomentTitle(moment)}
           </h3>
           <p className="text-sm text-muted-foreground">
             {pack.template_name} · {pack.total_duration} min
