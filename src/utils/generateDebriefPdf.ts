@@ -68,11 +68,11 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   // Helper function for section headers
   const addSectionHeader = (title: string): void => {
     checkPageOverflow(40);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(74, 85, 104);
+    doc.setTextColor(34, 97, 73); // Forest green
     doc.text(title.toUpperCase(), margin, yPos);
-    yPos += 8;
+    yPos += 10;
     doc.setTextColor(0);
   };
   
