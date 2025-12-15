@@ -2,19 +2,38 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Strength } from "@/hooks/useSessionDebrief";
 
-interface StrengthsSectionProps {
-  strengths?: Strength[];
+export interface EnhancedStrength {
+  metaSkill: string;
+  subSkill?: string;
+  description?: string;
+  indicators?: string[];
+  transcriptExample?: string;
 }
 
-const StrengthsSection = ({ strengths = [] }: StrengthsSectionProps) => {
+interface StrengthsSectionProps {
+  strengths?: EnhancedStrength[];
+  isGenerating?: boolean;
+}
+
+const StrengthsSection = ({ strengths = [], isGenerating = false }: StrengthsSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Only show real strengths from practice sessions - no fallback data
-  const displayStrengths = strengths;
+  if (isGenerating) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-heading font-medium text-foreground">
+          Your Strengths
+        </h3>
+        <div className="animate-pulse space-y-3">
+          <div className="h-24 bg-forest/5 rounded-xl" />
+          <div className="h-24 bg-forest/5 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
-  if (!displayStrengths.length) {
+  if (!strengths.length) {
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-heading font-medium text-foreground">
@@ -48,7 +67,7 @@ const StrengthsSection = ({ strengths = [] }: StrengthsSectionProps) => {
 
         <CollapsibleContent className="mt-4">
           <div className="space-y-4">
-            {displayStrengths.map((item, index) => (
+            {strengths.map((item, index) => (
               <div 
                 key={index}
                 className="bg-forest/5 dark:bg-forest/10 rounded-xl p-4 animate-fade-in"
@@ -65,11 +84,16 @@ const StrengthsSection = ({ strengths = [] }: StrengthsSectionProps) => {
                         <span className="text-muted-foreground font-normal"> → {item.subSkill}</span>
                       )}
                     </p>
-                    {item.indicators && item.indicators.length > 0 && (
+                    {/* LLM-generated description takes priority */}
+                    {item.description ? (
+                      <p className="text-sm text-muted-foreground font-body mt-1">
+                        {item.description}
+                      </p>
+                    ) : item.indicators && item.indicators.length > 0 ? (
                       <p className="text-sm text-muted-foreground font-body mt-1">
                         {item.indicators.join(', ')}
                       </p>
-                    )}
+                    ) : null}
                     {item.transcriptExample && (
                       <p className="text-xs text-muted-foreground/80 font-body mt-2 italic border-l-2 border-forest/30 pl-2">
                         "{item.transcriptExample}"

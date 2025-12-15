@@ -4,11 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
-// SessionContextCard removed - using inline summary
-import StrengthsSection from "@/components/simulation/StrengthsSection";
-import DevelopmentAreasSection from "@/components/simulation/DevelopmentAreasSection";
+import StrengthsSection, { EnhancedStrength } from "@/components/simulation/StrengthsSection";
+import BlindSpotsSection, { BlindSpot } from "@/components/simulation/BlindSpotsSection";
 import FrameworksUsedSection from "@/components/simulation/FrameworksUsedSection";
-import TranscriptReplaySection from "@/components/simulation/TranscriptReplaySection";
 import PersonalReflectionSection from "@/components/simulation/PersonalReflectionSection";
 import MetaSkillProgressSection from "@/components/simulation/MetaSkillProgressSection";
 import AchievementsDisplay from "@/components/achievements/AchievementsDisplay";
@@ -20,8 +18,7 @@ import { useMetaSkillProgress } from "@/hooks/useMetaSkillProgress";
 import { useAchievements } from "@/hooks/useAchievements";
 import { generateDebriefPdf, generateTranscriptPdf } from "@/utils/generateDebriefPdf";
 import { toast } from "sonner";
-import { Loader2, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 const PracticeSimulationInsights = () => {
   const location = useLocation();
@@ -40,6 +37,11 @@ const PracticeSimulationInsights = () => {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [fallbackSessionId, setFallbackSessionId] = useState<string | null>(null);
+  
+  // LLM-enhanced insights state
+  const [enhancedStrengths, setEnhancedStrengths] = useState<EnhancedStrength[]>([]);
+  const [enhancedBlindSpots, setEnhancedBlindSpots] = useState<BlindSpot[]>([]);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
   // Use state sessionId or fallback to most recent session
   const sessionId = stateSessionId || fallbackSessionId;
@@ -47,7 +49,7 @@ const PracticeSimulationInsights = () => {
   // If no sessionId from navigation, try to load the most recent session
   useEffect(() => {
     const loadMostRecentSession = async () => {
-      if (stateSessionId) return; // Already have sessionId from navigation
+      if (stateSessionId) return;
       
       try {
         const { data, error } = await supabase
@@ -68,8 +70,6 @@ const PracticeSimulationInsights = () => {
     
     loadMostRecentSession();
   }, [stateSessionId]);
-
-  console.log('[PracticeSimulationInsights] sessionId:', sessionId, 'from state:', !!stateSessionId);
 
   // Fetch real session data
   const { 
@@ -96,6 +96,71 @@ const PracticeSimulationInsights = () => {
 
   // Track if we've already processed this session
   const [hasUpdatedProgress, setHasUpdatedProgress] = useState(false);
+  const [hasGeneratedInsights, setHasGeneratedInsights] = useState(false);
+
+  // Generate LLM-enhanced insights when session data loads
+  useEffect(() => {
+    const generateInsights = async () => {
+      if (hasGeneratedInsights) return;
+      if (strengths.length === 0 && developmentAreas.length === 0) return;
+      
+      setIsGeneratingInsights(true);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-debrief-insights', {
+          body: {
+            strengths: strengths.map(s => ({
+              metaSkill: s.metaSkill,
+              subSkill: s.subSkill,
+              indicators: s.indicators
+            })),
+            developmentAreas: developmentAreas.map(d => ({
+              metaSkill: d.metaSkill,
+              subSkill: d.subSkill,
+              observation: d.observation,
+              actionSuggested: d.actionSuggested
+            })),
+            scenarioContext: {
+              domain: displayDomain,
+              context: displayContext,
+              duration: displayDuration
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.enhancedStrengths) {
+          setEnhancedStrengths(data.enhancedStrengths);
+        }
+        if (data?.enhancedBlindSpots) {
+          setEnhancedBlindSpots(data.enhancedBlindSpots);
+        }
+        
+        setHasGeneratedInsights(true);
+      } catch (err) {
+        console.error('[PracticeSimulationInsights] Failed to generate insights:', err);
+        // Fall back to original data
+        setEnhancedStrengths(strengths.map(s => ({
+          metaSkill: s.metaSkill,
+          subSkill: s.subSkill,
+          description: s.indicators?.join('. '),
+          indicators: s.indicators
+        })));
+        setEnhancedBlindSpots(developmentAreas.map(d => ({
+          metaSkill: d.metaSkill,
+          subSkill: d.subSkill,
+          observation: d.observation,
+          actionSuggested: d.actionSuggested
+        })));
+        setHasGeneratedInsights(true);
+      } finally {
+        setIsGeneratingInsights(false);
+      }
+    };
+
+    generateInsights();
+  }, [strengths, developmentAreas, displayDomain, displayContext, displayDuration, hasGeneratedInsights]);
 
   // Update meta-skill progress when session data loads
   useEffect(() => {
@@ -103,7 +168,6 @@ const PracticeSimulationInsights = () => {
       if (!sessionId || hasUpdatedProgress) return;
       if (strengths.length === 0 && developmentAreas.length === 0) return;
 
-      // Determine cluster from scenario domain
       const cluster = displayDomain?.includes('social') ? 'social_mastery' : 'self_mastery';
       
       const strengthsForUpdate = strengths.map(s => ({
@@ -119,7 +183,6 @@ const PracticeSimulationInsights = () => {
       await updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
       setHasUpdatedProgress(true);
 
-      // Check for new achievements
       const progress = cluster === 'self_mastery' ? selfMastery : socialMastery;
       if (progress) {
         await checkAndAwardAchievements(cluster, progress.scenariosPracticed + 1, progress.currentScore);
@@ -141,13 +204,15 @@ const PracticeSimulationInsights = () => {
   };
 
   const handleDownload = () => {
-    // Prepare data for PDF - use all available data
-    const pdfStrengths = strengths.map(s => {
+    const pdfStrengths = (enhancedStrengths.length > 0 ? enhancedStrengths : strengths).map(s => {
+      if ('description' in s && s.description) {
+        return `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}: ${s.description}`;
+      }
       const indicators = s.indicators?.join(', ') || '';
       return `${s.metaSkill}${s.subSkill ? ` → ${s.subSkill}` : ''}${indicators ? `: ${indicators}` : ''}`;
     });
     
-    const pdfBlindSpots = developmentAreas.map(d => {
+    const pdfBlindSpots = (enhancedBlindSpots.length > 0 ? enhancedBlindSpots : developmentAreas).map(d => {
       const parts = [];
       if (d.metaSkill) parts.push(d.metaSkill);
       if (d.subSkill) parts.push(`→ ${d.subSkill}`);
@@ -157,13 +222,6 @@ const PracticeSimulationInsights = () => {
     });
     
     const pdfFrameworks = frameworks.map(f => f.name);
-    
-    console.log('[PDF Export] Data being passed:', {
-      strengths: pdfStrengths,
-      blindSpots: pdfBlindSpots,
-      frameworks: pdfFrameworks,
-      transcript: transcript.length
-    });
     
     generateDebriefPdf({
       scenarioDomain: displayDomain,
@@ -260,6 +318,7 @@ const PracticeSimulationInsights = () => {
       <SimulationHeader 
         contextType={contextType}
         sessionDuration={displayDuration}
+        onDownloadTranscript={transcript.length > 0 ? handleDownloadTranscript : undefined}
         onDownload={handleDownload}
         onScheduleFollowup={handleScheduleFollowup}
         onSaveToArchive={handleSaveToArchive}
@@ -292,33 +351,20 @@ const PracticeSimulationInsights = () => {
           />
 
           <div className="border-t border-gold/40 my-8" />
-
-          {/* Transcript Replay with Download Button */}
-          <div className="space-y-4">
-            <TranscriptReplaySection transcript={transcript} />
-            
-            {transcript.length > 0 && (
-              <Button
-                onClick={handleDownloadTranscript}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Download Transcript
-              </Button>
-            )}
-          </div>
           
-          {transcript.length > 0 && <div className="border-t border-gold/40 my-8" />}
-          
-          {/* Strengths */}
-          <StrengthsSection strengths={strengths} />
+          {/* Strengths with LLM-enhanced content */}
+          <StrengthsSection 
+            strengths={enhancedStrengths.length > 0 ? enhancedStrengths : strengths} 
+            isGenerating={isGeneratingInsights}
+          />
           
           <div className="border-t border-gold/40 my-8" />
           
-          {/* Development Areas */}
-          <DevelopmentAreasSection developmentAreas={developmentAreas} />
+          {/* Blind Spots with LLM-enhanced content */}
+          <BlindSpotsSection 
+            blindSpots={enhancedBlindSpots.length > 0 ? enhancedBlindSpots : developmentAreas}
+            isGenerating={isGeneratingInsights}
+          />
           
           <div className="border-t border-gold/40 my-8" />
           

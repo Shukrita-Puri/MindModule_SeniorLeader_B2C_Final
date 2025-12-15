@@ -1,10 +1,11 @@
-import { Download, Calendar, Save, Check, Loader2 } from "lucide-react";
+import { Download, Calendar, Save, Check, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SimulationHeaderProps {
   contextType?: string;
   sessionDuration?: number;
+  onDownloadTranscript?: () => void;
   onDownload: () => void;
   onScheduleFollowup?: () => void;
   onSaveToArchive?: () => void;
@@ -15,6 +16,7 @@ interface SimulationHeaderProps {
 const SimulationHeader = ({ 
   contextType, 
   sessionDuration, 
+  onDownloadTranscript,
   onDownload, 
   onScheduleFollowup,
   onSaveToArchive,
@@ -34,6 +36,26 @@ const SimulationHeader = ({
           
           <TooltipProvider>
             <div className="flex items-center justify-center gap-2">
+              {/* 1. Download Transcript */}
+              {onDownloadTranscript && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={onDownloadTranscript}
+                      className="hover:bg-gold/10 rounded-full bg-gold/10 shadow-md"
+                    >
+                      <FileText size={20} strokeWidth={3} className="text-forest" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Download Dialogue Transcript</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* 2. Download Debrief PDF */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -46,10 +68,11 @@ const SimulationHeader = ({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Export Full PDF</p>
+                  <p>Download Dialogue Debrief to PDF</p>
                 </TooltipContent>
               </Tooltip>
 
+              {/* 3. Save to Archives */}
               {onSaveToArchive && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -70,11 +93,12 @@ const SimulationHeader = ({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{isSaved ? 'Saved to Archive' : 'Save to Archive'}</p>
+                    <p>{isSaved ? 'Saved to Archives' : 'Save Dialogue Debrief to Archives'}</p>
                   </TooltipContent>
                 </Tooltip>
               )}
 
+              {/* 4. Schedule Follow-up */}
               {onScheduleFollowup && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -88,7 +112,7 @@ const SimulationHeader = ({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Schedule Follow-up</p>
+                    <p>Schedule Dialogue Practice Follow-up</p>
                   </TooltipContent>
                 </Tooltip>
               )}

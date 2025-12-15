@@ -1,34 +1,49 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-interface BlindSpotsSectionProps {
-  realtimeFeedback?: Array<{
-    type: string;
-    message: string;
-    timestamp: Date;
-  }>;
+export interface BlindSpot {
+  metaSkill: string;
+  subSkill?: string;
+  observation: string;
+  actionSuggested?: string;
 }
 
-const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) => {
+interface BlindSpotsSectionProps {
+  blindSpots?: BlindSpot[];
+  isGenerating?: boolean;
+}
+
+const BlindSpotsSection = ({ blindSpots = [], isGenerating = false }: BlindSpotsSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const blindSpots = [
-    "Practice strategic pauses before responding under pressure",
-    "Use 'I feel…' statements to express emotions clearly",
-    "Begin responses with 'I believe…' rather than tentative phrasing",
-    "Maintain composure; avoid absorbing others' stress",
-    "Trust instincts in challenging conversations",
-    "Ask clarifying questions to avoid assumptions"
-  ];
+  if (isGenerating) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-heading font-medium text-foreground">
+          Blind Spots
+        </h3>
+        <div className="animate-pulse space-y-3">
+          <div className="h-24 bg-muted/30 rounded-xl" />
+          <div className="h-24 bg-muted/30 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
-  const clarifyingQuestions = [
-    "Can you help me understand what you mean by that?",
-    "What would success look like for you?",
-    "What concerns you most about this situation?",
-    "How do you see this playing out?"
-  ];
+  if (!blindSpots.length) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-heading font-medium text-foreground">
+          Blind Spots
+        </h3>
+        <p className="text-sm text-muted-foreground font-body">
+          No blind spots identified in this session. Great work!
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -37,7 +52,7 @@ const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) =>
           <div className="flex items-center justify-between cursor-pointer group pb-3">
             <div>
               <h3 className="text-lg md:text-xl font-heading font-medium text-foreground group-hover:text-forest transition-colors duration-200 mb-1">
-                Blind Spots & Development Areas
+                Blind Spots
               </h3>
               <p className="text-xs md:text-sm text-muted-foreground font-body">
                 Areas where you can level up your edge
@@ -49,30 +64,41 @@ const BlindSpotsSection = ({ realtimeFeedback = [] }: BlindSpotsSectionProps) =>
           </div>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="mt-6">
-          <div className="border-l-2 border-gold/40 pl-4 hover:border-gold/60 transition-colors space-y-3">
-            {blindSpots.map((spot, index) => (
-              <p 
+        <CollapsibleContent className="mt-4">
+          <div className="space-y-4">
+            {blindSpots.map((item, index) => (
+              <div 
                 key={index}
-                className="text-sm text-foreground font-body leading-relaxed animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="bg-muted/30 rounded-xl p-4 space-y-3 animate-fade-in"
+                style={{ animationDelay: `${index * 100}ms` }}
               >
-                {spot}
-              </p>
-            ))}
-            
-            <div className="mt-6 pt-4 border-t border-gold/20">
-              <p className="text-sm font-medium text-foreground font-body mb-3">
-                Clarifying questions to ask
-              </p>
-              <div className="ml-4 space-y-2 bg-muted/20 rounded-md p-3">
-                {clarifyingQuestions.map((question, idx) => (
-                  <p key={idx} className="text-sm text-muted-foreground font-body leading-relaxed italic">
-                    "{question}"
-                  </p>
-                ))}
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <Target size={16} className="text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground font-body">
+                      {item.metaSkill}
+                      {item.subSkill && (
+                        <span className="text-muted-foreground font-normal"> → {item.subSkill}</span>
+                      )}
+                    </p>
+                    <p className="text-sm text-muted-foreground font-body mt-1">
+                      {item.observation}
+                    </p>
+                  </div>
+                </div>
+                
+                {item.actionSuggested && (
+                  <div className="ml-11 bg-forest/5 dark:bg-forest/10 rounded-lg px-3 py-2">
+                    <p className="text-xs font-medium text-forest mb-1">Suggested Action</p>
+                    <p className="text-sm text-foreground font-body">
+                      {item.actionSuggested}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
+            ))}
           </div>
         </CollapsibleContent>
       </Collapsible>
