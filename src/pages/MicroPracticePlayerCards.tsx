@@ -1787,6 +1787,17 @@ const MicroPracticePlayerCards = () => {
       // Update ritual completion if part of ritual
       if (isPartOfRitual) {
         const today = new Date().toISOString().split("T")[0];
+        
+        // First, get existing data to append to completed_practice_ids
+        const { data: existingData } = await supabase
+          .from('daily_ritual_completions')
+          .select('completed_practice_ids, recommended_practices_count')
+          .eq('user_id', user.id)
+          .eq('ritual_date', today)
+          .single();
+        
+        const existingIds = existingData?.completed_practice_ids || [];
+        const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id];
 
         await supabase.from("daily_ritual_completions").upsert(
           {
@@ -1794,6 +1805,7 @@ const MicroPracticePlayerCards = () => {
             ritual_date: today,
             micro_exercise_completed: true,
             micro_exercise_completed_at: new Date().toISOString(),
+            completed_practice_ids: newCompletedIds,
           },
           {
             onConflict: "user_id,ritual_date",
@@ -1818,7 +1830,7 @@ const MicroPracticePlayerCards = () => {
             freshRitualData.recommended_practices_count || 3;
 
           const newStatus =
-            completed === totalRecommended && completed > 0
+            completed >= totalRecommended && completed > 0
               ? "full"
               : completed > 0
                 ? "partial"

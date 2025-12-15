@@ -27,7 +27,7 @@ const WeeklyRitualStreak = () => {
       
       const { data, error } = await supabase
         .from('daily_ritual_completions')
-        .select('ritual_date, completion_status')
+        .select('ritual_date, completion_status, soundscape_completed, guided_practice_completed, micro_exercise_completed, recommended_practices_count')
         .eq('user_id', user.id)
         .gte('ritual_date', monday.toISOString().split('T')[0])
         .lte('ritual_date', sunday.toISOString().split('T')[0])
@@ -47,8 +47,26 @@ const WeeklyRitualStreak = () => {
         const isFuture = date > today;
         
         const completion = data?.find(d => d.ritual_date === dateStr);
-        // Keep historical data: if completion exists, use it; otherwise only mark as skipped if past date
-        const status = completion?.completion_status || (isFuture ? 'skipped' : 'skipped');
+        
+        // Calculate status based on actual completions
+        let status: 'full' | 'partial' | 'skipped' = 'skipped';
+        
+        if (completion) {
+          // Check boolean completion fields
+          const booleanCount = [
+            completion.soundscape_completed,
+            completion.guided_practice_completed,
+            completion.micro_exercise_completed
+          ].filter(Boolean).length;
+          
+          const totalRecommended = completion.recommended_practices_count || 3;
+          
+          if (completion.completion_status === 'full' || booleanCount >= totalRecommended) {
+            status = 'full';
+          } else if (booleanCount > 0 || completion.completion_status === 'partial') {
+            status = 'partial';
+          }
+        }
         
         weekDays.push({ date: dateStr, day: dayName, isToday, status, isFuture });
       }

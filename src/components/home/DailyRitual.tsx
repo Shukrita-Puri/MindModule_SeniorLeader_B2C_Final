@@ -148,29 +148,52 @@ const DailyRitual = () => {
       return;
     }
     
+    // Check completion using boolean fields (what the players update)
+    const booleanCompletedCount = [
+      data.soundscape_completed,
+      data.guided_practice_completed,
+      data.micro_exercise_completed
+    ].filter(Boolean).length;
+    
+    // Also check completed_practice_ids array (for backward compatibility)
     const completedIds = data.completed_practice_ids || [];
     setCompletedPracticeIds(completedIds);
-    const totalRecommended = data.recommended_practices_count || recommendations.recommendedCount || 0;
+    
+    const totalRecommended = data.recommended_practices_count || recommendations.recommendedCount || 3;
+    
+    // Use the higher of the two completion counts
+    const effectiveCompletedCount = Math.max(booleanCompletedCount, completedIds.length);
     
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
     
+    // Check database status first (most reliable)
     if (data.completion_status === 'full') {
       status = 'completed';
-    } else if (completedIds.length >= totalRecommended && completedIds.length > 0) {
+    } else if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
       status = 'completed';
       
+      // Update the database status to 'full' if it's not already
       await supabase
         .from('daily_ritual_completions')
         .update({ completion_status: 'full' })
         .eq('user_id', user.id)
         .eq('ritual_date', today);
-    } else if (completedIds.length > 0) {
+    } else if (effectiveCompletedCount > 0) {
       status = 'partial';
     }
     
+    console.log('[DailyRitual] Completion check:', {
+      booleanCompletedCount,
+      arrayCompletedCount: completedIds.length,
+      effectiveCompletedCount,
+      totalRecommended,
+      dbStatus: data.completion_status,
+      finalStatus: status
+    });
+    
     setRitualStatus({
       status,
-      completedCount: completedIds.length,
+      completedCount: effectiveCompletedCount,
       totalCount: totalRecommended
     });
   };
