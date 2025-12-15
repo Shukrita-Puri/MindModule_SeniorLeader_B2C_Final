@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth0 } from '@auth0/auth0-react';
 import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
 
 interface AchievementDefinition {
   id: string;
@@ -126,6 +127,14 @@ export const useAchievements = () => {
           });
 
         if (!insertError) {
+          // Trigger celebratory confetti with app-themed colors
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#F59E0B', '#D97706', '#9B8B7E', '#C4A86B', '#E5B84C']
+          });
+          
           toast.success(`🏆 Achievement Unlocked: ${achievement.name}`, {
             description: achievement.description || undefined
           });

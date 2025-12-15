@@ -118,14 +118,14 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
             {renderClusterProgress(
               "Self Mastery", 
               selfMastery, 
-              "bg-gradient-to-br from-amber-700 via-amber-800 to-amber-900",
-              "bg-amber-400"
+              "bg-gradient-to-br from-taupe-rich/90 via-taupe/80 to-taupe-highlight/70 border border-taupe/30",
+              "bg-saffron/40"
             )}
             {renderClusterProgress(
               "Social Mastery", 
               socialMastery, 
-              "bg-gradient-to-br from-violet-700 via-violet-800 to-violet-900",
-              "bg-violet-400"
+              "bg-gradient-to-br from-slate-700/90 via-slate-600/80 to-slate-500/70 border border-slate-500/30",
+              "bg-slate-400/40"
             )}
           </div>
         </CollapsibleContent>
