@@ -1,7 +1,7 @@
 // Dialogue Room - Coaching Intervention Toast Component
 
 import React from 'react';
-import { X, TrendingUp, Quote } from 'lucide-react';
+import { X, TrendingUp, Quote, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Intervention {
@@ -46,20 +46,20 @@ export default function CoachingToaster({
   };
 
   return (
-    <div className="fixed bottom-32 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[420px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-stone-100 dark:from-slate-900 dark:to-stone-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
+    <div className="fixed bottom-32 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[420px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-taupe/5 to-card border border-taupe/20 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
       {/* Header with Close Button */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           {/* Coach Title */}
-          <h3 className="text-sm font-bold tracking-wide text-slate-800 dark:text-slate-100 uppercase">
+          <h3 className="text-sm font-bold tracking-wide text-foreground uppercase">
             MIND MASTERY COACH
           </h3>
-          <div className="h-px bg-slate-300 dark:bg-slate-600 mt-1" />
+          <div className="h-px bg-taupe/30 mt-1" />
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 -mt-1 -mr-1 hover:bg-slate-200 dark:hover:bg-slate-700"
+          className="h-6 w-6 -mt-1 -mr-1 hover:bg-taupe/10"
           onClick={onDismiss}
         >
           <X className="h-4 w-4" />
@@ -67,7 +67,7 @@ export default function CoachingToaster({
       </div>
 
       {/* Meta Skill Badge */}
-      <div className="flex items-center gap-2 mb-4 text-xs text-slate-600 dark:text-slate-400">
+      <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
         <span className="font-medium">Meta Skill Practiced:</span>
         <span className="inline-flex items-center gap-1">
           <TrendingUp className="w-3 h-3" />
@@ -79,53 +79,72 @@ export default function CoachingToaster({
 
       {/* Observation */}
       <div className="mb-4">
-        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+        <p className="text-sm text-foreground leading-relaxed">
           {formatObservation(intervention.observation)}
         </p>
       </div>
 
       {/* Action Box */}
-      <div className="p-3 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-700/30 rounded-lg mb-3">
-        <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">
+      <div className="p-3 bg-taupe/10 border border-taupe/20 rounded-lg mb-3">
+        <p className="text-xs font-medium text-taupe-rich uppercase tracking-wide mb-1">
           Suggested Action
         </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 italic mb-2">
+        <p className="text-xs text-muted-foreground italic mb-2">
           Try this in your next response:
         </p>
-        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+        <p className="text-sm text-foreground leading-relaxed">
           {intervention.action}
         </p>
       </div>
 
-      {/* Framework / Model / Memory (Optional) */}
+      {/* Framework / Model Section - Visual Card Layout */}
       {intervention.wisdomQuote && (
-        <div className="pt-3 border-t border-slate-200 dark:border-slate-700 mb-4">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+        <div className="pt-3 border-t border-taupe/20 mb-4">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Framework / Model
           </p>
-          {intervention.frameworkApplication && (
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
-              {intervention.frameworkApplication}
-            </p>
-          )}
-          <div className="flex items-start gap-2">
-            <Quote className="w-3 h-3 mt-1 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              {intervention.wisdomQuote}
+          
+          {/* Visual Card: Icon Left + Content Right */}
+          <div className="flex gap-3 bg-taupe/5 rounded-xl p-3 border border-taupe/10">
+            {/* Left: Small illustrative icon with subtle taupe background */}
+            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-taupe-highlight/30 to-taupe/20 flex items-center justify-center border border-taupe/15">
+              <BookOpen className="w-5 h-5 text-taupe-rich" />
+            </div>
+            
+            {/* Right: Framework Content */}
+            <div className="flex-1 min-w-0">
+              {/* Framework Name */}
               {intervention.framework && (
-                <span className="font-medium text-slate-700 dark:text-slate-200"> — {intervention.framework}</span>
+                <h4 className="font-semibold text-sm text-foreground mb-1">
+                  {intervention.framework}
+                </h4>
               )}
-            </p>
+              
+              {/* Application Context */}
+              {intervention.frameworkApplication && (
+                <p className="text-xs text-muted-foreground mb-2 leading-relaxed line-clamp-3">
+                  {intervention.frameworkApplication}
+                </p>
+              )}
+              
+              {/* Wisdom Quote */}
+              <div className="flex items-start gap-1.5">
+                <Quote className="w-3 h-3 mt-0.5 text-taupe flex-shrink-0" />
+                <p className="text-xs text-foreground/80 italic line-clamp-2">
+                  "{intervention.wisdomQuote}"
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+      <div className="flex gap-2 pt-3 border-t border-taupe/20">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 text-xs"
+          className="flex-1 text-xs border-taupe/30 hover:bg-taupe/10"
           onClick={onDismiss}
         >
           Dismiss
@@ -133,7 +152,7 @@ export default function CoachingToaster({
         {onAcknowledge && (
           <Button
             size="sm"
-            className="flex-1 text-xs bg-forest hover:bg-forest/90"
+            className="flex-1 text-xs bg-taupe hover:bg-taupe-rich text-taupe-foreground"
             onClick={onAcknowledge}
           >
             Got it, I'll try this

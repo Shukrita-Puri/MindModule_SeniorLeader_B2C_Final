@@ -242,6 +242,7 @@ const PracticeSimulation = () => {
       {/* Session Feedback Modal */}
       {showFeedback && (
         <SessionFeedback
+          sessionId={completedSessionId}
           onSubmit={handleFeedbackSubmit}
           onSkip={handleFeedbackSkip}
         />

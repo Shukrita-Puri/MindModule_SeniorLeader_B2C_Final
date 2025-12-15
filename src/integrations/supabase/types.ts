@@ -1600,6 +1600,44 @@ export type Database = {
         }
         Relationships: []
       }
+      session_feedback: {
+        Row: {
+          created_at: string | null
+          deeper_focus: string | null
+          id: string
+          next_session_focus: string[] | null
+          resonance: string
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deeper_focus?: string | null
+          id?: string
+          next_session_focus?: string[] | null
+          resonance: string
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deeper_focus?: string | null
+          id?: string
+          next_session_focus?: string[] | null
+          resonance?: string
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       soft_skill_definitions: {
         Row: {
           description: string | null
