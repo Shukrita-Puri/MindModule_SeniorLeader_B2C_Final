@@ -16,32 +16,27 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
 const ExecutiveHome = lazy(() => import("./pages/ExecutiveHome"));
-const FlowSession = lazy(() => import("./pages/FlowSession"));
 const NudgeSettings = lazy(() => import("./pages/NudgeSettings"));
 const NudgeSimulator = lazy(() => import("./pages/NudgeSimulator"));
 const RecalibrateMode = lazy(() => import("./pages/RecalibrateMode"));
-const Soundscapes = lazy(() => import("./pages/Soundscapes"));
 const SoundscapePlayer = lazy(() => import("./pages/SoundscapePlayer"));
-const GuidedPracticesLibrary = lazy(() => import("./pages/GuidedPracticesLibrary"));
 const GuidedPracticePlayer = lazy(() => import("./pages/GuidedPracticePlayer"));
-const MicroPracticesLibrary = lazy(() => import("./pages/MicroPracticesLibrary"));
 const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
 const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
-const HRVInsightsDashboard = lazy(() => import("./pages/HRVInsightsDashboard"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
 const PauseOutcomePage = lazy(() => import("./pages/recalibrate/PauseOutcomePage"));
+const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutcomePage"));
 
 // Dialogue Room / Practice pages
 const Practice = lazy(() => import("./pages/Practice"));
 const PracticeConfigurePage = lazy(() => import("./pages/PracticeConfigurePage"));
 const PracticeSimulation = lazy(() => import("./pages/PracticeSimulation"));
 const PracticeSimulationInsights = lazy(() => import("./pages/PracticeSimulationInsights"));
-const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutcomePage"));
 
 // Onboarding pages
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
@@ -55,7 +50,6 @@ const Stage7Results = lazy(() => import("./pages/onboarding/stages/Stage7Results
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
-const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -139,20 +133,12 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><AuthCallback /></Suspense>,
       },
       {
-        path: "auth-debug",
-        element: <Suspense fallback={<LoadingFallback />}><AuthDebug /></Suspense>,
-      },
-      {
         path: "daily-check-in",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><DailyCheckIn /></ProtectedRoute></Suspense>,
       },
       {
         path: "executive-home",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ExecutiveHome /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "flow-session",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><FlowSession /></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",
@@ -181,24 +167,12 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><NudgeSimulator /></ProtectedRoute></Suspense>,
       },
       {
-        path: "soundscapes",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Soundscapes /></ProtectedRoute></Suspense>,
-      },
-      {
         path: "soundscapes/:id",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SoundscapePlayer /></ProtectedRoute></Suspense>,
       },
       {
-        path: "guided-practices",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GuidedPracticesLibrary /></ProtectedRoute></Suspense>,
-      },
-      {
         path: "guided-practices/:id",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GuidedPracticePlayer /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "micro-practices",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticesLibrary /></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
@@ -211,10 +185,6 @@ const router = createBrowserRouter([
       {
         path: "insights-dashboard",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><InsightsDashboard /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "hrv-insights",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><HRVInsightsDashboard /></ProtectedRoute></Suspense>,
       },
       // Dialogue Room routes
       {
