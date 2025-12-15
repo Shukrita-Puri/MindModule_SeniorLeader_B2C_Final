@@ -358,9 +358,9 @@ export function useDialogueSession() {
         recordIntervention(state.sessionId);
         newIntervention = {
           id: crypto.randomUUID(),
-          observation: result.coaching_intervention.observation,
-          metaSkill: result.coaching_intervention.meta_skill,
-          subSkill: result.coaching_intervention.sub_skill,
+          observation: result.coaching_intervention.observation || 'Reflecting on your response...',
+          metaSkill: result.coaching_intervention.meta_skill || 'self_regulation',
+          subSkill: result.coaching_intervention.sub_skill || 'self_awareness',
           action: result.coaching_intervention.action_step || result.coaching_intervention.action || 'Reflect on this feedback and apply it in your next response.',
           framework: result.coaching_intervention.framework_name || result.coaching_intervention.framework,
           wisdomQuote: result.coaching_intervention.framework_wisdom || result.coaching_intervention.wisdom_quote,

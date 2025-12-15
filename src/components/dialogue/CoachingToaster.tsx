@@ -24,7 +24,8 @@ export default function CoachingToaster({
   intervention,
   onDismiss
 }: CoachingToasterProps) {
-  const formatSkillName = (skill: string) => {
+  const formatSkillName = (skill: string | undefined) => {
+    if (!skill) return 'General Skill';
     return skill
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
