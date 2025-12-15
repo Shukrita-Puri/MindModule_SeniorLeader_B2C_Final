@@ -70,7 +70,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
     checkPageOverflow(40);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(34, 97, 73); // Forest green
+    doc.setTextColor(155, 139, 126); // Warm Taupe
     doc.text(title.toUpperCase(), margin, yPos);
     yPos += 10;
     doc.setTextColor(0);
@@ -79,7 +79,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   // Header with branding
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(34, 97, 73); // Forest green
+  doc.setTextColor(155, 139, 126); // Warm Taupe
   doc.text('Mind Module', margin, yPos);
   yPos += 8;
   
@@ -364,13 +364,13 @@ export const generateTranscriptPdf = (transcript: TranscriptMessage[], scenarioC
   // Header with branding
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(34, 97, 73); // Forest green
+  doc.setTextColor(155, 139, 126); // Warm Taupe
   doc.text('Mind Module', margin, yPos);
   yPos += 8;
   
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(34, 97, 73);
+  doc.setTextColor(155, 139, 126); // Warm Taupe
   doc.text('DIALOGUE TRANSCRIPT', margin, yPos);
   yPos += 8;
 
