@@ -150,7 +150,7 @@ const MomentCarousel = ({
             {moment.event_context?.event_title || getMomentTitle(moment)}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {pack.template_name} · {pack.total_duration} min
+            {pack.template_name}
           </p>
           {/* Why this pack explanation */}
           {pack.why_now && (
