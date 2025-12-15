@@ -37,6 +37,7 @@ const Practice = lazy(() => import("./pages/Practice"));
 const PracticeConfigurePage = lazy(() => import("./pages/PracticeConfigurePage"));
 const PracticeSimulation = lazy(() => import("./pages/PracticeSimulation"));
 const PracticeSimulationInsights = lazy(() => import("./pages/PracticeSimulationInsights"));
+const PracticeHistory = lazy(() => import("./pages/PracticeHistory"));
 
 // Onboarding pages
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
@@ -202,6 +203,10 @@ const router = createBrowserRouter([
       {
         path: "practice/simulation-insights",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeSimulationInsights /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "practice/history",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeHistory /></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
