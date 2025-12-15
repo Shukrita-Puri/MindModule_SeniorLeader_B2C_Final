@@ -92,7 +92,7 @@ const SimulationInsights = () => {
           
           <div className="border-t border-gold/40 my-8" />
           
-          <BlindSpotsSection realtimeFeedback={realtimeFeedback} />
+          <BlindSpotsSection blindSpots={[]} />
           
           <div className="border-t border-gold/40 my-8" />
           
