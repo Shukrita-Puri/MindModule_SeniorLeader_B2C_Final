@@ -51,7 +51,8 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   let yPos = 20;
   
   // Helper function to add text with word wrap
-  const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 6): number => {
+  const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 7): number => {
+    doc.setCharSpace(0); // Reset character spacing
     const lines = doc.splitTextToSize(text, maxWidth);
     doc.text(lines, x, y);
     return y + (lines.length * lineHeight);
@@ -108,25 +109,26 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   // Session Context Section
   addSectionHeader('Session Context');
   
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(60);
+  doc.setTextColor(40, 40, 40);
+  doc.setCharSpace(0);
   
   // Always show some context info
   const category = data.scenarioDomain || 'Dialogue Practice';
   const scenario = data.contextType || 'Practice Session';
   
   doc.text(`Category: ${category}`, margin, yPos);
-  yPos += 6;
+  yPos += 7;
   doc.text(`Scenario: ${scenario}`, margin, yPos);
-  yPos += 6;
+  yPos += 7;
   
   if (data.sessionDuration) {
     const durationStr = typeof data.sessionDuration === 'number' 
       ? `${Math.floor(data.sessionDuration / 60)} minutes`
       : data.sessionDuration;
     doc.text(`Duration: ${durationStr}`, margin, yPos);
-    yPos += 6;
+    yPos += 7;
   }
   
   // Add exchange and intervention counts
@@ -137,7 +139,7 @@ export const generateDebriefPdf = (data: DebriefData): void => {
     ].filter(Boolean).join(' • ');
     if (statsLine) {
       doc.text(statsLine, margin, yPos);
-      yPos += 6;
+      yPos += 7;
     }
   }
   yPos += 8;
@@ -146,27 +148,28 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.selfMastery || data.socialMastery) {
     addSectionHeader('Meta-Skill Progress');
     
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
+    doc.setCharSpace(0);
     
     if (data.selfMastery) {
       const changeStr = data.selfMastery.change >= 0 ? `+${data.selfMastery.change}` : `${data.selfMastery.change}`;
-      doc.setTextColor(60);
+      doc.setTextColor(40, 40, 40);
       doc.text(`Self Mastery: ${data.selfMastery.currentScore}/100 (${changeStr} from baseline)`, margin, yPos);
-      yPos += 5;
-      doc.setTextColor(120);
+      yPos += 6;
+      doc.setTextColor(100, 100, 100);
       doc.text(`${data.selfMastery.scenariosPracticed} scenarios practiced`, margin + 4, yPos);
-      yPos += 7;
+      yPos += 8;
     }
     
     if (data.socialMastery) {
       const changeStr = data.socialMastery.change >= 0 ? `+${data.socialMastery.change}` : `${data.socialMastery.change}`;
-      doc.setTextColor(60);
+      doc.setTextColor(40, 40, 40);
       doc.text(`Social Mastery: ${data.socialMastery.currentScore}/100 (${changeStr} from baseline)`, margin, yPos);
-      yPos += 5;
-      doc.setTextColor(120);
+      yPos += 6;
+      doc.setTextColor(100, 100, 100);
       doc.text(`${data.socialMastery.scenariosPracticed} scenarios practiced`, margin + 4, yPos);
-      yPos += 7;
+      yPos += 8;
     }
     yPos += 6;
   }
@@ -175,7 +178,8 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.transcript && data.transcript.length > 0) {
     addSectionHeader('Conversation Transcript');
     
-    doc.setFontSize(9);
+    doc.setFontSize(10);
+    doc.setCharSpace(0);
     
     data.transcript.forEach((msg) => {
       checkPageOverflow(50);
@@ -183,13 +187,15 @@ export const generateDebriefPdf = (data: DebriefData): void => {
       // Speaker label
       const speaker = msg.sender_type === 'user' ? 'You' : 'Persona';
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(msg.sender_type === 'user' ? 34 : 100, msg.sender_type === 'user' ? 97 : 100, msg.sender_type === 'user' ? 73 : 100);
+      doc.setCharSpace(0);
+      doc.setTextColor(msg.sender_type === 'user' ? 155 : 80, msg.sender_type === 'user' ? 139 : 80, msg.sender_type === 'user' ? 126 : 80);
       doc.text(`[${speaker}]:`, margin, yPos);
-      yPos += 5;
+      yPos += 6;
       
       // Message content
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(60);
+      doc.setTextColor(40, 40, 40);
+      doc.setCharSpace(0);
       yPos = addWrappedText(msg.content, margin + 4, yPos, pageWidth - margin * 2 - 4, 5);
       yPos += 4;
       
@@ -199,61 +205,68 @@ export const generateDebriefPdf = (data: DebriefData): void => {
         const intervention = msg.interventionAfter;
         
         // Coach note header
-        doc.setFont('helvetica', 'bolditalic');
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(180, 140, 60); // Gold color
+        doc.setCharSpace(0);
         const toneLabel = intervention.coach_personality ? ` (${intervention.coach_personality})` : '';
         doc.text(`Coach Note${toneLabel}:`, margin + 8, yPos);
-        yPos += 5;
+        yPos += 6;
         
         // Meta skill target
         if (intervention.meta_skill_target) {
           doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100);
+          doc.setTextColor(80, 80, 80);
+          doc.setCharSpace(0);
           const subSkillLabel = intervention.sub_skill_target ? ` → ${intervention.sub_skill_target}` : '';
           doc.text(`Meta Skill: ${intervention.meta_skill_target}${subSkillLabel}`, margin + 12, yPos);
-          yPos += 5;
+          yPos += 6;
         }
         
         // Observation
         if (intervention.observation) {
           doc.setFont('helvetica', 'normal');
-          doc.setTextColor(80);
+          doc.setTextColor(60, 60, 60);
+          doc.setCharSpace(0);
           yPos = addWrappedText(intervention.observation, margin + 12, yPos, pageWidth - margin * 2 - 16, 5);
-          yPos += 3;
+          yPos += 4;
         }
         
         // Action suggested
         if (intervention.action_suggested) {
           doc.setFont('helvetica', 'italic');
-          doc.setTextColor(34, 97, 73);
+          doc.setTextColor(155, 139, 126); // Warm taupe
+          doc.setCharSpace(0);
           doc.text('Try this:', margin + 12, yPos);
-          yPos += 4;
+          yPos += 5;
           doc.setFont('helvetica', 'normal');
+          doc.setCharSpace(0);
           yPos = addWrappedText(intervention.action_suggested, margin + 16, yPos, pageWidth - margin * 2 - 20, 5);
-          yPos += 3;
+          yPos += 4;
         }
         
         // Framework used
         if (intervention.framework_used) {
           doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100);
+          doc.setTextColor(80, 80, 80);
+          doc.setCharSpace(0);
           doc.text(`Framework: ${intervention.framework_used}`, margin + 12, yPos);
-          yPos += 4;
+          yPos += 5;
           
           if (intervention.wisdom_source?.quote) {
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(120);
+            doc.setTextColor(100, 100, 100);
+            doc.setCharSpace(0);
             const quoteText = `"${intervention.wisdom_source.quote}"`;
             const attribution = intervention.wisdom_source.attribution ? ` — ${intervention.wisdom_source.attribution}` : '';
             yPos = addWrappedText(quoteText + attribution, margin + 16, yPos, pageWidth - margin * 2 - 20, 5);
           }
-          yPos += 3;
+          yPos += 4;
         }
         
         yPos += 4;
       }
       
-      yPos += 2;
+      yPos += 3;
     });
     
     yPos += 6;
@@ -263,14 +276,15 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.strengths && data.strengths.length > 0) {
     addSectionHeader('Key Strengths');
     
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60);
+    doc.setTextColor(40, 40, 40);
+    doc.setCharSpace(0);
     
     data.strengths.forEach((strength) => {
-      checkPageOverflow(15);
-      yPos = addWrappedText(`• ${strength}`, margin, yPos, pageWidth - margin * 2);
-      yPos += 2;
+      checkPageOverflow(20);
+      yPos = addWrappedText(`• ${strength}`, margin, yPos, pageWidth - margin * 2, 6);
+      yPos += 4;
     });
     yPos += 6;
   }
@@ -279,14 +293,15 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.blindSpots && data.blindSpots.length > 0) {
     addSectionHeader('Development Areas');
     
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60);
+    doc.setTextColor(40, 40, 40);
+    doc.setCharSpace(0);
     
     data.blindSpots.forEach((blindSpot) => {
-      checkPageOverflow(15);
-      yPos = addWrappedText(`• ${blindSpot}`, margin, yPos, pageWidth - margin * 2);
-      yPos += 2;
+      checkPageOverflow(25);
+      yPos = addWrappedText(`• ${blindSpot}`, margin, yPos, pageWidth - margin * 2, 6);
+      yPos += 4;
     });
     yPos += 6;
   }
@@ -295,14 +310,15 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.mentalModels && data.mentalModels.length > 0) {
     addSectionHeader('Frameworks Used');
     
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60);
+    doc.setTextColor(40, 40, 40);
+    doc.setCharSpace(0);
     
     data.mentalModels.forEach((model) => {
       checkPageOverflow(15);
       doc.text(`• ${model}`, margin, yPos);
-      yPos += 6;
+      yPos += 7;
     });
     yPos += 6;
   }
@@ -311,10 +327,11 @@ export const generateDebriefPdf = (data: DebriefData): void => {
   if (data.personalNotes) {
     addSectionHeader('Personal Reflection');
     
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60);
-    yPos = addWrappedText(data.personalNotes, margin, yPos, pageWidth - (margin * 2));
+    doc.setTextColor(40, 40, 40);
+    doc.setCharSpace(0);
+    yPos = addWrappedText(data.personalNotes, margin, yPos, pageWidth - (margin * 2), 6);
     yPos += 8;
   }
   
