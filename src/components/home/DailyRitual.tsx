@@ -241,14 +241,14 @@ const DailyRitual = () => {
     const practices = recommendations.practices;
     if (practices.length === 0) return;
 
-    localStorage.setItem('practice_queue', JSON.stringify(practices.map(r => ({
+    localStorage.setItem('practiceQueue', JSON.stringify(practices.map(r => ({
       id: r.id,
       title: r.title,
       type: r.contentType,
       category: r.category
     }))));
-    localStorage.setItem('queue_index', '0');
-    localStorage.setItem('ritual_mode', 'true');
+    localStorage.setItem('queueIndex', '0');
+    localStorage.setItem('ritualMode', 'true');
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
@@ -270,14 +270,14 @@ const DailyRitual = () => {
   };
 
   const handleContinueRitual = async () => {
-    const queue = localStorage.getItem('practice_queue');
+    const queue = localStorage.getItem('practiceQueue');
     if (!queue) {
       handleStartRitual();
       return;
     }
 
     const queueData = JSON.parse(queue);
-    const currentIndex = parseInt(localStorage.getItem('queue_index') || '0');
+    const currentIndex = parseInt(localStorage.getItem('queueIndex') || '0');
     
     if (currentIndex < queueData.length) {
       const nextPractice = queueData[currentIndex];
@@ -300,9 +300,9 @@ const DailyRitual = () => {
         .eq('ritual_date', today);
     }
     
-    localStorage.removeItem('practice_queue');
-    localStorage.removeItem('queue_index');
-    localStorage.removeItem('ritual_mode');
+    localStorage.removeItem('practiceQueue');
+    localStorage.removeItem('queueIndex');
+    localStorage.removeItem('ritualMode');
     
     setRitualStatus({
       status: 'not_started',
