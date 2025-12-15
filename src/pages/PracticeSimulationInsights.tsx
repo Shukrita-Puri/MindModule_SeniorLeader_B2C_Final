@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
@@ -9,12 +9,17 @@ import DevelopmentAreasSection from "@/components/simulation/DevelopmentAreasSec
 import FrameworksUsedSection from "@/components/simulation/FrameworksUsedSection";
 import TranscriptReplaySection from "@/components/simulation/TranscriptReplaySection";
 import PersonalReflectionSection from "@/components/simulation/PersonalReflectionSection";
+import AchievementsDisplay from "@/components/achievements/AchievementsDisplay";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import ScheduleFollowupModal from "@/components/simulation/ScheduleFollowupModal";
 import { useSessionDebrief } from "@/hooks/useSessionDebrief";
+import { useSavedDebriefs } from "@/hooks/useSavedDebriefs";
+import { useMetaSkillProgress } from "@/hooks/useMetaSkillProgress";
+import { useAchievements } from "@/hooks/useAchievements";
 import { generateDebriefPdf } from "@/utils/generateDebriefPdf";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Save, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const PracticeSimulationInsights = () => {
   const location = useLocation();
@@ -25,11 +30,13 @@ const PracticeSimulationInsights = () => {
     scenarioContext, 
     sessionDuration, 
     selectedPersonas, 
-    customPersonas 
+    customPersonas,
+    personaType
   } = location.state || {};
   
   const [personalNotes, setPersonalNotes] = useState("");
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Fetch real session data
   const { 
@@ -42,12 +49,37 @@ const PracticeSimulationInsights = () => {
     error 
   } = useSessionDebrief(sessionId);
 
+  // Hooks for saving and tracking
+  const { saveDebrief, isSaving } = useSavedDebriefs();
+  const { updateAfterSession } = useMetaSkillProgress();
+  const { checkAndAwardAchievements } = useAchievements();
+
   // Use session data or fallback to location state
   const displayDomain = session?.scenario_context?.scenarioDomain || scenarioDomain;
   const displayContext = session?.scenario_context?.scenarioContext || scenarioContext;
   const displayPersonas = session?.scenario_context?.selectedPersonas || selectedPersonas;
   const displayCustomPersonas = session?.scenario_context?.customPersonas || customPersonas;
   const displayDuration = session?.duration_seconds || sessionDuration;
+
+  // Update meta-skill progress when session data loads
+  useEffect(() => {
+    if (sessionId && strengths.length > 0 || developmentAreas.length > 0) {
+      // Determine cluster from scenario domain
+      const cluster = displayDomain?.includes('social') ? 'social_mastery' : 'self_mastery';
+      
+      const strengthsForUpdate = strengths.map(s => ({
+        metaSkill: s.metaSkill,
+        cluster
+      }));
+      
+      const gapsForUpdate = developmentAreas.map(d => ({
+        metaSkill: d.metaSkill,
+        cluster
+      }));
+
+      updateAfterSession(sessionId, strengthsForUpdate, gapsForUpdate);
+    }
+  }, [sessionId, strengths, developmentAreas, displayDomain]);
 
   const handleDownload = () => {
     generateDebriefPdf({
@@ -70,9 +102,30 @@ const PracticeSimulationInsights = () => {
     setShowCalendarModal(true);
   };
 
+  const handleSaveToArchive = async () => {
+    try {
+      await saveDebrief({
+        sessionId,
+        title: `${displayDomain || 'Dialogue'} Session - ${new Date().toLocaleDateString()}`,
+        scenarioDomain: displayDomain,
+        scenarioContext: displayContext,
+        personaType,
+        durationSeconds: typeof displayDuration === 'number' ? displayDuration : undefined,
+        strengths,
+        developmentAreas,
+        frameworks,
+        transcript,
+        personalNotes
+      });
+      setIsSaved(true);
+      toast.success("Debrief saved to your archive");
+    } catch (err) {
+      toast.error("Failed to save debrief");
+    }
+  };
+
   const handleSaveNotes = () => {
-    console.log("Saving to learning archive...");
-    toast.success("Notes saved to your learning archive");
+    toast.success("Notes saved");
   };
 
   if (isLoading) {
@@ -127,6 +180,31 @@ const PracticeSimulationInsights = () => {
             customPersonas={displayCustomPersonas}
             sessionDuration={displayDuration}
           />
+
+          {/* Save to Archive Button */}
+          <Button
+            onClick={handleSaveToArchive}
+            disabled={isSaving || isSaved}
+            variant="outline"
+            className="w-full"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : isSaved ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Saved to Archive
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save to My Archive
+              </>
+            )}
+          </Button>
           
           <div className="border-t border-gold/40 my-8" />
 
@@ -140,13 +218,18 @@ const PracticeSimulationInsights = () => {
           
           <div className="border-t border-gold/40 my-8" />
           
-          {/* Development Areas (formerly Blind Spots) */}
+          {/* Development Areas */}
           <DevelopmentAreasSection developmentAreas={developmentAreas} />
           
           <div className="border-t border-gold/40 my-8" />
           
-          {/* Frameworks Used (formerly Mental Models) */}
+          {/* Frameworks Used */}
           <FrameworksUsedSection frameworks={frameworks} />
+
+          <div className="border-t border-gold/40 my-8" />
+
+          {/* Achievements */}
+          <AchievementsDisplay />
 
           <div className="border-t border-gold/40 my-8" />
           

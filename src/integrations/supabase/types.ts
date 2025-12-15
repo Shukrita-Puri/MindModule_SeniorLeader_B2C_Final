@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievement_definitions: {
+        Row: {
+          badge_color: string | null
+          category: string
+          cluster: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          threshold_scenarios: number | null
+          threshold_skill_progress: number | null
+        }
+        Insert: {
+          badge_color?: string | null
+          category: string
+          cluster?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id: string
+          is_active?: boolean | null
+          name: string
+          threshold_scenarios?: number | null
+          threshold_skill_progress?: number | null
+        }
+        Update: {
+          badge_color?: string | null
+          category?: string
+          cluster?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          threshold_scenarios?: number | null
+          threshold_skill_progress?: number | null
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           access_token: string | null
@@ -100,6 +145,68 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      certificate_requests: {
+        Row: {
+          achievement_id: string
+          city: string | null
+          country: string | null
+          email: string
+          full_name: string
+          id: string
+          mailing_address: string
+          notes: string | null
+          postal_code: string | null
+          processed_at: string | null
+          request_status: string | null
+          requested_at: string
+          shipped_at: string | null
+          tracking_number: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          city?: string | null
+          country?: string | null
+          email: string
+          full_name: string
+          id?: string
+          mailing_address: string
+          notes?: string | null
+          postal_code?: string | null
+          processed_at?: string | null
+          request_status?: string | null
+          requested_at?: string
+          shipped_at?: string | null
+          tracking_number?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          city?: string | null
+          country?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          mailing_address?: string
+          notes?: string | null
+          postal_code?: string | null
+          processed_at?: string | null
+          request_status?: string | null
+          requested_at?: string
+          shipped_at?: string | null
+          tracking_number?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_requests_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievement_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       checkin_skip_events: {
         Row: {
@@ -1392,6 +1499,68 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_debriefs: {
+        Row: {
+          created_at: string
+          debrief_summary: Json | null
+          development_areas: Json | null
+          duration_seconds: number | null
+          frameworks_used: Json | null
+          id: string
+          persona_type: string | null
+          personal_notes: string | null
+          scenario_context: string | null
+          scenario_domain: string | null
+          session_id: string | null
+          strengths: Json | null
+          title: string | null
+          transcript_json: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          debrief_summary?: Json | null
+          development_areas?: Json | null
+          duration_seconds?: number | null
+          frameworks_used?: Json | null
+          id?: string
+          persona_type?: string | null
+          personal_notes?: string | null
+          scenario_context?: string | null
+          scenario_domain?: string | null
+          session_id?: string | null
+          strengths?: Json | null
+          title?: string | null
+          transcript_json?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          debrief_summary?: Json | null
+          development_areas?: Json | null
+          duration_seconds?: number | null
+          frameworks_used?: Json | null
+          id?: string
+          persona_type?: string | null
+          personal_notes?: string | null
+          scenario_context?: string | null
+          scenario_domain?: string | null
+          session_id?: string | null
+          strengths?: Json | null
+          title?: string | null
+          transcript_json?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_debriefs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scenario_definitions: {
         Row: {
           category: string
@@ -1501,6 +1670,50 @@ export type Database = {
           key?: string
         }
         Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          created_at: string
+          earned_at: string
+          id: string
+          scenarios_at_earn: number | null
+          shared_at: string | null
+          shared_to_linkedin: boolean | null
+          skill_progress_at_earn: number | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          scenarios_at_earn?: number | null
+          shared_at?: string | null
+          shared_to_linkedin?: boolean | null
+          skill_progress_at_earn?: number | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          scenarios_at_earn?: number | null
+          shared_at?: string | null
+          shared_to_linkedin?: boolean | null
+          skill_progress_at_earn?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievement_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_engagements: {
         Row: {
