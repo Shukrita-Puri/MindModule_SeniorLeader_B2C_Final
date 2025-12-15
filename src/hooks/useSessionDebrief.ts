@@ -106,6 +106,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
 
   useEffect(() => {
     if (!sessionId) {
+      console.log('[useSessionDebrief] No sessionId provided');
       setIsLoading(false);
       return;
     }
@@ -114,6 +115,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
       try {
         setIsLoading(true);
         setError(null);
+        console.log('[useSessionDebrief] Fetching data for sessionId:', sessionId);
 
         // Fetch all data in parallel
         const [sessionResult, messagesResult, interventionsResult, signalsResult] = await Promise.all([
@@ -137,6 +139,13 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
             .select('*')
             .eq('session_id', sessionId)
         ]);
+
+        console.log('[useSessionDebrief] Query results:', {
+          session: sessionResult.data,
+          messages: messagesResult.data?.length || 0,
+          interventions: interventionsResult.data?.length || 0,
+          signals: signalsResult.data?.length || 0
+        });
 
         if (sessionResult.error) throw sessionResult.error;
         if (messagesResult.error) throw messagesResult.error;

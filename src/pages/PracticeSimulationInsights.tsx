@@ -213,26 +213,18 @@ const PracticeSimulationInsights = () => {
 
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 md:px-8 py-8 space-y-8 max-w-5xl mx-auto pb-32">
-          {/* Session Summary Card */}
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Session Summary</h3>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-              {displayDomain && <span className="font-medium">{displayDomain}</span>}
-              {displayDomain && contextType && <span className="text-muted-foreground">•</span>}
-              {contextType && <span>{contextType}</span>}
-              {displayDuration && (
-                <>
-                  <span className="text-muted-foreground">•</span>
-                  <span>{Math.round(displayDuration / 60)} min</span>
-                </>
-              )}
-              {transcript.length > 0 && (
-                <>
-                  <span className="text-muted-foreground">•</span>
-                  <span>{transcript.length} exchanges</span>
-                </>
-              )}
-            </div>
+          {/* Session Summary */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-heading font-medium text-foreground">Session Summary</h3>
+            <p className="text-sm text-muted-foreground">
+              {[
+                displayDomain,
+                contextType,
+                displayDuration ? `${typeof displayDuration === 'number' ? Math.round(displayDuration / 60) : displayDuration} min` : null,
+                transcript.length > 0 ? `${transcript.length} exchanges` : null,
+                session?.total_interventions ? `${session.total_interventions} coach interventions` : null
+              ].filter(Boolean).join(' • ')}
+            </p>
           </div>
           
           <div className="border-t border-gold/40 my-8" />
