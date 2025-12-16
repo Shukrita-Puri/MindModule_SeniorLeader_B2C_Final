@@ -8,13 +8,14 @@ import {
 
 interface HexBadgeProps {
   badgeId: string;
-  badgeColor: string;
+  badgeColor?: string;
   badgeName: string;
   isEarned: boolean;
   isNext?: boolean;
   pointsToNext?: number;
   size?: 'sm' | 'md' | 'lg';
-  cluster: 'self' | 'social';
+  cluster?: 'self' | 'social';
+  onClick?: () => void;
 }
 
 // Icon and gradient mapping for each badge (synced with achievement_definitions DB IDs)
@@ -85,7 +86,8 @@ const HexBadge = ({
   isNext = false, 
   pointsToNext,
   size = 'md',
-  cluster 
+  cluster,
+  onClick
 }: HexBadgeProps) => {
   const config = BADGE_CONFIG[badgeId];
   const isMasterBadge = badgeId.includes('certificate');
@@ -107,7 +109,10 @@ const HexBadge = ({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="relative flex flex-col items-center flex-1 cursor-pointer">
+        <div 
+          className="relative flex flex-col items-center flex-1 cursor-pointer"
+          onClick={isEarned && onClick ? onClick : undefined}
+        >
           <div
             className={cn(
               "relative flex items-center justify-center transition-all duration-300",
@@ -182,7 +187,7 @@ const HexBadge = ({
           <p className="text-xs text-muted-foreground">{pointsToNext} pts to unlock</p>
         )}
         {isEarned && (
-          <p className="text-xs text-emerald-500">Earned!</p>
+          <p className="text-xs text-emerald-500">Earned! Tap to share</p>
         )}
       </TooltipContent>
     </Tooltip>

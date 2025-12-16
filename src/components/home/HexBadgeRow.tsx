@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import HexBadge from './HexBadge';
 import PointSystemModal from './PointSystemModal';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import ShareableBadgeCard from '@/components/achievements/ShareableBadgeCard';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ArchetypeInfo {
   id: string;
@@ -16,8 +20,19 @@ interface HexBadgeRowProps {
 }
 
 const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) => {
+  const { user } = useAuth();
+  const [selectedBadge, setSelectedBadge] = useState<ArchetypeInfo | null>(null);
+  
   // Find the next badge to unlock
   const nextBadgeIndex = progression.findIndex(badge => currentPoints < badge.thresholdPoints);
+  
+  const handleBadgeClick = (badge: ArchetypeInfo) => {
+    setSelectedBadge(badge);
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedBadge(null);
+  };
   
   return (
     <TooltipProvider delayDuration={200}>
@@ -39,6 +54,7 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
                 pointsToNext={pointsToNext}
                 size="sm"
                 cluster={cluster}
+                onClick={() => handleBadgeClick(badge)}
               />
             );
           })}
@@ -47,6 +63,23 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
           <PointSystemModal cluster={cluster} />
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={!!selectedBadge} onOpenChange={handleCloseDialog}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          {selectedBadge && (
+            <ShareableBadgeCard
+              achievementName={selectedBadge.name}
+              archetypeName={selectedBadge.name}
+              cluster={cluster === 'self' ? 'self_mastery' : 'social_mastery'}
+              badgeColor={selectedBadge.badgeColor}
+              userName={user?.name || user?.email || 'User'}
+              earnedDate={new Date()}
+              onShare={handleCloseDialog}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 };
