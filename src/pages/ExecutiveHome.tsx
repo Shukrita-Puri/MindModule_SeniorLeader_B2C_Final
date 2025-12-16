@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
+import AchievementsDisplay from "@/components/achievements/AchievementsDisplay";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
 import EnergyStateHeader from "@/components/home/EnergyStateHeader";
@@ -127,6 +128,15 @@ const ExecutiveHome = () => {
           </div>
           <PerformancePreparation />
         </div>
+      </section>
+
+      {/* Divider */}
+      <div className="h-px bg-black/[0.08] max-w-lg mx-auto my-8" />
+
+      {/* Your Achievements Section */}
+      <section className="px-4 max-w-lg mx-auto pb-8">
+        <h2 className="text-2xl font-headline mb-4 text-foreground">Your Achievements</h2>
+        <AchievementsDisplay />
       </section>
 
       <SecurityWatermark />
