@@ -243,7 +243,8 @@ const DailyRitual = () => {
         .update({ completion_status: 'full' })
         .eq('user_id', user.id)
         .eq('ritual_date', today);
-    } else if (effectiveCompletedCount > 0) {
+    } else if (data.completion_status === 'partial' || effectiveCompletedCount > 0) {
+      // Respect DB partial status even if counts are 0 due to sync issues
       status = 'partial';
     }
     
