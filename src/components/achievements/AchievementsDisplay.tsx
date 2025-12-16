@@ -116,7 +116,7 @@ const AchievementsDisplay = () => {
                 </div>
                 <div>
                   <p className="font-medium text-muted-foreground">No archetype yet</p>
-                  <p className="text-xs text-muted-foreground">Complete 5 scenarios to unlock</p>
+                  <p className="text-xs text-muted-foreground">Earn 25 points to unlock</p>
                 </div>
               </div>
             )}
@@ -176,7 +176,7 @@ const AchievementsDisplay = () => {
                 </div>
                 <div>
                   <p className="font-medium text-muted-foreground">No archetype yet</p>
-                  <p className="text-xs text-muted-foreground">Complete 5 scenarios to unlock</p>
+                  <p className="text-xs text-muted-foreground">Earn 25 points to unlock</p>
                 </div>
               </div>
             )}
