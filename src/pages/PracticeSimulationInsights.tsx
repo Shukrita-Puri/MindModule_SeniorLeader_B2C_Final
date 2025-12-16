@@ -16,6 +16,7 @@ import { useSessionDebrief } from "@/hooks/useSessionDebrief";
 import { useSavedDebriefs } from "@/hooks/useSavedDebriefs";
 import { useMetaSkillProgress } from "@/hooks/useMetaSkillProgress";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useUnifiedProgress } from "@/hooks/useUnifiedProgress";
 import { generateDebriefPdf, generateTranscriptPdf } from "@/utils/generateDebriefPdf";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -86,6 +87,7 @@ const PracticeSimulationInsights = () => {
   const { saveDebrief, isSaving } = useSavedDebriefs();
   const { updateAfterSession, selfMastery, socialMastery } = useMetaSkillProgress();
   const { checkAndAwardAchievements } = useAchievements();
+  const { progress: unifiedProgress } = useUnifiedProgress();
 
   // Use session data or fallback to location state
   const displayDomain = session?.scenario_context?.scenarioDomain || scenarioDomain;
@@ -287,16 +289,17 @@ const PracticeSimulationInsights = () => {
       const selfStrengths = strengthsForUpdate.filter(s => s.cluster === 'self_mastery');
       const socialStrengths = strengthsForUpdate.filter(s => s.cluster === 'social_mastery');
 
-      if (selfStrengths.length > 0 && selfMastery) {
-        await checkAndAwardAchievements('self_mastery', selfMastery.scenariosPracticed + 1, selfMastery.currentScore);
+      // Use unified points from useUnifiedProgress for achievement checking
+      if (selfStrengths.length > 0) {
+        await checkAndAwardAchievements('self_mastery', unifiedProgress.selfMasteryPoints, selfMastery?.currentScore);
       }
-      if (socialStrengths.length > 0 && socialMastery) {
-        await checkAndAwardAchievements('social_mastery', socialMastery.scenariosPracticed + 1, socialMastery.currentScore);
+      if (socialStrengths.length > 0) {
+        await checkAndAwardAchievements('social_mastery', unifiedProgress.socialMasteryPoints, socialMastery?.currentScore);
       }
     };
 
     updateProgress();
-  }, [sessionId, strengths, developmentAreas, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery]);
+  }, [sessionId, strengths, developmentAreas, hasUpdatedProgress, updateAfterSession, checkAndAwardAchievements, selfMastery, socialMastery, unifiedProgress]);
 
   // Format meta-skill progress for display
   const formatMetaSkillProgress = (progress: typeof selfMastery) => {
