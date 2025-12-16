@@ -42,9 +42,9 @@ const HexBadge = ({
   const isCertificate = badgeId.includes('certificate');
   
   const sizeClasses = {
-    sm: 'w-12 h-12',
-    md: 'w-14 h-14',
-    lg: 'w-16 h-16',
+    sm: 'w-9 h-9',
+    md: 'w-10 h-10',
+    lg: 'w-12 h-12',
   };
 
   // Calculate background position (each badge is 1/3 of image)
@@ -93,7 +93,7 @@ const HexBadge = ({
         
         {/* Points indicator overlay centered on next badge */}
         {isNext && pointsToNext !== undefined && (
-          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-saffron">
+          <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-saffron bg-black/40 backdrop-blur-[1px] rounded-lg">
             +{pointsToNext}
           </span>
         )}

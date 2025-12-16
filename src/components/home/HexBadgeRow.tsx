@@ -34,7 +34,7 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
               isEarned={isEarned}
               isNext={isNext}
               pointsToNext={pointsToNext}
-              size="md"
+              size="sm"
               cluster={cluster}
             />
           );
