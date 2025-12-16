@@ -139,26 +139,6 @@ export default function CoachingToaster({
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 pt-3 border-t border-taupe/20">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 text-xs border-taupe/30 hover:bg-taupe/10"
-          onClick={onDismiss}
-        >
-          Dismiss
-        </Button>
-        {onAcknowledge && (
-          <Button
-            size="sm"
-            className="flex-1 text-xs bg-taupe hover:bg-taupe-rich text-taupe-foreground"
-            onClick={onAcknowledge}
-          >
-            Got it, I'll try this
-          </Button>
-        )}
-      </div>
     </div>
   );
 }
