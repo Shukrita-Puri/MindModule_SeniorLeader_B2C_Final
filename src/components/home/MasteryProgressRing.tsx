@@ -2,12 +2,12 @@ import { cn } from '@/lib/utils';
 
 interface MasteryProgressRingProps {
   currentPoints: number;
-  maxPoints: number;
+  maxPoints?: number; // Defaults to 250 (certificate threshold)
   cluster: 'self' | 'social';
   label: string;
 }
 
-const MasteryProgressRing = ({ currentPoints, maxPoints, cluster, label }: MasteryProgressRingProps) => {
+const MasteryProgressRing = ({ currentPoints, maxPoints = 250, cluster, label }: MasteryProgressRingProps) => {
   const percentage = Math.min((currentPoints / maxPoints) * 100, 100);
   
   // Traffic light color system

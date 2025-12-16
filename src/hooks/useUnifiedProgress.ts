@@ -25,21 +25,21 @@ interface UnifiedProgress {
   totalSocialBadges: number;
 }
 
-// Badge progression for each cluster
+// Badge progression for each cluster (250pt system - synced with achievement_definitions DB)
 export const SELF_MASTERY_PROGRESSION: ArchetypeInfo[] = [
-  { id: 'awareness-initiate', name: 'Awareness Initiate', badgeColor: '#F59E0B', thresholdPoints: 25 },
-  { id: 'emotional-navigator', name: 'Emotional Navigator', badgeColor: '#EAB308', thresholdPoints: 60 },
-  { id: 'regulation-specialist', name: 'Regulation Specialist', badgeColor: '#EA580C', thresholdPoints: 150 },
-  { id: 'self-mastery-practitioner', name: 'Self Mastery Practitioner', badgeColor: '#D97706', thresholdPoints: 300 },
-  { id: 'self-mastery-master', name: 'Self Mastery Master', badgeColor: '#B45309', thresholdPoints: 500 },
+  { id: 'self_mastery_initiate', name: 'Awareness Initiate', badgeColor: '#F59E0B', thresholdPoints: 25 },
+  { id: 'self_mastery_practitioner', name: 'Emotional Navigator', badgeColor: '#EAB308', thresholdPoints: 50 },
+  { id: 'self_mastery_adept', name: 'Regulation Adept', badgeColor: '#EA580C', thresholdPoints: 100 },
+  { id: 'self_mastery_badge', name: 'Self Mastery Badge', badgeColor: '#D97706', thresholdPoints: 150 },
+  { id: 'self_mastery_certificate', name: 'Self Mastery Certificate', badgeColor: '#B45309', thresholdPoints: 250 },
 ];
 
 export const SOCIAL_MASTERY_PROGRESSION: ArchetypeInfo[] = [
-  { id: 'social-apprentice', name: 'Social Apprentice', badgeColor: '#A78BFA', thresholdPoints: 25 },
-  { id: 'empathy-builder', name: 'Empathy Builder', badgeColor: '#F472B6', thresholdPoints: 60 },
-  { id: 'influence-architect', name: 'Influence Architect', badgeColor: '#C084FC', thresholdPoints: 150 },
-  { id: 'social-intelligence-practitioner', name: 'Social Intelligence Practitioner', badgeColor: '#8B5CF6', thresholdPoints: 300 },
-  { id: 'social-mastery-master', name: 'Social Mastery Master', badgeColor: '#7C3AED', thresholdPoints: 500 },
+  { id: 'social_mastery_initiate', name: 'Connection Initiate', badgeColor: '#A78BFA', thresholdPoints: 25 },
+  { id: 'social_mastery_practitioner', name: 'Empathy Practitioner', badgeColor: '#F472B6', thresholdPoints: 50 },
+  { id: 'social_mastery_adept', name: 'Influence Adept', badgeColor: '#C084FC', thresholdPoints: 100 },
+  { id: 'social_mastery_badge', name: 'Social Mastery Badge', badgeColor: '#8B5CF6', thresholdPoints: 150 },
+  { id: 'social_mastery_certificate', name: 'Social Mastery Certificate', badgeColor: '#7C3AED', thresholdPoints: 250 },
 ];
 
 export const useUnifiedProgress = () => {
@@ -104,8 +104,9 @@ export const useUnifiedProgress = () => {
 
         dialogueSessions?.forEach(session => {
           const category = (session.scenario_definitions as any)?.category;
+          // growth_opportunity contributes to BOTH clusters
           const isSelfMastery = category === 'academic_confidence' || category === 'growth_opportunity';
-          const isSocialMastery = category === 'social_navigation';
+          const isSocialMastery = category === 'social_navigation' || category === 'growth_opportunity';
 
           // Base points per session
           if (isSelfMastery) selfMasteryPoints += 10;

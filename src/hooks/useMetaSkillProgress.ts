@@ -99,16 +99,32 @@ export const useMetaSkillProgress = () => {
     if (!isAuthenticated || !user?.sub) return;
 
     try {
-      // Map onboarding component scores to meta-skills
+      // Map onboarding component scores to meta-skills (full taxonomy)
       const initialProgress = [
+        // Self Mastery - Emotional Intelligence
         { meta_skill_key: 'emotional_regulation', cluster: 'self_mastery', baseline_score: componentScores.energy_regulation || 50 },
+        { meta_skill_key: 'self_awareness', cluster: 'self_mastery', baseline_score: componentScores.energy_regulation || 50 },
+        { meta_skill_key: 'mindfulness', cluster: 'self_mastery', baseline_score: 50 },
+        { meta_skill_key: 'self_compassion', cluster: 'self_mastery', baseline_score: 50 },
+        // Self Mastery - Self-Regulation
         { meta_skill_key: 'focus', cluster: 'self_mastery', baseline_score: componentScores.focus_recovery || 50 },
         { meta_skill_key: 'discipline', cluster: 'self_mastery', baseline_score: componentScores.energy_renewal || 50 },
-        { meta_skill_key: 'self_awareness', cluster: 'self_mastery', baseline_score: componentScores.energy_regulation || 50 },
+        { meta_skill_key: 'goal_setting', cluster: 'self_mastery', baseline_score: 50 },
+        // Self Mastery - Learning Agility
+        { meta_skill_key: 'adaptability_to_feedback', cluster: 'self_mastery', baseline_score: 50 },
+        { meta_skill_key: 'reflective_thinking', cluster: 'self_mastery', baseline_score: 50 },
+        // Self Mastery - Emotional Resilience
+        { meta_skill_key: 'stress_management', cluster: 'self_mastery', baseline_score: 50 },
+        { meta_skill_key: 'perseverance', cluster: 'self_mastery', baseline_score: 50 },
+        // Social Mastery - Social Intelligence
         { meta_skill_key: 'empathy', cluster: 'social_mastery', baseline_score: 50 },
         { meta_skill_key: 'perspective_taking', cluster: 'social_mastery', baseline_score: 50 },
+        { meta_skill_key: 'active_listening', cluster: 'social_mastery', baseline_score: 50 },
+        { meta_skill_key: 'trust_building', cluster: 'social_mastery', baseline_score: 50 },
+        // Social Mastery - Communication & Influence
         { meta_skill_key: 'communication', cluster: 'social_mastery', baseline_score: 50 },
-        { meta_skill_key: 'influence', cluster: 'social_mastery', baseline_score: 50 }
+        { meta_skill_key: 'influence', cluster: 'social_mastery', baseline_score: 50 },
+        { meta_skill_key: 'collaboration', cluster: 'social_mastery', baseline_score: 50 },
       ];
 
       for (const skill of initialProgress) {
