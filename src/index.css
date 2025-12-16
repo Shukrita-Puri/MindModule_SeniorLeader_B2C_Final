@@ -186,51 +186,85 @@ body {
   }
 }
 
-/* Hexagonal Badge System */
-.hex-badge {
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+/* 3D Hexagonal Badge System */
+.hex-badge-3d {
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
 }
 
-.hex-badge-earned {
-  background: linear-gradient(135deg, var(--badge-color) 0%, var(--badge-dark) 100%);
+.hex-badge-3d-earned {
   box-shadow: 
-    0 4px 8px rgba(0,0,0,0.25),
-    0 2px 4px rgba(0,0,0,0.15),
-    inset 0 1px 2px rgba(255,255,255,0.4),
-    inset 0 -1px 2px rgba(0,0,0,0.2);
+    0 6px 12px -2px rgba(0,0,0,0.25),
+    0 3px 6px -2px rgba(0,0,0,0.15),
+    inset 0 2px 4px rgba(255,255,255,0.35),
+    inset 0 -2px 4px rgba(0,0,0,0.15),
+    0 0 20px var(--glow-color, rgba(251, 191, 36, 0.4));
+  transform: translateY(-1px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.hex-badge-earned:hover {
-  transform: translateY(-2px) scale(1.05);
+.hex-badge-3d-earned:hover {
+  transform: translateY(-3px) scale(1.08);
   box-shadow: 
-    0 6px 12px rgba(0,0,0,0.3),
-    0 3px 6px rgba(0,0,0,0.2),
-    inset 0 1px 2px rgba(255,255,255,0.5);
+    0 10px 20px -4px rgba(0,0,0,0.3),
+    0 6px 10px -4px rgba(0,0,0,0.2),
+    inset 0 2px 4px rgba(255,255,255,0.4),
+    0 0 30px var(--glow-color, rgba(251, 191, 36, 0.5));
 }
 
 .hex-badge-shine {
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   background: linear-gradient(
     135deg, 
     rgba(255,255,255,0.5) 0%, 
-    rgba(255,255,255,0.2) 30%,
-    transparent 50%
+    rgba(255,255,255,0.2) 25%,
+    transparent 50%,
+    rgba(0,0,0,0.05) 100%
   );
+  pointer-events: none;
 }
 
-.hex-badge-locked {
-  background: linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--muted-foreground) / 0.3) 100%);
+.hex-badge-3d-locked {
   box-shadow: 
-    0 2px 4px rgba(0,0,0,0.1),
-    inset 0 1px 2px rgba(255,255,255,0.1);
-  opacity: 0.5;
+    0 2px 4px rgba(0,0,0,0.08),
+    inset 0 1px 2px rgba(255,255,255,0.05);
+  opacity: 0.4;
+  transition: all 0.3s ease;
 }
 
-.hex-badge-next {
-  background: linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--muted-foreground) / 0.4) 100%);
+.hex-badge-3d-next {
   box-shadow: 
-    0 2px 4px rgba(0,0,0,0.15),
-    inset 0 1px 2px rgba(255,255,255,0.15);
-  opacity: 0.7;
-  border: 2px dashed hsl(var(--saffron) / 0.5);
+    0 3px 6px rgba(0,0,0,0.12),
+    inset 0 1px 2px rgba(255,255,255,0.1),
+    0 0 12px rgba(212, 175, 55, 0.2);
+  opacity: 0.65;
+  animation: badge-pulse 2s ease-in-out infinite;
+  transition: all 0.3s ease;
+}
+
+.hex-badge-3d-next:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.hex-badge-3d-certificate {
+  box-shadow: 
+    0 8px 16px -4px rgba(0,0,0,0.3),
+    0 4px 8px -4px rgba(0,0,0,0.2),
+    inset 0 2px 4px rgba(255,255,255,0.4),
+    inset 0 -2px 4px rgba(0,0,0,0.2),
+    0 0 30px var(--glow-color, rgba(217, 119, 6, 0.5));
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 3px 6px rgba(0,0,0,0.12),
+      inset 0 1px 2px rgba(255,255,255,0.1),
+      0 0 12px rgba(212, 175, 55, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 3px 6px rgba(0,0,0,0.12),
+      inset 0 1px 2px rgba(255,255,255,0.1),
+      0 0 20px rgba(212, 175, 55, 0.4);
+  }
 }
