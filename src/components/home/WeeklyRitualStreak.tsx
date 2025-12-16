@@ -1,14 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Check, Star, Sparkles } from 'lucide-react';
+import { Check, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useStreakTracking } from '@/hooks/useStreakTracking';
 
 const WeeklyRitualStreak = () => {
   const { user } = useAuth();
-  const { currentStreak, milestones } = useStreakTracking();
   
   const { data: weeklyData, isLoading } = useQuery({
     queryKey: ['weekly-ritual-streak', user?.id],
@@ -80,9 +78,6 @@ const WeeklyRitualStreak = () => {
     refetchInterval: 30 * 1000, // Poll every 30 seconds
   });
 
-  // Check if current streak is at a milestone
-  const isStreakMilestone = milestones.includes(currentStreak);
-
   if (isLoading) {
     return (
       <div className="flex justify-between items-center gap-1 mb-4">
@@ -97,31 +92,7 @@ const WeeklyRitualStreak = () => {
   }
 
   return (
-    <div className="space-y-3">
-      {/* Streak Badge */}
-      {currentStreak > 0 && (
-        <div className={cn(
-          "flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full mx-auto w-fit",
-          isStreakMilestone 
-            ? "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30" 
-            : "bg-muted/50"
-        )}>
-          <span className={cn(
-            "text-lg",
-            isStreakMilestone && "animate-pulse"
-          )}>🔥</span>
-          <span className={cn(
-            "text-sm font-semibold",
-            isStreakMilestone ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
-          )}>
-            {currentStreak} Day Streak
-          </span>
-          {isStreakMilestone && <Sparkles size={14} className="text-amber-500" />}
-        </div>
-      )}
-      
-      {/* Weekly Circles */}
-      <div className="flex justify-between items-center gap-1">
+    <div className="flex justify-between items-center gap-1">
         {weeklyData?.map((day) => (
           <div key={day.date} className="flex flex-col items-center gap-1">
             <div className={cn(
@@ -133,15 +104,7 @@ const WeeklyRitualStreak = () => {
               day.isToday && "ring-2 ring-saffron ring-offset-2 ring-offset-background",
               day.isToday && day.status !== 'full' && "shadow-[0_0_12px_rgba(212,175,55,0.5)] animate-pulse"
             )}>
-              {day.status === 'full' && (
-                <>
-                  <Check size={14} strokeWidth={3} />
-                  <Sparkles 
-                    size={10} 
-                    className="absolute -top-0.5 -right-0.5 text-amber-400 animate-pulse" 
-                  />
-                </>
-              )}
+              {day.status === 'full' && <Check size={14} strokeWidth={3} />}
               {day.status === 'partial' && <Star size={12} fill="currentColor" />}
             </div>
             <span className={cn(
@@ -152,7 +115,6 @@ const WeeklyRitualStreak = () => {
             </span>
           </div>
         ))}
-      </div>
     </div>
   );
 };
