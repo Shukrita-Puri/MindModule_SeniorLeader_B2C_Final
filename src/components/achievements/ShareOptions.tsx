@@ -24,7 +24,7 @@ const ShareOptions = ({
 
   const handleWhatsAppShare = () => {
     const message = `${shareText}\n\n${shareUrl}`;
-    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     onShare?.();
   };
