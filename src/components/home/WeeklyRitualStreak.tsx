@@ -128,8 +128,8 @@ const WeeklyRitualStreak = () => {
               "h-8 w-8 rounded-full flex items-center justify-center transition-all relative",
               day.status === 'full' && "bg-saffron text-charcoal shadow-md",
               day.status === 'partial' && "bg-taupe/80 text-white",
-              day.status === 'skipped' && !day.isFuture && "border-2 border-border bg-muted/30",
-              day.status === 'skipped' && day.isFuture && "border-2 border-dashed border-border/50",
+              day.status === 'skipped' && !day.isFuture && "border-2 border-taupe/40 bg-muted/30",
+              day.status === 'skipped' && day.isFuture && "border-2 border-dashed border-taupe/50",
               day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background"
             )}>
               {day.status === 'full' && (
