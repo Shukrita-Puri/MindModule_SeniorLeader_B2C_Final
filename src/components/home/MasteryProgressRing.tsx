@@ -10,14 +10,8 @@ interface MasteryProgressRingProps {
 const MasteryProgressRing = ({ currentPoints, maxPoints = 250, cluster, label }: MasteryProgressRingProps) => {
   const percentage = Math.min((currentPoints / maxPoints) * 100, 100);
   
-  // Traffic light color system
-  const getTrafficLightColor = (pct: number) => {
-    if (pct <= 33) return '#EF4444'; // Red
-    if (pct <= 66) return '#F59E0B'; // Amber
-    return '#22C55E'; // Green
-  };
-  
-  const progressColor = getTrafficLightColor(percentage);
+  // Green progress color
+  const progressColor = '#22C55E';
   const bgColor = 'hsl(var(--muted) / 0.3)';
   
   // Semicircle arc calculations
