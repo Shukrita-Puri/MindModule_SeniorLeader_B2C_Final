@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -161,6 +161,55 @@ export const useUnifiedProgress = () => {
     staleTime: 60 * 1000,
   });
 
+  // Sync earned badges to database
+  const hasSynced = useRef(false);
+  
+  useEffect(() => {
+    const syncEarnedBadges = async () => {
+      if (!user?.id || !progress || hasSynced.current) return;
+      
+      // Get all earned badge IDs based on current points
+      const earnedSelfBadges = SELF_MASTERY_PROGRESSION
+        .filter(b => progress.selfMasteryPoints >= b.thresholdPoints)
+        .map(b => b.id);
+      
+      const earnedSocialBadges = SOCIAL_MASTERY_PROGRESSION
+        .filter(b => progress.socialMasteryPoints >= b.thresholdPoints)
+        .map(b => b.id);
+      
+      const allEarnedBadgeIds = [...earnedSelfBadges, ...earnedSocialBadges];
+      
+      if (allEarnedBadgeIds.length === 0) return;
+      
+      // Get already recorded achievements
+      const { data: existingAchievements } = await supabase
+        .from('user_achievements')
+        .select('achievement_id')
+        .eq('user_id', user.id);
+      
+      const existingIds = new Set(existingAchievements?.map(a => a.achievement_id) || []);
+      
+      // Find badges that need to be recorded
+      const badgesToSync = allEarnedBadgeIds.filter(id => !existingIds.has(id));
+      
+      if (badgesToSync.length > 0) {
+        // Insert missing badges
+        const insertData = badgesToSync.map(achievementId => ({
+          user_id: user.id,
+          achievement_id: achievementId,
+          earned_at: new Date().toISOString(),
+        }));
+        
+        await supabase.from('user_achievements').insert(insertData);
+        console.log('✅ Synced badges to database:', badgesToSync);
+      }
+      
+      hasSynced.current = true;
+    };
+    
+    syncEarnedBadges();
+  }, [user?.id, progress]);
+
   return {
     progress: progress || getDefaultProgress(),
     isLoading,
@@ -169,7 +218,6 @@ export const useUnifiedProgress = () => {
     SOCIAL_MASTERY_PROGRESSION,
   };
 };
-
 function calculateArchetypeProgress(points: number, progression: ArchetypeInfo[]) {
   let current: ArchetypeInfo | null = null;
   let next: ArchetypeInfo | null = null;
