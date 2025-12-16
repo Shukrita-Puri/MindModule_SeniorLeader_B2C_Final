@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Lock, Sunrise, Compass, Settings, Crown, ScrollText, Users, Heart, Sparkles, Award } from 'lucide-react';
+import { Lock, Eye, Radar, Gauge, Shield, Trophy, UserPlus, HeartHandshake, Zap, Star, Gem } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -25,53 +25,53 @@ const BADGE_CONFIG: Record<string, {
 }> = {
   // Self Mastery (warm tones)
   'awareness-initiate': { 
-    icon: Sunrise, 
+    icon: Eye, 
     gradient: 'from-amber-400 via-orange-300 to-yellow-400',
     glowColor: 'rgba(251, 191, 36, 0.5)'
   },
   'emotional-navigator': { 
-    icon: Compass, 
+    icon: Radar, 
     gradient: 'from-orange-300 via-amber-200 to-yellow-300',
     glowColor: 'rgba(253, 186, 116, 0.5)'
   },
-  'regulation-adept': { 
-    icon: Settings, 
+  'regulation-specialist': { 
+    icon: Gauge, 
     gradient: 'from-orange-500 via-amber-400 to-orange-400',
     glowColor: 'rgba(249, 115, 22, 0.5)'
   },
-  'self-mastery-badge': { 
-    icon: Crown, 
+  'self-mastery-practitioner': { 
+    icon: Shield, 
     gradient: 'from-yellow-500 via-amber-500 to-orange-500',
     glowColor: 'rgba(245, 158, 11, 0.6)'
   },
-  'self-mastery-certificate': { 
-    icon: ScrollText, 
+  'self-mastery-master': { 
+    icon: Trophy, 
     gradient: 'from-yellow-600 via-amber-600 to-orange-600',
     glowColor: 'rgba(217, 119, 6, 0.6)'
   },
   // Social Mastery (cool tones)
-  'connection-initiate': { 
-    icon: Users, 
+  'social-apprentice': { 
+    icon: UserPlus, 
     gradient: 'from-violet-400 via-purple-300 to-indigo-400',
     glowColor: 'rgba(167, 139, 250, 0.5)'
   },
-  'empathy-practitioner': { 
-    icon: Heart, 
+  'empathy-builder': { 
+    icon: HeartHandshake, 
     gradient: 'from-pink-400 via-rose-300 to-red-300',
     glowColor: 'rgba(251, 113, 133, 0.5)'
   },
-  'influence-adept': { 
-    icon: Sparkles, 
+  'influence-architect': { 
+    icon: Zap, 
     gradient: 'from-purple-500 via-violet-400 to-indigo-500',
     glowColor: 'rgba(139, 92, 246, 0.5)'
   },
-  'social-mastery-badge': { 
-    icon: Award, 
+  'social-intelligence-practitioner': { 
+    icon: Star, 
     gradient: 'from-indigo-500 via-purple-500 to-violet-500',
     glowColor: 'rgba(99, 102, 241, 0.6)'
   },
-  'social-mastery-certificate': { 
-    icon: Award, 
+  'social-mastery-master': { 
+    icon: Gem, 
     gradient: 'from-purple-600 via-indigo-600 to-violet-600',
     glowColor: 'rgba(124, 58, 237, 0.6)'
   },
@@ -88,7 +88,7 @@ const HexBadge = ({
   cluster 
 }: HexBadgeProps) => {
   const config = BADGE_CONFIG[badgeId];
-  const isCertificate = badgeId.includes('certificate');
+  const isMasterBadge = badgeId.includes('master');
   
   const sizeClasses = {
     sm: 'w-11 h-12',
@@ -121,7 +121,7 @@ const HexBadge = ({
                 isEarned && "hex-badge-3d-earned",
                 !isEarned && !isNext && "hex-badge-3d-locked",
                 isNext && "hex-badge-3d-next",
-                isCertificate && isEarned && "hex-badge-3d-certificate"
+                isMasterBadge && isEarned && "hex-badge-3d-certificate"
               )}
               style={isEarned && config ? {
                 '--glow-color': config.glowColor,
