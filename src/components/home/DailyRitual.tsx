@@ -217,15 +217,44 @@ const DailyRitual = () => {
     setLoading(false);
   };
 
-  const navigateToPractice = (practice: Recommendation) => {
-    let route: string;
+  const navigateToPractice = async (practice: Recommendation) => {
+    // Set up the practice queue so completion tracking works
+    const practices = recommendations.practices;
+    localStorage.setItem('practiceQueue', JSON.stringify(practices.map(r => ({
+      id: r.id,
+      title: r.title,
+      contentType: r.contentType,
+      category: r.category,
+      duration: r.duration
+    }))));
     
+    // Find the index of this practice in the queue
+    const practiceIndex = practices.findIndex(p => p.id === practice.id);
+    localStorage.setItem('queueIndex', String(practiceIndex >= 0 ? practiceIndex : 0));
+    localStorage.setItem('ritualMode', 'true');
+
+    // Ensure the ritual record exists in database
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      await supabase
+        .from('daily_ritual_completions')
+        .upsert({
+          user_id: user.id,
+          ritual_date: today,
+          completion_status: ritualStatus.status === 'not_started' ? 'partial' : ritualStatus.status,
+          recommended_practices_count: recommendations.recommendedCount,
+          recommended_practice_ids: practices.map(r => r.id),
+        }, {
+          onConflict: 'user_id,ritual_date'
+        });
+    }
+
+    let route: string;
     if (practice.contentType === 'soundbath') {
       route = `/soundscapes/${practice.id}`;
     } else if (practice.contentType === 'guided-practice') {
       route = `/guided-practices/${practice.id}`;
     } else {
-      // For micro-practices, go directly to cards page (skip intro)
       route = `/micro-practice/${practice.id}/cards`;
     }
     
