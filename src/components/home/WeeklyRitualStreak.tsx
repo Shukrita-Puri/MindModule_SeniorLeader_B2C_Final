@@ -130,7 +130,8 @@ const WeeklyRitualStreak = () => {
               day.status === 'partial' && "bg-taupe/80 text-white",
               day.status === 'skipped' && !day.isFuture && "border-2 border-taupe/40 bg-muted/30",
               day.status === 'skipped' && day.isFuture && "border-2 border-dashed border-taupe/50",
-              day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)] animate-pulse"
+              day.isToday && "ring-2 ring-saffron ring-offset-2 ring-offset-background",
+              day.isToday && day.status !== 'full' && "shadow-[0_0_12px_rgba(212,175,55,0.5)] animate-pulse"
             )}>
               {day.status === 'full' && (
                 <>
