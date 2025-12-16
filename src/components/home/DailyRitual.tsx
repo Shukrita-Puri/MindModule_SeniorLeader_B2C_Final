@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { toast } from '@/hooks/use-toast';
+import confetti from 'canvas-confetti';
 // Helper to determine protocol type based on practice characteristics
 const getProtocolType = (practice: Recommendation): string => {
   // All soundbaths are Somatic Protocol
@@ -80,6 +82,26 @@ const DailyRitual = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const prevCompletedIdsRef = useRef<string[]>([]);
+
+  // Celebration effect when a new practice is completed
+  const triggerCelebration = (practiceName: string, isRitualComplete: boolean) => {
+    // Confetti burst
+    confetti({
+      particleCount: isRitualComplete ? 150 : 80,
+      spread: isRitualComplete ? 100 : 60,
+      origin: { y: 0.6 },
+      colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0']
+    });
+
+    // Show toast
+    toast({
+      title: isRitualComplete ? "🎉 Ritual Complete!" : "✨ Practice Complete!",
+      description: isRitualComplete 
+        ? "Amazing work! You've completed your daily ritual."
+        : `Great job completing "${practiceName}"!`,
+    });
+  };
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -128,6 +150,24 @@ const DailyRitual = () => {
     
     return () => clearInterval(interval);
   }, [user?.id]);
+
+  // Detect newly completed practices and trigger celebration
+  useEffect(() => {
+    const prevIds = prevCompletedIdsRef.current;
+    const newlyCompletedIds = completedPracticeIds.filter(id => !prevIds.includes(id));
+    
+    if (newlyCompletedIds.length > 0 && prevIds.length > 0) {
+      // Find the practice name for the toast
+      const newlyCompletedPractice = recommendations.practices.find(p => newlyCompletedIds.includes(p.id));
+      const isRitualComplete = ritualStatus.status === 'completed';
+      
+      if (newlyCompletedPractice) {
+        triggerCelebration(newlyCompletedPractice.title, isRitualComplete);
+      }
+    }
+    
+    prevCompletedIdsRef.current = completedPracticeIds;
+  }, [completedPracticeIds, ritualStatus.status, recommendations.practices]);
 
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
