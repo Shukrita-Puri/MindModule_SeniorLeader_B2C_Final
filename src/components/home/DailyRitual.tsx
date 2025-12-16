@@ -86,13 +86,38 @@ const DailyRitual = () => {
 
   // Celebration effect when a new practice is completed
   const triggerCelebration = (practiceName: string, isRitualComplete: boolean) => {
-    // Confetti burst
-    confetti({
-      particleCount: isRitualComplete ? 150 : 80,
-      spread: isRitualComplete ? 100 : 60,
-      origin: { y: 0.6 },
-      colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0']
-    });
+    if (isRitualComplete) {
+      // Big celebration for ritual completion - gold/saffron theme
+      confetti({
+        particleCount: 200,
+        spread: 120,
+        origin: { y: 0.5 },
+        colors: ['#D4AF37', '#F5D76E', '#FFD700', '#FFA500', '#E6C200']
+      });
+      // Second burst for extra celebration
+      setTimeout(() => {
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.7, x: 0.3 },
+          colors: ['#D4AF37', '#F5D76E', '#FFD700']
+        });
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.7, x: 0.7 },
+          colors: ['#D4AF37', '#F5D76E', '#FFD700']
+        });
+      }, 200);
+    } else {
+      // Smaller celebration for individual practice completion
+      confetti({
+        particleCount: 60,
+        spread: 50,
+        origin: { y: 0.6 },
+        colors: ['#D4AF37', '#8B7355', '#A9957B']
+      });
+    }
 
     // Show toast
     toast({
