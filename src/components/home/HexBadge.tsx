@@ -61,8 +61,7 @@ const HexBadge = ({
       <div
         className={cn(
           "relative flex items-center justify-center transition-all duration-300",
-          sizeClasses[size],
-          isNext && "animate-pulse"
+          sizeClasses[size]
         )}
       >
         {badgeImage ? (
