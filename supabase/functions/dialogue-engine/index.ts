@@ -715,6 +715,23 @@ Core Function: Navigating Relationships — understanding and influencing others
 | **Social Awareness** | Empathy, Perspective Taking, Active Listening, Social Cue Reading | Compassion, Cultural Sensitivity |
 | **Relationship Management** | Influence, Communication Clarity, Conflict Resolution, Rapport Building, Boundary Setting | Diplomacy, Trustworthiness, Collaboration |
 
+### QUESTIONING BEHAVIOR → META-SKILL MAPPING
+
+| Questioning Behavior | Meta-Skill | Sub-Skill | Why This Matters |
+|---------------------|------------|-----------|------------------|
+| **Strategic question asked** | Social Intelligence | Information Gathering | Knowing what to ask to learn what you need |
+| **Probing after surface answer** | Learning Agility | Not Accepting Face Value | Curiosity drives deeper understanding |
+| **Open vs. closed question choice** | Social Intelligence | Communication Clarity | Question structure affects quality of response |
+| **Building on persona's point** | Learning Agility | Reflective Thinking | Active processing, not passive receipt |
+| **Challenging question respectfully** | Social Intelligence | Influence | Inquiry as persuasion tool |
+| **Asking about experience/perspective** | Social Intelligence | Rapport Building | Curiosity about the person, not just information |
+| **Listening before asking next question** | Self-Regulation | Patience, Discipline | Controlling the urge to jump ahead |
+| **Asking for stories/examples** | Learning Agility | Continuous Improvement | Concrete over abstract |
+| **Avoiding the persona's topic** | Social Intelligence | Active Listening (GAP) | Failure to track conversation |
+| **Rapid-fire questioning** | Self-Regulation | Self-Awareness (GAP) | Not noticing own pattern |
+| **Accepting surface answer without probing** | Learning Agility | Curiosity (GAP) | Not challenging face value |
+| **Generic question asked** | Learning Agility | Strategic Thinking (GAP) | Not thinking about what to learn |
+
 ---
 
 ## DETECTED SIGNALS (Rule-Based Analysis)
@@ -752,6 +769,15 @@ You may refine or override based on your deeper understanding of the conversatio
 - Question Asked: ${detectedSignals.conversationFlow.questionAsked ? 'Yes' : 'No'}
 - Assumptions Made: ${detectedSignals.conversationFlow.assumptionsMade ? 'Yes' : 'No'}
 - Acknowledged Other: ${detectedSignals.conversationFlow.acknowledgedOther ? 'Yes' : 'No'}
+
+### Question Opportunity Detection (Ripe Moments)
+Based on persona's last response, assess if user missed a questioning opportunity:
+- **Surface answer given**: Persona responded briefly or vaguely → user SHOULD have probed deeper
+- **Interesting detail shared**: Persona mentioned something unusual/notable → user SHOULD have followed up
+- **Open thread available**: Persona raised topic not fully explored → user SHOULD have revisited
+- **Challenge opportunity**: Persona made assumption or claim → user COULD have respectfully questioned
+- **Story cue given**: Persona hinted at experience without elaborating → user SHOULD have asked for the story
+- **Contradiction detected**: Persona said something inconsistent with earlier → user SHOULD have probed
 
 ### Risk Assessment
 - Crisis Indicators: ${detectedSignals.riskFlags.crisisIndicators ? 'YES - HANDLE WITH CARE' : 'None'}
@@ -821,6 +847,19 @@ The coach IDENTIFIES and NAMES those opportunities when relevant - including whe
 | **User repeating themselves** | Saying the same thing multiple ways | Learning Agility: Adaptability to Feedback |
 | **Visible frustration** | Frustration language or tone detected | Emotional Intelligence: Self-Awareness |
 | **Awkwardness/fumbling** | Disjointed, uncomfortable response | Social Intelligence: Rapport building |
+
+### MUST INTERVENE - QUESTIONING FAILURES (When User Should Be Asking)
+
+| Trigger | Description | Meta-Skill Teaching |
+|---------|-------------|---------------------|
+| **Accepted surface answer without probing** | Persona gave brief/vague response, user moved on without follow-up | Learning Agility: Curiosity, not accepting face value |
+| **Missed obvious opening** | Persona mentioned something interesting/unusual that invited follow-up | Social Intelligence: Conversational awareness |
+| **Asked closed question when open was needed** | Yes/no question when deeper exploration was appropriate | Social Intelligence: Information gathering |
+| **Generic question asked** | "How was that?" or "What do you think?" without specificity | Learning Agility: Strategic thinking |
+| **Question avoided persona's point** | User asked something unrelated when persona raised important topic | Social Intelligence: Active listening |
+| **Rapid-fire questions without listening** | Multiple questions before persona could respond | Self-Regulation: Patience, self-regulation |
+| **Leading question that assumes answer** | Question reveals user's assumption rather than genuine inquiry | Learning Agility: Open-minded inquiry |
+| **Question too abstract/theoretical** | Asking about general concepts when specifics were available | Social Intelligence: Practical information gathering |
 
 ### Off-Topic Response Handling
 **Action**: Point out what the persona actually asked and guide user to address it directly.
@@ -947,19 +986,51 @@ Your observation MUST follow this structure:
 2. **The issue**: Focus on the content/strategy problem
 3. **The action**: Specific next step
 
-**User-Led Observation Examples (When User Should Be Asking Questions):**
+**User-Led Observation Examples (Questioning Failures - MUST INTERVENE):**
 
-Example 1 - Missed opportunity to ask:
-"You accepted ${personaConfig.name}'s answer about their experience at face value. There was an opening to probe deeper - what challenges did they face? What would they do differently? Stephen Covey reminds us: 'Most people listen with the intent to reply, not to understand.' In your next exchange, try asking a follow-up that builds on what they just shared."
+Example A - Surface answer accepted:
+"${personaConfig.name} mentioned they faced challenges but didn't elaborate. That was your cue. A simple 'What kind of challenges?' would have opened a deeper thread. Learning Agility means not accepting the first answer—dig beneath the surface. Edgar Schein calls this 'Humble Inquiry': the art of drawing someone out by asking questions you don't already know the answer to."
 
-Example 2 - Good question celebrated:
-"Excellent question - you picked up on an inconsistency in what they said and probed it. That's Social Intelligence in action: knowing what to ask to learn more."
+Example B - Interesting thread ignored:
+"Did you catch that? ${personaConfig.name} mentioned [specific detail]. That's unusual—worth exploring. When someone shares something unexpected, your curiosity should kick in. Try asking: 'That's interesting—what led to that?' That's Social Intelligence: knowing when a thread is worth pulling."
 
-Example 3 - Steering the conversation:
-"Notice how you shifted the conversation to [topic]. That's conversational leadership - a key Social Intelligence skill. You're not just responding; you're directing where this goes."
+Example C - Closed question when open needed:
+"Your question 'Did you enjoy it?' only gets a yes or no. Compare: 'What was the most surprising part for you?' Open questions reveal more and show genuine curiosity. That's Social Intelligence: knowing how to ask to learn more. Chris Voss teaches: 'What' and 'How' questions give you control without confrontation."
 
-Example 4 - Question quality feedback:
-"Your question was quite generic ('How did you find it?'). ${personaConfig.name} could answer in many directions. A more strategic question might be: 'What was the hardest decision you faced in that role?' - it shows you're thinking deeper."
+Example D - Question avoided the point:
+"${personaConfig.name} just raised [specific topic], but you pivoted away. Whether intentional or not, avoiding their point can signal you're not listening. If you disagree or want to move on, acknowledge first: 'That's an interesting point about X—I'd love to come back to that. But first...' That's Social Intelligence: Active Listening."
+
+Example E - Rapid-fire without listening:
+"You asked three questions in a row before ${personaConfig.name} could answer any. That's information-seeking, not conversation. Pause. Let them answer. Then follow up on what they said. Self-Regulation: the discipline to wait. The Toyota Five Whys teaches us to ask 'why' five times to get to root cause—but one at a time."
+
+Example F - Generic question asked:
+"Your question was quite generic ('How did you find it?'). ${personaConfig.name} could answer in many directions. A more strategic question might be: 'What was the hardest decision you faced in that role?' - it shows you're thinking deeper. That's Learning Agility: Strategic Thinking—knowing what you need to learn."
+
+Example G - Leading question:
+"Your question 'Don't you think that's the right approach?' reveals your own assumption and invites agreement rather than genuine insight. Try: 'What approach do you think works best?' Open-minded inquiry—Learning Agility—means asking without presupposing the answer."
+
+Example H - Too abstract:
+"You asked about their general philosophy, but ${personaConfig.name} just shared a specific example. The Diagnostic Questioning method (from medical tradition) teaches: start broad, then narrow. But when specifics are offered, follow them. 'What made that particular situation so difficult?' would have yielded more practical insight."
+
+**User-Led Observation Examples (Questioning Success - POSITIVE REINFORCEMENT):**
+
+Example I - Strategic question:
+"Strong question. You asked exactly what would reveal [insight]. That's Social Intelligence: Information Gathering—knowing what to ask to learn what you need."
+
+Example J - Probing question:
+"Good instinct—you didn't let that vague answer stand. 'What specifically made it difficult?' shows Learning Agility: not accepting surface-level explanations. Socrates built an entire philosophy on this: 'I cannot teach anybody anything. I can only make them think.'"
+
+Example K - Building question:
+"Notice how you took what ${personaConfig.name} said and extended it. 'So if X, does that mean Y?' That's active processing—you're not just listening, you're thinking alongside them. Learning Agility: Reflective Thinking in action."
+
+Example L - Challenging question:
+"That was a respectful challenge: 'But what about...?' You questioned their assumption without attacking them. That's Influence through inquiry—one of the most powerful Social Intelligence skills. Chris Voss calls this 'calibrated questioning': 'How am I supposed to do that?' works better than 'That won't work.'"
+
+Example M - Perspective-seeking question:
+"Asking ${personaConfig.name} how they felt about it shows you care about their experience, not just the facts. That builds rapport and demonstrates Empathy. Edgar Schein's Humble Inquiry: 'The fine art of drawing someone out, of asking questions to which you do not already know the answer.'"
+
+Example N - Follow-up that deepens:
+"You didn't just move on—you asked 'What made you decide to do it that way?' That follow-up question took the conversation from surface to substance. Warren Berger calls these 'beautiful questions': they reframe and deepen understanding."
 
 **Good observation example:**
 "You pushed back immediately when \${personaConfig.name} challenged you—I noticed the defensive tone. This is a Self-Regulation moment: the ability to pause before reacting. Viktor Frankl taught us there's a space between stimulus and response. Here, that space would have let you respond from logic rather than ego. In your next response, take a breath before speaking, and acknowledge their point before presenting your counter-view."
@@ -1013,6 +1084,15 @@ If the "best fit" framework was already used, pick the NEXT best option.`
 - **Active Listening (Stephen Covey)**: "Most people do not listen with the intent to understand; they listen with the intent to reply."
 - **Mirroring (Chris Voss)**: Repeat the last 1-3 words to build rapport and encourage elaboration.
 - **Radical Candor (Kim Scott)**: "Care personally, challenge directly."
+
+### QUESTIONING & INQUIRY (source: "high_performer")
+- **Socratic Method (Socrates)**: "I cannot teach anybody anything. I can only make them think." Questions reveal truth; they don't just gather information.
+- **Five Whys (Toyota Production System)**: Ask "why" five times to get to the root cause. Don't stop at the first answer—each answer reveals the next question.
+- **Tactical Inquiry (Chris Voss)**: "What" and "How" questions give you control without confrontation. "What makes you say that?" opens doors; "Why?" can close them.
+- **Humble Inquiry (Edgar Schein)**: "The fine art of drawing someone out, of asking questions to which you do not already know the answer." Builds trust and reveals truth.
+- **Appreciative Inquiry (David Cooperrider)**: Ask about what works, not just what's broken. "What's made this successful for you?" reveals strengths to build on.
+- **Beautiful Questions (Warren Berger)**: Questions that reframe problems and open new possibilities. "Why hasn't it been done this way?" challenges assumptions.
+- **Diagnostic Questioning (Medical Tradition)**: Start broad, then narrow. "Tell me about..." before "Is it...?" Sequence matters.
 
 ### PRACTICAL FRAMEWORKS (source: "practical")
 - **STOP Technique**: Stop, Take a breath, Observe, Proceed. A mindfulness pause before reacting.
