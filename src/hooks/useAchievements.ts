@@ -12,6 +12,7 @@ interface AchievementDefinition {
   cluster: 'self_mastery' | 'social_mastery' | null;
   badge_color: string | null;
   threshold_scenarios: number;
+  threshold_points: number | null;
   threshold_skill_progress: number | null;
   display_order: number;
 }
@@ -95,20 +96,21 @@ export const useAchievements = () => {
     }
   }, [isAuthenticated, user?.sub]);
 
-  // Check and award achievements based on progress
+  // Check and award achievements based on unified points
   const checkAndAwardAchievements = useCallback(async (
     cluster: 'self_mastery' | 'social_mastery',
-    scenariosPracticed: number,
-    skillProgress: number
+    unifiedPoints: number,
+    skillProgress?: number
   ) => {
     if (!isAuthenticated || !user?.sub) return;
 
     try {
-      // Find eligible achievements for this cluster
+      // Find eligible achievements for this cluster using threshold_points
       const eligibleDefs = definitions.filter(d => 
         d.cluster === cluster &&
-        scenariosPracticed >= d.threshold_scenarios &&
-        (!d.threshold_skill_progress || skillProgress >= d.threshold_skill_progress)
+        d.threshold_points !== null &&
+        unifiedPoints >= d.threshold_points &&
+        (!d.threshold_skill_progress || (skillProgress && skillProgress >= d.threshold_skill_progress))
       );
 
       // Check which ones user doesn't have yet
@@ -122,8 +124,8 @@ export const useAchievements = () => {
           .insert({
             user_id: user.sub,
             achievement_id: achievement.id,
-            scenarios_at_earn: scenariosPracticed,
-            skill_progress_at_earn: skillProgress
+            scenarios_at_earn: null, // No longer tracking scenarios
+            skill_progress_at_earn: unifiedPoints // Store points instead
           });
 
         if (!insertError) {
@@ -150,6 +152,17 @@ export const useAchievements = () => {
       console.error('Error checking achievements:', err);
     }
   }, [isAuthenticated, user?.sub, definitions, earnedAchievements, fetchAchievements]);
+
+  // Legacy method for backward compatibility
+  const checkAndAwardAchievementsLegacy = useCallback(async (
+    cluster: 'self_mastery' | 'social_mastery',
+    scenariosPracticed: number,
+    skillProgress: number
+  ) => {
+    // Convert scenarios to approximate points (10 per scenario)
+    const approximatePoints = scenariosPracticed * 10;
+    return checkAndAwardAchievements(cluster, approximatePoints, skillProgress);
+  }, [checkAndAwardAchievements]);
 
   // Mark achievement as shared to LinkedIn
   const markAsShared = useCallback(async (achievementId: string) => {
@@ -252,6 +265,7 @@ export const useAchievements = () => {
     isLoading,
     error,
     checkAndAwardAchievements,
+    checkAndAwardAchievementsLegacy, // For backward compatibility
     markAsShared,
     requestCertificate,
     getCurrentArchetype,
