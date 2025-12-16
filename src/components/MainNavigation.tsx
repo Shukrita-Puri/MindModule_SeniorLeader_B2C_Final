@@ -1,5 +1,5 @@
 
-import { UsersRound, Home, Compass, BarChart3 } from "lucide-react";
+import { UsersRound, Home, Compass } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const MainNavigation = () => {
@@ -42,12 +42,6 @@ const navItems = [
       label: "Dialogue", 
       route: "/practice",
       isActive: practicePages.some(path => location.pathname.startsWith(path)) || location.pathname.startsWith("/practice")
-    },
-    { 
-      icon: BarChart3, 
-      label: "Intelligence", 
-      route: "/insights-dashboard",
-      isActive: location.pathname === "/insights-dashboard"
     },
   ];
 

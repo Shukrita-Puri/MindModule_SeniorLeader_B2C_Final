@@ -23,7 +23,7 @@ const SoundscapePlayer = lazy(() => import("./pages/SoundscapePlayer"));
 const GuidedPracticePlayer = lazy(() => import("./pages/GuidedPracticePlayer"));
 const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
-const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
+// ARCHIVED: const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
@@ -183,10 +183,11 @@ const router = createBrowserRouter([
         path: "micro-practice/:id/cards",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayerCards /></ProtectedRoute></Suspense>,
       },
-      {
-        path: "insights-dashboard",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><InsightsDashboard /></ProtectedRoute></Suspense>,
-      },
+      // ARCHIVED: insights-dashboard route - page file kept for future use
+      // {
+      //   path: "insights-dashboard",
+      //   element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><InsightsDashboard /></ProtectedRoute></Suspense>,
+      // },
       // Dialogue Room routes
       {
         path: "practice",
