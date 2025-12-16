@@ -27,19 +27,19 @@ interface UnifiedProgress {
 
 // Badge progression for each cluster
 export const SELF_MASTERY_PROGRESSION: ArchetypeInfo[] = [
-  { id: 'awareness-initiate', name: 'Awareness Initiate', badgeColor: '#F59E0B', thresholdPoints: 25 },
-  { id: 'emotional-navigator', name: 'Emotional Navigator', badgeColor: '#EAB308', thresholdPoints: 60 },
-  { id: 'regulation-adept', name: 'Regulation Adept', badgeColor: '#EA580C', thresholdPoints: 150 },
-  { id: 'self-mastery-badge', name: 'Self Mastery Badge', badgeColor: '#D97706', thresholdPoints: 300 },
-  { id: 'self-mastery-certificate', name: 'Self Mastery Certificate', badgeColor: '#B45309', thresholdPoints: 500 },
+  { id: 'awareness-initiate', name: 'Initiate', badgeColor: '#F59E0B', thresholdPoints: 25 },
+  { id: 'emotional-navigator', name: 'Navigator', badgeColor: '#EAB308', thresholdPoints: 60 },
+  { id: 'regulation-adept', name: 'Adept', badgeColor: '#EA580C', thresholdPoints: 150 },
+  { id: 'self-mastery-badge', name: 'Master', badgeColor: '#D97706', thresholdPoints: 300 },
+  { id: 'self-mastery-certificate', name: 'Certificate', badgeColor: '#B45309', thresholdPoints: 500 },
 ];
 
 export const SOCIAL_MASTERY_PROGRESSION: ArchetypeInfo[] = [
-  { id: 'connection-initiate', name: 'Connection Initiate', badgeColor: '#A78BFA', thresholdPoints: 25 },
-  { id: 'empathy-practitioner', name: 'Empathy Practitioner', badgeColor: '#F472B6', thresholdPoints: 60 },
-  { id: 'influence-adept', name: 'Influence Adept', badgeColor: '#C084FC', thresholdPoints: 150 },
-  { id: 'social-mastery-badge', name: 'Social Mastery Badge', badgeColor: '#8B5CF6', thresholdPoints: 300 },
-  { id: 'social-mastery-certificate', name: 'Social Mastery Certificate', badgeColor: '#7C3AED', thresholdPoints: 500 },
+  { id: 'connection-initiate', name: 'Initiate', badgeColor: '#A78BFA', thresholdPoints: 25 },
+  { id: 'empathy-practitioner', name: 'Practitioner', badgeColor: '#F472B6', thresholdPoints: 60 },
+  { id: 'influence-adept', name: 'Adept', badgeColor: '#C084FC', thresholdPoints: 150 },
+  { id: 'social-mastery-badge', name: 'Master', badgeColor: '#8B5CF6', thresholdPoints: 300 },
+  { id: 'social-mastery-certificate', name: 'Certificate', badgeColor: '#7C3AED', thresholdPoints: 500 },
 ];
 
 export const useUnifiedProgress = () => {
