@@ -9,7 +9,7 @@ import BlindSpotsSection, { BlindSpot } from "@/components/simulation/BlindSpots
 import FrameworksUsedSection from "@/components/simulation/FrameworksUsedSection";
 import PersonalReflectionSection from "@/components/simulation/PersonalReflectionSection";
 import MetaSkillProgressSection from "@/components/simulation/MetaSkillProgressSection";
-import AchievementsDisplay from "@/components/achievements/AchievementsDisplay";
+
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import ScheduleFollowupModal from "@/components/simulation/ScheduleFollowupModal";
 import { useSessionDebrief } from "@/hooks/useSessionDebrief";
@@ -502,10 +502,6 @@ const PracticeSimulationInsights = () => {
             onSaveNotes={handleSaveNotes}
           />
 
-          <div className="border-t border-gold/40 my-8" />
-
-          {/* Achievements - Celebratory finale */}
-          <AchievementsDisplay />
         </div>
       </div>
 
