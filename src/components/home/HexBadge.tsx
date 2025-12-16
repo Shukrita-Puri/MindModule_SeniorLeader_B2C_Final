@@ -91,15 +91,15 @@ const HexBadge = ({
   const isMasterBadge = badgeId.includes('master');
   
   const sizeClasses = {
-    sm: 'w-11 h-12',
-    md: 'w-13 h-14',
-    lg: 'w-16 h-18',
+    sm: 'w-14 h-16',
+    md: 'w-16 h-18',
+    lg: 'w-20 h-22',
   };
 
   const iconSizes = {
-    sm: 16,
-    md: 20,
-    lg: 24,
+    sm: 20,
+    md: 24,
+    lg: 28,
   };
 
   const IconComponent = config?.icon || Lock;
