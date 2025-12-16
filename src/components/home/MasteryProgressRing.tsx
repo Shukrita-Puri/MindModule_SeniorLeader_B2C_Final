@@ -9,57 +9,71 @@ interface MasteryProgressRingProps {
 
 const MasteryProgressRing = ({ currentPoints, maxPoints, cluster, label }: MasteryProgressRingProps) => {
   const percentage = Math.min((currentPoints / maxPoints) * 100, 100);
-  const radius = 36;
-  const strokeWidth = 6;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-  const clusterColors = {
-    self: {
-      primary: 'hsl(var(--saffron))',
-      bg: 'hsl(var(--saffron) / 0.15)',
-      text: 'text-saffron',
-    },
-    social: {
-      primary: '#A78BFA',
-      bg: 'rgba(167, 139, 250, 0.15)',
-      text: 'text-purple-400',
-    },
+  
+  // Traffic light color system
+  const getTrafficLightColor = (pct: number) => {
+    if (pct <= 33) return '#EF4444'; // Red
+    if (pct <= 66) return '#F59E0B'; // Amber
+    return '#22C55E'; // Green
   };
-
-  const colors = clusterColors[cluster];
+  
+  const progressColor = getTrafficLightColor(percentage);
+  const bgColor = 'hsl(var(--muted) / 0.3)';
+  
+  // Semicircle arc calculations
+  const radius = 40;
+  const strokeWidth = 8;
+  const centerX = 50;
+  const centerY = 50;
+  
+  // Arc path for semicircle (180 degrees, open at bottom)
+  const startAngle = 180;
+  const endAngle = 0;
+  const progressAngle = 180 - (percentage / 100) * 180;
+  
+  const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: cx + r * Math.cos(rad),
+      y: cy - r * Math.sin(rad),
+    };
+  };
+  
+  const createArc = (startAng: number, endAng: number) => {
+    const start = polarToCartesian(centerX, centerY, radius, startAng);
+    const end = polarToCartesian(centerX, centerY, radius, endAng);
+    const largeArcFlag = startAng - endAng <= 180 ? 0 : 1;
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+  };
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-20 h-20">
-        {/* Background circle */}
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-          <circle
-            cx="40"
-            cy="40"
-            r={radius}
+      <div className="relative w-24 h-16">
+        <svg className="w-full h-full" viewBox="0 0 100 60">
+          {/* Background arc */}
+          <path
+            d={createArc(180, 0)}
             fill="none"
-            stroke={colors.bg}
-            strokeWidth={strokeWidth}
-          />
-          {/* Progress arc */}
-          <circle
-            cx="40"
-            cy="40"
-            r={radius}
-            fill="none"
-            stroke={colors.primary}
+            stroke={bgColor}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            className="transition-all duration-500 ease-out"
           />
+          {/* Progress arc */}
+          {percentage > 0 && (
+            <path
+              d={createArc(180, progressAngle)}
+              fill="none"
+              stroke={progressColor}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              className="transition-all duration-500 ease-out"
+            />
+          )}
         </svg>
         
-        {/* Center content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("text-xl font-bold", colors.text)}>
+        {/* Center content - positioned below the arc */}
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
+          <span className="text-2xl font-bold text-foreground">
             {currentPoints}
           </span>
           <span className="text-[10px] text-muted-foreground">

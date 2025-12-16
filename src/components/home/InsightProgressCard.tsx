@@ -13,9 +13,9 @@ const InsightProgressCard = () => {
       {/* Row 1: Weekly Ritual Completion with Streak */}
       <WeeklyRitualStreak />
       
-      {/* Row 2: Dual Progress Rings */}
+      {/* Row 2: Dual Semicircle Progress Rings */}
       <div className="mt-4 pt-4 border-t border-border">
-        <div className="flex justify-center gap-8">
+        <div className="flex justify-center gap-12">
           <MasteryProgressRing
             currentPoints={progress.selfMasteryPoints}
             maxPoints={CERTIFICATE_THRESHOLD}
@@ -31,12 +31,12 @@ const InsightProgressCard = () => {
         </div>
       </div>
 
-      {/* Row 3: Badge Collections */}
+      {/* Row 3: Full-Width Badge Collections */}
       <div className="mt-4 pt-4 border-t border-border">
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Self Mastery Badges */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-12">Self</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-10 shrink-0">Self</span>
             <HexBadgeRow 
               progression={SELF_MASTERY_PROGRESSION}
               currentPoints={progress.selfMasteryPoints}
@@ -45,8 +45,8 @@ const InsightProgressCard = () => {
           </div>
           
           {/* Social Mastery Badges */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-12">Social</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-10 shrink-0">Social</span>
             <HexBadgeRow 
               progression={SOCIAL_MASTERY_PROGRESSION}
               currentPoints={progress.socialMasteryPoints}
