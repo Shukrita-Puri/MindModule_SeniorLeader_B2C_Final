@@ -46,7 +46,7 @@ export default function CoachingToaster({
   };
 
   return (
-    <div className="fixed bottom-32 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[420px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-taupe/5 to-card border border-taupe/20 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
+    <div className="fixed bottom-32 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[420px] max-h-[70vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-stone-100 border border-taupe/20 rounded-xl shadow-xl p-5 animate-in slide-in-from-bottom-5 z-50">
       {/* Header with Close Button */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
