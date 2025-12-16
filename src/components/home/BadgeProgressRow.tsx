@@ -15,22 +15,10 @@ interface BadgeProgressRowProps {
 }
 
 const BadgeProgressRow = ({ progression, currentPoints, cluster }: BadgeProgressRowProps) => {
-  const isSelf = cluster === 'self';
-  
-  // Determine which badges are earned and which is next
-  const earnedBadges = progression.filter(p => currentPoints >= p.thresholdPoints);
-  const nextBadge = progression.find(p => currentPoints < p.thresholdPoints);
-  
-  // Show earned badges + next badge (max 4 visible)
-  const visibleBadges = [
-    ...earnedBadges.slice(-3), // Last 3 earned
-    nextBadge, // Next to unlock
-  ].filter(Boolean).slice(0, 4);
-
+  // Show all badges - earned ones are vibrant, unearned are muted
   return (
-    <div className="flex items-center gap-1.5">
-      {visibleBadges.map((badge, index) => {
-        if (!badge) return null;
+    <div className="flex items-center gap-2">
+      {progression.map((badge) => {
         const isEarned = currentPoints >= badge.thresholdPoints;
         const isCertificate = badge.id.includes('certificate');
         
@@ -38,34 +26,32 @@ const BadgeProgressRow = ({ progression, currentPoints, cluster }: BadgeProgress
           <div
             key={badge.id}
             className={cn(
-              "relative flex items-center justify-center w-7 h-7 rounded-full transition-all",
-              isEarned 
-                ? "shadow-sm" 
-                : "opacity-50 grayscale"
+              "relative flex items-center justify-center w-10 h-10 rounded-full transition-all",
+              isEarned ? "badge-3d-earned" : "badge-3d-locked"
             )}
             style={{ 
-              backgroundColor: isEarned ? badge.badgeColor : 'transparent',
-              border: !isEarned ? `2px dashed ${badge.badgeColor}` : 'none'
+              backgroundColor: isEarned ? badge.badgeColor : undefined,
             }}
             title={`${badge.name} (${badge.thresholdPoints} pts)`}
           >
+            {/* Shine overlay for earned badges */}
+            {isEarned && (
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 via-transparent to-transparent pointer-events-none" />
+            )}
+            
             {isCertificate ? (
-              <Trophy size={14} className={isEarned ? "text-white" : "text-muted-foreground"} />
+              <Trophy 
+                size={18} 
+                className={isEarned ? "text-white drop-shadow-sm relative z-10" : "text-muted-foreground/50"} 
+              />
             ) : isEarned ? (
-              <Award size={14} className="text-white" />
+              <Award size={18} className="text-white drop-shadow-sm relative z-10" />
             ) : (
-              <Lock size={10} className="text-muted-foreground" />
+              <Lock size={14} className="text-muted-foreground/40" />
             )}
           </div>
         );
       })}
-      
-      {/* Show count if more earned badges exist */}
-      {earnedBadges.length > 3 && (
-        <span className="text-[10px] text-muted-foreground ml-1">
-          +{earnedBadges.length - 3}
-        </span>
-      )}
     </div>
   );
 };
