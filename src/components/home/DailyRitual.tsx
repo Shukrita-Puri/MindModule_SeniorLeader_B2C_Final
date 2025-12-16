@@ -544,21 +544,13 @@ const DailyRitual = () => {
         )}
 
         {ritualStatus.status === 'completed' && (
-          <div className="flex items-center justify-between bg-card rounded-xl p-4 border border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                <Check size={16} className="text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-foreground">Ritual Completed</span>
-            </div>
-            <Button 
-              onClick={handleRestartRitual}
-              variant="outline"
-              size="sm"
-            >
-              Restart
-            </Button>
-          </div>
+          <Button 
+            disabled
+            className="w-full h-12 text-base font-semibold bg-taupe/80 text-white rounded-xl cursor-default"
+          >
+            <Check size={18} className="mr-2" />
+            Completed
+          </Button>
         )}
       </div>
     </div>
