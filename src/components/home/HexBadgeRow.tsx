@@ -73,6 +73,7 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
               archetypeName={selectedBadge.name}
               cluster={cluster === 'self' ? 'self_mastery' : 'social_mastery'}
               badgeColor={selectedBadge.badgeColor}
+              badgeId={selectedBadge.id}
               userName={user?.name || user?.email || 'User'}
               earnedDate={new Date()}
               onShare={handleCloseDialog}
