@@ -1,22 +1,22 @@
 import { useRef } from "react";
-import { Eye, Radar, Gauge, Crown, Brain, Users, HeartHandshake, Network, Sparkles, LucideIcon } from "lucide-react";
+import { Eye, Radar, Gauge, Shield, Trophy, UserPlus, HeartHandshake, Zap, Star, Gem, Brain, Users, LucideIcon } from "lucide-react";
 import ShareOptions from "./ShareOptions";
 import { downloadBadgeAsImage } from "@/utils/badgeImageExport";
 
-// Badge icon mapping matching HexBadge
+// Badge icon mapping - must match HexBadge.tsx exactly
 const BADGE_ICONS: Record<string, LucideIcon> = {
   // Self Mastery badges
-  'self_awareness_initiate': Eye,
-  'self_emotional_navigator': Radar,
-  'self_regulation_specialist': Gauge,
-  'self_mastery_practitioner': Brain,
-  'self_mastery_master': Crown,
+  'self_mastery_initiate': Eye,
+  'self_mastery_practitioner': Radar,
+  'self_mastery_adept': Gauge,
+  'self_mastery_badge': Shield,
+  'self_mastery_certificate': Trophy,
   // Social Mastery badges
-  'social_apprentice': Users,
-  'social_empathy_builder': HeartHandshake,
-  'social_influence_architect': Network,
-  'social_intelligence_practitioner': Sparkles,
-  'social_mastery_master': Crown,
+  'social_mastery_initiate': UserPlus,
+  'social_mastery_practitioner': HeartHandshake,
+  'social_mastery_adept': Zap,
+  'social_mastery_badge': Star,
+  'social_mastery_certificate': Gem,
 };
 
 interface ShareableBadgeCardProps {
