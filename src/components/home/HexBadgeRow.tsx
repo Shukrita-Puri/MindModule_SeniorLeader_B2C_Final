@@ -19,8 +19,8 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
   const nextBadgeIndex = progression.findIndex(badge => currentPoints < badge.thresholdPoints);
   
   return (
-    <div className="flex items-center w-full gap-1">
-      <div className="flex items-end justify-between flex-1 gap-2">
+    <div className="flex items-center w-full gap-1 overflow-hidden">
+      <div className="flex items-end justify-between flex-1 gap-1 min-w-0">
         {progression.map((badge, index) => {
           const isEarned = currentPoints >= badge.thresholdPoints;
           const isNext = index === nextBadgeIndex;
@@ -40,7 +40,9 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
           );
         })}
       </div>
-      <PointSystemModal cluster={cluster} />
+      <div className="flex-shrink-0">
+        <PointSystemModal cluster={cluster} />
+      </div>
     </div>
   );
 };
