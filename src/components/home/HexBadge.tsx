@@ -1,17 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Lock } from 'lucide-react';
-
-// Import badge images
-import awarenessInitiate from '@/assets/badges/awareness-initiate.png';
-import emotionalNavigator from '@/assets/badges/emotional-navigator.png';
-import regulationAdept from '@/assets/badges/regulation-adept.png';
-import selfMasteryBadge from '@/assets/badges/self-mastery-badge.png';
-import selfMasteryCertificate from '@/assets/badges/self-mastery-certificate.png';
-import connectionInitiate from '@/assets/badges/connection-initiate.png';
-import empathyPractitioner from '@/assets/badges/empathy-practitioner.png';
-import influenceAdept from '@/assets/badges/influence-adept.png';
-import socialMasteryBadge from '@/assets/badges/social-mastery-badge.png';
-import socialMasteryCertificate from '@/assets/badges/social-mastery-certificate.png';
+import badgeSprite from '@/assets/badges/badge-sprite.jpeg';
 
 interface HexBadgeProps {
   badgeId: string;
@@ -23,19 +12,21 @@ interface HexBadgeProps {
   cluster: 'self' | 'social';
 }
 
-const BADGE_IMAGES: Record<string, string> = {
-  // Self Mastery
-  'awareness-initiate': awarenessInitiate,
-  'emotional-navigator': emotionalNavigator,
-  'regulation-adept': regulationAdept,
-  'self-mastery-badge': selfMasteryBadge,
-  'self-mastery-certificate': selfMasteryCertificate,
-  // Social Mastery
-  'connection-initiate': connectionInitiate,
-  'empathy-practitioner': empathyPractitioner,
-  'influence-adept': influenceAdept,
-  'social-mastery-badge': socialMasteryBadge,
-  'social-mastery-certificate': socialMasteryCertificate,
+// Sprite positions for 3x3 grid (row, col)
+const BADGE_POSITIONS: Record<string, { row: number; col: number }> = {
+  // Self Mastery (Row 1: warm tones)
+  'awareness-initiate': { row: 0, col: 0 },
+  'emotional-navigator': { row: 0, col: 1 },
+  'regulation-adept': { row: 0, col: 2 },
+  // Social Mastery (Row 2: cool tones)  
+  'connection-initiate': { row: 1, col: 0 },
+  'empathy-practitioner': { row: 1, col: 1 },
+  'self-mastery-badge': { row: 1, col: 2 },
+  // Bottom row
+  'social-mastery-badge': { row: 2, col: 0 },
+  'influence-adept': { row: 2, col: 1 },
+  'self-mastery-certificate': { row: 2, col: 2 },
+  'social-mastery-certificate': { row: 2, col: 2 },
 };
 
 const HexBadge = ({ 
@@ -47,7 +38,7 @@ const HexBadge = ({
   size = 'md',
   cluster 
 }: HexBadgeProps) => {
-  const badgeImage = BADGE_IMAGES[badgeId];
+  const position = BADGE_POSITIONS[badgeId];
   const isCertificate = badgeId.includes('certificate');
   
   const sizeClasses = {
@@ -55,6 +46,11 @@ const HexBadge = ({
     md: 'w-12 h-12',
     lg: 'w-14 h-14',
   };
+
+  // Calculate background position (each badge is 1/3 of image)
+  const backgroundPosition = position 
+    ? `${position.col * 50}% ${position.row * 50}%`
+    : '0% 0%';
 
   return (
     <div className="relative flex flex-col items-center flex-1">
@@ -64,16 +60,20 @@ const HexBadge = ({
           sizeClasses[size]
         )}
       >
-        {badgeImage ? (
-          <img 
-            src={badgeImage} 
-            alt={badgeId}
+        {position ? (
+          <div 
             className={cn(
-              "w-full h-full object-contain transition-all duration-300",
+              "w-full h-full rounded-lg transition-all duration-300",
               !isEarned && "grayscale opacity-40",
               isEarned && "drop-shadow-lg",
               isCertificate && isEarned && "drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]"
             )}
+            style={{
+              backgroundImage: `url(${badgeSprite})`,
+              backgroundSize: '300% 300%',
+              backgroundPosition: backgroundPosition,
+              backgroundRepeat: 'no-repeat',
+            }}
           />
         ) : (
           <div className={cn(
