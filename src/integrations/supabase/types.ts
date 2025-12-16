@@ -26,6 +26,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          threshold_points: number | null
           threshold_scenarios: number | null
           threshold_skill_progress: number | null
         }
@@ -40,6 +41,7 @@ export type Database = {
           id: string
           is_active?: boolean | null
           name: string
+          threshold_points?: number | null
           threshold_scenarios?: number | null
           threshold_skill_progress?: number | null
         }
@@ -54,6 +56,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          threshold_points?: number | null
           threshold_scenarios?: number | null
           threshold_skill_progress?: number | null
         }
@@ -1163,6 +1166,7 @@ export type Database = {
           biggest_pressure: string | null
           component_scores: Json | null
           created_at: string | null
+          current_streak: number | null
           email: string
           energy_regulation_response: string | null
           energy_renewal_response: string | null
@@ -1171,6 +1175,8 @@ export type Database = {
           growth_priority: string | null
           id: string
           identity_role: string | null
+          last_streak_celebration: number | null
+          longest_streak: number | null
           mental_fitness_baseline: number | null
           meta_skill_scores: Json | null
           onboarding_completed_at: string | null
@@ -1183,6 +1189,8 @@ export type Database = {
           q4_self_assessed_strength: string | null
           subscription_plan: string | null
           subscription_status: string | null
+          total_self_mastery_points: number | null
+          total_social_mastery_points: number | null
           updated_at: string | null
           user_archetype: string | null
         }
@@ -1192,6 +1200,7 @@ export type Database = {
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
+          current_streak?: number | null
           email: string
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
@@ -1200,6 +1209,8 @@ export type Database = {
           growth_priority?: string | null
           id: string
           identity_role?: string | null
+          last_streak_celebration?: number | null
+          longest_streak?: number | null
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
@@ -1212,6 +1223,8 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          total_self_mastery_points?: number | null
+          total_social_mastery_points?: number | null
           updated_at?: string | null
           user_archetype?: string | null
         }
@@ -1221,6 +1234,7 @@ export type Database = {
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
+          current_streak?: number | null
           email?: string
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
@@ -1229,6 +1243,8 @@ export type Database = {
           growth_priority?: string | null
           id?: string
           identity_role?: string | null
+          last_streak_celebration?: number | null
+          longest_streak?: number | null
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
@@ -1241,6 +1257,8 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          total_self_mastery_points?: number | null
+          total_social_mastery_points?: number | null
           updated_at?: string | null
           user_archetype?: string | null
         }
