@@ -162,26 +162,98 @@ const PracticeSimulationInsights = () => {
     generateInsights();
   }, [strengths, developmentAreas, displayDomain, displayContext, displayDuration, hasGeneratedInsights]);
 
-  // Meta-skill to cluster mapping
+  // Meta-skill to cluster mapping (full taxonomy)
   const SKILL_CLUSTER_MAP: Record<string, 'self_mastery' | 'social_mastery'> = {
-    // Self Mastery skills
+    // SELF MASTERY - Emotional Intelligence
     'Emotional Intelligence': 'self_mastery',
-    'Self-Regulation': 'self_mastery',
-    'Learning Agility': 'self_mastery',
-    'Emotional Resilience': 'self_mastery',
+    'emotional_intelligence': 'self_mastery',
     'emotional_regulation': 'self_mastery',
-    'focus': 'self_mastery',
-    'discipline': 'self_mastery',
+    'Emotional Regulation': 'self_mastery',
     'self_awareness': 'self_mastery',
-    // Social Mastery skills
-    'Communication': 'social_mastery',
-    'Empathy': 'social_mastery',
-    'Perspective Taking': 'social_mastery',
-    'Influence': 'social_mastery',
+    'Self-Awareness': 'self_mastery',
+    'mindfulness': 'self_mastery',
+    'Mindfulness': 'self_mastery',
+    'emotional_mastery': 'self_mastery',
+    'Emotional Mastery': 'self_mastery',
+    'self_compassion': 'self_mastery',
+    'Self-Compassion': 'self_mastery',
+    
+    // SELF MASTERY - Self-Regulation
+    'Self-Regulation': 'self_mastery',
+    'self_regulation': 'self_mastery',
+    'goal_setting': 'self_mastery',
+    'Goal Setting': 'self_mastery',
+    'purpose_alignment': 'self_mastery',
+    'Purpose Alignment': 'self_mastery',
+    'identity_alignment': 'self_mastery',
+    'Identity Alignment': 'self_mastery',
+    'focus': 'self_mastery',
+    'Focus': 'self_mastery',
+    'discipline': 'self_mastery',
+    'Discipline': 'self_mastery',
+    
+    // SELF MASTERY - Learning Agility
+    'Learning Agility': 'self_mastery',
+    'learning_agility': 'self_mastery',
+    'self_directed_learning': 'self_mastery',
+    'Self-Directed Learning': 'self_mastery',
+    'reflective_thinking': 'self_mastery',
+    'Reflective Thinking': 'self_mastery',
+    'unlearning': 'self_mastery',
+    'Unlearning': 'self_mastery',
+    'adaptability_to_feedback': 'self_mastery',
+    'Adaptability to Feedback': 'self_mastery',
+    'continuous_improvement': 'self_mastery',
+    'Continuous Improvement': 'self_mastery',
+    
+    // SELF MASTERY - Emotional Resilience
+    'Emotional Resilience': 'self_mastery',
+    'emotional_resilience': 'self_mastery',
+    'stress_management': 'self_mastery',
+    'Stress Management': 'self_mastery',
+    'perseverance': 'self_mastery',
+    'Perseverance': 'self_mastery',
+    'optimism': 'self_mastery',
+    'Optimism': 'self_mastery',
+    
+    // SOCIAL MASTERY - Social Intelligence
+    'Social Intelligence': 'social_mastery',
+    'social_intelligence': 'social_mastery',
     'empathy': 'social_mastery',
+    'Empathy': 'social_mastery',
     'perspective_taking': 'social_mastery',
+    'Perspective Taking': 'social_mastery',
+    'Perspective-Taking': 'social_mastery',
+    'cultural_awareness': 'social_mastery',
+    'Cultural Awareness': 'social_mastery',
+    'value_clarification': 'social_mastery',
+    'Value Clarification': 'social_mastery',
+    'moral_reasoning': 'social_mastery',
+    'Moral Reasoning': 'social_mastery',
+    'ethical_judgment': 'social_mastery',
+    'Ethical Judgment': 'social_mastery',
+    'trust_building': 'social_mastery',
+    'Trust-Building': 'social_mastery',
+    'intercultural_sensitivity': 'social_mastery',
+    'Intercultural Sensitivity': 'social_mastery',
+    'active_listening': 'social_mastery',
+    'Active Listening': 'social_mastery',
+    
+    // SOCIAL MASTERY - Communication & Influence
+    'Communication': 'social_mastery',
     'communication': 'social_mastery',
+    'communication_excellence': 'social_mastery',
+    'clarity': 'social_mastery',
+    'Clarity': 'social_mastery',
+    'rapport_building': 'social_mastery',
+    'Rapport Building': 'social_mastery',
+    'Influence': 'social_mastery',
     'influence': 'social_mastery',
+    'collaboration': 'social_mastery',
+    'Collaboration': 'social_mastery',
+    'adaptive_social_navigation': 'social_mastery',
+    'context_reading': 'social_mastery',
+    'Context Reading': 'social_mastery',
   };
 
   // Update meta-skill progress when session data loads

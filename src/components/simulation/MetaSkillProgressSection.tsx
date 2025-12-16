@@ -10,6 +10,8 @@ interface ClusterProgress {
   scenariosPracticed: number;
 }
 
+// Debrief shows session counts to avoid confusion with homepage points
+
 interface MetaSkillProgressSectionProps {
   selfMastery: ClusterProgress | null;
   socialMastery: ClusterProgress | null;
@@ -80,13 +82,11 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
         <div className={`relative overflow-hidden rounded-2xl p-6 ${gradientClass}`}>
           <div className="relative z-10">
             <h4 className="font-medium text-sm text-white/70 uppercase tracking-wider mb-4">{title}</h4>
-            <p className="text-sm text-white/60">No progress data yet</p>
+            <p className="text-sm text-white/60">No sessions completed yet</p>
           </div>
         </div>
       );
     }
-
-    const progressPercentage = Math.min(100, Math.max(0, animatedScore));
 
     return (
       <div className={`relative overflow-hidden rounded-2xl p-6 ${gradientClass}`}>
@@ -97,37 +97,24 @@ const MetaSkillProgressSection = ({ selfMastery, socialMastery }: MetaSkillProgr
           {/* Header */}
           <h4 className="font-medium text-sm text-white/70 uppercase tracking-wider">{title}</h4>
           
-          {/* Large Score Display with animation */}
+          {/* Large Session Count Display with animation */}
           <div className="flex items-end gap-3">
             <span className="text-5xl font-bold text-white leading-none transition-all duration-300">
-              {animatedScore}
+              {data.scenariosPracticed}
             </span>
-            <span className="text-white/50 text-lg mb-1">/100</span>
+            <span className="text-white/50 text-lg mb-1">session{data.scenariosPracticed !== 1 ? 's' : ''}</span>
           </div>
 
-          {/* Progress Bar with animation */}
-          <div className="space-y-2">
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-white/80 rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Stats Row */}
-          <div className="flex items-center justify-between pt-2">
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2 pt-2">
             <div className={`flex items-center gap-1.5 ${
               data.change > 0 ? 'text-emerald-300' : data.change < 0 ? 'text-rose-300' : 'text-white/60'
             }`}>
               {getTrendIcon(data.change)}
               <span className="text-sm font-medium">
-                {formatChange(data.change)} from baseline
+                {formatChange(data.change)} skill growth
               </span>
             </div>
-            <span className="text-sm text-white/60">
-              {data.scenariosPracticed} scenario{data.scenariosPracticed !== 1 ? 's' : ''}
-            </span>
           </div>
         </div>
       </div>

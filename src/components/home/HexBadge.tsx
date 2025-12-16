@@ -17,60 +17,60 @@ interface HexBadgeProps {
   cluster: 'self' | 'social';
 }
 
-// Icon and gradient mapping for each badge
+// Icon and gradient mapping for each badge (synced with achievement_definitions DB IDs)
 const BADGE_CONFIG: Record<string, { 
   icon: React.ElementType; 
   gradient: string;
   glowColor: string;
 }> = {
-  // Self Mastery (warm tones)
-  'awareness-initiate': { 
+  // Self Mastery (warm tones) - 250pt system
+  'self_mastery_initiate': { 
     icon: Eye, 
     gradient: 'from-amber-400 via-orange-300 to-yellow-400',
     glowColor: 'rgba(251, 191, 36, 0.5)'
   },
-  'emotional-navigator': { 
+  'self_mastery_practitioner': { 
     icon: Radar, 
     gradient: 'from-orange-300 via-amber-200 to-yellow-300',
     glowColor: 'rgba(253, 186, 116, 0.5)'
   },
-  'regulation-specialist': { 
+  'self_mastery_adept': { 
     icon: Gauge, 
     gradient: 'from-orange-500 via-amber-400 to-orange-400',
     glowColor: 'rgba(249, 115, 22, 0.5)'
   },
-  'self-mastery-practitioner': { 
+  'self_mastery_badge': { 
     icon: Shield, 
     gradient: 'from-yellow-500 via-amber-500 to-orange-500',
     glowColor: 'rgba(245, 158, 11, 0.6)'
   },
-  'self-mastery-master': { 
+  'self_mastery_certificate': { 
     icon: Trophy, 
     gradient: 'from-yellow-600 via-amber-600 to-orange-600',
     glowColor: 'rgba(217, 119, 6, 0.6)'
   },
-  // Social Mastery (cool tones)
-  'social-apprentice': { 
+  // Social Mastery (cool tones) - 250pt system
+  'social_mastery_initiate': { 
     icon: UserPlus, 
     gradient: 'from-violet-400 via-purple-300 to-indigo-400',
     glowColor: 'rgba(167, 139, 250, 0.5)'
   },
-  'empathy-builder': { 
+  'social_mastery_practitioner': { 
     icon: HeartHandshake, 
     gradient: 'from-pink-400 via-rose-300 to-red-300',
     glowColor: 'rgba(251, 113, 133, 0.5)'
   },
-  'influence-architect': { 
+  'social_mastery_adept': { 
     icon: Zap, 
     gradient: 'from-purple-500 via-violet-400 to-indigo-500',
     glowColor: 'rgba(139, 92, 246, 0.5)'
   },
-  'social-intelligence-practitioner': { 
+  'social_mastery_badge': { 
     icon: Star, 
     gradient: 'from-indigo-500 via-purple-500 to-violet-500',
     glowColor: 'rgba(99, 102, 241, 0.6)'
   },
-  'social-mastery-master': { 
+  'social_mastery_certificate': { 
     icon: Gem, 
     gradient: 'from-purple-600 via-indigo-600 to-violet-600',
     glowColor: 'rgba(124, 58, 237, 0.6)'
@@ -88,7 +88,7 @@ const HexBadge = ({
   cluster 
 }: HexBadgeProps) => {
   const config = BADGE_CONFIG[badgeId];
-  const isMasterBadge = badgeId.includes('master');
+  const isMasterBadge = badgeId.includes('certificate');
   
   const sizeClasses = {
     sm: 'w-14 h-16',

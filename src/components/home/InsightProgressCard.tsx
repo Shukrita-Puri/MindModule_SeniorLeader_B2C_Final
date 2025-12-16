@@ -3,7 +3,7 @@ import MasteryProgressRing from './MasteryProgressRing';
 import HexBadgeRow from './HexBadgeRow';
 import { useUnifiedProgress } from '@/hooks/useUnifiedProgress';
 
-const CERTIFICATE_THRESHOLD = 500;
+const CERTIFICATE_THRESHOLD = 250;
 
 const InsightProgressCard = () => {
   const { progress, SELF_MASTERY_PROGRESSION, SOCIAL_MASTERY_PROGRESSION } = useUnifiedProgress();
