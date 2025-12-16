@@ -84,20 +84,20 @@ const HexBadge = ({
           </div>
         )}
         
-        {/* Lock overlay for locked badges */}
+      {/* Lock overlay for locked badges */}
         {!isEarned && !isNext && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Lock size={14} className="text-muted-foreground/60" />
           </div>
         )}
+        
+        {/* Points indicator overlay on next badge */}
+        {isNext && pointsToNext !== undefined && (
+          <span className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-saffron bg-background/90 px-1 rounded-sm">
+            +{pointsToNext}
+          </span>
+        )}
       </div>
-      
-      {/* Points indicator for next badge */}
-      {isNext && pointsToNext !== undefined && (
-        <span className="text-[10px] font-semibold text-saffron mt-0.5">
-          +{pointsToNext}
-        </span>
-      )}
     </div>
   );
 };
