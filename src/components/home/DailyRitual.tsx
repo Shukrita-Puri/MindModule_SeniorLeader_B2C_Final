@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check } from 'lucide-react';
+import { Check, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -544,13 +544,24 @@ const DailyRitual = () => {
         )}
 
         {ritualStatus.status === 'completed' && (
-          <Button 
-            disabled
-            className="w-full h-12 text-base font-semibold bg-taupe/80 text-white rounded-xl cursor-default"
-          >
-            <Check size={18} className="mr-2" />
-            Completed
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              disabled
+              className="flex-1 h-12 text-base font-semibold bg-taupe/80 text-white rounded-xl cursor-default"
+            >
+              <Check size={18} className="mr-2" />
+              Completed
+            </Button>
+            <Button
+              onClick={handleRestartRitual}
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-xl border-taupe/30 hover:bg-taupe/10"
+              title="Restart Ritual"
+            >
+              <RotateCcw size={18} className="text-muted-foreground" />
+            </Button>
+          </div>
         )}
       </div>
     </div>
