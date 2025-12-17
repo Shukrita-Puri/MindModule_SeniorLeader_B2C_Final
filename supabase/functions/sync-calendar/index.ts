@@ -1,31 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-import * as jose from 'https://deno.land/x/jose@v5.2.0/index.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Cache for JWKS to avoid fetching on every request
-let jwksCache: jose.JWTVerifyGetKey | null = null;
-let jwksCacheTime = 0;
-const JWKS_CACHE_DURATION = 3600000; // 1 hour
-
-async function getJWKS(auth0Domain: string): Promise<jose.JWTVerifyGetKey> {
-  const now = Date.now();
-  if (jwksCache && (now - jwksCacheTime) < JWKS_CACHE_DURATION) {
-    return jwksCache;
-  }
-  
-  const jwksUrl = `https://${auth0Domain}/.well-known/jwks.json`;
-  console.log('[sync-calendar] Fetching JWKS from:', jwksUrl);
-  jwksCache = jose.createRemoteJWKSet(new URL(jwksUrl));
-  jwksCacheTime = now;
-  return jwksCache;
-}
-
+// Verify Auth0 token using the userinfo endpoint (works with both JWT and opaque tokens)
 async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Missing or invalid Authorization header');
@@ -39,25 +21,30 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   }
 
   try {
-    // Decode token header to check algorithm
-    const [headerB64] = token.split('.');
-    const headerJson = atob(headerB64.replace(/-/g, '+').replace(/_/g, '/'));
-    const header = JSON.parse(headerJson);
-    console.log('[sync-calendar] Token algorithm:', header.alg);
-    
-    const jwks = await getJWKS(auth0Domain);
-    const { payload } = await jose.jwtVerify(token, jwks, {
-      issuer: `https://${auth0Domain}/`,
+    // Use Auth0's userinfo endpoint to verify token and get user info
+    // This works with both JWT tokens (RS256/HS256) and opaque access tokens
+    const userInfoResponse = await fetch(`https://${auth0Domain}/userinfo`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
 
-    if (!payload.sub) {
+    if (!userInfoResponse.ok) {
+      const errorText = await userInfoResponse.text();
+      console.error('[sync-calendar] Userinfo error:', userInfoResponse.status, errorText);
+      throw new Error('Token verification failed');
+    }
+
+    const userInfo = await userInfoResponse.json();
+    console.log('[sync-calendar] Token verified via userinfo, user:', userInfo.sub);
+    
+    if (!userInfo.sub) {
       throw new Error('Token missing sub claim');
     }
 
-    console.log('[sync-calendar] JWT verified, user:', payload.sub);
-    return payload.sub;
+    return userInfo.sub;
   } catch (error) {
-    console.error('[sync-calendar] JWT verification failed:', error);
+    console.error('[sync-calendar] Token verification failed:', error);
     throw new Error('Invalid or expired token');
   }
 }
@@ -74,7 +61,7 @@ serve(async (req) => {
     
     try {
       userId = await verifyAuth0Token(authHeader);
-      console.log('[sync-calendar] Authenticated user from JWT:', userId);
+      console.log('[sync-calendar] Authenticated user:', userId);
     } catch (error) {
       console.error('[sync-calendar] Authentication failed:', error);
       return new Response(
