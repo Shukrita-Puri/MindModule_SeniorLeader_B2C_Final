@@ -114,7 +114,6 @@ serve(async (req) => {
     // Retrieve decrypted access token from vault
     let accessToken: string | null = null;
     
-    // Try to get from vault first
     if (connection.encrypted_access_token_id) {
       const { data: vaultToken, error: vaultError } = await serviceClient
         .from('vault.decrypted_secrets')
@@ -126,17 +125,11 @@ serve(async (req) => {
         accessToken = vaultToken.decrypted_secret;
       }
     }
-    
-    // Fallback to plaintext token if vault retrieval failed
-    if (!accessToken && connection.access_token) {
-      accessToken = connection.access_token;
-      console.log('[sync-calendar] Using plaintext access token as fallback');
-    }
 
     if (!accessToken) {
-      console.error('[sync-calendar] Failed to retrieve access token');
+      console.error('[sync-calendar] Failed to retrieve access token from vault');
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve calendar access token' }),
+        JSON.stringify({ error: 'Failed to retrieve calendar access token. Please reconnect your calendar.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -148,7 +141,7 @@ serve(async (req) => {
     if (tokenExpiresAt && tokenExpiresAt <= now) {
       console.log('[sync-calendar] Token expired, attempting refresh...');
       
-      // Get refresh token
+      // Get refresh token from vault
       let refreshToken: string | null = null;
       
       if (connection.encrypted_refresh_token_id) {
@@ -162,13 +155,9 @@ serve(async (req) => {
           refreshToken = vaultRefresh.decrypted_secret;
         }
       }
-      
-      if (!refreshToken && connection.refresh_token) {
-        refreshToken = connection.refresh_token;
-      }
 
       if (!refreshToken) {
-        console.error('[sync-calendar] No refresh token available');
+        console.error('[sync-calendar] No refresh token available in vault');
         return new Response(
           JSON.stringify({ error: 'Token expired and no refresh token available. Please reconnect your calendar.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -204,16 +193,23 @@ serve(async (req) => {
         accessToken = refreshData.access_token;
         const newExpiresAt = new Date(Date.now() + (refreshData.expires_in * 1000));
         
-        // Update the token in the database (store plaintext for now since vault has permission issues)
+        // Store refreshed token securely in vault
+        const { error: storeError } = await serviceClient.rpc('store_calendar_access_token', {
+          _connection_id: connection.id,
+          _token: accessToken
+        });
+        
+        if (storeError) {
+          console.error('[sync-calendar] Failed to store refreshed token in vault:', storeError);
+        }
+        
+        // Update expiration time
         await serviceClient
           .from('calendar_connections')
-          .update({ 
-            access_token: accessToken,
-            token_expires_at: newExpiresAt.toISOString() 
-          })
+          .update({ token_expires_at: newExpiresAt.toISOString() })
           .eq('id', connection.id);
         
-        console.log('[sync-calendar] Token refreshed successfully, expires:', newExpiresAt.toISOString());
+        console.log('[sync-calendar] Token refreshed and stored in vault, expires:', newExpiresAt.toISOString());
       }
     }
 
