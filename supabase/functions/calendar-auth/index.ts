@@ -1,11 +1,59 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import * as jose from 'https://deno.land/x/jose@v4.14.4/index.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Cache for JWKS to avoid fetching on every request
+let jwksCache: jose.JWTVerifyGetKey | null = null;
+let jwksCacheTime = 0;
+const JWKS_CACHE_DURATION = 3600000; // 1 hour
+
+async function getJWKS(auth0Domain: string): Promise<jose.JWTVerifyGetKey> {
+  const now = Date.now();
+  if (jwksCache && (now - jwksCacheTime) < JWKS_CACHE_DURATION) {
+    return jwksCache;
+  }
+  
+  const jwksUrl = `https://${auth0Domain}/.well-known/jwks.json`;
+  jwksCache = jose.createRemoteJWKSet(new URL(jwksUrl));
+  jwksCacheTime = now;
+  return jwksCache;
+}
+
+async function verifyAuth0Token(authHeader: string | null): Promise<string> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid Authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
+  
+  if (!auth0Domain) {
+    throw new Error('Auth0 domain not configured');
+  }
+
+  try {
+    const jwks = await getJWKS(auth0Domain);
+    const { payload } = await jose.jwtVerify(token, jwks, {
+      issuer: `https://${auth0Domain}/`,
+    });
+
+    if (!payload.sub) {
+      throw new Error('Token missing sub claim');
+    }
+
+    console.log('[calendar-auth] JWT verified, user:', payload.sub);
+    return payload.sub;
+  } catch (error) {
+    console.error('[calendar-auth] JWT verification failed:', error);
+    throw new Error('Invalid or expired token');
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,8 +62,6 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    
-    // Create Supabase client with user's auth token for authenticated requests
     const authHeader = req.headers.get('Authorization');
     
     // Use service role client for database operations
@@ -31,9 +77,7 @@ serve(async (req) => {
     // State contains the userId for OAuth callback (passed during OAuth initiation)
     const stateUserId = url.searchParams.get('state');
     
-    // For connect/disconnect actions, get userId from request body
-    // Note: This app uses Auth0 authentication, not Supabase Auth
-    // Auth0 user IDs have format like "google-oauth2|111878424918915566691"
+    // For connect/disconnect actions, verify JWT and extract user ID
     let authenticatedUserId: string | null = null;
     
     if (req.method === 'POST') {
@@ -41,26 +85,15 @@ serve(async (req) => {
       action = body.action || action;
       provider = body.provider || provider;
       
-      // For Auth0 apps, trust the userId from request body
-      // The frontend is authenticated via Auth0 and provides the user ID
-      if (body.userId) {
-        // Validate Auth0 user ID format (provider|id) or UUID format
-        const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        
-        if (auth0IdPattern.test(body.userId) || uuidPattern.test(body.userId)) {
-          authenticatedUserId = body.userId;
-          console.log('[calendar-auth] Using Auth0 userId from request:', authenticatedUserId);
-        } else {
-          return new Response(
-            JSON.stringify({ error: 'Invalid user ID format' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      } else {
+      // Verify JWT token and extract user ID - no longer trust client-provided userId
+      try {
+        authenticatedUserId = await verifyAuth0Token(authHeader);
+        console.log('[calendar-auth] Authenticated user from JWT:', authenticatedUserId);
+      } catch (error) {
+        console.error('[calendar-auth] Authentication failed:', error);
         return new Response(
-          JSON.stringify({ error: 'Missing userId in request' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -104,6 +137,7 @@ serve(async (req) => {
       );
     } else if (action === 'callback' || url.searchParams.get('code')) {
       // Step 2: Handle OAuth callback - userId comes from state parameter (set during connect)
+      // This is the only path that doesn't require JWT verification because it's a redirect from OAuth provider
       const code = url.searchParams.get('code');
       
       if (!code || !stateUserId) {
