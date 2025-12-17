@@ -60,8 +60,8 @@ const Signup = () => {
     redirectInitiated.current = true;
     
     const redirectUri = isOnboardingFlow 
-      ? `${window.location.origin}/callback?from=onboarding`
-      : `${window.location.origin}/callback`;
+      ? `${CANONICAL_APP_URL}/callback?from=onboarding`
+      : `${CANONICAL_APP_URL}/callback`;
 
     loginWithRedirect({
       authorizationParams: {
