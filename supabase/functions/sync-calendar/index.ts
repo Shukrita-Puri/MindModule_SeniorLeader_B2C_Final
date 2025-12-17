@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-import * as jose from 'https://deno.land/x/jose@v4.14.4/index.ts';
+import * as jose from 'https://deno.land/x/jose@v5.2.0/index.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +20,7 @@ async function getJWKS(auth0Domain: string): Promise<jose.JWTVerifyGetKey> {
   }
   
   const jwksUrl = `https://${auth0Domain}/.well-known/jwks.json`;
+  console.log('[sync-calendar] Fetching JWKS from:', jwksUrl);
   jwksCache = jose.createRemoteJWKSet(new URL(jwksUrl));
   jwksCacheTime = now;
   return jwksCache;
@@ -38,6 +39,12 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   }
 
   try {
+    // Decode token header to check algorithm
+    const [headerB64] = token.split('.');
+    const headerJson = atob(headerB64.replace(/-/g, '+').replace(/_/g, '/'));
+    const header = JSON.parse(headerJson);
+    console.log('[sync-calendar] Token algorithm:', header.alg);
+    
     const jwks = await getJWKS(auth0Domain);
     const { payload } = await jose.jwtVerify(token, jwks, {
       issuer: `https://${auth0Domain}/`,
