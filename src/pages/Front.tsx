@@ -3,15 +3,33 @@ import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "@/utils/onboardingStorage";
+import { isInIframe, openAuthInNewTab } from "@/utils/authRedirect";
+
 const Front = () => {
   const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
+  
   const handleGetStarted = () => {
+    // If in iframe, open onboarding in new tab
+    if (isInIframe()) {
+      openAuthInNewTab('/onboarding');
+      return;
+    }
+    
     setIsTransitioning(true);
     setTimeout(() => {
       clearSession();
       navigate('/onboarding');
     }, 300);
+  };
+
+  const handleSignIn = () => {
+    // If in iframe, open login in new tab
+    if (isInIframe()) {
+      openAuthInNewTab('/login');
+      return;
+    }
+    navigate('/login');
   };
   return <div className={`relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
@@ -52,7 +70,7 @@ Because being able to recalibrate your mind is a superpower.
             <ArrowRight className="w-5 h-5 ml-3" />
           </Button>
           
-          <Button onClick={() => navigate('/login')} variant="outline" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide">
+          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide">
             Sign In
           </Button>
         </div>
