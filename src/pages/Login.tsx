@@ -49,7 +49,7 @@ const Login = () => {
     
     loginWithRedirect({
       authorizationParams: {
-        redirect_uri: `${window.location.origin}/callback`,
+        redirect_uri: `${CANONICAL_APP_URL}/callback`,
         scope: 'openid profile email',
       },
     });
