@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, LogIn } from 'lucide-react';
-import { isMobileDevice, isInIframe } from '@/utils/authRedirect';
+import { isMobileDevice } from '@/utils/authRedirect';
 import { Button } from '@/components/ui/button';
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
@@ -11,6 +11,7 @@ const Login = () => {
   const { isAuthenticated, isLoading, loginWithRedirect, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
+  const [popupBlocked, setPopupBlocked] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
@@ -27,9 +28,6 @@ const Login = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // Don't auto-trigger in iframe - show button instead
-    if (isInIframe()) return;
-    
     const loginInProgress = sessionStorage.getItem(LOGIN_TRIGGERED_KEY);
 
     if (isLoading) return;
@@ -62,14 +60,17 @@ const Login = () => {
       }).then(() => {
         sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
         navigate(finalDestination);
-      }).catch(() => {
+      }).catch((error) => {
         sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
+        if (error?.message?.includes('blocked') || error?.message?.includes('closed')) {
+          setPopupBlocked(true);
+        }
       });
     }
   }, [isLoading, isAuthenticated, navigate, loginWithRedirect, loginWithPopup, finalDestination]);
 
-  // Handle login button click in iframe
-  const handleIframeLogin = async () => {
+  // Handle manual login
+  const handleManualLogin = async () => {
     setIsLoggingIn(true);
     try {
       await loginWithPopup({
@@ -85,17 +86,17 @@ const Login = () => {
     }
   };
 
-  // In iframe: show login button
-  if (isInIframe() && !isAuthenticated && !isLoading) {
+  // Show button only if popup was blocked
+  if (popupBlocked && !isAuthenticated && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center max-w-md space-y-4">
-          <h2 className="text-xl font-heading font-semibold text-foreground">Login Required</h2>
+          <h2 className="text-xl font-heading font-semibold text-foreground">Popup Blocked</h2>
           <p className="text-muted-foreground text-sm">
-            Click below to log in via popup. You'll return here once authenticated.
+            Your browser blocked the login popup. Click below to try again.
           </p>
           <Button 
-            onClick={handleIframeLogin}
+            onClick={handleManualLogin}
             disabled={isLoggingIn}
             className="gap-2"
           >

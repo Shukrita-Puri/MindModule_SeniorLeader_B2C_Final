@@ -3,70 +3,62 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isInIframe } from '@/utils/authRedirect';
 
 const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectInitiated = useRef(false);
+  const [popupBlocked, setPopupBlocked] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
 
   const isOnboardingFlow = location.pathname.includes('/onboarding') || 
                            location.search.includes('from=onboarding');
 
   useEffect(() => {
-    console.log('[Signup] Component mounted:', { 
-      isLoading, 
-      isAuthenticated,
-      pathname: location.pathname,
-      search: location.search,
-      isOnboardingFlow,
-      redirectInitiated: redirectInitiated.current,
-      isInIframe: isInIframe()
-    });
-
-    // Don't auto-trigger in iframe - show button instead
-    if (isInIframe()) return;
-
     if (isLoading) return;
 
     if (isAuthenticated) {
       if (isOnboardingFlow) {
-        console.log('[Signup] Already authenticated in onboarding, redirecting to /onboarding/results');
         navigate('/onboarding/results');
       } else {
-        console.log('[Signup] Already authenticated, redirecting to executive-home');
         navigate('/executive-home');
       }
       return;
     }
 
     // Prevent multiple redirect attempts
-    if (redirectInitiated.current) {
-      console.log('[Signup] Redirect already initiated, skipping');
-      return;
-    }
-
-    // Use redirect for signup
-    console.log('[Signup] Initiating Auth0 redirect flow', { isOnboardingFlow });
+    if (redirectInitiated.current) return;
     redirectInitiated.current = true;
     
     const redirectUri = isOnboardingFlow 
       ? `${window.location.origin}/callback?from=onboarding`
       : `${window.location.origin}/callback`;
 
-    loginWithRedirect({
+    // Try popup first
+    loginWithPopup({
       authorizationParams: {
         redirect_uri: redirectUri,
         screen_hint: 'signup',
         scope: 'openid profile email',
       },
+    }).then(() => {
+      if (isOnboardingFlow) {
+        navigate('/onboarding/results');
+      } else {
+        navigate('/executive-home');
+      }
+    }).catch((error) => {
+      console.error('Signup popup failed:', error);
+      redirectInitiated.current = false;
+      if (error?.message?.includes('blocked') || error?.message?.includes('closed')) {
+        setPopupBlocked(true);
+      }
     });
-  }, [isLoading, isAuthenticated, navigate, location, loginWithRedirect, isOnboardingFlow]);
+  }, [isLoading, isAuthenticated, navigate, location, loginWithPopup, isOnboardingFlow]);
 
-  // Handle signup button click in iframe
-  const handleIframeSignup = async () => {
+  // Handle manual signup
+  const handleManualSignup = async () => {
     setIsSigningUp(true);
     try {
       await loginWithPopup({
@@ -87,17 +79,17 @@ const Signup = () => {
     }
   };
 
-  // In iframe: show signup button (popup from inside iframe)
-  if (isInIframe() && !isAuthenticated && !isLoading) {
+  // Show button only if popup was blocked
+  if (popupBlocked && !isAuthenticated && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center max-w-md space-y-4">
-          <h2 className="text-xl font-heading font-semibold text-foreground">Create Account</h2>
+          <h2 className="text-xl font-heading font-semibold text-foreground">Popup Blocked</h2>
           <p className="text-muted-foreground text-sm">
-            Click below to sign up via popup. You'll return here once registered.
+            Your browser blocked the signup popup. Click below to try again.
           </p>
           <Button 
-            onClick={handleIframeSignup}
+            onClick={handleManualSignup}
             disabled={isSigningUp}
             className="gap-2"
           >
