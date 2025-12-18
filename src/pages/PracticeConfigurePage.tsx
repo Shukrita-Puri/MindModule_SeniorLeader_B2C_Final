@@ -206,6 +206,10 @@ const PracticeConfigurePage = () => {
         { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Professional Networking", "Relationship Building", "Career Curiosity"] },
         { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Confidence", "Initiative", "Gratitude"] }
       ],
+      'apprenticeship-interview': [
+        { cluster: "Self Mastery", metaSkill: "Self-Regulation & Motivation", subSkills: ["Composure", "Professional Confidence", "Authenticity"] },
+        { cluster: "Social Mastery", metaSkill: "Social Intelligence", subSkills: ["Professional Communication", "Impression Management", "Active Listening"] }
+      ],
     };
     return skillMap[scenario] || [];
   };
@@ -376,6 +380,7 @@ const PracticeConfigurePage = () => {
                       <SelectItem value="model-un-speech">Model UN Speech</SelectItem>
                       <SelectItem value="debate-tournament">Debate Tournament</SelectItem>
                       <SelectItem value="scholarship-interview">Scholarship Interview</SelectItem>
+                      <SelectItem value="apprenticeship-interview">Apprenticeship Interview</SelectItem>
                       <SelectSeparator />
                     </>
                   )}
@@ -448,6 +453,7 @@ const PracticeConfigurePage = () => {
                   <SelectItem value="coach">Coach / Sports Mentor</SelectItem>
                   <SelectItem value="counselor">School Counselor</SelectItem>
                   <SelectItem value="alumni">Alumni / Graduate</SelectItem>
+                  <SelectItem value="apprenticeship-assessor">Apprenticeship Assessor / HR Professional</SelectItem>
                   <SelectItem value="custom">Customise Persona</SelectItem>
                 </SelectContent>
               </Select>
