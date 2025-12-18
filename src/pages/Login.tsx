@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { isInIframe, openAuthInNewTab, CANONICAL_APP_URL } from '@/utils/authRedirect';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { isInIframe, CANONICAL_APP_URL } from '@/utils/authRedirect';
 
 const Login = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
+  const location = useLocation();
   const redirectInitiated = useRef(false);
-  const [showIframeMessage, setShowIframeMessage] = useState(false);
+
+  // Get intended destination from ProtectedRoute's state
+  const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
 
   useEffect(() => {
     console.log('[Login] Component mounted:', { 
@@ -17,14 +19,15 @@ const Login = () => {
       isAuthenticated,
       pathname: window.location.pathname,
       redirectInitiated: redirectInitiated.current,
-      isInIframe: isInIframe()
+      isInIframe: isInIframe(),
+      intendedDestination
     });
 
     if (isLoading) return;
 
     if (isAuthenticated) {
-      console.log('[Login] Already authenticated, redirecting to daily-check-in');
-      navigate('/daily-check-in');
+      console.log('[Login] Already authenticated, redirecting to:', intendedDestination);
+      navigate(intendedDestination);
       return;
     }
 
@@ -34,53 +37,34 @@ const Login = () => {
       return;
     }
 
-    // If in iframe, open login in new tab instead
+    redirectInitiated.current = true;
+
+    // If in iframe, open Auth0 in a new tab at the canonical URL
     if (isInIframe()) {
-      console.log('[Login] Running in iframe, opening login in new tab');
-      redirectInitiated.current = true;
-      setShowIframeMessage(true);
-      openAuthInNewTab('/login');
+      console.log('[Login] Running in iframe, opening Auth0 in new tab');
+      // Open the canonical app URL which will trigger Auth0 login
+      const authUrl = `${CANONICAL_APP_URL}/login?returnTo=${encodeURIComponent(intendedDestination)}`;
+      window.open(authUrl, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    // Use redirect instead of popup - works reliably on all devices including mobile
-    console.log('[Login] Initiating Auth0 redirect flow');
-    redirectInitiated.current = true;
+    // Check if returnTo was passed via URL param (from iframe redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnToParam = urlParams.get('returnTo');
+    const finalDestination = returnToParam || intendedDestination;
+
+    console.log('[Login] Initiating Auth0 redirect flow, returnTo:', finalDestination);
     
     loginWithRedirect({
+      appState: { returnTo: finalDestination },
       authorizationParams: {
         redirect_uri: `${CANONICAL_APP_URL}/callback`,
         scope: 'openid profile email',
       },
     });
-  }, [isLoading, isAuthenticated, navigate, loginWithRedirect]);
+  }, [isLoading, isAuthenticated, navigate, loginWithRedirect, intendedDestination]);
 
-  // Show message when in iframe
-  if (showIframeMessage) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md px-6">
-          <ExternalLink className="w-12 h-12 mx-auto mb-4 text-primary" />
-          <h2 className="text-xl font-semibold mb-2 text-foreground">Login opened in new tab</h2>
-          <p className="text-muted-foreground mb-6">
-            Please complete your login in the new tab that just opened.
-          </p>
-          <Button 
-            onClick={() => openAuthInNewTab('/login')}
-            variant="outline"
-            className="gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open Login Again
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Or visit: <a href={CANONICAL_APP_URL} target="_blank" rel="noopener noreferrer" className="underline">{CANONICAL_APP_URL}</a>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // Show only a brief loading spinner - no intermediate messages
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
