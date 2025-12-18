@@ -11,7 +11,6 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get intended destination from state or URL param
   const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
   const urlParams = new URLSearchParams(window.location.search);
   const returnToParam = urlParams.get('returnTo');
@@ -26,34 +25,20 @@ const Login = () => {
 
   useEffect(() => {
     const loginInProgress = sessionStorage.getItem(LOGIN_TRIGGERED_KEY);
-    
-    console.log('[Login] Component mounted:', { 
-      isLoading, 
-      isAuthenticated,
-      isMobile: isMobileDevice(),
-      finalDestination,
-      loginInProgress
-    });
 
     if (isLoading) return;
 
     if (isAuthenticated) {
-      console.log('[Login] Already authenticated, navigating to:', finalDestination);
       navigate(finalDestination);
       return;
     }
 
-    // Prevent multiple redirect attempts using sessionStorage
-    if (loginInProgress === 'true') {
-      console.log('[Login] Login already in progress, skipping');
-      return;
-    }
+    if (loginInProgress === 'true') return;
 
     sessionStorage.setItem(LOGIN_TRIGGERED_KEY, 'true');
 
     if (isMobileDevice()) {
-      // Mobile: Use redirect-based auth (popups unreliable on mobile)
-      console.log('[Login] Mobile device, using redirect auth');
+      // Mobile: Use redirect-based auth
       loginWithRedirect({
         appState: { returnTo: finalDestination },
         authorizationParams: {
@@ -62,28 +47,21 @@ const Login = () => {
         },
       });
     } else {
-      // Desktop: Use popup-based auth (allows staying in iframe)
-      console.log('[Login] Desktop, using popup auth');
+      // Desktop: Use popup-based auth
       loginWithPopup({
         authorizationParams: {
           redirect_uri: `${CANONICAL_APP_URL}/callback`,
           scope: 'openid profile email',
         },
       }).then(() => {
-        console.log('[Login] Popup login successful, navigating to:', finalDestination);
-        // Give Auth0 time to update state before navigating
-        setTimeout(() => {
-          sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
-          navigate(finalDestination);
-        }, 500);
-      }).catch((error) => {
-        console.error('[Login] Popup login error:', error);
-        sessionStorage.removeItem(LOGIN_TRIGGERED_KEY); // Allow retry
+        sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
+        navigate(finalDestination);
+      }).catch(() => {
+        sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
       });
     }
   }, [isLoading, isAuthenticated, navigate, loginWithRedirect, loginWithPopup, finalDestination]);
 
-  // Show loading spinner while auth is in progress
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
