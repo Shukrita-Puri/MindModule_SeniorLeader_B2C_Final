@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const { data, error } = await supabaseAdmin
       .from("calendar_connections")
-      .select("is_active, provider, updated_at")
+      .select("is_active, provider, updated_at, last_sync")
       .eq("user_id", userId)
       .eq("is_active", true)
       .maybeSingle();
@@ -84,6 +84,7 @@ serve(async (req) => {
         connected: !!data?.is_active,
         provider: data?.provider ?? null,
         updated_at: data?.updated_at ?? null,
+        last_sync: data?.last_sync ?? null,
       }),
       { status: 200, headers: corsHeaders() }
     );

@@ -23,25 +23,31 @@ const CalendarConnectionSettings = ({
   const { user } = useAuth();
   const { getAccessTokenSilently } = useAuth0();
 
-  useEffect(() => {
-    checkConnection();
-  }, [user]);
+  // Helper function to check calendar status via edge function (bypasses RLS)
+  const fetchCalendarStatus = async () => {
+    const accessToken = await getAccessTokenSilently();
+    const { data, error } = await supabase.functions.invoke("check-calendar-status", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (error) throw error;
+    return data as { 
+      connected: boolean; 
+      provider: string | null; 
+      updated_at: string | null;
+      last_sync: string | null;
+    };
+  };
 
   const checkConnection = async () => {
     try {
       if (!user?.id) return;
       
-      const { data, error } = await supabase
-        .from('calendar_connections')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-        
-      if (data && !error) {
+      const status = await fetchCalendarStatus();
+      
+      if (status.connected) {
         setConnected(true);
-        setProvider(data.provider);
-        setLastSync(data.last_sync);
+        setProvider(status.provider);
+        setLastSync(status.last_sync ?? status.updated_at);
       } else {
         setConnected(false);
         setProvider(null);
@@ -49,8 +55,15 @@ const CalendarConnectionSettings = ({
       }
     } catch (error) {
       console.error('Error checking calendar connection:', error);
+      setConnected(false);
+      setProvider(null);
+      setLastSync(null);
     }
   };
+
+  useEffect(() => {
+    checkConnection();
+  }, [user]);
   const handleConnect = async (selectedProvider: 'google' | 'outlook') => {
     setLoading(true);
     try {
