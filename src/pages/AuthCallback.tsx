@@ -24,20 +24,20 @@ const AuthCallback = () => {
     }
 
     if (isAuthenticated) {
-      // Check if user came from onboarding flow
+      // The onRedirectCallback in Auth0Provider handles navigation via appState
+      // This is a fallback in case that doesn't trigger
       const urlParams = new URLSearchParams(window.location.search);
       const fromOnboarding = urlParams.get('from') === 'onboarding';
       
-      console.log('[AuthCallback] URL params:', { from: urlParams.get('from'), fromOnboarding });
+      console.log('[AuthCallback] Authenticated, checking for destination');
       
       if (fromOnboarding) {
-        // New user completing onboarding → show results first
         console.log('[AuthCallback] Navigating to: /onboarding/results');
         navigate('/onboarding/results');
       } else {
-        // Returning user logging in → go to daily check-in
-        console.log('[AuthCallback] Navigating to: /daily-check-in');
-        navigate('/daily-check-in');
+        // Default fallback - onRedirectCallback should handle most cases
+        console.log('[AuthCallback] Navigating to: /executive-home');
+        navigate('/executive-home');
       }
     }
   }, [isLoading, error, isAuthenticated, navigate]);
