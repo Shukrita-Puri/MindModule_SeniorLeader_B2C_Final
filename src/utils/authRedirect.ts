@@ -23,6 +23,14 @@ export const isInIframe = (): boolean => {
 };
 
 /**
+ * Determines if redirect-based auth should be used instead of popup
+ * Returns true for mobile devices OR when running in an iframe
+ */
+export const shouldUseRedirect = (): boolean => {
+  return isMobileDevice() || isInIframe();
+};
+
+/**
  * Opens the canonical app URL in a new tab
  * Used when Auth0 login needs to happen outside the iframe
  */
