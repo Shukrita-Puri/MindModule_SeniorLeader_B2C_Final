@@ -121,6 +121,11 @@ export default function Stage7ContextConnection() {
       }
     } catch (error) {
       console.error('[Stage7] Sync failed:', error);
+      toast.error("Sync failed", {
+        description: "Could not sync calendar. Please try again."
+      });
+    } finally {
+      setConnecting(false);
     }
   };
 

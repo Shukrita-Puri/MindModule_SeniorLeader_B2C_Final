@@ -7,6 +7,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ========== AES-256-GCM Encryption Helpers ==========
+function b64ToBytes(b64: string): Uint8Array {
+  const binaryString = atob(b64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytesToB64(bytes: Uint8Array): string {
+  let binaryString = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binaryString += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binaryString);
+}
+
+async function encryptJson(payload: unknown, keyB64: string): Promise<{ ivB64: string; ctB64: string }> {
+  const keyBytes = b64ToBytes(keyB64);
+  if (keyBytes.length !== 32) {
+    throw new Error("TOKEN_ENC_KEY_B64 must be 32 bytes (base64-encoded).");
+  }
+
+  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV for GCM
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["encrypt"]);
+
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext)
+  );
+
+  return { ivB64: bytesToB64(iv), ctB64: bytesToB64(ciphertext) };
+}
+
 // Verify Auth0 token using the userinfo endpoint (works with both JWT and opaque tokens)
 async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -180,102 +215,76 @@ serve(async (req) => {
         throw new Error(tokens.error_description || tokens.error || 'Failed to get access token');
       }
 
-      // Store tokens securely in vault
-      // First, check if connection exists
+      // Get encryption key from environment
+      const encKeyB64 = Deno.env.get('TOKEN_ENC_KEY_B64');
+      if (!encKeyB64) {
+        console.error('[calendar-auth] TOKEN_ENC_KEY_B64 not configured');
+        throw new Error('Encryption key not configured');
+      }
+
+      // Encrypt tokens using AES-256-GCM
+      const tokenPayload = {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token || null,
+        expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      };
+
+      const { ivB64, ctB64: accessTokenEnc } = await encryptJson({ token: tokens.access_token }, encKeyB64);
+      const { ctB64: refreshTokenEnc } = await encryptJson({ token: tokens.refresh_token || null }, encKeyB64);
+
+      console.log('[calendar-auth] Tokens encrypted successfully');
+
+      // Check if connection exists
       const { data: existingConn } = await supabaseAdmin
         .from('calendar_connections')
         .select('id')
         .eq('user_id', validUserId)
-        .single();
-
-      let connectionId: string;
+        .eq('provider', validProvider)
+        .maybeSingle();
 
       if (existingConn) {
-        connectionId = existingConn.id;
-        
-        // Store tokens in vault
-        const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
-          _connection_id: connectionId,
-          _token: tokens.access_token
-        });
-        
-        if (accessTokenError) {
-          console.error('[calendar-auth] Vault error for access token:', accessTokenError);
-          throw new Error('Failed to securely store access token');
-        }
-
-        if (tokens.refresh_token) {
-          const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
-            _connection_id: connectionId,
-            _token: tokens.refresh_token
-          });
-          
-          if (refreshTokenError) {
-            console.error('[calendar-auth] Vault error for refresh token:', refreshTokenError);
-          }
-        }
-
-        // Update connection metadata
+        // Update existing connection with encrypted tokens
         const { error: updateError } = await supabaseAdmin
           .from('calendar_connections')
           .update({
-            provider: validProvider,
+            access_token_enc: accessTokenEnc,
+            refresh_token_enc: refreshTokenEnc,
+            token_iv: ivB64,
+            token_enc_v: 1,
             token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
             is_active: true,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', connectionId);
+          .eq('id', existingConn.id);
 
         if (updateError) {
           console.error('[calendar-auth] Error updating calendar connection:', updateError);
           throw new Error(updateError.message || 'Failed to update calendar connection');
         }
+        console.log('[calendar-auth] Updated existing connection:', existingConn.id);
       } else {
-        // Create new connection record (tokens stored via vault functions)
-        const { data: newConn, error: insertError } = await supabaseAdmin
+        // Create new connection with encrypted tokens
+        const { error: insertError } = await supabaseAdmin
           .from('calendar_connections')
           .insert({
             user_id: validUserId,
             provider: validProvider,
+            access_token_enc: accessTokenEnc,
+            refresh_token_enc: refreshTokenEnc,
+            token_iv: ivB64,
+            token_enc_v: 1,
             token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
             is_active: true,
-          })
-          .select('id')
-          .single();
-
-        if (insertError || !newConn) {
-          console.error('[calendar-auth] Error creating calendar connection:', insertError);
-          throw new Error(insertError?.message || 'Failed to create calendar connection');
-        }
-
-        connectionId = newConn.id;
-
-        // Store tokens in vault
-        const { error: accessTokenError } = await supabaseAdmin.rpc('store_calendar_access_token', {
-          _connection_id: connectionId,
-          _token: tokens.access_token
-        });
-        
-        if (accessTokenError) {
-          console.error('[calendar-auth] Vault error for access token:', accessTokenError);
-          throw new Error('Failed to securely store access token');
-        }
-        
-        if (tokens.refresh_token) {
-          const { error: refreshTokenError } = await supabaseAdmin.rpc('store_calendar_refresh_token', {
-            _connection_id: connectionId,
-            _token: tokens.refresh_token
           });
-          
-          if (refreshTokenError) {
-            console.error('[calendar-auth] Vault error for refresh token:', refreshTokenError);
-          }
+
+        if (insertError) {
+          console.error('[calendar-auth] Error creating calendar connection:', insertError);
+          throw new Error(insertError.message || 'Failed to create calendar connection');
         }
-        
-        console.log('[calendar-auth] Tokens stored securely in vault');
+        console.log('[calendar-auth] Created new connection for user:', validUserId);
       }
 
-      console.log('[calendar-auth] Calendar connection stored securely for user:', validUserId);
+      console.log('[calendar-auth] Calendar connection stored with encrypted tokens for user:', validUserId);
 
       // Redirect back to the app with success parameter
       const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ibrvatszexahdqwejahc.lovable.app';
