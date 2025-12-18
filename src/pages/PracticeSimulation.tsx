@@ -42,6 +42,7 @@ const SCENARIO_ID_MAP: Record<string, string> = {
   // Title case (for legacy/direct navigation)
   'Oxbridge Interview': 'oxbridge_interview',
   'Scholarship Interview': 'scholarship_interview',
+  'Apprenticeship Interview': 'apprenticeship_interview',
   'Model UN Speech': 'model_un_speech',
   'Debate Tournament': 'debate_tournament',
   'Alumni Networking': 'alumni_networking',
@@ -57,6 +58,7 @@ const SCENARIO_ID_MAP: Record<string, string> = {
   // Kebab-case (matching Select values from configure page)
   'oxbridge-interview': 'oxbridge_interview',
   'scholarship-interview': 'scholarship_interview',
+  'apprenticeship-interview': 'apprenticeship_interview',
   'model-un-speech': 'model_un_speech',
   'debate-tournament': 'debate_tournament',
   'alumni-networking': 'alumni_networking',

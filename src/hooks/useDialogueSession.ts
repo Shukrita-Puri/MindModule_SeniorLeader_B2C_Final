@@ -123,14 +123,24 @@ export function useDialogueSession() {
       ]);
 
       if (scenarioRes.error || !scenarioRes.data) {
-        throw new Error('Scenario not found');
+        console.error('[useDialogueSession] Scenario lookup failed:', scenarioRes.error);
+        throw new Error(`Scenario not found: ${scenarioId}`);
       }
       if (personaRes.error || !personaRes.data) {
-        throw new Error('Persona not found');
+        console.error('[useDialogueSession] Persona lookup failed:', personaRes.error);
+        throw new Error(`Persona not found: ${personaId}`);
       }
 
       const scenario = scenarioRes.data;
       const persona = personaRes.data;
+      
+      // Extract conversation dynamics from scenario (with defaults)
+      const conversationDynamics = scenario.conversation_dynamics || {
+        initiative: 'mutual',
+        style: 'balanced',
+        user_can_question: true,
+        intensity: 'moderate'
+      };
 
       // Create session in database
       const { data: session, error: sessionError } = await (supabase.from('dialogue_sessions') as any)
@@ -146,13 +156,15 @@ export function useDialogueSession() {
             personalityStyle: config.personalityStyle,
             voiceStyle: config.voiceStyle,
             additionalContext: config.additionalContext,
-            attachmentNames: config.attachments?.map(a => a.name) || []
+            attachmentNames: config.attachments?.map(a => a.name) || [],
+            conversationDynamics
           }
         })
         .select()
         .single();
 
       if (sessionError || !session) {
+        console.error('[useDialogueSession] Session creation failed:', sessionError);
         throw new Error('Failed to create session');
       }
 
@@ -171,6 +183,7 @@ export function useDialogueSession() {
             configuration: {
               scenarioCategory: scenario.category,
               scenarioId: scenarioId,
+              conversationDynamics,
               personaType: persona.role?.toLowerCase()?.includes('alumni') ? 'alumni' 
                 : persona.role?.toLowerCase()?.includes('teacher') ? 'teacher'
                 : persona.role?.toLowerCase()?.includes('admissions') ? 'admissions'
@@ -192,7 +205,8 @@ export function useDialogueSession() {
                 role: persona.role
               },
               scenarioId: scenarioId,
-              scenarioTitle: scenario.title
+              scenarioTitle: scenario.title,
+              conversationDynamics
             },
             conversationHistory: []
           }
@@ -339,7 +353,9 @@ export function useDialogueSession() {
             additionalContext: state.config.additionalContext,
             attachments: state.config.attachments,
             practiceDuration: state.config.practiceDuration,
-            coachingStyle: state.config.coachingStyle
+            coachingStyle: state.config.coachingStyle,
+            // Conversation dynamics from session metadata
+            conversationDynamics: state.scenarioContext?.conversationDynamics || (state.config as any).conversationDynamics
           },
           conversationHistory: state.messages.map(m => ({
             role: m.role,

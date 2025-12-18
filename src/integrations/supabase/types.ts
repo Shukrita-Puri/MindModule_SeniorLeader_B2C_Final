@@ -1577,6 +1577,7 @@ export type Database = {
         Row: {
           category: string
           context_type: string
+          conversation_dynamics: Json | null
           created_at: string | null
           description: string | null
           difficulty_level: string | null
@@ -1589,6 +1590,7 @@ export type Database = {
         Insert: {
           category: string
           context_type?: string
+          conversation_dynamics?: Json | null
           created_at?: string | null
           description?: string | null
           difficulty_level?: string | null
@@ -1601,6 +1603,7 @@ export type Database = {
         Update: {
           category?: string
           context_type?: string
+          conversation_dynamics?: Json | null
           created_at?: string | null
           description?: string | null
           difficulty_level?: string | null
