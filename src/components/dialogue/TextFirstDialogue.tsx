@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, X, MessageSquare, Clock, Send } from "lucide-react";
+import { Mic, MicOff, X, MessageSquare, Clock, Send, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import SleekLineAnimation from "@/components/SleekLineAnimation";
 import { useDialogueSession, trackInterventionDismissal, Intervention } from "@/hooks/useDialogueSession";
 import CoachingToaster from "./CoachingToaster";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TextFirstDialogueProps {
   scenarioId: string;
@@ -52,7 +53,8 @@ const TextFirstDialogue = ({
     sessionId,
     startSession,
     sendMessage,
-    endSession
+    endSession,
+    error: sessionError
   } = dialogueSession;
 
   // Get current intervention (latest one)
@@ -143,6 +145,29 @@ const TextFirstDialogue = ({
     .slice(-1)[0];
 
   const isAISpeaking = isLoading && messages[messages.length - 1]?.role === 'user';
+
+  // Show error state if session failed to start
+  if (sessionError) {
+    return (
+      <div className="h-full bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial flex items-center justify-center p-8">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="ml-2">
+            <p className="font-medium mb-2">Failed to start dialogue session</p>
+            <p className="text-sm opacity-80">{sessionError}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-4"
+              onClick={() => window.history.back()}
+            >
+              Go Back
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-gradient-to-br from-background via-muted/30 to-secondary/20 font-editorial relative overflow-hidden flex flex-col">
