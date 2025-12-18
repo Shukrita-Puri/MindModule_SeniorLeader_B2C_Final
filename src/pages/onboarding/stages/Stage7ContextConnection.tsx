@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
+
 // Mobile detection helper
 const isMobileDevice = () => {
   return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -22,6 +23,16 @@ export default function Stage7ContextConnection() {
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [connecting, setConnecting] = useState(false);
+
+  // Helper function to check calendar status via edge function
+  const fetchCalendarStatus = async () => {
+    const accessToken = await getAccessTokenSilently();
+    const { data, error } = await supabase.functions.invoke("check-calendar-status", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (error) throw error;
+    return data as { connected: boolean; provider: string | null; updated_at: string | null };
+  };
 
   // Handle OAuth callback (for both popup message and redirect)
   useEffect(() => {
@@ -71,21 +82,15 @@ export default function Stage7ContextConnection() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Check existing connection on mount
+  // Check existing connection on mount using edge function
   useEffect(() => {
     const checkExistingConnection = async () => {
       if (!appUser?.id) return;
       
       setCheckingConnection(true);
       try {
-        const { data: connection } = await supabase
-          .from('calendar_connections')
-          .select('is_active')
-          .eq('user_id', appUser.id)
-          .eq('is_active', true)
-          .maybeSingle();
-        
-        if (connection?.is_active) {
+        const status = await fetchCalendarStatus();
+        if (status.connected) {
           setCalendarConnected(true);
         }
       } catch (error) {
@@ -226,33 +231,34 @@ export default function Stage7ContextConnection() {
               description: "This page will update automatically when complete."
             });
             
-            // Poll database to detect successful connection
-            const pollInterval = setInterval(async () => {
-              const { data: connection } = await supabase
-                .from('calendar_connections')
-                .select('is_active, updated_at')
-                .eq('user_id', appUser.id)
-                .eq('is_active', true)
-                .maybeSingle();
-              
-              if (connection?.is_active) {
-                clearInterval(pollInterval);
-                console.log('[Calendar] Connection detected via database poll');
-                setCalendarConnected(true);
-                setConnecting(false);
-                toast.success("Calendar connected successfully!");
-                triggerCalendarSync();
+            // Poll using edge function to detect successful connection
+            const pollForConnection = async () => {
+              const maxAttempts = 80; // 2 minutes at 1.5s intervals
+              for (let i = 0; i < maxAttempts; i++) {
+                try {
+                  const status = await fetchCalendarStatus();
+                  if (status.connected) {
+                    console.log('[Calendar] Connection detected via edge function poll');
+                    setCalendarConnected(true);
+                    setConnecting(false);
+                    toast.success("Calendar connected successfully!");
+                    triggerCalendarSync();
+                    return true;
+                  }
+                } catch (e) {
+                  console.error('[Calendar] Poll error:', e);
+                }
+                await new Promise(r => setTimeout(r, 1500));
               }
-            }, 1500);
+              return false;
+            };
             
-            // Stop polling after 2 minutes
-            setTimeout(() => {
-              clearInterval(pollInterval);
-              if (connecting) {
+            pollForConnection().then(connected => {
+              if (!connected) {
                 setConnecting(false);
                 setCalendarConnected(false);
               }
-            }, 120000);
+            });
           }
         } else {
           throw new Error('No authorization URL received from server');
