@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
-
+import { useAuth0 } from "@auth0/auth0-react";
 // Mobile detection helper
 const isMobileDevice = () => {
   return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -18,6 +18,7 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user: appUser } = useAuth();
+  const { getAccessTokenSilently } = useAuth0();
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -100,8 +101,13 @@ export default function Stage7ContextConnection() {
   const triggerCalendarSync = async () => {
     try {
       console.log('[Stage7] Triggering initial calendar sync');
+      const accessToken = await getAccessTokenSilently();
+      
       const { error } = await supabase.functions.invoke('sync-calendar', {
-        body: { provider: 'google' }
+        body: { provider: 'google' },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       });
       
       if (error) {
@@ -138,8 +144,13 @@ export default function Stage7ContextConnection() {
       setCalendarConnected(false);
       
       try {
+        const accessToken = await getAccessTokenSilently();
+        
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
-          body: { action: 'disconnect', provider: 'google', userId: appUser.id }
+          body: { action: 'disconnect', provider: 'google', userId: appUser.id },
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
         });
 
         console.log('[Calendar] Disconnect response:', { data, error });
@@ -167,12 +178,17 @@ export default function Stage7ContextConnection() {
         // Build the redirect URL for after OAuth completes
         const callbackRedirect = `${window.location.origin}/onboarding/context-connection?calendar_connected=true`;
         
+        const accessToken = await getAccessTokenSilently();
+        
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
           body: { 
             action: 'connect', 
             provider: 'google', 
             userId: appUser.id,
             redirectTo: callbackRedirect
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`
           }
         });
 
