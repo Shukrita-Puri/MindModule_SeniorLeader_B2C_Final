@@ -64,6 +64,7 @@ export type Database = {
       }
       calendar_connections: {
         Row: {
+          access_token_enc: string | null
           created_at: string
           encrypted_access_token_id: string | null
           encrypted_refresh_token_id: string | null
@@ -71,11 +72,15 @@ export type Database = {
           is_active: boolean | null
           last_sync: string | null
           provider: string
+          refresh_token_enc: string | null
+          token_enc_v: number | null
           token_expires_at: string | null
+          token_iv: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          access_token_enc?: string | null
           created_at?: string
           encrypted_access_token_id?: string | null
           encrypted_refresh_token_id?: string | null
@@ -83,11 +88,15 @@ export type Database = {
           is_active?: boolean | null
           last_sync?: string | null
           provider: string
+          refresh_token_enc?: string | null
+          token_enc_v?: number | null
           token_expires_at?: string | null
+          token_iv?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          access_token_enc?: string | null
           created_at?: string
           encrypted_access_token_id?: string | null
           encrypted_refresh_token_id?: string | null
@@ -95,7 +104,10 @@ export type Database = {
           is_active?: boolean | null
           last_sync?: string | null
           provider?: string
+          refresh_token_enc?: string | null
+          token_enc_v?: number | null
           token_expires_at?: string | null
+          token_iv?: string | null
           updated_at?: string
           user_id?: string
         }

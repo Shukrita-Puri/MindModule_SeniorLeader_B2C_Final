@@ -7,6 +7,52 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ========== AES-256-GCM Encryption Helpers ==========
+function b64ToBytes(b64: string): Uint8Array {
+  const binaryString = atob(b64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytesToB64(bytes: Uint8Array): string {
+  let binaryString = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binaryString += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binaryString);
+}
+
+async function encryptJson(payload: unknown, keyB64: string): Promise<{ ivB64: string; ctB64: string }> {
+  const keyBytes = b64ToBytes(keyB64);
+  if (keyBytes.length !== 32) {
+    throw new Error("TOKEN_ENC_KEY_B64 must be 32 bytes (base64-encoded).");
+  }
+
+  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV for GCM
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["encrypt"]);
+
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext)
+  );
+
+  return { ivB64: bytesToB64(iv), ctB64: bytesToB64(ciphertext) };
+}
+
+async function decryptJson(ctB64: string, ivB64: string, keyB64: string): Promise<unknown> {
+  const keyBytes = b64ToBytes(keyB64);
+  const iv = b64ToBytes(ivB64);
+  const ct = b64ToBytes(ctB64);
+
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["decrypt"]);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv.buffer as ArrayBuffer }, key, ct.buffer as ArrayBuffer);
+
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(plaintext)));
+}
+
 // Verify Auth0 token using the userinfo endpoint (works with both JWT and opaque tokens)
 async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -89,7 +135,7 @@ serve(async (req) => {
     // Get calendar connection
     const { data: connection, error: connectionError } = await serviceClient
       .from('calendar_connections')
-      .select('*')
+      .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, token_enc_v')
       .eq('user_id', userId)
       .eq('provider', provider)
       .eq('is_active', true)
@@ -105,25 +151,37 @@ serve(async (req) => {
 
     console.log('[sync-calendar] Found connection:', connection.id, 'last_sync:', connection.last_sync);
 
-    // Retrieve decrypted access token from vault
+    // Get encryption key
+    const encKeyB64 = Deno.env.get('TOKEN_ENC_KEY_B64');
+    if (!encKeyB64) {
+      console.error('[sync-calendar] TOKEN_ENC_KEY_B64 not configured');
+      return new Response(
+        JSON.stringify({ error: 'Encryption configuration error. Please contact support.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Decrypt access token
     let accessToken: string | null = null;
     
-    if (connection.encrypted_access_token_id) {
-      const { data: vaultToken, error: vaultError } = await serviceClient
-        .from('vault.decrypted_secrets')
-        .select('decrypted_secret')
-        .eq('id', connection.encrypted_access_token_id)
-        .single();
-      
-      if (!vaultError && vaultToken) {
-        accessToken = vaultToken.decrypted_secret;
+    if (connection.access_token_enc && connection.token_iv) {
+      try {
+        const decrypted = await decryptJson(connection.access_token_enc, connection.token_iv, encKeyB64) as { token: string };
+        accessToken = decrypted.token;
+        console.log('[sync-calendar] Successfully decrypted access token');
+      } catch (decryptError) {
+        console.error('[sync-calendar] Failed to decrypt access token:', decryptError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to decrypt calendar token. Please reconnect your calendar.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
     if (!accessToken) {
-      console.error('[sync-calendar] Failed to retrieve access token from vault');
+      console.error('[sync-calendar] No encrypted access token found');
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve calendar access token. Please reconnect your calendar.' }),
+        JSON.stringify({ error: 'Calendar access token not found. Please reconnect your calendar.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -135,23 +193,20 @@ serve(async (req) => {
     if (tokenExpiresAt && tokenExpiresAt <= now) {
       console.log('[sync-calendar] Token expired, attempting refresh...');
       
-      // Get refresh token from vault
+      // Decrypt refresh token
       let refreshToken: string | null = null;
       
-      if (connection.encrypted_refresh_token_id) {
-        const { data: vaultRefresh } = await serviceClient
-          .from('vault.decrypted_secrets')
-          .select('decrypted_secret')
-          .eq('id', connection.encrypted_refresh_token_id)
-          .single();
-        
-        if (vaultRefresh) {
-          refreshToken = vaultRefresh.decrypted_secret;
+      if (connection.refresh_token_enc && connection.token_iv) {
+        try {
+          const decrypted = await decryptJson(connection.refresh_token_enc, connection.token_iv, encKeyB64) as { token: string | null };
+          refreshToken = decrypted.token;
+        } catch (decryptError) {
+          console.error('[sync-calendar] Failed to decrypt refresh token:', decryptError);
         }
       }
 
       if (!refreshToken) {
-        console.error('[sync-calendar] No refresh token available in vault');
+        console.error('[sync-calendar] No refresh token available');
         return new Response(
           JSON.stringify({ error: 'Token expired and no refresh token available. Please reconnect your calendar.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -187,23 +242,19 @@ serve(async (req) => {
         accessToken = refreshData.access_token;
         const newExpiresAt = new Date(Date.now() + (refreshData.expires_in * 1000));
         
-        // Store refreshed token securely in vault
-        const { error: storeError } = await serviceClient.rpc('store_calendar_access_token', {
-          _connection_id: connection.id,
-          _token: accessToken
-        });
+        // Encrypt and store refreshed token
+        const { ivB64, ctB64: accessTokenEnc } = await encryptJson({ token: accessToken }, encKeyB64);
         
-        if (storeError) {
-          console.error('[sync-calendar] Failed to store refreshed token in vault:', storeError);
-        }
-        
-        // Update expiration time
         await serviceClient
           .from('calendar_connections')
-          .update({ token_expires_at: newExpiresAt.toISOString() })
+          .update({ 
+            access_token_enc: accessTokenEnc,
+            token_iv: ivB64,
+            token_expires_at: newExpiresAt.toISOString() 
+          })
           .eq('id', connection.id);
         
-        console.log('[sync-calendar] Token refreshed and stored in vault, expires:', newExpiresAt.toISOString());
+        console.log('[sync-calendar] Token refreshed and encrypted, expires:', newExpiresAt.toISOString());
       }
     }
 
