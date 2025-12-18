@@ -4,6 +4,13 @@
 export const CANONICAL_APP_URL = 'https://id-preview--5bd59ee0-ab8c-409f-bc56-72fe64069377.lovable.app';
 
 /**
+ * Detects if the device is a mobile device using userAgent
+ */
+export const isMobileDevice = (): boolean => {
+  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+/**
  * Detects if the app is running inside an iframe (e.g., Lovable editor preview)
  */
 export const isInIframe = (): boolean => {

@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
-import { isInIframe, CANONICAL_APP_URL } from "@/utils/authRedirect";
+import { isMobileDevice, CANONICAL_APP_URL } from "@/utils/authRedirect";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
-  const { loginWithRedirect, isLoading: auth0Loading } = useAuth0();
+  const { loginWithRedirect, loginWithPopup, isLoading: auth0Loading } = useAuth0();
   const location = useLocation();
   const loginTriggered = useRef(false);
 
@@ -15,23 +15,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     pathname: location.pathname,
     loading,
     isAuthenticated,
-    isInIframe: isInIframe()
+    isMobile: isMobileDevice()
   });
 
   useEffect(() => {
-    // If not authenticated and not loading, trigger login directly
+    // If not authenticated and not loading, trigger login
     if (!loading && !auth0Loading && !isAuthenticated && !loginTriggered.current) {
       loginTriggered.current = true;
       const intendedDestination = location.pathname;
 
-      if (isInIframe()) {
-        // In iframe: open Auth0 in a new tab at canonical URL
-        console.log('[ProtectedRoute] In iframe, opening Auth0 in new tab');
-        const authUrl = `${CANONICAL_APP_URL}/login?returnTo=${encodeURIComponent(intendedDestination)}`;
-        window.open(authUrl, '_blank', 'noopener,noreferrer');
-      } else {
-        // Not in iframe: trigger Auth0 redirect directly
-        console.log('[ProtectedRoute] Triggering Auth0 redirect directly');
+      if (isMobileDevice()) {
+        // Mobile: Use redirect-based auth (popups unreliable on mobile)
+        console.log('[ProtectedRoute] Mobile device, using redirect auth');
         loginWithRedirect({
           appState: { returnTo: intendedDestination },
           authorizationParams: {
@@ -39,9 +34,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             scope: 'openid profile email',
           },
         });
+      } else {
+        // Desktop: Use popup-based auth (allows staying in iframe)
+        console.log('[ProtectedRoute] Desktop, using popup auth');
+        loginWithPopup({
+          authorizationParams: {
+            redirect_uri: `${CANONICAL_APP_URL}/callback`,
+            scope: 'openid profile email',
+          },
+        }).then(() => {
+          console.log('[ProtectedRoute] Popup login successful');
+          // Auth state will update automatically via onAuthStateChange
+        }).catch((error) => {
+          console.error('[ProtectedRoute] Popup login error:', error);
+          loginTriggered.current = false; // Allow retry
+        });
       }
     }
-  }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect]);
+  }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect, loginWithPopup]);
 
   if (loading || auth0Loading) {
     return (
@@ -52,7 +62,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    // Show loading while redirect is happening
+    // Show loading while auth is happening
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
