@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
-import { shouldUseRedirect, CANONICAL_APP_URL } from "@/utils/authRedirect";
+import { isMobileDevice, isInIframe, openAuthInNewTab, CANONICAL_APP_URL } from "@/utils/authRedirect";
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
 
@@ -26,8 +26,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       sessionStorage.setItem(LOGIN_TRIGGERED_KEY, 'true');
       const intendedDestination = location.pathname;
 
-      if (shouldUseRedirect()) {
-        // Mobile or Iframe: Use redirect-based auth
+      if (isMobileDevice()) {
+        // Mobile: Use redirect-based auth
         loginWithRedirect({
           appState: { returnTo: intendedDestination },
           authorizationParams: {
@@ -35,6 +35,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             scope: 'openid profile email',
           },
         });
+      } else if (isInIframe()) {
+        // Desktop in iframe: Open auth in new tab
+        openAuthInNewTab(intendedDestination);
       } else {
         // Desktop outside iframe: Use popup-based auth
         loginWithPopup({
