@@ -5,9 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuth0 } from '@auth0/auth0-react';
+
 interface CalendarConnectionSettingsProps {
   compact?: boolean;
 }
+
 const CalendarConnectionSettings = ({
   compact = false
 }: CalendarConnectionSettingsProps) => {
@@ -15,25 +19,33 @@ const CalendarConnectionSettings = ({
   const [connected, setConnected] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  
+  const { user } = useAuth();
+  const { getAccessTokenSilently } = useAuth0();
+
   useEffect(() => {
     checkConnection();
-  }, []);
+  }, [user]);
+
   const checkConnection = async () => {
     try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const {
-        data,
-        error
-      } = await supabase.from('calendar_connections').select('*').eq('user_id', user.id).eq('is_active', true).single();
+      if (!user?.id) return;
+      
+      const { data, error } = await supabase
+        .from('calendar_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+        
       if (data && !error) {
         setConnected(true);
         setProvider(data.provider);
         setLastSync(data.last_sync);
+      } else {
+        setConnected(false);
+        setProvider(null);
+        setLastSync(null);
       }
     } catch (error) {
       console.error('Error checking calendar connection:', error);
@@ -42,16 +54,20 @@ const CalendarConnectionSettings = ({
   const handleConnect = async (selectedProvider: 'google' | 'outlook') => {
     setLoading(true);
     try {
+      // Get Auth0 token for edge function authentication
+      const token = await getAccessTokenSilently();
+      
       // Call edge function to get OAuth URL
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('calendar-auth', {
+      const { data, error } = await supabase.functions.invoke('calendar-auth', {
         body: {
           action: 'connect',
           provider: selectedProvider
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
         }
       });
+      
       if (error) throw error;
       if (data.authUrl) {
         // Redirect to OAuth URL
@@ -67,14 +83,18 @@ const CalendarConnectionSettings = ({
     if (!provider) return;
     setLoading(true);
     try {
-      const {
-        error
-      } = await supabase.functions.invoke('calendar-auth', {
+      const token = await getAccessTokenSilently();
+      
+      const { error } = await supabase.functions.invoke('calendar-auth', {
         body: {
           action: 'disconnect',
           provider
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
         }
       });
+      
       if (error) throw error;
       setConnected(false);
       setProvider(null);
@@ -91,13 +111,17 @@ const CalendarConnectionSettings = ({
     if (!provider) return;
     setLoading(true);
     try {
-      const {
-        error
-      } = await supabase.functions.invoke('sync-calendar', {
+      const token = await getAccessTokenSilently();
+      
+      const { error } = await supabase.functions.invoke('sync-calendar', {
         body: {
           provider
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
         }
       });
+      
       if (error) throw error;
       toast.success('Calendar synced successfully');
       await checkConnection();

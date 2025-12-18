@@ -35,6 +35,8 @@ const PERSONA_ID_MAP: Record<string, string> = {
   'Club President / Student Leader': 'peer-student',
   'parent': 'head-teacher',
   'Parent / Guardian': 'head-teacher',
+  'apprenticeship-assessor': 'oxbridge_tutor',
+  'employer': 'oxbridge_tutor',
 };
 
 // Map scenario titles to database scenario IDs (supports both Title Case and kebab-case)
@@ -97,7 +99,7 @@ const PracticeSimulation = () => {
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   // Map the config page values to database IDs
   const scenarioId = SCENARIO_ID_MAP[specificScenario] || 'oxbridge_interview';
-  const personaId = PERSONA_ID_MAP[personaType] || 'oxbridge-interviewer';
+  const personaId = PERSONA_ID_MAP[personaType] || 'oxbridge_tutor';
 
   // Map personality style to LLM format (handles both full and abbreviated formats)
   const mappedPersonalityStyle = (() => {
@@ -141,6 +143,8 @@ const PracticeSimulation = () => {
       'coach': 'Coach',
       'counselor': 'School Counselor',
       'alumni': 'Alumni',
+      'apprenticeship-assessor': 'Apprenticeship Assessor',
+      'employer': 'Employer',
       // Fallback display labels
       'university-admissions': 'Admissions Officer',
       'University Admissions Officer': 'Admissions Officer',
