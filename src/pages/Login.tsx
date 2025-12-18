@@ -2,69 +2,73 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { isInIframe, CANONICAL_APP_URL } from '@/utils/authRedirect';
+import { isMobileDevice, CANONICAL_APP_URL } from '@/utils/authRedirect';
 
 const Login = () => {
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectInitiated = useRef(false);
 
-  // Get intended destination from ProtectedRoute's state
+  // Get intended destination from state or URL param
   const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnToParam = urlParams.get('returnTo');
+  const finalDestination = returnToParam || intendedDestination;
 
   useEffect(() => {
     console.log('[Login] Component mounted:', { 
       isLoading, 
       isAuthenticated,
-      pathname: window.location.pathname,
-      redirectInitiated: redirectInitiated.current,
-      isInIframe: isInIframe(),
-      intendedDestination
+      isMobile: isMobileDevice(),
+      finalDestination
     });
 
     if (isLoading) return;
 
     if (isAuthenticated) {
-      console.log('[Login] Already authenticated, redirecting to:', intendedDestination);
-      navigate(intendedDestination);
+      console.log('[Login] Already authenticated, navigating to:', finalDestination);
+      navigate(finalDestination);
       return;
     }
 
     // Prevent multiple redirect attempts
     if (redirectInitiated.current) {
-      console.log('[Login] Redirect already initiated, skipping');
+      console.log('[Login] Login already initiated, skipping');
       return;
     }
 
     redirectInitiated.current = true;
 
-    // If in iframe, open Auth0 in a new tab at the canonical URL
-    if (isInIframe()) {
-      console.log('[Login] Running in iframe, opening Auth0 in new tab');
-      // Open the canonical app URL which will trigger Auth0 login
-      const authUrl = `${CANONICAL_APP_URL}/login?returnTo=${encodeURIComponent(intendedDestination)}`;
-      window.open(authUrl, '_blank', 'noopener,noreferrer');
-      return;
+    if (isMobileDevice()) {
+      // Mobile: Use redirect-based auth (popups unreliable on mobile)
+      console.log('[Login] Mobile device, using redirect auth');
+      loginWithRedirect({
+        appState: { returnTo: finalDestination },
+        authorizationParams: {
+          redirect_uri: `${CANONICAL_APP_URL}/callback`,
+          scope: 'openid profile email',
+        },
+      });
+    } else {
+      // Desktop: Use popup-based auth (allows staying in iframe)
+      console.log('[Login] Desktop, using popup auth');
+      loginWithPopup({
+        authorizationParams: {
+          redirect_uri: `${CANONICAL_APP_URL}/callback`,
+          scope: 'openid profile email',
+        },
+      }).then(() => {
+        console.log('[Login] Popup login successful, navigating to:', finalDestination);
+        navigate(finalDestination);
+      }).catch((error) => {
+        console.error('[Login] Popup login error:', error);
+        redirectInitiated.current = false; // Allow retry
+      });
     }
+  }, [isLoading, isAuthenticated, navigate, loginWithRedirect, loginWithPopup, finalDestination]);
 
-    // Check if returnTo was passed via URL param (from iframe redirect)
-    const urlParams = new URLSearchParams(window.location.search);
-    const returnToParam = urlParams.get('returnTo');
-    const finalDestination = returnToParam || intendedDestination;
-
-    console.log('[Login] Initiating Auth0 redirect flow, returnTo:', finalDestination);
-    
-    loginWithRedirect({
-      appState: { returnTo: finalDestination },
-      authorizationParams: {
-        redirect_uri: `${CANONICAL_APP_URL}/callback`,
-        scope: 'openid profile email',
-      },
-    });
-  }, [isLoading, isAuthenticated, navigate, loginWithRedirect, intendedDestination]);
-
-  // Show only a brief loading spinner - no intermediate messages
+  // Show loading spinner while auth is in progress
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
