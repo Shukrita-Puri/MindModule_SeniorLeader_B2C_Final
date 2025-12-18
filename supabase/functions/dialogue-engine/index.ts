@@ -199,7 +199,14 @@ const DialogueEngineInputSchema = z.object({
       name: z.string().max(200),
       type: z.string().max(100),
       content: z.string().max(50000).optional()
-    })).max(10).optional()
+    })).max(10).optional(),
+    // Conversation dynamics from scenario
+    conversationDynamics: z.object({
+      initiative: z.enum(['persona_primary', 'user_primary', 'user_initiates', 'mutual']).optional(),
+      style: z.enum(['evaluative', 'conversational', 'collaborative', 'challenging', 'advisory', 'presentation', 'presentation_then_qa', 'balanced']).optional(),
+      user_can_question: z.boolean().optional(),
+      intensity: z.enum(['low', 'moderate', 'high', 'very_high']).optional()
+    }).optional()
   }).optional()
 });
 
@@ -272,6 +279,12 @@ interface ScenarioConfig {
   title: string;
   context: Record<string, any>;
   target_meta_skills: string[];
+  conversationDynamics?: {
+    initiative: 'persona_primary' | 'user_primary' | 'user_initiates' | 'mutual';
+    style: 'evaluative' | 'conversational' | 'collaborative' | 'challenging' | 'advisory' | 'presentation' | 'presentation_then_qa' | 'balanced';
+    user_can_question: boolean;
+    intensity: 'low' | 'moderate' | 'high' | 'very_high';
+  };
 }
 
 interface SessionContext {
@@ -297,6 +310,12 @@ interface SessionContext {
   attachments: Array<{ name: string; type: string; content?: string }>;
   personalityStyle: string;
   practiceDuration: number;
+  conversationDynamics?: {
+    initiative: string;
+    style: string;
+    user_can_question: boolean;
+    intensity: string;
+  };
 }
 
 interface SafetyCheck {
@@ -588,26 +607,83 @@ ${getVoiceStyleGuidance(personaConfig.voice_style)}
 **Practice Duration: ${sessionContext.practiceDuration} minutes**
 Pace the conversation appropriately. For shorter sessions (15-20min), get to core quickly. For longer sessions (25-30min), allow more depth.
 
-### PERSONA CONVERSATION FLOW (Context-Aware)
+### PERSONA CONVERSATION DYNAMICS (CRITICAL - Read this carefully)
 
-**Conversation flow varies by scenario type:**
-- **Interview scenarios** (${scenarioConfig.name.includes('interview') || scenarioConfig.title.toLowerCase().includes('interview') ? '✓ THIS SCENARIO' : ''}): Persona leads with questions, evaluates responses
-- **Networking/informational scenarios** (${scenarioConfig.name.includes('networking') || scenarioConfig.name.includes('alumni') ? '✓ THIS SCENARIO' : ''}): User should initiate; persona responds and shares experiences
-- **Advisory/mentoring scenarios** (${scenarioConfig.name.includes('mentor') || scenarioConfig.name.includes('advisory') ? '✓ THIS SCENARIO' : ''}): Balanced exchange of questions and insights
-- **Tough conversation scenarios** (${scenarioConfig.name.includes('conflict') || scenarioConfig.name.includes('difficult') || scenarioConfig.title.toLowerCase().includes('tough') ? '✓ THIS SCENARIO' : ''}): Both navigate; tension and stakes drive direction
+${(() => {
+  const dynamics = scenarioConfig.conversationDynamics || sessionContext.conversationDynamics || {
+    initiative: 'mutual',
+    style: 'balanced',
+    user_can_question: true,
+    intensity: 'moderate'
+  };
+  
+  let guidance = `**Current Dynamics for "${scenarioConfig.title}":**\n`;
+  guidance += `- Initiative: ${dynamics.initiative}\n`;
+  guidance += `- Style: ${dynamics.style}\n`;
+  guidance += `- User Can Question: ${dynamics.user_can_question}\n`;
+  guidance += `- Intensity: ${dynamics.intensity}\n\n`;
+  
+  // Initiative guidance
+  if (dynamics.initiative === 'persona_primary') {
+    guidance += `**PERSONA DRIVES (but user CAN take initiative):**\n`;
+    guidance += `- You typically lead with questions, challenges, or direction\n`;
+    guidance += `- This does NOT mean only asking interview questions - you might challenge, pressure, provoke depending on your role\n`;
+    guidance += `- If user asks questions, answer them substantively - don't always deflect back\n`;
+    guidance += `- User CAN take initiative when contextually appropriate\n\n`;
+  } else if (dynamics.initiative === 'user_primary' || dynamics.initiative === 'user_initiates') {
+    guidance += `**USER DRIVES (you respond and support):**\n`;
+    guidance += `- User should be asking questions and leading the conversation\n`;
+    guidance += `- Respond substantively to their questions - share your experience\n`;
+    guidance += `- Create space for them to lead - don't dominate with questions\n`;
+    guidance += `- You CAN ask clarifying questions, but keep them brief\n\n`;
+  } else {
+    guidance += `**MUTUAL EXCHANGE (natural back-and-forth):**\n`;
+    guidance += `- Both parties can initiate and respond naturally\n`;
+    guidance += `- Neither should dominate - it's a discussion\n`;
+    guidance += `- Build on each other's points\n\n`;
+  }
+  
+  // Style guidance
+  if (dynamics.style === 'evaluative') {
+    guidance += `**EVALUATIVE STYLE:** You are assessing/evaluating user's responses. Questions have stakes.\n`;
+  } else if (dynamics.style === 'conversational') {
+    guidance += `**CONVERSATIONAL STYLE:** Build rapport, share experiences, natural exchange. Not an interrogation.\n`;
+  } else if (dynamics.style === 'collaborative') {
+    guidance += `**COLLABORATIVE STYLE:** You're exploring together, discussing ideas, building on each other's points.\n`;
+  } else if (dynamics.style === 'challenging') {
+    guidance += `**CHALLENGING STYLE:** Be intellectually rigorous, play devil's advocate, test their thinking (NOT rude).\n`;
+  } else if (dynamics.style === 'presentation' || dynamics.style === 'presentation_then_qa') {
+    guidance += `**PRESENTATION STYLE:** User presents first, you listen then ask follow-up questions.\n`;
+  } else if (dynamics.style === 'advisory') {
+    guidance += `**ADVISORY STYLE:** Provide guidance, be supportive, help them think through their situation.\n`;
+  }
+  
+  // Intensity guidance
+  if (dynamics.intensity === 'very_high') {
+    guidance += `\n**INTENSITY: VERY HIGH** - Ask 2-3 probing questions per exchange. Push hard. Challenge assumptions.\n`;
+  } else if (dynamics.intensity === 'high') {
+    guidance += `\n**INTENSITY: HIGH** - Be thorough in your questioning. Don't let vague answers slide.\n`;
+  } else if (dynamics.intensity === 'moderate') {
+    guidance += `\n**INTENSITY: MODERATE** - Balanced questioning. Probe when warranted, but don't overwhelm.\n`;
+  } else {
+    guidance += `\n**INTENSITY: LOW** - Light touch. More supportive than challenging.\n`;
+  }
+  
+  return guidance;
+})()}
 
-**In ALL scenarios, the persona MUST:**
-1. **Respond substantively when user asks** - Don't deflect back immediately with another question
-2. **Create space for user to lead** - Occasionally pause to let user initiate or follow up
-3. **Answer fully before asking back** - When user asks a good question, give a complete answer
-4. **Adapt to user's conversational style** - If user is asking questions, switch to responding mode
+**CRITICAL: These dynamics are TENDENCIES, not rigid rules. Read the actual conversation and adapt.**
+- If user starts leading in a persona_primary scenario, adapt - respond substantively
+- If user asks good questions, answer them fully before asking back
+- The goal is a NATURAL conversation that matches the scenario type
 
 ### PERSONA QUESTION REQUIREMENTS (When Asking Questions)
 
 **NEVER ask generic prompts repeatedly:**
-- ❌ "Please continue" (use ONCE maximum per conversation)
-- ❌ "Can you elaborate?" or "Tell me more" (too generic)
+- ❌ "Please continue" (use ONCE maximum per entire conversation)
+- ❌ "Can you elaborate?" or "Tell me more" (too generic - use maximum ONCE)
 - ❌ Same question twice in a row
+- ❌ Rapid-fire clarifying questions that don't move conversation forward
 
 **ALWAYS ask substantive follow-up questions that are:**
 1. **Scenario-specific**: Reference the actual scenario (${scenarioConfig.title})
@@ -1316,6 +1392,15 @@ function transformContext(legacyContext: any): {
   scenarioConfig: ScenarioConfig;
   sessionContext: SessionContext;
 } {
+  // Extract conversation dynamics from context (if passed from useDialogueSession)
+  const conversationDynamics = legacyContext.conversationDynamics || 
+    legacyContext.scenarioContext?.conversationDynamics || {
+      initiative: 'mutual',
+      style: 'balanced',
+      user_can_question: true,
+      intensity: 'moderate'
+    };
+
   return {
     personaConfig: {
       name: legacyContext.personaName || 'Interviewer',
@@ -1333,7 +1418,8 @@ function transformContext(legacyContext: any): {
       name: legacyContext.scenarioId || '',
       title: legacyContext.scenarioTitle || 'Practice Session',
       context: legacyContext.scenarioContext || {},
-      target_meta_skills: ['emotional_intelligence', 'self_regulation']
+      target_meta_skills: ['emotional_intelligence', 'self_regulation'],
+      conversationDynamics
     },
     sessionContext: {
       userArchetype: null,
@@ -1349,7 +1435,8 @@ function transformContext(legacyContext: any): {
       additionalContext: legacyContext.additionalContext || null,
       attachments: legacyContext.attachments || [],
       personalityStyle: legacyContext.personalityStyle || 'neutral-professional',
-      practiceDuration: legacyContext.practiceDuration || 20
+      practiceDuration: legacyContext.practiceDuration || 20,
+      conversationDynamics
     }
   };
 }
@@ -1392,6 +1479,58 @@ function buildOpeningMessagePrompt(config: any, context: any): string {
   const customPersonalityText = config?.customPersonalityText || '';
   const personaName = context?.persona?.name || context?.personaName || 'Interviewer';
   const personaRole = context?.persona?.role || context?.personaRole || 'Professional';
+  
+  // Extract conversation dynamics
+  const dynamics = config?.conversationDynamics || context?.conversationDynamics || {
+    initiative: 'mutual',
+    style: 'balanced',
+    user_can_question: true,
+    intensity: 'moderate'
+  };
+
+  // Build dynamics guidance for opening
+  const getDynamicsGuidance = () => {
+    const initiative = dynamics.initiative || 'mutual';
+    const style = dynamics.style || 'balanced';
+    
+    let guidance = `\n## CONVERSATION DYNAMICS (Read carefully - this determines WHO speaks first and HOW)\n\n`;
+    guidance += `**Initiative**: ${initiative}\n`;
+    guidance += `**Style**: ${style}\n\n`;
+    
+    // Initiative guidance
+    if (initiative === 'persona_primary') {
+      guidance += `**PERSONA LEADS**: You drive the conversation. Open with a question or challenge that sets the evaluative tone.\n`;
+      guidance += `- This is NOT always an interview - you might be a bully pressuring, a critic challenging, etc.\n`;
+      guidance += `- Lead with whatever is appropriate for your role: a question, a statement, a challenge, or even provocation.\n`;
+    } else if (initiative === 'user_primary' || initiative === 'user_initiates') {
+      guidance += `**USER LEADS**: The user should initiate. Open with a greeting that creates space for them to begin.\n`;
+      guidance += `- For networking: "Thanks for connecting with me. What would you like to know about my experience?"\n`;
+      guidance += `- For presentations: "The floor is yours. Whenever you're ready."\n`;
+      guidance += `- Keep your opening brief - invite them to lead.\n`;
+    } else {
+      guidance += `**MUTUAL EXCHANGE**: Both parties can initiate. Open naturally based on the context.\n`;
+      guidance += `- For collaborative discussions: "I've been thinking about this too. What's your perspective?"\n`;
+      guidance += `- For advisory: "Thanks for meeting. What's on your mind?"\n`;
+    }
+    
+    // Style guidance
+    guidance += `\n**Style Guidance:**\n`;
+    if (style === 'evaluative') {
+      guidance += `- This is an assessment context. Your opening should signal you will be evaluating their responses.\n`;
+    } else if (style === 'conversational') {
+      guidance += `- This is a rapport-building context. Be warm, show genuine interest, create space for sharing.\n`;
+    } else if (style === 'collaborative') {
+      guidance += `- This is a discussion context. You're exploring together, not interrogating.\n`;
+    } else if (style === 'challenging') {
+      guidance += `- This is a debate/challenge context. Be intellectually rigorous from the start (NOT rude).\n`;
+    } else if (style === 'presentation' || style === 'presentation_then_qa') {
+      guidance += `- User will present first. Your opening should invite them to begin their presentation.\n`;
+    } else if (style === 'advisory') {
+      guidance += `- This is guidance context. Be supportive and invite them to share their situation.\n`;
+    }
+    
+    return guidance;
+  };
 
   return `
 # OPENING MESSAGE GENERATION
@@ -1413,12 +1552,12 @@ The user selected from predefined options. Your opening message MUST align with 
 - **Persona Name**: ${personaName}
 - **Persona Role**: ${personaRole}
 
+${getDynamicsGuidance()}
+
 ### VALID SCENARIO CATEGORIES (for reference)
-- "leadership" → Leadership Moments: inspire, align, elevate others
-- "difficult" → Difficult Conversations: navigate tension with composure
-- "pressure" → High-Pressure Situations: perform with precision under stress
-- "change" → Moments of Change: guide transitions with confidence
-- "recovery" → Recovery & Resilience: restore calm after disruption
+- "academic_confidence" → Academic contexts: interviews, presentations, debates
+- "social_navigation" → Social contexts: peer dynamics, difficult conversations
+- "growth_opportunity" → Growth contexts: leadership, planning, responsibility
 
 ### VALID PERSONA TYPES (for reference)
 - "classmate" → Peer, same-age student (casual, age-appropriate)
