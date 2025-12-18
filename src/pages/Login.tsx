@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { isMobileDevice, CANONICAL_APP_URL } from '@/utils/authRedirect';
+import { shouldUseRedirect, CANONICAL_APP_URL } from '@/utils/authRedirect';
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
 
@@ -37,8 +37,8 @@ const Login = () => {
 
     sessionStorage.setItem(LOGIN_TRIGGERED_KEY, 'true');
 
-    if (isMobileDevice()) {
-      // Mobile: Use redirect-based auth
+    if (shouldUseRedirect()) {
+      // Mobile or Iframe: Use redirect-based auth
       loginWithRedirect({
         appState: { returnTo: finalDestination },
         authorizationParams: {
@@ -47,7 +47,7 @@ const Login = () => {
         },
       });
     } else {
-      // Desktop: Use popup-based auth
+      // Desktop outside iframe: Use popup-based auth
       loginWithPopup({
         authorizationParams: {
           redirect_uri: `${CANONICAL_APP_URL}/callback`,
