@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Loader2, ExternalLink } from "lucide-react";
-import { isMobileDevice, isInIframe, CANONICAL_APP_URL } from "@/utils/authRedirect";
+import { Loader2, LogIn } from "lucide-react";
+import { isMobileDevice, isInIframe } from "@/utils/authRedirect";
 import { Button } from "@/components/ui/button";
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
@@ -12,19 +12,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const { loginWithRedirect, loginWithPopup, isLoading: auth0Loading } = useAuth0();
   const location = useLocation();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Clear login flag when successfully authenticated
   useEffect(() => {
     if (isAuthenticated) {
       sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
+      setIsLoggingIn(false);
     }
   }, [isAuthenticated]);
 
+  // Auto-trigger login for top-level (non-iframe) contexts
   useEffect(() => {
-    const loginInProgress = sessionStorage.getItem(LOGIN_TRIGGERED_KEY);
-    
-    // Don't auto-trigger login if in iframe - we'll show a prompt instead
+    // Only auto-trigger if NOT in iframe
     if (isInIframe()) return;
+    
+    const loginInProgress = sessionStorage.getItem(LOGIN_TRIGGERED_KEY);
     
     if (!loading && !auth0Loading && !isAuthenticated && loginInProgress !== 'true') {
       sessionStorage.setItem(LOGIN_TRIGGERED_KEY, 'true');
@@ -35,15 +38,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         loginWithRedirect({
           appState: { returnTo: intendedDestination },
           authorizationParams: {
-            redirect_uri: `${CANONICAL_APP_URL}/callback`,
+            redirect_uri: `${window.location.origin}/callback`,
             scope: 'openid profile email',
           },
         });
       } else {
-        // Desktop: Use popup-based auth
+        // Desktop top-level: Use popup-based auth
         loginWithPopup({
           authorizationParams: {
-            redirect_uri: `${CANONICAL_APP_URL}/callback`,
+            redirect_uri: `${window.location.origin}/callback`,
             scope: 'openid profile email',
           },
         }).then(() => {
@@ -55,23 +58,42 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
   }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect, loginWithPopup]);
 
-  // When in iframe and not authenticated, show a prompt to open in new tab
+  // Handle login button click in iframe
+  const handleIframeLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      await loginWithPopup({
+        authorizationParams: {
+          redirect_uri: `${window.location.origin}/callback`,
+          scope: 'openid profile email',
+        },
+      });
+    } catch (error) {
+      console.error('Login failed:', error);
+      setIsLoggingIn(false);
+    }
+  };
+
+  // When in iframe and not authenticated, show a login button (popup from inside iframe)
   if (isInIframe() && !isAuthenticated && !loading && !auth0Loading) {
-    const targetUrl = `${CANONICAL_APP_URL}${location.pathname}`;
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center max-w-md space-y-4">
-          <h2 className="text-xl font-heading font-semibold text-foreground">Open in New Tab</h2>
+          <h2 className="text-xl font-heading font-semibold text-foreground">Login Required</h2>
           <p className="text-muted-foreground text-sm">
-            Authentication doesn't work in the editor preview due to browser security. 
-            Please open the app in a new tab to log in.
+            Click below to log in via popup. You'll return here once authenticated.
           </p>
           <Button 
-            onClick={() => window.open(targetUrl, '_blank', 'noopener,noreferrer')}
+            onClick={handleIframeLogin}
+            disabled={isLoggingIn}
             className="gap-2"
           >
-            <ExternalLink size={16} />
-            Open App in New Tab
+            {isLoggingIn ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LogIn size={16} />
+            )}
+            {isLoggingIn ? 'Logging in...' : 'Log in'}
           </Button>
         </div>
       </div>

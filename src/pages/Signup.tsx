@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isInIframe, openAuthInNewTab, CANONICAL_APP_URL } from '@/utils/authRedirect';
+import { isInIframe } from '@/utils/authRedirect';
 
 const Signup = () => {
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectInitiated = useRef(false);
-  const [showIframeMessage, setShowIframeMessage] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const isOnboardingFlow = location.pathname.includes('/onboarding') || 
                            location.search.includes('from=onboarding');
@@ -25,6 +25,9 @@ const Signup = () => {
       redirectInitiated: redirectInitiated.current,
       isInIframe: isInIframe()
     });
+
+    // Don't auto-trigger in iframe - show button instead
+    if (isInIframe()) return;
 
     if (isLoading) return;
 
@@ -45,23 +48,13 @@ const Signup = () => {
       return;
     }
 
-    // If in iframe, open signup in new tab instead
-    if (isInIframe()) {
-      console.log('[Signup] Running in iframe, opening signup in new tab');
-      redirectInitiated.current = true;
-      setShowIframeMessage(true);
-      const signupPath = isOnboardingFlow ? '/onboarding/signup?from=onboarding' : '/signup';
-      openAuthInNewTab(signupPath);
-      return;
-    }
-
-    // Use redirect instead of popup - works reliably on all devices including mobile
+    // Use redirect for signup
     console.log('[Signup] Initiating Auth0 redirect flow', { isOnboardingFlow });
     redirectInitiated.current = true;
     
     const redirectUri = isOnboardingFlow 
-      ? `${CANONICAL_APP_URL}/callback?from=onboarding`
-      : `${CANONICAL_APP_URL}/callback`;
+      ? `${window.location.origin}/callback?from=onboarding`
+      : `${window.location.origin}/callback`;
 
     loginWithRedirect({
       authorizationParams: {
@@ -72,28 +65,49 @@ const Signup = () => {
     });
   }, [isLoading, isAuthenticated, navigate, location, loginWithRedirect, isOnboardingFlow]);
 
-  // Show message when in iframe
-  if (showIframeMessage) {
-    const signupPath = isOnboardingFlow ? '/onboarding/signup?from=onboarding' : '/signup';
+  // Handle signup button click in iframe
+  const handleIframeSignup = async () => {
+    setIsSigningUp(true);
+    try {
+      await loginWithPopup({
+        authorizationParams: {
+          redirect_uri: `${window.location.origin}/callback`,
+          screen_hint: 'signup',
+          scope: 'openid profile email',
+        },
+      });
+      if (isOnboardingFlow) {
+        navigate('/onboarding/results');
+      } else {
+        navigate('/executive-home');
+      }
+    } catch (error) {
+      console.error('Signup failed:', error);
+      setIsSigningUp(false);
+    }
+  };
+
+  // In iframe: show signup button (popup from inside iframe)
+  if (isInIframe() && !isAuthenticated && !isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md px-6">
-          <ExternalLink className="w-12 h-12 mx-auto mb-4 text-primary" />
-          <h2 className="text-xl font-semibold mb-2 text-foreground">Signup opened in new tab</h2>
-          <p className="text-muted-foreground mb-6">
-            Please complete your signup in the new tab that just opened.
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center max-w-md space-y-4">
+          <h2 className="text-xl font-heading font-semibold text-foreground">Create Account</h2>
+          <p className="text-muted-foreground text-sm">
+            Click below to sign up via popup. You'll return here once registered.
           </p>
           <Button 
-            onClick={() => openAuthInNewTab(signupPath)}
-            variant="outline"
+            onClick={handleIframeSignup}
+            disabled={isSigningUp}
             className="gap-2"
           >
-            <ExternalLink className="w-4 h-4" />
-            Open Signup Again
+            {isSigningUp ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LogIn size={16} />
+            )}
+            {isSigningUp ? 'Creating account...' : 'Sign up'}
           </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Or visit: <a href={CANONICAL_APP_URL} target="_blank" rel="noopener noreferrer" className="underline">{CANONICAL_APP_URL}</a>
-          </p>
         </div>
       </div>
     );

@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth0, User as Auth0User } from '@auth0/auth0-react';
-import { CANONICAL_APP_URL } from '@/utils/authRedirect';
 
 // Custom user type that includes subscription metadata
 interface AppUser {
@@ -57,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     await logout({ 
       logoutParams: { 
-        returnTo: CANONICAL_APP_URL 
+        returnTo: window.location.origin 
       } 
     });
     setAppUser(null);
