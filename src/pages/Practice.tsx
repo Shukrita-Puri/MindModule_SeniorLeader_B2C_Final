@@ -35,6 +35,7 @@ const Practice = () => {
         { id: "model-un-speech", label: "Model UN Speech", category: "academic" },
         { id: "debate-tournament", label: "Debate Tournament", category: "academic" },
         { id: "scholarship-interview", label: "Scholarship Interview", category: "academic" },
+        { id: "apprenticeship-interview", label: "Apprenticeship Interview", category: "academic" },
       ]
     },
     {
