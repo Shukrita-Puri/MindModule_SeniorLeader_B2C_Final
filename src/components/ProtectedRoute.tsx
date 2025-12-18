@@ -12,6 +12,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const { loginWithRedirect, loginWithPopup, isLoading: auth0Loading } = useAuth0();
   const location = useLocation();
+  const [popupBlocked, setPopupBlocked] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Clear login flag when successfully authenticated
@@ -19,14 +20,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (isAuthenticated) {
       sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
       setIsLoggingIn(false);
+      setPopupBlocked(false);
     }
   }, [isAuthenticated]);
 
-  // Auto-trigger login for top-level (non-iframe) contexts
+  // Auto-trigger login
   useEffect(() => {
-    // Only auto-trigger if NOT in iframe
-    if (isInIframe()) return;
-    
     const loginInProgress = sessionStorage.getItem(LOGIN_TRIGGERED_KEY);
     
     if (!loading && !auth0Loading && !isAuthenticated && loginInProgress !== 'true') {
@@ -43,7 +42,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           },
         });
       } else {
-        // Desktop top-level: Use popup-based auth
+        // Desktop (including iframe): Try popup-based auth
         loginWithPopup({
           authorizationParams: {
             redirect_uri: `${window.location.origin}/callback`,
@@ -51,15 +50,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           },
         }).then(() => {
           sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
-        }).catch(() => {
+        }).catch((error) => {
+          console.error('Popup login failed:', error);
           sessionStorage.removeItem(LOGIN_TRIGGERED_KEY);
+          // If popup was blocked, show fallback button
+          if (error?.message?.includes('blocked') || error?.message?.includes('closed')) {
+            setPopupBlocked(true);
+          }
         });
       }
     }
   }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect, loginWithPopup]);
 
-  // Handle login button click in iframe
-  const handleIframeLogin = async () => {
+  // Handle manual login button click (fallback when popup blocked)
+  const handleManualLogin = async () => {
     setIsLoggingIn(true);
     try {
       await loginWithPopup({
@@ -74,17 +78,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // When in iframe and not authenticated, show a login button (popup from inside iframe)
-  if (isInIframe() && !isAuthenticated && !loading && !auth0Loading) {
+  // Only show button if popup was blocked
+  if (popupBlocked && !isAuthenticated && !loading && !auth0Loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center max-w-md space-y-4">
-          <h2 className="text-xl font-heading font-semibold text-foreground">Login Required</h2>
+          <h2 className="text-xl font-heading font-semibold text-foreground">Popup Blocked</h2>
           <p className="text-muted-foreground text-sm">
-            Click below to log in via popup. You'll return here once authenticated.
+            Your browser blocked the login popup. Click below to try again.
           </p>
           <Button 
-            onClick={handleIframeLogin}
+            onClick={handleManualLogin}
             disabled={isLoggingIn}
             className="gap-2"
           >
