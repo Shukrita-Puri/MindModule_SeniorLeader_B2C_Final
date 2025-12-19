@@ -56,3 +56,12 @@ verify_jwt = false
 
 [functions.user-events]
 verify_jwt = false
+
+[functions.user-favorites]
+verify_jwt = false
+
+[functions.saved-debriefs]
+verify_jwt = false
+
+[functions.user-preferences]
+verify_jwt = false

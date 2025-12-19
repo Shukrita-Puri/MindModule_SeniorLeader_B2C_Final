@@ -1,32 +1,34 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth0 } from "@auth0/auth0-react";
 import { toast } from "sonner";
 
 export const useFavorites = () => {
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchFavorites();
-  }, []);
+    if (isAuthenticated) {
+      fetchFavorites();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const fetchFavorites = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.id) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('user_favorites')
-        .select('content_id')
-        .eq('user_id', user.id);
+      const token = await getAccessTokenSilently();
+      
+      const { data, error } = await supabase.functions.invoke('user-favorites', {
+        body: { action: 'GET_FAVORITES' },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       if (error) throw error;
 
-      if (data) {
-        setFavorites(new Set(data.map(fav => fav.content_id)));
+      if (data?.data) {
+        setFavorites(new Set(data.data.map((fav: { content_id: string }) => fav.content_id)));
       }
     } catch (error) {
       console.error('Error fetching favorites:', error);
@@ -40,22 +42,20 @@ export const useFavorites = () => {
     contentType: string,
     category: string
   ) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.id) {
-        toast.error("Please sign in to save favorites");
-        return;
-      }
+    if (!isAuthenticated) {
+      toast.error("Please sign in to save favorites");
+      return;
+    }
 
+    try {
+      const token = await getAccessTokenSilently();
       const isFavorited = favorites.has(contentId);
 
       if (isFavorited) {
-        // Remove from favorites
-        const { error } = await supabase
-          .from('user_favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('content_id', contentId);
+        const { error } = await supabase.functions.invoke('user-favorites', {
+          body: { action: 'REMOVE_FAVORITE', contentId },
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
         if (error) throw error;
 
@@ -66,15 +66,10 @@ export const useFavorites = () => {
         });
         toast.success("Removed from favorites");
       } else {
-        // Add to favorites
-        const { error } = await supabase
-          .from('user_favorites')
-          .insert({
-            user_id: user.id,
-            content_id: contentId,
-            content_type: contentType,
-            category: category
-          });
+        const { error } = await supabase.functions.invoke('user-favorites', {
+          body: { action: 'ADD_FAVORITE', contentId, contentType, category },
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
         if (error) throw error;
 
