@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.content-feedback]
 verify_jwt = false
+
+[functions.daily-rituals]
+verify_jwt = false
+
+[functions.daily-checkins]
+verify_jwt = false
