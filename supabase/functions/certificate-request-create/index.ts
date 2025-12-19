@@ -176,11 +176,11 @@ Deno.serve(async (req) => {
         achievement_id: achievementId,
         full_name: fullName,
         email,
-        // Store both plaintext (for backward compatibility) and encrypted
-        mailing_address: mailingAddress,
-        city: city || null,
-        country: country || null,
-        postal_code: postalCode || null,
+      // Plaintext no longer stored - only encrypted address in address_blob_enc
+      mailing_address: null,
+      city: null,
+      country: null,
+      postal_code: null,
         // Encrypted fields
         address_blob_enc: ctB64,
         address_iv: ivB64,

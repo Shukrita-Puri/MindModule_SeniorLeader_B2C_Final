@@ -196,7 +196,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          mailing_address: string
+          mailing_address: string | null
           notes: string | null
           postal_code: string | null
           processed_at: string | null
@@ -216,7 +216,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
-          mailing_address: string
+          mailing_address?: string | null
           notes?: string | null
           postal_code?: string | null
           processed_at?: string | null
@@ -236,7 +236,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
-          mailing_address?: string
+          mailing_address?: string | null
           notes?: string | null
           postal_code?: string | null
           processed_at?: string | null
