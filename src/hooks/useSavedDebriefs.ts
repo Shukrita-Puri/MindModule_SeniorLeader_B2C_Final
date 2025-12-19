@@ -20,26 +20,27 @@ interface SavedDebrief {
 }
 
 export const useSavedDebriefs = () => {
-  const { user, isAuthenticated } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [savedDebriefs, setSavedDebriefs] = useState<SavedDebrief[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSavedDebriefs = useCallback(async () => {
-    if (!isAuthenticated || !user?.sub) return;
+    if (!isAuthenticated) return;
 
     try {
       setIsLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('saved_debriefs')
-        .select('*')
-        .eq('user_id', user.sub)
-        .order('created_at', { ascending: false });
+      const token = await getAccessTokenSilently();
+      
+      const { data, error: fetchError } = await supabase.functions.invoke('saved-debriefs', {
+        body: { action: 'GET_DEBRIEFS' },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       if (fetchError) throw fetchError;
 
-      setSavedDebriefs((data || []).map(d => ({
+      setSavedDebriefs((data?.data || []).map((d: any) => ({
         id: d.id,
         session_id: d.session_id,
         title: d.title,
@@ -60,7 +61,7 @@ export const useSavedDebriefs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   const saveDebrief = useCallback(async (params: {
     sessionId: string | null;
@@ -75,54 +76,55 @@ export const useSavedDebriefs = () => {
     transcript: TranscriptMessage[];
     personalNotes?: string;
   }) => {
-    if (!isAuthenticated || !user?.sub) {
+    if (!isAuthenticated) {
       throw new Error('Must be authenticated to save debriefs');
     }
 
     try {
       setIsSaving(true);
+      const token = await getAccessTokenSilently();
       
-      const insertData = {
-        user_id: user.sub,
-        session_id: params.sessionId,
-        title: params.title || `Dialogue Session - ${new Date().toLocaleDateString()}`,
-        scenario_domain: params.scenarioDomain,
-        scenario_context: params.scenarioContext,
-        persona_type: params.personaType,
-        duration_seconds: params.durationSeconds,
-        strengths: params.strengths as unknown as Record<string, unknown>[],
-        development_areas: params.developmentAreas as unknown as Record<string, unknown>[],
-        frameworks_used: params.frameworks as unknown as Record<string, unknown>[],
-        transcript_json: params.transcript as unknown as Record<string, unknown>[],
-        personal_notes: params.personalNotes
-      };
+      const { data, error: saveError } = await supabase.functions.invoke('saved-debriefs', {
+        body: { 
+          action: 'SAVE_DEBRIEF',
+          debrief: {
+            sessionId: params.sessionId,
+            title: params.title,
+            scenarioDomain: params.scenarioDomain,
+            scenarioContext: params.scenarioContext,
+            personaType: params.personaType,
+            durationSeconds: params.durationSeconds,
+            strengths: params.strengths,
+            developmentAreas: params.developmentAreas,
+            frameworks: params.frameworks,
+            transcript: params.transcript,
+            personalNotes: params.personalNotes
+          }
+        },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      const { data, error: insertError } = await (supabase
-        .from('saved_debriefs') as any)
-        .insert(insertData)
-        .select()
-        .single();
+      if (saveError) throw saveError;
 
-      if (insertError) throw insertError;
-
-      return data;
+      return data?.data;
     } catch (err) {
       console.error('Error saving debrief:', err);
       throw err;
     } finally {
       setIsSaving(false);
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   const deleteDebrief = useCallback(async (debriefId: string) => {
-    if (!isAuthenticated || !user?.sub) return;
+    if (!isAuthenticated) return;
 
     try {
-      const { error: deleteError } = await supabase
-        .from('saved_debriefs')
-        .delete()
-        .eq('id', debriefId)
-        .eq('user_id', user.sub);
+      const token = await getAccessTokenSilently();
+      
+      const { error: deleteError } = await supabase.functions.invoke('saved-debriefs', {
+        body: { action: 'DELETE_DEBRIEF', debriefId },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       if (deleteError) throw deleteError;
 
@@ -131,7 +133,7 @@ export const useSavedDebriefs = () => {
       console.error('Error deleting debrief:', err);
       throw err;
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   return {
     savedDebriefs,
