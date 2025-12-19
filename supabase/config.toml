@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.check-calendar-status]
 verify_jwt = false
+
+[functions.certificate-request-create]
+verify_jwt = false
+
+[functions.certificate-requests-admin-list]
+verify_jwt = false

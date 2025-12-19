@@ -62,6 +62,36 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor: string | null
+          created_at: string
+          id: number
+          metadata: Json | null
+          record_id: string | null
+          table_name: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          created_at?: string
+          id?: number
+          metadata?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          created_at?: string
+          id?: number
+          metadata?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           access_token_enc: string | null
@@ -158,6 +188,9 @@ export type Database = {
       certificate_requests: {
         Row: {
           achievement_id: string
+          address_blob_enc: string | null
+          address_enc_v: number | null
+          address_iv: string | null
           city: string | null
           country: string | null
           email: string
@@ -175,6 +208,9 @@ export type Database = {
         }
         Insert: {
           achievement_id: string
+          address_blob_enc?: string | null
+          address_enc_v?: number | null
+          address_iv?: string | null
           city?: string | null
           country?: string | null
           email: string
@@ -192,6 +228,9 @@ export type Database = {
         }
         Update: {
           achievement_id?: string
+          address_blob_enc?: string | null
+          address_enc_v?: number | null
+          address_iv?: string | null
           city?: string | null
           country?: string | null
           email?: string

@@ -42,7 +42,7 @@ interface CertificateRequest {
 }
 
 export const useAchievements = () => {
-  const { user, isAuthenticated } = useAuth0();
+  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [definitions, setDefinitions] = useState<AchievementDefinition[]>([]);
   const [earnedAchievements, setEarnedAchievements] = useState<UserAchievement[]>([]);
   const [certificateRequests, setCertificateRequests] = useState<CertificateRequest[]>([]);
@@ -188,7 +188,7 @@ export const useAchievements = () => {
     }
   }, [isAuthenticated, user?.sub]);
 
-  // Request physical certificate
+  // Request physical certificate (via secure edge function with encrypted storage)
   const requestCertificate = useCallback(async (params: {
     achievementId: string;
     fullName: string;
@@ -203,34 +203,39 @@ export const useAchievements = () => {
     }
 
     try {
-      const { data, error: insertError } = await supabase
-        .from('certificate_requests')
-        .insert({
-          user_id: user.sub,
-          achievement_id: params.achievementId,
-          full_name: params.fullName,
+      // Get Auth0 access token for edge function authentication
+      const accessToken = await getAccessTokenSilently();
+
+      // Call the secure edge function instead of direct database insert
+      const { data, error } = await supabase.functions.invoke('certificate-request-create', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: {
+          achievementId: params.achievementId,
+          fullName: params.fullName,
           email: params.email,
-          mailing_address: params.mailingAddress,
+          mailingAddress: params.mailingAddress,
           city: params.city,
           country: params.country,
-          postal_code: params.postalCode
-        })
-        .select()
-        .single();
+          postalCode: params.postalCode
+        }
+      });
 
-      if (insertError) throw insertError;
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Failed to create certificate request');
 
       toast.success('Certificate request submitted!', {
         description: 'We\'ll process your request and ship your certificate soon.'
       });
 
       await fetchAchievements();
-      return data;
+      return data.data;
     } catch (err) {
       console.error('Error requesting certificate:', err);
       throw err;
     }
-  }, [isAuthenticated, user?.sub, fetchAchievements]);
+  }, [isAuthenticated, user?.sub, getAccessTokenSilently, fetchAchievements]);
 
   // Get current archetype for a cluster
   const getCurrentArchetype = useCallback((cluster: 'self_mastery' | 'social_mastery') => {
