@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.user-progress]
 verify_jwt = false
+
+[functions.practice-data]
+verify_jwt = false
+
+[functions.user-events]
+verify_jwt = false
