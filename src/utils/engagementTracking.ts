@@ -21,16 +21,36 @@ export interface HourBucket {
   smoothed: number;
 }
 
+// Helper to get access token - imported dynamically to avoid circular deps
+async function getAccessToken(): Promise<string | null> {
+  try {
+    // Try to get from Auth0 context via window object (set by Auth0Provider)
+    const auth0Client = (window as any).__auth0Client;
+    if (auth0Client) {
+      return await auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function trackEngagement(type: Engagement['type'], timestamp?: string): Promise<void> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.warn('[engagementTracking] No access token available');
+      return;
+    }
 
-    await supabase.from('user_engagements').insert({
-      user_id: user.id,
-      event_type: type,
-      timestamp: timestamp || new Date().toISOString(),
-      metadata: {}
+    await supabase.functions.invoke('user-events', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'TRACK_ENGAGEMENT',
+        eventType: type,
+        timestamp: timestamp || new Date().toISOString(),
+        metadata: {}
+      }
     });
   } catch (error) {
     console.error('Failed to track engagement:', error);
@@ -39,8 +59,8 @@ export async function trackEngagement(type: Engagement['type'], timestamp?: stri
 
 export async function getEngagementsByHour(): Promise<HourBucket[]> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
       return Array.from({ length: 24 }, (_, hour) => ({
         hour,
         count: 0,
@@ -49,12 +69,15 @@ export async function getEngagementsByHour(): Promise<HourBucket[]> {
       }));
     }
 
-    const { data: engagements, error } = await supabase
-      .from('user_engagements')
-      .select('timestamp')
-      .eq('user_id', user.id);
+    const { data: result, error } = await supabase.functions.invoke('user-events', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'GET_ENGAGEMENTS',
+        days: 90
+      }
+    });
 
-    if (error || !engagements || engagements.length === 0) {
+    if (error || !result?.success || !result?.data || result.data.length === 0) {
       return Array.from({ length: 24 }, (_, hour) => ({
         hour,
         count: 0,
@@ -62,11 +85,13 @@ export async function getEngagementsByHour(): Promise<HourBucket[]> {
         smoothed: 0
       }));
     }
+
+    const engagements = result.data;
 
     // Step 1: Create 24-hour buckets
     const hourBuckets = Array(24).fill(0);
     
-    engagements.forEach(engagement => {
+    engagements.forEach((engagement: any) => {
       const hour = new Date(engagement.timestamp).getHours();
       hourBuckets[hour] += 1;
     });

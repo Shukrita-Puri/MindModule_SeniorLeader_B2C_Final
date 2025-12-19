@@ -10,6 +10,7 @@ import architecturalPresence from "@/assets/architectural-presence.jpg";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -43,6 +44,7 @@ interface CheckInData {
 const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { getAccessTokenSilently } = useAuth0();
   const queryClient = useQueryClient();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   
@@ -161,14 +163,22 @@ const DailyCheckIn = () => {
   };
 
   const handleSkipToHome = async () => {
-    // Track skip event for analytics
+    // Track skip event for analytics via edge function
     if (user?.id) {
-      await supabase.from('checkin_skip_events').insert({
-        user_id: user.id,
-        skip_date: new Date().toISOString().split('T')[0],
-        has_wearable: connections?.hasWearable || false,
-        has_calendar: connections?.hasCalendar || false
-      });
+      try {
+        const accessToken = await getAccessTokenSilently();
+        await supabase.functions.invoke('user-events', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'LOG_CHECKIN_SKIP',
+            skipDate: new Date().toISOString().split('T')[0],
+            hasWearable: connections?.hasWearable || false,
+            hasCalendar: connections?.hasCalendar || false
+          }
+        });
+      } catch (error) {
+        console.error('Failed to log checkin skip:', error);
+      }
     }
     
     // Mark skip in localStorage (don't create fake check-in)
