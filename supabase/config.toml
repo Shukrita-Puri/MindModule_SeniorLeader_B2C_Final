@@ -1,10 +1,10 @@
 project_id = "ibrvatszexahdqwejahc"
 
 [functions.track-sanctuary-event]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-practice-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-oura]
 verify_jwt = true
@@ -64,4 +64,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.user-preferences]
+verify_jwt = false
+
+[functions.mental-fitness-scores]
+verify_jwt = false
+
+[functions.energy-snapshots]
+verify_jwt = false
+
+[functions.content-feedback]
 verify_jwt = false
