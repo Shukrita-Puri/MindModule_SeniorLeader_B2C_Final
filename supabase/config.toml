@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.dialogue-progress-data]
 verify_jwt = false
+
+[functions.user-progress]
+verify_jwt = false

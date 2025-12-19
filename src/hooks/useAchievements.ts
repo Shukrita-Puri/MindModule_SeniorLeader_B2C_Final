@@ -53,7 +53,7 @@ export const useAchievements = () => {
     try {
       setIsLoading(true);
 
-      // Fetch definitions (public)
+      // Fetch definitions (public - no auth required)
       const { data: defs, error: defsError } = await supabase
         .from('achievement_definitions')
         .select('*')
@@ -62,31 +62,43 @@ export const useAchievements = () => {
       if (defsError) throw defsError;
       setDefinitions((defs || []) as AchievementDefinition[]);
 
-      // Fetch user's earned achievements
+      // Fetch user's earned achievements and certificate requests via edge function
       if (isAuthenticated && user?.sub) {
-        const { data: earned, error: earnedError } = await supabase
-          .from('user_achievements')
-          .select('*')
-          .eq('user_id', user.sub);
+        try {
+          const accessToken = await getAccessTokenSilently();
+          
+          // Fetch achievements via edge function
+          const { data: achievementsResult, error: achievementsError } = await supabase.functions.invoke('user-progress', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: { action: 'GET_ACHIEVEMENTS' }
+          });
 
-        if (earnedError) throw earnedError;
+          if (achievementsError) {
+            console.error('[useAchievements] Error fetching achievements:', achievementsError);
+          } else if (achievementsResult?.success) {
+            const earned = achievementsResult.data || [];
+            // Merge with definitions
+            const earnedWithDefs = earned.map((a: any) => ({
+              ...a,
+              definition: (defs || []).find(d => d.id === a.achievement_id) as AchievementDefinition
+            })) as UserAchievement[];
+            setEarnedAchievements(earnedWithDefs);
+          }
 
-        // Merge with definitions
-        const earnedWithDefs = (earned || []).map(a => ({
-          ...a,
-          definition: (defs || []).find(d => d.id === a.achievement_id) as AchievementDefinition
-        })) as UserAchievement[];
+          // Fetch certificate requests via edge function
+          const { data: certsResult, error: certsError } = await supabase.functions.invoke('user-progress', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: { action: 'GET_CERTIFICATE_REQUESTS' }
+          });
 
-        setEarnedAchievements(earnedWithDefs);
-
-        // Fetch certificate requests
-        const { data: certs, error: certsError } = await supabase
-          .from('certificate_requests')
-          .select('*')
-          .eq('user_id', user.sub);
-
-        if (certsError) throw certsError;
-        setCertificateRequests((certs || []) as CertificateRequest[]);
+          if (certsError) {
+            console.error('[useAchievements] Error fetching certificate requests:', certsError);
+          } else if (certsResult?.success) {
+            setCertificateRequests((certsResult.data || []) as CertificateRequest[]);
+          }
+        } catch (tokenError) {
+          console.error('[useAchievements] Error getting access token:', tokenError);
+        }
       }
     } catch (err) {
       console.error('Error fetching achievements:', err);
@@ -94,7 +106,7 @@ export const useAchievements = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [isAuthenticated, user?.sub, getAccessTokenSilently]);
 
   // Check and award achievements based on unified points
   const checkAndAwardAchievements = useCallback(async (
@@ -117,29 +129,38 @@ export const useAchievements = () => {
       const earnedIds = new Set(earnedAchievements.map(a => a.achievement_id));
       const newAchievements = eligibleDefs.filter(d => !earnedIds.has(d.id));
 
-      // Award new achievements
-      for (const achievement of newAchievements) {
-        const { error: insertError } = await supabase
-          .from('user_achievements')
-          .insert({
-            user_id: user.sub,
-            achievement_id: achievement.id,
-            scenarios_at_earn: null, // No longer tracking scenarios
-            skill_progress_at_earn: unifiedPoints // Store points instead
+      // Award new achievements via edge function
+      if (newAchievements.length > 0) {
+        try {
+          const accessToken = await getAccessTokenSilently();
+          const { data, error: syncError } = await supabase.functions.invoke('user-progress', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: {
+              action: 'SYNC_ACHIEVEMENTS',
+              achievementIds: newAchievements.map(a => a.id),
+              pointsAtEarn: unifiedPoints
+            }
           });
 
-        if (!insertError) {
-          // Trigger celebratory confetti with app-themed colors
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#F59E0B', '#D97706', '#9B8B7E', '#C4A86B', '#E5B84C']
-          });
-          
-          toast.success(`🏆 Achievement Unlocked: ${achievement.name}`, {
-            description: achievement.description || undefined
-          });
+          if (syncError) {
+            console.error('[useAchievements] Error syncing achievements:', syncError);
+          } else if (data?.success) {
+            // Trigger celebratory confetti for each new achievement
+            newAchievements.forEach(achievement => {
+              confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#F59E0B', '#D97706', '#9B8B7E', '#C4A86B', '#E5B84C']
+              });
+              
+              toast.success(`🏆 Achievement Unlocked: ${achievement.name}`, {
+                description: achievement.description || undefined
+              });
+            });
+          }
+        } catch (tokenError) {
+          console.error('[useAchievements] Error getting access token:', tokenError);
         }
       }
 
@@ -164,29 +185,36 @@ export const useAchievements = () => {
     return checkAndAwardAchievements(cluster, approximatePoints, skillProgress);
   }, [checkAndAwardAchievements]);
 
-  // Mark achievement as shared to LinkedIn
+  // Mark achievement as shared to LinkedIn via edge function
   const markAsShared = useCallback(async (achievementId: string) => {
     if (!isAuthenticated || !user?.sub) return;
 
     try {
-      await supabase
-        .from('user_achievements')
-        .update({
-          shared_to_linkedin: true,
-          shared_at: new Date().toISOString()
-        })
-        .eq('user_id', user.sub)
-        .eq('achievement_id', achievementId);
+      const accessToken = await getAccessTokenSilently();
+      const { data, error } = await supabase.functions.invoke('user-progress', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: {
+          action: 'MARK_SHARED',
+          achievementId
+        }
+      });
 
-      setEarnedAchievements(prev => prev.map(a => 
-        a.achievement_id === achievementId 
-          ? { ...a, shared_to_linkedin: true, shared_at: new Date().toISOString() }
-          : a
-      ));
+      if (error) {
+        console.error('[useAchievements] Error marking as shared:', error);
+        return;
+      }
+
+      if (data?.success) {
+        setEarnedAchievements(prev => prev.map(a => 
+          a.achievement_id === achievementId 
+            ? { ...a, shared_to_linkedin: true, shared_at: new Date().toISOString() }
+            : a
+        ));
+      }
     } catch (err) {
       console.error('Error marking as shared:', err);
     }
-  }, [isAuthenticated, user?.sub]);
+  }, [isAuthenticated, user?.sub, getAccessTokenSilently]);
 
   // Request physical certificate (via secure edge function with encrypted storage)
   const requestCertificate = useCallback(async (params: {
