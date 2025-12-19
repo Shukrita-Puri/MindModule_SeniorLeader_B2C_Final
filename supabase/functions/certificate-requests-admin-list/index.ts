@@ -136,10 +136,10 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch all certificate requests
+    // Fetch all certificate requests (explicit columns, no select("*"))
     const { data: requests, error: fetchError } = await supabase
       .from("certificate_requests")
-      .select("*")
+      .select("id, user_id, achievement_id, full_name, email, request_status, requested_at, processed_at, shipped_at, tracking_number, notes, address_blob_enc, address_iv, address_enc_v")
       .order("requested_at", { ascending: false });
 
     if (fetchError) {

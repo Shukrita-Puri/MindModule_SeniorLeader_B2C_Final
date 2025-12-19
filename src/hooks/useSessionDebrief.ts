@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface DialogueMessage {
   id: string;
@@ -96,6 +97,7 @@ export interface SessionDebrief {
 }
 
 export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
+  const { getAccessTokenSilently } = useAuth0();
   const [session, setSession] = useState<SessionData | null>(null);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [strengths, setStrengths] = useState<Strength[]>([]);
@@ -117,59 +119,44 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
         setError(null);
         console.log('[useSessionDebrief] Fetching data for sessionId:', sessionId);
 
-        // Fetch all data in parallel
-        const [sessionResult, messagesResult, interventionsResult, signalsResult] = await Promise.all([
-          supabase
-            .from('dialogue_sessions')
-            .select('*')
-            .eq('id', sessionId)
-            .maybeSingle(),
-          supabase
-            .from('dialogue_messages')
-            .select('*')
-            .eq('session_id', sessionId)
-            .order('message_index', { ascending: true }),
-          supabase
-            .from('dialogue_interventions')
-            .select('*')
-            .eq('session_id', sessionId)
-            .order('displayed_at', { ascending: true }),
-          supabase
-            .from('detected_signals')
-            .select('*')
-            .eq('session_id', sessionId)
-        ]);
+        // Get Auth0 access token
+        const accessToken = await getAccessTokenSilently();
 
-        console.log('[useSessionDebrief] Query results:', {
-          session: sessionResult.data,
-          messages: messagesResult.data?.length || 0,
-          interventions: interventionsResult.data?.length || 0,
-          signals: signalsResult.data?.length || 0
+        // Fetch all data via edge function
+        const { data: result, error: fnError } = await supabase.functions.invoke('dialogue-session-debrief', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { sessionId }
         });
 
-        if (sessionResult.error) throw sessionResult.error;
-        if (messagesResult.error) throw messagesResult.error;
-        if (interventionsResult.error) throw interventionsResult.error;
-        if (signalsResult.error) throw signalsResult.error;
+        if (fnError || !result?.success) {
+          throw new Error(result?.error || fnError?.message || 'Failed to fetch session data');
+        }
+
+        console.log('[useSessionDebrief] Edge function response:', {
+          session: result.session ? 'present' : 'missing',
+          messages: result.messages?.length || 0,
+          interventions: result.interventions?.length || 0,
+          signals: result.signals?.length || 0
+        });
 
         // Process session data
-        if (sessionResult.data) {
+        if (result.session) {
           setSession({
-            id: sessionResult.data.id,
-            scenario_id: sessionResult.data.scenario_id,
-            persona_id: sessionResult.data.persona_id,
-            context_type: sessionResult.data.context_type,
-            scenario_context: sessionResult.data.scenario_context as SessionData['scenario_context'],
-            duration_seconds: sessionResult.data.duration_seconds,
-            total_messages: sessionResult.data.total_messages || 0,
-            total_interventions: sessionResult.data.total_interventions || 0,
-            started_at: sessionResult.data.started_at || '',
-            ended_at: sessionResult.data.ended_at
+            id: result.session.id,
+            scenario_id: result.session.scenario_id,
+            persona_id: result.session.persona_id,
+            context_type: result.session.context_type,
+            scenario_context: result.session.scenario_context as SessionData['scenario_context'],
+            duration_seconds: result.session.duration_seconds,
+            total_messages: result.session.total_messages || 0,
+            total_interventions: result.session.total_interventions || 0,
+            started_at: result.session.started_at || '',
+            ended_at: result.session.ended_at
           });
         }
 
         // Process messages with inline interventions
-        const interventions = (interventionsResult.data || []) as DialogueIntervention[];
+        const interventions = (result.interventions || []) as DialogueIntervention[];
         const interventionsByMessageId = new Map<string, DialogueIntervention>();
         
         interventions.forEach(intervention => {
@@ -178,7 +165,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
           }
         });
 
-        const messagesWithInterventions: TranscriptMessage[] = (messagesResult.data || []).map(msg => ({
+        const messagesWithInterventions: TranscriptMessage[] = (result.messages || []).map((msg: any) => ({
           id: msg.id,
           sender_type: msg.sender_type as 'user' | 'persona',
           content: msg.content,
@@ -194,7 +181,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
         const allStrengths: Strength[] = [];
         const allGaps: DevelopmentArea[] = [];
 
-        (signalsResult.data || []).forEach(signal => {
+        (result.signals || []).forEach((signal: any) => {
           const skillStrengths = (signal.skill_strengths as DetectedSignal['skill_strengths']) || [];
           const skillGaps = (signal.skill_gaps as DetectedSignal['skill_gaps']) || [];
 
@@ -271,7 +258,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
     };
 
     fetchSessionData();
-  }, [sessionId]);
+  }, [sessionId, getAccessTokenSilently]);
 
   return {
     session,

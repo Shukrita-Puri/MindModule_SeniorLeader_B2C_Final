@@ -35,3 +35,15 @@ verify_jwt = false
 
 [functions.certificate-requests-admin-list]
 verify_jwt = false
+
+[functions.dialogue-session-manage]
+verify_jwt = false
+
+[functions.dialogue-data-persist]
+verify_jwt = false
+
+[functions.dialogue-session-debrief]
+verify_jwt = false
+
+[functions.dialogue-progress-data]
+verify_jwt = false
