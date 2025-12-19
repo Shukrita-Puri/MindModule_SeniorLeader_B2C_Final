@@ -157,7 +157,7 @@ export const useUnifiedProgress = () => {
     staleTime: 60 * 1000,
   });
 
-  // Sync earned badges to database
+  // Sync earned badges to database via edge function
   const hasSynced = useRef(false);
   
   useEffect(() => {
@@ -177,34 +177,36 @@ export const useUnifiedProgress = () => {
       
       if (allEarnedBadgeIds.length === 0) return;
       
-      // Get already recorded achievements
-      const { data: existingAchievements } = await supabase
-        .from('user_achievements')
-        .select('achievement_id')
-        .eq('user_id', user.id);
-      
-      const existingIds = new Set(existingAchievements?.map(a => a.achievement_id) || []);
-      
-      // Find badges that need to be recorded
-      const badgesToSync = allEarnedBadgeIds.filter(id => !existingIds.has(id));
-      
-      if (badgesToSync.length > 0) {
-        // Insert missing badges
-        const insertData = badgesToSync.map(achievementId => ({
-          user_id: user.id,
-          achievement_id: achievementId,
-          earned_at: new Date().toISOString(),
-        }));
+      try {
+        const accessToken = await getAccessTokenSilently();
         
-        await supabase.from('user_achievements').insert(insertData);
-        console.log('✅ Synced badges to database:', badgesToSync);
+        // Sync achievements via edge function
+        const { data, error } = await supabase.functions.invoke('user-progress', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'SYNC_ACHIEVEMENTS',
+            achievementIds: allEarnedBadgeIds,
+            pointsAtEarn: Math.max(progress.selfMasteryPoints, progress.socialMasteryPoints)
+          }
+        });
+        
+        if (error) {
+          console.error('[useUnifiedProgress] Error syncing badges:', error);
+          return;
+        }
+        
+        if (data?.success && data?.data?.synced > 0) {
+          console.log('✅ Synced badges to database:', data.data.achievementIds);
+        }
+        
+        hasSynced.current = true;
+      } catch (err) {
+        console.error('[useUnifiedProgress] Error syncing badges:', err);
       }
-      
-      hasSynced.current = true;
     };
     
     syncEarnedBadges();
-  }, [user?.id, progress]);
+  }, [user?.id, progress, getAccessTokenSilently]);
 
   return {
     progress: progress || getDefaultProgress(),
