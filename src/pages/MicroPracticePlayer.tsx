@@ -8,6 +8,7 @@ import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth0 } from "@auth0/auth0-react";
 import { toast } from "sonner";
 import useScrollToTop from "@/hooks/useScrollToTop";
 
@@ -15,6 +16,7 @@ const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { getAccessTokenSilently } = useAuth0();
   const fromRitual = location.state?.fromRitual || false;
   useScrollToTop();
   const allContent = getAllContent();
@@ -58,28 +60,27 @@ const MicroPracticePlayer = () => {
     if (!practice) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      const accessToken = await getAccessTokenSilently();
+      
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
-      // Track practice session
-      const { data, error } = await supabase.from('practice_sessions').insert({
-        user_id: user.id,
-        content_id: practice.id,
-        content_type: 'micro',
-        category: practice.category,
-        duration_seconds: practice.duration * 60,
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        completed: true,
-        part_of_ritual: isPartOfRitual,
-        metadata: { title: practice.title }
-      }).select('id').single();
+      // Track practice session via edge function
+      const { data: sessionResult, error: sessionError } = await supabase.functions.invoke('practice-data', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: {
+          action: 'LOG_SESSION',
+          contentId: practice.id,
+          contentType: 'micro',
+          category: practice.category,
+          durationSeconds: practice.duration * 60,
+          partOfRitual: isPartOfRitual,
+          metadata: { title: practice.title }
+        }
+      });
 
-      if (data) {
-        setSessionId(data.id);
+      if (sessionResult?.success && sessionResult?.data?.id) {
+        setSessionId(sessionResult.data.id);
       }
 
       // Update ritual completion if part of ritual
@@ -87,36 +88,40 @@ const MicroPracticePlayer = () => {
         const today = new Date().toISOString().split('T')[0];
         
         // First, get existing data to append to completed_practice_ids
-        const { data: existingData } = await supabase
-          .from('daily_ritual_completions')
-          .select('completed_practice_ids, recommended_practices_count')
-          .eq('user_id', user.id)
-          .eq('ritual_date', today)
-          .single();
+        const { data: existingResult } = await supabase.functions.invoke('practice-data', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'GET_RITUAL_STATUS',
+            ritualDate: today
+          }
+        });
         
+        const existingData = existingResult?.data;
         const existingIds = existingData?.completed_practice_ids || [];
         const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id || ''];
         
         // Step 1: Upsert the specific completion field with completed_practice_ids
-        await supabase
-          .from('daily_ritual_completions')
-          .upsert({
-            user_id: user.id,
-            ritual_date: today,
-            micro_exercise_completed: true,
-            micro_exercise_completed_at: new Date().toISOString(),
-            completed_practice_ids: newCompletedIds
-          }, {
-            onConflict: 'user_id,ritual_date'
-          });
+        await supabase.functions.invoke('practice-data', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'UPSERT_RITUAL',
+            ritualDate: today,
+            microExerciseCompleted: true,
+            microExerciseCompletedAt: new Date().toISOString(),
+            completedPracticeIds: newCompletedIds
+          }
+        });
         
         // Step 2: Query FRESH data AFTER the upsert
-        const { data: freshRitualData } = await supabase
-          .from('daily_ritual_completions')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('ritual_date', today)
-          .single();
+        const { data: freshResult } = await supabase.functions.invoke('practice-data', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'GET_RITUAL_STATUS',
+            ritualDate: today
+          }
+        });
+        
+        const freshRitualData = freshResult?.data;
         
         // Step 3: Calculate completion using FRESH data
         if (freshRitualData) {
@@ -135,11 +140,14 @@ const MicroPracticePlayer = () => {
               ? 'partial' 
               : 'skipped';
           
-          await supabase
-            .from('daily_ritual_completions')
-            .update({ completion_status: newStatus })
-            .eq('user_id', user.id)
-            .eq('ritual_date', today);
+          await supabase.functions.invoke('practice-data', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: {
+              action: 'UPDATE_RITUAL_STATUS',
+              ritualDate: today,
+              completionStatus: newStatus
+            }
+          });
           
           console.log('🎯 Micro practice completed:', {
             type: 'micro-practice',
