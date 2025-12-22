@@ -183,6 +183,34 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
+    } else if (action === "GET_LATEST") {
+      // Return the latest session id for the authenticated user
+      const { data, error: fetchError } = await supabase
+        .from("dialogue_sessions")
+        .select("id, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error("[dialogue-session-manage] GET_LATEST failed:", fetchError);
+        return new Response(
+          JSON.stringify({ error: fetchError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[dialogue-session-manage] GET_LATEST result:", data?.id || "no sessions");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          sessionId: data?.id ?? null,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     } else {
       return new Response(
         JSON.stringify({ error: `Unknown action: ${action}` }),

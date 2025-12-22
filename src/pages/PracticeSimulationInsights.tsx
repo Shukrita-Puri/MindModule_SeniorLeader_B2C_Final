@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getLatestSessionId } from "@/utils/dialogueSessions";
 import MainNavigation from "@/components/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
@@ -23,6 +25,7 @@ import { Loader2 } from "lucide-react";
 
 const PracticeSimulationInsights = () => {
   const location = useLocation();
+  const { getAccessTokenSilently } = useAuth0();
   const { 
     sessionId: stateSessionId,
     scenarioDomain, 
@@ -47,22 +50,18 @@ const PracticeSimulationInsights = () => {
   // Use state sessionId or fallback to most recent session
   const sessionId = stateSessionId || fallbackSessionId;
 
-  // If no sessionId from navigation, try to load the most recent session
+  // If no sessionId from navigation, try to load the most recent session via edge function
   useEffect(() => {
     const loadMostRecentSession = async () => {
       if (stateSessionId) return;
       
       try {
-        const { data, error } = await supabase
-          .from('dialogue_sessions')
-          .select('id')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        const accessToken = await getAccessTokenSilently();
+        const latestId = await getLatestSessionId(accessToken);
         
-        if (data && !error) {
-          console.log('[PracticeSimulationInsights] Loaded fallback sessionId:', data.id);
-          setFallbackSessionId(data.id);
+        if (latestId) {
+          console.log('[PracticeSimulationInsights] Loaded fallback sessionId:', latestId);
+          setFallbackSessionId(latestId);
         }
       } catch (err) {
         console.error('[PracticeSimulationInsights] Failed to load recent session:', err);
@@ -70,7 +69,7 @@ const PracticeSimulationInsights = () => {
     };
     
     loadMostRecentSession();
-  }, [stateSessionId]);
+  }, [stateSessionId, getAccessTokenSilently]);
 
   // Fetch real session data
   const { 
