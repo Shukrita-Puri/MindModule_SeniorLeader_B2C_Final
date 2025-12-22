@@ -32,6 +32,7 @@ import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -882,73 +883,9 @@ const GuidedPracticePlayer = () => {
           setSessionId(data.id);
         }
         
-        // Update ritual completion if part of ritual
+        // Update ritual completion if part of ritual via edge function
         if (isPartOfRitual) {
-          const today = new Date().toISOString().split('T')[0];
-          
-          // First, get existing data to append to completed_practice_ids
-          const { data: existingData } = await supabase
-            .from('daily_ritual_completions')
-            .select('completed_practice_ids, recommended_practices_count')
-            .eq('user_id', user.id)
-            .eq('ritual_date', today)
-            .single();
-          
-          const existingIds = existingData?.completed_practice_ids || [];
-          const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id];
-          
-          // Step 1: Upsert the specific completion field with completed_practice_ids
-          await supabase
-            .from('daily_ritual_completions')
-            .upsert({
-              user_id: user.id,
-              ritual_date: today,
-              guided_practice_completed: true,
-              guided_practice_completed_at: new Date().toISOString(),
-              completed_practice_ids: newCompletedIds
-            }, {
-              onConflict: 'user_id,ritual_date'
-            });
-          
-          // Step 2: Query FRESH data AFTER the upsert
-          const { data: freshRitualData } = await supabase
-            .from('daily_ritual_completions')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('ritual_date', today)
-            .single();
-          
-          // Step 3: Calculate completion using FRESH data
-          if (freshRitualData) {
-            const completed = [
-              freshRitualData.soundscape_completed,
-              freshRitualData.guided_practice_completed,
-              freshRitualData.micro_exercise_completed
-            ].filter(Boolean).length;
-            
-            const totalRecommended = freshRitualData.recommended_practices_count || 3;
-            
-            // Step 4: Update status atomically
-            const newStatus = completed >= totalRecommended && completed > 0 
-              ? 'full' 
-              : completed > 0 
-                ? 'partial' 
-                : 'skipped';
-            
-            await supabase
-              .from('daily_ritual_completions')
-              .update({ completion_status: newStatus })
-              .eq('user_id', user.id)
-              .eq('ritual_date', today);
-            
-            console.log('🎯 Guided practice completed:', {
-              type: 'guided-practice',
-              completedCount: completed,
-              totalRecommended,
-              newStatus,
-              timestamp: new Date().toISOString()
-            });
-          }
+          await updateRitualCompletion('guided_practice', id);
         }
       }
     } catch (error) {

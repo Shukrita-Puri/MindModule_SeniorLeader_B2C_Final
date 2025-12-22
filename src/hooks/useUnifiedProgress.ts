@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
+import { getRituals } from '@/utils/dailyRituals';
 
 interface ArchetypeInfo {
   id: string;
@@ -58,11 +59,8 @@ export const useUnifiedProgress = () => {
       let selfMasteryPoints = 0;
       let socialMasteryPoints = 0;
 
-      // 1. Daily Ritual Completions (Self Mastery only): full=5, partial=2
-      const { data: rituals } = await supabase
-        .from('daily_ritual_completions')
-        .select('completion_status')
-        .eq('user_id', user.id);
+      // 1. Daily Ritual Completions (Self Mastery only): full=5, partial=2 - via edge function
+      const rituals = await getRituals(365);
 
       if (rituals) {
         rituals.forEach(r => {
