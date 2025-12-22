@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { supabase } from "@/integrations/supabase/client";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
@@ -310,69 +311,9 @@ const SoundscapePlayer = () => {
         if (error) throw error;
         setSessionId(insertedSession.id);
 
-        // If part of ritual, update daily ritual completion
+        // If part of ritual, update daily ritual completion via edge function
         if (isInQueue && user) {
-          const today = new Date().toISOString().split('T')[0];
-          
-          if (user) {
-            // First, get existing data to append to completed_practice_ids
-            const { data: existingData } = await supabase
-              .from('daily_ritual_completions')
-              .select('completed_practice_ids')
-              .eq('user_id', user.id)
-              .eq('ritual_date', today)
-              .single();
-            
-            const existingIds = existingData?.completed_practice_ids || [];
-            const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id];
-            
-            // Step 1: Upsert soundscape completion with completed_practice_ids
-            await supabase
-              .from('daily_ritual_completions')
-              .upsert({
-                user_id: user.id,
-                ritual_date: today,
-                soundscape_completed: true,
-                soundscape_completed_at: new Date().toISOString(),
-                completed_practice_ids: newCompletedIds,
-                recommended_practice_ids: practiceQueue.map(p => p.id),
-                recommended_practices_count: practiceQueue.length
-              }, {
-                onConflict: 'user_id,ritual_date'
-              });
-            
-            // Step 2: Query FRESH data AFTER the upsert
-            const { data: freshRitualData } = await supabase
-              .from('daily_ritual_completions')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('ritual_date', today)
-              .single();
-            
-            // Step 3: Calculate completion using FRESH data
-            if (freshRitualData) {
-              const completed = [
-                freshRitualData.soundscape_completed,
-                freshRitualData.guided_practice_completed,
-                freshRitualData.micro_exercise_completed
-              ].filter(Boolean).length;
-              
-              const totalRecommended = freshRitualData.recommended_practices_count || 3;
-              
-              // Step 4: Update status atomically
-              const newStatus = completed >= totalRecommended && completed > 0 
-                ? 'full' 
-                : completed > 0 
-                  ? 'partial' 
-                  : 'skipped';
-              
-              await supabase
-                .from('daily_ritual_completions')
-                .update({ completion_status: newStatus })
-                .eq('user_id', user.id)
-                .eq('ritual_date', today);
-            }
-          }
+          await updateRitualCompletion('soundscape', id, practiceQueue);
         }
       }
     } catch (error) {

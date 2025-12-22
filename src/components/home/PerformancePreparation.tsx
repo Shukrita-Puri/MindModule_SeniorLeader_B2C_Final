@@ -8,10 +8,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useFavorites } from '@/hooks/useFavorites';
+import { getTodayRitual } from '@/utils/dailyRituals';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { detectMoments, type MomentCandidate } from '@/utils/momentDetectionEngine';
 import { buildPack, type BuiltPack, type PackStep } from '@/utils/packBuilderSystem';
@@ -53,30 +54,15 @@ const PerformancePreparation = () => {
   const loadUserContext = async () => {
     if (!user?.id) return;
     
-    const today = new Date().toISOString().split('T')[0];
-    
     try {
-      // Check ritual completion status and get recommended IDs
-      const { data: ritualData } = await supabase
-        .from('daily_ritual_completions')
-        .select('completion_status, completed_practice_ids, recommended_practice_ids')
-        .eq('user_id', user.id)
-        .eq('ritual_date', today)
-        .single();
+      // Check ritual completion status and get recommended IDs via edge function
+      const ritualData = await getTodayRitual();
       
       if (ritualData) {
         setRitualCompleted(ritualData.completion_status === 'full');
         setCompletedPracticeIds(ritualData.completed_practice_ids || []);
         setRitualRecommendedIds(ritualData.recommended_practice_ids || []);
       }
-      
-      // Get user favorites
-      const { data: favoritesData } = await supabase
-        .from('user_favorites')
-        .select('content_id')
-        .eq('user_id', user.id);
-      
-      setFavoriteIds(favoritesData?.map(f => f.content_id) || []);
     } catch (error) {
       console.error('Error loading user context:', error);
     }

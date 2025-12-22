@@ -205,9 +205,9 @@ export async function getWeeklyRitualCompletion(): Promise<Array<{
   componentsCompleted: number;
 }>> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
+    // Dynamically import to avoid circular dependency
+    const { getRitualRange } = await import('@/utils/dailyRituals');
+    
     // Get last 7 days
     const today = new Date();
     const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -219,22 +219,7 @@ export async function getWeeklyRitualCompletion(): Promise<Array<{
     const startDate = last7Days[0].toISOString().split('T')[0];
     const endDate = last7Days[6].toISOString().split('T')[0];
 
-    const { data: rituals, error } = await supabase
-      .from('daily_ritual_completions')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('ritual_date', startDate)
-      .lte('ritual_date', endDate);
-
-    if (error) {
-      console.error('Failed to fetch ritual completions:', error);
-      return last7Days.map(date => ({
-        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        date: date.toISOString().split('T')[0],
-        status: 'skipped' as const,
-        componentsCompleted: 0
-      }));
-    }
+    const rituals = await getRitualRange(startDate, endDate);
 
     return last7Days.map(date => {
       const dateStr = date.toISOString().split('T')[0];
@@ -273,18 +258,19 @@ export async function getWeeklyRitualCompletion(): Promise<Array<{
 
 export async function calculateStreak(): Promise<{ currentStreak: number; longestStreak: number }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { currentStreak: 0, longestStreak: 0 };
-
-    const { data: rituals, error } = await supabase
-      .from('daily_ritual_completions')
-      .select('ritual_date, completion_status, soundscape_completed, guided_practice_completed, micro_exercise_completed')
-      .eq('user_id', user.id)
-      .order('ritual_date', { ascending: false });
-
-    if (error || !rituals || rituals.length === 0) {
+    // Dynamically import to avoid circular dependency
+    const { getRituals } = await import('@/utils/dailyRituals');
+    
+    const rituals = await getRituals(365);
+    
+    if (!rituals || rituals.length === 0) {
       return { currentStreak: 0, longestStreak: 0 };
     }
+
+    // Sort by date descending
+    const sortedRituals = rituals.sort((a, b) => 
+      new Date(b.ritual_date).getTime() - new Date(a.ritual_date).getTime()
+    );
 
     let currentStreak = 0;
     let longestStreak = 0;
@@ -293,7 +279,7 @@ export async function calculateStreak(): Promise<{ currentStreak: number; longes
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    rituals.forEach((record, index) => {
+    sortedRituals.forEach((record, index) => {
       const recordDate = new Date(record.ritual_date);
       recordDate.setHours(0, 0, 0, 0);
       

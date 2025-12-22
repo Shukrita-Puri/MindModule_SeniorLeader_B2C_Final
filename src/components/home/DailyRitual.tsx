@@ -6,6 +6,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
+import { getTodayRitual, upsertRitual, type RitualData } from '@/utils/dailyRituals';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -197,16 +198,10 @@ const DailyRitual = () => {
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
     
-    const today = new Date().toISOString().split('T')[0];
+    // Use edge function instead of direct Supabase call
+    const data = await getTodayRitual();
     
-    const { data, error } = await supabase
-      .from('daily_ritual_completions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('ritual_date', today)
-      .single();
-    
-    if (error || !data) {
+    if (!data) {
       const actualCount = recommendations.practices.length || 0;
       setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: actualCount });
       setCompletedPracticeIds([]);
@@ -238,11 +233,10 @@ const DailyRitual = () => {
       status = 'completed';
       
       // Update the database status to 'full' if it's not already
-      await supabase
-        .from('daily_ritual_completions')
-        .update({ completion_status: 'full' })
-        .eq('user_id', user.id)
-        .eq('ritual_date', today);
+      await upsertRitual({
+        ritual_date: new Date().toISOString().split('T')[0],
+        completion_status: 'full'
+      });
     } else if (data.completion_status === 'partial' || effectiveCompletedCount > 0) {
       // Respect DB partial status even if counts are 0 due to sync issues
       status = 'partial';
@@ -299,20 +293,15 @@ const DailyRitual = () => {
     localStorage.setItem('queueIndex', String(practiceIndex >= 0 ? practiceIndex : 0));
     localStorage.setItem('ritualMode', 'true');
 
-    // Ensure the ritual record exists in database
+    // Ensure the ritual record exists in database via edge function
     if (user) {
       const today = new Date().toISOString().split('T')[0];
-      await supabase
-        .from('daily_ritual_completions')
-        .upsert({
-          user_id: user.id,
-          ritual_date: today,
-          completion_status: ritualStatus.status === 'not_started' ? 'partial' : ritualStatus.status,
-          recommended_practices_count: recommendations.recommendedCount,
-          recommended_practice_ids: practices.map(r => r.id),
-        }, {
-          onConflict: 'user_id,ritual_date'
-        });
+      await upsertRitual({
+        ritual_date: today,
+        completion_status: ritualStatus.status === 'not_started' ? 'partial' : ritualStatus.status,
+        recommended_practices_count: recommendations.recommendedCount,
+        recommended_practice_ids: practices.map(r => r.id),
+      });
     }
 
     let route: string;
@@ -338,18 +327,16 @@ const DailyRitual = () => {
     const today = new Date().toISOString().split('T')[0];
     const newCompletedIds = [...completedPracticeIds, practiceId];
     
-    const { error } = await supabase
-      .from('daily_ritual_completions')
-      .upsert({
-        user_id: user.id,
-        ritual_date: today,
-        completed_practice_ids: newCompletedIds,
-        recommended_practice_ids: recommendations.practices.map(p => p.id),
-        recommended_practices_count: recommendations.recommendedCount,
-        completion_status: newCompletedIds.length >= recommendations.recommendedCount ? 'full' : 'partial'
-      });
+    // Use edge function instead of direct Supabase call
+    const result = await upsertRitual({
+      ritual_date: today,
+      completed_practice_ids: newCompletedIds,
+      recommended_practice_ids: recommendations.practices.map(p => p.id),
+      recommended_practices_count: recommendations.recommendedCount,
+      completion_status: newCompletedIds.length >= recommendations.recommendedCount ? 'full' : 'partial'
+    });
     
-    if (!error) {
+    if (result) {
       setCompletedPracticeIds(newCompletedIds);
       checkRitualCompletion();
     }
@@ -371,18 +358,13 @@ const DailyRitual = () => {
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
-      await supabase
-        .from('daily_ritual_completions')
-        .upsert({
-          user_id: user.id,
-          ritual_date: today,
-          completion_status: 'partial',
-          recommended_practices_count: recommendations.recommendedCount,
-          recommended_practice_ids: practices.map(r => r.id),
-          completed_practice_ids: []
-        }, {
-          onConflict: 'user_id,ritual_date'
-        });
+      await upsertRitual({
+        ritual_date: today,
+        completion_status: 'partial',
+        recommended_practices_count: recommendations.recommendedCount,
+        recommended_practice_ids: practices.map(r => r.id),
+        completed_practice_ids: []
+      });
     }
 
     navigateToPractice(practices[0]);
@@ -410,6 +392,7 @@ const DailyRitual = () => {
   };
 
   const handleRestartRitual = async () => {
+    // Note: Delete operation still uses direct Supabase as it requires special handling
     if (user) {
       const today = new Date().toISOString().split('T')[0];
       await supabase

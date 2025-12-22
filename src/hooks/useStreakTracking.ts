@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getRituals } from '@/utils/dailyRituals';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { useEffect, useRef } from 'react';
@@ -34,13 +35,11 @@ export const useStreakTracking = () => {
         .eq('id', user.id)
         .single();
 
-      // Calculate current streak from ritual completions
-      const { data: rituals } = await supabase
-        .from('daily_ritual_completions')
-        .select('ritual_date, completion_status')
-        .eq('user_id', user.id)
-        .eq('completion_status', 'full')
-        .order('ritual_date', { ascending: false });
+      // Calculate current streak from ritual completions via edge function
+      const allRituals = await getRituals(365);
+      const rituals = allRituals
+        .filter(r => r.completion_status === 'full')
+        .sort((a, b) => new Date(b.ritual_date).getTime() - new Date(a.ritual_date).getTime());
 
       let currentStreak = 0;
       if (rituals && rituals.length > 0) {

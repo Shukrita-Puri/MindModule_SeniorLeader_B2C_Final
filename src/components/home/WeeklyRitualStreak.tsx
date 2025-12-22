@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getRitualRange } from '@/utils/dailyRituals';
 import { Check, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -25,15 +25,11 @@ const WeeklyRitualStreak = () => {
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       
-      const { data, error } = await supabase
-        .from('daily_ritual_completions')
-        .select('ritual_date, completion_status, soundscape_completed, guided_practice_completed, micro_exercise_completed, recommended_practices_count')
-        .eq('user_id', user.id)
-        .gte('ritual_date', monday.toISOString().split('T')[0])
-        .lte('ritual_date', sunday.toISOString().split('T')[0])
-        .order('ritual_date', { ascending: true });
-        
-      if (error) throw error;
+      const startDate = monday.toISOString().split('T')[0];
+      const endDate = sunday.toISOString().split('T')[0];
+      
+      // Use edge function instead of direct Supabase call
+      const data = await getRitualRange(startDate, endDate);
       
       // Map Monday-Sunday for this week, preserving historical completion data
       const weekDays = [];
