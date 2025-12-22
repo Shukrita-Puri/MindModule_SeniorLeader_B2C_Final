@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useFavorites } from '@/hooks/useFavorites';
+import { supabase } from '@/integrations/supabase/client';
 import { getTodayRitual } from '@/utils/dailyRituals';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { detectMoments, type MomentCandidate } from '@/utils/momentDetectionEngine';
