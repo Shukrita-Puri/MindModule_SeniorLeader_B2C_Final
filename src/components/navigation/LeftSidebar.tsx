@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Lightbulb, 
+  Brain, 
   Compass, 
   SmilePlus, 
   TrendingUp,
@@ -28,8 +28,8 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Inner Advisor',
-    icon: Lightbulb,
+    title: 'Self Mastery Coach',
+    icon: Brain,
     path: '/coach',
     description: 'AI-powered coaching',
   },
@@ -62,16 +62,16 @@ const LeftSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       {/* Header */}
-      <SidebarHeader className="h-14 flex items-center justify-center border-b border-border">
+      <SidebarHeader className="h-14 flex items-center justify-center border-b border-sidebar-border">
         <div className={cn(
           "flex items-center gap-2 transition-all duration-200",
           isCollapsed ? "justify-center" : "px-2"
         )}>
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-saffron/10 flex items-center justify-center">
             <span className="text-lg">🧠</span>
           </div>
           {!isCollapsed && (
-            <span className="font-headline text-lg text-foreground">Mind Atelier</span>
+            <span className="font-headline text-lg text-primary">Mind Atelier</span>
           )}
         </div>
       </SidebarHeader>
@@ -79,7 +79,7 @@ const LeftSidebar = () => {
       <SidebarContent>
         {/* Features Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className={cn(isCollapsed && "sr-only")}>
+          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
             Features
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -93,11 +93,12 @@ const LeftSidebar = () => {
                       isActive={isActive}
                       tooltip={feature.title}
                       className={cn(
-                        "transition-colors",
-                        isActive && "bg-primary/10 text-primary"
+                        "transition-colors font-body",
+                        isCollapsed ? "text-primary hover:text-saffron" : "text-primary hover:text-saffron hover:bg-saffron/5",
+                        isActive && "bg-saffron/10 text-saffron"
                       )}
                     >
-                      <feature.icon className="h-4 w-4" />
+                      <feature.icon className={cn("h-4 w-4", isActive ? "text-saffron" : "text-primary")} />
                       <span>{feature.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -111,8 +112,8 @@ const LeftSidebar = () => {
 
         {/* Starred Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className={cn(isCollapsed && "sr-only")}>
-            <Bookmark className="h-3.5 w-3.5 mr-1.5 inline" />
+          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
+            <Bookmark className={cn("h-3.5 w-3.5 mr-1.5 inline", isCollapsed ? "text-saffron" : "text-primary")} />
             Starred
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -124,8 +125,8 @@ const LeftSidebar = () => {
 
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
-          <SidebarGroupLabel className={cn(isCollapsed && "sr-only")}>
-            <Clock className="h-3.5 w-3.5 mr-1.5 inline" />
+          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
+            <Clock className={cn("h-3.5 w-3.5 mr-1.5 inline", isCollapsed ? "text-saffron" : "text-primary")} />
             Recent
           </SidebarGroupLabel>
           <SidebarGroupContent className="overflow-auto">
