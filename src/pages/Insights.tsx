@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2 } from 'lucide-react';
+import { ChatCircle } from '@phosphor-icons/react';
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
-
+import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 interface DayData {
   date: string;
   dayLabel: string;
@@ -153,14 +154,28 @@ const Insights = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/executive-home')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-headline font-semibold">Insights</h1>
-            <p className="text-sm text-muted-foreground">Past 7 days</p>
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/executive-home')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-headline font-semibold">Insights</h1>
+              <p className="text-sm text-muted-foreground">Past 7 days</p>
+            </div>
           </div>
+          
+          {/* Coach Button */}
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate('/coach')}>
+                <ChatCircle size={20} weight="duotone" className="icon-duotone-luxury text-saffron" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Self Mastery Coach</p>
+            </TooltipContent>
+          </UITooltip>
         </div>
       </div>
 
@@ -237,7 +252,7 @@ const Insights = () => {
                       tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                       domain={[-5, 5]}
                     />
-                    <Tooltip 
+                    <ChartTooltip 
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--card))', 
                         border: '1px solid hsl(var(--border))',
@@ -330,7 +345,7 @@ const Insights = () => {
                       tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                       width={100}
                     />
-                    <Tooltip 
+                    <ChartTooltip 
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--card))', 
                         border: '1px solid hsl(var(--border))',
