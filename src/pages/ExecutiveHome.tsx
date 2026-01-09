@@ -51,8 +51,8 @@ const ExecutiveHome = () => {
         
         <SidebarInset className="w-full overflow-x-hidden">
           {/* Top bar with sidebar trigger and coach button */}
-          <header className="sticky top-0 z-40 flex items-center justify-between px-3 md:px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border w-full">
-            <SidebarTrigger className="h-9 w-9" />
+          <header className="sticky top-0 z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full">
+            <SidebarTrigger className="h-9 w-9 rounded-full text-saffron icon-luxury" />
             <CoachAccessButton />
           </header>
 

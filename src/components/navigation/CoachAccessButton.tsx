@@ -13,7 +13,7 @@ const CoachAccessButton = () => {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/coach')}
-          className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
+          className="h-10 w-10 rounded-full text-saffron icon-luxury"
         >
           <MessageSquare className="h-5 w-5" />
         </Button>
