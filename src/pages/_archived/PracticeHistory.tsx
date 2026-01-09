@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import { useSavedDebriefs } from "@/hooks/useSavedDebriefs";

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import ClearBackButton from "@/components/ClearBackButton";
 import vibrantFlowTunnel from "@/assets/vibrant-flow-tunnel.png";
 import { useToast } from "@/hooks/use-toast";

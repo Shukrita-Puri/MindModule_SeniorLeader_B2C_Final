@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ArrowLeft, Download, Calendar, BookOpen, Star, Target, Lightbulb } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

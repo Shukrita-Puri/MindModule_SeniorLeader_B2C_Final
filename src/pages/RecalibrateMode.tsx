@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import MainNavigation from "@/components/MainNavigation";
+
 import TopNavigation from "@/components/simulation/TopNavigation";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
@@ -93,7 +93,6 @@ const RecalibrateMode = () => {
     return (
       <div className="min-h-screen font-body flex flex-col">
         <Outlet />
-        <MainNavigation />
       </div>
     );
   }
@@ -122,8 +121,6 @@ const RecalibrateMode = () => {
 
       {/* Tool Selection */}
       {renderToolSelection()}
-      
-      <MainNavigation />
     </div>
   );
 };

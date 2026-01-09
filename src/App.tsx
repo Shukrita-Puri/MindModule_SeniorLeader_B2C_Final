@@ -23,7 +23,6 @@ const SoundscapePlayer = lazy(() => import("./pages/SoundscapePlayer"));
 const GuidedPracticePlayer = lazy(() => import("./pages/GuidedPracticePlayer"));
 const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
-// ARCHIVED: const InsightsDashboard = lazy(() => import("./pages/InsightsDashboard"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 
@@ -31,13 +30,6 @@ const Terms = lazy(() => import("./pages/Terms"));
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
 const PauseOutcomePage = lazy(() => import("./pages/recalibrate/PauseOutcomePage"));
 const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutcomePage"));
-
-// Dialogue Room / Practice pages
-const Practice = lazy(() => import("./pages/Practice"));
-const PracticeConfigurePage = lazy(() => import("./pages/PracticeConfigurePage"));
-const PracticeSimulation = lazy(() => import("./pages/PracticeSimulation"));
-const PracticeSimulationInsights = lazy(() => import("./pages/PracticeSimulationInsights"));
-const PracticeHistory = lazy(() => import("./pages/PracticeHistory"));
 
 // Onboarding pages
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
@@ -89,19 +81,11 @@ const Layout = () => {
     '/recalibrate',
     '/recalibrate/power-up',
     '/recalibrate/pause',
-    '/recalibrate/presence',
-    '/practice',
-    '/practice/configure',
-    '/practice/simulation',
-    '/practice/simulation-insights'
+    '/recalibrate/presence'
   ];
   
-  // Also check if we're in a simulation practice
-  const isInSimulation = location.pathname.includes('/practice/simulation');
-  
   const shouldShowSidebar = pagesWithSidebar.includes(location.pathname) && 
-    !excludedPages.includes(location.pathname) && 
-    !isInSimulation;
+    !excludedPages.includes(location.pathname);
 
   return (
     <>
@@ -183,32 +167,6 @@ const router = createBrowserRouter([
         path: "micro-practice/:id/cards",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayerCards /></ProtectedRoute></Suspense>,
       },
-      // ARCHIVED: insights-dashboard route - page file kept for future use
-      // {
-      //   path: "insights-dashboard",
-      //   element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><InsightsDashboard /></ProtectedRoute></Suspense>,
-      // },
-      // Dialogue Room routes
-      {
-        path: "practice",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Practice /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "practice/configure",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeConfigurePage /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "practice/simulation",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeSimulation /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "practice/simulation-insights",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeSimulationInsights /></ProtectedRoute></Suspense>,
-      },
-      {
-        path: "practice/history",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><PracticeHistory /></ProtectedRoute></Suspense>,
-      },
       {
         path: "privacy",
         element: <Suspense fallback={<LoadingFallback />}><Privacy /></Suspense>,
@@ -233,49 +191,6 @@ const router = createBrowserRouter([
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],
       },
-      // ARCHIVED ROUTES - V2 Features
-      // {
-      //   path: "flow-state-lab",
-      //   element: <FlowStateLab />,
-      // },
-      // {
-      //   path: "mentor-chat",
-      //   element: <MentorChat />,
-      // },
-      // {
-      //   path: "mentor",
-      //   element: <MentorMode />,
-      // },
-      // {
-      //   path: "clarity",
-      //   element: <ClarityMode />,
-      //   children: [
-      //     {
-      //       path: "conversation",
-      //       element: <ClarityConversation />,
-      //     },
-      //     {
-      //       path: "journal",
-      //       element: <ClarityJournal />,
-      //     },
-      //     {
-      //       path: "summary",
-      //       element: <ClaritySummary />,
-      //     },
-      //   ],
-      // },
-      // {
-      //   path: "futurescape",
-      //   element: <FuturescapeMode />,
-      // },
-      // {
-      //   path: "mind-vault",
-      //   element: <MindVault />,
-      // },
-      // {
-      //   path: "mentor-insights", 
-      //   element: <MentorInsights />,
-      // },
     ],
   },
 ]);

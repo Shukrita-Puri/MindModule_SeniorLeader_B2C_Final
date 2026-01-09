@@ -300,14 +300,6 @@ const PrivacyDashboard = () => {
                 </div>
                 
                 <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
-                  <Badge variant="outline" className="bg-gold/10 text-gold border-gold/30">Soon</Badge>
-                  <div>
-                    <p className="font-medium text-foreground">Dialogue Room</p>
-                    <p className="text-sm text-muted-foreground">AI-powered conversations for mental clarity</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
                   <Badge variant="outline">v1.0.0</Badge>
                   <div>
                     <p className="font-medium text-foreground">Current Version</p>

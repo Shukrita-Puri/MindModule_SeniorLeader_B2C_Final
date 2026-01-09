@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import dialogueHeroImage from "@/assets/dialogue-room-hero.jpg";
 

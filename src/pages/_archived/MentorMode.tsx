@@ -1,7 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import inkMeditationIllustration from "@/assets/ink-meditation-illustration.png";
 
 const MentorMode = () => {
