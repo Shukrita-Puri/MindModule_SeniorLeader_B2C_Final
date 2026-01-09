@@ -56,8 +56,11 @@ const features = [
 const LeftSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+
+  // On mobile, never hide labels (sheet is always expanded when open)
+  const hideLabels = isCollapsed && !isMobile;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -79,7 +82,7 @@ const LeftSidebar = () => {
       <SidebarContent>
         {/* Features Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
+          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
             Features
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -94,7 +97,7 @@ const LeftSidebar = () => {
                       isActive={isActive}
                       tooltip={feature.title}
                       className={cn(
-                        "transition-all duration-200 ease-out font-body",
+                        "transition-all duration-200 ease-out font-body group",
                         "hover:scale-[1.02] hover:shadow-sm",
                         isCollapsed ? "text-primary hover:text-saffron" : "text-primary hover:text-saffron hover:bg-saffron/5",
                         isActive && "bg-saffron/10 text-saffron shadow-sm"
@@ -104,7 +107,8 @@ const LeftSidebar = () => {
                         size={18} 
                         weight="duotone" 
                         className={cn(
-                          "icon-duotone-luxury flex-shrink-0",
+                          "icon-duotone-luxury flex-shrink-0 transition-all duration-200",
+                          "group-hover:scale-110 group-hover:drop-shadow-[0_2px_6px_rgba(255,140,66,0.4)]",
                           isActive ? "text-saffron" : "text-primary"
                         )} 
                       />
@@ -121,11 +125,11 @@ const LeftSidebar = () => {
 
         {/* Starred Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
+          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
             <BookmarkSimple 
               size={14} 
               weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", isCollapsed ? "text-saffron" : "text-primary")} 
+              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-saffron" : "text-primary")} 
             />
             Starred
           </SidebarGroupLabel>
@@ -138,11 +142,11 @@ const LeftSidebar = () => {
 
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
-          <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
+          <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
             <Clock 
               size={14} 
               weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", isCollapsed ? "text-saffron" : "text-primary")} 
+              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-saffron" : "text-primary")} 
             />
             Recent
           </SidebarGroupLabel>
