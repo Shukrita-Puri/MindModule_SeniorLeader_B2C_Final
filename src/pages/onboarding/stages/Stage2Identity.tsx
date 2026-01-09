@@ -64,7 +64,7 @@ export default function Stage2Identity() {
     
     // Auto-advance to next stage after brief delay
     setTimeout(() => {
-      navigate("/onboarding/energy-regulation");
+      navigate("/onboarding/emotional-awareness");
     }, 300);
   };
 
