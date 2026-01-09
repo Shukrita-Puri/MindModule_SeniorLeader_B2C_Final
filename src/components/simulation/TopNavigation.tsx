@@ -1,9 +1,8 @@
-import { ArrowLeft, Menu } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { ChatCircle } from "@phosphor-icons/react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import ProfileSidebar from "@/components/ProfileSidebar";
-import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopNavigationProps {
   backPath?: string;
@@ -12,7 +11,8 @@ interface TopNavigationProps {
 
 const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) => {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const isCoachPage = location.pathname === '/coach';
 
   const handleBack = () => {
     if (backPath) {
@@ -35,17 +35,28 @@ const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) =>
           <ArrowLeft size={20} className={transparent ? "text-white" : "text-foreground"} />
         </Button>
 
-        {/* Right: Menu */}
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="sm" className={transparent ? "hover:bg-white/10" : "hover:bg-muted/50"}>
-              <Menu size={20} className={transparent ? "text-white" : "text-foreground"} />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[400px] sm:max-w-[540px] p-0">
-            <ProfileSidebar />
-          </SheetContent>
-        </Sheet>
+        {/* Right: Coach Button (hidden on coach page) */}
+        {!isCoachPage && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/coach')}
+                className={transparent ? "hover:bg-white/10" : "hover:bg-muted/50"}
+              >
+                <ChatCircle 
+                  size={20} 
+                  weight="duotone" 
+                  className="icon-duotone-luxury text-saffron"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Self Mastery Coach</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );
