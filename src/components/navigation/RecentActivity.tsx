@@ -8,7 +8,7 @@ import { format, isToday, isYesterday } from 'date-fns';
 const RecentActivity = () => {
   const navigate = useNavigate();
   const { activities, isLoading } = useRecentActivity();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
   const formatDate = (date: Date) => {
@@ -30,7 +30,9 @@ const RecentActivity = () => {
     }
   };
 
-  if (isCollapsed) {
+  // Show content on mobile (sheet is always full width when open)
+  // Only hide on desktop when collapsed
+  if (isCollapsed && !isMobile) {
     return null;
   }
 
