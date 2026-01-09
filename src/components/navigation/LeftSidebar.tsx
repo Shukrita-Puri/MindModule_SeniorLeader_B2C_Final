@@ -109,7 +109,7 @@ const LeftSidebar = () => {
                         className={cn(
                           "icon-duotone-luxury flex-shrink-0 transition-all duration-200",
                           "group-hover:scale-110 group-hover:drop-shadow-[0_2px_6px_rgba(255,140,66,0.4)]",
-                          isActive ? "text-saffron" : "text-primary"
+                          isActive ? "text-saffron icon-pulse-active" : "text-primary"
                         )} 
                       />
                       <span>{feature.title}</span>
