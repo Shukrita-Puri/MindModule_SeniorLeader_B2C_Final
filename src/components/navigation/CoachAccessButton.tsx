@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare } from 'lucide-react';
+import { ChatCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -15,7 +15,7 @@ const CoachAccessButton = () => {
           onClick={() => navigate('/coach')}
           className="h-10 w-10 rounded-full text-saffron icon-luxury"
         >
-          <MessageSquare className="h-5 w-5" />
+          <ChatCircle size={20} weight="duotone" className="icon-duotone-luxury" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">
