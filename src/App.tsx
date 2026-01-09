@@ -8,7 +8,6 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
-import GlobalHeader from "./components/GlobalHeader";
 
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
@@ -25,6 +24,7 @@ const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+const SelfMasteryCoach = lazy(() => import("./pages/SelfMasteryCoach"));
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
@@ -54,45 +54,9 @@ const LoadingFallback = () => (
   </div>
 );
 
-// Layout component that conditionally includes GlobalHeader
+// Simple layout wrapper
 const Layout = () => {
-  const location = useLocation();
-  
-  // Pages that should show the sidebar/GlobalHeader (signed-in pages)
-  const pagesWithSidebar = [
-    '/',
-    '/signup',
-    '/executive-home',
-    '/daily-check-in',
-    '/recalibrate',
-    '/recalibrate/power-up',
-    '/recalibrate/pause',
-    '/recalibrate/presence',
-    '/nudge-settings',
-    '/nudge-simulator'
-  ];
-  
-  // Exclude specific pages from showing the 3-line button/GlobalHeader
-  const excludedPages = [
-    '/',
-    '/signup',
-    '/executive-home',
-    '/daily-check-in',
-    '/recalibrate',
-    '/recalibrate/power-up',
-    '/recalibrate/pause',
-    '/recalibrate/presence'
-  ];
-  
-  const shouldShowSidebar = pagesWithSidebar.includes(location.pathname) && 
-    !excludedPages.includes(location.pathname);
-
-  return (
-    <>
-      {shouldShowSidebar && <GlobalHeader />}
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 };
 
 const router = createBrowserRouter([
@@ -124,6 +88,10 @@ const router = createBrowserRouter([
       {
         path: "executive-home",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ExecutiveHome /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "coach",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SelfMasteryCoach /></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",
