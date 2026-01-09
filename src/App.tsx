@@ -6,9 +6,9 @@ import {
   useLocation,
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
-
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -188,9 +188,11 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="App">
-        <RouterProvider router={router} />
-      </div>
+      <TooltipProvider>
+        <div className="App">
+          <RouterProvider router={router} />
+        </div>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
