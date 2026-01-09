@@ -5,10 +5,22 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2, LogIn } from "lucide-react";
 import { isMobileDevice, isInIframe } from "@/utils/authRedirect";
 import { Button } from "@/components/ui/button";
+import { DEV_MODE } from "@/config/devMode";
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  // Dev mode: render children immediately
+  if (DEV_MODE) {
+    return <>{children}</>;
+  }
+
+  // Production mode: use Auth0 protection
+  return <Auth0ProtectedRoute>{children}</Auth0ProtectedRoute>;
+};
+
+// Separate component for Auth0 logic to avoid hook rules issues
+const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const { loginWithRedirect, loginWithPopup, isLoading: auth0Loading } = useAuth0();
   const location = useLocation();
