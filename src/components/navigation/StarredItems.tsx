@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils';
 const StarredItems = () => {
   const navigate = useNavigate();
   const { favorites, loading } = useFavorites();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
-  if (isCollapsed) {
+  // Show content on mobile (sheet is always full width when open)
+  // Only hide on desktop when collapsed
+  if (isCollapsed && !isMobile) {
     return null;
   }
 
