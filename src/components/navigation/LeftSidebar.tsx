@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Brain, 
+  Speech, 
   Compass, 
   SmilePlus, 
   TrendingUp,
@@ -29,7 +29,7 @@ import StarredItems from './StarredItems';
 const features = [
   {
     title: 'Self Mastery Coach',
-    icon: Brain,
+    icon: Speech,
     path: '/coach',
     description: 'AI-powered coaching',
   },
