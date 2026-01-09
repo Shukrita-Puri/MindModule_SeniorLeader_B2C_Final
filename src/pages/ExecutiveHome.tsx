@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import SecurityWatermark from "@/components/home/SecurityWatermark";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
 import EnergyStateHeader from "@/components/home/EnergyStateHeader";
 import DailyRitual from "@/components/home/DailyRitual";
@@ -139,7 +138,6 @@ const ExecutiveHome = () => {
               </div>
             </section>
 
-            <SecurityWatermark />
             <PrivacyFooter />
           </div>
         </SidebarInset>

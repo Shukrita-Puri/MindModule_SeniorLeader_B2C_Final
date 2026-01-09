@@ -8,28 +8,30 @@ import { getResumeRoute } from "@/utils/onboardingStatus";
 const STAGE_ROUTES = [
   "/onboarding",
   "/onboarding/identity",
-  "/onboarding/energy-regulation",
-  "/onboarding/focus-recovery",
-  "/onboarding/energy-renewal",
-  "/onboarding/growth-assessment",
+  "/onboarding/emotional-awareness",
+  "/onboarding/stress-response",
+  "/onboarding/recovery-patterns",
+  "/onboarding/mental-clarity",
+  "/onboarding/growth-intention",
   "/onboarding/signup-step",
   "/onboarding/results",
   "/onboarding/payment",
   "/onboarding/context-connection",
 ];
 
-// Only tracking time for questionnaire stages (1-5)
-const TIME_ESTIMATES = [0.5, 0.75, 0.75, 0.75, 0.75];
+// Only tracking time for questionnaire stages (1-6)
+const TIME_ESTIMATES = [0.5, 0.75, 0.75, 0.75, 0.75, 0.75];
 
 // Weighted progress calculation - shows completion of PREVIOUS stages
 const calculateWeightedProgress = (stageIndex: number): number => {
   const weights = {
-    0: 0,    // Welcome - 0% (just starting)
-    1: 10,   // Identity - 10% (welcome completed)
-    2: 25,   // Energy Regulation - 25% (identity completed)
-    3: 45,   // Focus Recovery - 45% (energy regulation completed)
-    4: 65,   // Energy Renewal - 65% (focus recovery completed)
-    5: 85,   // Growth Assessment - 85% (energy renewal completed)
+    0: 0,    // Welcome - 0%
+    1: 10,   // Identity - 10%
+    2: 25,   // Emotional Awareness - 25%
+    3: 40,   // Stress Response - 40%
+    4: 55,   // Recovery Patterns - 55%
+    5: 70,   // Mental Clarity - 70%
+    6: 85,   // Growth Intention - 85%
   };
   return weights[stageIndex as keyof typeof weights] || 0;
 };
@@ -71,7 +73,7 @@ export default function OnboardingFlow() {
   const percentage = calculateWeightedProgress(currentStageIndex);
 
   // Calculate time remaining only for questionnaire stages
-  const estimatedTimeRemaining = currentStageIndex <= 5 
+  const estimatedTimeRemaining = currentStageIndex <= 6 
     ? TIME_ESTIMATES.slice(currentStageIndex).reduce((sum, time) => sum + time, 0)
     : 0;
 
@@ -80,16 +82,17 @@ export default function OnboardingFlow() {
   }, [currentStage]);
 
   // Hide progress bar on Stage 1 (welcome), after questionnaire stages, or signup
-  const hideProgress = currentStageIndex === 0 || currentStageIndex > 5 || location.pathname.includes('/signup');
+  const hideProgress = currentStageIndex === 0 || currentStageIndex > 6 || location.pathname.includes('/signup');
 
-  // Determine if we should show back button (stages 1-5: identity through growth assessment)
-  const showBackButton = currentStageIndex >= 1 && currentStageIndex <= 5;
+  // Determine if we should show back button (stages 1-6: identity through growth intention)
+  const showBackButton = currentStageIndex >= 1 && currentStageIndex <= 6;
   const getBackPath = () => {
-    if (currentStageIndex === 1) return "/onboarding"; // Identity back to welcome
+    if (currentStageIndex === 1) return "/onboarding";
     if (currentStageIndex === 2) return "/onboarding/identity";
-    if (currentStageIndex === 3) return "/onboarding/energy-regulation";
-    if (currentStageIndex === 4) return "/onboarding/focus-recovery";
-    if (currentStageIndex === 5) return "/onboarding/energy-renewal";
+    if (currentStageIndex === 3) return "/onboarding/emotional-awareness";
+    if (currentStageIndex === 4) return "/onboarding/stress-response";
+    if (currentStageIndex === 5) return "/onboarding/recovery-patterns";
+    if (currentStageIndex === 6) return "/onboarding/mental-clarity";
     return "/onboarding";
   };
 
