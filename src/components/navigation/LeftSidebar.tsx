@@ -40,7 +40,7 @@ const features = [
     description: 'Energy practices',
   },
   {
-    title: 'Energy Pulse',
+    title: 'Energy State Check in',
     icon: SmilePlus,
     path: '/daily-check-in',
     description: 'Track your state',
@@ -93,9 +93,10 @@ const LeftSidebar = () => {
                       isActive={isActive}
                       tooltip={feature.title}
                       className={cn(
-                        "transition-colors font-body",
+                        "transition-all duration-200 ease-out font-body",
+                        "hover:scale-[1.02] hover:shadow-sm",
                         isCollapsed ? "text-primary hover:text-saffron" : "text-primary hover:text-saffron hover:bg-saffron/5",
-                        isActive && "bg-saffron/10 text-saffron"
+                        isActive && "bg-saffron/10 text-saffron shadow-sm"
                       )}
                     >
                       <feature.icon className={cn("h-4 w-4", isActive ? "text-saffron" : "text-primary")} />
