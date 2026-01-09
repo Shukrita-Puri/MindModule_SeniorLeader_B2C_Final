@@ -49,19 +49,19 @@ const ExecutiveHome = () => {
       <div className="min-h-screen flex w-full bg-background">
         <LeftSidebar />
         
-        <SidebarInset>
+        <SidebarInset className="w-full overflow-x-hidden">
           {/* Top bar with sidebar trigger and coach button */}
-          <header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
+          <header className="sticky top-0 z-40 flex items-center justify-between px-3 md:px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border w-full">
             <SidebarTrigger className="h-9 w-9" />
             <CoachAccessButton />
           </header>
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             {/* Simple Hero Header */}
-            <div className="relative pt-4 md:pt-6 pb-4 md:pb-6 px-3 md:px-4">
-              <div className="text-center max-w-2xl mx-auto">
-                <h1 className="text-3xl md:text-5xl font-headline mb-2 text-foreground tracking-tight">
+            <div className="relative pt-4 md:pt-6 pb-4 md:pb-6 px-3 md:px-4 w-full">
+              <div className="text-center max-w-full px-2 mx-auto overflow-hidden">
+                <h1 className="text-2xl sm:text-3xl md:text-5xl font-headline mb-2 text-foreground tracking-tight">
                   {getGreeting()}
                 </h1>
                 <p className="text-sm md:text-lg font-subheadline italic text-muted-foreground">
@@ -71,7 +71,7 @@ const ExecutiveHome = () => {
             </div>
 
             {/* Main Content with improved spacing */}
-            <div className="px-3 md:px-4 space-y-6 md:space-y-8 max-w-lg mx-auto overflow-x-hidden">
+            <div className="px-3 md:px-4 space-y-6 md:space-y-8 max-w-md md:max-w-lg mx-auto overflow-x-hidden w-full">
               {/* Your Intelligence - First Thing User Sees */}
               <section>
                 <h2 className="text-xl md:text-2xl font-headline mb-3 md:mb-4 text-foreground">Your Progress This Week</h2>
