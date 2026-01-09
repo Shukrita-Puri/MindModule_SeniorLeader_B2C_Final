@@ -39,11 +39,12 @@ const PresenceOutcomePage = lazy(() => import("./pages/recalibrate/PresenceOutco
 const OnboardingFlow = lazy(() => import("./pages/onboarding/OnboardingFlow"));
 const Stage1Welcome = lazy(() => import("./pages/onboarding/stages/Stage1Welcome"));
 const Stage2Identity = lazy(() => import("./pages/onboarding/stages/Stage2Identity"));
-const Stage3EnergyRegulation = lazy(() => import("./pages/onboarding/stages/Stage3EnergyRegulation"));
-const Stage4FocusRecovery = lazy(() => import("./pages/onboarding/stages/Stage4FocusRecovery"));
-const Stage5EnergyRenewal = lazy(() => import("./pages/onboarding/stages/Stage5EnergyRenewal"));
-const Stage6GrowthAssessment = lazy(() => import("./pages/onboarding/stages/Stage6GrowthAssessment"));
-const Stage7Results = lazy(() => import("./pages/onboarding/stages/Stage7Results"));
+const Stage3EmotionalAwareness = lazy(() => import("./pages/onboarding/stages/Stage3EmotionalAwareness"));
+const Stage4StressResponse = lazy(() => import("./pages/onboarding/stages/Stage4StressResponse"));
+const Stage5RecoveryPatterns = lazy(() => import("./pages/onboarding/stages/Stage5RecoveryPatterns"));
+const Stage6MentalClarity = lazy(() => import("./pages/onboarding/stages/Stage6MentalClarity"));
+const Stage7GrowthIntention = lazy(() => import("./pages/onboarding/stages/Stage7GrowthIntention"));
+const Stage8Results = lazy(() => import("./pages/onboarding/stages/Stage8Results"));
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -169,12 +170,13 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Suspense fallback={<LoadingFallback />}><Stage1Welcome /></Suspense> },
           { path: "identity", element: <Suspense fallback={<LoadingFallback />}><Stage2Identity /></Suspense> },
-          { path: "energy-regulation", element: <Suspense fallback={<LoadingFallback />}><Stage3EnergyRegulation /></Suspense> },
-          { path: "focus-recovery", element: <Suspense fallback={<LoadingFallback />}><Stage4FocusRecovery /></Suspense> },
-          { path: "energy-renewal", element: <Suspense fallback={<LoadingFallback />}><Stage5EnergyRenewal /></Suspense> },
-          { path: "growth-assessment", element: <Suspense fallback={<LoadingFallback />}><Stage6GrowthAssessment /></Suspense> },
+          { path: "emotional-awareness", element: <Suspense fallback={<LoadingFallback />}><Stage3EmotionalAwareness /></Suspense> },
+          { path: "stress-response", element: <Suspense fallback={<LoadingFallback />}><Stage4StressResponse /></Suspense> },
+          { path: "recovery-patterns", element: <Suspense fallback={<LoadingFallback />}><Stage5RecoveryPatterns /></Suspense> },
+          { path: "mental-clarity", element: <Suspense fallback={<LoadingFallback />}><Stage6MentalClarity /></Suspense> },
+          { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
           { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense> },
-          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage7Results /></Suspense> },
+          { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage8Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
         ],
