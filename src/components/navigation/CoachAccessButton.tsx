@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Brain } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -15,7 +15,7 @@ const CoachAccessButton = () => {
           onClick={() => navigate('/coach')}
           className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
         >
-          <Brain className="h-5 w-5" />
+          <MessageSquare className="h-5 w-5" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">

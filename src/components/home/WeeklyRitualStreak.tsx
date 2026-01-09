@@ -88,11 +88,11 @@ const WeeklyRitualStreak = () => {
   }
 
   return (
-    <div className="flex justify-between items-center gap-1">
+    <div className="flex justify-between items-center gap-0.5 sm:gap-1 w-full overflow-hidden">
         {weeklyData?.map((day) => (
-          <div key={day.date} className="flex flex-col items-center gap-1">
+          <div key={day.date} className="flex flex-col items-center gap-0.5 sm:gap-1 min-w-0 flex-1">
             <div className={cn(
-              "h-8 w-8 rounded-full flex items-center justify-center transition-all relative",
+              "h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center transition-all relative",
               day.status === 'full' && "bg-saffron text-charcoal shadow-md",
               day.status === 'partial' && "bg-taupe/80 text-white",
               day.status === 'skipped' && !day.isFuture && "border-2 border-taupe/40 bg-muted/30",
@@ -104,7 +104,7 @@ const WeeklyRitualStreak = () => {
               {day.status === 'partial' && <Star size={12} fill="currentColor" />}
             </div>
             <span className={cn(
-              "text-[10px]",
+              "text-[9px] sm:text-[10px] truncate",
               day.isToday ? "text-primary font-semibold" : "text-muted-foreground"
             )}>
               {day.day}
