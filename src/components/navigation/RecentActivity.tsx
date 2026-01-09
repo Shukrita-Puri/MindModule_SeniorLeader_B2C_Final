@@ -50,8 +50,8 @@ const RecentActivity = () => {
 
   if (activities.length === 0) {
     return (
-      <div className="px-2 py-4 text-center">
-        <p className="text-xs text-muted-foreground">No recent activity</p>
+      <div className="px-2 py-3">
+        <p className="text-xs text-muted-foreground/70 italic">No recent activity</p>
       </div>
     );
   }

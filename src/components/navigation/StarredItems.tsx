@@ -28,8 +28,8 @@ const StarredItems = () => {
 
   if (favoritesArray.length === 0) {
     return (
-      <div className="px-2 py-2">
-        <p className="text-xs text-muted-foreground">No starred items yet</p>
+      <div className="px-2 py-3">
+        <p className="text-xs text-muted-foreground/70 italic">No starred items yet</p>
       </div>
     );
   }

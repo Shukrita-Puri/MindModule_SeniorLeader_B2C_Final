@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  MessageSquare, 
+  ChatCircle, 
   Compass, 
-  SmilePlus, 
-  TrendingUp,
-  Bookmark,
+  Smiley, 
+  TrendUp,
+  BookmarkSimple,
   Clock
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +29,7 @@ import StarredItems from './StarredItems';
 const features = [
   {
     title: 'Self Mastery Coach',
-    icon: MessageSquare,
+    icon: ChatCircle,
     path: '/coach',
     description: 'AI-powered coaching',
   },
@@ -41,13 +41,13 @@ const features = [
   },
   {
     title: 'Energy State Check in',
-    icon: SmilePlus,
+    icon: Smiley,
     path: '/daily-check-in',
     description: 'Track your state',
   },
   {
     title: 'Insights',
-    icon: TrendingUp,
+    icon: TrendUp,
     path: '/insights',
     description: 'Trends & patterns',
   },
@@ -86,6 +86,7 @@ const LeftSidebar = () => {
             <SidebarMenu>
               {features.map((feature) => {
                 const isActive = location.pathname === feature.path;
+                const IconComponent = feature.icon;
                 return (
                   <SidebarMenuItem key={feature.path}>
                     <SidebarMenuButton
@@ -99,7 +100,14 @@ const LeftSidebar = () => {
                         isActive && "bg-saffron/10 text-saffron shadow-sm"
                       )}
                     >
-                      <feature.icon className={cn("h-4 w-4", isActive ? "text-saffron" : "text-primary")} />
+                      <IconComponent 
+                        size={18} 
+                        weight="duotone" 
+                        className={cn(
+                          "icon-duotone-luxury flex-shrink-0",
+                          isActive ? "text-saffron" : "text-primary"
+                        )} 
+                      />
                       <span>{feature.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -114,7 +122,11 @@ const LeftSidebar = () => {
         {/* Starred Section */}
         <SidebarGroup>
           <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
-            <Bookmark className={cn("h-3.5 w-3.5 mr-1.5 inline", isCollapsed ? "text-saffron" : "text-primary")} />
+            <BookmarkSimple 
+              size={14} 
+              weight="duotone" 
+              className={cn("mr-1.5 inline icon-duotone-luxury", isCollapsed ? "text-saffron" : "text-primary")} 
+            />
             Starred
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,7 +139,11 @@ const LeftSidebar = () => {
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
           <SidebarGroupLabel className={cn("text-primary font-body", isCollapsed && "sr-only")}>
-            <Clock className={cn("h-3.5 w-3.5 mr-1.5 inline", isCollapsed ? "text-saffron" : "text-primary")} />
+            <Clock 
+              size={14} 
+              weight="duotone" 
+              className={cn("mr-1.5 inline icon-duotone-luxury", isCollapsed ? "text-saffron" : "text-primary")} 
+            />
             Recent
           </SidebarGroupLabel>
           <SidebarGroupContent className="overflow-auto">
