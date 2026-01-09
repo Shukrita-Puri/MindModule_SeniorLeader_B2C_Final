@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import MainNavigation from "@/components/MainNavigation";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Zap, Waves, Target, Home, Sparkles } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
@@ -244,7 +244,7 @@ const DailyCheckIn = () => {
 
       </div>
       
-      <MainNavigation />
+      
       
       {/* Welcome Modal for First-Time Users */}
       <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>

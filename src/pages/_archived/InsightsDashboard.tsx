@@ -1,7 +1,7 @@
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
-import MainNavigation from '@/components/MainNavigation';
+import MainNavigation from '@/components/_archived/MainNavigation';
 import { MentalFitnessScoreCard } from '@/components/insights/MentalFitnessScoreCard';
 import { EnergyRhythmCurve } from '@/components/insights/EnergyRhythmCurve';
 import { WeeklyRhythmHeatmap } from '@/components/insights/WeeklyRhythmHeatmap';

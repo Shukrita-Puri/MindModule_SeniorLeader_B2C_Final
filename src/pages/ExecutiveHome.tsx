@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import MainNavigation from "@/components/MainNavigation";
 import SecurityWatermark from "@/components/home/SecurityWatermark";
 import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import InsightProgressCard from "@/components/home/InsightProgressCard";
@@ -9,7 +8,6 @@ import DailyRitual from "@/components/home/DailyRitual";
 import PerformancePreparation from "@/components/home/PerformancePreparation";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
-import executiveHomeBanner from "@/assets/executive-home-banner.png";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
 
@@ -45,7 +43,7 @@ const ExecutiveHome = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background">
       <UnifiedTopBar backPath="/signup" />
       
       {/* Simple Hero Header - No animated greeting */}
@@ -131,7 +129,6 @@ const ExecutiveHome = () => {
 
       <SecurityWatermark />
       <PrivacyFooter />
-      <MainNavigation />
     </div>
   );
 };

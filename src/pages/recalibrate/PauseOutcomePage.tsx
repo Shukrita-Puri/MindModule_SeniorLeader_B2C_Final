@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Sparkles, Heart } from "lucide-react";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import MainNavigation from "@/components/MainNavigation";
+
 import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -336,7 +336,7 @@ const PauseOutcomePage = () => {
         </div>
       </div>
 
-      <MainNavigation />
+      
     </div>
   );
 };

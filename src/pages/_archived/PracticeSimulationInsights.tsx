@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getLatestSessionId } from "@/utils/dialogueSessions";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
 import StrengthsSection, { EnhancedStrength } from "@/components/simulation/StrengthsSection";

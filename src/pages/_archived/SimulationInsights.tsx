@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import TopNavigation from "@/components/simulation/TopNavigation";
 import SimulationHeader from "@/components/simulation/SimulationHeader";
 import SessionContextCard from "@/components/simulation/SessionContextCard";

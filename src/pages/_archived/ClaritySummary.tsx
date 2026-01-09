@@ -5,7 +5,7 @@ import useScrollToTop from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 
 interface CraftSection {
   title: string;

@@ -2,7 +2,7 @@ import { ArrowLeft, Brain, TrendingUp, AlertTriangle, Target, Compass, Zap, Cloc
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 
 const MindVault = () => {
   const navigate = useNavigate();

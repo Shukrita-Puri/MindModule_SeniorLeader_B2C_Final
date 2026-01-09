@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import VoiceFirstChat from "@/components/VoiceFirstChat";
 import SessionFeedback from "@/components/SessionFeedback";
 

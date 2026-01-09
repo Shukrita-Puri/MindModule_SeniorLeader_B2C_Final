@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopNavigation from "@/components/simulation/TopNavigation";
-import MainNavigation from "@/components/MainNavigation";
+import MainNavigation from "@/components/_archived/MainNavigation";
 import CollegeAdmissionsSimulation from "@/components/CollegeAdmissionsSimulation";
 import SessionFeedback from "@/components/SessionFeedback";
 import SessionContextCard from "@/components/simulation/SessionContextCard";
