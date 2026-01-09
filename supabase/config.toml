@@ -1,1 +1,4 @@
 project_id = "jdyfqzlfvfsbpoifjzvz"
+
+[functions.self-mastery-coach]
+verify_jwt = false
