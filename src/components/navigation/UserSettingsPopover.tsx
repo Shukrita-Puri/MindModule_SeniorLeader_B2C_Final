@@ -6,8 +6,7 @@ import {
   Shield, 
   Share2, 
   LogOut,
-  ChevronUp,
-  Settings
+  ChevronUp
 } from 'lucide-react';
 import {
   Popover,
@@ -44,6 +43,11 @@ const UserSettingsPopover = () => {
     navigate('/login');
   };
 
+  const handleNavigate = (path: string) => {
+    setOpen(false);
+    navigate(path);
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -72,53 +76,48 @@ const UserSettingsPopover = () => {
         </SidebarMenuButton>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-64 p-2" 
+        className="w-72 p-0" 
         side="top" 
         align="start"
         sideOffset={8}
       >
         {/* User info header */}
-        <div className="flex items-center gap-3 px-2 py-3 border-b border-border mb-2">
-          <Avatar className="h-10 w-10">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
+          <Avatar className="h-12 w-12">
             <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
-            <AvatarFallback className="bg-primary/10 text-primary">
+            <AvatarFallback className="bg-primary/10 text-primary text-lg">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{user?.name || 'User'}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
           </div>
         </div>
 
         {/* Menu items */}
-        <div className="space-y-1">
+        <div className="py-2">
           {menuItems.map((item) => (
-            <Button
+            <button
               key={item.path}
-              variant="ghost"
-              className="w-full justify-start gap-3 h-9 px-2 text-sm"
-              onClick={() => {
-                setOpen(false);
-                navigate(item.path);
-              }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors text-left"
+              onClick={() => handleNavigate(item.path)}
             >
               <item.icon className="h-4 w-4 text-muted-foreground" />
-              {item.label}
-            </Button>
+              <span>{item.label}</span>
+            </button>
           ))}
         </div>
 
         {/* Sign out */}
-        <div className="border-t border-border mt-2 pt-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-9 px-2 text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
+        <div className="border-t border-border py-2">
+          <button
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
             onClick={handleSignOut}
           >
             <LogOut className="h-4 w-4" />
             Sign Out
-          </Button>
+          </button>
         </div>
       </PopoverContent>
     </Popover>

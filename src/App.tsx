@@ -25,6 +25,10 @@ const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerC
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const SelfMasteryCoach = lazy(() => import("./pages/SelfMasteryCoach"));
+const Insights = lazy(() => import("./pages/Insights"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ConnectedData = lazy(() => import("./pages/ConnectedData"));
+const Refer = lazy(() => import("./pages/Refer"));
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
@@ -92,6 +96,22 @@ const router = createBrowserRouter([
       {
         path: "coach",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SelfMasteryCoach /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "insights",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Insights /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "profile",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Profile /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "connected-data",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ConnectedData /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "refer",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Refer /></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",

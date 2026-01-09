@@ -1,12 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Brain, 
+  Lightbulb, 
   Compass, 
-  CalendarCheck, 
-  Bell, 
-  Star,
-  MessageCircle,
-  ChevronRight
+  SmilePlus, 
+  TrendingUp,
+  Bookmark,
+  Clock
 } from 'lucide-react';
 import {
   Sidebar,
@@ -29,8 +28,8 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Self Mastery Coach',
-    icon: Brain,
+    title: 'Inner Advisor',
+    icon: Lightbulb,
     path: '/coach',
     description: 'AI-powered coaching',
   },
@@ -41,16 +40,16 @@ const features = [
     description: 'Energy practices',
   },
   {
-    title: 'Daily Check-In',
-    icon: CalendarCheck,
+    title: 'Energy Pulse',
+    icon: SmilePlus,
     path: '/daily-check-in',
     description: 'Track your state',
   },
   {
-    title: 'Nudge Settings',
-    icon: Bell,
-    path: '/nudge-settings',
-    description: 'Notifications',
+    title: 'Insights',
+    icon: TrendingUp,
+    path: '/insights',
+    description: 'Trends & patterns',
   },
 ];
 
@@ -113,7 +112,7 @@ const LeftSidebar = () => {
         {/* Starred Section */}
         <SidebarGroup>
           <SidebarGroupLabel className={cn(isCollapsed && "sr-only")}>
-            <Star className="h-3.5 w-3.5 mr-1.5 inline" />
+            <Bookmark className="h-3.5 w-3.5 mr-1.5 inline" />
             Starred
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -126,7 +125,7 @@ const LeftSidebar = () => {
         {/* Recent Activity Section */}
         <SidebarGroup className="flex-1">
           <SidebarGroupLabel className={cn(isCollapsed && "sr-only")}>
-            <MessageCircle className="h-3.5 w-3.5 mr-1.5 inline" />
+            <Clock className="h-3.5 w-3.5 mr-1.5 inline" />
             Recent
           </SidebarGroupLabel>
           <SidebarGroupContent className="overflow-auto">
