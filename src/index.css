@@ -145,6 +145,12 @@ body {
     filter: contrast(1.02) saturate(0.6);
   }
 
+  /* Warm Luxury Filter - rich, warm tones without washing out */
+  .img-warm-luxury {
+    filter: sepia(15%) saturate(120%) brightness(105%) contrast(95%);
+    mix-blend-mode: multiply;
+  }
+
   /* Elevated Taupe Effects */
   .taupe-gradient {
     background: linear-gradient(135deg, hsl(var(--taupe)) 0%, hsl(var(--taupe-highlight)) 50%, hsl(var(--taupe)) 100%);
