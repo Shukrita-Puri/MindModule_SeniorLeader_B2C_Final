@@ -12,6 +12,10 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 
+// Background images for Coach cards
+import coachPrepareBackground from '@/assets/vibrant-executive-preparation.png';
+import coachIntegrateBackground from '@/assets/ink-reflection-illustration.png';
+
 // Coach card type for Prepare and Integrate modules
 interface CoachCard {
   id: string;
@@ -633,12 +637,22 @@ const DailyRitual = () => {
                       isLastCard && "mr-4"
                     )}
                   >
-                    {/* Visual Area - SM Monogram with warm background */}
-                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/20 via-taupe/10 to-saffron/5 relative overflow-hidden">
-                      {/* Stacked monogram */}
-                      <div className="flex flex-col items-center">
-                        <span className="text-3xl font-headline text-saffron tracking-tight leading-none">SM</span>
-                        <span className="text-[8px] uppercase tracking-[0.2em] text-taupe mt-1">Coach</span>
+                    {/* Visual Area - Background image with SM monogram overlay */}
+                    <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
+                      {/* Background image - same as practice cards */}
+                      <img 
+                        src={card.type === 'prepare' ? coachPrepareBackground : coachIntegrateBackground}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      
+                      {/* Dark overlay for readability */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-transparent" />
+                      
+                      {/* SM Coach monogram overlay */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                        <span className="text-[8px] uppercase tracking-[0.2em] text-white/80 mt-1">Coach</span>
                       </div>
                     </div>
                     

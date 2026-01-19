@@ -17,7 +17,7 @@ const SelfMasteryCoach = () => {
   const location = useLocation();
   const locationState = location.state as LocationState | null;
   const { user } = useAuth();
-  const { messages, isLoading, error, sendMessage, clearConversation } = useCoachConversation();
+  const { messages, isLoading, error, sendMessage, clearConversation, setFlowType } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,6 +26,14 @@ const SelfMasteryCoach = () => {
   const firstName = user?.name?.split(' ')[0] || 'there';
   const flowType = locationState?.flowType;
   const initialPrompt = locationState?.initialPrompt;
+  
+  // Set flow type for Tiny Win detection
+  useEffect(() => {
+    if (flowType) {
+      setFlowType(flowType);
+    }
+    return () => setFlowType(null);
+  }, [flowType, setFlowType]);
   
   // Get subtitle based on flow type
   const getSubtitle = () => {
