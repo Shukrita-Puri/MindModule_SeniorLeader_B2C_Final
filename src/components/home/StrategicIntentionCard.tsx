@@ -1,6 +1,7 @@
 /**
  * StrategicIntentionCard - "What matters today?"
  * Displays ONE psychological frame for the entire day
+ * Enhanced with: Why (mechanism) + Stakes + Unlock (archetype-aware)
  * Not interactive - pure framing instruction
  */
 
@@ -10,6 +11,8 @@ import { computeEnergyState, CurrentEnergyState } from '@/utils/energyStateEngin
 import { getStrategicTheme } from '@/utils/energyStateScoring';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { format, subDays } from 'date-fns';
 
 // Build data sources list based on what influenced the theme
 const getThemeDataSources = (energyState: CurrentEnergyState): string => {
@@ -50,6 +53,47 @@ const StrategicIntentionCard = () => {
     staleTime: 0,
   });
 
+  // Fetch recent check-ins for pattern recognition
+  const { data: recentCheckIns } = useQuery({
+    queryKey: ['recent-checkins-pattern', user?.id],
+    queryFn: async () => {
+      const today = new Date();
+      const sevenDaysAgo = subDays(today, 6);
+      
+      const { data } = await supabase
+        .from('daily_checkins')
+        .select('checkin_date, outcome')
+        .eq('user_id', user?.id)
+        .gte('checkin_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
+        .lte('checkin_date', format(today, 'yyyy-MM-dd'))
+        .order('checkin_date', { ascending: false });
+      
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Calculate pattern recognition - how many times this state appeared this week
+  const getPatternRecognition = (currentOutcome: string | undefined): string | null => {
+    if (!currentOutcome || !recentCheckIns || recentCheckIns.length < 2) return null;
+    
+    const sameStateCount = recentCheckIns.filter(c => c.outcome === currentOutcome).length;
+    
+    if (sameStateCount >= 3) {
+      const stateLabels: Record<string, string> = {
+        overwhelmed: 'overwhelmed',
+        drained: 'drained',
+        scattered: 'scattered',
+        steady: 'steady',
+        focused: 'focused'
+      };
+      const label = stateLabels[currentOutcome] || currentOutcome;
+      return `This is ${sameStateCount === 3 ? 'the 3rd' : sameStateCount === 4 ? 'the 4th' : `${sameStateCount}`} day this week you've felt ${label}.`;
+    }
+    return null;
+  };
+
   if (isLoading || !energyState) {
     return (
       <div className="animate-pulse p-5 md:p-6">
@@ -68,10 +112,12 @@ const StrategicIntentionCard = () => {
     energyState.checkInOutcome
   );
 
+  const patternRecognition = getPatternRecognition(energyState.checkInOutcome);
+
   return (
     <div className={cn(
       "py-4 px-4 -mx-4 space-y-3 rounded-lg border-l-2 transition-colors duration-500",
-      "bg-taupe/[0.06] border-l-taupe/30"
+      "bg-white border-l-taupe/40"
     )}>
       {/* Header - just label and info button */}
       <div className="flex items-center justify-between">
@@ -86,12 +132,19 @@ const StrategicIntentionCard = () => {
 
       {/* Theme content with fade animation */}
       <div key={theme.phrase} className="animate-fade-in space-y-3">
+        {/* Pattern recognition - if applicable */}
+        {patternRecognition && (
+          <p className="text-xs text-muted-foreground/70 font-body italic">
+            {patternRecognition}
+          </p>
+        )}
+
         {/* Theme phrase - serif, italic for elegance */}
         <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
           "{theme.phrase}"
         </p>
 
-        {/* Supporting context */}
+        {/* Supporting context - now includes Why + Stakes + Unlock */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
           {theme.context}
         </p>

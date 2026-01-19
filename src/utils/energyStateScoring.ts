@@ -515,7 +515,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Survival mode activated.",
-        context: "Maximum demands on minimum capacity. Triage ruthlessly and protect your nervous system at all costs.",
+        context: "Your nervous system is in fight-or-flight, flooding your body with cortisol. Without intervention, this compounds into decision fatigue and reactive behavior. Cancel or delegate one non-critical commitment to create breathing room.",
         driver: 'pressure+load'
       };
     }
@@ -523,7 +523,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Steady your ground.",
-        context: "Important moments ahead. Brief regulation between will prevent pressure from building.",
+        context: "Stress hormones are elevated, narrowing your cognitive bandwidth. This state reduces creative thinking and empathy in high-stakes moments. Use the gaps between meetings for 3 slow exhales to reset your baseline.",
         driver: 'pressure+load'
       };
     }
@@ -531,7 +531,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Protect your boundaries today.",
-        context: "High stakes require clear limits. Say no to preserve capacity for what matters.",
+        context: "An activated nervous system makes you more reactive and less strategic. Each additional demand compounds the stress response. Say 'not today' to one request to preserve capacity for what truly matters.",
         driver: 'pressure'
       };
     }
@@ -539,7 +539,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Simplify to survive.",
-        context: "Moderate stakes but packed schedule. Cut the non-essential to avoid compounding overwhelm.",
+        context: "Overwhelm fragments attention and depletes the prefrontal cortex, where strategic thinking lives. A packed schedule in this state leads to shallow execution. Defer or delete one meeting to protect cognitive quality.",
         driver: 'load'
       };
     }
@@ -547,7 +547,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Choose your battles wisely.",
-        context: "Full calendar, limited reserves. Not everything deserves your energy today.",
+        context: "Your body is signaling overload, but your calendar hasn't gotten the message. Pushing through will deplete reserves needed for recovery. Identify one thing that can wait until tomorrow.",
         driver: 'load'
       };
     }
@@ -555,7 +555,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Pace your recovery.",
-        context: "Manageable schedule today. Use the gaps between commitments to reset.",
+        context: "Overwhelm in a lighter schedule suggests accumulated stress rather than today's demands. Your nervous system needs regulation, not productivity. Use at least one gap today for stillness, not tasks.",
         driver: 'load'
       };
     }
@@ -563,7 +563,7 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Set the tone gently.",
-        context: "Morning overwhelm shapes the day. Start with regulation, not reaction.",
+        context: "Morning overwhelm sets a cortisol trajectory that affects your entire day. The first hour shapes neural patterns for hours to come. Before opening email, take 5 minutes of stillness to downshift your baseline.",
         driver: 'morning'
       };
     }
@@ -571,14 +571,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'evening') {
       return {
         phrase: "Decompress before you rest.",
-        context: "Your nervous system needs to downshift before sleep will be restorative.",
+        context: "An activated nervous system cannot access restorative sleep, even if you fall asleep. Without downshift, tonight's stress becomes tomorrow's fog. Sit quietly for 3 minutes with eyes closed to signal safety to your system.",
         driver: 'evening'
       };
     }
     // 9. Default (afternoon, low calendar)
     return {
       phrase: "Regulate before you engage.",
-      context: "Your system is activated. Brief regulation unlocks clearer responses.",
+      context: "Your nervous system is activated, creating a bias toward reactive rather than responsive behavior. Clarity and composure live on the other side of regulation. Three slow breaths activate the parasympathetic branch.",
       driver: 'state'
     };
   }
@@ -589,7 +589,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Conserve for what counts.",
-        context: "Critical moments ahead with empty reserves. Ruthlessly protect energy for high-stakes only.",
+        context: "Depletion reduces cognitive capacity by up to 30%, impairing judgment and impulse control. High-stakes decisions from an empty tank carry risk. Identify the 1-2 moments that truly need you and protect energy specifically for those.",
         driver: 'pressure+load'
       };
     }
@@ -597,7 +597,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Strategic bursts only.",
-        context: "Important moments ahead. Deploy energy in focused bursts, recover between.",
+        context: "Your glucose reserves are low, limiting sustained cognitive effort. Forcing continuous output accelerates depletion exponentially. Work in focused 25-minute bursts, then recover for 5, especially before high-stakes moments.",
         driver: 'pressure+load'
       };
     }
@@ -605,7 +605,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Guard your reserves.",
-        context: "High stakes demand energy you're low on. Prepare mentally, conserve physically.",
+        context: "Depletion impairs the prefrontal cortex, where executive function lives. This affects exactly the faculties you need for high-stakes performance. Front-load any restoration you can to arrive with more capacity.",
         driver: 'pressure'
       };
     }
@@ -613,7 +613,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Endurance over excellence.",
-        context: "Full schedule, depleted tank. Aim for completion, not perfection.",
+        context: "A full schedule in a depleted state creates a completion vs. quality tradeoff. Pushing for excellence will accelerate burnout. Today, 'good enough' is the strategic choice that protects tomorrow's capacity.",
         driver: 'load'
       };
     }
@@ -621,7 +621,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Navigate, don't sprint.",
-        context: "Packed day, low fuel. Move through steadily without burning out.",
+        context: "Depletion signals your body has been drawing from reserves, not income. Continuing to sprint creates a deficit that compounds over days. Move through today's commitments at 70% intensity to preserve recovery capacity.",
         driver: 'load'
       };
     }
@@ -629,7 +629,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Gentle momentum.",
-        context: "Light enough schedule to pace yourself. Small wins compound into recovered energy.",
+        context: "A lighter schedule gives space for strategic recovery rather than just survival. Small energy deposits throughout the day compound into restored capacity. Use one gap for genuine restoration, not 'productive rest.'",
         driver: 'load'
       };
     }
@@ -637,7 +637,7 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Ease into the day.",
-        context: "Morning depletion calls for a slow start. Protect the first hour for restoration.",
+        context: "Morning depletion often reflects insufficient sleep recovery or accumulated stress. Starting fast depletes the little reserve you have. Protect the first 30 minutes for gentle restoration before demands begin.",
         driver: 'morning'
       };
     }
@@ -645,14 +645,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'evening') {
       return {
         phrase: "Rest is productive.",
-        context: "Evening depletion signals you've given enough. Restoration is your priority now.",
+        context: "Evening depletion is your body's signal that you've given enough. Ignoring it leads to fragmented sleep and reduced recovery. Set a hard boundary 30 minutes before bed for screen-free wind-down.",
         driver: 'evening'
       };
     }
     // 9. Default
     return {
       phrase: "Restore before you push.",
-      context: "Low reserves call for recovery, not demands. Gentle restoration first.",
+      context: "Depletion isn't laziness; it's your nervous system protecting you from overextension. Pushing through delays recovery exponentially. One genuine 10-minute restoration now returns more than forcing through.",
       driver: 'state'
     };
   }
@@ -663,7 +663,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Focus or fragment.",
-        context: "Scattered mind meets maximum demands. Ground first, or risk reactive chaos.",
+        context: "A scattered mind under pressure becomes reactive, making decisions from emotion rather than strategy. This increases errors and damages relationships. Write your single priority for today, then let everything else orbit around it.",
         driver: 'pressure+load'
       };
     }
@@ -671,7 +671,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Clarity before stakes.",
-        context: "Important moments ahead. Clear the mental fog before you engage.",
+        context: "Mental scattering depletes working memory, reducing your capacity to hold complex information during important conversations. Before your next high-stakes moment, write 3 incomplete thoughts on paper to free mental space.",
         driver: 'pressure+load'
       };
     }
@@ -679,7 +679,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Find your center first.",
-        context: "High stakes need a clear mind. Brief grounding prevents scattered execution.",
+        context: "Scatteredness indicates your attention is fragmented across multiple open loops. This impairs the executive function needed for high-stakes performance. Close one open loop, even partially, to consolidate mental resources.",
         driver: 'pressure'
       };
     }
@@ -687,7 +687,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Anchor and execute.",
-        context: "Busy day needs a clear mind. Pick your anchor, let everything else orbit around it.",
+        context: "A scattered mind in a busy day leads to context-switching costs of 15-25 minutes per interruption. This turns a manageable day into an exhausting one. Pick your anchor task and return to it between every meeting.",
         driver: 'load'
       };
     }
@@ -695,7 +695,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "One thread at a time.",
-        context: "Full calendar, scattered focus. Pick one thing, complete it, then move on.",
+        context: "Multitasking from a scattered state reduces performance by up to 40%. The busier your day, the more single-threading matters. Before each task, take one breath and name what you're doing. Complete it before shifting.",
         driver: 'load'
       };
     }
@@ -703,7 +703,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Reclaim your attention.",
-        context: "Moderate demands give you space. Use it to consolidate your focus.",
+        context: "Moderate demands with a scattered mind suggests attention fragmentation from inputs, not schedule. Your cognitive resources are being consumed by incomplete thoughts. Write down 3 things that are 'open' in your mind, then set them aside.",
         driver: 'load'
       };
     }
@@ -711,7 +711,7 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Ground before you go.",
-        context: "Scattered mornings cascade into scattered days. Five minutes of focus now saves hours later.",
+        context: "Morning scatteredness often reflects yesterday's unprocessed thoughts competing for attention. Starting scattered compounds throughout the day. Before anything else, write your single most important outcome for today.",
         driver: 'morning'
       };
     }
@@ -719,14 +719,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'evening') {
       return {
         phrase: "Gather the fragments.",
-        context: "Evening scatteredness needs closure. Collect your thoughts before you rest.",
+        context: "A scattered mind in the evening signals unprocessed cognitive load from the day. Without closure, this mental noise carries into sleep and compounds tomorrow. Write 3 open loops on paper, then close the notebook.",
         driver: 'evening'
       };
     }
     // 9. Default
     return {
       phrase: "Find your anchor point.",
-      context: "Scattered energy needs a single focus. Choose one priority and let it organize the rest.",
+      context: "Scattered energy is your brain's attempt to hold too many threads simultaneously. This depletes working memory and creates a sense of urgency without productivity. Choose one priority and let it organize the rest.",
       driver: 'state'
     };
   }
@@ -737,7 +737,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Anchor in the storm.",
-        context: "Maximum demands but you're balanced. Your stability is your advantage—hold the center.",
+        context: "Your balanced nervous system is a competitive advantage when others are reactive. Under pressure, this steadiness enables clear thinking and measured responses. Protect this state by taking 3 breaths before each high-stakes moment.",
         driver: 'pressure+load'
       };
     }
@@ -745,7 +745,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Calm confidence.",
-        context: "High-stakes moments with manageable gaps. Use your steady state as a competitive edge.",
+        context: "Steadiness during high-stakes moments signals competence and creates psychological safety for others. This state is rare and valuable. Use the gaps between commitments to actively maintain rather than erode your baseline.",
         driver: 'pressure+load'
       };
     }
@@ -753,7 +753,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Rise to the moment.",
-        context: "High stakes, steady foundation. You're positioned to perform when it matters.",
+        context: "A steady foundation enables you to access your full cognitive capacity when stakes are high. This is the state where peak performance lives. Trust your preparation and let your equilibrium carry you through.",
         driver: 'pressure'
       };
     }
@@ -761,7 +761,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Sustainable pace required.",
-        context: "Full day ahead with moderate stakes. Your balance will be tested—pace accordingly.",
+        context: "Steadiness in a busy day can erode without intention. The density of commitments creates micro-stressors that accumulate. Pace deliberately to arrive at evening with your baseline intact.",
         driver: 'load'
       };
     }
@@ -769,7 +769,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Ride the rhythm.",
-        context: "Busy day, balanced state. Your steadiness lets you flow through the density.",
+        context: "A packed calendar is manageable from a steady state because you're not burning energy on stress responses. Your equilibrium creates efficiency. Use this advantage to move through the day without accumulating tension.",
         driver: 'load'
       };
     }
@@ -777,7 +777,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Steady as she goes.",
-        context: "Balanced state meets balanced day. Maintain your rhythm without overreaching.",
+        context: "A balanced state with balanced demands is optimal for both performance and recovery. This is where sustainable leadership lives. Maintain your rhythm without pushing into territory that depletes reserves.",
         driver: 'load'
       };
     }
@@ -785,7 +785,7 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Set the rhythm.",
-        context: "Steady mornings build steady days. Establish your pace before external demands begin.",
+        context: "Morning steadiness creates a baseline that shapes the entire day. Your nervous system learns from how the day begins. Use this window to establish the pace you want to carry through.",
         driver: 'morning'
       };
     }
@@ -793,14 +793,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'evening') {
       return {
         phrase: "Maintain your balance.",
-        context: "Steady evening is a win. Carry this equilibrium into rest.",
+        context: "Arriving at evening in a steady state means your regulation throughout the day worked. This is the foundation of sustainable performance. Carry this equilibrium into rest for quality recovery.",
         driver: 'evening'
       };
     }
     // 9. Default
     return {
       phrase: "Build on your balance.",
-      context: "You're in a good place. Use this foundation to make progress without strain.",
+      context: "Steadiness is not neutral; it's an active state that enables clear thinking and responsive action. This foundation is what sustainable high performance is built on. Protect it, use it strategically, and let it compound.",
       driver: 'state'
     };
   }
@@ -811,7 +811,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Peak performance day.",
-        context: "Maximum capacity meets maximum demands. This is your moment to deliver at scale.",
+        context: "Peak cognitive state meets maximum demands. This alignment is rare and powerful. Deploy your capacity where it creates the most leverage and capture the value this state enables.",
         driver: 'pressure+load'
       };
     }
@@ -819,7 +819,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Execute with precision.",
-        context: "High stakes, peak readiness. Deploy your focus where it creates decisive outcomes.",
+        context: "High stakes with peak readiness is the ideal condition for decisive action. Your cognitive resources are optimized for complexity. Use this window for your highest-leverage decisions and conversations.",
         driver: 'pressure+load'
       };
     }
@@ -827,7 +827,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Seize the high ground.",
-        context: "High stakes, peak state. You have the edge—use it decisively.",
+        context: "Peak focus during high stakes is a competitive advantage. Your prefrontal cortex is fully online, enabling strategic thinking and emotional regulation. Lean into the challenge with confidence.",
         driver: 'pressure'
       };
     }
@@ -835,7 +835,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Channel the intensity.",
-        context: "Full schedule but you're sharp. Direct your focus where it creates the most value.",
+        context: "Peak state enables efficient processing of a dense schedule. You can handle more without accumulating stress. Direct your focus strategically rather than spreading it thin across everything.",
         driver: 'load'
       };
     }
@@ -843,7 +843,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Sprint through the density.",
-        context: "Packed calendar, peak energy. Use your capacity to move through efficiently.",
+        context: "Focused energy in a packed day is powerful leverage. You can move through commitments with less friction and more impact. Use this capacity to create momentum.",
         driver: 'load'
       };
     }
@@ -851,7 +851,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Strategic deployment.",
-        context: "Moderate demands, peak state. Choose where to invest this energy for maximum return.",
+        context: "Peak focus with moderate demands gives you choice. This is premium cognitive real estate. Deploy it on your highest-value work rather than letting it dissipate on routine tasks.",
         driver: 'load'
       };
     }
@@ -859,7 +859,7 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Maximize your morning.",
-        context: "Peak state in the morning is gold. Execute your highest-value work now.",
+        context: "Morning focus is your highest-value window. Cognitive capacity typically peaks in the first few hours after waking. Execute your most important, creative, or complex work before this window closes.",
         driver: 'morning'
       };
     }
@@ -867,14 +867,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'evening') {
       return {
         phrase: "Finish strong.",
-        context: "Focused evening is rare. Complete what matters before the day closes.",
+        context: "Focused energy sustained into evening is rare. It suggests effective regulation throughout the day. Complete what matters, then honor the transition to rest while the state is still positive.",
         driver: 'evening'
       };
     }
     // 9. Default
     return {
       phrase: "Own your optimal state.",
-      context: "You're operating at your best. Protect this state and deploy it strategically.",
+      context: "Peak focus is the state where your best work happens. This is limited cognitive capital that depletes throughout the day. Protect it from interruption and direct it toward what matters most.",
       driver: 'state'
     };
   }
