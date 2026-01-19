@@ -75,19 +75,19 @@ const ExecutiveHome = () => {
   
   // Get calming visual based on energy state
   const getHeroVisual = () => {
-    if (!energyState) return '/all-visuals/src-assets/sanctuary-watercolor-banner.jpg';
+    if (!energyState) return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
     
     switch (energyState.energyTier) {
       case 'depleted': 
-        return '/all-visuals/src-assets/forest-bathing-visual.jpg';
+        return '/all-visuals/src-assets/softness-release.jpg';
       case 'managing': 
-        return '/all-visuals/src-assets/stillness-gap.jpg';
+        return '/all-visuals/src-assets/harmonic-calm-singing-bowl.jpg';
       case 'strong': 
-        return '/all-visuals/src-assets/presence-grounding.jpg';
+        return '/all-visuals/src-assets/flow-meditation-colorful.jpg';
       case 'peak': 
-        return '/all-visuals/src-assets/ina-night-fields-hero.jpg';
+        return '/all-visuals/src-assets/vibrant-flow-state-hero.png';
       default: 
-        return '/all-visuals/src-assets/sanctuary-watercolor-banner.jpg';
+        return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
     }
   };
 
@@ -104,7 +104,7 @@ const ExecutiveHome = () => {
               <img 
                 src={getHeroVisual()}
                 alt=""
-                className="w-full h-full object-cover img-warm-luxury opacity-30 animate-ken-burns transition-opacity duration-1000 ease-out"
+                className="w-full h-full object-cover img-warm-luxury opacity-20 animate-ken-burns transition-opacity duration-1000 ease-out"
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
