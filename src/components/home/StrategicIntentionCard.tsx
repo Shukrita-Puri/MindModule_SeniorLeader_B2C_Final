@@ -7,24 +7,25 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState } from '@/utils/energyStateEngine';
-import { getStrategicTheme } from '@/utils/energyStateScoring';
+import { getStrategicTheme, ThemeDriver } from '@/utils/energyStateScoring';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
 
-// Get state-based accent color class
-const getStateAccentClass = (checkInOutcome?: string): string => {
-  switch (checkInOutcome) {
-    case 'overwhelmed':
-    case 'drained':
-      return 'bg-[hsl(var(--state-depleted)/0.08)] border-l-[hsl(var(--state-depleted))]';
-    case 'scattered':
-      return 'bg-[hsl(var(--state-scattered)/0.06)] border-l-[hsl(var(--state-scattered))]';
-    case 'steady':
-      return 'bg-[hsl(var(--state-steady)/0.06)] border-l-[hsl(var(--state-steady))]';
-    case 'focused':
-      return 'bg-[hsl(var(--state-focused)/0.06)] border-l-[hsl(var(--state-focused))]';
+// Get user-friendly label for theme driver
+const getDriverLabel = (driver: ThemeDriver): string => {
+  switch (driver) {
+    case 'pressure+load':
+      return 'High Pressure + Packed Day';
+    case 'pressure':
+      return 'High-Stakes Events';
+    case 'load':
+      return 'Packed Schedule';
+    case 'morning':
+      return 'Morning Focus';
+    case 'evening':
+      return 'Evening Wind-Down';
     default:
-      return 'bg-muted/30 border-l-muted-foreground/30';
+      return 'Based on Your State';
   }
 };
 
@@ -61,21 +62,24 @@ const StrategicIntentionCard = () => {
     energyState.checkInOutcome
   );
 
-  const stateAccentClass = getStateAccentClass(energyState.checkInOutcome);
-
   return (
     <div className={cn(
       "py-4 px-4 -mx-4 space-y-3 rounded-lg border-l-2 transition-colors duration-500",
-      stateAccentClass
+      "bg-muted/5 border-l-muted-foreground/20"
     )}>
       {/* Label with info button - aligned with TodayStateCard */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-          Theme for Today
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
+            Theme for Today
+          </span>
+          <span className="text-[10px] text-muted-foreground/60 font-body tracking-wide">
+            {getDriverLabel(theme.driver)}
+          </span>
+        </div>
         <MetricInfoModal
           title="How Your Daily Theme is Selected"
-          description="Your theme is generated based on your current felt state (from check-in), calendar pressure, and time of day. It provides strategic guidance that acknowledges both how you feel and what your day demands."
+          description="Your theme combines your current felt state (from check-in and wearable data), calendar pressure (high-stakes events), calendar load (meeting density), and time of day. It provides strategic guidance that acknowledges both how you feel internally and what your day demands externally."
         />
       </div>
 
