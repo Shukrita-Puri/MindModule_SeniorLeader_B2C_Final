@@ -151,21 +151,21 @@ body {
     mix-blend-mode: multiply;
   }
 
-  /* Ken Burns - subtle ambient zoom/pan animation */
+  /* Ken Burns - very slow, subtle ambient zoom/pan animation */
   @keyframes ken-burns {
     0% {
-      transform: scale(1.1) translate(0%, 0%);
+      transform: scale(1.05) translate(0%, 0%);
     }
     50% {
-      transform: scale(1.15) translate(-1%, -0.5%);
+      transform: scale(1.08) translate(-0.5%, -0.25%);
     }
     100% {
-      transform: scale(1.1) translate(0%, 0%);
+      transform: scale(1.05) translate(0%, 0%);
     }
   }
 
   .animate-ken-burns {
-    animation: ken-burns 20s ease-in-out infinite;
+    animation: ken-burns 45s ease-in-out infinite;
   }
 
   /* Elevated Taupe Effects */
