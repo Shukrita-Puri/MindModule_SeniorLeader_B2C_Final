@@ -121,7 +121,7 @@ const TodayStateCard = () => {
           <span className="text-xs text-muted-foreground/50 font-body">
             Based on {energyState.dataSources?.join(', ') || 'check-in'}
           </span>
-          <div className="flex items-center text-xs text-saffron font-medium group-hover:underline font-body">
+          <div className="flex items-center text-xs text-foreground font-medium group-hover:underline font-body">
             <span>View insights</span>
             <ChevronRight size={14} className="ml-1" />
           </div>
