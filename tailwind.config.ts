@@ -89,6 +89,10 @@ export default {
           DEFAULT: "hsl(var(--emerald))",
           foreground: "hsl(var(--emerald-foreground))",
         },
+        mintGreen: {
+          DEFAULT: "hsl(var(--mint-green))",
+          foreground: "hsl(var(--mint-green-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
