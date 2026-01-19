@@ -32,13 +32,15 @@ const StrategicIntentionCard = () => {
   const { user } = useAuth();
 
   const { data: energyState, isLoading } = useQuery({
-    queryKey: ['strategic-theme', user?.id],
+    queryKey: ['energy-state', user?.id],
     queryFn: async () => {
       return await computeEnergyState(user?.id);
     },
     enabled: !!user?.id,
-    refetchInterval: 10 * 60 * 1000,
-    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   if (isLoading || !energyState) {
