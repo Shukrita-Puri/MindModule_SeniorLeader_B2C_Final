@@ -12,38 +12,38 @@ import { useAuth } from '@/hooks/useAuth';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
-// Helper to determine protocol type based on practice characteristics
-const getProtocolType = (practice: Recommendation): string => {
-  // All soundbaths are Somatic Protocol
+
+// Helper to determine module type for Performance Plan display
+const getModuleType = (practice: Recommendation): { icon: string; label: string } => {
+  // All soundbaths are Regulate (Somatic)
   if (practice.contentType === 'soundbath') {
-    return 'Somatic Protocol';
+    return { icon: '🧘', label: 'Regulate' };
   }
   
-  // Check if practice has 'somatic' in its tags (explicit marker)
+  // Check if practice has 'somatic' in its tags
   if (practice.tags && practice.tags.some(tag => 
     tag.toLowerCase().includes('somatic') || 
     tag.toLowerCase().includes('breathing') ||
     tag.toLowerCase().includes('breathwork')
   )) {
-    return 'Somatic Protocol';
+    return { icon: '🧘', label: 'Regulate' };
   }
   
-  // Body-based guided practices (yogic, physical, sensory)
+  // Body-based guided practices
   const somaticGuidedPractices = [
-    'trataka-flame-gaze', // Yogic gazing meditation
-    'energy-forge', // Physical activation
-    'box-breathing', // Breathwork
-    'kapalabhati-pranayama', // Breathwork
-    'body-scan', // Body awareness
-    'progressive-relaxation', // Body-based
+    'trataka-flame-gaze',
+    'energy-forge',
+    'box-breathing',
+    'kapalabhati-pranayama',
+    'body-scan',
+    'progressive-relaxation',
   ];
   
   if (practice.contentType === 'guided-practice' && somaticGuidedPractices.includes(practice.id)) {
-    return 'Somatic Protocol';
+    return { icon: '🧘', label: 'Regulate' };
   }
   
-  // For micro-practices, check if they're tools (somatic) vs mindset
-  // Tools are body-based techniques, mindset are cognitive reframes
+  // Somatic micro-practices
   const somaticMicroPractices = [
     'grounding-touch',
     'physiological-sigh',
@@ -53,11 +53,11 @@ const getProtocolType = (practice: Recommendation): string => {
   ];
   
   if (practice.contentType === 'micro-practice' && somaticMicroPractices.includes(practice.id)) {
-    return 'Somatic Protocol';
+    return { icon: '🧘', label: 'Regulate' };
   }
   
-  // Everything else is Mindset Protocol (cognitive reframing, visualization, mental models)
-  return 'Mindset Protocol';
+  // Everything else is Align (Mindset)
+  return { icon: '🧠', label: 'Align' };
 };
 
 const DailyRitual = () => {
@@ -438,11 +438,11 @@ const DailyRitual = () => {
   const { practices } = recommendations;
 
   return (
-    <div className="space-y-4">
-      {/* Progress indicator */}
+    <div className="space-y-4 pt-2">
+      {/* Progress indicator - compact */}
       {ritualStatus.status === 'partial' && (
         <div className="text-xs text-muted-foreground px-4 max-w-lg mx-auto">
-          {ritualStatus.completedCount} of {ritualStatus.totalCount} practices completed
+          {ritualStatus.completedCount} of {ritualStatus.totalCount} modules completed
         </div>
       )}
 
@@ -481,18 +481,21 @@ const DailyRitual = () => {
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                      {/* Category Label */}
-                      <span className="text-sm text-primary">
-                        {getProtocolType(practice)}
-                      </span>
+                      {/* Module Type Label */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{getModuleType(practice).icon}</span>
+                        <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+                          {getModuleType(practice).label}
+                        </span>
+                      </div>
                       
                       {/* Title */}
-                      <h4 className="text-lg font-bold text-foreground line-clamp-2 mt-1 leading-snug">
+                      <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1 leading-snug">
                         {practice.title}
                       </h4>
                       
                       {/* Duration */}
-                      <span className="text-sm text-muted-foreground mt-1">
+                      <span className="text-xs text-muted-foreground mt-1">
                         {practice.duration} min
                       </span>
                     </div>
@@ -537,18 +540,18 @@ const DailyRitual = () => {
         {ritualStatus.status === 'not_started' && (
           <Button 
             onClick={handleStartRitual}
-            className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-md"
           >
-            Start Your Ritual
+            ▶ Start Today's Flow
           </Button>
         )}
 
         {ritualStatus.status === 'partial' && (
           <Button 
             onClick={handleContinueRitual}
-            className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-md"
           >
-            Continue Your Ritual
+            ▶ Continue Flow
           </Button>
         )}
 

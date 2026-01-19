@@ -67,14 +67,15 @@ const LeftSidebar = () => {
       {/* Header */}
       <SidebarHeader className="h-14 flex items-center justify-center border-b border-sidebar-border">
         <div className={cn(
-          "flex items-center gap-2 transition-all duration-200",
-          isCollapsed ? "justify-center" : "px-2"
+          "flex items-center transition-all duration-200",
+          isCollapsed ? "justify-center" : "px-3"
         )}>
-          <div className="w-8 h-8 rounded-lg bg-saffron/10 flex items-center justify-center">
-            <span className="text-lg">🧠</span>
-          </div>
-          {!isCollapsed && (
-            <span className="font-headline text-lg text-primary">Mind Atelier</span>
+          {isCollapsed ? (
+            <span className="font-headline text-lg font-semibold tracking-widest text-saffron">MM</span>
+          ) : (
+            <span className="font-headline text-lg font-semibold tracking-widest text-foreground">
+              MIND MODULE
+            </span>
           )}
         </div>
       </SidebarHeader>
