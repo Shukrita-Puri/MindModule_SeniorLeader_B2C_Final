@@ -47,6 +47,29 @@ const stateColors: Record<string, string> = {
   overwhelmed: 'hsl(0 84% 60%)'
 };
 
+// State display names
+const stateLabels: Record<string, string> = {
+  focused: 'Focused',
+  steady: 'Steady',
+  scattered: 'Scattered',
+  drained: 'Drained',
+  overwhelmed: 'Overwhelmed'
+};
+
+// Category colors for practice history
+const getCategoryColor = (category: string): string => {
+  const colors: Record<string, string> = {
+    'Regulate': 'hsl(var(--primary))',
+    'Align': 'hsl(var(--accent))',
+    'Prepare': 'hsl(142 76% 36%)',
+    'Integrate': 'hsl(217 91% 60%)',
+    'Breathwork': 'hsl(var(--primary))',
+    'Somatic': 'hsl(var(--accent))',
+    'Mindset': 'hsl(142 76% 36%)',
+  };
+  return colors[category] || 'hsl(var(--muted-foreground))';
+};
+
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -59,17 +82,12 @@ const Insights = () => {
   const [winsLoading, setWinsLoading] = useState(false);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
   const [patternsLoading, setPatternsLoading] = useState(false);
-  const [checkInStreak, setCheckInStreak] = useState(0);
-  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
-  const [winsLoading, setWinsLoading] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchInsightsData();
       fetchTinyWinsInsights();
       fetchStatePatterns();
-    }
-  }, [user?.id]);
     }
   }, [user?.id]);
 
@@ -201,6 +219,18 @@ const Insights = () => {
     }
   };
 
+  // Prepare state distribution data for bar chart
+  const getStateDistributionData = () => {
+    if (!statePatterns?.distribution) return [];
+    
+    const orderedStates = ['focused', 'steady', 'scattered', 'drained', 'overwhelmed'];
+    return orderedStates.map(state => ({
+      state: stateLabels[state],
+      count: statePatterns.distribution[state] || 0,
+      fill: stateColors[state]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -215,6 +245,9 @@ const Insights = () => {
     : null;
   const totalPractices = practiceData.reduce((sum, p) => sum + p.count, 0);
   const totalMinutes = practiceData.reduce((sum, p) => sum + p.totalDuration, 0);
+
+  const stateDistributionData = getStateDistributionData();
+  const maxStateCount = Math.max(...stateDistributionData.map(d => d.count), 1);
 
   return (
     <div className="min-h-screen bg-background">
@@ -254,6 +287,69 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <WeeklyRitualStreak />
+          </CardContent>
+        </Card>
+
+        {/* Weekly State Patterns - NEW SECTION */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Your State Patterns</CardTitle>
+            </div>
+            <CardDescription>How you've been showing up this week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {patternsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : statePatterns && statePatterns.checkInCount > 0 ? (
+              <div className="space-y-6">
+                {/* Horizontal bar chart */}
+                <div className="space-y-3">
+                  {stateDistributionData.map((item) => (
+                    <div key={item.state} className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground w-24 text-right">
+                        {item.state}
+                      </span>
+                      <div className="flex-1 h-6 bg-muted/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${(item.count / maxStateCount) * 100}%`,
+                            backgroundColor: item.fill,
+                            minWidth: item.count > 0 ? '8px' : '0'
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium w-16">
+                        {item.count} {item.count === 1 ? 'day' : 'days'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border" />
+
+                {/* AI observation */}
+                {statePatterns.observation && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    "{statePatterns.observation}"
+                  </p>
+                )}
+
+                {/* Check-in count */}
+                <p className="text-xs text-muted-foreground/60">
+                  Based on {statePatterns.checkInCount} check-ins this week
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">
+                Complete daily check-ins to see your state patterns.
+              </p>
+            )}
           </CardContent>
         </Card>
 
