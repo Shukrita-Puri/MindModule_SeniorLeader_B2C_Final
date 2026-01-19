@@ -130,11 +130,13 @@ const ExecutiveHome = () => {
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
+              {/* Cinematic vignette for focused feel */}
+              <div className="absolute inset-0 vignette-overlay" />
             </div>
             
             {/* Header - now INSIDE the visual */}
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full">
-              <SidebarTrigger className="h-9 w-9 rounded-full text-foreground bg-white/80 backdrop-blur-sm border border-black/10 hover:bg-white/90" />
+              <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
               <CoachAccessButton />
             </header>
             

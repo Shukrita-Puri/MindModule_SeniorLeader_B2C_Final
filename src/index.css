@@ -205,6 +205,12 @@ body {
   .editorial-margin {
     @apply my-8 md:my-12 lg:my-16;
   }
+  
+  /* Cinematic vignette overlay for video backgrounds */
+  .vignette-overlay {
+    box-shadow: inset 0 0 150px 60px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+  }
 }
 
 /* Luxury Icon Button with Gradient & Dimension */
