@@ -17,7 +17,7 @@ import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
-import PerformancePreparation from "@/components/home/PerformancePreparation";
+import JustInTimeIntervention from "@/components/home/JustInTimeIntervention";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
@@ -136,7 +136,7 @@ const ExecutiveHome = () => {
 
             {/* Just-in-Time Interventions - Only shows when triggered */}
             <div className="px-4 md:px-6 mt-6 max-w-lg mx-auto">
-              <PerformancePreparation />
+              <JustInTimeIntervention />
             </div>
 
             <div className="mt-8">

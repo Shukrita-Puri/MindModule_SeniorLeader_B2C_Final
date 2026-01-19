@@ -610,7 +610,7 @@ const DailyRitual = () => {
               );
             })}
             
-            {/* Coach cards (Prepare and Integrate) */}
+            {/* Coach cards (Prepare and Integrate) - same template as practice cards */}
             {coachCards.map((card, index) => {
               const isCompleted = completedPracticeIds.includes(card.id);
               const isLastCard = index === coachCards.length - 1;
@@ -623,28 +623,26 @@ const DailyRitual = () => {
                   <div
                     onClick={() => !isDragging && !isCompleted && navigateToCoach(card)}
                     className={cn(
+                      // SAME base styles as practice cards
                       "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
-                      "bg-gradient-to-br from-saffron/10 via-transparent to-taupe/10",
-                      "backdrop-blur-[20px] border border-saffron/20",
-                      "shadow-[0_4px_16px_rgba(255,140,66,0.08)]",
+                      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
+                      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:shadow-[0_8px_24px_rgba(255,140,66,0.15)] hover:-translate-y-0.5",
+                        : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       isLastCard && "mr-4"
                     )}
                   >
-                    {/* Coach Visual Area - Premium typography-driven design */}
-                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/25 via-taupe/15 to-transparent relative overflow-hidden">
-                      {/* Subtle radial glow */}
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,140,66,0.15)_0%,transparent_70%)]" />
+                    {/* Visual Area - SM Monogram with warm background */}
+                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/20 via-taupe/10 to-saffron/5 relative overflow-hidden">
                       {/* Stacked monogram */}
-                      <div className="flex flex-col items-center relative z-10">
+                      <div className="flex flex-col items-center">
                         <span className="text-3xl font-headline text-saffron tracking-tight leading-none">SM</span>
-                        <span className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground/70 mt-1">Coach</span>
+                        <span className="text-[8px] uppercase tracking-[0.2em] text-taupe mt-1">Coach</span>
                       </div>
                     </div>
                     
-                    {/* Content */}
+                    {/* Content - SAME structure as practice cards */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                       {/* Module Type Label - stacked */}
                       <div className="flex flex-col gap-0.5">
