@@ -66,9 +66,15 @@
     --taupe-rich: 25 12% 48%;        /* #8B7A6E darker */
     --taupe-foreground: 0 0% 100%;
     
-    /* Saffron Accent (Critical Elements) */
+/* Saffron Accent (Critical Elements) */
     --saffron: 24 85% 63%;           /* #FF8C42 */
     --saffron-foreground: 0 0% 100%;
+    
+    /* State-based Theme Colors */
+    --state-depleted: 15 70% 55%;    /* Warm amber for overwhelmed/drained */
+    --state-scattered: 35 75% 55%;   /* Orange-gold for scattered */
+    --state-steady: 25 15% 55%;      /* Warm taupe for steady */
+    --state-focused: 180 35% 45%;    /* Teal for focused/strong */
     
     /* Subtle Gradients */
     --gradient-subtle: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.03) 100%);
