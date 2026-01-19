@@ -14,7 +14,10 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
         className={cn("text-muted-foreground/60 hover:text-foreground transition-colors", className)}
         aria-label={`Info about ${title}`}
       >

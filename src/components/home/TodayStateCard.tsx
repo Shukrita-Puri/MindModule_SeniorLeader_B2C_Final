@@ -58,20 +58,14 @@ const TodayStateCard = () => {
   const insight = contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : '');
 
   return (
-    <div 
-      className={cn(
-        "relative cursor-pointer py-4",
-        "transition-all duration-300"
-      )}
-      onClick={() => navigate('/insights')}
-    >
+    <div className="relative py-4 transition-all duration-300">
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-saffron/[0.04] via-transparent to-transparent pointer-events-none rounded-2xl" />
       
       <div className="relative">
-        {/* Header with info button */}
+        {/* Header with info button - aligned */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
             Today's State
           </span>
           <MetricInfoModal
@@ -82,29 +76,32 @@ const TodayStateCard = () => {
 
         {/* Score and Tier */}
         <div className="flex items-baseline gap-3 mb-2">
-          <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums">
+          <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums font-body">
             {energyState.overallBalance}
           </span>
-          <span className="text-lg text-muted-foreground/60">
+          <span className="text-lg text-muted-foreground/60 font-body">
             / 100
           </span>
         </div>
         
-        <p className="text-base font-medium text-foreground mb-3">
+        <p className="text-base font-medium text-foreground mb-3 font-body">
           {tierLabel}
         </p>
 
-        {/* Contextual Insight */}
-        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+        {/* Contextual Insight - Enriched */}
+        <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-body">
           {insight}
         </p>
 
-        {/* Data Sources + CTA */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground/50">
+        {/* Data Sources + CTA - clickable for navigation */}
+        <div 
+          className="flex items-center justify-between cursor-pointer group"
+          onClick={() => navigate('/insights')}
+        >
+          <span className="text-xs text-muted-foreground/50 font-body">
             Based on {energyState.dataSources?.join(', ') || 'check-in'}
           </span>
-          <div className="flex items-center text-xs text-saffron font-medium">
+          <div className="flex items-center text-xs text-saffron font-medium group-hover:underline font-body">
             <span>View insights</span>
             <ChevronRight size={14} className="ml-1" />
           </div>

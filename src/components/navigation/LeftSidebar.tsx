@@ -65,7 +65,7 @@ const LeftSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       {/* Header */}
-      <SidebarHeader className="h-14 flex items-center justify-center border-b border-sidebar-border">
+      <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border">
         <div className={cn(
           "flex items-center transition-all duration-200",
           isCollapsed ? "justify-center" : "px-3"
@@ -73,9 +73,14 @@ const LeftSidebar = () => {
           {isCollapsed ? (
             <span className="font-headline text-lg font-semibold tracking-widest text-saffron">MM</span>
           ) : (
-            <span className="font-headline text-lg font-semibold tracking-widest text-foreground">
-              MIND MODULE
-            </span>
+            <div className="flex flex-col">
+              <span className="font-headline text-base font-semibold tracking-widest text-foreground">
+                MIND MODULE
+              </span>
+              <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                Executive Edition
+              </span>
+            </div>
           )}
         </div>
       </SidebarHeader>

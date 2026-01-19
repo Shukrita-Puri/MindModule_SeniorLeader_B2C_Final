@@ -244,42 +244,58 @@ function getCheckInEmotion(checkInOutcome: string | null): string {
   return emotionMap[checkInOutcome] || '';
 }
 
-// Helper function to format context statement
+// Helper function to format context statement - ENRICHED with circadian/calendar insights
 function formatContextStatement(
   checkInOutcome: string | null,
   balance: number,
   timeOfDay: TimeOfDay,
-  energyTier: EnergyTier
+  energyTier: EnergyTier,
+  hasCalendar: boolean = false,
+  hasWearable: boolean = false,
+  calendarLoad?: CalendarLoad,
+  calendarPressure?: CalendarPressure
 ): string {
-  const emotion = getCheckInEmotion(checkInOutcome);
-  const timeLabel = timeOfDay === 'morning' ? 'this morning' : timeOfDay === 'afternoon' ? 'this afternoon' : 'this evening';
+  const timeLabel = timeOfDay === 'morning' ? 'morning' : timeOfDay === 'afternoon' ? 'afternoon' : 'evening';
   
-  // Tier display names
-  const tierNames: Record<EnergyTier, string> = {
-    'depleted': 'Depleted',
-    'managing': 'Managing', 
-    'strong': 'Strong',
-    'peak': 'Peak'
+  // Build contextual insight based on tier and available data
+  const tierInsights: Record<EnergyTier, Record<TimeOfDay, string>> = {
+    'depleted': {
+      'morning': 'Start slowly. Your body needs restoration before taking on demanding work.',
+      'afternoon': 'Afternoon energy dips are normal, but yours signals a need for deeper rest. Simplify your remaining tasks.',
+      'evening': 'Rest is your work tonight. Tomorrow\'s performance depends on tonight\'s recovery.'
+    },
+    'managing': {
+      'morning': 'You have reserves, but they need protection. Pace yourself through the morning demands.',
+      'afternoon': 'Mid-range energy this afternoon. Focus on maintaining rhythm rather than pushing harder.',
+      'evening': 'Wind down with intention. Your energy is manageable but needs restoration overnight.'
+    },
+    'strong': {
+      'morning': 'Strong morning energy. This is your window for demanding cognitive work.',
+      'afternoon': 'Solid afternoon reserves. Leverage this energy for high-value tasks.',
+      'evening': 'Good energy late in the day. Close out strong, then transition to rest mode.'
+    },
+    'peak': {
+      'morning': 'Peak state this morning. Execute on your most important priorities now.',
+      'afternoon': 'Exceptional afternoon energy. Rare opportunity for flow state work.',
+      'evening': 'High energy tonight—channel it wisely, as rest will be important for sustaining this.'
+    }
   };
   
-  // Tier explanations (time-aware for depleted)
-  const tierMeanings: Record<EnergyTier, string> = {
-    'depleted': timeOfDay === 'evening' 
-      ? 'Depleted energy means you need calming techniques and restoration to prepare for deep rest tonight'
-      : 'Depleted energy means you need deep rest and restoration before taking on demands',
-    'managing': 'Managing energy means you need a mix of grounding and recovery practices to maintain performance',
-    'strong': 'Strong energy means you can lean into flow states with grounding support',
-    'peak': 'Peak energy means you can optimize high performance and sustain momentum'
-  };
+  let insight = tierInsights[energyTier][timeOfDay];
   
-  const tierName = tierNames[energyTier];
-  const tierMeaning = tierMeanings[energyTier];
-  
-  if (emotion) {
-    return `You mentioned you are ${emotion}. Hence I understand your energy is ${tierName} ${timeLabel}. ${tierMeaning}.`;
+  // Add calendar context if available
+  if (hasCalendar && calendarPressure === 'high') {
+    insight += ' High calendar pressure ahead—protect yourself with strategic pauses.';
+  } else if (hasCalendar && calendarLoad === 'high') {
+    insight += ' Heavy meeting load today—be intentional about recovery windows.';
   }
   
-  return `Your energy is ${tierName} ${timeLabel}. ${tierMeaning}.`;
+  // Add wearable context if available
+  if (hasWearable) {
+    insight += ' Wearable data factored into your recommendations.';
+  }
+  
+  return insight;
 }
 
 export function getRecommendation(
@@ -288,9 +304,17 @@ export function getRecommendation(
   calendarMetrics: CalendarMetrics,
   wearableFunction: WearableFunction,
   checkInOutcome: string | null,
-  timeOfDay: TimeOfDay
+  timeOfDay: TimeOfDay,
+  hasCalendar: boolean = false,
+  hasWearable: boolean = false
 ): Recommendation {
   const subTier = getEnergySubTier(balance);
+  
+  // Helper to create context statement with all context
+  const createContext = () => formatContextStatement(
+    checkInOutcome, balance, timeOfDay, energyTier,
+    hasCalendar, hasWearable, calendarMetrics.load, calendarMetrics.pressure
+  );
   
   // ==================== DEPLETED TIER ====================
   if (energyTier === 'depleted') {
@@ -303,9 +327,7 @@ export function getRecommendation(
         primarySubtype: calendarMetrics.pressure === 'high' ? 'composure' : 'grounding',
         secondary: 'renewal',
         secondarySubtype: 'restore',
-        contextStatement: formatContextStatement(
-          checkInOutcome, balance, timeOfDay, energyTier
-        )
+        contextStatement: createContext()
       };
     }
     
@@ -318,9 +340,7 @@ export function getRecommendation(
           primarySubtype: 'deep-calm',
           secondary: 'renewal',
           secondarySubtype: 'restore',
-          contextStatement: formatContextStatement(
-            checkInOutcome, balance, timeOfDay, energyTier
-          )
+          contextStatement: createContext()
         };
       } else {
         // Needs gentle energizing
@@ -329,9 +349,7 @@ export function getRecommendation(
           primarySubtype: 'recharge',
           secondary: 'pause',
           secondarySubtype: 'grounding',
-          contextStatement: formatContextStatement(
-            checkInOutcome, balance, timeOfDay, energyTier
-          )
+          contextStatement: createContext()
         };
       }
     }
@@ -343,9 +361,7 @@ export function getRecommendation(
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: formatContextStatement(
-          checkInOutcome, balance, timeOfDay, energyTier
-        )
+        contextStatement: createContext()
       };
     }
     
@@ -375,7 +391,7 @@ export function getRecommendation(
       primarySubtype: 'restore',
       secondary: 'pause',
       secondarySubtype,
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+      contextStatement: createContext()
     };
   }
 
@@ -387,7 +403,7 @@ export function getRecommendation(
         primarySubtype: 'composure',
         secondary: 'renewal',
         secondarySubtype: 'refresh',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+        contextStatement: createContext()
       };
     } else if (calendarMetrics.load === 'medium') {
       return {
@@ -395,7 +411,7 @@ export function getRecommendation(
         primarySubtype: 'grounding',
         secondary: 'flow',
         secondarySubtype: 'activate',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+        contextStatement: createContext()
       };
     } else {
       return {
@@ -403,7 +419,7 @@ export function getRecommendation(
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+        contextStatement: createContext()
       };
     }
   }
@@ -416,7 +432,7 @@ export function getRecommendation(
         primarySubtype: 'optimize',
         secondary: 'pause',
         secondarySubtype: 'composure',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+        contextStatement: createContext()
       };
     } else {
       return {
@@ -424,7 +440,7 @@ export function getRecommendation(
         primarySubtype: 'activate',
         secondary: 'pause',
         secondarySubtype: 'grounding',
-        contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+        contextStatement: createContext()
       };
     }
   }
@@ -436,7 +452,7 @@ export function getRecommendation(
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'composure',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+      contextStatement: createContext()
     };
   } else if (timeOfDay === 'evening') {
     return {
@@ -444,7 +460,7 @@ export function getRecommendation(
       primarySubtype: 'maintain-peak',
       secondary: 'renewal',
       secondarySubtype: 'refresh',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+      contextStatement: createContext()
     };
   } else {
     return {
@@ -452,7 +468,7 @@ export function getRecommendation(
       primarySubtype: 'optimize',
       secondary: 'pause',
       secondarySubtype: 'grounding',
-      contextStatement: formatContextStatement(checkInOutcome, balance, timeOfDay, energyTier)
+      contextStatement: createContext()
     };
   }
 }
