@@ -95,8 +95,11 @@ const SelfMasteryCoach = () => {
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <span className="text-2xl">🧠</span>
+            {/* Premium SM monogram visual */}
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center mb-6 border border-saffron/20 relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,140,66,0.15)_0%,transparent_70%)]" />
+              <span className="text-2xl font-headline text-saffron tracking-tight leading-none relative z-10">SM</span>
+              <span className="text-[7px] uppercase tracking-[0.15em] text-muted-foreground/70 mt-0.5 relative z-10">Coach</span>
             </div>
             <h2 className="text-2xl font-headline mb-2 text-foreground">
               Hello, {firstName}
@@ -131,8 +134,8 @@ const SelfMasteryCoach = () => {
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm">🧠</span>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center flex-shrink-0 border border-saffron/20">
+                    <span className="text-xs font-headline text-saffron leading-none">SM</span>
                   </div>
                 )}
                 <div
@@ -149,8 +152,8 @@ const SelfMasteryCoach = () => {
             ))}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm">🧠</span>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center flex-shrink-0 border border-saffron/20">
+                  <span className="text-xs font-headline text-saffron leading-none">SM</span>
                 </div>
                 <div className="px-4 py-3 rounded-2xl bg-muted">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

@@ -1910,8 +1910,8 @@ const MicroPracticePlayerCards = () => {
       {/* Top Navigation */}
       <TopNavigation backPath={fromRitual ? '/executive-home' : `/recalibrate/${category}`} transparent />
 
-      {/* Practice Queue Progress - show when part of ritual */}
-      {isInQueue && practice && (
+      {/* Practice Queue Progress - only show when multiple practices in queue */}
+      {isInQueue && practice && practiceQueue.length > 1 && (
         <PracticeQueueProgress
           currentIndex={currentQueueIndex}
           totalCount={practiceQueue.length}
