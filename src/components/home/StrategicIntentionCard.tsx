@@ -17,11 +17,12 @@ const StrategicIntentionCard = () => {
     queryKey: ['strategic-theme', user?.id],
     queryFn: async () => {
       const energyState = await computeEnergyState(user?.id);
-      return getStrategicTheme(
+return getStrategicTheme(
         energyState.energyTier,
         energyState.calendarLoad,
         energyState.calendarPressure,
-        energyState.timeOfDay
+        energyState.timeOfDay,
+        energyState.checkInOutcome
       );
     },
     enabled: !!user?.id,
@@ -46,9 +47,9 @@ const StrategicIntentionCard = () => {
         <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
           Theme for Today
         </span>
-        <MetricInfoModal
+<MetricInfoModal
           title="How Your Daily Theme is Selected"
-          description="Your theme is generated based on your current energy tier, calendar pressure, and time of day. It provides a single psychological frame to guide your decisions and focus throughout the day."
+          description="Your theme is generated based on your current felt state (from check-in), calendar pressure, and time of day. It provides strategic guidance that acknowledges both how you feel and what your day demands."
         />
       </div>
 
