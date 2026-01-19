@@ -12,6 +12,19 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 
+// Coach card type for Prepare and Integrate modules
+interface CoachCard {
+  id: string;
+  type: 'prepare' | 'integrate';
+  label: string;
+  protocolType: string;
+  title: string;
+  duration: number;
+  sortOrder: number;
+  isCoachCard: true;
+  prompt: string;
+}
+
 // Helper to determine module type for Performance Plan display
 const getModuleType = (practice: Recommendation): { 
   type: 'regulate' | 'align' | 'prepare' | 'integrate'; 
@@ -19,6 +32,18 @@ const getModuleType = (practice: Recommendation): {
   protocolType: string;
   sortOrder: number;
 } => {
+  // Evening/integration practices
+  const integrateTags = ['evening', 'integration', 'reflection', 'closure'];
+  if (practice.tags?.some(tag => integrateTags.some(t => tag.toLowerCase().includes(t)))) {
+    return { type: 'integrate', label: 'Integrate', protocolType: 'Coach', sortOrder: 4 };
+  }
+  
+  // Prepare = pre-performance, rehearsal, visualization
+  const prepareTags = ['pre-performance', 'rehearsal', 'visualization', 'preparation'];
+  if (practice.tags?.some(tag => prepareTags.some(t => tag.toLowerCase().includes(t)))) {
+    return { type: 'prepare', label: 'Prepare', protocolType: 'Coach', sortOrder: 3 };
+  }
+  
   // All soundbaths are Regulate (Somatic Protocol)
   if (practice.contentType === 'soundbath') {
     return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol', sortOrder: 1 };
@@ -64,6 +89,47 @@ const getModuleType = (practice: Recommendation): {
   return { type: 'align', label: 'Align', protocolType: 'Mindset Protocol', sortOrder: 2 };
 };
 
+// Check if current time is evening (after 5pm)
+const isEvening = (): boolean => {
+  const hour = new Date().getHours();
+  return hour >= 17;
+};
+
+// Generate Coach cards for Prepare and Integrate
+const generateCoachCards = (): CoachCard[] => {
+  const cards: CoachCard[] = [];
+  
+  // Always include Prepare (Coach)
+  cards.push({
+    id: 'coach-prepare',
+    type: 'prepare',
+    label: 'Prepare',
+    protocolType: 'Coach',
+    title: 'Mental Rehearsal',
+    duration: 2,
+    sortOrder: 3,
+    isCoachCard: true,
+    prompt: "I have an important moment coming up. Help me mentally prepare and visualize success."
+  });
+  
+  // Include Integrate only in evening (after 5pm)
+  if (isEvening()) {
+    cards.push({
+      id: 'coach-integrate',
+      type: 'integrate',
+      label: 'Integrate',
+      protocolType: 'Coach',
+      title: 'Evening Reflection',
+      duration: 2,
+      sortOrder: 4,
+      isCoachCard: true,
+      prompt: "Let's close out today. Take a breath, settle in. What's one thing you did right today? Share your small win."
+    });
+  }
+  
+  return cards;
+};
+
 // Sort practices by module sequence: Regulate → Align → Prepare → Integrate
 const sortPracticesBySequence = (practices: Recommendation[]): Recommendation[] => {
   return [...practices].sort((a, b) => {
@@ -81,6 +147,7 @@ const DailyRitual = () => {
     recommendedCount: number;
     reasoning: string;
   }>({ practices: [], recommendedCount: 0, reasoning: '' });
+  const [coachCards, setCoachCards] = useState<CoachCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [ritualStatus, setRitualStatus] = useState<{
@@ -97,6 +164,16 @@ const DailyRitual = () => {
   const [slideCount, setSlideCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const prevCompletedIdsRef = useRef<string[]>([]);
+
+  // Navigate to Coach with context
+  const navigateToCoach = (card: CoachCard) => {
+    navigate('/coach', {
+      state: {
+        initialPrompt: card.prompt,
+        flowType: card.type
+      }
+    });
+  };
 
   // Celebration effect when a new practice is completed
   const triggerCelebration = (practiceName: string, isRitualComplete: boolean) => {
@@ -276,10 +353,15 @@ const DailyRitual = () => {
     const energyState = await computeEnergyState();
     const recs = await generateRecommendations(energyState);
     
+    // Generate Coach cards (Prepare and Integrate)
+    const cards = generateCoachCards();
+    setCoachCards(cards);
+    
     console.log('🎯 Daily Ritual Recommendations:', {
       practices: recs.practices.map(p => p.title),
       recommendedCount: recs.recommendedCount,
-      actualCount: recs.practices.length
+      actualCount: recs.practices.length,
+      coachCards: cards.map(c => c.title)
     });
     
     setRecommendations(recs);
@@ -467,7 +549,8 @@ const DailyRitual = () => {
           setApi={setCarouselApi}
         >
           <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
-            {sortedPractices.map((practice, index) => {
+            {/* Practice-based modules */}
+            {sortedPractices.map((practice) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               
               return (
@@ -483,8 +566,7 @@ const DailyRitual = () => {
                       "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
-                      index === sortedPractices.length - 1 && "mr-4"
+                        : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5"
                     )}
                   >
                     {/* Thumbnail - fills height */}
@@ -496,13 +578,13 @@ const DailyRitual = () => {
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                      {/* Module Type Label - no icons */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Module Type Label - stacked for better alignment */}
+                      <div className="flex flex-col gap-0.5">
                         <span className="text-xs font-medium tracking-wide uppercase text-saffron font-body">
                           {getModuleType(practice).label}
                         </span>
-                        <span className="text-xs text-muted-foreground/60 font-body">
-                          · {getModuleType(practice).protocolType}
+                        <span className="text-[10px] text-muted-foreground/60 font-body">
+                          {getModuleType(practice).protocolType}
                         </span>
                       </div>
                       
@@ -514,6 +596,68 @@ const DailyRitual = () => {
                       {/* Duration */}
                       <span className="text-xs text-muted-foreground mt-1.5 font-body">
                         {practice.duration} min
+                      </span>
+                    </div>
+                    
+                    {/* Completed Check */}
+                    {isCompleted && (
+                      <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                        <Check size={16} className="text-white" />
+                      </div>
+                    )}
+                  </div>
+                </CarouselItem>
+              );
+            })}
+            
+            {/* Coach cards (Prepare and Integrate) */}
+            {coachCards.map((card, index) => {
+              const isCompleted = completedPracticeIds.includes(card.id);
+              const isLastCard = index === coachCards.length - 1;
+              
+              return (
+                <CarouselItem 
+                  key={card.id} 
+                  className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]"
+                >
+                  <div
+                    onClick={() => !isDragging && !isCompleted && navigateToCoach(card)}
+                    className={cn(
+                      "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
+                      "bg-gradient-to-br from-saffron/10 via-transparent to-taupe/10",
+                      "backdrop-blur-[20px] border border-saffron/20",
+                      "shadow-[0_4px_16px_rgba(255,140,66,0.08)]",
+                      isCompleted 
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:shadow-[0_8px_24px_rgba(255,140,66,0.15)] hover:-translate-y-0.5",
+                      isLastCard && "mr-4"
+                    )}
+                  >
+                    {/* Coach Icon Area */}
+                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/20 to-taupe/20">
+                      <span className="text-4xl">🧠</span>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
+                      {/* Module Type Label - stacked */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-medium tracking-wide uppercase text-saffron font-body">
+                          {card.label}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/60 font-body">
+                          {card.protocolType}
+                        </span>
+                      </div>
+                      
+                      {/* Title */}
+                      <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1.5 leading-snug font-body">
+                        {card.title}
+                      </h4>
+                      
+                      {/* Duration */}
+                      <span className="text-xs text-muted-foreground mt-1.5 font-body">
+                        {card.duration} min
                       </span>
                     </div>
                     
