@@ -506,148 +506,375 @@ export function getStrategicTheme(
   timeOfDay: TimeOfDay,
   checkInOutcome?: string
 ): StrategicTheme {
-  // OVERWHELMED - Nervous system is activated, needs regulation
+  // ============= OVERWHELMED - Nervous system is activated, needs regulation =============
   if (checkInOutcome === 'overwhelmed') {
+    // 1. High Pressure + High Load (maximum external demands)
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Survival mode activated.",
+        context: "Maximum demands on minimum capacity. Triage ruthlessly and protect your nervous system at all costs."
+      };
+    }
+    // 2. High Pressure + Medium Load
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Steady your ground.",
+        context: "Important moments ahead. Brief regulation between will prevent pressure from building."
+      };
+    }
+    // 3. High Pressure only
     if (calendarPressure === 'high') {
       return {
         phrase: "Protect your boundaries today.",
-        context: "Your system is already activated. Adding more pressure without regulation will compound the stress."
+        context: "High stakes require clear limits. Say no to preserve capacity for what matters."
       };
     }
+    // 4. Medium Pressure + High Load
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Simplify to survive.",
+        context: "Moderate stakes but packed schedule. Cut the non-essential to avoid compounding overwhelm."
+      };
+    }
+    // 5. High Load only
     if (calendarLoad === 'high') {
       return {
         phrase: "Choose your battles wisely.",
-        context: "Overwhelm plus a packed schedule demands ruthless prioritization. Do less, better."
+        context: "Full calendar, limited reserves. Not everything deserves your energy today."
       };
     }
+    // 6. Medium Load
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Pace your recovery.",
+        context: "Manageable schedule today. Use the gaps between commitments to reset."
+      };
+    }
+    // 7. Morning-specific
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Set the tone gently.",
+        context: "Morning overwhelm shapes the day. Start with regulation, not reaction."
+      };
+    }
+    // 8. Evening-specific
     if (timeOfDay === 'evening') {
       return {
         phrase: "Decompress before you rest.",
         context: "Your nervous system needs to downshift before sleep will be restorative."
       };
     }
+    // 9. Default (afternoon, low calendar)
     return {
       phrase: "Regulate before you engage.",
-      context: "Overwhelm signals your system needs reset. Brief regulation will restore your capacity."
+      context: "Your system is activated. Brief regulation unlocks clearer responses."
     };
   }
 
-  // DRAINED - Energy depleted, needs restoration
+  // ============= DRAINED - Energy depleted, needs restoration =============
   if (checkInOutcome === 'drained') {
+    // 1. High Pressure + High Load
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Conserve for what counts.",
+        context: "Critical moments ahead with empty reserves. Ruthlessly protect energy for high-stakes only."
+      };
+    }
+    // 2. High Pressure + Medium Load
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Strategic bursts only.",
+        context: "Important moments ahead. Deploy energy in focused bursts, recover between."
+      };
+    }
+    // 3. High Pressure only
     if (calendarPressure === 'high') {
       return {
-        phrase: "Strategic endurance mode.",
-        context: "Low reserves but high stakes ahead. Minimal effort, maximum recovery between moments."
+        phrase: "Guard your reserves.",
+        context: "High stakes demand energy you're low on. Prepare mentally, conserve physically."
       };
     }
+    // 4. Medium Pressure + High Load
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Endurance over excellence.",
+        context: "Full schedule, depleted tank. Aim for completion, not perfection."
+      };
+    }
+    // 5. High Load only
     if (calendarLoad === 'high') {
       return {
-        phrase: "Less is more today.",
-        context: "Your calendar is full but your tank isn't. Simplify, delegate, and preserve yourself."
+        phrase: "Navigate, don't sprint.",
+        context: "Packed day, low fuel. Move through steadily without burning out."
       };
     }
+    // 6. Medium Load
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Gentle momentum.",
+        context: "Light enough schedule to pace yourself. Small wins compound into recovered energy."
+      };
+    }
+    // 7. Morning-specific
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Ease into the day.",
+        context: "Morning depletion calls for a slow start. Protect the first hour for restoration."
+      };
+    }
+    // 8. Evening-specific
     if (timeOfDay === 'evening') {
       return {
-        phrase: "Rest is your work tonight.",
-        context: "Tomorrow's performance depends on tonight's recovery. Wind down intentionally."
+        phrase: "Rest is productive.",
+        context: "Evening depletion signals you've given enough. Restoration is your priority now."
       };
     }
+    // 9. Default
     return {
       phrase: "Restore before you push.",
-      context: "Deep rest is not optional today—it's the foundation for everything else."
+      context: "Low reserves call for recovery, not demands. Gentle restoration first."
     };
   }
 
-  // SCATTERED - Mind unfocused, needs grounding
+  // ============= SCATTERED - Mind unfocused, needs grounding =============
   if (checkInOutcome === 'scattered') {
+    // 1. High Pressure + High Load
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Focus or fragment.",
+        context: "Scattered mind meets maximum demands. Ground first, or risk reactive chaos."
+      };
+    }
+    // 2. High Pressure + Medium Load
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Clarity before stakes.",
+        context: "Important moments ahead. Clear the mental fog before you engage."
+      };
+    }
+    // 3. High Pressure only
     if (calendarPressure === 'high') {
       return {
-        phrase: "Ground yourself first.",
-        context: "Scattered energy under pressure leads to reactive decisions. Center before you engage."
+        phrase: "Find your center first.",
+        context: "High stakes need a clear mind. Brief grounding prevents scattered execution."
       };
     }
+    // 4. Medium Pressure + High Load
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Anchor and execute.",
+        context: "Busy day needs a clear mind. Pick your anchor, let everything else orbit around it."
+      };
+    }
+    // 5. High Load only
     if (calendarLoad === 'high') {
       return {
-        phrase: "One thing at a time.",
-        context: "A busy calendar with an unfocused mind is a recipe for burnout. Simplify your focus."
+        phrase: "One thread at a time.",
+        context: "Full calendar, scattered focus. Pick one thing, complete it, then move on."
       };
     }
+    // 6. Medium Load
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Reclaim your attention.",
+        context: "Moderate demands give you space. Use it to consolidate your focus."
+      };
+    }
+    // 7. Morning-specific
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Ground before you go.",
+        context: "Scattered mornings cascade into scattered days. Five minutes of focus now saves hours later."
+      };
+    }
+    // 8. Evening-specific
     if (timeOfDay === 'evening') {
       return {
-        phrase: "Let your mind settle.",
-        context: "Mental fog tonight means your processing capacity is spent. Give it space to clear."
+        phrase: "Gather the fragments.",
+        context: "Evening scatteredness needs closure. Collect your thoughts before you rest."
       };
     }
+    // 9. Default
     return {
       phrase: "Find your anchor point.",
-      context: "Scattered energy needs grounding. Pick one priority and give it your full attention."
+      context: "Scattered energy needs a single focus. Choose one priority and let it organize the rest."
     };
   }
 
-  // STEADY - Balanced state
+  // ============= STEADY - Balanced state =============
   if (checkInOutcome === 'steady') {
-    if (calendarPressure === 'high') {
+    // 1. High Pressure + High Load
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
-        phrase: "Steady under pressure.",
-        context: "You're managing well. Today is about pacing yourself through high-stakes moments."
+        phrase: "Anchor in the storm.",
+        context: "Maximum demands but you're balanced. Your stability is your advantage—hold the center."
       };
     }
+    // 2. High Pressure + Medium Load
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Calm confidence.",
+        context: "High-stakes moments with manageable gaps. Use your steady state as a competitive edge."
+      };
+    }
+    // 3. High Pressure only
+    if (calendarPressure === 'high') {
+      return {
+        phrase: "Rise to the moment.",
+        context: "High stakes, steady foundation. You're positioned to perform when it matters."
+      };
+    }
+    // 4. Medium Pressure + High Load
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Sustainable pace required.",
+        context: "Full day ahead with moderate stakes. Your balance will be tested—pace accordingly."
+      };
+    }
+    // 5. High Load only
     if (calendarLoad === 'high') {
       return {
-        phrase: "Pace yourself for endurance.",
-        context: "A full day ahead. Small resets between meetings will compound into sustained energy."
+        phrase: "Ride the rhythm.",
+        context: "Busy day, balanced state. Your steadiness lets you flow through the density."
       };
     }
-    if (calendarLoad === 'low') {
+    // 6. Medium Load
+    if (calendarLoad === 'medium') {
       return {
-        phrase: "Build your reserves today.",
-        context: "Light calendar means space to invest in yourself. Use it wisely."
+        phrase: "Steady as she goes.",
+        context: "Balanced state meets balanced day. Maintain your rhythm without overreaching."
       };
     }
+    // 7. Morning-specific
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Set the rhythm.",
+        context: "Steady mornings build steady days. Establish your pace before external demands begin."
+      };
+    }
+    // 8. Evening-specific
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Maintain your balance.",
+        context: "Steady evening is a win. Carry this equilibrium into rest."
+      };
+    }
+    // 9. Default
     return {
-      phrase: "Balance before breakthrough.",
-      context: "You're in a steady state. Ground yourself before pushing for more."
+      phrase: "Build on your balance.",
+      context: "You're in a good place. Use this foundation to make progress without strain."
     };
   }
 
-  // FOCUSED - High energy, ready to perform
+  // ============= FOCUSED - High energy, ready to perform =============
   if (checkInOutcome === 'focused') {
-    if (calendarPressure === 'high') {
+    // 1. High Pressure + High Load
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
-        phrase: "You're ready for this.",
-        context: "Strong energy meets high stakes. Lean into the challenge—you have the capacity."
+        phrase: "Peak performance day.",
+        context: "Maximum capacity meets maximum demands. This is your moment to deliver at scale."
       };
     }
+    // 2. High Pressure + Medium Load
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Execute with precision.",
+        context: "High stakes, peak readiness. Deploy your focus where it creates decisive outcomes."
+      };
+    }
+    // 3. High Pressure only
+    if (calendarPressure === 'high') {
+      return {
+        phrase: "Seize the high ground.",
+        context: "High stakes, peak state. You have the edge—use it decisively."
+      };
+    }
+    // 4. Medium Pressure + High Load
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Channel the intensity.",
+        context: "Full schedule but you're sharp. Direct your focus where it creates the most value."
+      };
+    }
+    // 5. High Load only
+    if (calendarLoad === 'high') {
+      return {
+        phrase: "Sprint through the density.",
+        context: "Packed calendar, peak energy. Use your capacity to move through efficiently."
+      };
+    }
+    // 6. Medium Load
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Strategic deployment.",
+        context: "Moderate demands, peak state. Choose where to invest this energy for maximum return."
+      };
+    }
+    // 7. Morning-specific
     if (timeOfDay === 'morning') {
       return {
         phrase: "Maximize your morning.",
-        context: "You're at your best. Tackle the hardest, most important work while the window is open."
+        context: "Peak state in the morning is gold. Execute your highest-value work now."
       };
     }
+    // 8. Evening-specific
     if (timeOfDay === 'evening') {
       return {
-        phrase: "Close strong, rest well.",
-        context: "Strong finish to the day. Complete what you started, then honor the transition to rest."
+        phrase: "Finish strong.",
+        context: "Focused evening is rare. Complete what matters before the day closes."
       };
     }
+    // 9. Default
     return {
-      phrase: "Execute with intention.",
-      context: "You have the energy. Direct it precisely toward your highest-leverage activities."
+      phrase: "Own your optimal state.",
+      context: "You're operating at your best. Protect this state and deploy it strategically."
     };
   }
 
-  // FALLBACK: Tier-based logic when no check-in outcome available
+  // ============= TIER-BASED FALLBACKS (No check-in outcome) =============
+  
+  // DEPLETED tier
   if (energyTier === 'depleted') {
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Conserve for what counts.",
+        context: "Critical moments ahead with empty reserves. Ruthlessly protect energy for high-stakes only."
+      };
+    }
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Strategic bursts only.",
+        context: "Important moments ahead. Deploy energy in focused bursts, recover between."
+      };
+    }
     if (calendarPressure === 'high') {
       return {
         phrase: "Protect your energy today.",
         context: "High demands ahead but you're running on reserves. Be ruthless about what gets your attention."
       };
     }
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Endurance over excellence.",
+        context: "Full schedule, depleted tank. Aim for completion, not perfection."
+      };
+    }
     if (calendarLoad === 'high') {
       return {
         phrase: "Less is more today.",
         context: "Your calendar is full but your tank isn't. Simplify, delegate, and preserve yourself."
+      };
+    }
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Gentle momentum.",
+        context: "Light enough schedule to pace yourself. Small wins compound into recovered energy."
+      };
+    }
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Ease into the day.",
+        context: "Morning depletion calls for a slow start. Protect the first hour for restoration."
       };
     }
     if (timeOfDay === 'evening') {
@@ -662,11 +889,30 @@ export function getStrategicTheme(
     };
   }
 
+  // MANAGING tier
   if (energyTier === 'managing') {
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Anchor in the storm.",
+        context: "Maximum demands but you're holding. Your stability is your advantage—hold the center."
+      };
+    }
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Calm confidence.",
+        context: "High-stakes moments with manageable gaps. Use your steady state as a competitive edge."
+      };
+    }
     if (calendarPressure === 'high') {
       return {
         phrase: "Steady under pressure.",
         context: "You're managing well. Today is about pacing yourself through high-stakes moments."
+      };
+    }
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Sustainable pace required.",
+        context: "Full day ahead with moderate stakes. Your balance will be tested—pace accordingly."
       };
     }
     if (calendarLoad === 'high') {
@@ -675,10 +921,28 @@ export function getStrategicTheme(
         context: "A full day ahead. Small resets between meetings will compound into sustained energy."
       };
     }
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Steady as she goes.",
+        context: "Balanced state meets balanced day. Maintain your rhythm without overreaching."
+      };
+    }
     if (calendarLoad === 'low') {
       return {
         phrase: "Build your reserves today.",
         context: "Light calendar means space to invest in yourself. Use it wisely."
+      };
+    }
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Set the rhythm.",
+        context: "Manage your mornings well and the days follow. Establish your pace early."
+      };
+    }
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Maintain your balance.",
+        context: "Managing well into evening is a win. Carry this equilibrium into rest."
       };
     }
     return {
@@ -687,11 +951,42 @@ export function getStrategicTheme(
     };
   }
 
+  // STRONG tier
   if (energyTier === 'strong') {
+    if (calendarPressure === 'high' && calendarLoad === 'high') {
+      return {
+        phrase: "Peak performance day.",
+        context: "Strong capacity meets maximum demands. This is your moment to deliver at scale."
+      };
+    }
+    if (calendarPressure === 'high' && calendarLoad === 'medium') {
+      return {
+        phrase: "Execute with precision.",
+        context: "High stakes, strong readiness. Deploy your focus where it creates decisive outcomes."
+      };
+    }
     if (calendarPressure === 'high') {
       return {
         phrase: "You're ready for this.",
         context: "Strong energy meets high stakes. Lean into the challenge—you have the capacity."
+      };
+    }
+    if (calendarPressure === 'medium' && calendarLoad === 'high') {
+      return {
+        phrase: "Channel the intensity.",
+        context: "Full schedule but you're sharp. Direct your focus where it creates the most value."
+      };
+    }
+    if (calendarLoad === 'high') {
+      return {
+        phrase: "Sprint through the density.",
+        context: "Packed calendar, strong energy. Use your capacity to move through efficiently."
+      };
+    }
+    if (calendarLoad === 'medium') {
+      return {
+        phrase: "Strategic deployment.",
+        context: "Moderate demands, strong state. Choose where to invest this energy for maximum return."
       };
     }
     if (timeOfDay === 'morning') {
@@ -712,11 +1007,41 @@ export function getStrategicTheme(
     };
   }
 
-  // Peak tier fallback
+  // PEAK tier (default)
+  if (calendarPressure === 'high' && calendarLoad === 'high') {
+    return {
+      phrase: "Maximum output mode.",
+      context: "Peak state meets peak demands. Deploy everything you have—this is what you've trained for."
+    };
+  }
+  if (calendarPressure === 'high' && calendarLoad === 'medium') {
+    return {
+      phrase: "Precision and power.",
+      context: "Peak readiness, high stakes. Your execution today can be exceptional."
+    };
+  }
   if (calendarPressure === 'high') {
     return {
       phrase: "Execute with precision.",
       context: "Peak state meets peak demands. This is what you've trained for—deliver."
+    };
+  }
+  if (calendarPressure === 'medium' && calendarLoad === 'high') {
+    return {
+      phrase: "Flow through the volume.",
+      context: "Full day, peak capacity. Let your energy carry you through the density effortlessly."
+    };
+  }
+  if (calendarLoad === 'high') {
+    return {
+      phrase: "Sprint through the density.",
+      context: "Packed calendar, peak energy. Use your capacity to dominate the day."
+    };
+  }
+  if (calendarLoad === 'medium') {
+    return {
+      phrase: "Strategic excellence.",
+      context: "Peak state, moderate demands. Choose your targets and execute with precision."
     };
   }
   if (timeOfDay === 'morning') {
