@@ -64,9 +64,9 @@ const ExecutiveHome = () => {
 
           {/* Main Content */}
           <div className="flex-1 w-full pb-8">
-            {/* Greeting - Simple, clean */}
-            <div className="px-4 md:px-6 pt-4 pb-6 max-w-lg mx-auto">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-headline text-foreground tracking-tight">
+            {/* Greeting - Centered, larger */}
+            <div className="px-4 md:px-6 pt-6 pb-8 max-w-lg mx-auto text-center">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
             </div>
@@ -93,11 +93,11 @@ const ExecutiveHome = () => {
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
                   <h2 className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-                    Your Performance Plan
+                    Today's Performance Plan
                   </h2>
                   <MetricInfoModal
                     title="How Your Plan is Built"
-                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day."
+                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day. You don't choose—the system deploys the right intervention at the right time."
                   />
                 </div>
               </section>

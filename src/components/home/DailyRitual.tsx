@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Activity, Brain, Play } from 'lucide-react';
+import { Check, RotateCcw, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -13,10 +13,14 @@ import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 
 // Helper to determine module type for Performance Plan display
-const getModuleType = (practice: Recommendation): { type: 'regulate' | 'align'; label: string } => {
-  // All soundbaths are Regulate (Somatic)
+const getModuleType = (practice: Recommendation): { 
+  type: 'regulate' | 'align' | 'prepare' | 'integrate'; 
+  label: string;
+  protocolType: string;
+} => {
+  // All soundbaths are Regulate (Somatic Protocol)
   if (practice.contentType === 'soundbath') {
-    return { type: 'regulate', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
   }
   
   // Check if practice has 'somatic' in its tags
@@ -25,7 +29,7 @@ const getModuleType = (practice: Recommendation): { type: 'regulate' | 'align'; 
     tag.toLowerCase().includes('breathing') ||
     tag.toLowerCase().includes('breathwork')
   )) {
-    return { type: 'regulate', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
   }
   
   // Body-based guided practices
@@ -39,7 +43,7 @@ const getModuleType = (practice: Recommendation): { type: 'regulate' | 'align'; 
   ];
   
   if (practice.contentType === 'guided-practice' && somaticGuidedPractices.includes(practice.id)) {
-    return { type: 'regulate', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
   }
   
   // Somatic micro-practices
@@ -52,11 +56,11 @@ const getModuleType = (practice: Recommendation): { type: 'regulate' | 'align'; 
   ];
   
   if (practice.contentType === 'micro-practice' && somaticMicroPractices.includes(practice.id)) {
-    return { type: 'regulate', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
   }
   
-  // Everything else is Align (Mindset)
-  return { type: 'align', label: 'Align' };
+  // Everything else is Align (Mindset Protocol)
+  return { type: 'align', label: 'Align', protocolType: 'Mindset Protocol' };
 };
 
 const DailyRitual = () => {
@@ -482,25 +486,23 @@ const DailyRitual = () => {
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                      {/* Module Type Label with icon */}
+                      {/* Module Type Label - no icons */}
                       <div className="flex items-center gap-1.5">
-                        {getModuleType(practice).type === 'regulate' ? (
-                          <Activity size={12} className="text-saffron" />
-                        ) : (
-                          <Brain size={12} className="text-saffron" />
-                        )}
-                        <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
+                        <span className="text-xs font-medium tracking-wide uppercase text-saffron font-body">
                           {getModuleType(practice).label}
+                        </span>
+                        <span className="text-xs text-muted-foreground/60 font-body">
+                          · {getModuleType(practice).protocolType}
                         </span>
                       </div>
                       
                       {/* Title */}
-                      <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1 leading-snug">
+                      <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1.5 leading-snug font-body">
                         {practice.title}
                       </h4>
                       
                       {/* Duration */}
-                      <span className="text-xs text-muted-foreground mt-1">
+                      <span className="text-xs text-muted-foreground mt-1.5 font-body">
                         {practice.duration} min
                       </span>
                     </div>

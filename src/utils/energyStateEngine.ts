@@ -98,7 +98,9 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     { load: calendarLoad, pressure: calendarPressure, density: calendarDensity, pressureScore: 0, loadScore: 0 },
     hasWearable ? getWearableFunction(wearableData) : 'medium',
     checkInData.outcome || null,
-    getTimeOfDay(new Date().getHours())
+    getTimeOfDay(new Date().getHours()),
+    hasCalendar,
+    hasWearable
   );
 
   const timeOfDay = getTimeOfDay(new Date().getHours());

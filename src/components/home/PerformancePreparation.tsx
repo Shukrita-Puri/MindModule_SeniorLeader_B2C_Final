@@ -240,17 +240,26 @@ const PerformancePreparation = () => {
     return null; // Don't show loading for interventions - reduces visual noise
   }
 
-  // No moments detected - hide the component entirely (reduce cognitive noise)
+  // No moments detected - show placeholder if calendar connected
   if (moments.length === 0) {
+    if (hasCalendar) {
+      return (
+        <div className="py-4">
+          <p className="text-xs text-muted-foreground/60 text-center font-body">
+            Just-in-time preparation will appear before high-stakes moments on your calendar
+          </p>
+        </div>
+      );
+    }
     return null;
   }
 
   return (
     <div className="space-y-6">
-      {/* Just-in-Time Header */}
+      {/* Just-in-Time Header - no emoji */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium tracking-widest uppercase text-saffron">
-          ⚡ Prepare Now
+        <span className="text-xs font-medium tracking-widest uppercase text-saffron font-body">
+          Prepare Now
         </span>
       </div>
       

@@ -40,10 +40,10 @@ const StrategicIntentionCard = () => {
   }
 
   return (
-    <div className="p-5 md:p-6 space-y-3">
-      {/* Label with info button */}
+    <div className="py-4 space-y-3">
+      {/* Label with info button - aligned with TodayStateCard */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
           Theme for Today
         </span>
         <MetricInfoModal
@@ -58,7 +58,7 @@ const StrategicIntentionCard = () => {
       </p>
 
       {/* Supporting context */}
-      <p className="text-sm text-muted-foreground leading-relaxed">
+      <p className="text-sm text-muted-foreground leading-relaxed font-body">
         {theme.context}
       </p>
     </div>
