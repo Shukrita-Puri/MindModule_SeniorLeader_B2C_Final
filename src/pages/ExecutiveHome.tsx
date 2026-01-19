@@ -130,8 +130,6 @@ const ExecutiveHome = () => {
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
-              {/* Cinematic vignette for focused feel */}
-              <div className="absolute inset-0 vignette-overlay" />
             </div>
             
             {/* Header - now INSIDE the visual */}
@@ -142,7 +140,7 @@ const ExecutiveHome = () => {
             
             {/* Greeting content - elevated above visual */}
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
               <p className="text-base text-muted-foreground mt-2 font-body">
