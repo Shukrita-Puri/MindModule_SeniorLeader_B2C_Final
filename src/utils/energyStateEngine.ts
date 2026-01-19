@@ -38,7 +38,8 @@ export interface CurrentEnergyState {
   calendarLoad?: CalendarLoad;
   calendarPressure?: CalendarPressure;
   wearableFunction?: WearableFunction;
-  energyTier?: EnergyTier;
+  energyTier: EnergyTier;
+  timeOfDay: 'morning' | 'afternoon' | 'evening';
   recommendation?: {
     primary: MasteryType;
     primarySubtype?: MasterySubtype;
@@ -100,6 +101,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     getTimeOfDay(new Date().getHours())
   );
 
+  const timeOfDay = getTimeOfDay(new Date().getHours());
+
   return {
     overallBalance: energyScore,
     state: energyTier,
@@ -118,6 +121,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     calendarPressure,
     wearableFunction: hasWearable ? getWearableFunction(wearableData) : undefined,
     energyTier,
+    timeOfDay,
     recommendation,
     checkInOutcome: hasCheckIn ? checkInData.outcome : undefined
   };

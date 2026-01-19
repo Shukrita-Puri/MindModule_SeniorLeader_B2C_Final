@@ -235,34 +235,25 @@ const PerformancePreparation = () => {
       });
   };
 
-  // Loading state
+  // Loading state - show subtle indicator only
   if (loading || calendarLoading) {
-    return (
-      <Card className="p-6 flex items-center justify-center bg-card border-border">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Analyzing your day...</span>
-      </Card>
-    );
+    return null; // Don't show loading for interventions - reduces visual noise
   }
 
-  // No moments detected
+  // No moments detected - hide the component entirely (reduce cognitive noise)
   if (moments.length === 0) {
-    return (
-      <Card className="p-6 bg-card border-border">
-        <p className="text-sm text-muted-foreground text-center">
-          {ritualCompleted 
-            ? "Great job! Your daily ritual is complete. We'll suggest more when the time is right."
-            : hasCalendar 
-              ? "No priority moments detected right now. We'll alert you when one comes up."
-              : "Connect your calendar to get contextual recommendations based on your schedule."
-          }
-        </p>
-      </Card>
-    );
+    return null;
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Just-in-Time Header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium tracking-widest uppercase text-saffron">
+          ⚡ Prepare Now
+        </span>
+      </div>
+      
       {moments.map((momentWithPack) => (
         <MomentCarousel
           key={momentWithPack.moment.id}

@@ -456,3 +456,119 @@ export function getRecommendation(
     };
   }
 }
+
+// ==================== STRATEGIC THEME GENERATION ====================
+
+export interface StrategicTheme {
+  phrase: string;
+  context: string;
+}
+
+export function getStrategicTheme(
+  energyTier: EnergyTier,
+  calendarLoad: CalendarLoad,
+  calendarPressure: CalendarPressure,
+  timeOfDay: TimeOfDay
+): StrategicTheme {
+  // Depleted tier themes
+  if (energyTier === 'depleted') {
+    if (calendarPressure === 'high') {
+      return {
+        phrase: "Protect your energy today.",
+        context: "High demands ahead but you're running on reserves. Be ruthless about what gets your attention."
+      };
+    }
+    if (calendarLoad === 'high') {
+      return {
+        phrase: "Less is more today.",
+        context: "Your calendar is full but your tank isn't. Simplify, delegate, and preserve yourself."
+      };
+    }
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Rest is your work tonight.",
+        context: "Tomorrow's performance depends on tonight's recovery. Wind down intentionally."
+      };
+    }
+    return {
+      phrase: "Restore before you push.",
+      context: "Deep rest is not optional today—it's the foundation for everything else."
+    };
+  }
+
+  // Managing tier themes
+  if (energyTier === 'managing') {
+    if (calendarPressure === 'high') {
+      return {
+        phrase: "Steady under pressure.",
+        context: "You're managing well. Today is about pacing yourself through high-stakes moments."
+      };
+    }
+    if (calendarLoad === 'high') {
+      return {
+        phrase: "Pace yourself for endurance.",
+        context: "A full day ahead. Small resets between meetings will compound into sustained energy."
+      };
+    }
+    if (calendarLoad === 'low') {
+      return {
+        phrase: "Build your reserves today.",
+        context: "Light calendar means space to invest in yourself. Use it wisely."
+      };
+    }
+    return {
+      phrase: "Balance before breakthrough.",
+      context: "You're in a transitional state. Ground yourself before pushing for more."
+    };
+  }
+
+  // Strong tier themes
+  if (energyTier === 'strong') {
+    if (calendarPressure === 'high') {
+      return {
+        phrase: "You're ready for this.",
+        context: "Strong energy meets high stakes. Lean into the challenge—you have the capacity."
+      };
+    }
+    if (timeOfDay === 'morning') {
+      return {
+        phrase: "Lean into flow.",
+        context: "Morning energy is prime. Channel it toward what matters most before the day fragments."
+      };
+    }
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Close strong, rest well.",
+        context: "Strong finish to the day. Complete what you started, then honor the transition to rest."
+      };
+    }
+    return {
+      phrase: "Execute with intention.",
+      context: "You have the energy. Direct it precisely toward your highest-leverage activities."
+    };
+  }
+
+  // Peak tier themes
+  if (calendarPressure === 'high') {
+    return {
+      phrase: "Execute with precision.",
+      context: "Peak state meets peak demands. This is what you've trained for—deliver."
+    };
+  }
+  if (timeOfDay === 'morning') {
+    return {
+      phrase: "Maximize your morning.",
+      context: "You're at your best. Tackle the hardest, most important work while the window is open."
+    };
+  }
+  if (timeOfDay === 'evening') {
+    return {
+      phrase: "Sustain and celebrate.",
+      context: "Peak energy sustained into evening is rare. Acknowledge the day, then let it go."
+    };
+  }
+  return {
+    phrase: "Own your optimal state.",
+    context: "You're operating at your best. Protect this state and deploy it strategically."
+  };
+}

@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 interface DayData {
   date: string;
   dayLabel: string;
@@ -180,6 +181,17 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Weekly Progress Streak - Moved from Homepage */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Your Progress This Week</CardTitle>
+            <CardDescription>Daily ritual completion streak</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <WeeklyRitualStreak />
+          </CardContent>
+        </Card>
+
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-card">

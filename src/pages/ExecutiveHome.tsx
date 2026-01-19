@@ -1,19 +1,25 @@
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import InsightProgressCard from "@/components/home/InsightProgressCard";
-import EnergyStateHeader from "@/components/home/EnergyStateHeader";
-import DailyRitual from "@/components/home/DailyRitual";
-import PerformancePreparation from "@/components/home/PerformancePreparation";
-import PrivacyFooter from "@/components/home/PrivacyFooter";
-import MetricInfoModal from "@/components/home/MetricInfoModal";
+/**
+ * Executive Home - Decision Engine Dashboard
+ * Answers 3 questions:
+ * 1. Where am I today? (TodayStateCard)
+ * 2. What matters today? (StrategicIntentionCard)
+ * 3. What should I do now? (DailyRitual - Performance Plan)
+ * + Just-in-time interventions when triggered (PerformancePreparation)
+ */
+
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import CoachAccessButton from "@/components/navigation/CoachAccessButton";
+import TodayStateCard from "@/components/home/TodayStateCard";
+import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
+import DailyRitual from "@/components/home/DailyRitual";
+import PerformancePreparation from "@/components/home/PerformancePreparation";
+import PrivacyFooter from "@/components/home/PrivacyFooter";
 
 const ExecutiveHome = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [migrationComplete, setMigrationComplete] = useState(false);
   
@@ -56,89 +62,49 @@ const ExecutiveHome = () => {
           </header>
 
           {/* Main Content */}
-          <div className="flex-1 w-full">
-            {/* Simple Hero Header */}
-            <div className="relative pt-4 md:pt-6 pb-4 md:pb-6 px-3 md:px-4 w-full">
-              <div className="text-center max-w-full px-2 mx-auto overflow-hidden">
-                <h1 className="text-2xl sm:text-3xl md:text-5xl font-headline mb-2 text-foreground tracking-tight">
-                  {getGreeting()}
-                </h1>
-                <p className="text-sm md:text-lg font-subheadline italic text-muted-foreground">
-                  Welcome to Your Contextual Mind Atelier
-                </p>
-              </div>
+          <div className="flex-1 w-full pb-8">
+            {/* Greeting - Simple, clean */}
+            <div className="px-4 md:px-6 pt-4 pb-6 max-w-lg mx-auto">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-headline text-foreground tracking-tight">
+                {getGreeting()}
+              </h1>
             </div>
 
-            {/* Main Content with improved spacing */}
-            <div className="px-3 md:px-4 space-y-6 md:space-y-8 max-w-md md:max-w-lg mx-auto overflow-x-hidden w-full">
-              {/* Your Intelligence - First Thing User Sees */}
-              <section>
-                <h2 className="text-xl md:text-2xl font-headline mb-3 md:mb-4 text-foreground">Your Progress This Week</h2>
-                <InsightProgressCard />
+            {/* Three Core Sections */}
+            <div className="px-4 md:px-6 space-y-5 max-w-lg mx-auto">
+              {/* Section 1: Today's State - "Where am I today?" */}
+              <section className="animate-in fade-in duration-500">
+                <TodayStateCard />
               </section>
 
-              {/* Divider */}
-              <div className="h-px bg-black/[0.08]" />
+              {/* Section 2: Strategic Intention - "What matters today?" */}
+              <section className="animate-in fade-in duration-500 delay-100">
+                <StrategicIntentionCard />
+              </section>
 
-              {/* Energy State Section */}
-              <section>
-                <h2 className="text-xl md:text-2xl font-headline mb-3 md:mb-4 text-foreground">Your Energy State Today</h2>
-                <EnergyStateHeader />
+              {/* Section 3: Performance Plan - "What should I do now?" */}
+              <section className="animate-in fade-in duration-500 delay-200">
+                <div className="mb-3">
+                  <h2 className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+                    Your Performance Plan
+                  </h2>
+                </div>
               </section>
             </div>
 
-            {/* Divider - full width */}
-            <div className="h-px bg-black/[0.08] max-w-lg mx-auto my-6 md:my-8" />
+            {/* Daily Ritual Carousel - Full width */}
+            <div className="animate-in fade-in duration-500 delay-200">
+              <DailyRitual />
+            </div>
 
-            {/* Recommended for You - FULL WIDTH for carousels */}
-            <section className="pb-6 md:pb-8">
-              <div className="px-3 md:px-4 max-w-lg mx-auto">
-                <h2 className="text-xl md:text-2xl font-headline mb-3 md:mb-4 text-foreground">Recommended for You</h2>
-              </div>
-              
-              {/* Sub-section 1: Daily Ritual */}
-              <div className="mb-6 md:mb-8">
-                <div className="px-3 md:px-4 max-w-lg mx-auto">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-base md:text-lg font-semibold text-foreground">Your Daily Ritual</h3>
-                    <MetricInfoModal
-                      title="How Your Ritual is Created"
-                      description={
-                        user?.subscription_status === 'active'
-                          ? "Your ritual is personalized based on your Energy State Score (check-in + recovery data + circadian rhythm) and upcoming calendar demands."
-                          : "Your ritual is personalized based on your Energy State Score (check-in + circadian rhythm). Upgrade to access calendar integration."
-                      }
-                    />
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground mb-3">
-                    A curated sequence of practices designed to shift your energy state and build lasting mental fitness.
-                  </p>
-                </div>
-                {/* Carousel extends full width */}
-                <DailyRitual />
-              </div>
+            {/* Just-in-Time Interventions - Only shows when triggered */}
+            <div className="px-4 md:px-6 mt-6 max-w-lg mx-auto">
+              <PerformancePreparation />
+            </div>
 
-              {/* Sub-section 2: Performance Preparation */}
-              <div className="space-y-3">
-                <div className="px-3 md:px-4 max-w-lg mx-auto">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base md:text-lg font-semibold text-foreground">
-                      Your Performance Preparation
-                    </h3>
-                    <MetricInfoModal
-                      title="How Performance Preparation Works"
-                      description="Your preparation packs are intelligently generated by analyzing your calendar for upcoming high-stakes events (exams, interviews, presentations, competitions). We suggest practice 2-3 days before important events or same-day preparation when you need it most."
-                    />
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                    Contextual preparation for your upcoming moments that matter
-                  </p>
-                </div>
-                <PerformancePreparation />
-              </div>
-            </section>
-
-            <PrivacyFooter />
+            <div className="mt-8">
+              <PrivacyFooter />
+            </div>
           </div>
         </SidebarInset>
       </div>
