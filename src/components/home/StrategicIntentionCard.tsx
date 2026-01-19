@@ -53,6 +53,21 @@ const StrategicIntentionCard = () => {
     staleTime: 0,
   });
 
+  // Fetch user's archetype for personalized unlock statements
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile-archetype', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_archetype')
+        .eq('id', user?.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 30 * 60 * 1000, // 30 min cache
+  });
+
   // Fetch recent check-ins for pattern recognition
   const { data: recentCheckIns } = useQuery({
     queryKey: ['recent-checkins-pattern', user?.id],
@@ -109,15 +124,18 @@ const StrategicIntentionCard = () => {
     energyState.calendarLoad,
     energyState.calendarPressure,
     energyState.timeOfDay,
-    energyState.checkInOutcome
+    energyState.checkInOutcome,
+    userProfile?.user_archetype || undefined
   );
 
   const patternRecognition = getPatternRecognition(energyState.checkInOutcome);
 
   return (
     <div className={cn(
-      "py-4 px-4 -mx-4 space-y-3 rounded-lg border-l-2 transition-colors duration-500",
-      "bg-white border-l-taupe/40"
+      "rounded-xl p-5 space-y-3 transition-all duration-300",
+      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
+      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
+      "border-l-2 border-l-taupe/40"
     )}>
       {/* Header - just label and info button */}
       <div className="flex items-center justify-between">

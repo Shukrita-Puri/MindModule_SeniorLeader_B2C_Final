@@ -78,53 +78,51 @@ const TodayStateCard = () => {
   const insight = cleanText(contextStatement);
 
   return (
-    <div className="relative py-4 transition-all duration-300">
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-saffron/[0.04] via-transparent to-transparent pointer-events-none rounded-2xl" />
+    <div className={cn(
+      "rounded-xl p-5 transition-all duration-300",
+      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
+      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+    )}>
+      {/* Header with info button - aligned */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
+          Today's State
+        </span>
+        <MetricInfoModal
+          title="How Your Energy Score is Calculated"
+          description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
+        />
+      </div>
+      {/* Score and Tier */}
+      <div className="flex items-baseline gap-3 mb-2">
+        <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums font-body">
+          {energyState.overallBalance}
+        </span>
+        <span className="text-lg text-muted-foreground/60 font-body">
+          / 100
+        </span>
+      </div>
       
-      <div className="relative">
-        {/* Header with info button - aligned */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Today's State
-          </span>
-          <MetricInfoModal
-            title="How Your Energy Score is Calculated"
-            description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
-          />
-        </div>
+      <p className="text-base font-medium text-foreground mb-3 font-body">
+        {tierLabel}
+      </p>
 
-        {/* Score and Tier */}
-        <div className="flex items-baseline gap-3 mb-2">
-          <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums font-body">
-            {energyState.overallBalance}
-          </span>
-          <span className="text-lg text-muted-foreground/60 font-body">
-            / 100
-          </span>
-        </div>
-        
-        <p className="text-base font-medium text-foreground mb-3 font-body">
-          {tierLabel}
-        </p>
+      {/* Contextual Insight - Enriched */}
+      <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-body">
+        {insight}
+      </p>
 
-        {/* Contextual Insight - Enriched */}
-        <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-body">
-          {insight}
-        </p>
-
-        {/* Data Sources + CTA - clickable for navigation */}
-        <div 
-          className="flex items-center justify-between cursor-pointer group"
-          onClick={() => navigate('/insights')}
-        >
-          <span className="text-xs text-muted-foreground/50 font-body">
-            Based on {energyState.dataSources?.join(', ') || 'check-in'}
-          </span>
-          <div className="flex items-center text-xs text-foreground font-medium group-hover:underline font-body">
-            <span>View insights</span>
-            <ChevronRight size={14} className="ml-1" />
-          </div>
+      {/* Data Sources + CTA - clickable for navigation */}
+      <div 
+        className="flex items-center justify-between cursor-pointer group"
+        onClick={() => navigate('/insights')}
+      >
+        <span className="text-xs text-muted-foreground/50 font-body">
+          Based on {energyState.dataSources?.join(', ') || 'check-in'}
+        </span>
+        <div className="flex items-center text-xs text-foreground font-medium group-hover:underline font-body">
+          <span>View insights</span>
+          <ChevronRight size={14} className="ml-1" />
         </div>
       </div>
     </div>
