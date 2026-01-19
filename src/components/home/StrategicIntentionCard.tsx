@@ -6,27 +6,33 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { computeEnergyState } from '@/utils/energyStateEngine';
-import { getStrategicTheme, ThemeDriver } from '@/utils/energyStateScoring';
+import { computeEnergyState, CurrentEnergyState } from '@/utils/energyStateEngine';
+import { getStrategicTheme } from '@/utils/energyStateScoring';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
 
-// Get user-friendly label for theme driver
-const getDriverLabel = (driver: ThemeDriver): string => {
-  switch (driver) {
-    case 'pressure+load':
-      return 'High Pressure + Packed Day';
-    case 'pressure':
-      return 'High-Stakes Events';
-    case 'load':
-      return 'Packed Schedule';
-    case 'morning':
-      return 'Morning Focus';
-    case 'evening':
-      return 'Evening Wind-Down';
-    default:
-      return 'Based on Your State';
+// Build data sources list based on what influenced the theme
+const getThemeDataSources = (energyState: CurrentEnergyState): string => {
+  const sources: string[] = [];
+  
+  // Check-in source
+  if (energyState.checkInOutcome) sources.push('check-in');
+  
+  // Wearable source
+  if (energyState.dataSources?.includes('wearable')) sources.push('wearable');
+  
+  // Calendar sources (only if they influenced theme)
+  if (energyState.calendarPressure === 'high' || energyState.calendarPressure === 'medium') {
+    sources.push('calendar pressure');
   }
+  if (energyState.calendarLoad === 'high' || energyState.calendarLoad === 'medium') {
+    sources.push('calendar load');
+  }
+  
+  // Time of day always contributes
+  sources.push('time of day');
+  
+  return sources.join(', ');
 };
 
 const StrategicIntentionCard = () => {
@@ -65,33 +71,38 @@ const StrategicIntentionCard = () => {
   return (
     <div className={cn(
       "py-4 px-4 -mx-4 space-y-3 rounded-lg border-l-2 transition-colors duration-500",
-      "bg-muted/5 border-l-muted-foreground/20"
+      "bg-taupe/[0.06] border-l-taupe/30"
     )}>
-      {/* Label with info button - aligned with TodayStateCard */}
+      {/* Header - just label and info button */}
       <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Theme for Today
-          </span>
-          <span className="text-[10px] text-muted-foreground/60 font-body tracking-wide">
-            {getDriverLabel(theme.driver)}
-          </span>
-        </div>
+        <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
+          Theme for Today
+        </span>
         <MetricInfoModal
           title="How Your Daily Theme is Selected"
           description="Your theme combines your current felt state (from check-in and wearable data), calendar pressure (high-stakes events), calendar load (meeting density), and time of day. It provides strategic guidance that acknowledges both how you feel internally and what your day demands externally."
         />
       </div>
 
-      {/* Theme phrase - serif, italic for elegance */}
-      <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
-        "{theme.phrase}"
-      </p>
+      {/* Theme content with fade animation */}
+      <div key={theme.phrase} className="animate-fade-in space-y-3">
+        {/* Theme phrase - serif, italic for elegance */}
+        <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
+          "{theme.phrase}"
+        </p>
 
-      {/* Supporting context */}
-      <p className="text-sm text-muted-foreground leading-relaxed font-body">
-        {theme.context}
-      </p>
+        {/* Supporting context */}
+        <p className="text-sm text-muted-foreground leading-relaxed font-body">
+          {theme.context}
+        </p>
+      </div>
+
+      {/* Footer - data sources (matching Today's State) */}
+      <div className="pt-1">
+        <span className="text-xs text-muted-foreground/50 font-body">
+          Based on {getThemeDataSources(energyState)}
+        </span>
+      </div>
     </div>
   );
 };
