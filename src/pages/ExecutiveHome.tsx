@@ -104,7 +104,7 @@ const ExecutiveHome = () => {
               <img 
                 src={getHeroVisual()}
                 alt=""
-                className="w-full h-full object-cover img-warm-luxury opacity-30 scale-110 transition-all duration-1000 ease-out"
+                className="w-full h-full object-cover img-warm-luxury opacity-30 animate-ken-burns transition-opacity duration-1000 ease-out"
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
