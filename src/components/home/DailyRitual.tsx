@@ -99,12 +99,12 @@ const isEvening = (): boolean => {
 const generateCoachCards = (): CoachCard[] => {
   const cards: CoachCard[] = [];
   
-  // Always include Prepare (Coach)
+  // Always include Prepare (Self Mastery Coach)
   cards.push({
     id: 'coach-prepare',
     type: 'prepare',
     label: 'Prepare',
-    protocolType: 'Coach',
+    protocolType: 'Self Mastery Coach',
     title: 'Mental Rehearsal',
     duration: 2,
     sortOrder: 3,
@@ -118,12 +118,12 @@ const generateCoachCards = (): CoachCard[] => {
       id: 'coach-integrate',
       type: 'integrate',
       label: 'Integrate',
-      protocolType: 'Coach',
-      title: 'Evening Reflection',
+      protocolType: 'Self Mastery Coach',
+      title: 'Evening Flow',
       duration: 2,
       sortOrder: 4,
       isCoachCard: true,
-      prompt: "Let's close out today. Take a breath, settle in. What's one thing you did right today? Share your small win."
+      prompt: "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win."
     });
   }
   
@@ -633,9 +633,15 @@ const DailyRitual = () => {
                       isLastCard && "mr-4"
                     )}
                   >
-                    {/* Coach Icon Area */}
-                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/20 to-taupe/20">
-                      <span className="text-4xl">🧠</span>
+                    {/* Coach Visual Area - Premium typography-driven design */}
+                    <div className="w-32 h-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-saffron/25 via-taupe/15 to-transparent relative overflow-hidden">
+                      {/* Subtle radial glow */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,140,66,0.15)_0%,transparent_70%)]" />
+                      {/* Stacked monogram */}
+                      <div className="flex flex-col items-center relative z-10">
+                        <span className="text-3xl font-headline text-saffron tracking-tight leading-none">SM</span>
+                        <span className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground/70 mt-1">Coach</span>
+                      </div>
                     </div>
                     
                     {/* Content */}
