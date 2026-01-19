@@ -134,7 +134,7 @@ const ExecutiveHome = () => {
             
             {/* Header - now INSIDE the visual */}
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full">
-              <SidebarTrigger className="h-9 w-9 rounded-full text-mintGreen icon-luxury-green" />
+              <SidebarTrigger className="h-9 w-9 rounded-full text-foreground bg-white/80 backdrop-blur-sm border border-black/10 hover:bg-white/90" />
               <CoachAccessButton />
             </header>
             

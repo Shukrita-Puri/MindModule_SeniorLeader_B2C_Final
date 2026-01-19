@@ -13,9 +13,9 @@ const CoachAccessButton = () => {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/coach')}
-          className="h-10 w-10 rounded-full text-mintGreen icon-luxury-green"
+          className="h-10 w-10 rounded-full text-foreground bg-white/80 backdrop-blur-sm border border-black/10 hover:bg-white/90"
         >
-          <ChatCircle size={20} weight="duotone" className="icon-duotone-luxury-green" />
+          <ChatCircle size={20} weight="duotone" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">
