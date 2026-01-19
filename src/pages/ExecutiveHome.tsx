@@ -126,7 +126,7 @@ const ExecutiveHome = () => {
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover video-warm-luxury opacity-35 transition-opacity duration-1000 ease-out"
+                className="w-full h-full object-cover video-warm-luxury opacity-40 transition-opacity duration-1000 ease-out"
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />

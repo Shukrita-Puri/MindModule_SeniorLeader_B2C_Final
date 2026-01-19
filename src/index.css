@@ -153,7 +153,7 @@ body {
 
   /* Rich warm luxury filter for video backgrounds */
   .video-warm-luxury {
-    filter: sepia(25%) saturate(140%) brightness(100%) contrast(105%) hue-rotate(-5deg);
+    filter: sepia(30%) saturate(160%) brightness(95%) contrast(110%) hue-rotate(-8deg);
   }
 
   /* Elevated Taupe Effects */
