@@ -72,6 +72,24 @@ const ExecutiveHome = () => {
       default: return "Let's make today count.";
     }
   };
+  
+  // Get calming visual based on energy state
+  const getHeroVisual = () => {
+    if (!energyState) return '/all-visuals/src-assets/sanctuary-watercolor-banner.jpg';
+    
+    switch (energyState.energyTier) {
+      case 'depleted': 
+        return '/all-visuals/src-assets/softness-release.jpg';
+      case 'managing': 
+        return '/all-visuals/src-assets/stillness-gap.jpg';
+      case 'strong': 
+        return '/all-visuals/src-assets/presence-grounding.jpg';
+      case 'peak': 
+        return '/all-visuals/src-assets/clarity-eye-of-storm.jpg';
+      default: 
+        return '/all-visuals/src-assets/sanctuary-watercolor-banner.jpg';
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -87,14 +105,28 @@ const ExecutiveHome = () => {
 
           {/* Main Content */}
           <div className="flex-1 w-full pb-8">
-            {/* Greeting - Centered, larger with subheadline */}
-            <div className="px-4 md:px-6 pt-6 pb-12 max-w-lg mx-auto text-center">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
-                {getGreeting()}
-              </h1>
-              <p className="text-base text-muted-foreground mt-2 font-body">
-                {getSubheadline()}
-              </p>
+            {/* Hero Visual with Greeting - State-Aware */}
+            <div className="relative overflow-hidden mx-4 md:mx-6 mt-2 rounded-3xl">
+              {/* Calming visual underlay with curved edges */}
+              <div className="absolute inset-0 z-0 rounded-3xl overflow-hidden">
+                <img 
+                  src={getHeroVisual()}
+                  alt=""
+                  className="w-full h-full object-cover img-taupe-overlay opacity-20 scale-105"
+                />
+                {/* Warm luxury gradient overlay - fades to background */}
+                <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/80 rounded-3xl" />
+              </div>
+              
+              {/* Greeting content - elevated above visual */}
+              <div className="relative z-10 pt-10 pb-14 max-w-lg mx-auto text-center">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
+                  {getGreeting()}
+                </h1>
+                <p className="text-base text-muted-foreground mt-2 font-body">
+                  {getSubheadline()}
+                </p>
+              </div>
             </div>
 
             {/* Three Core Sections - Liquid flowing layout with separators */}
