@@ -91,22 +91,48 @@ const ExecutiveHome = () => {
     }
   };
   
-  // Get looping video based on energy state
+  // Get time of day for video selection
+  const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';
+    return 'evening';
+  };
+  
+  // Get looping video based on energy state AND time of day
   const getHeroVideo = () => {
-    if (!energyState) return '/all-visuals/videos/default-bokeh.mp4';
+    const timeOfDay = getTimeOfDay();
+    const tier = energyState?.energyTier || 'default';
     
-    switch (energyState.energyTier) {
-      case 'depleted': 
-        return '/all-visuals/videos/depleted-water.mp4';
-      case 'managing': 
-        return '/all-visuals/videos/managing-clouds.mp4';
-      case 'strong': 
-        return '/all-visuals/videos/strong-sunlight.mp4';
-      case 'peak': 
-        return '/all-visuals/videos/peak-golden.mp4';
-      default: 
-        return '/all-visuals/videos/default-bokeh.mp4';
-    }
+    const videoMap: Record<string, Record<string, string>> = {
+      depleted: {
+        morning: '/all-visuals/videos/depleted-morning.mp4',
+        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
+        evening: '/all-visuals/videos/depleted-evening.mp4',
+      },
+      managing: {
+        morning: '/all-visuals/videos/managing-morning.mp4',
+        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
+        evening: '/all-visuals/videos/managing-evening.mp4',
+      },
+      strong: {
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
+      },
+      peak: {
+        morning: '/all-visuals/videos/peak-morning.mp4',
+        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
+        evening: '/all-visuals/videos/peak-evening.mp4',
+      },
+      default: {
+        morning: '/all-visuals/videos/default-morning.mp4',
+        afternoon: '/all-visuals/videos/default-afternoon.mp4',
+        evening: '/all-visuals/videos/default-evening.mp4',
+      },
+    };
+    
+    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
   };
 
   return (
