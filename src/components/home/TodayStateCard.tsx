@@ -1,25 +1,30 @@
 /**
- * TodayStateCard - "Where am I today?" 
- * Unified state card showing energy score, tier, and one-line insight
- * Tappable to navigate to Insights page
+ * TodayStateCard - "Where am I today?"
+ * Combined state card showing energy score, tier, and interpretation
+ * Liquid flowing design - no boxes, subtle gradient overlay
  */
 
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { computeEnergyState, type CurrentEnergyState } from '@/utils/energyStateEngine';
+import { computeEnergyState } from '@/utils/energyStateEngine';
 import { cn } from '@/lib/utils';
+import MetricInfoModal from './MetricInfoModal';
 
 const getTierLabel = (tier: string): string => {
-  const labels: Record<string, string> = {
-    'depleted': 'Rest and Restore',
-    'managing': 'Stabilize and Simplify',
-    'strong': 'Perform and Maintain',
-    'peak': 'Sustain and Execute'
-  };
-  return labels[tier] || 'Calibrating';
+  switch (tier) {
+    case 'depleted':
+      return 'Rest and Restore';
+    case 'managing':
+      return 'Stabilize and Simplify';
+    case 'strong':
+      return 'Perform and Maintain';
+    case 'peak':
+      return 'Sustain and Execute';
+    default:
+      return 'Stabilize and Simplify';
+  }
 };
 
 const TodayStateCard = () => {
@@ -29,8 +34,7 @@ const TodayStateCard = () => {
   const { data: energyState, isLoading } = useQuery({
     queryKey: ['energy-state', user?.id],
     queryFn: async () => {
-      const state = await computeEnergyState(user?.id);
-      return state;
+      return await computeEnergyState(user?.id);
     },
     enabled: !!user?.id,
     refetchInterval: 5 * 60 * 1000,
@@ -41,61 +45,72 @@ const TodayStateCard = () => {
 
   if (isLoading || !energyState) {
     return (
-      <Card className="bg-card/50 border-border/50 animate-pulse">
-        <CardContent className="p-5 md:p-6">
-          <div className="h-4 bg-muted rounded w-32 mb-4" />
-          <div className="h-12 bg-muted rounded w-48 mb-4" />
-          <div className="h-4 bg-muted rounded w-full mb-2" />
-          <div className="h-4 bg-muted rounded w-3/4" />
-        </CardContent>
-      </Card>
+      <div className="animate-pulse py-4">
+        <div className="h-12 bg-muted/30 rounded-lg w-24 mb-3" />
+        <div className="h-5 bg-muted/30 rounded-lg w-32 mb-4" />
+        <div className="h-4 bg-muted/30 rounded-lg w-full" />
+      </div>
     );
   }
 
   const tierLabel = getTierLabel(energyState.energyTier);
-  const insight = energyState.recommendation?.contextStatement || '';
-  // Truncate insight to one sentence for homepage
-  const oneLineInsight = insight.split('.')[0] + '.';
+  const contextStatement = energyState.recommendation?.contextStatement || '';
+  const insight = contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : '');
 
   return (
-    <Card 
+    <div 
       className={cn(
-        "bg-card border-border/50 cursor-pointer transition-all duration-200",
-        "hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]"
+        "relative cursor-pointer py-4",
+        "transition-all duration-300"
       )}
       onClick={() => navigate('/insights')}
     >
-      <CardContent className="p-5 md:p-6 space-y-4">
-        {/* Score + Tier */}
-        <div className="flex items-baseline gap-3">
-          <div className="flex items-baseline">
-            <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums">
-              {energyState.overallBalance}
-            </span>
-            <span className="text-lg text-muted-foreground font-light ml-1">/100</span>
-          </div>
-          <span className="text-lg md:text-xl font-medium text-foreground">
-            — {tierLabel}
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-saffron/[0.04] via-transparent to-transparent pointer-events-none rounded-2xl" />
+      
+      <div className="relative">
+        {/* Header with info button */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+            Today's State
           </span>
+          <MetricInfoModal
+            title="How Your Energy Score is Calculated"
+            description="Your energy score combines multiple data sources: your morning check-in (emotional and cognitive state), circadian rhythm (time of day), calendar load (meeting density), and any connected wearable data. The score updates throughout the day as conditions change."
+          />
         </div>
 
-        {/* One-line insight */}
-        <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-          {oneLineInsight}
+        {/* Score and Tier */}
+        <div className="flex items-baseline gap-3 mb-2">
+          <span className="text-4xl md:text-5xl font-bold text-saffron tabular-nums">
+            {energyState.overallBalance}
+          </span>
+          <span className="text-lg text-muted-foreground/60">
+            / 100
+          </span>
+        </div>
+        
+        <p className="text-base font-medium text-foreground mb-3">
+          {tierLabel}
         </p>
 
-        {/* Data sources + tap hint */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-muted-foreground/70">
-            Based on {energyState.dataSources.join(', ').toLowerCase()}
+        {/* Contextual Insight */}
+        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+          {insight}
+        </p>
+
+        {/* Data Sources + CTA */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground/50">
+            Based on {energyState.dataSources?.join(', ') || 'check-in'}
           </span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground/70">
-            <span>Tap for insights</span>
-            <ChevronRight className="h-3 w-3" />
+          <div className="flex items-center text-xs text-saffron font-medium">
+            <span>View insights</span>
+            <ChevronRight size={14} className="ml-1" />
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
