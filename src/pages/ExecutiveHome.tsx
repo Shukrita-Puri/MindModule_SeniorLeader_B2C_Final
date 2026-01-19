@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
@@ -19,10 +20,19 @@ import DailyRitual from "@/components/home/DailyRitual";
 import PerformancePreparation from "@/components/home/PerformancePreparation";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
+import { computeEnergyState } from "@/utils/energyStateEngine";
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const [migrationComplete, setMigrationComplete] = useState(false);
+  
+  // Fetch energy state for subheadline
+  const { data: energyState } = useQuery({
+    queryKey: ['energy-state', user?.id],
+    queryFn: async () => computeEnergyState(user?.id),
+    enabled: !!user?.id,
+    staleTime: 60000,
+  });
   
   // Migrate onboarding data from localStorage to database on first visit
   useEffect(() => {
@@ -49,6 +59,19 @@ const ExecutiveHome = () => {
     if (hour < 18) return `Afternoon, ${firstName}`;
     return `Evening, ${firstName}`;
   };
+  
+  // Get motivational subheadline based on energy tier
+  const getSubheadline = () => {
+    if (!energyState) return "Let's make today count.";
+    
+    switch (energyState.energyTier) {
+      case 'depleted': return "Protect and restore today.";
+      case 'managing': return "One step at a time.";
+      case 'strong': return "Ready to perform.";
+      case 'peak': return "Time to execute.";
+      default: return "Let's make today count.";
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -64,11 +87,14 @@ const ExecutiveHome = () => {
 
           {/* Main Content */}
           <div className="flex-1 w-full pb-8">
-            {/* Greeting - Centered, larger */}
+            {/* Greeting - Centered, larger with subheadline */}
             <div className="px-4 md:px-6 pt-6 pb-8 max-w-lg mx-auto text-center">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
+              <p className="text-base text-muted-foreground mt-2 font-body">
+                {getSubheadline()}
+              </p>
             </div>
 
             {/* Three Core Sections - Liquid flowing layout with separators */}
@@ -92,9 +118,9 @@ const ExecutiveHome = () => {
               {/* Section 3: Performance Plan - "What should I do now?" */}
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
-                  <h2 className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
+                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
                     Today's Performance Plan
-                  </h2>
+                  </span>
                   <MetricInfoModal
                     title="How Your Plan is Built"
                     description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day. You don't choose—the system deploys the right intervention at the right time."

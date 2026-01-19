@@ -17,10 +17,11 @@ const getModuleType = (practice: Recommendation): {
   type: 'regulate' | 'align' | 'prepare' | 'integrate'; 
   label: string;
   protocolType: string;
+  sortOrder: number;
 } => {
   // All soundbaths are Regulate (Somatic Protocol)
   if (practice.contentType === 'soundbath') {
-    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol', sortOrder: 1 };
   }
   
   // Check if practice has 'somatic' in its tags
@@ -29,7 +30,7 @@ const getModuleType = (practice: Recommendation): {
     tag.toLowerCase().includes('breathing') ||
     tag.toLowerCase().includes('breathwork')
   )) {
-    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol', sortOrder: 1 };
   }
   
   // Body-based guided practices
@@ -43,7 +44,7 @@ const getModuleType = (practice: Recommendation): {
   ];
   
   if (practice.contentType === 'guided-practice' && somaticGuidedPractices.includes(practice.id)) {
-    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol', sortOrder: 1 };
   }
   
   // Somatic micro-practices
@@ -56,11 +57,20 @@ const getModuleType = (practice: Recommendation): {
   ];
   
   if (practice.contentType === 'micro-practice' && somaticMicroPractices.includes(practice.id)) {
-    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol' };
+    return { type: 'regulate', label: 'Regulate', protocolType: 'Somatic Protocol', sortOrder: 1 };
   }
   
   // Everything else is Align (Mindset Protocol)
-  return { type: 'align', label: 'Align', protocolType: 'Mindset Protocol' };
+  return { type: 'align', label: 'Align', protocolType: 'Mindset Protocol', sortOrder: 2 };
+};
+
+// Sort practices by module sequence: Regulate → Align → Prepare → Integrate
+const sortPracticesBySequence = (practices: Recommendation[]): Recommendation[] => {
+  return [...practices].sort((a, b) => {
+    const orderA = getModuleType(a).sortOrder;
+    const orderB = getModuleType(b).sortOrder;
+    return orderA - orderB;
+  });
 };
 
 const DailyRitual = () => {
@@ -438,7 +448,7 @@ const DailyRitual = () => {
     );
   }
 
-  const { practices } = recommendations;
+  const sortedPractices = sortPracticesBySequence(recommendations.practices);
 
   return (
     <div className="space-y-4 pt-2">
@@ -457,7 +467,7 @@ const DailyRitual = () => {
           setApi={setCarouselApi}
         >
           <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
-            {practices.map((practice, index) => {
+            {sortedPractices.map((practice, index) => {
               const isCompleted = completedPracticeIds.includes(practice.id);
               
               return (
@@ -474,7 +484,7 @@ const DailyRitual = () => {
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
-                      index === practices.length - 1 && "mr-4"
+                      index === sortedPractices.length - 1 && "mr-4"
                     )}
                   >
                     {/* Thumbnail - fills height */}
