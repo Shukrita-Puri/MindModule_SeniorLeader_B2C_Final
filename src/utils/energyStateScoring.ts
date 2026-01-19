@@ -13,12 +13,18 @@
 
 export function getCheckInScore(outcome: string): number {
   const scoreMap: Record<string, number> = {
-    'pause': 10,           // I'm stressed/overwhelmed (Depleted)
-    'power-up': 20,        // I'm drained/tired (Depleted)
-    'steady': 50,          // I'm feeling steady and balanced (Managing)
-    'presence': 55,        // I'm scattered/unfocused (Managing)
-    'focused': 70,         // I'm focused and energized (Strong)
-    'ready': 80            // I'm motivated and ready (Peak)
+    // New values - internal axis mapping
+    'overwhelmed': 15,     // High arousal + negative + low regulation
+    'drained': 25,         // Low arousal + low capacity
+    'steady': 50,          // Baseline regulated
+    'scattered': 40,       // Normal energy + poor cognitive control
+    'focused': 75,         // High energy + high cognitive control
+    
+    // Legacy values (backward compatibility)
+    'pause': 15,
+    'power-up': 25,
+    'presence': 40,
+    'ready': 75
   };
   
   return scoreMap[outcome] || 50; // Default to 50 if unknown
@@ -226,16 +232,21 @@ export interface Recommendation {
   contextStatement: string;
 }
 
-// Helper function to get check-in emotional state
+// Helper function to get check-in emotional state (internal use only - not shown to user)
 function getCheckInEmotion(checkInOutcome: string | null): string {
   if (!checkInOutcome) return '';
   
   const emotionMap: Record<string, string> = {
+    // New values
+    'overwhelmed': 'overwhelmed and stressed',
+    'drained': 'low energy and drained',
+    'scattered': 'scattered and unfocused',
+    'steady': 'steady and balanced',
+    'focused': 'focused and energized',
+    // Legacy values
     'pause': 'stressed and overwhelmed',
     'power-up': 'drained and tired',
     'presence': 'scattered and unfocused',
-    'steady': 'feeling steady and balanced',
-    'focused': 'focused and energized',
     'calm': 'anxious and tense',
     'ready': 'motivated and ready',
     'good': 'good'

@@ -53,9 +53,12 @@ const TodayStateCard = () => {
     );
   }
 
+  // Clean dashes from context statement
+  const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/—/g, ' ').replace(/ – /g, ' ');
+  
   const tierLabel = getTierLabel(energyState.energyTier);
   const contextStatement = energyState.recommendation?.contextStatement || '';
-  const insight = contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : '');
+  const insight = cleanText(contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : ''));
 
   return (
     <div className="relative py-4 transition-all duration-300">

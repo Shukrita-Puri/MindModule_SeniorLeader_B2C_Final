@@ -1,44 +1,25 @@
 
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import TopNavigation from "@/components/simulation/TopNavigation";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Zap, Waves, Target, Home, Sparkles } from "lucide-react";
+import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
-import architecturalPresence from "@/assets/architectural-presence.jpg";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
-type Outcome = "pause" | "power-up" | "presence" | "steady" | "focused" | "ready";
+// New outcome types mapping to internal axes
+type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
 
 interface CheckInData {
   outcome: Outcome;
-  displayOutcome?: Outcome;
   timestamp: string;
   date: string;
   skipped: boolean;
   completedFull: boolean;
-  // Future memory fields (not collected yet):
-  context?: string;
-  preferredSoundscape?: string;
-  preferredPractice?: string;
-  usageHistory?: Array<{
-    sessionType: string;
-    timestamp: string;
-    completed: boolean;
-  }>;
 }
 
 const DailyCheckIn = () => {
@@ -46,13 +27,9 @@ const DailyCheckIn = () => {
   const { user } = useAuth();
   const { getAccessTokenSilently } = useAuth0();
   const queryClient = useQueryClient();
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   
   // Check if user has active subscription
   const hasActiveSubscription = user?.subscription_status === 'active';
-  
-  // Check if this is user's first check-in (completing onboarding)
-  const isFirstCheckIn = !localStorage.getItem('dailyCheckIn');
   
   // Fetch connection status
   const { data: connections } = useQuery({
@@ -71,47 +48,32 @@ const DailyCheckIn = () => {
     enabled: !!user?.id
   });
 
+  // 5 clean states without emojis - maps to internal axes
   const outcomes = [
-    // DEPLETED (0-39)
     {
-      value: "pause" as Outcome,
+      value: "overwhelmed" as Outcome,
       icon: Waves,
-      title: "I'm stressed or overwhelmed",
-      borderColor: "border-accent hover:border-accent"
+      title: "Overwhelmed / Stressed"
     },
     {
-      value: "power-up" as Outcome,
+      value: "drained" as Outcome,
       icon: Zap,
-      title: "I'm drained or tired",
-      borderColor: "border-primary hover:border-primary"
+      title: "Low energy / Drained"
     },
-    
-    // MANAGING (40-59)
     {
       value: "steady" as Outcome,
       icon: Target,
-      title: "I'm feeling steady and balanced",
-      borderColor: "border-taupe hover:border-taupe"
+      title: "Okay / Steady"
     },
     {
-      value: "presence" as Outcome,
-      icon: Target,
-      title: "I'm scattered or unfocused",
-      borderColor: "border-gold hover:border-gold"
+      value: "scattered" as Outcome,
+      icon: Wind,
+      title: "Scattered / Unfocused"
     },
-    
-    // STRONG/PEAK (60-100)
     {
       value: "focused" as Outcome,
       icon: Sparkles,
-      title: "I'm focused and energized",
-      borderColor: "border-primary hover:border-primary"
-    },
-    {
-      value: "ready" as Outcome,
-      icon: Sparkles,
-      title: "I am motivated and ready",
-      borderColor: "border-saffron hover:border-saffron"
+      title: "Focused / Energized"
     }
   ];
 
@@ -119,26 +81,12 @@ const DailyCheckIn = () => {
     // Track check-in engagement
     trackEngagement('check_in');
     
-    // Map UI outcomes to stored outcomes
-    const outcomeMap: Record<Outcome, Outcome> = {
-      "pause": "pause",
-      "power-up": "power-up", 
-      "presence": "presence",
-      "steady": "steady",
-      "focused": "focused",
-      "ready": "ready"
-    };
-    
-    const mappedOutcome = outcomeMap[outcome];
-    
     const checkInData: CheckInData = {
-      outcome: mappedOutcome,
-      displayOutcome: outcome, // Store original selection for UI display
+      outcome,
       timestamp: new Date().toISOString(),
       date: new Date().toDateString(),
       skipped: false,
-      completedFull: true,
-      usageHistory: [] // For future memory tracking
+      completedFull: true
     };
 
     // Save to localStorage
@@ -146,20 +94,14 @@ const DailyCheckIn = () => {
     
     // Debug log to verify save
     console.log('[Check-In] Saved to localStorage:', checkInData);
-    console.log('[Check-In] Stored value:', localStorage.getItem('dailyCheckIn'));
     
     // Invalidate energy-state query to force refetch
     queryClient.invalidateQueries({ queryKey: ['energy-state'] });
     
-    // For first-time users, show welcome modal instead of auto-redirecting
-    if (isFirstCheckIn) {
-      setShowWelcomeModal(true);
-    } else {
-      // Existing users get auto-redirected
-      setTimeout(() => {
-        navigate('/executive-home');
-      }, 100);
-    }
+    // Go straight to Today page - no intermediate pages
+    setTimeout(() => {
+      navigate('/executive-home');
+    }, 100);
   };
 
   const handleSkipToHome = async () => {
@@ -190,14 +132,6 @@ const DailyCheckIn = () => {
     
     navigate('/executive-home');
   };
-  
-  // Dynamic skip button text
-  const getSkipButtonText = () => {
-    if (hasActiveSubscription) {
-      return "Skip check-in (use wearable data)";
-    }
-    return "I am good, take me to my Mind Atelier";
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 pt-20 pb-32 bg-background">
@@ -210,7 +144,7 @@ const DailyCheckIn = () => {
             How are you feeling right now?
           </h1>
           <p className="text-muted-foreground font-body">
-            Be honest with yourself
+            Just your first instinct. Don't overthink it.
           </p>
         </div>
 
@@ -243,41 +177,6 @@ const DailyCheckIn = () => {
         </div>
 
       </div>
-      
-      
-      
-      {/* Welcome Modal for First-Time Users */}
-      <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-heading">Welcome to Your Mind Atelier!</DialogTitle>
-            <DialogDescription className="text-base space-y-3 pt-2">
-              <p>
-                Your personalized dashboard is ready. Here you'll find:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li>Daily rituals tailored to your energy state</li>
-                <li>Micro-practices for quick recalibrations</li>
-                <li>Insights from your calendar and wearable data</li>
-                <li>Progress tracking and mental fitness scores</li>
-              </ul>
-              <p className="font-medium text-foreground pt-2">
-                Let's begin your journey to peak performance.
-              </p>
-            </DialogDescription>
-          </DialogHeader>
-          <Button 
-            onClick={() => {
-              setShowWelcomeModal(false);
-              navigate('/executive-home');
-            }}
-            className="w-full"
-            size="lg"
-          >
-            Continue to My Dashboard
-          </Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
