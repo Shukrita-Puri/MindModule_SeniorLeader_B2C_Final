@@ -266,15 +266,15 @@ function formatContextStatement(
   calendarLoad?: CalendarLoad,
   calendarPressure?: CalendarPressure
 ): string {
-  // Outcome-specific insights - directly addresses what user selected
+  // Outcome-specific insights - pure felt-state messages (no calendar references)
   const outcomeInsights: Record<string, Record<TimeOfDay, string>> = {
     'overwhelmed': {
       'morning': 'Feeling overwhelmed this morning signals your nervous system is activated. Regulation comes before productivity.',
       'afternoon': 'Afternoon overwhelm often builds from accumulated stress. A nervous system reset can restore clarity.',
-      'evening': 'Evening overwhelm means your day carried heavy weight. Release the tension before carrying it into tomorrow.'
+      'evening': 'Evening overwhelm means your day carried heavy weight. Release the tension before you carry it into tomorrow.'
     },
     'drained': {
-      'morning': 'Starting drained indicates a recovery deficit. Prioritize restoration over pushing through.',
+      'morning': 'Starting drained indicates a recovery deficit. Your body is asking for restoration.',
       'afternoon': 'Afternoon depletion calls for genuine rest, not caffeine. Your body is asking for recovery.',
       'evening': 'Low evening energy is your body\'s signal to wind down early. Honor it.'
     },
@@ -284,7 +284,7 @@ function formatContextStatement(
       'evening': 'Feeling scattered tonight means your mind is still processing. Let it settle with intention.'
     },
     'steady': {
-      'morning': 'Steady start to the day. Maintain this balanced rhythm through your morning.',
+      'morning': 'Steady start to the day. This balanced rhythm is a foundation to build on.',
       'afternoon': 'Afternoon steadiness is valuable. Protect it from unnecessary disruption.',
       'evening': 'Steady evening state suggests good regulation. Transition gently into rest.'
     },
@@ -320,20 +320,9 @@ function formatContextStatement(
   };
   
   // Get outcome-specific insight, fallback to tier-based
-  let insight = outcomeInsights[checkInOutcome || '']?.[timeOfDay] 
+  // Pure felt-state - no calendar or wearable additions (those go in Theme for Today)
+  const insight = outcomeInsights[checkInOutcome || '']?.[timeOfDay] 
     || tierInsights[energyTier][timeOfDay];
-  
-  // Add calendar context if available
-  if (hasCalendar && calendarPressure === 'high') {
-    insight += ' High calendar pressure ahead—protect yourself with strategic pauses.';
-  } else if (hasCalendar && calendarLoad === 'high') {
-    insight += ' Heavy meeting load today—be intentional about recovery windows.';
-  }
-  
-  // Add wearable context if available
-  if (hasWearable) {
-    insight += ' Wearable data factored into your recommendations.';
-  }
   
   return insight;
 }
