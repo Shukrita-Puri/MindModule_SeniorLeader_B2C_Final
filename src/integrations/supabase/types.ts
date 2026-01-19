@@ -1754,6 +1754,44 @@ export type Database = {
           },
         ]
       }
+      tiny_wins: {
+        Row: {
+          created_at: string
+          detected_at: string
+          id: string
+          session_id: string | null
+          user_id: string
+          win_content: string
+          win_date: string
+        }
+        Insert: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          session_id?: string | null
+          user_id: string
+          win_content: string
+          win_date?: string
+        }
+        Update: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          session_id?: string | null
+          user_id?: string
+          win_content?: string
+          win_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiny_wins_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_occasion_definitions: {
         Row: {
           category: string | null

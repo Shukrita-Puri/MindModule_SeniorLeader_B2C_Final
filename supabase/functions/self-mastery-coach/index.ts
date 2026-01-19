@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,17 +34,71 @@ Topics you excel at:
 
 Remember: You're not here to give advice or fix problems. You're here to help the person discover their own wisdom and develop their capacity for self-mastery.`;
 
+// Patterns to detect Tiny Wins in user messages
+const WIN_PATTERNS = [
+  /(?:my win|my small win|tiny win|today's win|i'm proud|proud of|accomplished|achieved|managed to|successfully|did (?:well|right|good)|good at|nailed|crushed|won|victory|success(?:fully)?)/i,
+  /(?:i did|today i|this morning i|this afternoon i|this evening i).{5,100}(?:well|right|good|successfully|proud)/i,
+  /(?:one thing.{0,20}did right|thing.{0,20}proud of|win.{0,20}today|success.{0,20}today)/i,
+];
+
+// Detect if a message contains a Tiny Win
+const detectTinyWin = (content: string): boolean => {
+  return WIN_PATTERNS.some(pattern => pattern.test(content));
+};
+
+// Store a Tiny Win in the database
+const storeTinyWin = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  userId: string,
+  sessionId: string | null,
+  winContent: string
+) => {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error } = await supabase.from('tiny_wins').insert({
+      user_id: userId,
+      session_id: sessionId,
+      win_content: winContent,
+      win_date: new Date().toISOString().split('T')[0],
+    });
+    
+    if (error) {
+      console.error('Error storing tiny win:', error);
+    } else {
+      console.log('✅ Tiny win stored successfully');
+    }
+  } catch (err) {
+    console.error('Error in storeTinyWin:', err);
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, flowType, sessionId, userId } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    // If this is an integrate flow, check for Tiny Wins in the latest user message
+    if (flowType === 'integrate' && userId && messages.length > 0) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (supabaseUrl && supabaseServiceKey) {
+        // Check the latest user message for a win
+        const latestUserMessage = [...messages].reverse().find((m: { role: string; content: string }) => m.role === 'user');
+        if (latestUserMessage && detectTinyWin(latestUserMessage.content)) {
+          console.log('🏆 Detected Tiny Win in message:', latestUserMessage.content.substring(0, 100));
+          await storeTinyWin(supabaseUrl, supabaseServiceKey, userId, sessionId, latestUserMessage.content);
+        }
+      }
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

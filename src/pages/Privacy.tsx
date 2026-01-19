@@ -45,7 +45,7 @@ const Privacy = () => {
 
             <h3 className="text-lg font-semibold text-foreground mb-2">1.3 Daily Check-In Data</h3>
             <p className="mb-4">
-              When you complete Energy State Check-ins, we collect your self-reported energy levels, emotional states, and contextual tags that help us understand your patterns over time.
+              When you complete Emotional and Cognitive Energy State check-ins, we collect your self-reported energy levels, emotional states, and contextual tags that help us understand your patterns over time.
             </p>
 
             <h3 className="text-lg font-semibold text-foreground mb-2">1.4 AI Coaching Conversations</h3>

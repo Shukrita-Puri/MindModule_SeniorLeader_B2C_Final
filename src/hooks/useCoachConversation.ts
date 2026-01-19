@@ -16,6 +16,7 @@ interface UseCoachConversationReturn {
   sendMessage: (content: string) => Promise<void>;
   clearConversation: () => void;
   sessionId: string | null;
+  setFlowType: (flowType: 'prepare' | 'integrate' | null) => void;
 }
 
 export const useCoachConversation = (): UseCoachConversationReturn => {
@@ -24,6 +25,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [flowType, setFlowType] = useState<'prepare' | 'integrate' | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
   const createSession = useCallback(async () => {
@@ -98,6 +100,9 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             role: m.role,
             content: m.content,
           })),
+          flowType,
+          sessionId: currentSessionId,
+          userId: user?.id,
         }),
       });
 
@@ -183,7 +188,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, createSession, saveMessage]);
+  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id]);
 
   const clearConversation = useCallback(() => {
     setMessages([]);
@@ -199,5 +204,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     sendMessage,
     clearConversation,
     sessionId,
+    setFlowType,
   };
 };

@@ -40,7 +40,7 @@ const features = [
     description: 'Energy practices',
   },
   {
-    title: 'Energy State Check in',
+    title: 'Emotional & Cognitive Energy',
     icon: Smiley,
     path: '/daily-check-in',
     description: 'Track your state',
