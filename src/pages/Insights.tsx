@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +32,21 @@ interface TinyWinsInsights {
   winsCount: number;
 }
 
+interface StatePatternInsights {
+  distribution: Record<string, number>;
+  observation: string | null;
+  checkInCount: number;
+}
+
+// State colors for the bar chart
+const stateColors: Record<string, string> = {
+  focused: 'hsl(142 76% 36%)',
+  steady: 'hsl(217 91% 60%)',
+  scattered: 'hsl(38 92% 50%)',
+  drained: 'hsl(0 0% 62%)',
+  overwhelmed: 'hsl(0 84% 60%)'
+};
+
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -42,11 +57,19 @@ const Insights = () => {
   const [checkInStreak, setCheckInStreak] = useState(0);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
   const [winsLoading, setWinsLoading] = useState(false);
+  const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
+  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [checkInStreak, setCheckInStreak] = useState(0);
+  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
+  const [winsLoading, setWinsLoading] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchInsightsData();
       fetchTinyWinsInsights();
+      fetchStatePatterns();
+    }
+  }, [user?.id]);
     }
   }, [user?.id]);
 
@@ -150,6 +173,25 @@ const Insights = () => {
     }
   };
 
+  const fetchStatePatterns = async () => {
+    if (!user?.id) return;
+    setPatternsLoading(true);
+    try {
+      const accessToken = await getAccessTokenSilently();
+      const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { days: 7 }
+      });
+      if (!error && data?.data) {
+        setStatePatterns(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching state patterns:', error);
+    } finally {
+      setPatternsLoading(false);
+    }
+  };
+
   const getOutcomeColor = (outcome: string | null) => {
     switch (outcome) {
       case 'power-up': return 'hsl(var(--accent))';
@@ -157,14 +199,6 @@ const Insights = () => {
       case 'presence': return 'hsl(142 76% 36%)';
       default: return 'hsl(var(--muted))';
     }
-  };
-
-  const getCategoryColor = (category: string) => {
-    const lower = category.toLowerCase();
-    if (lower.includes('power') || lower.includes('renewal')) return 'hsl(var(--accent))';
-    if (lower.includes('pause')) return 'hsl(var(--primary))';
-    if (lower.includes('presence') || lower.includes('flow')) return 'hsl(142 76% 36%)';
-    return 'hsl(var(--muted-foreground))';
   };
 
   if (loading) {
