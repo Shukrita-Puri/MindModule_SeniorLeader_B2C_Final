@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,15 +7,40 @@ import { useCoachConversation } from '@/hooks/useCoachConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
+interface LocationState {
+  initialPrompt?: string;
+  flowType?: 'prepare' | 'integrate';
+}
+
 const SelfMasteryCoach = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
   const { user } = useAuth();
   const { messages, isLoading, error, sendMessage, clearConversation } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
+  const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const firstName = user?.name?.split(' ')[0] || 'there';
+  const flowType = locationState?.flowType;
+  const initialPrompt = locationState?.initialPrompt;
+  
+  // Get subtitle based on flow type
+  const getSubtitle = () => {
+    if (flowType === 'prepare') return 'Pre-performance preparation';
+    if (flowType === 'integrate') return 'Evening reflection';
+    return 'Your personal executive coach';
+  };
+
+  // Send initial prompt when entering from Performance Plan
+  useEffect(() => {
+    if (initialPrompt && !hasInitialized && messages.length === 0) {
+      setHasInitialized(true);
+      sendMessage(initialPrompt);
+    }
+  }, [initialPrompt, hasInitialized, messages.length, sendMessage]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -52,7 +77,7 @@ const SelfMasteryCoach = () => {
         </Button>
         <div className="flex-1">
           <h1 className="text-lg font-semibold text-foreground">Self Mastery Coach</h1>
-          <p className="text-xs text-muted-foreground">Your personal executive coach</p>
+          <p className="text-xs text-muted-foreground">{getSubtitle()}</p>
         </div>
         {messages.length > 0 && (
           <Button

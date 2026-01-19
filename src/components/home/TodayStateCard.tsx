@@ -73,7 +73,7 @@ const TodayStateCard = () => {
           </span>
           <MetricInfoModal
             title="How Your Energy Score is Calculated"
-            description="Your energy score combines multiple data sources: your morning check-in (emotional and cognitive state), circadian rhythm (time of day), calendar load (meeting density), and any connected wearable data. The score updates throughout the day as conditions change."
+            description="Your energy score combines multiple data sources: your day's check-in (emotional and cognitive state), circadian rhythm (time of day), calendar load (meeting density), and any connected wearable data. The score updates throughout the day as conditions change."
           />
         </div>
 
