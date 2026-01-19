@@ -920,13 +920,14 @@ export function getStrategicTheme(
       };
     }
     // 8. Evening-specific
-    if (timeOfDay === 'evening') {
-      return {
-        phrase: "Finish strong.",
-        context: `Focused energy sustained into evening is rare. It suggests effective regulation throughout the day. ${unlock}`,
-        driver: 'evening'
-      };
-    }
+  if (timeOfDay === 'evening') {
+    const eveningUnlock = getArchetypeUnlock(archetype, 'focused', 'Intentional closure now protects tomorrow\'s capacity.');
+    return {
+      phrase: "Channel wisely.",
+      context: `Evening focus is valuable but needs direction. Without intention, this energy may delay sleep and compromise tomorrow's recovery. Choose one meaningful completion, then release. ${eveningUnlock}`,
+      driver: 'evening'
+    };
+  }
     // 9. Default
     return {
       phrase: "Own your optimal state.",
