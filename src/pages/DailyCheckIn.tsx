@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import TopNavigation from "@/components/simulation/TopNavigation";
 
@@ -10,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { saveCheckin } from "@/utils/dailyCheckins";
+import { getCheckInScore } from "@/utils/energyStateScoring";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -77,23 +78,43 @@ const DailyCheckIn = () => {
     }
   ];
 
-  const handleOutcomeSelect = (outcome: Outcome) => {
+  const handleOutcomeSelect = async (outcome: Outcome) => {
     // Track check-in engagement
     trackEngagement('check_in');
     
+    const timestamp = new Date().toISOString();
+    const checkinDate = timestamp.split('T')[0];
+    const energyBalance = getCheckInScore(outcome);
+    
     const checkInData: CheckInData = {
       outcome,
-      timestamp: new Date().toISOString(),
+      timestamp,
       date: new Date().toDateString(),
       skipped: false,
       completedFull: true
     };
 
-    // Save to localStorage
+    // Save to localStorage for immediate use
     localStorage.setItem('dailyCheckIn', JSON.stringify(checkInData));
     
     // Debug log to verify save
     console.log('[Check-In] Saved to localStorage:', checkInData);
+    
+    // Also save to database for persistence and insights
+    try {
+      await saveCheckin({
+        checkin_date: checkinDate,
+        outcome,
+        energy_balance: energyBalance,
+        skipped: false,
+        timestamp,
+        data_sources: { check_in: true }
+      });
+      console.log('[Check-In] Saved to database');
+    } catch (error) {
+      console.error('[Check-In] Failed to save to database:', error);
+      // Continue anyway - localStorage is sufficient for immediate use
+    }
     
     // Invalidate energy-state query to force refetch
     queryClient.invalidateQueries({ queryKey: ['energy-state'] });

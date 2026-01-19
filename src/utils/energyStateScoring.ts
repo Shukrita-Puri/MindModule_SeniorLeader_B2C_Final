@@ -13,18 +13,18 @@
 
 export function getCheckInScore(outcome: string): number {
   const scoreMap: Record<string, number> = {
-    // New values - internal axis mapping
-    'overwhelmed': 15,     // High arousal + negative + low regulation
-    'drained': 25,         // Low arousal + low capacity
-    'steady': 50,          // Baseline regulated
-    'scattered': 40,       // Normal energy + poor cognitive control
-    'focused': 75,         // High energy + high cognitive control
+    // New values - more differentiated scores
+    'overwhelmed': 25,     // Stressed but not depleted - needs regulation
+    'drained': 20,         // Genuinely needs rest - lowest
+    'scattered': 35,       // Needs focus, not rest - low-mid
+    'steady': 55,          // Solid middle ground
+    'focused': 80,         // High - performing well
     
     // Legacy values (backward compatibility)
-    'pause': 15,
-    'power-up': 25,
-    'presence': 40,
-    'ready': 75
+    'pause': 25,
+    'power-up': 20,
+    'presence': 35,
+    'ready': 80
   };
   
   return scoreMap[outcome] || 50; // Default to 50 if unknown
@@ -255,7 +255,7 @@ function getCheckInEmotion(checkInOutcome: string | null): string {
   return emotionMap[checkInOutcome] || '';
 }
 
-// Helper function to format context statement - ENRICHED with circadian/calendar insights
+// Helper function to format context statement - OUTCOME-SPECIFIC insights
 function formatContextStatement(
   checkInOutcome: string | null,
   balance: number,
@@ -266,18 +266,45 @@ function formatContextStatement(
   calendarLoad?: CalendarLoad,
   calendarPressure?: CalendarPressure
 ): string {
-  const timeLabel = timeOfDay === 'morning' ? 'morning' : timeOfDay === 'afternoon' ? 'afternoon' : 'evening';
-  
-  // Build contextual insight based on tier and available data
+  // Outcome-specific insights - directly addresses what user selected
+  const outcomeInsights: Record<string, Record<TimeOfDay, string>> = {
+    'overwhelmed': {
+      'morning': 'Feeling overwhelmed this morning signals your nervous system is activated. Regulation comes before productivity.',
+      'afternoon': 'Afternoon overwhelm often builds from accumulated stress. A nervous system reset can restore clarity.',
+      'evening': 'Evening overwhelm means your day carried heavy weight. Release the tension before carrying it into tomorrow.'
+    },
+    'drained': {
+      'morning': 'Starting drained indicates a recovery deficit. Prioritize restoration over pushing through.',
+      'afternoon': 'Afternoon depletion calls for genuine rest, not caffeine. Your body is asking for recovery.',
+      'evening': 'Low evening energy is your body\'s signal to wind down early. Honor it.'
+    },
+    'scattered': {
+      'morning': 'Scattered focus this morning needs grounding before you tackle priorities. Clarity comes from centering.',
+      'afternoon': 'Afternoon mental fog is cognitive fatigue. Simplify your focus to one thing at a time.',
+      'evening': 'Feeling scattered tonight means your mind is still processing. Let it settle with intention.'
+    },
+    'steady': {
+      'morning': 'Steady start to the day. Maintain this balanced rhythm through your morning.',
+      'afternoon': 'Afternoon steadiness is valuable. Protect it from unnecessary disruption.',
+      'evening': 'Steady evening state suggests good regulation. Transition gently into rest.'
+    },
+    'focused': {
+      'morning': 'Morning focus is your peak window. Deploy it on high-value, demanding work.',
+      'afternoon': 'Sustained afternoon focus is rare. Maximize this cognitive advantage while you have it.',
+      'evening': 'High evening focus can be channeled wisely—or it may delay sleep. Choose intentionally.'
+    }
+  };
+
+  // Tier-based fallback insights (when no check-in outcome)
   const tierInsights: Record<EnergyTier, Record<TimeOfDay, string>> = {
     'depleted': {
       'morning': 'Start slowly. Your body needs restoration before taking on demanding work.',
-      'afternoon': 'Afternoon energy dips are normal, but yours signals a need for deeper rest. Simplify your remaining tasks.',
+      'afternoon': 'Low reserves this afternoon. Simplify your remaining tasks.',
       'evening': 'Rest is your work tonight. Tomorrow\'s performance depends on tonight\'s recovery.'
     },
     'managing': {
       'morning': 'You have reserves, but they need protection. Pace yourself through the morning demands.',
-      'afternoon': 'Mid-range energy this afternoon. Focus on maintaining rhythm rather than pushing harder.',
+      'afternoon': 'Moderate energy this afternoon. Focus on maintaining rhythm rather than pushing harder.',
       'evening': 'Wind down with intention. Your energy is manageable but needs restoration overnight.'
     },
     'strong': {
@@ -292,7 +319,9 @@ function formatContextStatement(
     }
   };
   
-  let insight = tierInsights[energyTier][timeOfDay];
+  // Get outcome-specific insight, fallback to tier-based
+  let insight = outcomeInsights[checkInOutcome || '']?.[timeOfDay] 
+    || tierInsights[energyTier][timeOfDay];
   
   // Add calendar context if available
   if (hasCalendar && calendarPressure === 'high') {
@@ -329,21 +358,21 @@ export function getRecommendation(
   
   // ==================== DEPLETED TIER ====================
   if (energyTier === 'depleted') {
-    // Differentiate by CHECK-IN OUTCOME (type of depletion)
+    // Differentiate by CHECK-IN OUTCOME (type of depletion) - FIXED to use new values
     
-    if (checkInOutcome === 'pause') {
-      // STRESSED/OVERWHELMED → Need grounding and calming
+    if (checkInOutcome === 'overwhelmed') {
+      // STRESSED/OVERWHELMED → Need regulation and composure
       return {
         primary: 'pause',
         primarySubtype: calendarMetrics.pressure === 'high' ? 'composure' : 'grounding',
-        secondary: 'renewal',
-        secondarySubtype: 'restore',
+        secondary: 'flow',
+        secondarySubtype: 'activate',
         contextStatement: createContext()
       };
     }
     
-    if (checkInOutcome === 'power-up') {
-      // DRAINED/TIRED → Could need rest OR gentle energizing
+    if (checkInOutcome === 'drained') {
+      // DRAINED/TIRED → Genuine rest needed
       if (wearableFunction === 'low' && calendarMetrics.pressure !== 'high') {
         // Very low physiological readiness + no pressure = DEEP REST
         return {
@@ -354,47 +383,37 @@ export function getRecommendation(
           contextStatement: createContext()
         };
       } else {
-        // Needs gentle energizing
+        // Needs gentle restoration
         return {
           primary: 'renewal',
-          primarySubtype: 'recharge',
+          primarySubtype: 'restore',
           secondary: 'pause',
-          secondarySubtype: 'grounding',
+          secondarySubtype: 'deep-calm',
           contextStatement: createContext()
         };
       }
     }
     
-    if (checkInOutcome === 'presence') {
-      // SCATTERED/UNFOCUSED → Flow (activate) + Pause (grounding)
+    if (checkInOutcome === 'scattered') {
+      // SCATTERED/UNFOCUSED → Grounding + Focus activation
       return {
-        primary: 'flow',
-        primarySubtype: 'activate',
-        secondary: 'pause',
-        secondarySubtype: 'grounding',
+        primary: 'pause',
+        primarySubtype: 'grounding',
+        secondary: 'flow',
+        secondarySubtype: 'activate',
         contextStatement: createContext()
       };
     }
     
-    // Default depleted (fallback for old outcomes or no check-in)
+    // Default depleted (fallback for no check-in)
     let secondarySubtype: MasterySubtype = 'grounding';
-    let recommendation = '';
     
     if (subTier === 'very-low') {
-      secondarySubtype = (calendarMetrics.pressure === 'high') ? 'grounding' : 'deep-calm';
-      recommendation = secondarySubtype === 'deep-calm' 
-        ? 'deep rest is your priority—focus on restoring your energy before anything else' 
-        : 'high demands require maintaining composure under stress';
+      secondarySubtype = (calendarMetrics.pressure === 'high') ? 'composure' : 'deep-calm';
     } else if (subTier === 'low') {
       secondarySubtype = (calendarMetrics.pressure === 'low' && wearableFunction === 'low') ? 'deep-calm' : 'grounding';
-      recommendation = secondarySubtype === 'deep-calm'
-        ? 'your body needs deep rest right now—recovery is essential before you take on anything else'
-        : 'ground yourself first before tackling demands';
     } else {
       secondarySubtype = (calendarMetrics.pressure === 'high' || calendarMetrics.load === 'high') ? 'composure' : 'grounding';
-      recommendation = secondarySubtype === 'composure'
-        ? 'cognitive clarity is compromised—maintain composure under pressure'
-        : 'scattered energy calls for grounding to restore focus';
     }
     
     return {

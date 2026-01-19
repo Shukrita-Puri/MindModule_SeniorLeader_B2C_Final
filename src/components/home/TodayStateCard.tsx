@@ -12,16 +12,33 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { cn } from '@/lib/utils';
 import MetricInfoModal from './MetricInfoModal';
 
-const getTierLabel = (tier: string): string => {
+// Outcome-aware tier labels - specific to what user selected
+const getStateLabel = (tier: string, checkInOutcome?: string): string => {
+  // Outcome-specific labels override tier labels
+  if (checkInOutcome) {
+    switch (checkInOutcome) {
+      case 'overwhelmed':
+        return 'Regulate and Reset';
+      case 'drained':
+        return 'Rest and Restore';
+      case 'scattered':
+        return 'Ground and Focus';
+      case 'steady':
+        return 'Steady State';
+      case 'focused':
+        return tier === 'peak' ? 'Peak Performance' : 'Perform and Execute';
+    }
+  }
+  // Fallback to tier-based labels (if no check-in)
   switch (tier) {
     case 'depleted':
       return 'Rest and Restore';
     case 'managing':
       return 'Stabilize and Simplify';
     case 'strong':
-      return 'Perform and Maintain';
+      return 'Perform and Execute';
     case 'peak':
-      return 'Sustain and Execute';
+      return 'Peak Performance';
     default:
       return 'Stabilize and Simplify';
   }
@@ -56,7 +73,7 @@ const TodayStateCard = () => {
   // Clean dashes from context statement
   const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/—/g, ' ').replace(/ – /g, ' ');
   
-  const tierLabel = getTierLabel(energyState.energyTier);
+  const tierLabel = getStateLabel(energyState.energyTier, energyState.checkInOutcome);
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : ''));
 
