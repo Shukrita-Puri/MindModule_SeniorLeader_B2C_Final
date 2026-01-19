@@ -73,7 +73,7 @@ const ExecutiveHome = () => {
     }
   };
   
-  // Get calming visual based on energy state
+  // Get calming visual fallback based on energy state
   const getHeroVisual = () => {
     if (!energyState) return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
     
@@ -90,6 +90,24 @@ const ExecutiveHome = () => {
         return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
     }
   };
+  
+  // Get looping video based on energy state
+  const getHeroVideo = () => {
+    if (!energyState) return '/all-visuals/videos/default-bokeh.mp4';
+    
+    switch (energyState.energyTier) {
+      case 'depleted': 
+        return '/all-visuals/videos/depleted-water.mp4';
+      case 'managing': 
+        return '/all-visuals/videos/managing-clouds.mp4';
+      case 'strong': 
+        return '/all-visuals/videos/strong-sunlight.mp4';
+      case 'peak': 
+        return '/all-visuals/videos/peak-golden.mp4';
+      default: 
+        return '/all-visuals/videos/default-bokeh.mp4';
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -101,10 +119,14 @@ const ExecutiveHome = () => {
           <div className="relative">
             {/* Nature visual underlay - full bleed */}
             <div className="absolute inset-0 z-0 overflow-hidden">
-              <img 
-                src={getHeroVisual()}
-                alt=""
-                className="w-full h-full object-cover img-warm-luxury opacity-20 animate-ken-burns transition-opacity duration-1000 ease-out"
+              <video 
+                src={getHeroVideo()}
+                poster={getHeroVisual()}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover video-warm-luxury opacity-35 transition-opacity duration-1000 ease-out"
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
