@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
+
 interface DayData {
   date: string;
   dayLabel: string;
@@ -24,17 +26,27 @@ interface PracticeData {
   totalDuration: number;
 }
 
+interface TinyWinsInsights {
+  themes: string[];
+  summary: string | null;
+  winsCount: number;
+}
+
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { getAccessTokenSilently } = useAuth0();
   const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
+  const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
+  const [winsLoading, setWinsLoading] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchInsightsData();
+      fetchTinyWinsInsights();
     }
   }, [user?.id]);
 
@@ -119,6 +131,25 @@ const Insights = () => {
     }
   };
 
+  const fetchTinyWinsInsights = async () => {
+    if (!user?.id) return;
+    setWinsLoading(true);
+    try {
+      const accessToken = await getAccessTokenSilently();
+      const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { days: 14 }
+      });
+      if (!error && data?.data) {
+        setTinyWinsInsights(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching tiny wins insights:', error);
+    } finally {
+      setWinsLoading(false);
+    }
+  };
+
   const getOutcomeColor = (outcome: string | null) => {
     switch (outcome) {
       case 'power-up': return 'hsl(var(--accent))';
@@ -189,6 +220,51 @@ const Insights = () => {
           </CardHeader>
           <CardContent>
             <WeeklyRitualStreak />
+          </CardContent>
+        </Card>
+
+        {/* Tiny Wins Patterns */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Tiny Wins Patterns</CardTitle>
+            </div>
+            <CardDescription>What you've been winning at this week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {winsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
+              <div className="space-y-4">
+                {/* Theme tags */}
+                <div className="flex flex-wrap gap-2">
+                  {tinyWinsInsights.themes.map((theme, i) => (
+                    <span key={i} className="px-3 py-1 bg-saffron/10 text-saffron rounded-full text-sm font-medium">
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+                
+                {/* Summary insight */}
+                {tinyWinsInsights.summary && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {tinyWinsInsights.summary}
+                  </p>
+                )}
+                
+                {/* Win count */}
+                <p className="text-xs text-muted-foreground/60">
+                  Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">
+                Complete your evening Integrate flow with the Coach to capture wins.
+              </p>
+            )}
           </CardContent>
         </Card>
 
