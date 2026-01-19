@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Check, RotateCcw } from 'lucide-react';
+import { Check, RotateCcw, Activity, Brain, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -14,10 +13,10 @@ import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 
 // Helper to determine module type for Performance Plan display
-const getModuleType = (practice: Recommendation): { icon: string; label: string } => {
+const getModuleType = (practice: Recommendation): { type: 'regulate' | 'align'; label: string } => {
   // All soundbaths are Regulate (Somatic)
   if (practice.contentType === 'soundbath') {
-    return { icon: '🧘', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate' };
   }
   
   // Check if practice has 'somatic' in its tags
@@ -26,7 +25,7 @@ const getModuleType = (practice: Recommendation): { icon: string; label: string 
     tag.toLowerCase().includes('breathing') ||
     tag.toLowerCase().includes('breathwork')
   )) {
-    return { icon: '🧘', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate' };
   }
   
   // Body-based guided practices
@@ -40,7 +39,7 @@ const getModuleType = (practice: Recommendation): { icon: string; label: string 
   ];
   
   if (practice.contentType === 'guided-practice' && somaticGuidedPractices.includes(practice.id)) {
-    return { icon: '🧘', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate' };
   }
   
   // Somatic micro-practices
@@ -53,11 +52,11 @@ const getModuleType = (practice: Recommendation): { icon: string; label: string 
   ];
   
   if (practice.contentType === 'micro-practice' && somaticMicroPractices.includes(practice.id)) {
-    return { icon: '🧘', label: 'Regulate' };
+    return { type: 'regulate', label: 'Regulate' };
   }
   
   // Everything else is Align (Mindset)
-  return { icon: '🧠', label: 'Align' };
+  return { type: 'align', label: 'Align' };
 };
 
 const DailyRitual = () => {
@@ -122,7 +121,7 @@ const DailyRitual = () => {
 
     // Show toast
     toast({
-      title: isRitualComplete ? "🎉 Ritual Complete!" : "✨ Practice Complete!",
+      title: isRitualComplete ? "Ritual Complete!" : "Practice Complete!",
       description: isRitualComplete 
         ? "Amazing work! You've completed your daily ritual."
         : `Great job completing "${practiceName}"!`,
@@ -416,10 +415,10 @@ const DailyRitual = () => {
 
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg p-5 shadow-sm">
+      <div className="px-4 py-5">
         <div className="space-y-3">
-          <div className="h-4 bg-muted animate-pulse rounded" />
-          <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+          <div className="h-4 bg-muted/30 animate-pulse rounded-lg" />
+          <div className="h-4 bg-muted/30 animate-pulse rounded-lg w-3/4" />
         </div>
       </div>
     );
@@ -427,7 +426,7 @@ const DailyRitual = () => {
 
   if (recommendations.practices.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-lg p-5 shadow-sm">
+      <div className="px-4 py-5">
         <p className="text-sm text-muted-foreground">
           Unable to generate recommendations. Please complete your daily check-in.
         </p>
@@ -465,10 +464,12 @@ const DailyRitual = () => {
                   <div
                     onClick={() => !isDragging && !isCompleted && navigateToPractice(practice)}
                     className={cn(
-                      "flex bg-card rounded-lg shadow-sm overflow-hidden h-40 cursor-pointer transition-all",
+                      "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
+                      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
+                      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
                       isCompleted 
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:shadow-md",
+                        : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       index === practices.length - 1 && "mr-4"
                     )}
                   >
@@ -481,9 +482,13 @@ const DailyRitual = () => {
                     
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
-                      {/* Module Type Label */}
+                      {/* Module Type Label with icon */}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm">{getModuleType(practice).icon}</span>
+                        {getModuleType(practice).type === 'regulate' ? (
+                          <Activity size={12} className="text-saffron" />
+                        ) : (
+                          <Brain size={12} className="text-saffron" />
+                        )}
                         <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
                           {getModuleType(practice).label}
                         </span>
@@ -502,8 +507,8 @@ const DailyRitual = () => {
                     
                     {/* Completed Check */}
                     {isCompleted && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center mr-3 flex-shrink-0 self-center">
-                        <Check size={16} className="text-primary-foreground" />
+                      <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                        <Check size={16} className="text-white" />
                       </div>
                     )}
                   </div>
@@ -536,22 +541,24 @@ const DailyRitual = () => {
       )}
 
       {/* Action Button */}
-      <div className="px-4">
+      <div className="px-4 max-w-lg mx-auto">
         {ritualStatus.status === 'not_started' && (
           <Button 
             onClick={handleStartRitual}
-            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-md"
+            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
           >
-            ▶ Start Today's Flow
+            <Play size={16} className="mr-2" />
+            Start Today's Flow
           </Button>
         )}
 
         {ritualStatus.status === 'partial' && (
           <Button 
             onClick={handleContinueRitual}
-            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-md"
+            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
           >
-            ▶ Continue Flow
+            <Play size={16} className="mr-2" />
+            Continue Flow
           </Button>
         )}
 

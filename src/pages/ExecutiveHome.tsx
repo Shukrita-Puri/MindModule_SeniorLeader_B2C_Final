@@ -18,6 +18,7 @@ import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
 import PerformancePreparation from "@/components/home/PerformancePreparation";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
+import MetricInfoModal from "@/components/home/MetricInfoModal";
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
@@ -70,24 +71,34 @@ const ExecutiveHome = () => {
               </h1>
             </div>
 
-            {/* Three Core Sections */}
-            <div className="px-4 md:px-6 space-y-5 max-w-lg mx-auto">
+            {/* Three Core Sections - Liquid flowing layout with separators */}
+            <div className="px-4 md:px-6 max-w-lg mx-auto">
               {/* Section 1: Today's State - "Where am I today?" */}
               <section className="animate-in fade-in duration-500">
                 <TodayStateCard />
               </section>
+
+              {/* Subtle separator */}
+              <div className="border-t border-black/[0.06] my-4" />
 
               {/* Section 2: Strategic Intention - "What matters today?" */}
               <section className="animate-in fade-in duration-500 delay-100">
                 <StrategicIntentionCard />
               </section>
 
+              {/* Subtle separator */}
+              <div className="border-t border-black/[0.06] my-4" />
+
               {/* Section 3: Performance Plan - "What should I do now?" */}
               <section className="animate-in fade-in duration-500 delay-200">
-                <div className="mb-3">
+                <div className="flex items-center justify-between py-2">
                   <h2 className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
                     Your Performance Plan
                   </h2>
+                  <MetricInfoModal
+                    title="How Your Plan is Built"
+                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day."
+                  />
                 </div>
               </section>
             </div>
