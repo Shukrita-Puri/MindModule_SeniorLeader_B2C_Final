@@ -75,7 +75,7 @@ const TodayStateCard = () => {
   
   const tierLabel = getStateLabel(energyState.energyTier, energyState.checkInOutcome);
   const contextStatement = energyState.recommendation?.contextStatement || '';
-  const insight = cleanText(contextStatement.split('.')[0] + (contextStatement.includes('.') ? '.' : ''));
+  const insight = cleanText(contextStatement);
 
   return (
     <div className="relative py-4 transition-all duration-300">
@@ -90,7 +90,7 @@ const TodayStateCard = () => {
           </span>
           <MetricInfoModal
             title="How Your Energy Score is Calculated"
-            description="Your energy score combines multiple data sources: your day's check-in (emotional and cognitive state), circadian rhythm (time of day), calendar load (meeting density), and any connected wearable data. The score updates throughout the day as conditions change."
+            description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
           />
         </div>
 
