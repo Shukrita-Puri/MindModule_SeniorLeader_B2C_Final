@@ -2,6 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+// Helper to get access token
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const auth0Client = (window as any).__auth0Client;
+    if (auth0Client) {
+      return await auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 interface Activity {
   id: string;
   type: 'coach' | 'recalibrate' | 'checkin';
@@ -20,35 +33,35 @@ export const useRecentActivity = () => {
 
       const allActivities: Activity[] = [];
 
-      // Fetch coach conversations (from dialogue_sessions with context_type = 'coach')
-      const { data: coachSessions } = await supabase
-        .from('dialogue_sessions')
-        .select('id, started_at')
-        .eq('user_id', user.id)
-        .eq('context_type', 'coach')
-        .order('started_at', { ascending: false })
-        .limit(5);
-
-      if (coachSessions) {
-        // Get first message for each session to use as title
-        for (const session of coachSessions) {
-          const { data: firstMessage } = await supabase
-            .from('dialogue_messages')
-            .select('content')
-            .eq('session_id', session.id)
-            .eq('sender_type', 'user')
-            .order('message_index', { ascending: true })
-            .limit(1)
-            .single();
-
-          allActivities.push({
-            id: session.id,
-            type: 'coach',
-            title: firstMessage?.content?.slice(0, 50) || 'Coach conversation',
-            date: new Date(session.started_at || Date.now()),
-            sessionId: session.id,
+      // Fetch coach conversations via edge function (bypasses RLS)
+      try {
+        const accessToken = await getAccessToken();
+        if (accessToken) {
+          console.log('[useRecentActivity] Fetching coach sessions via edge function');
+          const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: { action: 'LIST_COACH_SESSIONS', limit: 5 }
           });
+
+          if (error) {
+            console.error('[useRecentActivity] Edge function error:', error);
+          } else if (data?.sessions) {
+            console.log('[useRecentActivity] Got coach sessions:', data.sessions.length);
+            data.sessions.forEach((session: { id: string; started_at: string; title: string }) => {
+              allActivities.push({
+                id: session.id,
+                type: 'coach',
+                title: session.title,
+                date: new Date(session.started_at || Date.now()),
+                sessionId: session.id,
+              });
+            });
+          }
+        } else {
+          console.warn('[useRecentActivity] No access token available');
         }
+      } catch (err) {
+        console.error('[useRecentActivity] Failed to fetch coach sessions:', err);
       }
 
       // Fetch recent check-ins

@@ -251,6 +251,55 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
+    } else if (action === "LIST_COACH_SESSIONS") {
+      const { limit = 5 } = body;
+
+      console.log("[dialogue-session-manage] LIST_COACH_SESSIONS for user:", userId, "limit:", limit);
+
+      // Get recent coach sessions
+      const { data: sessions, error: listError } = await supabase
+        .from("dialogue_sessions")
+        .select("id, started_at")
+        .eq("user_id", userId)
+        .eq("context_type", "coach")
+        .order("started_at", { ascending: false })
+        .limit(limit);
+
+      if (listError) {
+        console.error("[dialogue-session-manage] LIST_COACH_SESSIONS failed:", listError);
+        return new Response(
+          JSON.stringify({ error: listError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get first user message for each session to use as title
+      const sessionsWithTitle = await Promise.all(
+        (sessions || []).map(async (session) => {
+          const { data: firstMessage } = await supabase
+            .from("dialogue_messages")
+            .select("content")
+            .eq("session_id", session.id)
+            .eq("sender_type", "user")
+            .order("message_index", { ascending: true })
+            .limit(1)
+            .single();
+
+          return {
+            id: session.id,
+            started_at: session.started_at,
+            title: firstMessage?.content?.slice(0, 50) || "Coach conversation"
+          };
+        })
+      );
+
+      console.log("[dialogue-session-manage] LIST_COACH_SESSIONS result:", sessionsWithTitle.length, "sessions");
+
+      return new Response(
+        JSON.stringify({ success: true, sessions: sessionsWithTitle }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     } else {
       return new Response(
         JSON.stringify({ error: `Unknown action: ${action}` }),
