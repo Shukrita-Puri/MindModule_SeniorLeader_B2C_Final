@@ -1075,7 +1075,7 @@ const GuidedPracticePlayer = () => {
   // Audio View (Soundscape-style for audio practices like Kapalabhati)
   if (view === "audio" && isAudioPractice && contentData) {
     return (
-      <div className="relative min-h-screen overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden animate-page-enter">
         {/* Full-screen background with luxury filter */}
         <div className="fixed inset-0 -z-10">
           <img
@@ -1361,7 +1361,7 @@ const GuidedPracticePlayer = () => {
   // Intro View
   if (view === "intro") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background">
+      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background animate-page-enter">
         <TopNavigation backPath={getCategoryPath()} />
         
         {/* Practice Queue Progress - show when part of ritual */}

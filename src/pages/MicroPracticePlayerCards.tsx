@@ -1965,7 +1965,7 @@ const MicroPracticePlayerCards = () => {
   const isLastCard = current === cards.length - 1;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden animate-page-enter">
       {/* Fixed full-bleed background with optimized filter */}
       <div className="fixed inset-0 -z-10">
         <img

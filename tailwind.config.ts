@@ -164,6 +164,16 @@ export default {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
         },
+        "page-enter": {
+          "0%": {
+            opacity: "0",
+            transform: "translateX(8px)",
+          },
+          "100%": {
+            opacity: "1",
+            transform: "translateX(0)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -175,6 +185,7 @@ export default {
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "slide-out-right": "slide-out-right 0.3s ease-out",
         "shimmer": "shimmer 2s ease-in-out infinite",
+        "page-enter": "page-enter 0.4s ease-out",
       },
     },
   },

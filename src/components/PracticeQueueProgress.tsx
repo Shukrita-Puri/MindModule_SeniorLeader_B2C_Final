@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface QueuedPractice {
   id: string;
   title: string;
-  contentType: 'soundbath' | 'guided-practice' | 'micro-practice';
+  contentType: 'soundbath' | 'guided-practice' | 'micro-practice' | 'coach';
   category: string;
   duration: number;
 }

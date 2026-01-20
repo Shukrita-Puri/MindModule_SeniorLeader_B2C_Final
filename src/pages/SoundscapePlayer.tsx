@@ -607,7 +607,7 @@ const SoundscapePlayer = () => {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden animate-page-enter">
       {/* Full-screen background with luxury filter */}
       <div className="fixed inset-0 -z-10">
         <img
