@@ -1903,6 +1903,17 @@ const MicroPracticePlayerCards = () => {
       navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'micro-practice') {
       navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'coach') {
+      // Handle Coach cards - navigate to coach page with context
+      navigate('/coach', { 
+        state: { 
+          flowType: next.id === 'coach-prepare' ? 'prepare' : 'integrate',
+          initialPrompt: next.id === 'coach-prepare' 
+            ? "I have an important moment coming up. Help me mentally prepare and visualize success."
+            : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
+          fromRitual: true 
+        } 
+      });
     }
   };
 

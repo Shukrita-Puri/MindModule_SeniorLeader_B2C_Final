@@ -335,7 +335,7 @@ const Insights = () => {
         {/* Weekly Progress Streak */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Progress This Week</span>
               <InsightInfoModal
                 title="Your Progress This Week"
@@ -352,7 +352,7 @@ const Insights = () => {
         <div className="grid grid-cols-3 gap-4">
           <Card className="bg-card">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-base font-headline text-foreground/80">Streak</span>
                 <InsightInfoModal 
                   title="Check-in Streak"
@@ -366,7 +366,7 @@ const Insights = () => {
 
           <Card className="bg-card">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-base font-headline text-foreground/80">Typical State</span>
                 <InsightInfoModal 
                   title="Typical State"
@@ -382,7 +382,7 @@ const Insights = () => {
 
           <Card className="bg-card">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-base font-headline text-foreground/80">Practices</span>
                 <InsightInfoModal 
                   title="Practices Completed"
@@ -398,7 +398,7 @@ const Insights = () => {
         {/* Weekly State Patterns */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your State Patterns</span>
               <InsightInfoModal
                 title="Your State Patterns"
@@ -463,7 +463,7 @@ const Insights = () => {
         {/* Theme Patterns */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Theme Patterns</span>
               <InsightInfoModal
                 title="Theme Patterns"
@@ -518,7 +518,7 @@ const Insights = () => {
         {/* Your Inner World - Unified Bubble Visualization */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
               <InsightInfoModal
                 title="Your Mind Map"
@@ -544,7 +544,7 @@ const Insights = () => {
         {/* Tiny Wins Patterns - Using unified bubble component */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Tiny Wins Patterns</span>
               <InsightInfoModal
                 title="Tiny Wins Patterns"
@@ -588,7 +588,7 @@ const Insights = () => {
         {/* Energy Rhythm Heatmap */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Energy Rhythm</span>
               <InsightInfoModal
                 title="Energy Rhythm"
