@@ -313,6 +313,58 @@ ${allContent.slice(0, 3000)}`
       .sort((a, b) => b.totalCount - a.totalCount)
       .slice(0, 15); // Top 15 themes
 
+    // Generate algorithmic relationships if AI didn't extract any
+    // This ensures relationship lines appear even without AI extraction
+    if (themeRelationships.length === 0 && unifiedThemes.length >= 2) {
+      const themes = unifiedThemes.map(t => t.theme.toLowerCase());
+      
+      // Known semantic pairs - common relationships in coaching/wellness context
+      const knownPairs: [string, string, number][] = [
+        ['stress', 'grounding', 0.85],
+        ['stress', 'calm', 0.8],
+        ['overwhelm', 'calm & regulate', 0.9],
+        ['overwhelm', 'grounding', 0.8],
+        ['energy drain', 'energy renewal', 0.85],
+        ['mental scatter', 'focus & presence', 0.9],
+        ['mental scatter', 'grounding', 0.75],
+        ['anxiety', 'calm', 0.85],
+        ['anxiety', 'grounding', 0.8],
+        ['decision fatigue', 'clarity', 0.8],
+        ['high focus', 'confidence', 0.7],
+        ['steady state', 'balance', 0.75],
+        ['overwhelm', 'release', 0.8],
+        ['drained', 'restore', 0.85],
+        ['scattered', 'focus', 0.85]
+      ];
+      
+      // Check which pairs exist in user's themes
+      for (const [from, to, strength] of knownPairs) {
+        const fromExists = themes.some(t => t.includes(from) || from.includes(t));
+        const toExists = themes.some(t => t.includes(to) || to.includes(t));
+        
+        if (fromExists && toExists) {
+          // Find the actual theme names for proper matching
+          const fromTheme = unifiedThemes.find(t => 
+            t.theme.toLowerCase().includes(from) || from.includes(t.theme.toLowerCase())
+          );
+          const toTheme = unifiedThemes.find(t => 
+            t.theme.toLowerCase().includes(to) || to.includes(t.theme.toLowerCase())
+          );
+          
+          if (fromTheme && toTheme && fromTheme.theme !== toTheme.theme) {
+            themeRelationships.push({
+              from: fromTheme.theme.toLowerCase(),
+              to: toTheme.theme.toLowerCase(),
+              strength
+            });
+          }
+        }
+        
+        // Limit to 4 relationships for clean visualization
+        if (themeRelationships.length >= 4) break;
+      }
+    }
+
     const response: SemanticAnalysisResponse = {
       themePatterns,
       unifiedThemes,
