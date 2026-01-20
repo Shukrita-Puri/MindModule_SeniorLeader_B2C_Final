@@ -14,8 +14,10 @@ const WeeklyRitualStreak = () => {
       if (!user?.id) return [];
       
       const today = new Date();
+      // Use local date string to avoid timezone issues (YYYY-MM-DD format)
+      const todayStr = today.toLocaleDateString('en-CA');
       
-      // Calculate this week's Monday
+      // Calculate this week's Monday using local dates
       const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
       const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
       const monday = new Date(today);
@@ -25,20 +27,22 @@ const WeeklyRitualStreak = () => {
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       
-      const startDate = monday.toISOString().split('T')[0];
-      const endDate = sunday.toISOString().split('T')[0];
+      const startDate = monday.toLocaleDateString('en-CA');
+      const endDate = sunday.toLocaleDateString('en-CA');
+      
+      console.log('[WeeklyRitualStreak] Fetching range:', { startDate, endDate, todayStr });
       
       // Use edge function instead of direct Supabase call
       const data = await getRitualRange(startDate, endDate);
+      console.log('[WeeklyRitualStreak] Received data:', data);
       
       // Map Monday-Sunday for this week, preserving historical completion data
       const weekDays = [];
       for (let i = 0; i < 7; i++) {
         const date = new Date(monday);
         date.setDate(monday.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = date.toLocaleDateString('en-CA');
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const todayStr = today.toISOString().split('T')[0];
         const isToday = dateStr === todayStr;
         const isFuture = date > today;
         

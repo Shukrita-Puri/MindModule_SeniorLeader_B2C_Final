@@ -1,14 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Helper to get access token
+// Helper to get access token from globally exposed Auth0 client
 async function getAccessToken(): Promise<string | null> {
   try {
-    const auth0Client = (window as any).__auth0Client;
+    const auth0Client = window.__auth0Client;
     if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
+      const token = await auth0Client.getAccessTokenSilently();
+      console.log('[dailyRituals] Token obtained successfully');
+      return token;
     }
+    console.warn('[dailyRituals] No auth0Client on window - Auth0 may not be initialized yet');
     return null;
-  } catch {
+  } catch (error) {
+    console.error('[dailyRituals] Failed to get access token:', error);
     return null;
   }
 }

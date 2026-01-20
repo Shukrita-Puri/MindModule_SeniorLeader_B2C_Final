@@ -1,6 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useAuth0, User as Auth0User } from '@auth0/auth0-react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+
+// Extend window type for global auth client
+declare global {
+  interface Window {
+    __auth0Client?: {
+      getAccessTokenSilently: () => Promise<string>;
+    };
+  }
+}
 
 // Custom user type that includes subscription metadata
 interface AppUser {
@@ -42,9 +51,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 // Separate component for Auth0 logic to avoid hook rules issues
 const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user: auth0User, isLoading, logout, isAuthenticated } = useAuth0();
+  const { user: auth0User, isLoading, logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [syncing, setSyncing] = useState(false);
+
+  // Expose Auth0 client globally for utility functions that can't use hooks
+  useEffect(() => {
+    if (getAccessTokenSilently) {
+      window.__auth0Client = {
+        getAccessTokenSilently: () => getAccessTokenSilently()
+      };
+      console.log('[useAuth] Auth0 client exposed globally');
+    }
+    return () => {
+      delete window.__auth0Client;
+    };
+  }, [getAccessTokenSilently]);
 
   useEffect(() => {
     const syncUserToSupabase = async () => {
