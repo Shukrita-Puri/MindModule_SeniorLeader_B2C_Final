@@ -109,38 +109,38 @@ const ExecutiveHome = () => {
     const timeOfDay = getTimeOfDay();
     const tier = energyState?.energyTier || 'default';
     
-    // Unique video URLs per energy tier and time of day
-    // Using royalty-free nature videos that are NOT used elsewhere in the app
+    // 15 unique local videos - one for each energy tier + time of day combination
+    // These are NOT used elsewhere in the app
     const videoMap: Record<string, Record<string, string>> = {
       depleted: {
-        // Soft, restorative themes
-        morning: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/misty-lake-dawn.mp4',
-        afternoon: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/gentle-rain-leaves.mp4',
-        evening: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/candlelight-bokeh.mp4',
+        // Soft, restorative themes for low energy
+        morning: '/all-visuals/videos/depleted-morning.mp4',
+        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
+        evening: '/all-visuals/videos/depleted-evening.mp4',
       },
       managing: {
-        // Grounding, steady themes
-        morning: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/rolling-clouds-mountain.mp4',
-        afternoon: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/forest-path-sunlight.mp4',
-        evening: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/sunset-horizon-calm.mp4',
+        // Grounding, steady themes for managing energy
+        morning: '/all-visuals/videos/managing-morning.mp4',
+        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
+        evening: '/all-visuals/videos/managing-evening.mp4',
       },
       strong: {
-        // Clear, flowing themes
-        morning: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/mountain-sunrise-clear.mp4',
-        afternoon: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/river-flow-rocks.mp4',
-        evening: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/twilight-sky-gradient.mp4',
+        // Clear, flowing themes for strong energy
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
       },
       peak: {
-        // Vibrant, energizing themes
-        morning: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/golden-sunrise-peaks.mp4',
-        afternoon: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/ocean-waves-power.mp4',
-        evening: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/city-lights-aerial.mp4',
+        // Vibrant, energizing themes for peak energy
+        morning: '/all-visuals/videos/peak-morning.mp4',
+        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
+        evening: '/all-visuals/videos/peak-evening.mp4',
       },
       default: {
-        // Neutral, calming themes
-        morning: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/morning-dew-grass.mp4',
-        afternoon: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/meadow-breeze-flowers.mp4',
-        evening: 'https://jdyfqzlfvfsbpoifjzvz.supabase.co/storage/v1/object/public/content-assets/hero-videos/starry-night-sky.mp4',
+        // Neutral, calming themes as fallback
+        morning: '/all-visuals/videos/default-morning.mp4',
+        afternoon: '/all-visuals/videos/default-afternoon.mp4',
+        evening: '/all-visuals/videos/default-evening.mp4',
       },
     };
     
