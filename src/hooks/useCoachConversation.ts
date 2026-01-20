@@ -3,12 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE } from '@/config/devMode';
+import { buildCoachContext, type CoachContext } from '@/utils/coachContextBuilder';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+}
+
+interface PracticeStep {
+  title: string;
+  instruction: string;
+  duration?: number;
 }
 
 interface UseCoachConversationReturn {
@@ -19,7 +26,8 @@ interface UseCoachConversationReturn {
   clearConversation: () => void;
   endSession: () => Promise<void>;
   sessionId: string | null;
-  setFlowType: (flowType: 'prepare' | 'integrate' | null) => void;
+  setFlowType: (flowType: 'prepare' | 'integrate' | 'guided-reflection' | null) => void;
+  setPracticeContext: (title: string, steps: PracticeStep[]) => void;
 }
 
 export const useCoachConversation = (): UseCoachConversationReturn => {
@@ -29,8 +37,17 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [flowType, setFlowType] = useState<'prepare' | 'integrate' | null>(null);
+  const [flowType, setFlowType] = useState<'prepare' | 'integrate' | 'guided-reflection' | null>(null);
+  const [practiceContext, setPracticeContextState] = useState<{
+    title: string;
+    steps: PracticeStep[];
+  } | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const contextSentRef = useRef<boolean>(false);
+
+  const setPracticeContext = useCallback((title: string, steps: PracticeStep[]) => {
+    setPracticeContextState({ title, steps });
+  }, []);
 
   const createSession = useCallback(async () => {
     if (!user?.id || sessionIdRef.current) return sessionIdRef.current;
@@ -93,6 +110,20 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     await saveMessage(currentSessionId, 'user', content, messages.length);
 
     try {
+      // Build context for first message only
+      let context: CoachContext | undefined;
+      if (!contextSentRef.current) {
+        context = await buildCoachContext(user?.id);
+        
+        // Add practice steps if in guided-reflection mode
+        if (flowType === 'guided-reflection' && practiceContext) {
+          (context as any).practiceTitle = practiceContext.title;
+          (context as any).practiceSteps = practiceContext.steps;
+        }
+        
+        contextSentRef.current = true;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/self-mastery-coach`, {
         method: 'POST',
         headers: {
@@ -107,6 +138,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           flowType,
           sessionId: currentSessionId,
           userId: user?.id,
+          context, // Pass context to edge function
         }),
       });
 
@@ -192,13 +224,15 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id]);
+  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext]);
 
   const clearConversation = useCallback(() => {
     setMessages([]);
     setError(null);
     sessionIdRef.current = null;
     setSessionId(null);
+    contextSentRef.current = false;
+    setPracticeContextState(null);
   }, []);
 
   const endSession = useCallback(async () => {
@@ -260,5 +294,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     endSession,
     sessionId,
     setFlowType,
+    setPracticeContext,
   };
 };
