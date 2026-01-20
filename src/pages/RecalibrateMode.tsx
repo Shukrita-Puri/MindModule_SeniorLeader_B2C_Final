@@ -1,7 +1,7 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-
-import TopNavigation from "@/components/simulation/TopNavigation";
+import { ArrowLeft } from "lucide-react";
+import { ChatCircle } from "@phosphor-icons/react";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
 import architecturalPause from "@/assets/architectural-pause.jpg";
@@ -99,7 +99,25 @@ const RecalibrateMode = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopNavigation backPath="/executive-home" />
+      {/* Floating Navigation - Matches Homepage */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/executive-home')}
+          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/coach')}
+          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+        >
+          <ChatCircle size={20} weight="duotone" className="text-saffron" />
+        </Button>
+      </div>
       
       {/* Hero Banner - Architectural Style */}
       <div className="relative h-auto py-16 pt-24 overflow-hidden">

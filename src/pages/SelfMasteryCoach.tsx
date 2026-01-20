@@ -158,33 +158,35 @@ const SelfMasteryCoach = () => {
     await endSession();
   };
 
-  return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur-sm">
+return (
+    <div className="flex flex-col h-screen bg-background pt-14">
+      {/* Floating Navigation - Matches Homepage */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={handleBackNavigation}
-          className="h-9 w-9"
+          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold text-foreground">Self Mastery Coach</h1>
-          <p className="text-xs text-muted-foreground">{getSubtitle()}</p>
+        <div className="flex flex-col items-center">
+          <span className="text-sm font-headline text-white/90">Self Mastery Coach</span>
+          <span className="text-xs text-white/60">{getSubtitle()}</span>
         </div>
-        {messages.length > 0 && (
+        {messages.length > 0 ? (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleNewChat}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-white/70 hover:text-white text-xs bg-black/50 backdrop-blur-sm border border-white/10 rounded-full px-3"
           >
             New Chat
           </Button>
+        ) : (
+          <div className="w-16" /> /* Spacer for alignment */
         )}
-      </header>
+      </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">

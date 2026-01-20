@@ -191,20 +191,18 @@ const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
   },
 
   // ============= SCATTERED THEMES =============
+  // Note: Scattered users need somatic regulation first, not conversation (Coach)
   "Focus or fragment.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
   "Clarity before stakes.": {
-    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    regulate: { type: 'regulate', required: true, priority: 6, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
   "Find your center first.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' }
   },
   "Anchor and execute.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
