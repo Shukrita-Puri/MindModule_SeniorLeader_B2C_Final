@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Zap, Waves, Target, Sparkles, Wind, ArrowLeft } from "lucide-react";
-import { ChatCircle } from "@phosphor-icons/react";
+import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin } from "@/utils/dailyCheckins";
 import { getCheckInScore } from "@/utils/energyStateScoring";
+import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -157,24 +156,7 @@ const DailyCheckIn = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Navigation - scrolls with content */}
-      <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/executive-home')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/coach')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ChatCircle size={20} weight="duotone" className="text-saffron" />
-        </Button>
-      </div>
+      <FloatingNavigation />
       
       <div className="flex-1 flex items-center justify-center p-4 pb-32">
       

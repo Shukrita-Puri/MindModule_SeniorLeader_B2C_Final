@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useCoachConversation } from '@/hooks/useCoachConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 
 interface PracticeStep {
   title: string;
@@ -161,32 +162,29 @@ const SelfMasteryCoach = () => {
 return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header with Navigation - scrolls with content */}
-      <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleBackNavigation}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex flex-col items-center">
-          <span className="text-sm font-headline text-foreground">Self Mastery Coach</span>
-          <span className="text-xs text-muted-foreground font-body">{getSubtitle()}</span>
-        </div>
-        {messages.length > 0 ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNewChat}
-            className="text-muted-foreground hover:text-foreground text-xs bg-muted/50 backdrop-blur-sm border border-border rounded-full px-3"
-          >
-            New Chat
-          </Button>
-        ) : (
-          <div className="w-16" /> /* Spacer for alignment */
-        )}
-      </div>
+      <FloatingNavigation 
+        showCoachButton={false}
+        centerContent={
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-headline text-foreground">Self Mastery Coach</span>
+            <span className="text-xs text-muted-foreground font-body">{getSubtitle()}</span>
+          </div>
+        }
+        rightContent={
+          messages.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewChat}
+              className="text-muted-foreground hover:text-foreground text-xs bg-muted/50 backdrop-blur-sm border border-border rounded-full px-3"
+            >
+              New Chat
+            </Button>
+          ) : (
+            <div className="w-16" />
+          )
+        }
+      />
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">

@@ -1,8 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { ChatCircle } from "@phosphor-icons/react";
 import useScrollToTop from "@/hooks/useScrollToTop";
+import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
 import architecturalPause from "@/assets/architectural-pause.jpg";
 import architecturalPresence from "@/assets/architectural-presence.jpg";
@@ -99,27 +97,11 @@ const RecalibrateMode = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Hero Banner with Navigation */}
-      <div className="relative h-auto py-16 overflow-hidden">
-        {/* Navigation - scrolls with content */}
-        <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/executive-home')}
-            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/coach')}
-            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-          >
-            <ChatCircle size={20} weight="duotone" className="text-saffron" />
-          </Button>
-        </div>
+      {/* Navigation - outside hero for consistent positioning */}
+      <FloatingNavigation />
+
+      {/* Hero Banner */}
+      <div className="relative h-auto py-8 overflow-hidden">
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         
