@@ -360,8 +360,27 @@ const SoundscapePlayer = () => {
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
-      // Ritual complete
+      // Ritual complete - check for JIT intervention data for coach navigation
       localStorage.removeItem('practiceQueue');
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practices complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
     }
@@ -403,11 +422,53 @@ const SoundscapePlayer = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
+    
+    // Check for JIT intervention data for coach navigation (non-queue case)
+    const jitData = localStorage.getItem('jitInterventionData');
+    if (jitData && !isInQueue) {
+      try {
+        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+        localStorage.removeItem('jitInterventionData');
+        toast.success('Practice complete! Opening Coach...');
+        navigate('/coach', {
+          state: {
+            flowType,
+            initialPrompt: coachPrompt,
+            fromIntervention: true,
+            eventTitle
+          }
+        });
+        return;
+      } catch (e) {
+        console.error('Error parsing JIT data:', e);
+      }
+    }
     setIsComplete(true);
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
+    
+    // Check for JIT intervention data for coach navigation (non-queue case)
+    const jitData = localStorage.getItem('jitInterventionData');
+    if (jitData && !isInQueue) {
+      try {
+        const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+        localStorage.removeItem('jitInterventionData');
+        toast.success('Practice complete! Opening Coach...');
+        navigate('/coach', {
+          state: {
+            flowType,
+            initialPrompt: coachPrompt,
+            fromIntervention: true,
+            eventTitle
+          }
+        });
+        return;
+      } catch (e) {
+        console.error('Error parsing JIT data:', e);
+      }
+    }
     setIsComplete(true);
   };
 
