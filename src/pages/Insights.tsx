@@ -41,19 +41,22 @@ interface StatePatternInsights {
 
 interface SemanticAnalysis {
   themePatterns: { phrase: string; count: number; driver: string }[];
-  coachThemes: { keyword: string; count: number; weight: number }[];
-  practiceTypes: { type: string; count: number; percentage: number }[];
-  contentTags: { tag: string; count: number; weight: number }[];
+  unifiedThemes: {
+    theme: string;
+    totalCount: number;
+    weight: number;
+    sources: { coach: number; practice: number; wins: number; checkins: number };
+  }[];
   themeRelationships: { from: string; to: string; strength: number }[];
 }
 
 interface BubbleDetails {
   keyword: string;
-  source: 'coach' | 'practice' | 'content';
   totalCount: number;
   recentMentions: {
     snippet: string;
     date: string;
+    source: 'coach' | 'practice' | 'wins' | 'checkins';
     sessionId?: string;
   }[];
 }
@@ -252,12 +255,12 @@ const Insights = () => {
     }
   };
 
-  const fetchBubbleDetails = async (keyword: string, source: 'coach' | 'practice' | 'content'): Promise<BubbleDetails | null> => {
+  const fetchBubbleDetails = async (keyword: string): Promise<BubbleDetails | null> => {
     try {
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'getBubbleDetails', keyword, source }
+        body: { days: 7, action: 'getBubbleDetails', keyword }
       });
       if (!error && data?.data) {
         return data.data as BubbleDetails;
@@ -481,29 +484,7 @@ const Insights = () => {
               </div>
             ) : (
               <InnerWorldBubbles
-                items={[
-                  // Coach conversation themes
-                  ...(semanticAnalysis?.coachThemes.map(t => ({
-                    label: t.keyword,
-                    count: t.count,
-                    weight: t.weight,
-                    source: 'coach' as const
-                  })) || []),
-                  // Practice types
-                  ...(semanticAnalysis?.practiceTypes.map(p => ({
-                    label: p.type.charAt(0).toUpperCase() + p.type.slice(1),
-                    count: p.count,
-                    weight: p.percentage / 100,
-                    source: 'practice' as const
-                  })) || []),
-                  // Content tags
-                  ...(semanticAnalysis?.contentTags.map(t => ({
-                    label: t.tag,
-                    count: t.count,
-                    weight: t.weight,
-                    source: 'content' as const
-                  })) || [])
-                ]}
+                items={semanticAnalysis?.unifiedThemes || []}
                 relationships={semanticAnalysis?.themeRelationships || []}
                 onBubbleClick={fetchBubbleDetails}
               />

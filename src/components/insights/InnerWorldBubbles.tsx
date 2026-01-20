@@ -8,20 +8,25 @@ import {
 import { ChatCircle } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 
-interface BubbleData {
-  label: string;
-  count: number;
+interface UnifiedBubbleData {
+  theme: string;
+  totalCount: number;
   weight: number;
-  source: 'coach' | 'practice' | 'content';
+  sources: {
+    coach: number;
+    practice: number;
+    wins: number;
+    checkins: number;
+  };
 }
 
 interface BubbleDetails {
   keyword: string;
-  source: 'coach' | 'practice' | 'content';
   totalCount: number;
   recentMentions: {
     snippet: string;
     date: string;
+    source: 'coach' | 'practice' | 'wins' | 'checkins';
     sessionId?: string;
   }[];
 }
@@ -33,23 +38,18 @@ interface ThemeRelationship {
 }
 
 interface InnerWorldBubblesProps {
-  items: BubbleData[];
+  items: UnifiedBubbleData[];
   relationships?: ThemeRelationship[];
   emptyMessage?: string;
-  onBubbleClick?: (keyword: string, source: 'coach' | 'practice' | 'content') => Promise<BubbleDetails | null>;
+  onBubbleClick?: (keyword: string) => Promise<BubbleDetails | null>;
 }
 
-// Source-based color schemes using semantic tokens
-const sourceStyles = {
-  coach: 'bg-saffron/15 text-saffron border-saffron/25 hover:bg-saffron/25 hover:border-saffron/40',
-  practice: 'bg-primary/15 text-primary border-primary/25 hover:bg-primary/25 hover:border-primary/40',
-  content: 'bg-taupe/15 text-foreground border-taupe/25 hover:bg-taupe/25 hover:border-taupe/40'
-};
-
-const sourceLabels = {
-  coach: 'conversation',
-  practice: 'practice',
-  content: 'content'
+// Source labels for display
+const sourceLabels: Record<string, string> = {
+  coach: 'Coach',
+  practice: 'Practice',
+  wins: 'Wins',
+  checkins: 'Check-ins'
 };
 
 const InnerWorldBubbles = ({ 
@@ -66,10 +66,10 @@ const InnerWorldBubbles = ({
   const [bubbleDetails, setBubbleDetails] = useState<BubbleDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Calculate bubble sizes based on weight (60px to 120px)
+  // Calculate bubble sizes based on weight (60px to 110px)
   const getBubbleSize = (weight: number) => {
-    const minSize = 72;
-    const maxSize = 120;
+    const minSize = 64;
+    const maxSize = 110;
     return minSize + (weight * (maxSize - minSize));
   };
 
@@ -108,14 +108,14 @@ const InnerWorldBubbles = ({
   }, [sortedItems, updatePositions]);
 
   // Handle bubble click
-  const handleBubbleClick = async (item: BubbleData) => {
-    setSelectedBubble(item.label);
+  const handleBubbleClick = async (item: UnifiedBubbleData) => {
+    setSelectedBubble(item.theme);
     setBubbleDetails(null);
     
     if (onBubbleClick) {
       setLoadingDetails(true);
       try {
-        const details = await onBubbleClick(item.label, item.source);
+        const details = await onBubbleClick(item.theme);
         setBubbleDetails(details);
       } catch (error) {
         console.error('Failed to fetch bubble details:', error);
@@ -123,6 +123,16 @@ const InnerWorldBubbles = ({
         setLoadingDetails(false);
       }
     }
+  };
+
+  // Get source breakdown text
+  const getSourceBreakdown = (sources: UnifiedBubbleData['sources']) => {
+    const parts: string[] = [];
+    if (sources.coach > 0) parts.push(`${sources.coach} coach`);
+    if (sources.practice > 0) parts.push(`${sources.practice} practice`);
+    if (sources.wins > 0) parts.push(`${sources.wins} win${sources.wins > 1 ? 's' : ''}`);
+    if (sources.checkins > 0) parts.push(`${sources.checkins} check-in${sources.checkins > 1 ? 's' : ''}`);
+    return parts.join(', ');
   };
 
   // Calculate SVG paths for connections
@@ -177,7 +187,7 @@ const InnerWorldBubbles = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Organic bubble cluster with SVG overlay for connections */}
       <div ref={containerRef} className="relative">
         {/* Connection lines SVG */}
@@ -193,7 +203,7 @@ const InnerWorldBubbles = ({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={1.5}
-                strokeOpacity={connection.strength * 0.25}
+                strokeOpacity={connection.strength * 0.2}
                 strokeDasharray="4 4"
                 className="text-muted-foreground"
               />
@@ -201,33 +211,39 @@ const InnerWorldBubbles = ({
           </svg>
         )}
         
-        {/* Bubbles */}
-        <div className="flex flex-wrap justify-center items-center gap-3 py-4 relative z-10">
+        {/* Bubbles with staggered animation */}
+        <div className="flex flex-wrap justify-center items-center gap-2.5 py-4 relative z-10">
           {sortedItems.map((item, index) => {
             const size = getBubbleSize(item.weight);
             const isLarge = item.weight > 0.6;
             const isMedium = item.weight > 0.3;
             
             return (
-              <Popover key={`${item.label}-${index}`}>
+              <Popover key={`${item.theme}-${index}`}>
                 <PopoverTrigger asChild>
                   <div
                     ref={(el) => {
-                      if (el) bubbleRefs.current.set(item.label.toLowerCase(), el);
+                      if (el) bubbleRefs.current.set(item.theme.toLowerCase(), el);
                     }}
                     onClick={() => handleBubbleClick(item)}
                     className={cn(
-                      "rounded-full border flex flex-col items-center justify-center text-center transition-all duration-300 cursor-pointer",
-                      "hover:scale-110 hover:shadow-xl active:scale-105",
-                      sourceStyles[item.source],
-                      index % 3 === 0 && "mt-2",
-                      index % 4 === 1 && "-mt-1",
-                      index % 5 === 2 && "mt-3"
+                      "rounded-full border flex flex-col items-center justify-center text-center cursor-pointer",
+                      "bg-primary/10 text-primary border-primary/20",
+                      "hover:bg-primary/20 hover:border-primary/30 hover:scale-105",
+                      "active:scale-100",
+                      // Organic positioning offsets
+                      index % 3 === 0 && "mt-1",
+                      index % 4 === 1 && "-mt-0.5",
+                      index % 5 === 2 && "mt-2"
                     )}
                     style={{
                       width: `${size}px`,
                       height: `${size}px`,
-                      transform: `rotate(${(index % 5 - 2) * 1.5}deg)`,
+                      transform: `rotate(${(index % 5 - 2) * 1}deg)`,
+                      // Staggered entrance animation
+                      animation: 'bubbleEntrance 0.4s ease-out forwards',
+                      animationDelay: `${index * 60}ms`,
+                      opacity: 0,
                     }}
                   >
                     <span 
@@ -244,15 +260,15 @@ const InnerWorldBubbles = ({
                         WebkitBoxOrient: 'vertical',
                       }}
                     >
-                      {item.label}
+                      {item.theme}
                     </span>
                     <span 
                       className={cn(
-                        "opacity-60 mt-0.5",
+                        "opacity-50 mt-0.5",
                         isLarge ? "text-xs" : "text-[10px]"
                       )}
                     >
-                      {item.count} {sourceLabels[item.source]}{item.count !== 1 ? 's' : ''}
+                      {item.totalCount}×
                     </span>
                   </div>
                 </PopoverTrigger>
@@ -264,39 +280,40 @@ const InnerWorldBubbles = ({
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-foreground capitalize">
-                        {item.label}
+                      <h4 className="font-semibold text-foreground">
+                        {item.theme}
                       </h4>
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full",
-                        item.source === 'coach' && "bg-saffron/20 text-saffron",
-                        item.source === 'practice' && "bg-primary/20 text-primary",
-                        item.source === 'content' && "bg-taupe/20 text-muted-foreground"
-                      )}>
-                        {sourceLabels[item.source]}
+                      <span className="text-xs text-muted-foreground">
+                        {item.totalCount} mentions
                       </span>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground">
-                      {item.count} {sourceLabels[item.source]}{item.count !== 1 ? 's' : ''} in the last 7 days
+                    {/* Source breakdown */}
+                    <p className="text-xs text-muted-foreground">
+                      From: {getSourceBreakdown(item.sources)}
                     </p>
                     
-                    {loadingDetails && selectedBubble === item.label ? (
+                    {loadingDetails && selectedBubble === item.theme ? (
                       <div className="flex items-center justify-center py-4">
                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                       </div>
-                    ) : bubbleDetails && selectedBubble === item.label && bubbleDetails.recentMentions.length > 0 ? (
+                    ) : bubbleDetails && selectedBubble === item.theme && bubbleDetails.recentMentions.length > 0 ? (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           Recent mentions
                         </p>
                         {bubbleDetails.recentMentions.map((mention, i) => (
                           <div key={i} className="bg-muted/30 rounded-lg p-2.5">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">
+                                {sourceLabels[mention.source]}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {mention.date}
+                              </span>
+                            </div>
                             <p className="text-sm text-foreground line-clamp-2">
                               "{mention.snippet}"
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {mention.date}
                             </p>
                           </div>
                         ))}
@@ -307,11 +324,12 @@ const InnerWorldBubbles = ({
                       </div>
                     )}
                     
-                    {item.source === 'coach' && (
+                    {/* Explore with coach button - show if theme has coach mentions */}
+                    {item.sources.coach > 0 && (
                       <button
                         onClick={() => navigate('/coach', { 
                           state: { 
-                            initialPrompt: `I'd like to explore the theme of "${item.label}" that's been coming up in our conversations.`,
+                            initialPrompt: `I'd like to explore the theme of "${item.theme}" that's been coming up.`,
                             flowType: 'explore'
                           }
                         })}
@@ -328,29 +346,27 @@ const InnerWorldBubbles = ({
           })}
         </div>
       </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-saffron/40" />
-          <span>Conversations</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-primary/40" />
-          <span>Practices</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-taupe/40" />
-          <span>Content</span>
-        </div>
-      </div>
       
-      {/* Relationship indicator */}
+      {/* Relationship indicator - subtle, no legend */}
       {relationships.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground/60">
+        <p className="text-center text-xs text-muted-foreground/50">
           Dotted lines show related themes
         </p>
       )}
+
+      {/* CSS for bubble entrance animation */}
+      <style>{`
+        @keyframes bubbleEntrance {
+          from {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 };
