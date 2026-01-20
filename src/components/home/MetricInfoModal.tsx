@@ -1,5 +1,6 @@
 import { Info } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface MetricInfoModalProps {
@@ -24,12 +25,12 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
         <Info size={14} />
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setIsOpen(false)}
         >
-          {/* Blur backdrop - only blurs the parent card area */}
+          {/* Blur backdrop */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           
           {/* Modal content */}
@@ -46,7 +47,8 @@ const MetricInfoModal = ({ title, description, className }: MetricInfoModalProps
               Got it
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

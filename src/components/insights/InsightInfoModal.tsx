@@ -1,5 +1,6 @@
 import { Info } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface InsightInfoModalProps {
@@ -24,7 +25,7 @@ const InsightInfoModal = ({ title, explanation, className }: InsightInfoModalPro
         <Info size={14} />
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setIsOpen(false)}
@@ -46,7 +47,8 @@ const InsightInfoModal = ({ title, explanation, className }: InsightInfoModalPro
               Got it
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
