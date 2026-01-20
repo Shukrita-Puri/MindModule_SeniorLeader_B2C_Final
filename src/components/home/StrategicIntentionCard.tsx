@@ -89,22 +89,53 @@ const StrategicIntentionCard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Calculate pattern recognition - how many times this state appeared this week
-  const getPatternRecognition = (currentOutcome: string | undefined): string | null => {
+  // Calculate pattern recognition - count CONSECUTIVE days in same low-energy state
+  const getConsecutivePatternInsight = (currentOutcome: string | undefined): { 
+    count: number; 
+    message: string; 
+    recommendation: string;
+  } | null => {
     if (!currentOutcome || !recentCheckIns || recentCheckIns.length < 2) return null;
     
-    const sameStateCount = recentCheckIns.filter(c => c.outcome === currentOutcome).length;
+    // Only track patterns for low-energy states
+    const lowEnergyStates = ['overwhelmed', 'drained', 'scattered'];
+    if (!lowEnergyStates.includes(currentOutcome)) return null;
     
-    if (sameStateCount >= 3) {
+    // Sort by date descending (most recent first)
+    const sortedCheckIns = [...recentCheckIns].sort((a, b) => 
+      new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime()
+    );
+    
+    // Count consecutive days with same state
+    let consecutiveCount = 0;
+    for (const checkIn of sortedCheckIns) {
+      if (checkIn.outcome === currentOutcome) {
+        consecutiveCount++;
+      } else {
+        break;
+      }
+    }
+    
+    if (consecutiveCount >= 3) {
       const stateLabels: Record<string, string> = {
         overwhelmed: 'overwhelmed',
         drained: 'drained',
-        scattered: 'scattered',
-        steady: 'steady',
-        focused: 'focused'
+        scattered: 'scattered'
       };
       const label = stateLabels[currentOutcome] || currentOutcome;
-      return `This is ${sameStateCount === 3 ? 'the 3rd' : sameStateCount === 4 ? 'the 4th' : `${sameStateCount}`} day this week you've felt ${label}.`;
+      
+      // Get state-specific recommendation
+      const recommendations: Record<string, string> = {
+        overwhelmed: 'accumulated stress that daily regulation alone may not resolve. Consider what boundary or recovery practice has been missing.',
+        drained: 'a deeper energy deficit requiring restoration beyond daily practices. Your system may need extended recovery time.',
+        scattered: 'persistent cognitive overload. Consider what open loops or unprocessed decisions are fragmenting your attention.'
+      };
+      
+      return {
+        count: consecutiveCount,
+        message: `This is day ${consecutiveCount} you've checked in ${label}.`,
+        recommendation: recommendations[currentOutcome] || 'a pattern that warrants attention.'
+      };
     }
     return null;
   };
@@ -128,7 +159,16 @@ const StrategicIntentionCard = () => {
     userProfile?.user_archetype || undefined
   );
 
-  const patternRecognition = getPatternRecognition(energyState.checkInOutcome);
+  const patternInsight = getConsecutivePatternInsight(energyState.checkInOutcome);
+
+  // Build enhanced context with pattern insight if applicable
+  const getEnhancedContext = (): string => {
+    if (patternInsight) {
+      // Pattern-aware context replaces standard context
+      return `${patternInsight.message} Your system may be signaling ${patternInsight.recommendation}`;
+    }
+    return theme.context;
+  };
 
   return (
     <div className={cn(
@@ -150,21 +190,14 @@ const StrategicIntentionCard = () => {
 
       {/* Theme content with fade animation */}
       <div key={theme.phrase} className="animate-fade-in space-y-3">
-        {/* Pattern recognition - if applicable */}
-        {patternRecognition && (
-          <p className="text-xs text-muted-foreground/70 font-body italic">
-            {patternRecognition}
-          </p>
-        )}
-
         {/* Theme phrase - serif, italic for elegance */}
         <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
           "{theme.phrase}"
         </p>
 
-        {/* Supporting context - now includes Why + Stakes + Unlock */}
+        {/* Supporting context - pattern-aware or standard (Stakes/Why/Identity structure) */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
-          {theme.context}
+          {getEnhancedContext()}
         </p>
       </div>
 

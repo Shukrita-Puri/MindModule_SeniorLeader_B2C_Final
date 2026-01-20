@@ -559,11 +559,20 @@ export function getStrategicTheme(
   if (checkInOutcome === 'overwhelmed') {
     const unlock = getArchetypeUnlock(archetype, 'overwhelmed', 'Creating breathing room restores your capacity for strategic response.');
     
+    // EVENING PRIORITY - downshift before sleep (before checking pressure/load)
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Decompress before you rest.",
+        context: `Without transition, your activated nervous system blocks restorative sleep. With intentional release, tonight's rest actually recovers tomorrow's capacity. ${unlock}`,
+        driver: 'evening'
+      };
+    }
+    
     // 1. High Pressure + High Load (maximum external demands)
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Survival mode activated.",
-        context: `Your nervous system is in fight-or-flight, flooding your body with cortisol. Without intervention, this compounds into decision fatigue and reactive behavior. ${unlock}`,
+        context: `Without regulation, cortisol compounds into reactive decisions and damaged relationships. With even brief downshift, you restore access to strategic thinking. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -571,7 +580,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Steady your ground.",
-        context: `Stress hormones are elevated, narrowing your cognitive bandwidth. This state reduces creative thinking and empathy in high-stakes moments. ${unlock}`,
+        context: `Without grounding, stress hormones narrow cognitive bandwidth and reduce empathy. With regulation, you bring clarity to high-stakes moments. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -579,7 +588,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Protect your boundaries today.",
-        context: `An activated nervous system makes you more reactive and less strategic. Each additional demand compounds the stress response. ${unlock}`,
+        context: `Without boundaries, each additional demand compounds the stress response. With protection, you preserve capacity for what truly matters. ${unlock}`,
         driver: 'pressure'
       };
     }
@@ -587,7 +596,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Simplify to survive.",
-        context: `Overwhelm fragments attention and depletes the prefrontal cortex, where strategic thinking lives. A packed schedule in this state leads to shallow execution. ${unlock}`,
+        context: `Without simplification, overwhelm plus a packed schedule leads to shallow execution. With focus on essentials, you protect both quality and yourself. ${unlock}`,
         driver: 'load'
       };
     }
@@ -595,7 +604,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Choose your battles wisely.",
-        context: `Your body is signaling overload, but your calendar hasn't gotten the message. Pushing through will deplete reserves needed for recovery. ${unlock}`,
+        context: `Without selection, pushing through depletes reserves needed for recovery. With intentional choice, you honor today while protecting tomorrow. ${unlock}`,
         driver: 'load'
       };
     }
@@ -603,7 +612,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Pace your recovery.",
-        context: `Overwhelm in a lighter schedule suggests accumulated stress rather than today's demands. Your nervous system needs regulation, not productivity. ${unlock}`,
+        context: `Your overwhelm signals accumulated stress rather than today's demands. Your nervous system needs regulation, not productivity. ${unlock}`,
         driver: 'load'
       };
     }
@@ -611,22 +620,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Set the tone gently.",
-        context: `Morning overwhelm sets a cortisol trajectory that affects your entire day. The first hour shapes neural patterns for hours to come. ${unlock}`,
+        context: `Without a gentle start, morning cortisol sets a trajectory that affects your entire day. With regulation now, you reshape what follows. ${unlock}`,
         driver: 'morning'
       };
     }
-    // 8. Evening-specific
-    if (timeOfDay === 'evening') {
-      return {
-        phrase: "Decompress before you rest.",
-        context: `An activated nervous system cannot access restorative sleep, even if you fall asleep. Without downshift, tonight's stress becomes tomorrow's fog. ${unlock}`,
-        driver: 'evening'
-      };
-    }
-    // 9. Default (afternoon, low calendar)
+    // 8. Default (afternoon, low calendar)
     return {
       phrase: "Regulate before you engage.",
-      context: `Your nervous system is activated, creating a bias toward reactive rather than responsive behavior. Clarity and composure live on the other side of regulation. ${unlock}`,
+      context: `Without regulation, your responses are reactive rather than strategic. With nervous system settling, clarity and composure return. ${unlock}`,
       driver: 'state'
     };
   }
@@ -635,11 +636,20 @@ export function getStrategicTheme(
   if (checkInOutcome === 'drained') {
     const unlock = getArchetypeUnlock(archetype, 'drained', 'Honoring this signal is how sustainable performance is built.');
     
+    // EVENING PRIORITY - rest is productive (before checking pressure/load)
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Rest is productive.",
+        context: `Without honoring this signal, you fragment tonight's sleep and reduce recovery. Evening depletion is your body's signal that you've given enough. ${unlock}`,
+        driver: 'evening'
+      };
+    }
+    
     // 1. High Pressure + High Load
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Conserve for what counts.",
-        context: `Depletion reduces cognitive capacity by up to 30%, impairing judgment and impulse control. High-stakes decisions from an empty tank carry elevated risk. ${unlock}`,
+        context: `Without energy boundaries, you risk depleting before your high-stakes moments. With them, you arrive with reserves intact. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -647,7 +657,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Strategic bursts only.",
-        context: `Your glucose reserves are low, limiting sustained cognitive effort. Forcing continuous output accelerates depletion exponentially. ${unlock}`,
+        context: `Without pacing, forcing continuous output accelerates depletion exponentially. With strategic bursts, you preserve capacity for what matters. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -655,7 +665,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Guard your reserves.",
-        context: `Depletion impairs the prefrontal cortex, where executive function lives. This affects exactly the faculties you need for high-stakes performance. ${unlock}`,
+        context: `Without protection, depletion impairs exactly the faculties you need for high-stakes performance. With boundaries, you maintain executive function. ${unlock}`,
         driver: 'pressure'
       };
     }
@@ -663,7 +673,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Endurance over excellence.",
-        context: `A full schedule in a depleted state creates a completion vs. quality tradeoff. Today, 'good enough' protects tomorrow's capacity. ${unlock}`,
+        context: `Without lowering expectations, you create a quality vs. completion tradeoff that exhausts you. Today, 'good enough' protects tomorrow's capacity. ${unlock}`,
         driver: 'load'
       };
     }
@@ -671,7 +681,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "Navigate, don't sprint.",
-        context: `Depletion signals your body has been drawing from reserves, not income. Continuing to sprint creates a deficit that compounds over days. ${unlock}`,
+        context: `Without pacing, continuing to sprint creates a deficit that compounds over days. With navigation, you honor limits while meeting demands. ${unlock}`,
         driver: 'load'
       };
     }
@@ -687,22 +697,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Ease into the day.",
-        context: `Morning depletion often reflects insufficient sleep recovery or accumulated stress. Starting fast depletes the little reserve you have. ${unlock}`,
+        context: `Without a slow start, morning depletion compounds throughout the day. With gentle pacing, you create space for recovery while moving forward. ${unlock}`,
         driver: 'morning'
       };
     }
-    // 8. Evening-specific
-    if (timeOfDay === 'evening') {
-      return {
-        phrase: "Rest is productive.",
-        context: `Evening depletion is your body's signal that you've given enough. Ignoring it leads to fragmented sleep and reduced recovery. ${unlock}`,
-        driver: 'evening'
-      };
-    }
-    // 9. Default
+    // 8. Default
     return {
       phrase: "Restore before you push.",
-      context: `Depletion isn't laziness; it's your nervous system protecting you from overextension. Pushing through delays recovery exponentially. ${unlock}`,
+      context: `Without rest, pushing through delays recovery exponentially. Depletion isn't laziness—it's your nervous system protecting you from overextension. ${unlock}`,
       driver: 'state'
     };
   }
@@ -711,11 +713,20 @@ export function getStrategicTheme(
   if (checkInOutcome === 'scattered') {
     const unlock = getArchetypeUnlock(archetype, 'scattered', 'Grounding unlocks the clarity that fragmentation blocks.');
     
-    // 1. High Pressure + High Load
+    // EVENING PRIORITY - ease off, release (before checking pressure/load)
+    if (timeOfDay === 'evening') {
+      return {
+        phrase: "Release the threads.",
+        context: `Without letting go, tonight's open loops become tomorrow's mental fog. Your scattered evening mind needs release, not resolution. ${unlock}`,
+        driver: 'evening'
+      };
+    }
+    
+    // 1. High Pressure + High Load (maximum external demands)
     if (calendarPressure === 'high' && calendarLoad === 'high') {
       return {
         phrase: "Focus or fragment.",
-        context: `A scattered mind under pressure becomes reactive, making decisions from emotion rather than strategy. This increases errors and damages relationships. ${unlock}`,
+        context: `Without focus, complexity becomes chaos and decisions become reactive. With grounding, you move through the density with strategic clarity. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -723,7 +734,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high' && calendarLoad === 'medium') {
       return {
         phrase: "Clarity before stakes.",
-        context: `Mental scattering depletes working memory, reducing your capacity to hold complex information during important conversations. ${unlock}`,
+        context: `Without grounding, your working memory is fragmented when you need it most. With focus, you bring your full cognitive capacity to what matters. ${unlock}`,
         driver: 'pressure+load'
       };
     }
@@ -731,7 +742,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'high') {
       return {
         phrase: "Find your center first.",
-        context: `Scatteredness indicates your attention is fragmented across multiple open loops. This impairs the executive function needed for high-stakes performance. ${unlock}`,
+        context: `Without grounding, high-stakes become reactive and error-prone. With presence, you access the executive function these moments demand. ${unlock}`,
         driver: 'pressure'
       };
     }
@@ -739,7 +750,7 @@ export function getStrategicTheme(
     if (calendarPressure === 'medium' && calendarLoad === 'high') {
       return {
         phrase: "Anchor and execute.",
-        context: `A scattered mind in a busy day leads to context-switching costs of 15-25 minutes per interruption. This turns a manageable day into an exhausting one. ${unlock}`,
+        context: `Each context-switch costs 15-25 minutes of cognitive recovery. Without anchoring, a busy day becomes an exhausting blur. ${unlock}`,
         driver: 'load'
       };
     }
@@ -747,7 +758,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'high') {
       return {
         phrase: "One thread at a time.",
-        context: `Multitasking from a scattered state reduces performance by up to 40%. The busier your day, the more single-threading matters. ${unlock}`,
+        context: `Without single-threading, performance drops 40% and errors multiply. With focus, you move efficiently through the density. ${unlock}`,
         driver: 'load'
       };
     }
@@ -755,7 +766,7 @@ export function getStrategicTheme(
     if (calendarLoad === 'medium') {
       return {
         phrase: "Reclaim your attention.",
-        context: `Moderate demands with a scattered mind suggests attention fragmentation from inputs, not schedule. Your cognitive resources are being consumed by incomplete thoughts. ${unlock}`,
+        context: `Your scattering comes from input fragmentation, not schedule demands. Without intentional focus, cognitive resources drain on incomplete thoughts. ${unlock}`,
         driver: 'load'
       };
     }
@@ -763,22 +774,14 @@ export function getStrategicTheme(
     if (timeOfDay === 'morning') {
       return {
         phrase: "Ground before you go.",
-        context: `Morning scatteredness often reflects yesterday's unprocessed thoughts competing for attention. Starting scattered compounds throughout the day. ${unlock}`,
+        context: `Morning scatteredness reflects yesterday's unprocessed thoughts. Without grounding now, this fragmentation compounds through the day. ${unlock}`,
         driver: 'morning'
       };
     }
-    // 8. Evening-specific
-    if (timeOfDay === 'evening') {
-      return {
-        phrase: "Gather the fragments.",
-        context: `A scattered mind in the evening signals unprocessed cognitive load from the day. Without closure, this mental noise carries into sleep and compounds tomorrow. ${unlock}`,
-        driver: 'evening'
-      };
-    }
-    // 9. Default
+    // 8. Default (afternoon, low calendar)
     return {
       phrase: "Find your anchor point.",
-      context: `Scattered energy is your brain's attempt to hold too many threads simultaneously. This depletes working memory and creates a sense of urgency without productivity. ${unlock}`,
+      context: `Your brain is holding too many threads, depleting working memory. Without grounding, this creates urgency without productivity. ${unlock}`,
       driver: 'state'
     };
   }
