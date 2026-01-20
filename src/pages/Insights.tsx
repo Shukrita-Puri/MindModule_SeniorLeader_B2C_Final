@@ -1,14 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { ChatCircle } from '@phosphor-icons/react';
-import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import EnergyRhythm from '@/components/insights/EnergyRhythm';
@@ -324,24 +322,7 @@ const Insights = () => {
     <div className="min-h-screen bg-background">
       {/* Header with Navigation - scrolls with content */}
       <div className="relative">
-        <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/executive-home')}
-            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/coach')}
-            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-          >
-            <ChatCircle size={20} weight="duotone" className="text-saffron" />
-          </Button>
-        </div>
+        <FloatingNavigation />
 
         {/* Page Header - centered */}
         <div className="pb-4 px-4 max-w-4xl mx-auto text-center">
