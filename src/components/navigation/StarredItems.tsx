@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { Star, Compass } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useFavorites } from '@/hooks/useFavorites';
-import { cn } from '@/lib/utils';
 
 const StarredItems = () => {
   const navigate = useNavigate();
@@ -24,7 +23,7 @@ const StarredItems = () => {
     );
   }
 
-  const favoritesArray = Array.from(favorites);
+  const favoritesArray = Array.from(favorites.values());
 
   if (favoritesArray.length === 0) {
     return (
@@ -39,14 +38,16 @@ const StarredItems = () => {
 
   return (
     <SidebarMenu>
-      {displayedFavorites.map((favoriteId) => (
-        <SidebarMenuItem key={favoriteId}>
+      {displayedFavorites.map((favorite) => (
+        <SidebarMenuItem key={favorite.content_id}>
           <SidebarMenuButton
             onClick={() => navigate('/recalibrate')}
             className="h-auto py-1.5"
           >
             <Compass className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs truncate">Favorite Practice</span>
+            <span className="text-xs truncate">
+              {favorite.title || 'Practice'}
+            </span>
             <Star className="h-3 w-3 text-amber-500 ml-auto fill-amber-500" />
           </SidebarMenuButton>
         </SidebarMenuItem>

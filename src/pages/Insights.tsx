@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain, Target } from 'lucide-react';
+import { ArrowLeft, Calendar, Compass, Loader2, Sparkles, Brain, Target, Clock } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
+import EnergyRhythm from '@/components/insights/EnergyRhythm';
 
 interface DayData {
   date: string;
@@ -61,6 +61,12 @@ interface BubbleDetails {
   }[];
 }
 
+interface CheckInWithTimestamp {
+  date: string;
+  outcome: string | null;
+  timestamp: string;
+}
+
 // State colors for the bar chart
 const stateColors: Record<string, string> = {
   focused: 'hsl(142 76% 36%)',
@@ -79,20 +85,6 @@ const stateLabels: Record<string, string> = {
   overwhelmed: 'Overwhelmed'
 };
 
-// Category colors for practice history
-const getCategoryColor = (category: string): string => {
-  const colors: Record<string, string> = {
-    'Regulate': 'hsl(var(--primary))',
-    'Align': 'hsl(var(--accent))',
-    'Prepare': 'hsl(142 76% 36%)',
-    'Integrate': 'hsl(217 91% 60%)',
-    'Breathwork': 'hsl(var(--primary))',
-    'Somatic': 'hsl(var(--accent))',
-    'Mindset': 'hsl(142 76% 36%)',
-  };
-  return colors[category] || 'hsl(var(--muted-foreground))';
-};
-
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -101,12 +93,22 @@ const Insights = () => {
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
+  const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
   const [winsLoading, setWinsLoading] = useState(false);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
   const [patternsLoading, setPatternsLoading] = useState(false);
   const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
   const [semanticLoading, setSemanticLoading] = useState(false);
+
+  // Calculate most common state this week
+  const mostCommonState = useMemo(() => {
+    if (!statePatterns?.distribution) return null;
+    const entries = Object.entries(statePatterns.distribution);
+    if (entries.length === 0) return null;
+    const sorted = entries.sort((a, b) => b[1] - a[1]);
+    return sorted[0][1] > 0 ? sorted[0][0] : null;
+  }, [statePatterns]);
 
   useEffect(() => {
     if (user?.id) {
@@ -126,14 +128,23 @@ const Insights = () => {
       const today = new Date();
       const sevenDaysAgo = subDays(today, 6);
 
-      // Fetch check-ins for last 7 days
+      // Fetch check-ins for last 7 days WITH timestamp for Energy Rhythm
       const { data: checkIns } = await supabase
         .from('daily_checkins')
-        .select('checkin_date, energy_balance, outcome')
+        .select('checkin_date, energy_balance, outcome, created_at')
         .eq('user_id', user.id)
         .gte('checkin_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
         .lte('checkin_date', format(today, 'yyyy-MM-dd'))
         .order('checkin_date', { ascending: true });
+
+      // Store check-ins with timestamps for Energy Rhythm
+      if (checkIns) {
+        setCheckInsWithTimestamp(checkIns.map(c => ({
+          date: c.checkin_date,
+          outcome: c.outcome,
+          timestamp: c.created_at
+        })));
+      }
 
       // Fetch practice sessions for last 7 days
       const { data: practices } = await supabase
@@ -272,15 +283,6 @@ const Insights = () => {
     }
   };
 
-  const getOutcomeColor = (outcome: string | null) => {
-    switch (outcome) {
-      case 'power-up': return 'hsl(var(--accent))';
-      case 'pause': return 'hsl(var(--primary))';
-      case 'presence': return 'hsl(142 76% 36%)';
-      default: return 'hsl(var(--muted))';
-    }
-  };
-
   // Prepare state distribution data for bar chart
   const getStateDistributionData = () => {
     if (!statePatterns?.distribution) return [];
@@ -293,6 +295,17 @@ const Insights = () => {
     }));
   };
 
+  // Transform Tiny Wins themes to bubble format for unified styling
+  const tinyWinsBubbleData = useMemo(() => {
+    if (!tinyWinsInsights?.themes || tinyWinsInsights.themes.length === 0) return [];
+    return tinyWinsInsights.themes.map((theme, i) => ({
+      theme,
+      totalCount: 1,
+      weight: (tinyWinsInsights.themes.length - i) / tinyWinsInsights.themes.length,
+      sources: { coach: 0, practice: 0, wins: 1, checkins: 0 }
+    }));
+  }, [tinyWinsInsights]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -301,12 +314,7 @@ const Insights = () => {
     );
   }
 
-  const validEnergyData = weekData.filter(d => d.energyBalance !== null);
-  const avgEnergy = validEnergyData.length > 0 
-    ? Math.round(validEnergyData.reduce((sum, d) => sum + (d.energyBalance || 0), 0) / validEnergyData.length)
-    : null;
   const totalPractices = practiceData.reduce((sum, p) => sum + p.count, 0);
-  const totalMinutes = practiceData.reduce((sum, p) => sum + p.totalDuration, 0);
 
   const stateDistributionData = getStateDistributionData();
   const maxStateCount = Math.max(...stateDistributionData.map(d => d.count), 1);
@@ -321,7 +329,7 @@ const Insights = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-headline font-semibold">Insights</h1>
+              <h1 className="text-2xl font-headline font-semibold">Your Inner World</h1>
               <p className="text-sm text-muted-foreground">Past 7 days</p>
             </div>
           </div>
@@ -352,58 +360,43 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Theme Patterns - NEW SECTION */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-saffron" />
-              <CardTitle className="text-lg">Theme Patterns</CardTitle>
-            </div>
-            <CardDescription>Your psychological frames this week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {semanticLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {/* Consolidated Stats - 3 cards only */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="bg-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs">Streak</span>
               </div>
-            ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
-              <div className="space-y-4">
-                {/* Theme bubbles */}
-                <div className="flex flex-wrap gap-2">
-                  {semanticAnalysis.themePatterns.map((theme, i) => (
-                    <span 
-                      key={i} 
-                      className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20"
-                    >
-                      "{theme.phrase}"
-                      {theme.count > 1 && (
-                        <span className="ml-1 opacity-60">({theme.count}x)</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                
-                {/* Driver summary */}
-                <p className="text-xs text-muted-foreground/60">
-                  Most common driver: {
-                    (() => {
-                      const driverCounts = semanticAnalysis.themePatterns.reduce((acc, t) => {
-                        acc[t.driver] = (acc[t.driver] || 0) + t.count;
-                        return acc;
-                      }, {} as Record<string, number>);
-                      const topDriver = Object.entries(driverCounts).sort((a, b) => b[1] - a[1])[0];
-                      return topDriver ? topDriver[0].replace('+', ' + ') : 'state';
-                    })()
-                  }-based
-                </p>
+              <p className="text-2xl font-headline font-semibold">{checkInStreak}</p>
+              <p className="text-xs text-muted-foreground">days</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Brain className="h-4 w-4" />
+                <span className="text-xs">Typical State</span>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4">
-                Complete daily check-ins to see your theme patterns.
+              <p className="text-2xl font-headline font-semibold capitalize">
+                {mostCommonState ? stateLabels[mostCommonState] : '—'}
               </p>
-            )}
-          </CardContent>
-        </Card>
+              <p className="text-xs text-muted-foreground">this week</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Compass className="h-4 w-4" />
+                <span className="text-xs">Practices</span>
+              </div>
+              <p className="text-2xl font-headline font-semibold">{totalPractices}</p>
+              <p className="text-xs text-muted-foreground">completed</p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Weekly State Patterns */}
         <Card>
@@ -468,6 +461,59 @@ const Insights = () => {
           </CardContent>
         </Card>
 
+        {/* Theme Patterns */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Theme Patterns</CardTitle>
+            </div>
+            <CardDescription>Your psychological frames this week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {semanticLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
+              <div className="space-y-4">
+                {/* Theme bubbles */}
+                <div className="flex flex-wrap gap-2">
+                  {semanticAnalysis.themePatterns.map((theme, i) => (
+                    <span 
+                      key={i} 
+                      className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20"
+                    >
+                      "{theme.phrase}"
+                      {theme.count > 1 && (
+                        <span className="ml-1 opacity-60">({theme.count}x)</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                
+                {/* Driver summary */}
+                <p className="text-xs text-muted-foreground/60">
+                  Most common driver: {
+                    (() => {
+                      const driverCounts = semanticAnalysis.themePatterns.reduce((acc, t) => {
+                        acc[t.driver] = (acc[t.driver] || 0) + t.count;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      const topDriver = Object.entries(driverCounts).sort((a, b) => b[1] - a[1])[0];
+                      return topDriver ? topDriver[0].replace('+', ' + ') : 'state';
+                    })()
+                  }-based
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">
+                Complete daily check-ins to see your theme patterns.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Your Inner World - Unified Bubble Visualization */}
         <Card>
           <CardHeader>
@@ -492,7 +538,7 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Tiny Wins Patterns */}
+        {/* Tiny Wins Patterns - Using unified bubble component */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -508,14 +554,11 @@ const Insights = () => {
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
-                {/* Theme tags */}
-                <div className="flex flex-wrap gap-2">
-                  {tinyWinsInsights.themes.map((theme, i) => (
-                    <span key={i} className="px-3 py-1 bg-saffron/10 text-saffron rounded-full text-sm font-medium">
-                      {theme}
-                    </span>
-                  ))}
-                </div>
+                {/* Unified bubble visualization for Tiny Wins */}
+                <InnerWorldBubbles
+                  items={tinyWinsBubbleData}
+                  emptyMessage="Complete evening Integrate flow to capture wins"
+                />
                 
                 {/* Summary insight */}
                 {tinyWinsInsights.summary && (
@@ -537,195 +580,17 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Calendar className="h-4 w-4" />
-                <span className="text-xs">Check-in Streak</span>
-              </div>
-              <p className="text-3xl font-headline font-semibold">{checkInStreak}</p>
-              <p className="text-xs text-muted-foreground">days</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Activity className="h-4 w-4" />
-                <span className="text-xs">Avg Energy</span>
-              </div>
-              <p className="text-3xl font-headline font-semibold">
-                {avgEnergy !== null ? `${avgEnergy > 0 ? '+' : ''}${avgEnergy}` : '—'}
-              </p>
-              <p className="text-xs text-muted-foreground">balance</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Compass className="h-4 w-4" />
-                <span className="text-xs">Practices</span>
-              </div>
-              <p className="text-3xl font-headline font-semibold">{totalPractices}</p>
-              <p className="text-xs text-muted-foreground">completed</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-xs">Time Invested</span>
-              </div>
-              <p className="text-3xl font-headline font-semibold">{totalMinutes}</p>
-              <p className="text-xs text-muted-foreground">minutes</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Energy Trend Chart */}
+        {/* Energy Rhythm Heatmap */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Energy Balance Trend</CardTitle>
-            <CardDescription>Your daily energy balance over the past week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {validEnergyData.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weekData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis 
-                      dataKey="dayLabel" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                      domain={[-5, 5]}
-                    />
-                    <ChartTooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                      labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="energyBalance" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0, r: 4 }}
-                      connectNulls
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                <p>No check-in data yet. Start your daily check-ins to see trends.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Check-in Patterns */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Check-in Patterns</CardTitle>
-            <CardDescription>Your energy states this week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 justify-between">
-              {weekData.map((day) => (
-                <div key={day.date} className="flex-1 text-center">
-                  <div 
-                    className="w-full aspect-square rounded-lg mb-2 flex items-center justify-center"
-                    style={{ 
-                      backgroundColor: day.checkInCompleted 
-                        ? getOutcomeColor(day.outcome) 
-                        : 'hsl(var(--muted))',
-                      opacity: day.checkInCompleted ? 1 : 0.3
-                    }}
-                  >
-                    {day.checkInCompleted && (
-                      <span className="text-xs text-white font-medium">
-                        {day.energyBalance !== null ? (day.energyBalance > 0 ? '+' : '') + day.energyBalance : ''}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Energy Rhythm</CardTitle>
             </div>
-            <div className="flex gap-4 mt-4 justify-center text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getOutcomeColor('power-up') }} />
-                <span>Renewal</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getOutcomeColor('pause') }} />
-                <span>Pause</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getOutcomeColor('presence') }} />
-                <span>Flow</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Practice History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Practice History</CardTitle>
-            <CardDescription>Sessions completed by category</CardDescription>
+            <CardDescription>When you check in and how you feel</CardDescription>
           </CardHeader>
           <CardContent>
-            {practiceData.length > 0 ? (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={practiceData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="category" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                      width={100}
-                    />
-                    <ChartTooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                      formatter={(value: number, name: string) => [
-                        name === 'count' ? `${value} sessions` : `${value} mins`,
-                        name === 'count' ? 'Sessions' : 'Duration'
-                      ]}
-                    />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {practiceData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={getCategoryColor(entry.category)} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-muted-foreground">
-                <p>No practice sessions yet. Visit Recalibrate Studio to get started.</p>
-              </div>
-            )}
+            <EnergyRhythm checkIns={checkInsWithTimestamp} />
           </CardContent>
         </Card>
       </div>

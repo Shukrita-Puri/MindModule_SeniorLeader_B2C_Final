@@ -12,6 +12,7 @@ interface EnergyRhythmProps {
 }
 
 // Time windows with readable labels
+// Time windows with readable labels (5am-11am, 12pm-5pm, 6pm-4am)
 const TIME_WINDOWS = [
   { key: 'morning', label: 'Morning', hours: [5, 6, 7, 8, 9, 10, 11] },
   { key: 'afternoon', label: 'Afternoon', hours: [12, 13, 14, 15, 16, 17] },
