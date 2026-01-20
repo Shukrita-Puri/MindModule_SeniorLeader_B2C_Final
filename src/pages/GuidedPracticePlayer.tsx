@@ -853,6 +853,26 @@ const GuidedPracticePlayer = () => {
       navigateToNext();
     } else {
       localStorage.removeItem('practiceQueue');
+      // Check for JIT intervention data for coach navigation
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practices complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
     }
@@ -1686,27 +1706,107 @@ const GuidedPracticePlayer = () => {
     const handleRatingSubmit = async (rating: number, feedback?: string) => {
       await submitPracticeRating(sessionId, practice.id, 'guided-practice', rating, feedback);
       toast.success("Thank you for your feedback!");
-      // If in queue and not last, navigate to next; otherwise show complete view
+      // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();
       } else if (isInQueue) {
         localStorage.removeItem('practiceQueue');
+        // Check for JIT intervention data for coach navigation
+        const jitData = localStorage.getItem('jitInterventionData');
+        if (jitData) {
+          try {
+            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+            localStorage.removeItem('jitInterventionData');
+            toast.success('Practices complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType,
+                initialPrompt: coachPrompt,
+                fromIntervention: true,
+                eventTitle
+              }
+            });
+            return;
+          } catch (e) {
+            console.error('Error parsing JIT data:', e);
+          }
+        }
         toast.success('🎉 Ritual complete!');
         navigate('/executive-home');
       } else {
+        // Check for JIT intervention data (single practice case)
+        const jitData = localStorage.getItem('jitInterventionData');
+        if (jitData) {
+          try {
+            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+            localStorage.removeItem('jitInterventionData');
+            toast.success('Practice complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType,
+                initialPrompt: coachPrompt,
+                fromIntervention: true,
+                eventTitle
+              }
+            });
+            return;
+          } catch (e) {
+            console.error('Error parsing JIT data:', e);
+          }
+        }
         setView("complete");
       }
     };
 
     const handleRatingSkip = () => {
-      // If in queue and not last, navigate to next; otherwise show complete view
+      // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();
       } else if (isInQueue) {
         localStorage.removeItem('practiceQueue');
+        // Check for JIT intervention data for coach navigation
+        const jitData = localStorage.getItem('jitInterventionData');
+        if (jitData) {
+          try {
+            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+            localStorage.removeItem('jitInterventionData');
+            toast.success('Practices complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType,
+                initialPrompt: coachPrompt,
+                fromIntervention: true,
+                eventTitle
+              }
+            });
+            return;
+          } catch (e) {
+            console.error('Error parsing JIT data:', e);
+          }
+        }
         toast.success('🎉 Ritual complete!');
         navigate('/executive-home');
       } else {
+        // Check for JIT intervention data (single practice case)
+        const jitData = localStorage.getItem('jitInterventionData');
+        if (jitData) {
+          try {
+            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+            localStorage.removeItem('jitInterventionData');
+            toast.success('Practice complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType,
+                initialPrompt: coachPrompt,
+                fromIntervention: true,
+                eventTitle
+              }
+            });
+            return;
+          } catch (e) {
+            console.error('Error parsing JIT data:', e);
+          }
+        }
         setView("complete");
       }
     };

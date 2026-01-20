@@ -402,6 +402,15 @@ const JustInTimeIntervention = () => {
     // Start with first practice
     if (!intervention?.practices.length) return;
     
+    // Store JIT intervention data for post-practice coach navigation
+    if (intervention.showCoachCard && intervention.coachPrompt) {
+      localStorage.setItem('jitInterventionData', JSON.stringify({
+        coachPrompt: intervention.coachPrompt,
+        flowType: intervention.modules.includes('integrate') ? 'integrate' : 'prepare',
+        eventTitle: intervention.event?.title
+      }));
+    }
+    
     const practice = intervention.practices[0];
     let route: string;
     

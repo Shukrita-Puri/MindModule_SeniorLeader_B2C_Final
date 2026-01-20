@@ -1808,14 +1808,54 @@ const MicroPracticePlayerCards = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    // If in queue and not last, navigate to next; otherwise go to return path
+    // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
     if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else if (isInQueue) {
       localStorage.removeItem('practiceQueue');
+      // Check for JIT intervention data for coach navigation
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practices complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
     } else {
+      // Check for JIT intervention data even if not in queue (single practice case)
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practice complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
       const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
@@ -1823,10 +1863,30 @@ const MicroPracticePlayerCards = () => {
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    // If in queue and not last, navigate to next; otherwise go to return path
+    // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
     if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
+      // Check for JIT intervention data
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practice complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
       const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
