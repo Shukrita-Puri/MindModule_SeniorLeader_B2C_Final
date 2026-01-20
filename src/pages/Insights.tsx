@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain, MessageCircle, Target } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
+import SemanticBubbles from '@/components/insights/SemanticBubbles';
+import PracticeFocusBar from '@/components/insights/PracticeFocusBar';
 
 interface DayData {
   date: string;
@@ -36,6 +38,13 @@ interface StatePatternInsights {
   distribution: Record<string, number>;
   observation: string | null;
   checkInCount: number;
+}
+
+interface SemanticAnalysis {
+  themePatterns: { phrase: string; count: number; driver: string }[];
+  coachThemes: { keyword: string; count: number; weight: number }[];
+  practiceTypes: { type: string; count: number; percentage: number }[];
+  contentTags: { tag: string; count: number; weight: number }[];
 }
 
 // State colors for the bar chart
@@ -82,12 +91,15 @@ const Insights = () => {
   const [winsLoading, setWinsLoading] = useState(false);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
   const [patternsLoading, setPatternsLoading] = useState(false);
+  const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
+  const [semanticLoading, setSemanticLoading] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchInsightsData();
       fetchTinyWinsInsights();
       fetchStatePatterns();
+      fetchSemanticAnalysis();
     }
   }, [user?.id]);
 
@@ -210,6 +222,25 @@ const Insights = () => {
     }
   };
 
+  const fetchSemanticAnalysis = async () => {
+    if (!user?.id) return;
+    setSemanticLoading(true);
+    try {
+      const accessToken = await getAccessTokenSilently();
+      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { days: 7 }
+      });
+      if (!error && data?.data) {
+        setSemanticAnalysis(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching semantic analysis:', error);
+    } finally {
+      setSemanticLoading(false);
+    }
+  };
+
   const getOutcomeColor = (outcome: string | null) => {
     switch (outcome) {
       case 'power-up': return 'hsl(var(--accent))';
@@ -279,7 +310,7 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Weekly Progress Streak - Moved from Homepage */}
+        {/* Weekly Progress Streak */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Your Progress This Week</CardTitle>
@@ -290,7 +321,60 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Weekly State Patterns - NEW SECTION */}
+        {/* Theme Patterns - NEW SECTION */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Theme Patterns</CardTitle>
+            </div>
+            <CardDescription>Your psychological frames this week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {semanticLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
+              <div className="space-y-4">
+                {/* Theme bubbles */}
+                <div className="flex flex-wrap gap-2">
+                  {semanticAnalysis.themePatterns.map((theme, i) => (
+                    <span 
+                      key={i} 
+                      className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium border border-primary/20"
+                    >
+                      "{theme.phrase}"
+                      {theme.count > 1 && (
+                        <span className="ml-1 opacity-60">({theme.count}x)</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                
+                {/* Driver summary */}
+                <p className="text-xs text-muted-foreground/60">
+                  Most common driver: {
+                    (() => {
+                      const driverCounts = semanticAnalysis.themePatterns.reduce((acc, t) => {
+                        acc[t.driver] = (acc[t.driver] || 0) + t.count;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      const topDriver = Object.entries(driverCounts).sort((a, b) => b[1] - a[1])[0];
+                      return topDriver ? topDriver[0].replace('+', ' + ') : 'state';
+                    })()
+                  }-based
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">
+                Complete daily check-ins to see your theme patterns.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Weekly State Patterns */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -349,6 +433,69 @@ const Insights = () => {
               <p className="text-sm text-muted-foreground py-4">
                 Complete daily check-ins to see your state patterns.
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Practice Landscape - NEW SECTION */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Compass className="h-5 w-5 text-saffron" />
+              <CardTitle className="text-lg">Your Practice Landscape</CardTitle>
+            </div>
+            <CardDescription>What you've been working on</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {semanticLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Coach Conversation Themes */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Coach Conversations</span>
+                  </div>
+                  <SemanticBubbles
+                    items={semanticAnalysis?.coachThemes.map(t => ({
+                      label: t.keyword,
+                      count: t.count,
+                      weight: t.weight
+                    })) || []}
+                    colorScheme="warm"
+                    emptyMessage="Chat with your coach to see conversation themes."
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border" />
+
+                {/* Practice Focus Distribution */}
+                <div className="space-y-3">
+                  <span className="text-sm font-medium">Practice Focus</span>
+                  <PracticeFocusBar data={semanticAnalysis?.practiceTypes || []} />
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border" />
+
+                {/* Content Themes */}
+                <div className="space-y-3">
+                  <span className="text-sm font-medium">Content Themes</span>
+                  <SemanticBubbles
+                    items={semanticAnalysis?.contentTags.map(t => ({
+                      label: t.tag,
+                      count: t.count,
+                      weight: t.weight
+                    })) || []}
+                    colorScheme="cool"
+                    emptyMessage="Complete practices to see content themes."
+                  />
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
