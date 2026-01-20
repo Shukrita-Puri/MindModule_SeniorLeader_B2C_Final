@@ -1,6 +1,64 @@
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
+// Get Auth0 access token for edge function calls
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const auth0Client = (window as any).__auth0Client;
+    if (!auth0Client) return null;
+    return await auth0Client.getTokenSilently();
+  } catch {
+    return null;
+  }
+}
+
+// Patterns that indicate reflection-worthy content
+const REFLECTION_PATTERNS = [
+  /i noticed/i,
+  /i realized/i,
+  /i learned/i,
+  /helped me/i,
+  /i felt/i,
+  /gave me/i,
+  /i appreciated/i,
+  /i discovered/i,
+  /shifted my/i,
+  /i understood/i,
+  /this practice/i,
+  /i was able to/i,
+  /breakthrough/i,
+];
+
+function isReflectionContent(text: string): boolean {
+  if (!text || text.length < 20) return false;
+  return REFLECTION_PATTERNS.some(pattern => pattern.test(text));
+}
+
+async function storeFeedbackAsWin(
+  feedbackText: string,
+  contentId: string,
+  contentType: string
+): Promise<void> {
+  try {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+
+    await supabase.functions.invoke('store-tiny-win', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        winContent: feedbackText,
+        source: 'practice_reflection',
+        practiceId: contentId,
+        practiceType: contentType,
+      },
+    });
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to store feedback as win:', error);
+    }
+  }
+}
+
 export type FeedbackType = 'star_rating' | 'thumbs_up' | 'thumbs_down' | 'report_issue';
 
 interface RelevanceFeedbackData {
@@ -51,6 +109,16 @@ export async function submitRelevanceFeedback(feedback: RelevanceFeedbackData) {
       });
 
     if (error) throw error;
+
+    // Also store reflection-like feedback as a tiny win for pattern analysis
+    if (validated.feedbackText && isReflectionContent(validated.feedbackText)) {
+      await storeFeedbackAsWin(
+        validated.feedbackText,
+        validated.contentId,
+        validated.contentType
+      );
+    }
+
     return { success: true, data };
   } catch (error) {
     if (import.meta.env.DEV) {

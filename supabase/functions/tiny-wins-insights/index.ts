@@ -53,7 +53,7 @@ serve(async (req) => {
     
     const { data: wins, error: winsError } = await supabase
       .from("tiny_wins")
-      .select("win_content, win_date, detected_at")
+      .select("win_content, win_date, detected_at, source, practice_type")
       .eq("user_id", userId)
       .gte("win_date", startDate.toISOString().split("T")[0])
       .order("detected_at", { ascending: false });
@@ -168,11 +168,19 @@ Focus on leadership behaviors, not just tasks completed.`
     
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
+      
+      // Calculate source breakdown
+      const sourceBreakdown = {
+        coach: wins.filter((w: any) => !w.source || w.source === 'coach').length,
+        practice: wins.filter((w: any) => w.source === 'practice_reflection').length,
+      };
+      
       return new Response(JSON.stringify({ 
         data: { 
           themes: parsed.themes || [],
           summary: parsed.summary || null,
-          winsCount: wins.length
+          winsCount: wins.length,
+          sourceBreakdown
         } 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
