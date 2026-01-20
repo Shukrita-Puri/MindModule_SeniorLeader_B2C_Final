@@ -321,12 +321,8 @@ const SoundscapePlayer = () => {
     }
     
     // Show rating modal instead of completion screen
+    // Navigation will happen after rating submit/skip
     setShowRatingModal(true);
-    
-    // If in queue, auto-navigate to next after 2 seconds
-    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
-      setTimeout(() => handleQueueComplete(), 2000);
-    }
   };
 
   // Queue Handlers
@@ -388,12 +384,25 @@ const SoundscapePlayer = () => {
 
   const navigateToNext = () => {
     const next = practiceQueue[currentQueueIndex + 1];
+    if (!next) return;
+    
     if (next.contentType === 'soundbath') {
       navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'guided-practice') {
       navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'micro-practice') {
       navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'coach') {
+      // Handle Coach cards - navigate to coach page with context
+      navigate('/coach', { 
+        state: { 
+          flowType: next.id === 'coach-prepare' ? 'prepare' : 'integrate',
+          initialPrompt: next.id === 'coach-prepare' 
+            ? "I have an important moment coming up. Help me mentally prepare and visualize success."
+            : "Let's close out today. First, take a deep breath and let your shoulders drop. Now, what's one thing you did right today? Share your small win.",
+          fromRitual: true 
+        } 
+      });
     }
   };
 
@@ -423,9 +432,43 @@ const SoundscapePlayer = () => {
     }
     setShowRatingModal(false);
     
-    // Check for JIT intervention data for coach navigation (non-queue case)
+    // If in queue and not last, navigate to next
+    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+      return;
+    }
+    
+    // If in queue and last item, complete ritual
+    if (isInQueue) {
+      localStorage.removeItem('practiceQueue');
+      // Check for JIT intervention data for coach navigation
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practices complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+      return;
+    }
+    
+    // Standalone practice - check for JIT data
     const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData && !isInQueue) {
+    if (jitData) {
       try {
         const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
         localStorage.removeItem('jitInterventionData');
@@ -449,9 +492,43 @@ const SoundscapePlayer = () => {
   const handleRatingSkip = () => {
     setShowRatingModal(false);
     
-    // Check for JIT intervention data for coach navigation (non-queue case)
+    // If in queue and not last, navigate to next
+    if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+      return;
+    }
+    
+    // If in queue and last item, complete ritual
+    if (isInQueue) {
+      localStorage.removeItem('practiceQueue');
+      // Check for JIT intervention data for coach navigation
+      const jitData = localStorage.getItem('jitInterventionData');
+      if (jitData) {
+        try {
+          const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          toast.success('Practices complete! Opening Coach...');
+          navigate('/coach', {
+            state: {
+              flowType,
+              initialPrompt: coachPrompt,
+              fromIntervention: true,
+              eventTitle
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+      return;
+    }
+    
+    // Standalone practice - check for JIT data
     const jitData = localStorage.getItem('jitInterventionData');
-    if (jitData && !isInQueue) {
+    if (jitData) {
       try {
         const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
         localStorage.removeItem('jitInterventionData');
