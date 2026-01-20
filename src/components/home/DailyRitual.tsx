@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Play } from 'lucide-react';
+import { Check, RotateCcw, Play, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -11,6 +11,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
+import { useFavorites } from '@/hooks/useFavorites';
+import { getActiveCoachInsights } from '@/utils/coachInsightsExtractor';
 
 // Background images for Coach cards
 import coachPrepareBackground from '@/assets/vibrant-executive-preparation.png';
@@ -146,6 +148,7 @@ const sortPracticesBySequence = (practices: Recommendation[]): Recommendation[] 
 const DailyRitual = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { favorites, isFavorite } = useFavorites();
   const [recommendations, setRecommendations] = useState<{
     practices: Recommendation[];
     recommendedCount: number;
@@ -592,10 +595,15 @@ const DailyRitual = () => {
                         </span>
                       </div>
                       
-                      {/* Title */}
-                      <h4 className="text-base font-semibold text-foreground line-clamp-2 mt-1.5 leading-snug font-body">
-                        {practice.title}
-                      </h4>
+                      {/* Title with favorite indicator */}
+                      <div className="flex items-start gap-1 mt-1.5">
+                        <h4 className="text-base font-semibold text-foreground line-clamp-2 leading-snug font-body flex-1">
+                          {practice.title}
+                        </h4>
+                        {isFavorite(practice.id) && (
+                          <Star size={12} className="text-saffron fill-saffron flex-shrink-0 mt-1" />
+                        )}
+                      </div>
                       
                       {/* Duration */}
                       <span className="text-xs text-muted-foreground mt-1.5 font-body">
