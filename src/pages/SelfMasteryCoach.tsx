@@ -166,7 +166,7 @@ return (
           variant="ghost"
           size="icon"
           onClick={handleBackNavigation}
-          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
