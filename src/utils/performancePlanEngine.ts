@@ -191,34 +191,41 @@ const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
   },
 
   // ============= SCATTERED THEMES =============
-  // Note: Scattered users need somatic regulation first, not conversation (Coach)
+  // Note: Scattered users get Coach (prepare) as optional AFTER grounding (Regulate + Align)
   "Focus or fragment.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'focus' }
   },
   "Clarity before stakes.": {
     regulate: { type: 'regulate', required: true, priority: 6, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'clarity' }
   },
   "Find your center first.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
   "Anchor and execute.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'focus' }
   },
   "One thread at a time.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'focus' }
   },
   "Reclaim your attention.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'focus' }
   },
   "Ground before you go.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
   "Release the threads.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
@@ -227,7 +234,8 @@ const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
   },
   "Find your anchor point.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
 
   // ============= STEADY THEMES =============

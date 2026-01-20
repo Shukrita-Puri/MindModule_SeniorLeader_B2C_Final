@@ -328,7 +328,7 @@ const Insights = () => {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/executive-home')}
-          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -336,7 +336,7 @@ const Insights = () => {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/coach')}
-          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
         >
           <ChatCircle size={20} weight="duotone" className="text-saffron" />
         </Button>
@@ -353,7 +353,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Progress This Week</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Progress This Week</span>
               <InsightInfoModal
                 title="Your Progress This Week"
                 explanation="Tracks your daily ritual completions over the past 7 days. Consistency helps build mental fitness habits that compound over time."
@@ -416,7 +416,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your State Patterns</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your State Patterns</span>
               <InsightInfoModal
                 title="Your State Patterns"
                 explanation="Shows the distribution of mental states you've reported in your daily check-ins this week. Recognizing patterns helps you understand your typical energy rhythms."
@@ -481,7 +481,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Theme Patterns</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Theme Patterns</span>
               <InsightInfoModal
                 title="Theme Patterns"
                 explanation="The psychological frames generated for you based on your state, calendar load, and time of day. Repeated themes reveal what your system is asking for."
@@ -536,7 +536,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Mind Map</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
               <InsightInfoModal
                 title="Your Mind Map"
                 explanation="A unified view of themes emerging from your coach conversations, practices, wins, and check-ins. Bubbles are sized by frequency. Lines show conceptually related themes."
@@ -562,7 +562,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Tiny Wins Patterns</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Tiny Wins Patterns</span>
               <InsightInfoModal
                 title="Tiny Wins Patterns"
                 explanation="Themes extracted from the wins you've captured during evening Integrate sessions with your coach. These reveal what you're naturally doing well."
@@ -606,7 +606,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Energy Rhythm</p>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Energy Rhythm</span>
               <InsightInfoModal
                 title="Energy Rhythm"
                 explanation="Visualizes when you typically check in and how you feel at different times of day. Helps identify your natural energy peaks and dips."
