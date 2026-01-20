@@ -58,7 +58,7 @@ const SelfMasteryCoach = () => {
     }
     return () => setFlowType(null);
   }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext]);
-  
+
   // Get subtitle based on flow type
   const getSubtitle = () => {
     if (flowType === 'prepare') return 'Pre-performance preparation';
@@ -79,6 +79,43 @@ const SelfMasteryCoach = () => {
       return `Let's close out the day together. Take a breath.\n\nWhen you're ready, share one thing you did right today - it doesn't have to be big.`;
     }
     return `What's on your mind?`;
+  };
+
+  // Get flow-specific prompt suggestions
+  const getFlowPrompts = (flow: string | undefined, eventTitle?: string): string[] => {
+    if (flow === 'prepare') {
+      return eventTitle 
+        ? [
+            `Walk me through preparing for "${eventTitle}"`,
+            "Let's do a quick grounding exercise first",
+            "Help me visualize this going well"
+          ]
+        : [
+            "I have something important coming up",
+            "Let's do a quick grounding exercise",
+            "Help me visualize success"
+          ];
+    }
+    if (flow === 'integrate') {
+      return [
+        "Here's one thing I did right today",
+        "I'm ready to close out the day",
+        "Help me let go of today's stress"
+      ];
+    }
+    if (flow === 'guided-reflection') {
+      return [
+        "I'm ready to begin the reflection",
+        "Let's start with reviewing my day",
+        "Guide me through each step"
+      ];
+    }
+    // Default prompts
+    return [
+      "I'm feeling overwhelmed with my workload",
+      "How can I be more present in meetings?",
+      "I'm struggling with a difficult conversation"
+    ];
   };
 
   // Add AI greeting when entering from Performance Plan (instead of sending as user message)
@@ -171,37 +208,15 @@ const SelfMasteryCoach = () => {
               }
             </p>
             <div className="grid gap-2 w-full max-w-sm">
-              {flowType === 'guided-reflection' ? (
-                // Guided practice prompts
-                [
-                  "I'm ready to begin the reflection",
-                  "Let's start with reviewing my day",
-                  "Guide me through each step",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
-                  >
-                    {prompt}
-                  </button>
-                ))
-              ) : (
-                // Standard coach prompts
-                [
-                  "I'm feeling overwhelmed with my workload",
-                  "How can I be more present in meetings?",
-                  "I'm struggling with a difficult conversation",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
-                  >
-                    {prompt}
-                  </button>
-                ))
-              )}
+              {getFlowPrompts(flowType, locationState?.eventTitle).map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => sendMessage(prompt)}
+                  className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
