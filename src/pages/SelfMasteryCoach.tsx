@@ -17,7 +17,7 @@ const SelfMasteryCoach = () => {
   const location = useLocation();
   const locationState = location.state as LocationState | null;
   const { user } = useAuth();
-  const { messages, isLoading, error, sendMessage, clearConversation, setFlowType } = useCoachConversation();
+  const { messages, isLoading, error, sendMessage, clearConversation, endSession, setFlowType } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -71,6 +71,17 @@ const SelfMasteryCoach = () => {
     }
   };
 
+  const handleBackNavigation = async () => {
+    if (messages.length > 0) {
+      await endSession();
+    }
+    navigate('/executive-home');
+  };
+
+  const handleNewChat = async () => {
+    await endSession();
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -78,7 +89,7 @@ const SelfMasteryCoach = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/executive-home')}
+          onClick={handleBackNavigation}
           className="h-9 w-9"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -91,7 +102,7 @@ const SelfMasteryCoach = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={clearConversation}
+            onClick={handleNewChat}
             className="text-muted-foreground hover:text-foreground"
           >
             New Chat

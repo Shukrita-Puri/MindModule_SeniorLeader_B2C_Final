@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuth0 } from '@auth0/auth0-react';
+import { DEV_MODE } from '@/config/devMode';
 
 interface Message {
   id: string;
@@ -15,12 +17,14 @@ interface UseCoachConversationReturn {
   error: string | null;
   sendMessage: (content: string) => Promise<void>;
   clearConversation: () => void;
+  endSession: () => Promise<void>;
   sessionId: string | null;
   setFlowType: (flowType: 'prepare' | 'integrate' | null) => void;
 }
 
 export const useCoachConversation = (): UseCoachConversationReturn => {
   const { user } = useAuth();
+  const auth0 = useAuth0();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,12 +201,63 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setSessionId(null);
   }, []);
 
+  const endSession = useCallback(async () => {
+    const currentSessionId = sessionIdRef.current;
+    
+    // Skip if no session or conversation too short to extract insights
+    if (!currentSessionId || !user?.id || messages.length < 2) {
+      clearConversation();
+      return;
+    }
+    
+    try {
+      // 1. Mark session as completed
+      await supabase
+        .from('dialogue_sessions')
+        .update({ 
+          session_status: 'completed',
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', currentSessionId);
+      
+      // 2. Trigger insight extraction (fire-and-forget)
+      let accessToken: string | undefined;
+      if (!DEV_MODE) {
+        try {
+          accessToken = await auth0.getAccessTokenSilently();
+        } catch (err) {
+          console.error('Failed to get access token:', err);
+        }
+      }
+      
+      // Don't await - let it run in background
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-coach-insights`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          userId: user.id,
+        }),
+      }).catch(err => console.error('Insight extraction failed:', err));
+      
+    } catch (error) {
+      console.error('Failed to end session:', error);
+    } finally {
+      // 3. Clear local state
+      clearConversation();
+    }
+  }, [user?.id, messages.length, clearConversation, auth0]);
+
   return {
     messages,
     isLoading,
     error,
     sendMessage,
     clearConversation,
+    endSession,
     sessionId,
     setFlowType,
   };
