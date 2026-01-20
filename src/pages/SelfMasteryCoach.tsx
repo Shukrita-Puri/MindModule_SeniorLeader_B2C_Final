@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useCoachConversation } from '@/hooks/useCoachConversation';
@@ -32,7 +32,9 @@ const SelfMasteryCoach = () => {
     messages, 
     isLoading, 
     error, 
+    isRateLimited,
     sendMessage, 
+    retryLastMessage,
     clearConversation, 
     endSession, 
     setFlowType,
@@ -269,10 +271,28 @@ return (
         )}
       </div>
 
-      {/* Error Display */}
+      {/* Error Display with Retry for Rate Limiting */}
       {error && (
-        <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm text-center">
-          {error}
+        <div className="px-4 py-3 bg-muted/80 border-t border-border">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {isRateLimited 
+                ? "The coach is taking a moment. Please wait a few seconds and try again."
+                : error}
+            </p>
+            {isRateLimited && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={retryLastMessage}
+                disabled={isLoading}
+                className="flex items-center gap-2 text-xs shrink-0"
+              >
+                <RefreshCw className={cn("h-3 w-3", isLoading && "animate-spin")} />
+                Retry
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

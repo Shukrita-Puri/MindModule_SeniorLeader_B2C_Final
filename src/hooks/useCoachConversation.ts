@@ -22,7 +22,9 @@ interface UseCoachConversationReturn {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
+  isRateLimited: boolean;
   sendMessage: (content: string) => Promise<void>;
+  retryLastMessage: () => Promise<void>;
   clearConversation: () => void;
   endSession: () => Promise<void>;
   sessionId: string | null;
@@ -36,6 +38,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [flowType, setFlowType] = useState<'prepare' | 'integrate' | 'guided-reflection' | null>(null);
   const [practiceContext, setPracticeContextState] = useState<{
@@ -44,6 +47,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   } | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
+  const lastMessageRef = useRef<string | null>(null);
 
   const setPracticeContext = useCallback((title: string, steps: PracticeStep[]) => {
     setPracticeContextState({ title, steps });
@@ -84,11 +88,13 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     });
   }, [user?.id]);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, isRetry = false) => {
     if (!content.trim() || isLoading) return;
     
     setError(null);
+    setIsRateLimited(false);
     setIsLoading(true);
+    lastMessageRef.current = content;
 
     const currentSessionId = await createSession();
     if (!currentSessionId) {
@@ -144,6 +150,13 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Handle rate limiting specifically
+        if (response.status === 429) {
+          setIsRateLimited(true);
+          // Remove the user message we just added since we'll retry
+          setMessages(prev => prev.slice(0, -1));
+          throw new Error('The coach is taking a moment to catch up. Please try again in a few seconds.');
+        }
         throw new Error(errorData.error || 'Failed to get response');
       }
 
@@ -226,12 +239,20 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     }
   }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext]);
 
+  const retryLastMessage = useCallback(async () => {
+    if (lastMessageRef.current) {
+      await sendMessage(lastMessageRef.current, true);
+    }
+  }, [sendMessage]);
+
   const clearConversation = useCallback(() => {
     setMessages([]);
     setError(null);
+    setIsRateLimited(false);
     sessionIdRef.current = null;
     setSessionId(null);
     contextSentRef.current = false;
+    lastMessageRef.current = null;
     setPracticeContextState(null);
   }, []);
 
@@ -289,7 +310,9 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     messages,
     isLoading,
     error,
+    isRateLimited,
     sendMessage,
+    retryLastMessage,
     clearConversation,
     endSession,
     sessionId,
