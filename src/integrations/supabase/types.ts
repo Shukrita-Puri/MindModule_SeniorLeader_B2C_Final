@@ -1798,7 +1798,10 @@ export type Database = {
           created_at: string
           detected_at: string
           id: string
+          practice_id: string | null
+          practice_type: string | null
           session_id: string | null
+          source: string | null
           user_id: string
           win_content: string
           win_date: string
@@ -1807,7 +1810,10 @@ export type Database = {
           created_at?: string
           detected_at?: string
           id?: string
+          practice_id?: string | null
+          practice_type?: string | null
           session_id?: string | null
+          source?: string | null
           user_id: string
           win_content: string
           win_date?: string
@@ -1816,7 +1822,10 @@ export type Database = {
           created_at?: string
           detected_at?: string
           id?: string
+          practice_id?: string | null
+          practice_type?: string | null
           session_id?: string | null
+          source?: string | null
           user_id?: string
           win_content?: string
           win_date?: string

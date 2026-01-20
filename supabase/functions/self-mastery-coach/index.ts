@@ -144,11 +144,17 @@ Instructions:
   return prompt;
 };
 
-// Patterns to detect Tiny Wins in user messages
+// Patterns to detect Tiny Wins and reflections in user messages
 const WIN_PATTERNS = [
+  // Achievement patterns
   /(?:my win|my small win|tiny win|today's win|i'm proud|proud of|accomplished|achieved|managed to|successfully|did (?:well|right|good)|good at|nailed|crushed|won|victory|success(?:fully)?)/i,
   /(?:i did|today i|this morning i|this afternoon i|this evening i).{5,100}(?:well|right|good|successfully|proud)/i,
   /(?:one thing.{0,20}did right|thing.{0,20}proud of|win.{0,20}today|success.{0,20}today)/i,
+  // Leadership behaviors
+  /(?:i stood my ground|i said no|i delegated|i took a break|i paused|i listened)/i,
+  // Reflection patterns (for practice reflections and integrate flow)
+  /(?:i noticed|i realized|what worked|i learned|helped me|i felt more|i appreciated|i discovered|gave me clarity|i understood|shifted my perspective|i was present|i stayed calm|i chose to)/i,
+  /(?:the practice|this exercise|this helped).{5,60}(?:me|my|realize|understand|feel|clarity|perspective)/i,
 ];
 
 // Detect if a message contains a Tiny Win
@@ -171,6 +177,7 @@ const storeTinyWin = async (
       session_id: sessionId,
       win_content: winContent,
       win_date: new Date().toISOString().split('T')[0],
+      source: 'coach', // Track that this came from coach conversation
     });
     
     if (error) {
