@@ -172,7 +172,7 @@ return (
         </Button>
         <div className="flex flex-col items-center">
           <span className="text-sm font-headline text-white/90">Self Mastery Coach</span>
-          <span className="text-xs text-white/60">{getSubtitle()}</span>
+          <span className="text-xs text-white/60 font-body">{getSubtitle()}</span>
         </div>
         {messages.length > 0 ? (
           <Button
@@ -198,7 +198,7 @@ return (
               <span className="text-2xl font-headline text-saffron tracking-tight leading-none relative z-10">SM</span>
               <span className="text-[7px] uppercase tracking-[0.15em] text-muted-foreground/70 mt-0.5 relative z-10">Coach</span>
             </div>
-            <h2 className="text-2xl font-headline mb-2 text-foreground">
+            <h2 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight mb-2">
               Hello, {firstName}
             </h2>
             <p className="text-muted-foreground max-w-sm mb-8 whitespace-pre-line">
