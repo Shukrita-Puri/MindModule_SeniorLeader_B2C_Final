@@ -322,30 +322,32 @@ const Insights = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Floating Navigation - Matches Homepage */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/executive-home')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/coach')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ChatCircle size={20} weight="duotone" className="text-saffron" />
-        </Button>
-      </div>
+      {/* Header with Navigation - scrolls with content */}
+      <div className="relative">
+        <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/executive-home')}
+            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/coach')}
+            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
+          >
+            <ChatCircle size={20} weight="duotone" className="text-saffron" />
+          </Button>
+        </div>
 
-      {/* Page Header */}
-      <div className="pt-16 pb-4 px-4 max-w-4xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">Your Inner World</h1>
-        <p className="text-sm text-muted-foreground mt-1">Past 7 days</p>
+        {/* Page Header - centered */}
+        <div className="pb-4 px-4 max-w-4xl mx-auto text-center">
+          <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">Your Inner World</h1>
+          <p className="text-sm text-muted-foreground mt-1">Past 7 days</p>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">

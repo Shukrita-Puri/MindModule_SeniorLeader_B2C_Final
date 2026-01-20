@@ -50,6 +50,7 @@ const DailyRitual = () => {
   const { favorites, isFavorite } = useFavorites();
   const [recommendations, setRecommendations] = useState<ModuleRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentCheckInOutcome, setCurrentCheckInOutcome] = useState<string | null>(null);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
@@ -238,6 +239,9 @@ const DailyRitual = () => {
     try {
       // 1. Get energy state
       const energyState = await computeEnergyState(user?.id);
+      
+      // Store check-in outcome for UI (e.g., "After grounding" badge on scattered Coach cards)
+      setCurrentCheckInOutcome(energyState.checkInOutcome || null);
       
       // 2. Get theme from energy state
       const theme = getStrategicTheme(
@@ -574,10 +578,17 @@ const DailyRitual = () => {
                         )}
                       </div>
                       
-                      {/* Duration */}
-                      <span className="text-xs text-muted-foreground mt-1.5 font-body">
-                        {isCoach ? content.duration : (content as SanctuaryContent).duration} min
-                      </span>
+                      {/* Duration + "After grounding" indicator for scattered Coach cards */}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs text-muted-foreground font-body">
+                          {isCoach ? content.duration : (content as SanctuaryContent).duration} min
+                        </span>
+                        {isCoach && (currentCheckInOutcome === 'scattered' || currentCheckInOutcome === 'unfocused') && (
+                          <span className="text-[9px] text-muted-foreground/70 italic font-body">
+                            • After grounding
+                          </span>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Completed Check */}

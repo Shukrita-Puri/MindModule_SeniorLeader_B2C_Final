@@ -99,28 +99,27 @@ const RecalibrateMode = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Floating Navigation - Matches Homepage */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/executive-home')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/coach')}
-          className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
-        >
-          <ChatCircle size={20} weight="duotone" className="text-saffron" />
-        </Button>
-      </div>
-      
-      {/* Hero Banner - Architectural Style */}
-      <div className="relative h-auto py-16 pt-24 overflow-hidden">
+      {/* Hero Banner with Navigation */}
+      <div className="relative h-auto py-16 overflow-hidden">
+        {/* Navigation - scrolls with content */}
+        <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/executive-home')}
+            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/coach')}
+            className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
+          >
+            <ChatCircle size={20} weight="duotone" className="text-saffron" />
+          </Button>
+        </div>
         {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
         

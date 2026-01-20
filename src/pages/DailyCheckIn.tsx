@@ -155,9 +155,9 @@ const DailyCheckIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 pt-20 pb-32 bg-background">
-      {/* Floating Navigation - Matches Homepage */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Navigation - scrolls with content */}
+      <div className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3">
         <Button
           variant="ghost"
           size="icon"
@@ -175,6 +175,8 @@ const DailyCheckIn = () => {
           <ChatCircle size={20} weight="duotone" className="text-saffron" />
         </Button>
       </div>
+      
+      <div className="flex-1 flex items-center justify-center p-4 pb-32">
       
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Header */}
@@ -215,6 +217,7 @@ const DailyCheckIn = () => {
           })}
         </div>
 
+        </div>
       </div>
     </div>
   );
