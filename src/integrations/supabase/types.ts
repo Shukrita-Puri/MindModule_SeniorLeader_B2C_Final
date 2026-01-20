@@ -1857,6 +1857,56 @@ export type Database = {
           },
         ]
       }
+      user_coach_insights: {
+        Row: {
+          confidence_score: number | null
+          content_reference: string | null
+          created_at: string | null
+          extracted_at: string | null
+          id: string
+          insight_content: string
+          insight_type: string
+          is_active: boolean | null
+          source_session_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          content_reference?: string | null
+          created_at?: string | null
+          extracted_at?: string | null
+          id?: string
+          insight_content: string
+          insight_type: string
+          is_active?: boolean | null
+          source_session_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          content_reference?: string | null
+          created_at?: string | null
+          extracted_at?: string | null
+          id?: string
+          insight_content?: string
+          insight_type?: string
+          is_active?: boolean | null
+          source_session_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_coach_insights_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_engagements: {
         Row: {
           category: string | null
