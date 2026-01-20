@@ -71,7 +71,8 @@ const DailyRitual = () => {
     navigate('/coach', {
       state: {
         initialPrompt: card.prompt,
-        flowType: card.type
+        flowType: card.type,
+        eventTitle: card.eventTitle
       }
     });
   };

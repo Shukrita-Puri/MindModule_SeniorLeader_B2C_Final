@@ -88,6 +88,7 @@ export interface CoachCard {
   sortOrder: number;
   isCoachCard: true;
   prompt: string;
+  eventTitle?: string;
 }
 
 export interface ModuleRecommendation {

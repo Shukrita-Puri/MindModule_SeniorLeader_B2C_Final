@@ -330,7 +330,7 @@ const Insights = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-headline font-semibold">Your Inner World</h1>
+              <h1 className="text-2xl md:text-3xl font-headline italic">Your Inner World</h1>
               <p className="text-sm text-muted-foreground">Past 7 days</p>
             </div>
           </div>
@@ -354,7 +354,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Your Progress This Week</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Your Progress This Week</CardTitle>
               <InsightInfoModal 
                 title="Your Progress This Week"
                 explanation="Tracks your daily ritual completions over the past 7 days. Consistency helps build mental fitness habits that compound over time."
@@ -371,7 +371,7 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-headline text-muted-foreground">Streak</span>
+                <span className="text-base font-headline text-foreground/80">Streak</span>
                 <InsightInfoModal 
                   title="Check-in Streak"
                   explanation="The number of consecutive days you've completed your daily check-in. Longer streaks indicate consistent self-awareness practice."
@@ -385,7 +385,7 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-headline text-muted-foreground">Typical State</span>
+                <span className="text-base font-headline text-foreground/80">Typical State</span>
                 <InsightInfoModal 
                   title="Typical State"
                   explanation="The mental state you've checked in with most frequently over the past 7 days. This reveals your baseline energy pattern."
@@ -401,7 +401,7 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-headline text-muted-foreground">Practices</span>
+                <span className="text-base font-headline text-foreground/80">Practices</span>
                 <InsightInfoModal 
                   title="Practices Completed"
                   explanation="Total somatic and mindset practices you've finished this week. Regular practice builds your capacity for self-regulation."
@@ -417,7 +417,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Your State Patterns</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Your State Patterns</CardTitle>
               <InsightInfoModal 
                 title="Your State Patterns"
                 explanation="Shows the distribution of mental states you've reported in your daily check-ins this week. Recognizing patterns helps you understand your typical energy rhythms."
@@ -482,7 +482,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Theme Patterns</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Theme Patterns</CardTitle>
               <InsightInfoModal 
                 title="Theme Patterns"
                 explanation="The psychological frames generated for you based on your state, calendar load, and time of day. Repeated themes reveal what your system is asking for."
@@ -537,7 +537,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Your Mind Map</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Your Mind Map</CardTitle>
               <InsightInfoModal 
                 title="Your Mind Map"
                 explanation="A unified view of themes emerging from your coach conversations, practices, wins, and check-ins. Bubbles are sized by frequency. Lines show conceptually related themes."
@@ -563,7 +563,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Tiny Wins Patterns</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Tiny Wins Patterns</CardTitle>
               <InsightInfoModal 
                 title="Tiny Wins Patterns"
                 explanation="Themes extracted from the wins you've captured during evening Integrate sessions with your coach. These reveal what you're naturally doing well."
@@ -607,7 +607,7 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl font-headline">Energy Rhythm</CardTitle>
+              <CardTitle className="text-xl md:text-2xl font-headline italic">Energy Rhythm</CardTitle>
               <InsightInfoModal 
                 title="Energy Rhythm"
                 explanation="Visualizes when you typically check in and how you feel at different times of day. Helps identify your natural energy peaks and dips."
