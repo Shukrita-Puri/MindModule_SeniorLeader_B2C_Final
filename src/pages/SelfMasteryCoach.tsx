@@ -272,7 +272,7 @@ return (
       </div>
 
       {/* Error Display with Retry for Rate Limiting */}
-      {error && (
+      {(error || isRateLimited) && (
         <div className="px-4 py-3 bg-muted/80 border-t border-border">
           <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
