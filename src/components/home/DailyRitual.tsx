@@ -574,20 +574,15 @@ const DailyRitual = () => {
                           {isCoach ? content.title : (content as SanctuaryContent).title}
                         </h4>
                         {!isCoach && isFavorite(content.id) && (
-                          <Heart size={12} className="text-primary fill-primary flex-shrink-0 mt-1" />
+                          <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                         )}
                       </div>
                       
-                      {/* Duration + "After grounding" indicator for scattered Coach cards */}
+                      {/* Duration */}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-xs text-muted-foreground font-body">
                           {isCoach ? content.duration : (content as SanctuaryContent).duration} min
                         </span>
-                        {isCoach && (currentCheckInOutcome === 'scattered' || currentCheckInOutcome === 'unfocused') && (
-                          <span className="text-[9px] text-muted-foreground/70 italic font-body">
-                            • After grounding
-                          </span>
-                        )}
                       </div>
                     </div>
                     
