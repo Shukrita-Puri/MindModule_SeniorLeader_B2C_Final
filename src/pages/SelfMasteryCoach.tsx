@@ -177,6 +177,10 @@ const SelfMasteryCoach = () => {
   const handleQueueSkip = () => {
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
+    } else {
+      // Last practice - skip means exit without completing
+      localStorage.removeItem('practiceQueue');
+      navigate('/executive-home');
     }
   };
 
