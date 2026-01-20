@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain, MessageCircle, Target } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Activity, Calendar, Compass, Loader2, Sparkles, Brain, Target } from 'lucide-react';
 import { ChatCircle } from '@phosphor-icons/react';
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,8 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
-import SemanticBubbles from '@/components/insights/SemanticBubbles';
-import PracticeFocusBar from '@/components/insights/PracticeFocusBar';
+import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 
 interface DayData {
   date: string;
@@ -437,14 +436,14 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Practice Landscape - NEW SECTION */}
+        {/* Your Inner World - Unified Bubble Visualization */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Compass className="h-5 w-5 text-saffron" />
-              <CardTitle className="text-lg">Your Practice Landscape</CardTitle>
+              <CardTitle className="text-lg">Your Inner World</CardTitle>
             </div>
-            <CardDescription>What you've been working on</CardDescription>
+            <CardDescription>Themes emerging from your conversations and practices</CardDescription>
           </CardHeader>
           <CardContent>
             {semanticLoading ? (
@@ -452,50 +451,31 @@ const Insights = () => {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="space-y-6">
-                {/* Coach Conversation Themes */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Coach Conversations</span>
-                  </div>
-                  <SemanticBubbles
-                    items={semanticAnalysis?.coachThemes.map(t => ({
-                      label: t.keyword,
-                      count: t.count,
-                      weight: t.weight
-                    })) || []}
-                    colorScheme="warm"
-                    emptyMessage="Chat with your coach to see conversation themes."
-                  />
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border" />
-
-                {/* Practice Focus Distribution */}
-                <div className="space-y-3">
-                  <span className="text-sm font-medium">Practice Focus</span>
-                  <PracticeFocusBar data={semanticAnalysis?.practiceTypes || []} />
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border" />
-
-                {/* Content Themes */}
-                <div className="space-y-3">
-                  <span className="text-sm font-medium">Content Themes</span>
-                  <SemanticBubbles
-                    items={semanticAnalysis?.contentTags.map(t => ({
-                      label: t.tag,
-                      count: t.count,
-                      weight: t.weight
-                    })) || []}
-                    colorScheme="cool"
-                    emptyMessage="Complete practices to see content themes."
-                  />
-                </div>
-              </div>
+              <InnerWorldBubbles
+                items={[
+                  // Coach conversation themes
+                  ...(semanticAnalysis?.coachThemes.map(t => ({
+                    label: t.keyword,
+                    count: t.count,
+                    weight: t.weight,
+                    source: 'coach' as const
+                  })) || []),
+                  // Practice types
+                  ...(semanticAnalysis?.practiceTypes.map(p => ({
+                    label: p.type.charAt(0).toUpperCase() + p.type.slice(1),
+                    count: p.count,
+                    weight: p.percentage / 100,
+                    source: 'practice' as const
+                  })) || []),
+                  // Content tags
+                  ...(semanticAnalysis?.contentTags.map(t => ({
+                    label: t.tag,
+                    count: t.count,
+                    weight: t.weight,
+                    source: 'content' as const
+                  })) || [])
+                ]}
+              />
             )}
           </CardContent>
         </Card>
