@@ -68,17 +68,15 @@ const PracticeQueueProgress = ({
 
         {/* Action Buttons - refined styling */}
         <div className="flex gap-2">
-          {!isLastPractice && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSkip}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              <SkipForward className="w-3.5 h-3.5 mr-1.5" />
-              Skip
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSkip}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            <SkipForward className="w-3.5 h-3.5 mr-1.5" />
+            {isLastPractice ? 'Skip & Exit' : 'Skip'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
