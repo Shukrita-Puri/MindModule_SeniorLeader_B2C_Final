@@ -21,6 +21,7 @@ import JustInTimeIntervention from "@/components/home/JustInTimeIntervention";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
+import { getStrategicTheme } from "@/utils/energyStateScoring";
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
@@ -60,17 +61,20 @@ const ExecutiveHome = () => {
     return `Evening, ${firstName}`;
   };
   
-  // Get motivational subheadline based on energy tier
+  // Get subheadline aligned with Theme for Today
   const getSubheadline = () => {
     if (!energyState) return "Let's make today count.";
     
-    switch (energyState.energyTier) {
-      case 'depleted': return "Protect and restore today.";
-      case 'managing': return "One step at a time.";
-      case 'strong': return "Ready to perform.";
-      case 'peak': return "Time to execute.";
-      default: return "Let's make today count.";
-    }
+    // Use the same theme engine as Theme for Today for alignment
+    const theme = getStrategicTheme(
+      energyState.energyTier,
+      energyState.calendarLoad || 'low',
+      energyState.calendarPressure || 'low',
+      energyState.timeOfDay,
+      energyState.checkInOutcome
+    );
+    
+    return theme.phrase || "Let's make today count.";
   };
   
   // Get calming visual fallback based on energy state
