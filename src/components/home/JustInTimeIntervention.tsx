@@ -3,18 +3,20 @@
  * Shows targeted preparation when:
  * - High-stakes calendar event approaching (15-60 min)
  * - Wearable detects stress spike
- * - Known user patterns indicate need
+ * - 3+ consecutive days of same low-energy state
+ * - Evening + depleted for integrate flow
  * 
- * Only suggests MISSING modules based on completion tracking
+ * Includes Coach Prepare integration and favorites prioritization
  */
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Clock, X } from 'lucide-react';
+import { Clock, X, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useFavorites } from '@/hooks/useFavorites';
 import { getTodayRitual } from '@/utils/dailyRituals';
 import { supabase } from '@/integrations/supabase/client';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
@@ -35,12 +37,21 @@ interface UpcomingEvent {
   isHighStakes: boolean;
 }
 
+interface ConsecutiveState {
+  days: number;
+  state: string;
+}
+
 interface InterventionData {
-  trigger: 'calendar' | 'wearable' | 'pattern';
+  trigger: 'calendar' | 'wearable' | 'pattern' | 'consecutive-low' | 'evening-depleted';
   event?: UpcomingEvent;
   stressLevel?: 'elevated' | 'high';
-  modules: ('regulate' | 'align')[];
+  consecutiveState?: ConsecutiveState;
+  modules: ('regulate' | 'align' | 'prepare' | 'integrate')[];
   practices: Recommendation[];
+  coachPrompt?: string;
+  showCoachCard?: boolean;
+  hasFavorites?: boolean;
 }
 
 // High-stakes keywords for executive context
@@ -50,15 +61,34 @@ const HIGH_STAKES_KEYWORDS = [
   'meeting', 'call', 'client', 'stakeholder', 'executive', 'ceo', 'cfo'
 ];
 
+const LOW_ENERGY_STATES = ['overwhelmed', 'drained', 'scattered'];
+
 const isHighStakesEvent = (title: string): boolean => {
   const lower = title.toLowerCase();
   return HIGH_STAKES_KEYWORDS.some(kw => lower.includes(kw));
+};
+
+const getCoachPromptForIntervention = (intervention: InterventionData): string => {
+  if (intervention.trigger === 'calendar' && intervention.event) {
+    return `You have "${intervention.event.title}" in ${intervention.event.minutesUntil} minutes. Let's take a moment to mentally prepare. What outcome would make this a success for you?`;
+  }
+  if (intervention.trigger === 'pattern') {
+    return `I notice you may be feeling some anticipation about what's ahead. Let's ground into your intention. What's the one thing you want to bring to this moment?`;
+  }
+  if (intervention.trigger === 'consecutive-low' && intervention.consecutiveState) {
+    return `You've been feeling ${intervention.consecutiveState.state} for ${intervention.consecutiveState.days} days now. This pattern often signals something deeper. What's been weighing on you?`;
+  }
+  if (intervention.trigger === 'evening-depleted') {
+    return `Let's close out today gently. Take a breath. What's one small thing you did right today?`;
+  }
+  return `Let's take a moment to center before what's ahead. What's on your mind?`;
 };
 
 const JustInTimeIntervention = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { events: calendarEvents, hasCalendar } = useCalendarSync();
+  const { favorites, isFavorite } = useFavorites();
   
   const [intervention, setIntervention] = useState<InterventionData | null>(null);
   const [moduleStatus, setModuleStatus] = useState<ModuleStatus>({
@@ -80,7 +110,7 @@ const JustInTimeIntervention = () => {
     if (!loading) {
       detectIntervention();
     }
-  }, [calendarEvents, moduleStatus, loading]);
+  }, [calendarEvents, moduleStatus, loading, favorites]);
 
   const loadModuleStatus = async () => {
     if (!user?.id) {
@@ -115,7 +145,7 @@ const JustInTimeIntervention = () => {
     }
   };
 
-  const checkWearableStress = async () => {
+  const checkWearableStress = async (): Promise<'elevated' | 'high' | null> => {
     if (!user?.id) return null;
     
     try {
@@ -142,6 +172,44 @@ const JustInTimeIntervention = () => {
     }
   };
 
+  const checkConsecutiveLowState = async (): Promise<ConsecutiveState | null> => {
+    if (!user?.id) return null;
+
+    try {
+      const { data } = await supabase
+        .from('daily_checkins')
+        .select('outcome, checkin_date')
+        .eq('user_id', user.id)
+        .order('checkin_date', { ascending: false })
+        .limit(7);
+
+      if (!data?.length) return null;
+
+      const firstState = data[0].outcome;
+      if (!LOW_ENERGY_STATES.includes(firstState)) return null;
+
+      let consecutiveDays = 1;
+      for (let i = 1; i < data.length; i++) {
+        if (data[i].outcome === firstState) {
+          consecutiveDays++;
+        } else {
+          break;
+        }
+      }
+
+      return consecutiveDays >= 3
+        ? { days: consecutiveDays, state: firstState }
+        : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const isEvening = (): boolean => {
+    const hour = new Date().getHours();
+    return hour >= 17; // After 5 PM
+  };
+
   const detectIntervention = async () => {
     const now = new Date();
     
@@ -165,40 +233,106 @@ const JustInTimeIntervention = () => {
       const event = upcomingHighStakes[0];
       const missingModules = getMissingModules();
       
-      if (missingModules.length > 0) {
+      if (missingModules.length > 0 || !moduleStatus.prepare) {
         // Get quick practices for missing modules
         const practices = await getQuickPractices(missingModules);
+        const hasFavs = practices.some(p => isFavorite(p.id));
         
-        setIntervention({
+        // Include prepare (coach) for high-stakes events
+        const modules: ('regulate' | 'align' | 'prepare')[] = [
+          ...missingModules.slice(0, 2) as ('regulate' | 'align')[],
+          'prepare'
+        ];
+        
+        const interventionData: InterventionData = {
           trigger: 'calendar',
           event,
-          modules: missingModules.slice(0, 2) as ('regulate' | 'align')[],
-          practices
-        });
+          modules,
+          practices,
+          showCoachCard: true,
+          hasFavorites: hasFavs
+        };
+        interventionData.coachPrompt = getCoachPromptForIntervention(interventionData);
+        
+        setIntervention(interventionData);
         return;
       }
     }
     
-    // 2. Check wearable stress
+    // 2. Check wearable stress (no coach - immediate relief needed)
     const stressLevel = await checkWearableStress();
     if (stressLevel && !moduleStatus.regulate) {
       const practices = await getQuickPractices(['regulate']);
+      const hasFavs = practices.some(p => isFavorite(p.id));
       
       setIntervention({
         trigger: 'wearable',
-        stressLevel: stressLevel as 'elevated' | 'high',
+        stressLevel,
         modules: ['regulate'],
-        practices
+        practices,
+        showCoachCard: false,
+        hasFavorites: hasFavs
       });
       return;
+    }
+    
+    // 3. Check for 3+ consecutive days of same low state
+    const consecutiveState = await checkConsecutiveLowState();
+    if (consecutiveState && !isEvening()) {
+      const missingModules = getMissingModules();
+      const practices = await getQuickPractices(missingModules);
+      const hasFavs = practices.some(p => isFavorite(p.id));
+      
+      const modules: ('regulate' | 'align' | 'prepare')[] = [
+        ...missingModules.slice(0, 2) as ('regulate' | 'align')[],
+        'prepare'
+      ];
+      
+      const interventionData: InterventionData = {
+        trigger: 'consecutive-low',
+        consecutiveState,
+        modules,
+        practices,
+        showCoachCard: true,
+        hasFavorites: hasFavs
+      };
+      interventionData.coachPrompt = getCoachPromptForIntervention(interventionData);
+      
+      setIntervention(interventionData);
+      return;
+    }
+    
+    // 4. Evening + depleted → Integrate flow
+    if (isEvening() && !moduleStatus.integrate) {
+      // Check today's check-in for depleted state
+      const { data: todayCheckin } = await supabase
+        .from('daily_checkins')
+        .select('outcome')
+        .eq('user_id', user?.id)
+        .gte('checkin_date', new Date().toISOString().split('T')[0])
+        .maybeSingle();
+      
+      if (todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome)) {
+        const interventionData: InterventionData = {
+          trigger: 'evening-depleted',
+          modules: ['integrate'],
+          practices: [],
+          showCoachCard: true,
+          hasFavorites: false
+        };
+        interventionData.coachPrompt = getCoachPromptForIntervention(interventionData);
+        
+        setIntervention(interventionData);
+        return;
+      }
     }
     
     // No intervention needed
     setIntervention(null);
   };
 
-  const getMissingModules = (): string[] => {
-    const missing: string[] = [];
+  const getMissingModules = (): ('regulate' | 'align')[] => {
+    const missing: ('regulate' | 'align')[] = [];
     if (!moduleStatus.regulate) missing.push('regulate');
     if (!moduleStatus.align) missing.push('align');
     return missing;
@@ -210,7 +344,7 @@ const JustInTimeIntervention = () => {
       const recs = await generateRecommendations(energyState);
       
       // Filter for quick practices (< 3 min) matching the needed modules
-      return recs.practices
+      let filtered = recs.practices
         .filter(p => {
           if (modules.includes('regulate')) {
             if (p.contentType === 'soundbath' || 
@@ -224,14 +358,48 @@ const JustInTimeIntervention = () => {
             }
           }
           return false;
-        })
-        .slice(0, 2);
+        });
+      
+      // Sort favorites first
+      filtered.sort((a, b) => {
+        const aFav = isFavorite(a.id) ? 1 : 0;
+        const bFav = isFavorite(b.id) ? 1 : 0;
+        return bFav - aFav;
+      });
+      
+      return filtered.slice(0, 2);
     } catch {
       return [];
     }
   };
 
   const handleStartReset = () => {
+    // If only coach module (evening integrate), go directly to coach
+    if (intervention?.modules.length === 1 && intervention.modules[0] === 'integrate') {
+      navigate('/coach', {
+        state: {
+          flowType: 'integrate',
+          initialPrompt: intervention.coachPrompt,
+          fromIntervention: true
+        }
+      });
+      return;
+    }
+    
+    // If no practices but has coach, go to coach
+    if (!intervention?.practices.length && intervention?.showCoachCard) {
+      navigate('/coach', {
+        state: {
+          flowType: 'prepare',
+          initialPrompt: intervention.coachPrompt,
+          fromIntervention: true,
+          eventTitle: intervention.event?.title
+        }
+      });
+      return;
+    }
+    
+    // Start with first practice
     if (!intervention?.practices.length) return;
     
     const practice = intervention.practices[0];
@@ -248,7 +416,9 @@ const JustInTimeIntervention = () => {
     navigate(route, { 
       state: { 
         category: practice.category,
-        fromIntervention: true 
+        fromIntervention: true,
+        nextModules: intervention.modules.slice(1),
+        coachPrompt: intervention.coachPrompt
       } 
     });
   };
@@ -281,7 +451,23 @@ const JustInTimeIntervention = () => {
         ? 'Your nervous system is elevated'
         : 'Stress indicators detected';
     }
+    if (intervention.trigger === 'consecutive-low' && intervention.consecutiveState) {
+      return `Day ${intervention.consecutiveState.days} feeling ${intervention.consecutiveState.state}`;
+    }
+    if (intervention.trigger === 'evening-depleted') {
+      return 'Time to close out today';
+    }
     return 'Time for a quick reset';
+  };
+
+  const getModuleLabel = (module: string): string => {
+    switch (module) {
+      case 'regulate': return 'Regulate';
+      case 'align': return 'Align';
+      case 'prepare': return 'Prepare';
+      case 'integrate': return 'Integrate';
+      default: return module;
+    }
   };
 
   return (
@@ -321,27 +507,69 @@ const JustInTimeIntervention = () => {
             </p>
           )}
           
+          {intervention.trigger === 'consecutive-low' && (
+            <p className="text-xs text-muted-foreground">
+              This pattern often signals something deeper. Let's address it together.
+            </p>
+          )}
+          
+          {intervention.trigger === 'evening-depleted' && (
+            <p className="text-xs text-muted-foreground">
+              A gentle close to reset for tomorrow
+            </p>
+          )}
+          
+          {/* Personalization note */}
+          {intervention.hasFavorites && (
+            <p className="text-xs text-saffron/80 flex items-center gap-1">
+              <Star size={10} className="fill-saffron text-saffron" />
+              Based on what works for you
+            </p>
+          )}
+          
           {/* Recommended modules */}
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Let's do:</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
+              {/* Practice modules */}
               {intervention.practices.map((practice, i) => (
                 <div 
                   key={practice.id}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-saffron/10 border border-saffron/20"
                 >
                   <span className="text-xs font-medium uppercase text-saffron">
-                    {intervention.modules[i] === 'regulate' ? 'Regulate' : 'Align'}
+                    {getModuleLabel(intervention.modules[i])}
                   </span>
                   <span className="text-xs text-muted-foreground">—</span>
-                  <span className="text-xs text-foreground truncate max-w-[120px]">
+                  <span className="text-xs text-foreground truncate flex-1">
                     {practice.title}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    ({practice.duration} min)
+                  {isFavorite(practice.id) && (
+                    <Star size={12} className="fill-saffron text-saffron flex-shrink-0" />
+                  )}
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    ({practice.duration}m)
                   </span>
                 </div>
               ))}
+              
+              {/* Coach card for prepare/integrate */}
+              {intervention.showCoachCard && (
+                <div 
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-saffron/15 to-taupe/15 border border-saffron/30"
+                >
+                  <span className="text-xs font-medium uppercase text-saffron">
+                    {intervention.modules.includes('integrate') ? 'Integrate' : 'Prepare'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-foreground">
+                    {intervention.modules.includes('integrate') ? 'Evening Closure' : 'Mental Rehearsal'}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    (Coach)
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           
