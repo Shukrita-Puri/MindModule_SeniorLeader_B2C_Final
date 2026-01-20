@@ -1,9 +1,22 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Compass, CalendarCheck } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
-import { cn } from '@/lib/utils';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
+
+interface Activity {
+  id: string;
+  type: 'coach' | 'recalibrate' | 'checkin';
+  title: string;
+  date: Date;
+  sessionId?: string;
+}
+
+interface ActivityGroup {
+  label: string;
+  items: Activity[];
+}
 
 const RecentActivity = () => {
   const navigate = useNavigate();
@@ -11,11 +24,31 @@ const RecentActivity = () => {
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
-  const formatDate = (date: Date) => {
+  const formatDateLabel = (date: Date): string => {
     if (isToday(date)) return 'Today';
     if (isYesterday(date)) return 'Yesterday';
+    if (isThisWeek(date)) return format(date, 'EEEE'); // Day name
     return format(date, 'MMM d');
   };
+
+  // Group activities by date (ChatGPT-style)
+  const groupedActivities = useMemo<ActivityGroup[]>(() => {
+    if (!activities || activities.length === 0) return [];
+    
+    const groups: ActivityGroup[] = [];
+    let currentLabel = '';
+    
+    activities.forEach(activity => {
+      const label = formatDateLabel(activity.date);
+      if (label !== currentLabel) {
+        groups.push({ label, items: [] });
+        currentLabel = label;
+      }
+      groups[groups.length - 1].items.push(activity);
+    });
+    
+    return groups;
+  }, [activities]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -58,33 +91,38 @@ const RecentActivity = () => {
 
   return (
     <SidebarMenu>
-      {activities.map((activity) => {
-        const Icon = getIcon(activity.type);
-        return (
-          <SidebarMenuItem key={activity.id}>
-            <SidebarMenuButton
-              onClick={() => {
-                if (activity.type === 'coach' && activity.sessionId) {
-                  navigate('/coach');
-                } else if (activity.type === 'recalibrate') {
-                  navigate('/recalibrate');
-                } else if (activity.type === 'checkin') {
-                  navigate('/daily-check-in');
-                }
-              }}
-              className="h-auto py-2"
-            >
-              <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs truncate">{activity.title}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {formatDate(activity.date)}
-                </p>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      })}
+      {groupedActivities.map((group) => (
+        <div key={group.label}>
+          {/* Date group header */}
+          <p className="text-[10px] text-muted-foreground/60 px-2 py-1.5 uppercase tracking-wide font-medium">
+            {group.label}
+          </p>
+          
+          {/* Activities in this group */}
+          {group.items.map((activity) => {
+            const Icon = getIcon(activity.type);
+            return (
+              <SidebarMenuItem key={activity.id}>
+                <SidebarMenuButton
+                  onClick={() => {
+                    if (activity.type === 'coach' && activity.sessionId) {
+                      navigate('/coach');
+                    } else if (activity.type === 'recalibrate') {
+                      navigate('/recalibrate');
+                    } else if (activity.type === 'checkin') {
+                      navigate('/daily-check-in');
+                    }
+                  }}
+                  className="h-auto py-1.5"
+                >
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs truncate flex-1">{activity.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </div>
+      ))}
     </SidebarMenu>
   );
 };
