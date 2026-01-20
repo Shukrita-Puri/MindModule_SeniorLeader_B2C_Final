@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `You are a world-class executive coach specializing in self-mastery, emotional intelligence, and leadership development. Your name is simply "Coach."
+const BASE_SYSTEM_PROMPT = `You are a world-class executive coach specializing in self-mastery, emotional intelligence, and leadership development. Your name is simply "Coach."
 
 Core Principles:
 - You help high-performers develop mental fitness, resilience, and peak performance
@@ -33,6 +33,116 @@ Topics you excel at:
 - Difficult conversations and conflict resolution
 
 Remember: You're not here to give advice or fix problems. You're here to help the person discover their own wisdom and develop their capacity for self-mastery.`;
+
+// Build dynamic system prompt with user context
+interface CoachContext {
+  todayState?: {
+    score: number;
+    tier: string;
+    outcome?: string;
+    contextStatement?: string;
+  };
+  theme?: {
+    phrase: string;
+    context: string;
+    driver?: string;
+  };
+  jitContext?: {
+    trigger: string;
+    eventTitle?: string;
+    minutesUntil?: number;
+  };
+  consecutivePattern?: {
+    days: number;
+    state: string;
+  };
+  userArchetype?: string;
+  identityRole?: string;
+  planStatus?: {
+    completedModules: string[];
+    pendingModules: string[];
+  };
+  timeOfDay?: string;
+  recentPractices?: string[];
+  // Guided practice mode
+  practiceSteps?: Array<{
+    title: string;
+    instruction: string;
+    duration?: number;
+  }>;
+  practiceTitle?: string;
+}
+
+const buildSystemPrompt = (context?: CoachContext, flowType?: string): string => {
+  let prompt = BASE_SYSTEM_PROMPT;
+  
+  // Add guided practice mode instructions
+  if (flowType === 'guided-reflection' && context?.practiceSteps && context?.practiceTitle) {
+    prompt += `\n\n=== GUIDED PRACTICE MODE ===
+You are guiding the user through a "${context.practiceTitle}" practice.
+
+Steps to guide them through:
+${context.practiceSteps.map((step, i) => `${i + 1}. ${step.title}: ${step.instruction}`).join('\n')}
+
+Instructions:
+- Walk them through each step conversationally
+- After each step, acknowledge their response warmly and transition naturally to the next step
+- Don't rush - let them process each reflection
+- Capture any "tiny wins" or realizations they share
+- At the end, summarize the key insight from their reflection`;
+    return prompt;
+  }
+  
+  // Add user context if available
+  if (context) {
+    const contextLines: string[] = ['\n\n=== USER CONTEXT ==='];
+    
+    // Today's state
+    if (context.todayState) {
+      const stateLabel = context.todayState.outcome || context.todayState.tier;
+      contextLines.push(`Current State: ${stateLabel} (energy score: ${context.todayState.score}/100)`);
+    }
+    
+    // Theme for today
+    if (context.theme) {
+      contextLines.push(`Theme for Today: "${context.theme.phrase}"`);
+      contextLines.push(`Theme Context: ${context.theme.context}`);
+    }
+    
+    // Upcoming event (JIT)
+    if (context.jitContext?.eventTitle) {
+      contextLines.push(`Upcoming Event: "${context.jitContext.eventTitle}" in ${context.jitContext.minutesUntil || '?'} minutes`);
+    }
+    
+    // Consecutive pattern
+    if (context.consecutivePattern) {
+      contextLines.push(`Pattern Alert: Day ${context.consecutivePattern.days} of feeling ${context.consecutivePattern.state}`);
+    }
+    
+    // User archetype
+    if (context.userArchetype) {
+      contextLines.push(`Executive Archetype: ${context.userArchetype}`);
+    }
+    
+    // Time of day
+    if (context.timeOfDay) {
+      contextLines.push(`Time of Day: ${context.timeOfDay}`);
+    }
+    
+    // Add guidance
+    contextLines.push('');
+    contextLines.push('=== PERSONALIZATION GUIDANCE ===');
+    contextLines.push('Use this context to personalize your responses:');
+    contextLines.push('- Reference the theme or state when relevant');
+    contextLines.push('- If they have an upcoming event, help them prepare specifically for it');
+    contextLines.push("- If they've been in a low state for multiple days, acknowledge this pattern gently");
+    contextLines.push('- Match your energy to their state - calmer for overwhelmed, more energizing for drained');
+    
+    prompt += contextLines.join('\n');
+  }
+  
+  return prompt;
+};
 
 // Patterns to detect Tiny Wins in user messages
 const WIN_PATTERNS = [
@@ -79,7 +189,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, flowType, sessionId, userId } = await req.json();
+    const { messages, flowType, sessionId, userId, context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -87,7 +197,7 @@ serve(async (req) => {
     }
 
     // If this is an integrate flow, check for Tiny Wins in the latest user message
-    if (flowType === 'integrate' && userId && messages.length > 0) {
+    if ((flowType === 'integrate' || flowType === 'guided-reflection') && userId && messages.length > 0) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       
@@ -101,6 +211,9 @@ serve(async (req) => {
       }
     }
 
+    // Build dynamic system prompt with context
+    const systemPrompt = buildSystemPrompt(context as CoachContext, flowType);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -110,7 +223,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
         stream: true,

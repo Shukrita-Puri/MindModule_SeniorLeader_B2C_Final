@@ -7,9 +7,19 @@ import { useCoachConversation } from '@/hooks/useCoachConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
+interface PracticeStep {
+  title: string;
+  instruction: string;
+  duration?: number;
+}
+
 interface LocationState {
   initialPrompt?: string;
-  flowType?: 'prepare' | 'integrate';
+  flowType?: 'prepare' | 'integrate' | 'guided-reflection';
+  practiceTitle?: string;
+  practiceSteps?: PracticeStep[];
+  fromIntervention?: boolean;
+  eventTitle?: string;
 }
 
 const SelfMasteryCoach = () => {
@@ -17,7 +27,16 @@ const SelfMasteryCoach = () => {
   const location = useLocation();
   const locationState = location.state as LocationState | null;
   const { user } = useAuth();
-  const { messages, isLoading, error, sendMessage, clearConversation, endSession, setFlowType } = useCoachConversation();
+  const { 
+    messages, 
+    isLoading, 
+    error, 
+    sendMessage, 
+    clearConversation, 
+    endSession, 
+    setFlowType,
+    setPracticeContext 
+  } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,19 +45,25 @@ const SelfMasteryCoach = () => {
   const firstName = user?.name?.split(' ')[0] || 'there';
   const flowType = locationState?.flowType;
   const initialPrompt = locationState?.initialPrompt;
+  const practiceTitle = locationState?.practiceTitle;
+  const practiceSteps = locationState?.practiceSteps;
   
-  // Set flow type for Tiny Win detection
+  // Set flow type and practice context
   useEffect(() => {
     if (flowType) {
       setFlowType(flowType);
     }
+    if (flowType === 'guided-reflection' && practiceTitle && practiceSteps) {
+      setPracticeContext(practiceTitle, practiceSteps);
+    }
     return () => setFlowType(null);
-  }, [flowType, setFlowType]);
+  }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext]);
   
   // Get subtitle based on flow type
   const getSubtitle = () => {
     if (flowType === 'prepare') return 'Pre-performance preparation';
     if (flowType === 'integrate') return 'Evening reflection';
+    if (flowType === 'guided-reflection' && practiceTitle) return practiceTitle;
     return 'Your personal executive coach';
   };
 
@@ -124,22 +149,43 @@ const SelfMasteryCoach = () => {
               Hello, {firstName}
             </h2>
             <p className="text-muted-foreground max-w-sm mb-8">
-              I'm your self-mastery coach. Share what's on your mind, and let's explore it together.
+              {flowType === 'guided-reflection' && practiceTitle
+                ? `Let's walk through ${practiceTitle} together.`
+                : "I'm your self-mastery coach. Share what's on your mind, and let's explore it together."
+              }
             </p>
             <div className="grid gap-2 w-full max-w-sm">
-              {[
-                "I'm feeling overwhelmed with my workload",
-                "How can I be more present in meetings?",
-                "I'm struggling with a difficult conversation",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendMessage(prompt)}
-                  className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
-                >
-                  {prompt}
-                </button>
-              ))}
+              {flowType === 'guided-reflection' ? (
+                // Guided practice prompts
+                [
+                  "I'm ready to begin the reflection",
+                  "Let's start with reviewing my day",
+                  "Guide me through each step",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => sendMessage(prompt)}
+                    className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
+                  >
+                    {prompt}
+                  </button>
+                ))
+              ) : (
+                // Standard coach prompts
+                [
+                  "I'm feeling overwhelmed with my workload",
+                  "How can I be more present in meetings?",
+                  "I'm struggling with a difficult conversation",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => sendMessage(prompt)}
+                    className="text-left px-4 py-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-sm text-foreground"
+                  >
+                    {prompt}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         ) : (
