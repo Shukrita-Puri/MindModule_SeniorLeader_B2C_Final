@@ -143,31 +143,23 @@ const StrategicIntentionCard = () => {
     return null;
   };
 
-  if (isLoading || !energyState) {
-    return (
-      <div className="animate-pulse p-5 md:p-6">
-        <div className="h-4 bg-muted/50 rounded w-24 mb-3" />
-        <div className="h-6 bg-muted/50 rounded w-48 mb-2" />
-        <div className="h-4 bg-muted/50 rounded w-full" />
-      </div>
-    );
-  }
-
-  const theme = getStrategicTheme(
-    energyState.energyTier,
-    energyState.calendarLoad,
-    energyState.calendarPressure,
-    energyState.timeOfDay,
-    energyState.checkInOutcome,
-    userProfile?.user_archetype || undefined
-  );
-
-  const patternInsight = getConsecutivePatternInsight(energyState.checkInOutcome);
-
   // Save theme to database for Insights tracking (once per day)
+  // IMPORTANT: This hook must be called unconditionally (before any early returns)
   useEffect(() => {
     const saveThemeToDb = async () => {
-      if (!user?.id || !theme.phrase) return;
+      // Guard inside effect instead of conditional hook call
+      if (!user?.id || isLoading || !energyState) return;
+      
+      const theme = getStrategicTheme(
+        energyState.energyTier,
+        energyState.calendarLoad,
+        energyState.calendarPressure,
+        energyState.timeOfDay,
+        energyState.checkInOutcome,
+        userProfile?.user_archetype || undefined
+      );
+      
+      if (!theme.phrase) return;
       
       const today = format(new Date(), 'yyyy-MM-dd');
       const themeKey = `${today}-${theme.phrase}`;
@@ -195,7 +187,28 @@ const StrategicIntentionCard = () => {
     };
     
     saveThemeToDb();
-  }, [user?.id, theme.phrase, energyState]);
+  }, [user?.id, isLoading, energyState, userProfile?.user_archetype]);
+
+  if (isLoading || !energyState) {
+    return (
+      <div className="animate-pulse p-5 md:p-6">
+        <div className="h-4 bg-muted/50 rounded w-24 mb-3" />
+        <div className="h-6 bg-muted/50 rounded w-48 mb-2" />
+        <div className="h-4 bg-muted/50 rounded w-full" />
+      </div>
+    );
+  }
+
+  const theme = getStrategicTheme(
+    energyState.energyTier,
+    energyState.calendarLoad,
+    energyState.calendarPressure,
+    energyState.timeOfDay,
+    energyState.checkInOutcome,
+    userProfile?.user_archetype || undefined
+  );
+
+  const patternInsight = getConsecutivePatternInsight(energyState.checkInOutcome);
 
   // Build enhanced context with pattern insight if applicable
   const getEnhancedContext = (): string => {
