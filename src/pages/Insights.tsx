@@ -322,31 +322,30 @@ const Insights = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/executive-home')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-headline italic">Your Inner World</h1>
-              <p className="text-sm text-muted-foreground">Past 7 days</p>
-            </div>
-          </div>
-          
-          {/* Coach Button */}
-          <UITooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate('/coach')}>
-                <ChatCircle size={20} weight="duotone" className="icon-duotone-luxury text-saffron" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Self Mastery Coach</p>
-            </TooltipContent>
-          </UITooltip>
-        </div>
+      {/* Floating Navigation - Matches Homepage */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-4 py-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/executive-home')}
+          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/coach')}
+          className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg"
+        >
+          <ChatCircle size={20} weight="duotone" className="text-saffron" />
+        </Button>
+      </div>
+
+      {/* Page Header */}
+      <div className="pt-16 pb-4 px-4 max-w-4xl mx-auto">
+        <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Inner World</p>
+        <p className="text-sm text-muted-foreground mt-1">Past 7 days</p>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -354,8 +353,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Your Progress This Week</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Progress This Week</p>
+              <InsightInfoModal
                 title="Your Progress This Week"
                 explanation="Tracks your daily ritual completions over the past 7 days. Consistency helps build mental fitness habits that compound over time."
               />
@@ -417,8 +416,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Your State Patterns</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your State Patterns</p>
+              <InsightInfoModal
                 title="Your State Patterns"
                 explanation="Shows the distribution of mental states you've reported in your daily check-ins this week. Recognizing patterns helps you understand your typical energy rhythms."
               />
@@ -482,8 +481,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Theme Patterns</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Theme Patterns</p>
+              <InsightInfoModal
                 title="Theme Patterns"
                 explanation="The psychological frames generated for you based on your state, calendar load, and time of day. Repeated themes reveal what your system is asking for."
               />
@@ -537,8 +536,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Your Mind Map</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Mind Map</p>
+              <InsightInfoModal
                 title="Your Mind Map"
                 explanation="A unified view of themes emerging from your coach conversations, practices, wins, and check-ins. Bubbles are sized by frequency. Lines show conceptually related themes."
               />
@@ -563,8 +562,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Tiny Wins Patterns</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Tiny Wins Patterns</p>
+              <InsightInfoModal
                 title="Tiny Wins Patterns"
                 explanation="Themes extracted from the wins you've captured during evening Integrate sessions with your coach. These reveal what you're naturally doing well."
               />
@@ -607,8 +606,8 @@ const Insights = () => {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-xl md:text-2xl font-headline italic">Energy Rhythm</CardTitle>
-              <InsightInfoModal 
+              <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Energy Rhythm</p>
+              <InsightInfoModal
                 title="Energy Rhythm"
                 explanation="Visualizes when you typically check in and how you feel at different times of day. Helps identify your natural energy peaks and dips."
               />
