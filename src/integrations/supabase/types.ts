@@ -451,6 +451,45 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_themes: {
+        Row: {
+          calendar_load: string | null
+          calendar_pressure: string | null
+          check_in_outcome: string | null
+          created_at: string | null
+          id: string
+          theme_date: string
+          theme_driver: string | null
+          theme_phrase: string
+          time_of_day: string | null
+          user_id: string
+        }
+        Insert: {
+          calendar_load?: string | null
+          calendar_pressure?: string | null
+          check_in_outcome?: string | null
+          created_at?: string | null
+          id?: string
+          theme_date: string
+          theme_driver?: string | null
+          theme_phrase: string
+          time_of_day?: string | null
+          user_id: string
+        }
+        Update: {
+          calendar_load?: string | null
+          calendar_pressure?: string | null
+          check_in_outcome?: string | null
+          created_at?: string | null
+          id?: string
+          theme_date?: string
+          theme_driver?: string | null
+          theme_phrase?: string
+          time_of_day?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       detected_signals: {
         Row: {
           coaching_readiness: Json | null

@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Clock, X, Star } from 'lucide-react';
+import { Clock, X, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
@@ -530,8 +530,8 @@ const JustInTimeIntervention = () => {
           
           {/* Personalization note */}
           {intervention.hasFavorites && (
-            <p className="text-xs text-saffron/80 flex items-center gap-1">
-              <Star size={10} className="fill-saffron text-saffron" />
+            <p className="text-xs text-primary/80 flex items-center gap-1">
+              <Heart size={10} className="fill-primary text-primary" />
               Based on what works for you
             </p>
           )}
@@ -554,7 +554,7 @@ const JustInTimeIntervention = () => {
                     {practice.title}
                   </span>
                   {isFavorite(practice.id) && (
-                    <Star size={12} className="fill-saffron text-saffron flex-shrink-0" />
+                    <Heart size={12} className="fill-primary text-primary flex-shrink-0" />
                   )}
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     ({practice.duration}m)

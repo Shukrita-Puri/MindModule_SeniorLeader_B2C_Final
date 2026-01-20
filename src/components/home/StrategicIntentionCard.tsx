@@ -3,8 +3,10 @@
  * Displays ONE psychological frame for the entire day
  * Enhanced with: Why (mechanism) + Stakes + Unlock (archetype-aware)
  * Not interactive - pure framing instruction
+ * Now saves daily theme to database for Insights tracking
  */
 
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState, CurrentEnergyState } from '@/utils/energyStateEngine';
@@ -40,6 +42,7 @@ const getThemeDataSources = (energyState: CurrentEnergyState): string => {
 
 const StrategicIntentionCard = () => {
   const { user } = useAuth();
+  const themeSavedRef = useRef<string | null>(null);
 
   const { data: energyState, isLoading } = useQuery({
     queryKey: ['energy-state', user?.id],
@@ -160,6 +163,39 @@ const StrategicIntentionCard = () => {
   );
 
   const patternInsight = getConsecutivePatternInsight(energyState.checkInOutcome);
+
+  // Save theme to database for Insights tracking (once per day)
+  useEffect(() => {
+    const saveThemeToDb = async () => {
+      if (!user?.id || !theme.phrase) return;
+      
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const themeKey = `${today}-${theme.phrase}`;
+      
+      // Only save once per theme per day
+      if (themeSavedRef.current === themeKey) return;
+      
+      try {
+        await supabase.from('daily_themes').upsert({
+          user_id: user.id,
+          theme_date: today,
+          theme_phrase: theme.phrase,
+          theme_driver: theme.driver || 'state',
+          check_in_outcome: energyState.checkInOutcome || null,
+          calendar_pressure: energyState.calendarPressure || null,
+          calendar_load: energyState.calendarLoad || null,
+          time_of_day: energyState.timeOfDay || null
+        }, {
+          onConflict: 'user_id,theme_date'
+        });
+        themeSavedRef.current = themeKey;
+      } catch (error) {
+        console.error('Error saving theme:', error);
+      }
+    };
+    
+    saveThemeToDb();
+  }, [user?.id, theme.phrase, energyState]);
 
   // Build enhanced context with pattern insight if applicable
   const getEnhancedContext = (): string => {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Play, Star } from 'lucide-react';
+import { Check, RotateCcw, Play, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
@@ -601,7 +601,7 @@ const DailyRitual = () => {
                           {practice.title}
                         </h4>
                         {isFavorite(practice.id) && (
-                          <Star size={12} className="text-saffron fill-saffron flex-shrink-0 mt-1" />
+                          <Heart size={12} className="text-primary fill-primary flex-shrink-0 mt-1" />
                         )}
                       </div>
                       
