@@ -67,13 +67,27 @@ const SelfMasteryCoach = () => {
     return 'Your personal executive coach';
   };
 
-  // Send initial prompt when entering from Performance Plan
-  useEffect(() => {
-    if (initialPrompt && !hasInitialized && messages.length === 0) {
-      setHasInitialized(true);
-      sendMessage(initialPrompt);
+  // Get contextual AI greeting based on flow type (instead of auto-sending as user)
+  const getContextualGreeting = (flow: string, eventTitle?: string): string => {
+    if (flow === 'prepare') {
+      if (eventTitle) {
+        return `I see you have "${eventTitle}" coming up. Let's get you ready.\n\nWhat would be most helpful right now - a quick grounding moment, some mental rehearsal, or just talking through what's on your mind?`;
+      }
+      return `Ready to prepare for what's ahead.\n\nWhat would be most helpful - grounding, mental rehearsal, or talking through your approach?`;
     }
-  }, [initialPrompt, hasInitialized, messages.length, sendMessage]);
+    if (flow === 'integrate') {
+      return `Let's close out the day together. Take a breath.\n\nWhen you're ready, share one thing you did right today - it doesn't have to be big.`;
+    }
+    return `What's on your mind?`;
+  };
+
+  // Add AI greeting when entering from Performance Plan (instead of sending as user message)
+  useEffect(() => {
+    if (flowType && !hasInitialized && messages.length === 0) {
+      setHasInitialized(true);
+      // Don't send as user - this will be shown as the empty state greeting
+    }
+  }, [flowType, hasInitialized, messages.length]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -148,10 +162,12 @@ const SelfMasteryCoach = () => {
             <h2 className="text-2xl font-headline mb-2 text-foreground">
               Hello, {firstName}
             </h2>
-            <p className="text-muted-foreground max-w-sm mb-8">
+            <p className="text-muted-foreground max-w-sm mb-8 whitespace-pre-line">
               {flowType === 'guided-reflection' && practiceTitle
                 ? `Let's walk through ${practiceTitle} together.`
-                : "I'm your self-mastery coach. Share what's on your mind, and let's explore it together."
+                : flowType 
+                  ? getContextualGreeting(flowType, locationState?.eventTitle)
+                  : "I'm your self-mastery coach. Share what's on your mind, and let's explore it together."
               }
             </p>
             <div className="grid gap-2 w-full max-w-sm">
@@ -213,6 +229,14 @@ const SelfMasteryCoach = () => {
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 </div>
+                {/* User avatar with initial */}
+                {message.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 via-slate-100 to-white flex items-center justify-center flex-shrink-0 border border-slate-200/50">
+                    <span className="text-xs font-headline text-slate-600 leading-none">
+                      {firstName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
