@@ -44,6 +44,18 @@ interface SemanticAnalysis {
   coachThemes: { keyword: string; count: number; weight: number }[];
   practiceTypes: { type: string; count: number; percentage: number }[];
   contentTags: { tag: string; count: number; weight: number }[];
+  themeRelationships: { from: string; to: string; strength: number }[];
+}
+
+interface BubbleDetails {
+  keyword: string;
+  source: 'coach' | 'practice' | 'content';
+  totalCount: number;
+  recentMentions: {
+    snippet: string;
+    date: string;
+    sessionId?: string;
+  }[];
 }
 
 // State colors for the bar chart
@@ -228,7 +240,7 @@ const Insights = () => {
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7 }
+        body: { days: 7, action: 'analyze' }
       });
       if (!error && data?.data) {
         setSemanticAnalysis(data.data);
@@ -237,6 +249,23 @@ const Insights = () => {
       console.error('Error fetching semantic analysis:', error);
     } finally {
       setSemanticLoading(false);
+    }
+  };
+
+  const fetchBubbleDetails = async (keyword: string, source: 'coach' | 'practice' | 'content'): Promise<BubbleDetails | null> => {
+    try {
+      const accessToken = await getAccessTokenSilently();
+      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { days: 7, action: 'getBubbleDetails', keyword, source }
+      });
+      if (!error && data?.data) {
+        return data.data as BubbleDetails;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching bubble details:', error);
+      return null;
     }
   };
 
@@ -475,6 +504,8 @@ const Insights = () => {
                     source: 'content' as const
                   })) || [])
                 ]}
+                relationships={semanticAnalysis?.themeRelationships || []}
+                onBubbleClick={fetchBubbleDetails}
               />
             )}
           </CardContent>

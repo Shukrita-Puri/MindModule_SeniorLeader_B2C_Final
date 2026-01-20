@@ -12,6 +12,18 @@ interface SemanticAnalysisResponse {
   coachThemes: { keyword: string; count: number; weight: number }[];
   practiceTypes: { type: string; count: number; percentage: number }[];
   contentTags: { tag: string; count: number; weight: number }[];
+  themeRelationships: { from: string; to: string; strength: number }[];
+}
+
+interface BubbleDetailsResponse {
+  keyword: string;
+  source: 'coach' | 'practice' | 'content';
+  totalCount: number;
+  recentMentions: {
+    snippet: string;
+    date: string;
+    sessionId?: string;
+  }[];
 }
 
 serve(async (req) => {
@@ -45,7 +57,8 @@ serve(async (req) => {
     const auth0User = await userInfoResponse.json();
     const userId = auth0User.sub;
 
-    const { days = 7 } = await req.json();
+    const requestBody = await req.json();
+    const { days = 7, action = 'analyze', keyword, source } = requestBody;
 
     // Create Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -55,6 +68,15 @@ serve(async (req) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const startDateStr = startDate.toISOString().split('T')[0];
+
+    // Handle bubble details request
+    if (action === 'getBubbleDetails' && keyword) {
+      const details = await getBubbleDetails(supabase, userId, keyword, source, startDate);
+      return new Response(
+        JSON.stringify({ data: details }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch theme patterns from daily_themes
     const { data: themes } = await supabase
@@ -84,6 +106,7 @@ serve(async (req) => {
       .gte('created_at', startDate.toISOString());
 
     let coachThemes: { keyword: string; count: number; weight: number }[] = [];
+    let themeRelationships: { from: string; to: string; strength: number }[] = [];
     
     if (sessions && sessions.length > 0) {
       const sessionIds = sessions.map(s => s.id);
@@ -94,7 +117,7 @@ serve(async (req) => {
         .eq('sender_type', 'user');
 
       if (messages && messages.length > 0) {
-        // Use AI to extract keywords
+        // Use AI to extract keywords and relationships
         const allContent = messages.map(m => m.content).join('\n\n');
         
         const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
@@ -108,9 +131,17 @@ serve(async (req) => {
                 body: JSON.stringify({
                   contents: [{
                     parts: [{
-                      text: `Analyze these coaching conversation excerpts and extract the 5-8 most important themes or topics the user discussed. Return ONLY a JSON array of objects with "keyword" (2-4 word phrase) and "weight" (0.1-1.0 based on frequency/importance).
+                      text: `Analyze these coaching conversation excerpts and:
+1. Extract the 5-8 most important themes or topics the user discussed
+2. Identify 2-4 meaningful relationships between themes (problem/solution, cause/effect, related concepts)
 
-Example format: [{"keyword": "decision fatigue", "weight": 0.9}, {"keyword": "morning routine", "weight": 0.6}]
+Return ONLY valid JSON in this exact format:
+{
+  "keywords": [{"keyword": "decision fatigue", "weight": 0.9}],
+  "relationships": [{"from": "stress", "to": "grounding", "strength": 0.8}]
+}
+
+Keywords should be 2-4 word phrases. Weight and strength are 0.1-1.0.
 
 Conversation excerpts:
 ${allContent.slice(0, 3000)}`
@@ -118,7 +149,7 @@ ${allContent.slice(0, 3000)}`
                   }],
                   generationConfig: {
                     temperature: 0.3,
-                    maxOutputTokens: 500
+                    maxOutputTokens: 800
                   }
                 })
               }
@@ -129,14 +160,25 @@ ${allContent.slice(0, 3000)}`
               const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
               
               // Extract JSON from response
-              const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+              const jsonMatch = responseText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
-                const keywords = JSON.parse(jsonMatch[0]);
-                coachThemes = keywords.map((k: { keyword: string; weight: number }) => ({
-                  keyword: k.keyword,
-                  count: Math.round(k.weight * messages.length),
-                  weight: k.weight
-                }));
+                const parsed = JSON.parse(jsonMatch[0]);
+                
+                if (parsed.keywords && Array.isArray(parsed.keywords)) {
+                  coachThemes = parsed.keywords.map((k: { keyword: string; weight: number }) => ({
+                    keyword: k.keyword,
+                    count: Math.round(k.weight * messages.length),
+                    weight: k.weight
+                  }));
+                }
+                
+                if (parsed.relationships && Array.isArray(parsed.relationships)) {
+                  themeRelationships = parsed.relationships.map((r: { from: string; to: string; strength: number }) => ({
+                    from: r.from.toLowerCase(),
+                    to: r.to.toLowerCase(),
+                    strength: r.strength
+                  }));
+                }
               }
             }
           } catch (aiError) {
@@ -205,7 +247,8 @@ ${allContent.slice(0, 3000)}`
       themePatterns,
       coachThemes,
       practiceTypes,
-      contentTags
+      contentTags,
+      themeRelationships
     };
 
     return new Response(
@@ -221,3 +264,110 @@ ${allContent.slice(0, 3000)}`
     );
   }
 });
+
+// Helper function to get bubble details
+async function getBubbleDetails(
+  supabase: any,
+  userId: string,
+  keyword: string,
+  source: 'coach' | 'practice' | 'content',
+  startDate: Date
+): Promise<BubbleDetailsResponse> {
+  const recentMentions: BubbleDetailsResponse['recentMentions'] = [];
+  let totalCount = 0;
+
+  if (source === 'coach') {
+    // Search dialogue messages
+    const { data: sessions } = await supabase
+      .from('dialogue_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('context_type', 'coach')
+      .gte('created_at', startDate.toISOString());
+
+    if (sessions && sessions.length > 0) {
+      const sessionIds = sessions.map((s: { id: string }) => s.id);
+      const { data: messages } = await supabase
+        .from('dialogue_messages')
+        .select('content, timestamp, session_id')
+        .in('session_id', sessionIds)
+        .eq('sender_type', 'user')
+        .ilike('content', `%${keyword}%`)
+        .order('timestamp', { ascending: false })
+        .limit(5);
+
+      if (messages) {
+        totalCount = messages.length;
+        messages.slice(0, 3).forEach((m: { content: string; timestamp: string; session_id: string }) => {
+          recentMentions.push({
+            snippet: m.content.slice(0, 100) + (m.content.length > 100 ? '...' : ''),
+            date: new Date(m.timestamp).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            sessionId: m.session_id
+          });
+        });
+      }
+    }
+  } else if (source === 'practice') {
+    // Search sanctuary events by category
+    const { data: events } = await supabase
+      .from('sanctuary_events')
+      .select('category, created_at, content_id')
+      .eq('user_id', userId)
+      .eq('event_type', 'completed')
+      .ilike('category', `%${keyword}%`)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (events) {
+      totalCount = events.length;
+      events.slice(0, 3).forEach((e: { category: string; created_at: string }) => {
+        recentMentions.push({
+          snippet: `Completed ${e.category} practice`,
+          date: new Date(e.created_at).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+          })
+        });
+      });
+    }
+  } else if (source === 'content') {
+    // Search sanctuary events by tags
+    const { data: events } = await supabase
+      .from('sanctuary_events')
+      .select('tags, category, created_at')
+      .eq('user_id', userId)
+      .eq('event_type', 'completed')
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (events) {
+      const matchingEvents = events.filter((e: { tags?: string[] }) => 
+        e.tags?.some((tag: string) => tag.toLowerCase().includes(keyword.toLowerCase()))
+      );
+      totalCount = matchingEvents.length;
+      matchingEvents.slice(0, 3).forEach((e: { category: string; created_at: string }) => {
+        recentMentions.push({
+          snippet: `${e.category} practice with "${keyword}" theme`,
+          date: new Date(e.created_at).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+          })
+        });
+      });
+    }
+  }
+
+  return {
+    keyword,
+    source,
+    totalCount,
+    recentMentions
+  };
+}
