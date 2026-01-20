@@ -119,10 +119,14 @@ export async function updateRitualCompletion(
   practiceId: string,
   practiceQueue?: { id: string }[]
 ): Promise<void> {
+  console.log('[dailyRituals] updateRitualCompletion called:', { practiceType, practiceId, queueLength: practiceQueue?.length });
+  
   try {
     const accessToken = await getAccessToken();
+    console.log('[dailyRituals] Access token:', accessToken ? 'present' : 'MISSING');
+    
     if (!accessToken) {
-      console.warn('[dailyRituals] No access token available');
+      console.warn('[dailyRituals] No access token available - ritual completion will not be saved!');
       return;
     }
 
@@ -155,7 +159,8 @@ export async function updateRitualCompletion(
     }
 
     // Step 2: Upsert the ritual
-    await upsertRitual(ritualData);
+    const upsertResult = await upsertRitual(ritualData);
+    console.log('[dailyRituals] Upsert result:', upsertResult ? 'success' : 'failed');
 
     // Step 3: Fetch fresh data and calculate status
     const freshRitual = await getTodayRitual();
@@ -174,11 +179,14 @@ export async function updateRitualCompletion(
           ? 'partial' 
           : 'skipped';
       
+      console.log('[dailyRituals] Calculated status:', { completed, totalRecommended, newStatus });
+      
       // Step 4: Update status
-      await upsertRitual({
+      const statusResult = await upsertRitual({
         ritual_date: today,
         completion_status: newStatus
       });
+      console.log('[dailyRituals] Status update result:', statusResult ? 'success' : 'failed');
     }
   } catch (error) {
     console.error('[dailyRituals] Failed to update ritual completion:', error);

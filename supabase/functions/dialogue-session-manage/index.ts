@@ -211,6 +211,46 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
+    } else if (action === "create_coach") {
+      // Create a coach session for the authenticated user
+      const { sessionId } = body;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "sessionId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[dialogue-session-manage] Creating coach session:", sessionId, "for user:", userId);
+
+      const { data: session, error: sessionError } = await supabase
+        .from("dialogue_sessions")
+        .insert({
+          id: sessionId,
+          user_id: userId,
+          context_type: "coach",
+          session_status: "active",
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error("[dialogue-session-manage] Coach session creation failed:", sessionError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create coach session" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[dialogue-session-manage] Coach session created:", session.id);
+
+      return new Response(
+        JSON.stringify({ success: true, session }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     } else {
       return new Response(
         JSON.stringify({ error: `Unknown action: ${action}` }),

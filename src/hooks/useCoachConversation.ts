@@ -5,6 +5,19 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE } from '@/config/devMode';
 import { buildCoachContext, type CoachContext } from '@/utils/coachContextBuilder';
 
+// Helper to get access token
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const auth0Client = (window as any).__auth0Client;
+    if (auth0Client) {
+      return await auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -57,19 +70,40 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     if (!user?.id || sessionIdRef.current) return sessionIdRef.current;
     
     const newSessionId = crypto.randomUUID();
-    sessionIdRef.current = newSessionId;
-    setSessionId(newSessionId);
     
-    // Create session in dialogue_sessions table
-    await supabase.from('dialogue_sessions').insert({
-      id: newSessionId,
-      user_id: user.id,
-      context_type: 'coach',
-      session_status: 'active',
-      started_at: new Date().toISOString(),
-    });
-    
-    return newSessionId;
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        console.warn('[useCoachConversation] No access token available');
+        // Still set local session for UI to work
+        sessionIdRef.current = newSessionId;
+        setSessionId(newSessionId);
+        return newSessionId;
+      }
+      
+      const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { action: 'create_coach', sessionId: newSessionId }
+      });
+      
+      if (error) {
+        console.error('[useCoachConversation] Failed to create session via edge function:', error);
+      } else if (!data?.success) {
+        console.error('[useCoachConversation] Session creation returned error:', data?.error);
+      } else {
+        console.log('[useCoachConversation] Session created successfully:', newSessionId);
+      }
+      
+      sessionIdRef.current = newSessionId;
+      setSessionId(newSessionId);
+      return newSessionId;
+    } catch (err) {
+      console.error('[useCoachConversation] Session creation error:', err);
+      // Still set local session for UI to work
+      sessionIdRef.current = newSessionId;
+      setSessionId(newSessionId);
+      return newSessionId;
+    }
   }, [user?.id]);
 
   const saveMessage = useCallback(async (
@@ -153,9 +187,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         // Handle rate limiting specifically
         if (response.status === 429) {
           setIsRateLimited(true);
-          // Remove the user message we just added since we'll retry
+          setError(null);
           setMessages(prev => prev.slice(0, -1));
-          throw new Error('The coach is taking a moment to catch up. Please try again in a few seconds.');
+          setIsLoading(false);
+          return;
         }
         throw new Error(errorData.error || 'Failed to get response');
       }
