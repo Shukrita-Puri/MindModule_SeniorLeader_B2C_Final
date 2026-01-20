@@ -114,12 +114,35 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   ) => {
     if (!user?.id) return;
     
-    await supabase.from('dialogue_messages').insert({
-      session_id: currentSessionId,
-      sender_type: role,
-      content,
-      message_index: messageIndex,
-    });
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        console.warn('[useCoachConversation] No access token for saveMessage');
+        return;
+      }
+      
+      const { data, error } = await supabase.functions.invoke('dialogue-data-persist', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: {
+          type: 'message',
+          sessionId: currentSessionId,
+          message: {
+            role,
+            content,
+            messageIndex,
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+      
+      if (error) {
+        console.error('[useCoachConversation] Failed to save message:', error);
+      } else {
+        console.log('[useCoachConversation] Message saved:', role, messageIndex);
+      }
+    } catch (err) {
+      console.error('[useCoachConversation] saveMessage error:', err);
+    }
   }, [user?.id]);
 
   const sendMessage = useCallback(async (content: string, isRetry = false) => {
