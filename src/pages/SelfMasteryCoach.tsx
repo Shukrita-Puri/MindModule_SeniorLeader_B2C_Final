@@ -7,6 +7,8 @@ import { useCoachConversation } from '@/hooks/useCoachConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
+import PracticeQueueProgress from '@/components/PracticeQueueProgress';
+import { toast } from 'sonner';
 
 interface PracticeStep {
   title: string;
@@ -21,6 +23,15 @@ interface LocationState {
   practiceSteps?: PracticeStep[];
   fromIntervention?: boolean;
   eventTitle?: string;
+  fromRitual?: boolean;
+}
+
+interface QueuedPractice {
+  id: string;
+  title: string;
+  contentType: 'soundbath' | 'guided-practice' | 'micro-practice' | 'coach';
+  category: string;
+  duration: number;
 }
 
 const SelfMasteryCoach = () => {
@@ -45,11 +56,39 @@ const SelfMasteryCoach = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Queue state
+  const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [isInQueue, setIsInQueue] = useState(false);
+
   const firstName = user?.name?.split(' ')[0] || 'there';
   const flowType = locationState?.flowType;
   const initialPrompt = locationState?.initialPrompt;
   const practiceTitle = locationState?.practiceTitle;
   const practiceSteps = locationState?.practiceSteps;
+
+  // Load queue from localStorage
+  useEffect(() => {
+    const queue = localStorage.getItem('practiceQueue');
+    const fromRitual = locationState?.fromRitual;
+    
+    if (queue && fromRitual) {
+      try {
+        const parsed = JSON.parse(queue) as QueuedPractice[];
+        setPracticeQueue(parsed);
+        // Find coach index (could be 'coach-integrate' or 'coach-prepare')
+        const index = parsed.findIndex((p) => 
+          p.contentType === 'coach' || p.id?.startsWith('coach-')
+        );
+        if (index !== -1) {
+          setCurrentQueueIndex(index);
+          setIsInQueue(true);
+        }
+      } catch (e) {
+        console.error('Error parsing practice queue:', e);
+      }
+    }
+  }, [locationState?.fromRitual]);
   
   // Set flow type and practice context
   useEffect(() => {
@@ -121,6 +160,49 @@ const SelfMasteryCoach = () => {
     ];
   };
 
+  // Queue navigation handlers
+  const navigateToNext = () => {
+    const next = practiceQueue[currentQueueIndex + 1];
+    if (!next) return;
+    
+    if (next.contentType === 'soundbath') {
+      navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'guided-practice') {
+      navigate(`/guided-practices/${next.id}`, { state: { category: next.category, fromRitual: true } });
+    } else if (next.contentType === 'micro-practice') {
+      navigate(`/micro-practice/${next.id}/cards`, { state: { category: next.category, fromRitual: true } });
+    }
+  };
+
+  const handleQueueSkip = () => {
+    if (currentQueueIndex < practiceQueue.length - 1) {
+      navigateToNext();
+    }
+  };
+
+  const handleQueuePause = async () => {
+    if (messages.length > 0) {
+      await endSession();
+    }
+    navigate('/executive-home');
+  };
+
+  const handleQueueComplete = async () => {
+    if (messages.length > 0) {
+      await endSession();
+    }
+    
+    const isLastPractice = currentQueueIndex === practiceQueue.length - 1;
+    
+    if (isLastPractice) {
+      localStorage.removeItem('practiceQueue');
+      toast.success('🎉 Ritual complete!');
+      navigate('/executive-home');
+    } else {
+      navigateToNext();
+    }
+  };
+
   // Add AI greeting when entering from Performance Plan (instead of sending as user message)
   useEffect(() => {
     if (flowType && !hasInitialized && messages.length === 0) {
@@ -162,7 +244,7 @@ const SelfMasteryCoach = () => {
   };
 
 return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background animate-page-enter">
       {/* Header with Navigation - scrolls with content */}
       <FloatingNavigation 
         showCoachButton={false}
@@ -188,10 +270,25 @@ return (
         }
       />
 
+      {/* Queue Progress - only on initial screen when in queue */}
+      {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
+        <PracticeQueueProgress
+          currentIndex={currentQueueIndex}
+          totalCount={practiceQueue.length}
+          queue={practiceQueue}
+          onSkip={handleQueueSkip}
+          onPause={handleQueuePause}
+          onComplete={handleQueueComplete}
+        />
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+          <div className={cn(
+            "flex flex-col items-center justify-center h-full px-6 text-center",
+            isInQueue && practiceQueue.length > 1 && "pt-24"
+          )}>
             {/* Premium SM monogram visual */}
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center mb-6 border border-saffron/20 relative overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,140,66,0.15)_0%,transparent_70%)]" />
