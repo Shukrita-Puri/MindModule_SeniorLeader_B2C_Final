@@ -179,10 +179,10 @@ const DailyCheckIn = () => {
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
+          <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight mb-2">
             How are you feeling right now?
           </h1>
-          <p className="text-muted-foreground font-body">
+          <p className="text-sm text-muted-foreground leading-relaxed font-body">
             Just your first instinct. Don't overthink it.
           </p>
         </div>
@@ -204,7 +204,7 @@ const DailyCheckIn = () => {
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <IconComponent className="w-5 h-5 text-primary" />
                       </div>
-                      <h3 className="text-base font-body font-medium text-foreground">
+                      <h3 className="text-base font-headline text-foreground">
                         {outcome.title}
                       </h3>
                     </div>

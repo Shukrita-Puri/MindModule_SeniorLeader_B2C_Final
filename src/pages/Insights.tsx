@@ -344,7 +344,7 @@ const Insights = () => {
 
       {/* Page Header */}
       <div className="pt-16 pb-4 px-4 max-w-4xl mx-auto">
-        <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">Your Inner World</p>
+        <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">Your Inner World</h1>
         <p className="text-sm text-muted-foreground mt-1">Past 7 days</p>
       </div>
 
