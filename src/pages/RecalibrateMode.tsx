@@ -102,9 +102,6 @@ const RecalibrateMode = () => {
 
       {/* Hero Banner */}
       <div className="relative h-auto py-8 overflow-hidden">
-        {/* Subtle gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-card to-background" />
-        
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
           <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
             Recalibrate Studio

@@ -253,10 +253,12 @@ return (
       <FloatingNavigation 
         showCoachButton={false}
         centerContent={
-          <div className="flex flex-col items-center">
-            <span className="text-sm font-headline text-foreground">Self Mastery Coach</span>
-            <span className="text-xs text-muted-foreground font-body">{getSubtitle()}</span>
-          </div>
+          messages.length > 0 ? (
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-headline text-foreground">Self Mastery Coach</span>
+              <span className="text-xs text-muted-foreground font-body">{getSubtitle()}</span>
+            </div>
+          ) : null
         }
         rightContent={
           messages.length > 0 ? (
@@ -274,6 +276,20 @@ return (
         }
       />
 
+      {/* Hero Title - only on greeting screen (matches Recalibrate Studio) */}
+      {messages.length === 0 && (
+        <div className="relative h-auto py-8 overflow-hidden">
+          <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
+            <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
+              Self Mastery Coach
+            </h1>
+            <p className="text-lg font-subheadline italic text-muted-foreground">
+              {getSubtitle()}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Queue Progress - only on initial screen when in queue */}
       {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
         <PracticeQueueProgress
@@ -290,8 +306,8 @@ return (
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <div className={cn(
-            "flex flex-col items-center justify-center h-full px-6 text-center",
-            isInQueue && practiceQueue.length > 1 && "pt-24"
+            "flex flex-col items-center px-6 text-center pt-4",
+            isInQueue && practiceQueue.length > 1 && "pt-8"
           )}>
             {/* Premium SM monogram visual */}
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-saffron/20 via-taupe/10 to-transparent flex flex-col items-center justify-center mb-6 border border-saffron/20 relative overflow-hidden">

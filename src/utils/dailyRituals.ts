@@ -123,21 +123,28 @@ export async function updateRitualCompletion(
   practiceId: string,
   practiceQueue?: { id: string }[]
 ): Promise<void> {
-  console.log('[dailyRituals] updateRitualCompletion called:', { practiceType, practiceId, queueLength: practiceQueue?.length });
+  const timestamp = new Date().toISOString();
+  console.log(`[dailyRituals ${timestamp}] updateRitualCompletion called:`, { practiceType, practiceId, queueLength: practiceQueue?.length });
   
   try {
     const accessToken = await getAccessToken();
-    console.log('[dailyRituals] Access token:', accessToken ? 'present' : 'MISSING');
+    console.log(`[dailyRituals ${timestamp}] Access token:`, accessToken ? 'present' : 'MISSING');
     
     if (!accessToken) {
-      console.warn('[dailyRituals] No access token available - ritual completion will not be saved!');
+      console.warn(`[dailyRituals ${timestamp}] No access token available - ritual completion will NOT be saved!`);
+      console.warn(`[dailyRituals ${timestamp}] Check if window.__auth0Client is available:`, !!(window as any).__auth0Client);
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date key for timezone safety
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+    console.log(`[dailyRituals ${timestamp}] Using ritual_date:`, today);
     
     // Step 1: Get existing data
+    console.log(`[dailyRituals ${timestamp}] Fetching existing ritual...`);
     const existingRitual = await getTodayRitual();
+    console.log(`[dailyRituals ${timestamp}] Existing ritual:`, existingRitual ? 'found' : 'none');
+    
     const existingIds = existingRitual?.completed_practice_ids || [];
     const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
     
@@ -163,10 +170,12 @@ export async function updateRitualCompletion(
     }
 
     // Step 2: Upsert the ritual
+    console.log(`[dailyRituals ${timestamp}] Upserting ritual data:`, ritualData);
     const upsertResult = await upsertRitual(ritualData);
-    console.log('[dailyRituals] Upsert result:', upsertResult ? 'success' : 'failed');
+    console.log(`[dailyRituals ${timestamp}] Upsert result:`, upsertResult ? 'SUCCESS' : 'FAILED');
 
     // Step 3: Fetch fresh data and calculate status
+    console.log(`[dailyRituals ${timestamp}] Fetching fresh ritual for status calculation...`);
     const freshRitual = await getTodayRitual();
     if (freshRitual) {
       const completed = [
@@ -183,16 +192,18 @@ export async function updateRitualCompletion(
           ? 'partial' 
           : 'skipped';
       
-      console.log('[dailyRituals] Calculated status:', { completed, totalRecommended, newStatus });
+      console.log(`[dailyRituals ${timestamp}] Calculated status:`, { completed, totalRecommended, newStatus });
       
       // Step 4: Update status
       const statusResult = await upsertRitual({
         ritual_date: today,
         completion_status: newStatus
       });
-      console.log('[dailyRituals] Status update result:', statusResult ? 'success' : 'failed');
+      console.log(`[dailyRituals ${timestamp}] Status update result:`, statusResult ? 'SUCCESS' : 'FAILED');
+    } else {
+      console.warn(`[dailyRituals ${timestamp}] Could not fetch fresh ritual for status calculation`);
     }
   } catch (error) {
-    console.error('[dailyRituals] Failed to update ritual completion:', error);
+    console.error(`[dailyRituals ${timestamp}] Failed to update ritual completion:`, error);
   }
 }
