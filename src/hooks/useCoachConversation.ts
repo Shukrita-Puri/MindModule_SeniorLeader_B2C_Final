@@ -70,38 +70,41 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     if (!user?.id || sessionIdRef.current) return sessionIdRef.current;
     
     const newSessionId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    
+    // Set local session first for UI to work
+    sessionIdRef.current = newSessionId;
+    setSessionId(newSessionId);
     
     try {
       const accessToken = await getAccessToken();
+      console.log(`[useCoachConversation ${timestamp}] createSession - token:`, accessToken ? 'present' : 'MISSING');
+      
       if (!accessToken) {
-        console.warn('[useCoachConversation] No access token available');
-        // Still set local session for UI to work
-        sessionIdRef.current = newSessionId;
-        setSessionId(newSessionId);
+        console.warn(`[useCoachConversation ${timestamp}] No access token - session will only exist locally!`);
         return newSessionId;
       }
+      
+      console.log(`[useCoachConversation ${timestamp}] Invoking dialogue-session-manage with action: create_coach`);
       
       const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { action: 'create_coach', sessionId: newSessionId }
       });
       
+      console.log(`[useCoachConversation ${timestamp}] Edge function response:`, { data, error });
+      
       if (error) {
-        console.error('[useCoachConversation] Failed to create session via edge function:', error);
+        console.error(`[useCoachConversation ${timestamp}] Edge function error:`, error);
       } else if (!data?.success) {
-        console.error('[useCoachConversation] Session creation returned error:', data?.error);
+        console.error(`[useCoachConversation ${timestamp}] Session creation failed:`, data?.error);
       } else {
-        console.log('[useCoachConversation] Session created successfully:', newSessionId);
+        console.log(`[useCoachConversation ${timestamp}] Session created in database:`, newSessionId);
       }
       
-      sessionIdRef.current = newSessionId;
-      setSessionId(newSessionId);
       return newSessionId;
     } catch (err) {
-      console.error('[useCoachConversation] Session creation error:', err);
-      // Still set local session for UI to work
-      sessionIdRef.current = newSessionId;
-      setSessionId(newSessionId);
+      console.error(`[useCoachConversation ${timestamp}] Session creation error:`, err);
       return newSessionId;
     }
   }, [user?.id]);
@@ -316,30 +319,48 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
+    const timestamp = new Date().toISOString();
     
     // Skip if no session or conversation too short to extract insights
     if (!currentSessionId || !user?.id || messages.length < 2) {
+      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short`);
       clearConversation();
       return;
     }
     
     try {
-      // 1. Mark session as completed
-      await supabase
-        .from('dialogue_sessions')
-        .update({ 
-          session_status: 'completed',
-          ended_at: new Date().toISOString()
-        })
-        .eq('id', currentSessionId);
+      // 1. Mark session as completed via edge function (bypasses RLS)
+      const accessToken = await getAccessToken();
+      console.log(`[useCoachConversation ${timestamp}] endSession - token:`, accessToken ? 'present' : 'MISSING');
+      
+      if (accessToken) {
+        console.log(`[useCoachConversation ${timestamp}] Ending session via edge function:`, currentSessionId);
+        
+        const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { 
+            action: 'end', 
+            sessionId: currentSessionId,
+            durationSeconds: null,
+            totalMessages: messages.length,
+            totalInterventions: 0
+          }
+        });
+        
+        console.log(`[useCoachConversation ${timestamp}] End session response:`, { data, error });
+        
+        if (error) {
+          console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);
+        }
+      }
       
       // 2. Trigger insight extraction (fire-and-forget)
-      let accessToken: string | undefined;
+      let insightToken: string | undefined;
       if (!DEV_MODE) {
         try {
-          accessToken = await auth0.getAccessTokenSilently();
+          insightToken = await auth0.getAccessTokenSilently();
         } catch (err) {
-          console.error('Failed to get access token:', err);
+          console.error('Failed to get access token for insights:', err);
         }
       }
       
@@ -348,7 +369,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+          ...(insightToken ? { 'Authorization': `Bearer ${insightToken}` } : {}),
         },
         body: JSON.stringify({
           sessionId: currentSessionId,
@@ -357,7 +378,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       }).catch(err => console.error('Insight extraction failed:', err));
       
     } catch (error) {
-      console.error('Failed to end session:', error);
+      console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);
     } finally {
       // 3. Clear local state
       clearConversation();
