@@ -39,7 +39,7 @@ const PracticeQueueProgress = ({
 
   return (
     <div className={cn(
-      "bg-white/30 dark:bg-black/20 backdrop-blur-xl border-b border-white/20",
+      "bg-white/10 dark:bg-black/10 backdrop-blur-2xl border-b border-white/10",
       inline ? "relative w-full" : "fixed top-16 left-0 right-0 z-40"
     )}>
       <div className="max-w-4xl mx-auto px-4 py-3">
@@ -47,7 +47,7 @@ const PracticeQueueProgress = ({
         <div className="flex items-center justify-between mb-3">
         {/* Up next preview - visible text */}
           {nextPractice && (
-            <div className="text-xs text-foreground/80 font-medium">
+            <div className="text-xs text-white font-medium drop-shadow-sm">
               Up next: {nextPractice.title}
             </div>
           )}
@@ -64,7 +64,7 @@ const PracticeQueueProgress = ({
                     ? "w-2.5 h-2.5 bg-saffron shadow-[0_0_8px_rgba(255,140,66,0.4)]"
                     : index < currentIndex
                     ? "w-2 h-2 bg-saffron/50"
-                    : "w-2 h-2 bg-muted-foreground/20"
+                    : "w-2 h-2 bg-white/30"
                 )}
               />
             ))}
@@ -77,7 +77,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-xs text-foreground/80 hover:text-foreground font-medium"
+            className="text-xs text-white/90 hover:text-white hover:bg-white/10 font-medium drop-shadow-sm"
           >
             <SkipForward className="w-3.5 h-3.5 mr-1.5" />
             {isLastPractice ? 'Skip & Exit' : 'Skip'}
@@ -86,7 +86,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onPause}
-            className="text-xs text-foreground/80 hover:text-foreground font-medium"
+            className="text-xs text-white/90 hover:text-white hover:bg-white/10 font-medium drop-shadow-sm"
           >
             <Pause className="w-3.5 h-3.5 mr-1.5" />
             Pause
