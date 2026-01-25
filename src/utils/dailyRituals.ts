@@ -1,9 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
-// Helper to get access token from globally exposed Auth0 client
+// Helper to get access token from globally exposed Auth0 client (returns null in DEV_MODE)
 async function getAccessToken(): Promise<string | null> {
+  if (DEV_MODE) {
+    return null; // DEV_MODE uses direct DB access instead
+  }
   try {
-    const auth0Client = window.__auth0Client;
+    const auth0Client = (window as any).__auth0Client;
     if (auth0Client) {
       const token = await auth0Client.getAccessTokenSilently();
       console.log('[dailyRituals] Token obtained successfully');
@@ -34,6 +38,27 @@ export interface RitualData {
 }
 
 export async function getRituals(days: number = 30): Promise<RitualData[]> {
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startDateStr = startDate.toLocaleDateString('en-CA');
+    
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', DEV_USER.id)
+      .gte('ritual_date', startDateStr)
+      .order('ritual_date', { ascending: false });
+    
+    if (error) {
+      console.error('[dailyRituals] DEV_MODE getRituals error:', error);
+      return [];
+    }
+    return data || [];
+  }
+  
+  // Production: Use edge function
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -55,6 +80,25 @@ export async function getRituals(days: number = 30): Promise<RitualData[]> {
 }
 
 export async function getTodayRitual(): Promise<RitualData | null> {
+  const today = new Date().toLocaleDateString('en-CA');
+  
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', DEV_USER.id)
+      .eq('ritual_date', today)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('[dailyRituals] DEV_MODE getTodayRitual error:', error);
+      return null;
+    }
+    return data || null;
+  }
+  
+  // Production: Use edge function
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -76,6 +120,24 @@ export async function getTodayRitual(): Promise<RitualData | null> {
 }
 
 export async function getRitualRange(startDate: string, endDate: string): Promise<RitualData[]> {
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .select('*')
+      .eq('user_id', DEV_USER.id)
+      .gte('ritual_date', startDate)
+      .lte('ritual_date', endDate)
+      .order('ritual_date', { ascending: false });
+    
+    if (error) {
+      console.error('[dailyRituals] DEV_MODE getRitualRange error:', error);
+      return [];
+    }
+    return data || [];
+  }
+  
+  // Production: Use edge function
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -97,6 +159,25 @@ export async function getRitualRange(startDate: string, endDate: string): Promis
 }
 
 export async function upsertRitual(ritualData: Omit<RitualData, 'id' | 'user_id'>): Promise<RitualData | null> {
+  // DEV_MODE: Direct database upsert
+  if (DEV_MODE) {
+    const { data, error } = await supabase
+      .from('daily_ritual_completions')
+      .upsert(
+        { ...ritualData, user_id: DEV_USER.id },
+        { onConflict: 'user_id,ritual_date' }
+      )
+      .select()
+      .maybeSingle();
+    
+    if (error) {
+      console.error('[dailyRituals] DEV_MODE upsertRitual error:', error);
+      return null;
+    }
+    return data || null;
+  }
+  
+  // Production: Use edge function
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {

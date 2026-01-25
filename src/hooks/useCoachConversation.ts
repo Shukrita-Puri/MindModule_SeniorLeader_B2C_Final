@@ -2,11 +2,14 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
-import { DEV_MODE } from '@/config/devMode';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { buildCoachContext, type CoachContext } from '@/utils/coachContextBuilder';
 
-// Helper to get access token
+// Helper to get access token (returns null in DEV_MODE, which is handled by calling code)
 async function getAccessToken(): Promise<string | null> {
+  if (DEV_MODE) {
+    return null; // DEV_MODE uses direct DB access instead
+  }
   try {
     const auth0Client = (window as any).__auth0Client;
     if (auth0Client) {
@@ -69,6 +72,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const createSession = useCallback(async () => {
     if (!user?.id || sessionIdRef.current) return sessionIdRef.current;
     
+    const userId = DEV_MODE ? DEV_USER.id : user.id;
     const newSessionId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
     
@@ -76,6 +80,28 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     sessionIdRef.current = newSessionId;
     setSessionId(newSessionId);
     
+    // DEV_MODE: Direct database insert
+    if (DEV_MODE) {
+      console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Creating session directly`);
+      const { error } = await supabase
+        .from('dialogue_sessions')
+        .insert({
+          id: newSessionId,
+          user_id: userId,
+          context_type: 'coach',
+          session_status: 'active',
+          started_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error(`[useCoachConversation ${timestamp}] DEV_MODE DB error:`, error);
+      } else {
+        console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Session created:`, newSessionId);
+      }
+      return newSessionId;
+    }
+    
+    // Production: Use edge function with Auth0 token
     try {
       const accessToken = await getAccessToken();
       console.log(`[useCoachConversation ${timestamp}] createSession - token:`, accessToken ? 'present' : 'MISSING');
@@ -117,6 +143,27 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   ) => {
     if (!user?.id) return;
     
+    // DEV_MODE: Direct database insert
+    if (DEV_MODE) {
+      const { error } = await supabase
+        .from('dialogue_messages')
+        .insert({
+          session_id: currentSessionId,
+          sender_type: role,
+          content,
+          message_index: messageIndex,
+          timestamp: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error('[useCoachConversation] DEV_MODE saveMessage error:', error);
+      } else {
+        console.log('[useCoachConversation] DEV_MODE: Message saved:', role, messageIndex);
+      }
+      return;
+    }
+    
+    // Production: Use edge function
     try {
       const accessToken = await getAccessToken();
       if (!accessToken) {
@@ -328,7 +375,31 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       return;
     }
     
+    const userId = DEV_MODE ? DEV_USER.id : user.id;
+    
     try {
+      // DEV_MODE: Direct database update
+      if (DEV_MODE) {
+        console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Ending session directly:`, currentSessionId);
+        const { error } = await supabase
+          .from('dialogue_sessions')
+          .update({
+            session_status: 'completed',
+            ended_at: new Date().toISOString(),
+            total_messages: messages.length
+          })
+          .eq('id', currentSessionId);
+        
+        if (error) {
+          console.error(`[useCoachConversation ${timestamp}] DEV_MODE endSession error:`, error);
+        } else {
+          console.log(`[useCoachConversation ${timestamp}] DEV_MODE: Session ended successfully`);
+        }
+        clearConversation();
+        return;
+      }
+      
+      // Production: Use edge function with Auth0 token
       // 1. Mark session as completed via edge function (bypasses RLS)
       const accessToken = await getAccessToken();
       console.log(`[useCoachConversation ${timestamp}] endSession - token:`, accessToken ? 'present' : 'MISSING');
@@ -356,12 +427,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       
       // 2. Trigger insight extraction (fire-and-forget)
       let insightToken: string | undefined;
-      if (!DEV_MODE) {
-        try {
-          insightToken = await auth0.getAccessTokenSilently();
-        } catch (err) {
-          console.error('Failed to get access token for insights:', err);
-        }
+      try {
+        insightToken = await auth0.getAccessTokenSilently();
+      } catch (err) {
+        console.error('Failed to get access token for insights:', err);
       }
       
       // Don't await - let it run in background
