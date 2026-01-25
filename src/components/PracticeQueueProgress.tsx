@@ -17,6 +17,7 @@ interface PracticeQueueProgressProps {
   onSkip: () => void;
   onPause: () => void;
   onComplete: () => void;
+  inline?: boolean;
 }
 
 const PracticeQueueProgress = ({ 
@@ -25,7 +26,8 @@ const PracticeQueueProgress = ({
   queue,
   onSkip,
   onPause,
-  onComplete
+  onComplete,
+  inline = false
 }: PracticeQueueProgressProps) => {
   const nextPractice = queue[currentIndex + 1];
   const isLastPractice = currentIndex === totalCount - 1;
@@ -36,7 +38,10 @@ const PracticeQueueProgress = ({
   }
 
   return (
-    <div className="fixed top-16 left-0 right-0 bg-white/30 dark:bg-black/20 backdrop-blur-xl border-b border-white/20 z-40">
+    <div className={cn(
+      "bg-white/30 dark:bg-black/20 backdrop-blur-xl border-b border-white/20",
+      inline ? "relative w-full" : "fixed top-16 left-0 right-0 z-40"
+    )}>
       <div className="max-w-4xl mx-auto px-4 py-3">
         {/* Minimal Progress Dots - top right aligned */}
         <div className="flex items-center justify-between mb-3">

@@ -276,6 +276,19 @@ return (
         }
       />
 
+      {/* Queue Progress - inline before hero when in queue */}
+      {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
+        <PracticeQueueProgress
+          currentIndex={currentQueueIndex}
+          totalCount={practiceQueue.length}
+          queue={practiceQueue}
+          onSkip={handleQueueSkip}
+          onPause={handleQueuePause}
+          onComplete={handleQueueComplete}
+          inline={true}
+        />
+      )}
+
       {/* Hero Title - only on greeting screen (matches Recalibrate Studio) */}
       {messages.length === 0 && (
         <div className="relative h-auto py-8 overflow-hidden">
@@ -288,18 +301,6 @@ return (
             </p>
           </div>
         </div>
-      )}
-
-      {/* Queue Progress - only on initial screen when in queue */}
-      {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
-        <PracticeQueueProgress
-          currentIndex={currentQueueIndex}
-          totalCount={practiceQueue.length}
-          queue={practiceQueue}
-          onSkip={handleQueueSkip}
-          onPause={handleQueuePause}
-          onComplete={handleQueueComplete}
-        />
       )}
 
       {/* Messages Area */}
