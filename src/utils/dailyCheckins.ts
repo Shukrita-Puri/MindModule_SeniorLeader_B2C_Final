@@ -159,7 +159,8 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
         .from('daily_checkins')
         .upsert([{
           user_id: DEV_USER.id,
-          ...checkinData
+          ...checkinData,
+          data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json
         }], { onConflict: 'user_id,checkin_date' })
         .select()
         .single();
