@@ -205,8 +205,75 @@ export async function updateRitualCompletion(
   practiceQueue?: { id: string }[]
 ): Promise<void> {
   const timestamp = new Date().toISOString();
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  
   console.log(`[dailyRituals ${timestamp}] updateRitualCompletion called:`, { practiceType, practiceId, queueLength: practiceQueue?.length });
   
+  // DEV_MODE: Direct database operations (no token needed)
+  if (DEV_MODE) {
+    console.log(`[dailyRituals ${timestamp}] DEV_MODE: Direct DB update`);
+    
+    try {
+      // Get existing ritual
+      const existingRitual = await getTodayRitual();
+      const existingIds = existingRitual?.completed_practice_ids || [];
+      const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
+      
+      // Build ritual data based on practice type
+      const ritualData: Omit<RitualData, 'id' | 'user_id'> = {
+        ritual_date: today,
+        completed_practice_ids: newCompletedIds,
+      };
+
+      if (practiceType === 'soundscape') {
+        ritualData.soundscape_completed = true;
+        ritualData.soundscape_completed_at = new Date().toISOString();
+        if (practiceQueue) {
+          ritualData.recommended_practice_ids = practiceQueue.map(p => p.id);
+          ritualData.recommended_practices_count = practiceQueue.length;
+        }
+      } else if (practiceType === 'guided_practice') {
+        ritualData.guided_practice_completed = true;
+        ritualData.guided_practice_completed_at = new Date().toISOString();
+      } else if (practiceType === 'micro_exercise') {
+        ritualData.micro_exercise_completed = true;
+        ritualData.micro_exercise_completed_at = new Date().toISOString();
+      }
+
+      // Upsert the ritual
+      const result = await upsertRitual(ritualData);
+      console.log(`[dailyRituals ${timestamp}] DEV_MODE upsert result:`, result ? 'SUCCESS' : 'FAILED');
+      
+      // Calculate and update status
+      const freshRitual = await getTodayRitual();
+      if (freshRitual) {
+        const completed = [
+          freshRitual.soundscape_completed,
+          freshRitual.guided_practice_completed,
+          freshRitual.micro_exercise_completed
+        ].filter(Boolean).length;
+        
+        const totalRecommended = freshRitual.recommended_practices_count || 3;
+        const newStatus = completed >= totalRecommended && completed > 0 
+          ? 'full' 
+          : completed > 0 
+            ? 'partial' 
+            : 'skipped';
+        
+        console.log(`[dailyRituals ${timestamp}] DEV_MODE calculated status:`, { completed, totalRecommended, newStatus });
+        
+        await upsertRitual({
+          ritual_date: today,
+          completion_status: newStatus
+        });
+      }
+    } catch (error) {
+      console.error(`[dailyRituals ${timestamp}] DEV_MODE update failed:`, error);
+    }
+    return;
+  }
+  
+  // Production: Use edge function with Auth0 token
   try {
     const accessToken = await getAccessToken();
     console.log(`[dailyRituals ${timestamp}] Access token:`, accessToken ? 'present' : 'MISSING');
@@ -217,8 +284,6 @@ export async function updateRitualCompletion(
       return;
     }
 
-    // Use local date key for timezone safety
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
     console.log(`[dailyRituals ${timestamp}] Using ritual_date:`, today);
     
     // Step 1: Get existing data

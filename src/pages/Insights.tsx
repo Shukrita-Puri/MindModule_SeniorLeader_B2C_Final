@@ -353,13 +353,13 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-headline text-foreground/80">Streak</span>
+                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Streak</span>
                 <InsightInfoModal 
                   title="Check-in Streak"
                   explanation="The number of consecutive days you've completed your daily check-in. Longer streaks indicate consistent self-awareness practice."
                 />
               </div>
-              <p className="text-2xl font-headline font-semibold">{checkInStreak}</p>
+              <p className="text-2xl font-headline font-semibold text-foreground">{checkInStreak}</p>
               <p className="text-xs text-muted-foreground">days</p>
             </CardContent>
           </Card>
@@ -367,13 +367,13 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-headline text-foreground/80">Typical State</span>
+                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Typical State</span>
                 <InsightInfoModal 
                   title="Typical State"
                   explanation="The mental state you've checked in with most frequently over the past 7 days. This reveals your baseline energy pattern."
                 />
               </div>
-              <p className="text-2xl font-headline font-semibold capitalize">
+              <p className="text-2xl font-headline font-semibold text-foreground capitalize">
                 {mostCommonState ? stateLabels[mostCommonState] : '—'}
               </p>
               <p className="text-xs text-muted-foreground">this week</p>
@@ -383,13 +383,13 @@ const Insights = () => {
           <Card className="bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-headline text-foreground/80">Practices</span>
+                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Practices</span>
                 <InsightInfoModal 
                   title="Practices Completed"
                   explanation="Total somatic and mindset practices you've finished this week. Regular practice builds your capacity for self-regulation."
                 />
               </div>
-              <p className="text-2xl font-headline font-semibold">{totalPractices}</p>
+              <p className="text-2xl font-headline font-semibold text-foreground">{totalPractices}</p>
               <p className="text-xs text-muted-foreground">completed</p>
             </CardContent>
           </Card>
