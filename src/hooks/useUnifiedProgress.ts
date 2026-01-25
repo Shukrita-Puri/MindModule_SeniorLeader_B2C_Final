@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getRituals } from '@/utils/dailyRituals';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 interface ArchetypeInfo {
   id: string;
@@ -80,45 +81,68 @@ export const useUnifiedProgress = () => {
         selfMasteryPoints += practices.length * 3;
       }
 
-      // 3. Dialogue Sessions - fetch via edge function for Auth0 safety
+      // 3. Dialogue Sessions - direct query in DEV_MODE, edge function in production
       try {
-        const accessToken = await getAccessTokenSilently();
-        const { data: progressData, error: progressError } = await supabase.functions.invoke('dialogue-progress-data', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {}
-        });
+        let dialogueSessions: any[] = [];
+        let signals: any[] = [];
 
-        if (!progressError && progressData?.success) {
-          const dialogueSessions = progressData.dialogueSessions || [];
-          const signals = progressData.signals || [];
-
-          dialogueSessions.forEach((session: any) => {
-            const category = session.scenario_definitions?.category;
-            // growth_opportunity contributes to BOTH clusters
-            const isSelfMastery = category === 'academic_confidence' || category === 'growth_opportunity';
-            const isSocialMastery = category === 'social_navigation' || category === 'growth_opportunity';
-
-            // Base points per session
-            if (isSelfMastery) selfMasteryPoints += 10;
-            if (isSocialMastery) socialMasteryPoints += 10;
-
-            // Find signals for this session
-            const sessionSignals = signals.filter((s: any) => s.session_id === session.id);
-            sessionSignals.forEach((signal: any) => {
-              const strengthsCount = Array.isArray(signal.skill_strengths) ? signal.skill_strengths.length : 0;
-              const gapsCount = Array.isArray(signal.skill_gaps) ? signal.skill_gaps.length : 0;
-
-              if (isSelfMastery) {
-                selfMasteryPoints += strengthsCount * 2;
-                selfMasteryPoints -= gapsCount;
-              }
-              if (isSocialMastery) {
-                socialMasteryPoints += strengthsCount * 2;
-                socialMasteryPoints -= gapsCount;
-              }
-            });
+        if (DEV_MODE) {
+          // DEV_MODE: Direct database query
+          const { data: sessionsData } = await supabase
+            .from('dialogue_sessions')
+            .select('id, scenario_id, scenario_definitions(category)')
+            .eq('user_id', DEV_USER.id);
+          
+          dialogueSessions = sessionsData || [];
+          
+          if (dialogueSessions.length > 0) {
+            const sessionIds = dialogueSessions.map(s => s.id);
+            const { data: signalsData } = await supabase
+              .from('detected_signals')
+              .select('session_id, skill_strengths, skill_gaps')
+              .in('session_id', sessionIds);
+            signals = signalsData || [];
+          }
+        } else {
+          // Production: Use edge function with Auth0 token
+          const accessToken = await getAccessTokenSilently();
+          const { data: progressData, error: progressError } = await supabase.functions.invoke('dialogue-progress-data', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: {}
           });
+
+          if (!progressError && progressData?.success) {
+            dialogueSessions = progressData.dialogueSessions || [];
+            signals = progressData.signals || [];
+          }
         }
+
+        dialogueSessions.forEach((session: any) => {
+          const category = session.scenario_definitions?.category;
+          // growth_opportunity contributes to BOTH clusters
+          const isSelfMastery = category === 'academic_confidence' || category === 'growth_opportunity';
+          const isSocialMastery = category === 'social_navigation' || category === 'growth_opportunity';
+
+          // Base points per session
+          if (isSelfMastery) selfMasteryPoints += 10;
+          if (isSocialMastery) socialMasteryPoints += 10;
+
+          // Find signals for this session
+          const sessionSignals = signals.filter((s: any) => s.session_id === session.id);
+          sessionSignals.forEach((signal: any) => {
+            const strengthsCount = Array.isArray(signal.skill_strengths) ? signal.skill_strengths.length : 0;
+            const gapsCount = Array.isArray(signal.skill_gaps) ? signal.skill_gaps.length : 0;
+
+            if (isSelfMastery) {
+              selfMasteryPoints += strengthsCount * 2;
+              selfMasteryPoints -= gapsCount;
+            }
+            if (isSocialMastery) {
+              socialMasteryPoints += strengthsCount * 2;
+              socialMasteryPoints -= gapsCount;
+            }
+          });
+        });
       } catch (err) {
         console.error('[useUnifiedProgress] Error fetching dialogue data:', err);
         // Continue with other data sources
