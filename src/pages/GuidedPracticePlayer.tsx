@@ -33,6 +33,8 @@ import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/pra
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -893,12 +895,19 @@ const GuidedPracticePlayer = () => {
     // Save practice session to database
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && practice) {
+      const userId = DEV_MODE ? DEV_USER.id : user?.id;
+      
+      if (userId && practice) {
         const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
         const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
         
+        // Check if this practice is in today's recommended plan
+        const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
+        const isRecommendedPractice = todayRecommendedIds.includes(id);
+        const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
+        
         const { data, error } = await supabase.from('practice_sessions').insert({
-          user_id: user.id,
+          user_id: userId,
           content_id: practice.id,
           content_type: 'guided',
           category: practice.category,
@@ -906,7 +915,7 @@ const GuidedPracticePlayer = () => {
           started_at: new Date(Date.now() - practice.totalDuration * 1000).toISOString(),
           completed_at: new Date().toISOString(),
           completed: true,
-          part_of_ritual: isPartOfRitual,
+          part_of_ritual: shouldTrackRitual,
           metadata: { title: practice.title }
         }).select('id').single();
         
@@ -914,8 +923,23 @@ const GuidedPracticePlayer = () => {
           setSessionId(data.id);
         }
         
-        // Update ritual completion if part of ritual via edge function
-        if (isPartOfRitual) {
+        // Track to sanctuary_events for Insights page
+        await trackSanctuaryEvent({
+          eventType: 'session_complete',
+          contentId: practice.id,
+          contentType: 'guided-practice',
+          category: practice.category as 'pause' | 'power-up' | 'presence',
+          tags: [],
+          duration: practice.totalDuration,
+          timestamp: new Date().toISOString(),
+          contextData: {
+            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+          }
+        });
+        
+        // Update ritual completion if part of recommended plan or queue
+        if (shouldTrackRitual) {
           await updateRitualCompletion('guided_practice', id);
         }
       }

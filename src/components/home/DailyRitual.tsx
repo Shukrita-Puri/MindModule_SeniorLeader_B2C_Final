@@ -392,6 +392,9 @@ const DailyRitual = () => {
     }))));
     localStorage.setItem('queueIndex', '0');
     localStorage.setItem('ritualMode', 'true');
+    
+    // Store recommended IDs for tracking completions outside the queue
+    localStorage.setItem('todayRecommendedIds', JSON.stringify(recommendations.map(r => r.content.id)));
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
@@ -639,7 +642,23 @@ const DailyRitual = () => {
             className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
           >
             <Play size={16} className="mr-2" />
-            Continue Flow
+            {(() => {
+              const queue = localStorage.getItem('practiceQueue');
+              const currentIndex = parseInt(localStorage.getItem('queueIndex') || '0');
+              if (queue) {
+                try {
+                  const queueData = JSON.parse(queue);
+                  const nextPractice = queueData[currentIndex];
+                  if (nextPractice?.title) {
+                    const title = nextPractice.title.length > 22 
+                      ? nextPractice.title.slice(0, 22) + '...' 
+                      : nextPractice.title;
+                    return `Continue: ${title}`;
+                  }
+                } catch { /* fallback */ }
+              }
+              return 'Continue Flow';
+            })()}
           </Button>
         )}
 
