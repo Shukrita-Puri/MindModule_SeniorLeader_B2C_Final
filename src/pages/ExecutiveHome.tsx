@@ -23,6 +23,13 @@ import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { getStrategicTheme } from "@/utils/energyStateScoring";
 
+// Hero fallback images - ES6 imports for proper bundling
+import softnessRelease from '@/assets/softness-release.jpg';
+import harmonicCalmBowl from '@/assets/harmonic-calm-singing-bowl.jpg';
+import flowMeditationColorful from '@/assets/flow-meditation-colorful.jpg';
+import vibrantFlowStateHero from '@/assets/vibrant-flow-state-hero.png';
+import luxuryWatercolorHero from '@/assets/luxury-watercolor-hero.jpeg';
+
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const [migrationComplete, setMigrationComplete] = useState(false);
@@ -77,21 +84,16 @@ const ExecutiveHome = () => {
     return theme.phrase || "Let's make today count.";
   };
   
-  // Get calming visual fallback based on energy state
+  // Get calming visual fallback based on energy state (ES6 imports)
   const getHeroVisual = () => {
-    if (!energyState) return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
+    if (!energyState) return luxuryWatercolorHero;
     
     switch (energyState.energyTier) {
-      case 'depleted': 
-        return '/all-visuals/src-assets/softness-release.jpg';
-      case 'managing': 
-        return '/all-visuals/src-assets/harmonic-calm-singing-bowl.jpg';
-      case 'strong': 
-        return '/all-visuals/src-assets/flow-meditation-colorful.jpg';
-      case 'peak': 
-        return '/all-visuals/src-assets/vibrant-flow-state-hero.png';
-      default: 
-        return '/all-visuals/src-assets/luxury-watercolor-hero.jpeg';
+      case 'depleted': return softnessRelease;
+      case 'managing': return harmonicCalmBowl;
+      case 'strong': return flowMeditationColorful;
+      case 'peak': return vibrantFlowStateHero;
+      default: return luxuryWatercolorHero;
     }
   };
   
