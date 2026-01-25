@@ -106,7 +106,13 @@ const RecentActivity = () => {
                 <SidebarMenuButton
                   onClick={() => {
                     if (activity.type === 'coach' && activity.sessionId) {
-                      navigate('/coach');
+                      // Pass session ID to restore conversation
+                      navigate('/coach', { 
+                        state: { 
+                          resumeSession: true, 
+                          previousSessionId: activity.sessionId 
+                        } 
+                      });
                     } else if (activity.type === 'recalibrate') {
                       navigate('/recalibrate');
                     } else if (activity.type === 'checkin') {

@@ -539,16 +539,15 @@ const DailyRitual = () => {
                   >
                     {/* Thumbnail / Visual */}
                     {isCoach ? (
-                      <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
-                        <img 
-                          src={content.type === 'prepare' ? coachPrepareBackground : coachIntegrateBackground}
-                          alt=""
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-transparent" />
+                      <div className="w-32 h-full flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-charcoal via-slate-800 to-slate-900">
+                        {/* Ambient glow effects */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_70%,rgba(255,140,66,0.25)_0%,transparent_60%)]" />
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(155,139,126,0.2)_0%,transparent_50%)]" />
+                        
+                        {/* SM Monogram */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
-                          <span className="text-[8px] uppercase tracking-[0.2em] text-white/80 mt-1">Coach</span>
+                          <span className="text-4xl font-headline text-saffron/90 tracking-tight leading-none drop-shadow-lg">SM</span>
+                          <span className="text-[9px] uppercase tracking-[0.2em] text-white/60 mt-1">Coach</span>
                         </div>
                       </div>
                     ) : (
@@ -632,7 +631,7 @@ const DailyRitual = () => {
             className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
           >
             <Play size={16} className="mr-2" />
-            Start Today's Flow
+            Start: Today's Performance Plan
           </Button>
         )}
 

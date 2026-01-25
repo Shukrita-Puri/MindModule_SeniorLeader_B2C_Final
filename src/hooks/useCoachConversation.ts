@@ -46,6 +46,7 @@ interface UseCoachConversationReturn {
   sessionId: string | null;
   setFlowType: (flowType: 'prepare' | 'integrate' | 'guided-reflection' | null) => void;
   setPracticeContext: (title: string, steps: PracticeStep[]) => void;
+  restoreMessages: (restoredMessages: Message[], restoredSessionId: string) => void;
 }
 
 export const useCoachConversation = (): UseCoachConversationReturn => {
@@ -364,6 +365,14 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setPracticeContextState(null);
   }, []);
 
+  // Restore messages from a previous session (for Recent Activity click)
+  const restoreMessages = useCallback((restoredMessages: Message[], restoredSessionId: string) => {
+    setMessages(restoredMessages);
+    sessionIdRef.current = restoredSessionId;
+    setSessionId(restoredSessionId);
+    contextSentRef.current = true; // Don't resend context for restored sessions
+  }, []);
+
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
     const timestamp = new Date().toISOString();
@@ -466,5 +475,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     sessionId,
     setFlowType,
     setPracticeContext,
+    restoreMessages,
   };
 };

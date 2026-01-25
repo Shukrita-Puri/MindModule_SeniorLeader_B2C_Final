@@ -310,6 +310,68 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_intervention_outcomes: {
+        Row: {
+          content_id: string | null
+          content_type: string | null
+          context_state: string | null
+          context_tags: string[] | null
+          created_at: string | null
+          effectiveness_rating: number | null
+          follow_up_state: string | null
+          id: string
+          intervention_content: string
+          intervention_type: string
+          session_id: string | null
+          success_weight: number | null
+          updated_at: string | null
+          user_id: string
+          user_response_type: string | null
+        }
+        Insert: {
+          content_id?: string | null
+          content_type?: string | null
+          context_state?: string | null
+          context_tags?: string[] | null
+          created_at?: string | null
+          effectiveness_rating?: number | null
+          follow_up_state?: string | null
+          id?: string
+          intervention_content: string
+          intervention_type: string
+          session_id?: string | null
+          success_weight?: number | null
+          updated_at?: string | null
+          user_id: string
+          user_response_type?: string | null
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string | null
+          context_state?: string | null
+          context_tags?: string[] | null
+          created_at?: string | null
+          effectiveness_rating?: number | null
+          follow_up_state?: string | null
+          id?: string
+          intervention_content?: string
+          intervention_type?: string
+          session_id?: string | null
+          success_weight?: number | null
+          updated_at?: string | null
+          user_id?: string
+          user_response_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_intervention_outcomes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_relevance_feedback: {
         Row: {
           content_id: string
