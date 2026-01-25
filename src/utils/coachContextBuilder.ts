@@ -50,6 +50,17 @@ export interface CoachContext {
   
   // Time context
   timeOfDay: 'morning' | 'afternoon' | 'evening';
+  
+  // Insights data for personalization
+  insights?: {
+    statePatterns?: {
+      distribution: Record<string, number>;
+      mostCommonState: string;
+    };
+    tinyWinsThemes?: string[];
+    practiceCount: number;
+    checkInStreak: number;
+  };
 }
 
 // Get JIT intervention data from localStorage
@@ -177,6 +188,86 @@ async function getUserProfile(userId: string): Promise<{
   }
 }
 
+// Get user insights data for coach personalization
+async function getUserInsights(userId: string): Promise<CoachContext['insights'] | undefined> {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+    
+    // Fetch state patterns (last 7 days)
+    const { data: checkIns } = await supabase
+      .from('daily_checkins')
+      .select('outcome, checkin_date')
+      .eq('user_id', userId)
+      .gte('checkin_date', sevenDaysAgoStr)
+      .order('checkin_date', { ascending: false });
+    
+    // Calculate state distribution
+    const distribution: Record<string, number> = {};
+    checkIns?.forEach(c => {
+      if (c.outcome) {
+        distribution[c.outcome] = (distribution[c.outcome] || 0) + 1;
+      }
+    });
+    
+    const mostCommonState = Object.entries(distribution)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'steady';
+    
+    // Calculate check-in streak
+    let streak = 0;
+    if (checkIns && checkIns.length > 0) {
+      const today = new Date().toLocaleDateString('en-CA');
+      let checkDate = today;
+      const checkInDates = new Set(checkIns.map(c => c.checkin_date));
+      
+      for (let i = 0; i < 14; i++) {
+        if (checkInDates.has(checkDate)) {
+          streak++;
+          const d = new Date(checkDate);
+          d.setDate(d.getDate() - 1);
+          checkDate = d.toLocaleDateString('en-CA');
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Fetch practice count
+    const { count: practiceCount } = await supabase
+      .from('sanctuary_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('event_type', 'completed')
+      .gte('created_at', sevenDaysAgo.toISOString());
+    
+    // Fetch tiny wins themes (last 14 days)
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    
+    const { data: wins } = await supabase
+      .from('tiny_wins')
+      .select('win_content')
+      .eq('user_id', userId)
+      .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
+      .order('win_date', { ascending: false })
+      .limit(5);
+    
+    return {
+      statePatterns: {
+        distribution,
+        mostCommonState
+      },
+      tinyWinsThemes: wins?.map(w => w.win_content.slice(0, 100)),
+      practiceCount: practiceCount || 0,
+      checkInStreak: streak
+    };
+  } catch (error) {
+    console.error('[coachContextBuilder] Error fetching user insights:', error);
+    return undefined;
+  }
+}
+
 // Get time of day label
 function getTimeOfDayLabel(): 'morning' | 'afternoon' | 'evening' {
   const hour = new Date().getHours();
@@ -215,10 +306,11 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   
   // Add user-specific data if userId provided
   if (userId) {
-    const [profile, recentPractices, consecutivePattern] = await Promise.all([
+    const [profile, recentPractices, consecutivePattern, insights] = await Promise.all([
       getUserProfile(userId),
       getRecentPractices(userId),
-      detectConsecutivePattern(userId, energyState.checkInOutcome)
+      detectConsecutivePattern(userId, energyState.checkInOutcome),
+      getUserInsights(userId)
     ]);
     
     if (profile) {
@@ -232,6 +324,10 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     
     if (consecutivePattern) {
       context.consecutivePattern = consecutivePattern;
+    }
+    
+    if (insights) {
+      context.insights = insights;
     }
   }
   

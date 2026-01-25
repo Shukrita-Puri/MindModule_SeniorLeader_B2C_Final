@@ -40,9 +40,9 @@ const PracticeQueueProgress = ({
       <div className="max-w-4xl mx-auto px-4 py-3">
         {/* Minimal Progress Dots - top right aligned */}
         <div className="flex items-center justify-between mb-3">
-          {/* Up next preview - subtle */}
+        {/* Up next preview - visible text */}
           {nextPractice && (
-            <div className="text-xs text-muted-foreground/70">
+            <div className="text-xs text-foreground/80 font-medium">
               Up next: {nextPractice.title}
             </div>
           )}
@@ -72,7 +72,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-xs text-foreground/80 hover:text-foreground font-medium"
           >
             <SkipForward className="w-3.5 h-3.5 mr-1.5" />
             {isLastPractice ? 'Skip & Exit' : 'Skip'}
@@ -81,7 +81,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onPause}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-xs text-foreground/80 hover:text-foreground font-medium"
           >
             <Pause className="w-3.5 h-3.5 mr-1.5" />
             Pause

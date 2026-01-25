@@ -135,6 +135,16 @@ interface CoachContext {
     duration?: number;
   }>;
   practiceTitle?: string;
+  // Insights data for personalization
+  insights?: {
+    statePatterns?: {
+      distribution: Record<string, number>;
+      mostCommonState: string;
+    };
+    tinyWinsThemes?: string[];
+    practiceCount: number;
+    checkInStreak: number;
+  };
 }
 
 const buildSystemPrompt = (context?: CoachContext, flowType?: string): string => {
@@ -193,6 +203,29 @@ Instructions:
       contextLines.push(`Time of Day: ${context.timeOfDay}`);
     }
     
+    // Add insights data for deeper personalization
+    if (context.insights) {
+      contextLines.push('');
+      contextLines.push('=== USER PATTERNS (from Insights) ===');
+      
+      if (context.insights.statePatterns?.mostCommonState) {
+        contextLines.push(`Typical State This Week: ${context.insights.statePatterns.mostCommonState}`);
+      }
+      
+      if (context.insights.checkInStreak > 0) {
+        contextLines.push(`Check-in Streak: ${context.insights.checkInStreak} days (acknowledge their consistency)`);
+      }
+      
+      if (context.insights.practiceCount > 0) {
+        contextLines.push(`Practices Completed This Week: ${context.insights.practiceCount}`);
+      }
+      
+      if (context.insights.tinyWinsThemes?.length) {
+        contextLines.push(`Recent Wins: ${context.insights.tinyWinsThemes.slice(0, 3).join(' | ')}`);
+        contextLines.push('(Reference these wins when they need confidence or perspective)');
+      }
+    }
+    
     // Add guidance
     contextLines.push('');
     contextLines.push('=== PERSONALIZATION GUIDANCE ===');
@@ -201,6 +234,8 @@ Instructions:
     contextLines.push('- If they have an upcoming event, help them prepare specifically for it');
     contextLines.push("- If they've been in a low state for multiple days, acknowledge this pattern gently");
     contextLines.push('- Match your energy to their state - calmer for overwhelmed, more energizing for drained');
+    contextLines.push('- Acknowledge their consistency if they have a streak');
+    contextLines.push('- Reference recent wins when they need a confidence boost');
     
     prompt += contextLines.join('\n');
   }
