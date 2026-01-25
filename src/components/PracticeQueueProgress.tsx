@@ -36,7 +36,7 @@ const PracticeQueueProgress = ({
   }
 
   return (
-    <div className="fixed top-16 left-0 right-0 bg-card/80 backdrop-blur-md border-b border-border/50 z-40">
+    <div className="fixed top-16 left-0 right-0 bg-white/30 dark:bg-black/20 backdrop-blur-xl border-b border-white/20 z-40">
       <div className="max-w-4xl mx-auto px-4 py-3">
         {/* Minimal Progress Dots - top right aligned */}
         <div className="flex items-center justify-between mb-3">
