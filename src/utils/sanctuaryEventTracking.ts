@@ -2,6 +2,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 export interface SanctuaryEventData {
   userId?: string;
@@ -54,6 +55,36 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     // Validate input before processing
     const validatedEvent = sanctuaryEventSchema.parse(event) as SanctuaryEventData;
     
+    // DEV_MODE: Direct database insert
+    if (DEV_MODE) {
+      console.log('[sanctuaryEventTracking] DEV_MODE: Direct DB insert');
+      
+      const { data, error } = await supabase
+        .from('sanctuary_events')
+        .insert({
+          user_id: DEV_USER.id,
+          event_type: validatedEvent.eventType === 'session_complete' ? 'completed' : validatedEvent.eventType,
+          content_id: validatedEvent.contentId,
+          content_type: validatedEvent.contentType,
+          category: validatedEvent.category,
+          tags: validatedEvent.tags,
+          duration_seconds: validatedEvent.duration,
+          timestamp: validatedEvent.timestamp,
+          context_data: validatedEvent.contextData,
+          effectiveness_rating: validatedEvent.effectivenessRating,
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('[sanctuaryEventTracking] DEV_MODE insert error:', error);
+        return { success: false, error };
+      }
+      
+      console.log('[sanctuaryEventTracking] DEV_MODE: Event tracked successfully');
+      return { success: true, data };
+    }
+    
     // Get user ID from supabase auth
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -93,10 +124,10 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
       return { success: false, error: new Error('Invalid event data') };
     }
     // Add to offline queue for network errors (with user ID if available)
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data?.user?.id;
     const eventWithUser: SanctuaryEventData = {
       ...event,
-      userId: user?.id,
+      userId,
       timestamp: event.timestamp || new Date().toISOString()
     };
     offlineQueue.push(eventWithUser);

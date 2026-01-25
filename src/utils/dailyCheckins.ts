@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 // Helper to get access token
 async function getAccessToken(): Promise<string | null> {
@@ -18,14 +19,35 @@ export interface CheckinData {
   checkin_date: string;
   user_id?: string;
   outcome: string;
-  state_tags?: string[];
-  energy_balance?: number;
-  skipped?: boolean;
+  state_tags?: string[] | null;
+  energy_balance?: number | null;
+  skipped?: boolean | null;
   timestamp: string;
-  data_sources?: Record<string, unknown>;
+  data_sources?: Record<string, unknown> | null;
 }
 
 export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    try {
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - days);
+      
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('user_id', DEV_USER.id)
+        .gte('checkin_date', daysAgo.toISOString().split('T')[0])
+        .order('checkin_date', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []) as CheckinData[];
+    } catch (error) {
+      console.error('[dailyCheckins] DEV_MODE failed to fetch checkins:', error);
+      return [];
+    }
+  }
+
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -47,6 +69,26 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
 }
 
 export async function getTodayCheckin(): Promise<CheckinData | null> {
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('user_id', DEV_USER.id)
+        .eq('checkin_date', today)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as CheckinData | null;
+    } catch (error) {
+      console.error('[dailyCheckins] DEV_MODE failed to fetch today checkin:', error);
+      return null;
+    }
+  }
+
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -68,6 +110,25 @@ export async function getTodayCheckin(): Promise<CheckinData | null> {
 }
 
 export async function getCheckinRange(startDate: string, endDate: string): Promise<CheckinData[]> {
+  // DEV_MODE: Direct database query
+  if (DEV_MODE) {
+    try {
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('user_id', DEV_USER.id)
+        .gte('checkin_date', startDate)
+        .lte('checkin_date', endDate)
+        .order('checkin_date', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []) as CheckinData[];
+    } catch (error) {
+      console.error('[dailyCheckins] DEV_MODE failed to fetch checkin range:', error);
+      return [];
+    }
+  }
+
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -89,6 +150,29 @@ export async function getCheckinRange(startDate: string, endDate: string): Promi
 }
 
 export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id'>): Promise<CheckinData | null> {
+  // DEV_MODE: Direct database upsert
+  if (DEV_MODE) {
+    try {
+      console.log('[dailyCheckins] DEV_MODE: Saving check-in directly to DB');
+      
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .upsert([{
+          user_id: DEV_USER.id,
+          ...checkinData
+        }], { onConflict: 'user_id,checkin_date' })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      console.log('[dailyCheckins] DEV_MODE: Check-in saved successfully');
+      return data as CheckinData;
+    } catch (error) {
+      console.error('[dailyCheckins] DEV_MODE failed to save checkin:', error);
+      return null;
+    }
+  }
+
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
