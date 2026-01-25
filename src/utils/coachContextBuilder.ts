@@ -1,10 +1,28 @@
 /**
  * Coach Context Builder
  * Builds comprehensive user context for the Self Mastery Coach
+ * Includes predictive pattern intelligence from calendar + check-in correlations
  */
 
 import { computeEnergyState, type CurrentEnergyState } from './energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
+
+export interface CalendarStateCorrelation {
+  eventKeyword: string;
+  typicalState: string;
+  occurrences: number;
+  confidence: number; // 0-1
+}
+
+export interface PredictivePatterns {
+  todayPrediction?: {
+    dayOfWeek: string;
+    predictedState: string;
+    triggerKeywords: string[];
+    confidence: number;
+  };
+  calendarCorrelations?: CalendarStateCorrelation[];
+}
 
 export interface CoachContext {
   // Today's State
@@ -61,6 +79,9 @@ export interface CoachContext {
     practiceCount: number;
     checkInStreak: number;
   };
+  
+  // Predictive pattern intelligence
+  predictivePatterns?: PredictivePatterns;
 }
 
 // Get JIT intervention data from localStorage
@@ -306,11 +327,12 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   
   // Add user-specific data if userId provided
   if (userId) {
-    const [profile, recentPractices, consecutivePattern, insights] = await Promise.all([
+    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns] = await Promise.all([
       getUserProfile(userId),
       getRecentPractices(userId),
       detectConsecutivePattern(userId, energyState.checkInOutcome),
-      getUserInsights(userId)
+      getUserInsights(userId),
+      detectCalendarStateCorrelations(userId)
     ]);
     
     if (profile) {
@@ -329,9 +351,147 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     if (insights) {
       context.insights = insights;
     }
+    
+    if (predictivePatterns) {
+      context.predictivePatterns = predictivePatterns;
+    }
   }
   
   return context;
+}
+
+/**
+ * Detect calendar-state correlations for predictive coaching
+ * Analyzes past 30 days of check-ins + calendar events to find patterns
+ * e.g., "Board Meeting days" → "overwhelmed" (85% of time)
+ */
+async function detectCalendarStateCorrelations(userId: string): Promise<PredictivePatterns | undefined> {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    // Fetch check-ins and calendar events
+    const [checkInsResult, calendarResult] = await Promise.all([
+      supabase
+        .from('daily_checkins')
+        .select('checkin_date, outcome')
+        .eq('user_id', userId)
+        .gte('checkin_date', thirtyDaysAgoStr)
+        .order('checkin_date', { ascending: false }),
+      supabase
+        .from('calendar_events')
+        .select('start_time, title')
+        .eq('user_id', userId)
+        .gte('start_time', thirtyDaysAgo.toISOString())
+    ]);
+    
+    if (!checkInsResult.data || !calendarResult.data) return undefined;
+    
+    const checkIns = checkInsResult.data;
+    const events = calendarResult.data;
+    
+    if (checkIns.length < 5 || events.length < 3) return undefined;
+    
+    // Build correlation map: keyword → { state → count }
+    const correlations: Record<string, Record<string, number>> = {};
+    const highValueKeywords = ['board', 'quarterly', 'investor', 'all-hands', 'performance', 'review', 'presentation', 'pitch', 'interview', 'negotiation'];
+    
+    // For each check-in, find events on the same day
+    for (const checkIn of checkIns) {
+      if (!checkIn.outcome) continue;
+      
+      const checkInDate = new Date(checkIn.checkin_date).toDateString();
+      
+      for (const event of events) {
+        const eventDate = new Date(event.start_time).toDateString();
+        if (eventDate !== checkInDate || !event.title) continue;
+        
+        // Extract keywords from event title
+        const titleLower = event.title.toLowerCase();
+        for (const keyword of highValueKeywords) {
+          if (titleLower.includes(keyword)) {
+            if (!correlations[keyword]) {
+              correlations[keyword] = {};
+            }
+            correlations[keyword][checkIn.outcome] = (correlations[keyword][checkIn.outcome] || 0) + 1;
+          }
+        }
+      }
+    }
+    
+    // Convert to CalendarStateCorrelation array
+    const calendarCorrelations: CalendarStateCorrelation[] = [];
+    
+    for (const [keyword, stateCounts] of Object.entries(correlations)) {
+      const total = Object.values(stateCounts).reduce((a, b) => a + b, 0);
+      if (total < 2) continue; // Need at least 2 occurrences
+      
+      // Find most common state for this keyword
+      const [typicalState, count] = Object.entries(stateCounts)
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      const confidence = count / total;
+      if (confidence >= 0.6) { // Only include if 60%+ consistent
+        calendarCorrelations.push({
+          eventKeyword: keyword,
+          typicalState,
+          occurrences: total,
+          confidence
+        });
+      }
+    }
+    
+    if (calendarCorrelations.length === 0) return undefined;
+    
+    // Check if today matches any pattern
+    const today = new Date();
+    const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Get today's events
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const { data: todayEvents } = await supabase
+      .from('calendar_events')
+      .select('title')
+      .eq('user_id', userId)
+      .gte('start_time', todayStart.toISOString())
+      .lte('start_time', todayEnd.toISOString());
+    
+    let todayPrediction: PredictivePatterns['todayPrediction'] | undefined;
+    
+    if (todayEvents && todayEvents.length > 0) {
+      // Check if any of today's events match a known pattern
+      for (const event of todayEvents) {
+        if (!event.title) continue;
+        const titleLower = event.title.toLowerCase();
+        
+        for (const correlation of calendarCorrelations) {
+          if (titleLower.includes(correlation.eventKeyword)) {
+            todayPrediction = {
+              dayOfWeek,
+              predictedState: correlation.typicalState,
+              triggerKeywords: [correlation.eventKeyword],
+              confidence: correlation.confidence
+            };
+            break;
+          }
+        }
+        if (todayPrediction) break;
+      }
+    }
+    
+    return {
+      todayPrediction,
+      calendarCorrelations
+    };
+  } catch (error) {
+    console.error('[coachContextBuilder] Error detecting calendar correlations:', error);
+    return undefined;
+  }
 }
 
 /**

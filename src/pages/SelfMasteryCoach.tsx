@@ -9,6 +9,11 @@ import { cn } from '@/lib/utils';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import PracticeQueueProgress from '@/components/PracticeQueueProgress';
 import { toast } from 'sonner';
+import { parseMessageContent } from '@/utils/messageParser';
+import { matchProtocolById, matchProtocolByPartialId } from '@/utils/protocolMatcher';
+import { getWisdom } from '@/data/wisdomContent';
+import ProtocolCard from '@/components/chat/ProtocolCard';
+import WisdomCard from '@/components/chat/WisdomCard';
 
 interface PracticeStep {
   title: string;
@@ -354,22 +359,65 @@ return (
                     <span className="text-xs font-headline text-saffron leading-none">SM</span>
                   </div>
                 )}
-                <div
-                  className={cn(
-                    'max-w-[80%] px-4 py-3 rounded-2xl',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-foreground'
-                  )}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                </div>
-                {/* User avatar with initial */}
-                {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 via-slate-100 to-white flex items-center justify-center flex-shrink-0 border border-slate-200/50">
-                    <span className="text-xs font-headline text-slate-600 leading-none">
-                      {firstName.charAt(0).toUpperCase()}
-                    </span>
+                {message.role === 'user' ? (
+                  <>
+                    <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-primary text-primary-foreground">
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 via-slate-100 to-white flex items-center justify-center flex-shrink-0 border border-slate-200/50">
+                      <span className="text-xs font-headline text-slate-600 leading-none">
+                        {firstName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="max-w-[85%] space-y-3">
+                    {/* Parse message for embedded content */}
+                    {(() => {
+                      const parsed = parseMessageContent(message.content);
+                      return (
+                        <>
+                          {/* Text content */}
+                          {parsed.text && (
+                            <div className="px-4 py-3 rounded-2xl bg-muted text-foreground">
+                              <p className="text-sm whitespace-pre-wrap">{parsed.text}</p>
+                            </div>
+                          )}
+                          
+                          {/* Protocol cards */}
+                          {parsed.protocols.map((p, idx) => {
+                            const matched = matchProtocolById(p.id) || matchProtocolByPartialId(p.id);
+                            if (!matched) return null;
+                            return (
+                              <ProtocolCard
+                                key={`${p.id}-${idx}`}
+                                id={matched.id}
+                                type={p.type}
+                                title={matched.title}
+                                duration={matched.duration}
+                                thumbnail={matched.thumbnail}
+                                contentType={matched.contentType}
+                                storyHook={matched.storyHook}
+                              />
+                            );
+                          })}
+                          
+                          {/* Wisdom cards */}
+                          {parsed.wisdom.map((w, idx) => {
+                            const wisdom = getWisdom(w.fullKey);
+                            if (!wisdom) return null;
+                            return (
+                              <WisdomCard
+                                key={`${w.fullKey}-${idx}`}
+                                quote={wisdom.quote}
+                                attribution={wisdom.attribution}
+                                context={wisdom.context}
+                              />
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
