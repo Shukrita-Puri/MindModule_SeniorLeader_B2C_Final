@@ -28,6 +28,8 @@ import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
 import { cn } from "@/lib/utils";
@@ -286,12 +288,19 @@ const SoundscapePlayer = () => {
       return;
     }
 
-    // Save practice session
+    // Save practice session and track for insights
     try {
       const user = (await supabase.auth.getUser()).data.user;
-      if (user && soundscape) {
+      const userId = DEV_MODE ? DEV_USER.id : user?.id;
+      
+      if (userId && soundscape) {
+        // Check if this practice is in today's recommended plan
+        const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
+        const isRecommendedPractice = todayRecommendedIds.includes(id);
+        const shouldTrackRitual = isInQueue || isRecommendedPractice;
+        
         const session = {
-          user_id: user.id,
+          user_id: userId,
           content_id: soundscape.id,
           content_type: 'soundbath',
           category: soundscape.category,
@@ -299,7 +308,7 @@ const SoundscapePlayer = () => {
           completed_at: new Date().toISOString(),
           duration_seconds: displayDuration,
           completed: true,
-          part_of_ritual: isInQueue
+          part_of_ritual: shouldTrackRitual
         };
 
         const { data: insertedSession, error } = await supabase
@@ -311,8 +320,23 @@ const SoundscapePlayer = () => {
         if (error) throw error;
         setSessionId(insertedSession.id);
 
-        // If part of ritual, update daily ritual completion via edge function
-        if (isInQueue && user) {
+        // Track to sanctuary_events for Insights page
+        await trackSanctuaryEvent({
+          eventType: 'session_complete',
+          contentId: soundscape.id,
+          contentType: 'soundbath',
+          category: soundscape.category as 'pause' | 'power-up' | 'presence',
+          tags: [],
+          duration: displayDuration,
+          timestamp: new Date().toISOString(),
+          contextData: {
+            timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+            dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+          }
+        });
+
+        // Update ritual completion if part of recommended plan or queue
+        if (shouldTrackRitual) {
           await updateRitualCompletion('soundscape', id, practiceQueue);
         }
       }

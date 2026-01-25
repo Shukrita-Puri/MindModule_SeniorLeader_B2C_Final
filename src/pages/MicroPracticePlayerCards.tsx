@@ -16,6 +16,8 @@ import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
+import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
+import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
@@ -1762,12 +1764,19 @@ const MicroPracticePlayerCards = () => {
       );
       const isPartOfRitual =
         practiceQueue && practiceQueue.some((p: any) => p.id === id);
+      
+      // Check if this practice is in today's recommended plan
+      const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
+      const isRecommendedPractice = todayRecommendedIds.includes(id);
+      const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
+      
+      const userId = DEV_MODE ? DEV_USER.id : user.id;
 
       // Track practice session
       const { data, error } = await supabase
         .from("practice_sessions")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           content_id: practice.id,
           content_type: "micro",
           category: practice.category,
@@ -1775,7 +1784,7 @@ const MicroPracticePlayerCards = () => {
           started_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
           completed: true,
-          part_of_ritual: isPartOfRitual,
+          part_of_ritual: shouldTrackRitual,
           metadata: { title: practice.title },
         })
         .select("id")
@@ -1785,8 +1794,23 @@ const MicroPracticePlayerCards = () => {
         setSessionId(data.id);
       }
 
-      // Update ritual completion if part of ritual via edge function
-      if (isPartOfRitual) {
+      // Track to sanctuary_events for Insights page
+      await trackSanctuaryEvent({
+        eventType: 'session_complete',
+        contentId: practice.id,
+        contentType: 'micro-practice',
+        category: practice.category as 'pause' | 'power-up' | 'presence',
+        tags: [],
+        duration: practice.duration * 60,
+        timestamp: new Date().toISOString(),
+        contextData: {
+          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+          dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+        }
+      });
+
+      // Update ritual completion if part of recommended plan or queue
+      if (shouldTrackRitual) {
         await updateRitualCompletion('micro_exercise', id);
       }
     } catch (error) {
