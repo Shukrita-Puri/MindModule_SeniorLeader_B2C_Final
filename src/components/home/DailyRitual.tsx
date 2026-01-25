@@ -549,6 +549,11 @@ const DailyRitual = () => {
                           <span className="text-4xl font-headline text-saffron/90 tracking-tight leading-none drop-shadow-lg">SM</span>
                           <span className="text-[9px] uppercase tracking-[0.2em] text-white/60 mt-1">Coach</span>
                         </div>
+                        
+                        {/* Part of Today's Plan badge */}
+                        <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
+                          Today's Plan
+                        </div>
                       </div>
                     ) : (
                       <img 
