@@ -18,6 +18,7 @@ interface PracticeQueueProgressProps {
   onPause: () => void;
   onComplete: () => void;
   inline?: boolean;
+  lightBackground?: boolean;
 }
 
 const PracticeQueueProgress = ({ 
@@ -27,7 +28,8 @@ const PracticeQueueProgress = ({
   onSkip,
   onPause,
   onComplete,
-  inline = false
+  inline = false,
+  lightBackground = false
 }: PracticeQueueProgressProps) => {
   const nextPractice = queue[currentIndex + 1];
   const isLastPractice = currentIndex === totalCount - 1;
@@ -47,7 +49,10 @@ const PracticeQueueProgress = ({
         <div className="flex items-center justify-between mb-3">
         {/* Up next preview - visible text */}
           {nextPractice && (
-            <div className="text-xs text-white font-medium drop-shadow-sm">
+            <div className={cn(
+              "text-xs font-medium drop-shadow-sm",
+              lightBackground ? "text-foreground" : "text-white"
+            )}>
               Up next: {nextPractice.title}
             </div>
           )}
@@ -77,7 +82,12 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-xs text-white/90 hover:text-white hover:bg-white/10 font-medium drop-shadow-sm"
+            className={cn(
+              "text-xs font-medium drop-shadow-sm",
+              lightBackground 
+                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50" 
+                : "text-white/90 hover:text-white hover:bg-white/10"
+            )}
           >
             <SkipForward className="w-3.5 h-3.5 mr-1.5" />
             {isLastPractice ? 'Skip & Exit' : 'Skip'}
@@ -86,7 +96,12 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onPause}
-            className="text-xs text-white/90 hover:text-white hover:bg-white/10 font-medium drop-shadow-sm"
+            className={cn(
+              "text-xs font-medium drop-shadow-sm",
+              lightBackground 
+                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50" 
+                : "text-white/90 hover:text-white hover:bg-white/10"
+            )}
           >
             <Pause className="w-3.5 h-3.5 mr-1.5" />
             Pause

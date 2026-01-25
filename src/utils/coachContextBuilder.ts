@@ -525,9 +525,18 @@ export function formatContextForPrompt(context: CoachContext): string {
     lines.push(`- Executive Archetype: ${context.userArchetype}`);
   }
   
-  // Plan status
+  // Plan status - IMPORTANT: Completed protocols section
   if (context.planStatus && context.planStatus.completedModules.length > 0) {
-    lines.push(`- Completed Today: ${context.planStatus.completedModules.join(', ')}`);
+    lines.push('');
+    lines.push('=== ALREADY COMPLETED TODAY ===');
+    lines.push(`Completed Protocols: ${context.planStatus.completedModules.join(', ')}`);
+    lines.push('⚠️ Do NOT recommend these again. Build on what they have done.');
+    lines.push('Instead, acknowledge their preparation and move to coaching/strategy.');
+  }
+  
+  // Recent practices
+  if (context.recentPractices && context.recentPractices.length > 0) {
+    lines.push(`- Recent Practices (7 days): ${context.recentPractices.slice(0, 5).join(', ')}`);
   }
   
   // Guidance
@@ -536,6 +545,7 @@ export function formatContextForPrompt(context: CoachContext): string {
   lines.push('- Reference the theme or state when relevant');
   lines.push('- If they have an upcoming event, help them prepare specifically for it');
   lines.push("- If they've been in a low state for multiple days, acknowledge this pattern gently");
+  lines.push('- If they have already completed protocols today, skip recommending the same ones');
   
   return lines.join('\n');
 }

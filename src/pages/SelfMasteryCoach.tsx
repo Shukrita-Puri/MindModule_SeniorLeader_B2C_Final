@@ -283,20 +283,26 @@ return (
 
       {/* Queue Progress - inline before hero when in queue */}
       {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
-        <PracticeQueueProgress
-          currentIndex={currentQueueIndex}
-          totalCount={practiceQueue.length}
-          queue={practiceQueue}
-          onSkip={handleQueueSkip}
-          onPause={handleQueuePause}
-          onComplete={handleQueueComplete}
-          inline={true}
-        />
+        <div className="relative">
+          {/* Dark gradient backdrop for banner visibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-charcoal/80 via-charcoal/60 to-transparent rounded-lg" />
+          <PracticeQueueProgress
+            currentIndex={currentQueueIndex}
+            totalCount={practiceQueue.length}
+            queue={practiceQueue}
+            onSkip={handleQueueSkip}
+            onPause={handleQueuePause}
+            onComplete={handleQueueComplete}
+            inline={true}
+          />
+        </div>
       )}
 
       {/* Hero Title - only on greeting screen (matches Recalibrate Studio) */}
       {messages.length === 0 && (
         <div className="relative h-auto py-8 overflow-hidden">
+          {/* Subtle ambient gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-saffron/5 via-taupe/3 to-transparent" />
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
               Self Mastery Coach
