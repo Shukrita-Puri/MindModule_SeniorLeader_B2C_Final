@@ -14,6 +14,7 @@ import { matchProtocolById, matchProtocolByPartialId } from '@/utils/protocolMat
 import { getWisdom } from '@/data/wisdomContent';
 import ProtocolCard from '@/components/chat/ProtocolCard';
 import WisdomCard from '@/components/chat/WisdomCard';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PracticeStep {
   title: string;
@@ -29,6 +30,8 @@ interface LocationState {
   fromIntervention?: boolean;
   eventTitle?: string;
   fromRitual?: boolean;
+  resumeSession?: boolean;
+  previousSessionId?: string;
 }
 
 interface QueuedPractice {
@@ -54,7 +57,8 @@ const SelfMasteryCoach = () => {
     clearConversation, 
     endSession, 
     setFlowType,
-    setPracticeContext 
+    setPracticeContext,
+    restoreMessages 
   } = useCoachConversation();
   const [inputMessage, setInputMessage] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -94,6 +98,41 @@ const SelfMasteryCoach = () => {
       }
     }
   }, [locationState?.fromRitual]);
+
+  // Restore previous session if navigating from Recent Activity
+  useEffect(() => {
+    const loadPreviousSession = async () => {
+      if (!locationState?.resumeSession || !locationState?.previousSessionId) return;
+      if (messages.length > 0) return; // Don't restore if already has messages
+      
+      try {
+        const { data: sessionMessages, error } = await supabase
+          .from('dialogue_messages')
+          .select('sender_type, content, message_index, timestamp')
+          .eq('session_id', locationState.previousSessionId)
+          .order('message_index', { ascending: true });
+        
+        if (error) {
+          console.error('Failed to fetch session messages:', error);
+          return;
+        }
+        
+        if (sessionMessages && sessionMessages.length > 0) {
+          const restoredMessages = sessionMessages.map(m => ({
+            id: crypto.randomUUID(),
+            role: m.sender_type as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.timestamp || Date.now())
+          }));
+          restoreMessages(restoredMessages, locationState.previousSessionId);
+          console.log('[SelfMasteryCoach] Restored session:', locationState.previousSessionId);
+        }
+      } catch (err) {
+        console.error('Failed to restore session:', err);
+      }
+    };
+    loadPreviousSession();
+  }, [locationState?.resumeSession, locationState?.previousSessionId, messages.length, restoreMessages]);
   
   // Set flow type and practice context
   useEffect(() => {
@@ -283,18 +322,18 @@ return (
 
       {/* Queue Progress - inline before hero when in queue */}
       {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
-        <div className="relative">
-          {/* Dark gradient backdrop for banner visibility */}
-          <div className="absolute inset-0 bg-gradient-to-b from-charcoal/80 via-charcoal/60 to-transparent rounded-lg" />
-          <PracticeQueueProgress
-            currentIndex={currentQueueIndex}
-            totalCount={practiceQueue.length}
-            queue={practiceQueue}
-            onSkip={handleQueueSkip}
-            onPause={handleQueuePause}
-            onComplete={handleQueueComplete}
-            inline={true}
-          />
+        <div className="mx-4 mt-2">
+          <div className="bg-charcoal/95 backdrop-blur-lg rounded-xl border border-white/10 overflow-hidden shadow-lg">
+            <PracticeQueueProgress
+              currentIndex={currentQueueIndex}
+              totalCount={practiceQueue.length}
+              queue={practiceQueue}
+              onSkip={handleQueueSkip}
+              onPause={handleQueuePause}
+              onComplete={handleQueueComplete}
+              inline={true}
+            />
+          </div>
         </div>
       )}
 

@@ -11,6 +11,7 @@ import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import EnergyRhythm from '@/components/insights/EnergyRhythm';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
+import CalendarStateCorrelations from '@/components/insights/CalendarStateCorrelations';
 
 interface DayData {
   date: string;
@@ -460,7 +461,21 @@ const Insights = () => {
           </CardContent>
         </Card>
 
-        {/* Theme Patterns */}
+        {/* Calendar-State Patterns */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Calendar → State Patterns</span>
+              <InsightInfoModal
+                title="Calendar-State Patterns"
+                explanation="Shows how specific calendar events correlate with your emotional state. Understanding these patterns helps you prepare mentally for challenging events."
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CalendarStateCorrelations userId={user?.id} />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
