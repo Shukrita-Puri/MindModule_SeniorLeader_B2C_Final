@@ -41,18 +41,16 @@ const PracticeQueueProgress = ({
 
   return (
     <div className={cn(
-      "bg-white/10 dark:bg-black/10 backdrop-blur-2xl border-b border-white/10",
-      inline ? "relative w-full" : "fixed top-16 left-0 right-0 z-40"
+      inline 
+        ? "relative w-full" // No background when inline - wrapper provides it
+        : "fixed top-16 left-0 right-0 z-40 bg-white/10 dark:bg-black/10 backdrop-blur-2xl border-b border-white/10"
     )}>
       <div className="max-w-4xl mx-auto px-4 py-3">
         {/* Minimal Progress Dots - top right aligned */}
         <div className="flex items-center justify-between mb-3">
-        {/* Up next preview - visible text */}
+        {/* Up next preview - always white text since wrapper is dark */}
           {nextPractice && (
-            <div className={cn(
-              "text-xs font-medium drop-shadow-sm",
-              lightBackground ? "text-foreground" : "text-white"
-            )}>
+            <div className="text-xs font-medium text-white/90 drop-shadow-sm">
               Up next: {nextPractice.title}
             </div>
           )}
@@ -66,10 +64,10 @@ const PracticeQueueProgress = ({
                 className={cn(
                   "transition-all duration-300 rounded-full",
                   index === currentIndex
-                    ? "w-2.5 h-2.5 bg-saffron shadow-[0_0_8px_rgba(255,140,66,0.4)]"
+                    ? "w-2.5 h-2.5 bg-saffron shadow-[0_0_8px_rgba(255,140,66,0.6)]"
                     : index < currentIndex
-                    ? "w-2 h-2 bg-saffron/50"
-                    : "w-2 h-2 bg-white/30"
+                    ? "w-2 h-2 bg-saffron/60"
+                    : "w-2 h-2 bg-white/40"
                 )}
               />
             ))}
@@ -82,12 +80,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className={cn(
-              "text-xs font-medium drop-shadow-sm",
-              lightBackground 
-                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50" 
-                : "text-white/90 hover:text-white hover:bg-white/10"
-            )}
+            className="text-xs font-medium text-white/90 hover:text-white hover:bg-white/15 drop-shadow-sm"
           >
             <SkipForward className="w-3.5 h-3.5 mr-1.5" />
             {isLastPractice ? 'Skip & Exit' : 'Skip'}
@@ -96,12 +89,7 @@ const PracticeQueueProgress = ({
             variant="ghost"
             size="sm"
             onClick={onPause}
-            className={cn(
-              "text-xs font-medium drop-shadow-sm",
-              lightBackground 
-                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50" 
-                : "text-white/90 hover:text-white hover:bg-white/10"
-            )}
+            className="text-xs font-medium text-white/90 hover:text-white hover:bg-white/15 drop-shadow-sm"
           >
             <Pause className="w-3.5 h-3.5 mr-1.5" />
             Pause

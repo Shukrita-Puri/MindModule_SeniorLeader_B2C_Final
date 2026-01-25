@@ -31,6 +31,11 @@ export interface CoachContext {
     tier: string;
     outcome?: string;
     contextStatement?: string;
+    dataAvailability?: {
+      hasCheckin: boolean;
+      hasWearable: boolean;
+      hasCalendar: boolean;
+    };
   };
   
   // Theme for Today
@@ -307,13 +312,24 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   // Use the theme from energy state recommendation (already computed)
   const themeFromState = energyState.recommendation;
   
+  // Detect data availability for handling missing inputs
+  const hasCheckin = !!energyState.checkInOutcome;
+  const hasWearable = energyState.dataSources.includes('wearable');
+  const hasCalendar = energyState.dataSources.includes('calendar');
+  
   // Base context (always available)
   const context: CoachContext = {
     todayState: {
       score: energyState.overallBalance,
       tier: energyState.energyTier,
       outcome: energyState.checkInOutcome,
-      contextStatement: themeFromState?.contextStatement
+      contextStatement: themeFromState?.contextStatement,
+      // Add data availability flags for coach awareness
+      dataAvailability: {
+        hasCheckin,
+        hasWearable,
+        hasCalendar
+      }
     },
     theme: themeFromState ? {
       phrase: `${themeFromState.primary} focus`,
@@ -537,6 +553,18 @@ export function formatContextForPrompt(context: CoachContext): string {
   // Recent practices
   if (context.recentPractices && context.recentPractices.length > 0) {
     lines.push(`- Recent Practices (7 days): ${context.recentPractices.slice(0, 5).join(', ')}`);
+  }
+  
+  // Data availability awareness
+  if (context.todayState.dataAvailability) {
+    const { hasCheckin, hasWearable, hasCalendar } = context.todayState.dataAvailability;
+    if (!hasCheckin) {
+      lines.push('');
+      lines.push('⚠️ User has not completed their daily check-in yet. Ask how they are feeling before making state-based recommendations.');
+    }
+    if (!hasWearable && !hasCalendar) {
+      lines.push('- Note: No wearable or calendar data connected. Focus on subjective state and self-reported context.');
+    }
   }
   
   // Guidance

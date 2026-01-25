@@ -18,6 +18,13 @@ const ConnectedData = () => {
       connected: false,
     },
     {
+      id: 'apple-watch',
+      name: 'Apple Watch',
+      icon: Watch,
+      description: 'Connect via Apple Health for HRV and sleep data',
+      connected: false,
+    },
+    {
       id: 'oura',
       name: 'Oura Ring',
       icon: Watch,

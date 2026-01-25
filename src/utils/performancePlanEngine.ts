@@ -480,8 +480,12 @@ export function selectContentForModule(
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
   
-  // Return top result
-  return scored[0]?.content || null;
+  // Randomize among top 3 candidates for variety (prevents always showing same content)
+  const topCandidates = scored.slice(0, Math.min(3, scored.length));
+  if (topCandidates.length === 0) return null;
+  
+  const randomIndex = Math.floor(Math.random() * topCandidates.length);
+  return topCandidates[randomIndex]?.content || null;
 }
 
 // ==================== COACH CARDS ====================
@@ -516,7 +520,34 @@ function createCoachCard(type: 'prepare' | 'integrate'): CoachCard {
 // ==================== MAIN ENGINE ====================
 
 export function getModulesFromTheme(themePhrase: string): ThemeModuleMapping {
-  return THEME_MODULE_MAP[themePhrase] || DEFAULT_MODULE_MAPPING;
+  // Exact match first
+  if (THEME_MODULE_MAP[themePhrase]) {
+    return THEME_MODULE_MAP[themePhrase];
+  }
+  
+  // Fuzzy match - find closest theme by normalizing punctuation and case
+  const normalizedInput = themePhrase.toLowerCase().replace(/[.!?]/g, '').trim();
+  for (const [key, value] of Object.entries(THEME_MODULE_MAP)) {
+    const normalizedKey = key.toLowerCase().replace(/[.!?]/g, '').trim();
+    if (normalizedKey === normalizedInput) {
+      console.log(`[PerformancePlan] Fuzzy matched theme: "${themePhrase}" → "${key}"`);
+      return value;
+    }
+  }
+  
+  // Partial match - find themes containing key words from input
+  const inputWords = normalizedInput.split(/\s+/).filter(w => w.length > 3);
+  for (const [key, value] of Object.entries(THEME_MODULE_MAP)) {
+    const keyLower = key.toLowerCase();
+    const matchCount = inputWords.filter(w => keyLower.includes(w)).length;
+    if (matchCount >= 2 || (inputWords.length === 1 && matchCount === 1)) {
+      console.log(`[PerformancePlan] Partial matched theme: "${themePhrase}" → "${key}" (${matchCount} words)`);
+      return value;
+    }
+  }
+  
+  console.warn(`[PerformancePlan] No theme match for: "${themePhrase}", using default`);
+  return DEFAULT_MODULE_MAPPING;
 }
 
 export function generatePerformancePlan(context: PlanContext): ModuleRecommendation[] {
