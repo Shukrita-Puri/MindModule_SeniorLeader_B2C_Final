@@ -349,6 +349,21 @@ return (
             <p className="text-lg font-subheadline italic text-muted-foreground">
               {getSubtitle()}
             </p>
+            
+            {/* Performance Plan Connection Indicator */}
+            {isInQueue && (
+              <div className="bg-saffron/10 border border-saffron/20 rounded-lg px-4 py-2 mt-2 max-w-sm">
+                <p className="text-xs text-center">
+                  <span className="font-medium text-saffron">Part of Today's Performance Plan</span>
+                  <br/>
+                  <span className="text-muted-foreground">
+                    {flowType === 'prepare' ? 'Pre-performance mental rehearsal' : 
+                     flowType === 'integrate' ? 'Evening reflection & closure' : 
+                     'Personalized coaching session'}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

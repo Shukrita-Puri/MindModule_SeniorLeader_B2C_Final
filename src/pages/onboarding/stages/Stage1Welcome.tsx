@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, ArrowRight, Target, TrendingUp, Zap, Shield, Lock } from "lucide-react";
+import { Brain, ArrowRight, Target, TrendingUp, Zap, Shield, Lock, CheckCircle, MessageCircle, BarChart3 } from "lucide-react";
 import { GoldDivider } from "@/components/ui/divider";
 
 export default function Stage1Welcome() {
@@ -56,8 +56,26 @@ export default function Stage1Welcome() {
         </ul>
 
         <p className="text-sm text-muted-foreground italic pt-4 border-t border-gold/10">
-          Everything you need to master high-pressure moments that matter to you starts with knowing where you are today.
+          Everything you need to master high-pressure moments starts with knowing where you are today.
         </p>
+      </div>
+
+      {/* How It Works Section */}
+      <div className="bg-muted/30 backdrop-blur-sm border border-border rounded-xl p-6 space-y-4 animate-fade-in delay-250">
+        <p className="text-sm font-medium text-foreground/90 uppercase tracking-wider">How It Works</p>
+        <ul className="space-y-3">
+          {[
+            { icon: CheckCircle, text: "Daily Check-ins to calibrate your inner state" },
+            { icon: Zap, text: "AI-curated Performance Plans matched to your energy" },
+            { icon: MessageCircle, text: "Self Mastery Coach for real-time guidance" },
+            { icon: BarChart3, text: "Insights dashboard tracking your growth over time" },
+          ].map((item, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <item.icon size={16} className="text-primary/70 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-foreground/70">{item.text}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Privacy continuity footer */}
