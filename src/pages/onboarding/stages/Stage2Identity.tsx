@@ -18,10 +18,9 @@ export default function Stage2Identity() {
   );
 
   const identityOptions = [
-    { value: "executive", label: "Senior Executive / Leader" },
-    { value: "manager", label: "Manager / Team Leader" },
-    // { value: "student", label: "Student / Learner" }, // ARCHIVED: Executive focus for MVP
-    { value: "other", label: "Other" },
+    { value: "executive", label: "Executive / Organisation Leader" },
+    { value: "manager", label: "Manager / People Leader" },
+    { value: "other", label: "Others" },
   ];
 
   const getPressurePointsForIdentity = (): Array<{ value: string; label: string }> => {

@@ -298,10 +298,20 @@ const DailyRitual = () => {
       });
       
       setRecommendations(plan);
-      setRitualStatus(prev => ({
-        ...prev,
-        totalCount: plan.length
-      }));
+      
+      // Update total count and ensure status is correctly set based on completed practices
+      setRitualStatus(prev => {
+        const newStatus = prev.completedCount > 0 && prev.completedCount < plan.length 
+          ? 'partial' 
+          : prev.completedCount >= plan.length && prev.completedCount > 0
+            ? 'completed'
+            : 'not_started';
+        return {
+          ...prev,
+          totalCount: plan.length,
+          status: newStatus
+        };
+      });
     } catch (error) {
       console.error('Error loading recommendations:', error);
     }
@@ -640,7 +650,7 @@ const DailyRitual = () => {
           </Button>
         )}
 
-        {ritualStatus.status === 'partial' && (
+        {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
           <Button 
             onClick={handleContinueRitual}
             className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"

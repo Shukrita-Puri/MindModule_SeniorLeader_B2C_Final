@@ -125,6 +125,29 @@ export default function Stage8Results() {
         </div>
       </div>
 
+      {/* How We'll Help You Grow */}
+      <div className="bg-muted/30 rounded-xl p-5 border border-border">
+        <h4 className="text-sm font-semibold mb-3 text-foreground">How We'll Help You Grow</h4>
+        <ul className="text-xs text-muted-foreground space-y-2">
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Your daily check-ins feed personalized Performance Plans</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Your archetype (<span className="font-medium text-foreground">{archetype.title}</span>) shapes how your coach guides you</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Your growth goal (<span className="font-medium text-foreground">{insights.primaryFocus}</span>) weights practice recommendations</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-primary">•</span>
+            <span>Your patterns appear in the Insights dashboard over time</span>
+          </li>
+        </ul>
+      </div>
+
       <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg">
         <Sparkles className="w-5 h-5 mr-2" />
         Unlock Your Plan
