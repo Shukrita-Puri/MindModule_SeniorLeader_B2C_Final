@@ -211,7 +211,7 @@ const InnerWorldBubbles = ({
           </svg>
         )}
         
-        {/* Bubbles with staggered animation */}
+        {/* Bubbles with luxury glass morphism styling */}
         <div className="flex flex-wrap justify-center items-center gap-2.5 py-4 relative z-10">
           {sortedItems.map((item, index) => {
             const size = getBubbleSize(item.weight);
@@ -227,10 +227,15 @@ const InnerWorldBubbles = ({
                     }}
                     onClick={() => handleBubbleClick(item)}
                     className={cn(
-                      "rounded-full border flex flex-col items-center justify-center text-center cursor-pointer",
-                      "bg-primary/10 text-primary border-primary/20",
-                      "hover:bg-primary/20 hover:border-primary/30 hover:scale-105",
+                      "rounded-full flex flex-col items-center justify-center text-center cursor-pointer",
+                      "bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5",
+                      "border border-primary/20",
+                      "shadow-[0_4px_20px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.1)_inset]",
+                      "backdrop-blur-sm",
+                      "hover:shadow-[0_8px_30px_rgba(0,0,0,0.15),0_0_20px_hsl(var(--primary)/0.1)]",
+                      "hover:scale-105 transition-all duration-300",
                       "active:scale-100",
+                      "relative overflow-hidden",
                       // Organic positioning offsets
                       index % 3 === 0 && "mt-1",
                       index % 4 === 1 && "-mt-0.5",
@@ -246,9 +251,12 @@ const InnerWorldBubbles = ({
                       opacity: 0,
                     }}
                   >
+                    {/* Glass highlight */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-60 pointer-events-none" />
+                    
                     <span 
                       className={cn(
-                        "font-medium leading-tight px-2",
+                        "font-medium leading-tight px-2 relative z-10",
                         isLarge ? "text-sm" : isMedium ? "text-xs" : "text-[11px]"
                       )}
                       style={{
@@ -264,7 +272,7 @@ const InnerWorldBubbles = ({
                     </span>
                     <span 
                       className={cn(
-                        "opacity-50 mt-0.5",
+                        "opacity-50 mt-0.5 relative z-10",
                         isLarge ? "text-xs" : "text-[10px]"
                       )}
                     >
@@ -274,7 +282,7 @@ const InnerWorldBubbles = ({
                 </PopoverTrigger>
                 
                 <PopoverContent 
-                  className="w-72 p-4 bg-card/95 backdrop-blur-lg border-border/50"
+                  className="w-72 p-4 bg-card/95 backdrop-blur-lg border-border/50 shadow-[0_8px_32px_rgba(0,0,0,0.2)]"
                   side="top"
                   sideOffset={8}
                 >
