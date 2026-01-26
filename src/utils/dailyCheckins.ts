@@ -152,21 +152,35 @@ export async function getCheckinRange(startDate: string, endDate: string): Promi
 export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id'>): Promise<CheckinData | null> {
   // DEV_MODE: Direct database upsert
   if (DEV_MODE) {
+    console.log('[dailyCheckins] DEV_MODE: Saving check-in directly to DB...', {
+      user_id: DEV_USER.id,
+      checkin_date: checkinData.checkin_date,
+      outcome: checkinData.outcome,
+      energy_balance: checkinData.energy_balance
+    });
+    
     try {
-      console.log('[dailyCheckins] DEV_MODE: Saving check-in directly to DB');
-      
       const { data, error } = await supabase
         .from('daily_checkins')
-        .upsert([{
+        .upsert({
           user_id: DEV_USER.id,
-          ...checkinData,
+          checkin_date: checkinData.checkin_date,
+          outcome: checkinData.outcome,
+          energy_balance: checkinData.energy_balance,
+          skipped: checkinData.skipped,
+          timestamp: checkinData.timestamp,
+          state_tags: checkinData.state_tags,
           data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json
-        }], { onConflict: 'user_id,checkin_date' })
+        }, { onConflict: 'user_id,checkin_date' })
         .select()
-        .single();
+        .maybeSingle();
       
-      if (error) throw error;
-      console.log('[dailyCheckins] DEV_MODE: Check-in saved successfully');
+      if (error) {
+        console.error('[dailyCheckins] DEV_MODE save FAILED:', error);
+        return null;
+      }
+      
+      console.log('[dailyCheckins] DEV_MODE save SUCCESS:', data);
       return data as CheckinData;
     } catch (error) {
       console.error('[dailyCheckins] DEV_MODE failed to save checkin:', error);

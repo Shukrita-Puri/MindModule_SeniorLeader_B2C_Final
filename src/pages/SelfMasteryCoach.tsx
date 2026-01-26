@@ -15,6 +15,7 @@ import { getWisdom } from '@/data/wisdomContent';
 import ProtocolCard from '@/components/chat/ProtocolCard';
 import WisdomCard from '@/components/chat/WisdomCard';
 import { supabase } from '@/integrations/supabase/client';
+import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
 
 interface PracticeStep {
   title: string;
@@ -235,7 +236,31 @@ const SelfMasteryCoach = () => {
     navigate('/executive-home');
   };
 
+  // Mark coach practice as complete in completed_practice_ids
+  const markCoachComplete = async () => {
+    try {
+      const ritualData = await getTodayRitual();
+      const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
+      const existingIds = ritualData?.completed_practice_ids || [];
+      
+      if (!existingIds.includes(coachId)) {
+        await upsertRitual({
+          ritual_date: new Date().toISOString().split('T')[0],
+          completed_practice_ids: [...existingIds, coachId]
+        });
+        console.log('[SelfMasteryCoach] Marked coach as complete:', coachId);
+      }
+    } catch (error) {
+      console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
+    }
+  };
+
   const handleQueueComplete = async () => {
+    // Mark coach as complete before ending session
+    if (isInQueue && flowType) {
+      await markCoachComplete();
+    }
+    
     if (messages.length > 0) {
       await endSession();
     }
