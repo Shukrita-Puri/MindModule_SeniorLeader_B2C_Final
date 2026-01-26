@@ -11,7 +11,6 @@ interface EnergyRhythmProps {
   checkIns: CheckInData[];
 }
 
-// Time windows with readable labels
 // Time windows with readable labels (5am-11am, 12pm-5pm, 6pm-4am)
 const TIME_WINDOWS = [
   { key: 'morning', label: 'Morning', hours: [5, 6, 7, 8, 9, 10, 11] },
@@ -22,16 +21,38 @@ const TIME_WINDOWS = [
 // Day labels
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// State colors matching existing design
-const stateColors: Record<string, string> = {
-  focused: 'bg-green-500',
-  steady: 'bg-blue-500',
-  scattered: 'bg-amber-500',
-  drained: 'bg-slate-400',
-  overwhelmed: 'bg-red-500'
+// State colors matching existing design - enhanced with gradients
+const stateColors: Record<string, { bg: string; gradient: string; glow: string }> = {
+  focused: { 
+    bg: 'bg-green-500', 
+    gradient: 'from-green-400 via-green-500 to-green-600',
+    glow: 'rgba(34, 197, 94, 0.4)'
+  },
+  steady: { 
+    bg: 'bg-blue-500', 
+    gradient: 'from-blue-400 via-blue-500 to-blue-600',
+    glow: 'rgba(59, 130, 246, 0.4)'
+  },
+  scattered: { 
+    bg: 'bg-amber-500', 
+    gradient: 'from-amber-400 via-amber-500 to-amber-600',
+    glow: 'rgba(245, 158, 11, 0.4)'
+  },
+  drained: { 
+    bg: 'bg-slate-400', 
+    gradient: 'from-slate-300 via-slate-400 to-slate-500',
+    glow: 'rgba(148, 163, 184, 0.4)'
+  },
+  overwhelmed: { 
+    bg: 'bg-red-500', 
+    gradient: 'from-red-400 via-red-500 to-red-600',
+    glow: 'rgba(239, 68, 68, 0.4)'
+  }
 };
 
 const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
+  const checkInCount = checkIns.length;
+
   // Build heatmap data from check-ins
   const heatmapData = useMemo(() => {
     // Initialize grid: timeWindow x dayOfWeek
@@ -68,22 +89,25 @@ const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
     return grid;
   }, [checkIns]);
 
-  // Check if we have any data
-  const hasData = checkIns.length > 0;
+  // Get progressive message based on check-in count
+  const getProgressiveMessage = () => {
+    if (checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm';
+    if (checkInCount === 1) return 'First data point recorded. Check in at different times to see patterns.';
+    if (checkInCount < 5) return `${checkInCount} check-ins logged. Your rhythm becomes clearer with each one.`;
+    return null;
+  };
 
-  if (!hasData) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Complete check-ins throughout the week to see your energy rhythm.
-        </p>
-      </div>
-    );
-  }
+  const progressiveMessage = getProgressiveMessage();
+  const hasData = checkInCount > 0;
 
   return (
     <div className="space-y-4">
-      {/* Heatmap grid */}
+      {/* Progressive message for early users */}
+      {progressiveMessage && (
+        <p className="text-xs text-saffron/80 text-center">{progressiveMessage}</p>
+      )}
+
+      {/* Heatmap grid - always show structure, even with no data */}
       <div className="overflow-x-auto">
         <div className="min-w-[400px]">
           {/* Header row with day labels */}
@@ -103,27 +127,41 @@ const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
           {TIME_WINDOWS.map(timeWindow => (
             <div key={timeWindow.key} className="flex items-center mb-2">
               {/* Time label */}
-              <div className="w-20 text-xs text-muted-foreground pr-3 text-right">
+              <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
                 {timeWindow.label}
               </div>
               
-              {/* Day cells */}
+              {/* Day cells - Luxury 3D styling */}
               {DAYS.map(day => {
                 const cell = heatmapData[timeWindow.key]?.[day];
                 const hasCheckIn = cell && cell.outcome;
+                const stateStyle = hasCheckIn ? stateColors[cell.outcome || ''] : null;
                 
                 return (
                   <div key={`${timeWindow.key}-${day}`} className="flex-1 px-0.5">
                     <div 
                       className={cn(
-                        "aspect-square rounded-md flex items-center justify-center transition-all",
+                        "aspect-square rounded-lg flex items-center justify-center transition-all duration-300 relative overflow-hidden",
                         hasCheckIn 
-                          ? cn(stateColors[cell.outcome || ''] || 'bg-muted', "opacity-80")
-                          : "bg-muted/30"
+                          ? "shadow-lg"
+                          : "bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]"
                       )}
+                      style={hasCheckIn && stateStyle ? {
+                        boxShadow: `0 4px 12px ${stateStyle.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`
+                      } : undefined}
                     >
-                      {hasCheckIn && (
-                        <div className="w-2 h-2 rounded-full bg-white/40" />
+                      {hasCheckIn && stateStyle && (
+                        <>
+                          {/* Gradient background */}
+                          <div className={cn(
+                            "absolute inset-0 bg-gradient-to-br",
+                            stateStyle.gradient
+                          )} />
+                          {/* Top highlight for 3D effect */}
+                          <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                          {/* Center dot */}
+                          <div className="w-2.5 h-2.5 rounded-full bg-white/50 shadow-sm relative z-10" />
+                        </>
                       )}
                     </div>
                   </div>
@@ -134,29 +172,27 @@ const EnergyRhythm = ({ checkIns }: EnergyRhythmProps) => {
         </div>
       </div>
       
-      {/* Legend */}
+      {/* Legend - always visible */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-2">
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-3 h-3 rounded", stateColors.focused)} />
-          <span>Focused</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-3 h-3 rounded", stateColors.steady)} />
-          <span>Steady</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-3 h-3 rounded", stateColors.scattered)} />
-          <span>Scattered</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-3 h-3 rounded", stateColors.drained)} />
-          <span>Drained</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className={cn("w-3 h-3 rounded", stateColors.overwhelmed)} />
-          <span>Overwhelmed</span>
-        </div>
+        {Object.entries(stateColors).map(([state, style]) => (
+          <div key={state} className="flex items-center gap-1.5">
+            <div 
+              className={cn(
+                "w-3 h-3 rounded shadow-sm bg-gradient-to-br",
+                style.gradient
+              )} 
+            />
+            <span className="capitalize">{state}</span>
+          </div>
+        ))}
       </div>
+
+      {/* Data source note */}
+      {hasData && (
+        <p className="text-[10px] text-muted-foreground/60 text-center">
+          Based on {checkInCount} check-in{checkInCount !== 1 ? 's' : ''} this week
+        </p>
+      )}
     </div>
   );
 };
