@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
@@ -285,6 +286,33 @@ const Insights = () => {
     if (!user?.id) return;
     setWinsLoading(true);
     try {
+      // DEV_MODE: Direct database query
+      if (DEV_MODE) {
+        const fourteenDaysAgo = new Date();
+        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+        
+        const { data: wins } = await supabase
+          .from('tiny_wins')
+          .select('win_content, win_date')
+          .eq('user_id', DEV_USER.id)
+          .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
+          .order('win_date', { ascending: false });
+        
+        // Simple theme extraction from win content
+        const themes = wins?.slice(0, 5).map(w => 
+          w.win_content.split(' ').slice(0, 4).join(' ')
+        ) || [];
+        
+        setTinyWinsInsights({
+          themes,
+          summary: wins?.length ? `You've captured ${wins.length} wins recently.` : null,
+          winsCount: wins?.length || 0
+        });
+        setWinsLoading(false);
+        return;
+      }
+
+      // Production: Use edge function
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -304,6 +332,39 @@ const Insights = () => {
     if (!user?.id) return;
     setPatternsLoading(true);
     try {
+      // DEV_MODE: Direct database query
+      if (DEV_MODE) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const { data: checkins } = await supabase
+          .from('daily_checkins')
+          .select('outcome')
+          .eq('user_id', DEV_USER.id)
+          .gte('checkin_date', sevenDaysAgo.toISOString().split('T')[0]);
+        
+        const distribution: Record<string, number> = {
+          focused: 0, steady: 0, scattered: 0, drained: 0, overwhelmed: 0
+        };
+        
+        checkins?.forEach(c => {
+          if (c.outcome && Object.prototype.hasOwnProperty.call(distribution, c.outcome)) {
+            distribution[c.outcome]++;
+          }
+        });
+        
+        setStatePatterns({
+          distribution,
+          observation: (checkins?.length || 0) >= 7 
+            ? 'Your week shows a pattern of varied states.'
+            : null,
+          checkInCount: checkins?.length || 0
+        });
+        setPatternsLoading(false);
+        return;
+      }
+
+      // Production: Use edge function
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -323,6 +384,28 @@ const Insights = () => {
     if (!user?.id) return;
     setSemanticLoading(true);
     try {
+      // DEV_MODE: Direct database query for basic themes
+      if (DEV_MODE) {
+        // Query dialogue_sessions for coach conversation themes
+        const { data: sessions } = await supabase
+          .from('dialogue_sessions')
+          .select('id, scenario_id')
+          .eq('user_id', DEV_USER.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        // For now, return empty semantic analysis in DEV_MODE
+        // Full semantic analysis requires AI processing
+        setSemanticAnalysis({
+          themePatterns: [],
+          unifiedThemes: [],
+          themeRelationships: []
+        });
+        setSemanticLoading(false);
+        return;
+      }
+
+      // Production: Use edge function
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -540,6 +623,19 @@ const Insights = () => {
                 <p className="text-xs text-muted-foreground/60">
                   Based on {statePatterns.checkInCount} check-ins this week
                 </p>
+                
+                {/* Insight space */}
+                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+                  {insightsTier === 'full' && statePatterns?.observation ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed italic">
+                      "{statePatterns.observation}"
+                    </p>
+                  ) : checkInCount > 0 && checkInCount < 7 ? (
+                    <p className="text-xs text-muted-foreground/60">
+                      Complete {7 - checkInCount} more days to unlock pattern insights.
+                    </p>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="py-6 text-center">
@@ -683,22 +779,36 @@ const Insights = () => {
                 </p>
               </div>
             ) : (
-              <InnerWorldBubbles
-                items={semanticAnalysis?.unifiedThemes || []}
-                relationships={semanticAnalysis?.themeRelationships || []}
-                onBubbleClick={fetchBubbleDetails}
-              />
+              <>
+                <InnerWorldBubbles
+                  items={semanticAnalysis?.unifiedThemes || []}
+                  relationships={semanticAnalysis?.themeRelationships || []}
+                  onBubbleClick={fetchBubbleDetails}
+                />
+                {/* Insight space */}
+                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+                  {semanticAnalysis?.unifiedThemes?.length > 0 ? (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      These themes emerge from your coach conversations, practices, and wins - revealing your inner patterns.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60">
+                      Engage with the coach and complete practices to see unified themes emerge.
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Tiny Wins Patterns - Progressive from Day 1 */}
+        {/* Your Tiny Wins - Progressive from Day 1 */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Tiny Wins Patterns</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Tiny Wins</span>
               <InsightInfoModal
-                title="Tiny Wins Patterns"
+                title="Your Tiny Wins"
                 explanation="Themes extracted from the wins you've captured during evening Integrate sessions with your coach. These reveal what you're naturally doing well."
               />
             </div>
@@ -732,6 +842,13 @@ const Insights = () => {
                 <p className="text-xs text-muted-foreground/60">
                   Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
                 </p>
+                
+                {/* Insight space */}
+                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+                  <p className="text-xs text-muted-foreground/60">
+                    Capture wins during evening integration to reveal what you naturally do well.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="py-4">
@@ -743,13 +860,13 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Energy Rhythm Heatmap - Progressive from Day 1 */}
+        {/* Your Energy Rhythm Heatmap - Progressive from Day 1 */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Energy Rhythm</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Energy Rhythm</span>
               <InsightInfoModal
-                title="Energy Rhythm"
+                title="Your Energy Rhythm"
                 explanation="Visualizes when you typically check in and how you feel at different times of day. Helps identify your natural energy peaks and dips."
               />
             </div>
@@ -758,6 +875,18 @@ const Insights = () => {
             <EnergyRhythm 
               checkIns={checkInsWithTimestamp}
             />
+            {/* Insight space */}
+            <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+              {checkInsWithTimestamp.length >= 7 ? (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your energy rhythm reveals natural peaks and dips throughout the week.
+                </p>
+              ) : checkInsWithTimestamp.length > 0 ? (
+                <p className="text-xs text-muted-foreground/60">
+                  {7 - checkInsWithTimestamp.length} more check-ins will reveal your energy rhythm.
+                </p>
+              ) : null}
+            </div>
           </CardContent>
         </LuxuryInsightCard>
       </div>

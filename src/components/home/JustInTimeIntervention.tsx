@@ -302,17 +302,29 @@ const JustInTimeIntervention = () => {
       return;
     }
     
-    // 4. Evening + depleted → Integrate flow
+    // 4. Evening → Integrate flow (for all users, not just depleted)
     if (isEvening() && !moduleStatus.integrate) {
-      // Check today's check-in for depleted state
-      const { data: todayCheckin } = await supabase
-        .from('daily_checkins')
-        .select('outcome')
+      // Check if user has done their tiny win today via tiny_wins table
+      const today = new Date().toISOString().split('T')[0];
+      const { data: todayWin } = await supabase
+        .from('tiny_wins')
+        .select('id')
         .eq('user_id', user?.id)
-        .gte('checkin_date', new Date().toISOString().split('T')[0])
+        .eq('win_date', today)
         .maybeSingle();
       
-      if (todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome)) {
+      // If no tiny win captured today, show integrate prompt
+      if (!todayWin) {
+        const { data: todayCheckin } = await supabase
+          .from('daily_checkins')
+          .select('outcome')
+          .eq('user_id', user?.id)
+          .gte('checkin_date', today)
+          .maybeSingle();
+        
+        // Customize prompt based on state
+        const isLowEnergy = todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome);
+        
         const interventionData: InterventionData = {
           trigger: 'evening-depleted',
           modules: ['integrate'],
@@ -320,7 +332,10 @@ const JustInTimeIntervention = () => {
           showCoachCard: true,
           hasFavorites: false
         };
-        interventionData.coachPrompt = getCoachPromptForIntervention(interventionData);
+        
+        interventionData.coachPrompt = isLowEnergy
+          ? `Let's close out today gently. Take a breath. What's one small thing you did right today?`
+          : `Time to close out today. What's one small win you can celebrate from today?`;
         
         setIntervention(interventionData);
         return;
@@ -464,7 +479,7 @@ const JustInTimeIntervention = () => {
       return `Day ${intervention.consecutiveState.days} feeling ${intervention.consecutiveState.state}`;
     }
     if (intervention.trigger === 'evening-depleted') {
-      return 'Time to close out today';
+      return 'Capture your win for today';
     }
     return 'Time for a quick reset';
   };
