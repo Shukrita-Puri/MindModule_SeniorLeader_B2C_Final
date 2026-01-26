@@ -1741,6 +1741,26 @@ const GuidedPracticePlayer = () => {
     const handleRatingSubmit = async (rating: number, feedback?: string) => {
       await submitPracticeRating(sessionId, practice.id, 'guided-practice', rating, feedback);
       toast.success("Thank you for your feedback!");
+      
+      // Check for coach continuity - practice was launched from coach
+      const fromCoach = location.state?.fromCoach;
+      const coachSessionId = location.state?.coachSessionId || sessionStorage.getItem('returnCoachSessionId');
+      
+      if (fromCoach && coachSessionId) {
+        // Clear stored coach return data
+        sessionStorage.removeItem('returnToCoach');
+        sessionStorage.removeItem('returnCoachSessionId');
+        
+        toast.success('Practice complete! Returning to Coach...');
+        navigate('/coach', {
+          state: {
+            resumeSession: true,
+            previousSessionId: coachSessionId
+          }
+        });
+        return;
+      }
+      
       // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();
@@ -1794,6 +1814,23 @@ const GuidedPracticePlayer = () => {
     };
 
     const handleRatingSkip = () => {
+      // Check for coach continuity
+      const fromCoach = location.state?.fromCoach;
+      const coachSessionId = location.state?.coachSessionId || sessionStorage.getItem('returnCoachSessionId');
+      
+      if (fromCoach && coachSessionId) {
+        sessionStorage.removeItem('returnToCoach');
+        sessionStorage.removeItem('returnCoachSessionId');
+        
+        navigate('/coach', {
+          state: {
+            resumeSession: true,
+            previousSessionId: coachSessionId
+          }
+        });
+        return;
+      }
+      
       // If in queue and not last, navigate to next; otherwise check for JIT coach navigation
       if (isInQueue && currentQueueIndex < practiceQueue.length - 1) {
         navigateToNext();

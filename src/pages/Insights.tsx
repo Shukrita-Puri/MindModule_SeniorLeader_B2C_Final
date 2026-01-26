@@ -172,11 +172,16 @@ const Insights = () => {
   const fetchProfileBaseline = async () => {
     if (!user?.id) return;
     try {
+      // Use DEV_USER.id in DEV_MODE
+      const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
+      
       const { data: profile } = await supabase
         .from('profiles')
         .select('mental_fitness_baseline, component_scores, user_archetype, onboarding_completed_at, growth_priority')
-        .eq('id', user.id)
-        .single();
+        .eq('id', effectiveUserId)
+        .maybeSingle();
+      
+      console.log('[Insights] Profile baseline fetched:', profile);
       
       if (profile) {
         setProfileBaseline({
@@ -307,14 +312,22 @@ const Insights = () => {
           .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
           .order('win_date', { ascending: false });
         
-        // Simple theme extraction from win content
-        const themes = wins?.slice(0, 5).map(w => 
-          w.win_content.split(' ').slice(0, 4).join(' ')
-        ) || [];
+        console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
+        
+        // Extract meaningful themes from win content (first sentence or up to 50 chars)
+        const themes = wins?.map(w => {
+          const content = w.win_content || '';
+          const firstSentence = content.split(/[.!?]/)[0].trim();
+          return firstSentence.length > 50 
+            ? firstSentence.slice(0, 47) + '...' 
+            : firstSentence;
+        }) || [];
         
         setTinyWinsInsights({
           themes,
-          summary: wins?.length ? `You've captured ${wins.length} wins recently.` : null,
+          summary: wins?.length 
+            ? `You've captured ${wins.length} win${wins.length > 1 ? 's' : ''} recently.` 
+            : null,
           winsCount: wins?.length || 0
         });
         setWinsLoading(false);
