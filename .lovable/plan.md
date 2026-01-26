@@ -1,300 +1,166 @@
 
-# Fix Plan: Data Tracking, Evening Tiny Win Prompt, and UX Improvements
+# Fix Plan: JIT Logic, Data Tracking, and Completion Status
 
-## Issues Identified
+## Summary of Issues
 
-### 1. Naming Changes Needed
-- "Tiny Wins Patterns" → "Your Tiny Wins"
-- "Energy Rhythm" → "Your Energy Rhythm"
-
-### 2. Data Not Tracking in DEV_MODE
-The Insights page calls Auth0's `getAccessTokenSilently()` in three functions, which fails in DEV_MODE:
-- `fetchTinyWinsInsights()` - calls `tiny-wins-insights` edge function
-- `fetchStatePatterns()` - calls `state-patterns-insights` edge function  
-- `fetchSemanticAnalysis()` - calls `insights-semantic-analysis` edge function
-
-These need DEV_MODE branches to query the database directly instead of using edge functions that require Auth0 tokens.
-
-### 3. Evening Tiny Win Prompt Not Appearing
-The current logic in `JustInTimeIntervention.tsx` only shows the evening integrate prompt if:
-- It's evening (after 5 PM)
-- AND the user has a check-in with a "low energy" state (overwhelmed, drained, scattered)
-
-This is too restrictive. The evening Integrate flow should appear for ALL users in the evening who haven't completed their tiny win for the day - not just those in low-energy states.
-
-### 4. Missing Space for Insights Content
-Each section needs designated space for dynamic AI-generated insights to appear as data accumulates.
+1. **JIT includes "Capture Win" evening flow** - Should be part of Performance Plan, not JIT
+2. **Check-ins not being saved** - Root cause of empty Energy Rhythm
+3. **Tiny Wins not showing in Insights** - Despite being captured in the database
+4. **Completion shows "completed" after only 1 of 3 practices** - Coach completion not registering properly
+5. **Insights queries missing DEV_MODE handling** - `fetchInsightsData` uses `user.id` directly
 
 ---
 
-## Part 1: Naming Updates
+## Part 1: Remove Evening "Integrate" from JIT
 
-**File: `src/pages/Insights.tsx`**
+The JIT system should only trigger for urgent scenarios:
+- High-stakes calendar events (15-60 min away)
+- Wearable stress spikes
+- 3+ consecutive days of same low-energy state
 
-| Current | New |
-|---------|-----|
-| Line 699: "Tiny Wins Patterns" | "Your Tiny Wins" |
-| Line 750: "Energy Rhythm" | "Your Energy Rhythm" |
-
----
-
-## Part 2: DEV_MODE Data Fetching Fixes
-
-**File: `src/pages/Insights.tsx`**
-
-Add DEV_MODE branches to each data fetching function:
-
-### 2.1 `fetchTinyWinsInsights` (Lines 284-301)
-```typescript
-const fetchTinyWinsInsights = async () => {
-  if (!user?.id) return;
-  setWinsLoading(true);
-  
-  try {
-    // DEV_MODE: Direct database query
-    if (DEV_MODE) {
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-      
-      const { data: wins } = await supabase
-        .from('tiny_wins')
-        .select('win_content, win_date')
-        .eq('user_id', DEV_USER.id)
-        .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
-        .order('win_date', { ascending: false });
-      
-      // Simple theme extraction from win content
-      const themes = wins?.slice(0, 5).map(w => 
-        w.win_content.split(' ').slice(0, 4).join(' ')
-      ) || [];
-      
-      setTinyWinsInsights({
-        themes,
-        summary: wins?.length ? `You've captured ${wins.length} wins recently.` : null,
-        winsCount: wins?.length || 0
-      });
-      return;
-    }
-    
-    // Production: Use edge function
-    const accessToken = await getAccessTokenSilently();
-    // ... existing code
-  }
-};
-```
-
-### 2.2 `fetchStatePatterns` (Lines 303-320)
-```typescript
-const fetchStatePatterns = async () => {
-  if (!user?.id) return;
-  setPatternsLoading(true);
-  
-  try {
-    // DEV_MODE: Direct database query
-    if (DEV_MODE) {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const { data: checkins } = await supabase
-        .from('daily_checkins')
-        .select('outcome')
-        .eq('user_id', DEV_USER.id)
-        .gte('checkin_date', sevenDaysAgo.toISOString().split('T')[0]);
-      
-      const distribution: Record<string, number> = {
-        focused: 0, steady: 0, scattered: 0, drained: 0, overwhelmed: 0
-      };
-      
-      checkins?.forEach(c => {
-        if (c.outcome && distribution.hasOwnProperty(c.outcome)) {
-          distribution[c.outcome]++;
-        }
-      });
-      
-      setStatePatterns({
-        distribution,
-        observation: checkins?.length >= 7 
-          ? 'Your week shows a pattern of varied states.'
-          : null,
-        checkInCount: checkins?.length || 0
-      });
-      return;
-    }
-    
-    // Production: Use edge function
-    const accessToken = await getAccessTokenSilently();
-    // ... existing code
-  }
-};
-```
-
-### 2.3 `fetchSemanticAnalysis` (Lines 322-339)
-```typescript
-const fetchSemanticAnalysis = async () => {
-  if (!user?.id) return;
-  setSemanticLoading(true);
-  
-  try {
-    // DEV_MODE: Direct database query for basic themes
-    if (DEV_MODE) {
-      // Query dialogue_sessions for coach conversation themes
-      const { data: sessions } = await supabase
-        .from('dialogue_sessions')
-        .select('id, scenario_id')
-        .eq('user_id', DEV_USER.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      // For now, return empty semantic analysis in DEV_MODE
-      // Full semantic analysis requires AI processing
-      setSemanticAnalysis({
-        themePatterns: [],
-        unifiedThemes: [],
-        themeRelationships: []
-      });
-      return;
-    }
-    
-    // Production: Use edge function
-    const accessToken = await getAccessTokenSilently();
-    // ... existing code
-  }
-};
-```
-
-Also add imports at the top:
-```typescript
-import { DEV_MODE, DEV_USER } from '@/config/devMode';
-```
-
----
-
-## Part 3: Evening Integrate Flow for All Users
+**Evening Integrate should be part of Today's Performance Plan** (which already includes it via `coach-integrate`), not a separate JIT intervention.
 
 **File: `src/components/home/JustInTimeIntervention.tsx`**
 
-The current logic (lines 305-328) only triggers for users in `LOW_ENERGY_STATES`. 
-
-Change to show for ALL users in the evening:
+Remove the evening-depleted trigger entirely (lines 305-343):
 
 ```typescript
+// REMOVE THIS ENTIRE BLOCK:
 // 4. Evening → Integrate flow (for all users, not just depleted)
 if (isEvening() && !moduleStatus.integrate) {
-  // Check if user has done their tiny win today via tiny_wins table
-  const today = new Date().toISOString().split('T')[0];
-  const { data: todayWin } = await supabase
-    .from('tiny_wins')
-    .select('id')
-    .eq('user_id', user?.id)
-    .eq('win_date', today)
-    .maybeSingle();
-  
-  // If no tiny win captured today, show integrate prompt
-  if (!todayWin) {
-    const { data: todayCheckin } = await supabase
-      .from('daily_checkins')
-      .select('outcome')
-      .eq('user_id', user?.id)
-      .gte('checkin_date', today)
-      .maybeSingle();
-    
-    // Customize prompt based on state
-    const isLowEnergy = todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome);
-    
-    const interventionData: InterventionData = {
-      trigger: 'evening-depleted', // Keep trigger name for consistency
-      modules: ['integrate'],
-      practices: [],
-      showCoachCard: true,
-      hasFavorites: false
-    };
-    
-    interventionData.coachPrompt = isLowEnergy
-      ? `Let's close out today gently. Take a breath. What's one small thing you did right today?`
-      : `Time to close out today. What's one small win you can celebrate from today?`;
-    
-    setIntervention(interventionData);
-    return;
-  }
+  // ... entire logic
 }
 ```
 
-Also update the message function:
+The Performance Plan engine already includes an "Integrate" module in the evening that routes to the coach with the proper evening prompt. The JIT card duplicates this.
+
+---
+
+## Part 2: Fix Check-in Data Not Saving
+
+The `daily_checkins` table is empty, which is why Energy Rhythm shows nothing.
+
+**Investigation needed:**
+- Verify `saveCheckin` in `src/utils/dailyCheckins.ts` is being called
+- Check for RLS policy issues on `daily_checkins` table
+- Ensure the DEV_MODE upsert is working
+
+**Potential Fix in `src/utils/dailyCheckins.ts` (saveCheckin function):**
+
+The function should log success/failure. Add explicit error handling:
+
 ```typescript
-if (intervention.trigger === 'evening-depleted') {
-  return 'Capture your win for today';  // Changed from "Time to close out today"
+// In DEV_MODE branch (~line 153-178)
+if (DEV_MODE) {
+  console.log('[dailyCheckins] DEV_MODE: Saving checkin directly...', {
+    user_id: DEV_USER.id,
+    checkin_date: checkinData.checkin_date,
+    outcome: checkinData.outcome
+  });
+  
+  const { data, error } = await supabase
+    .from('daily_checkins')
+    .upsert(
+      { ...checkinData, user_id: DEV_USER.id },
+      { onConflict: 'user_id,checkin_date' }
+    )
+    .select()
+    .maybeSingle();
+  
+  if (error) {
+    console.error('[dailyCheckins] DEV_MODE save FAILED:', error);
+    return null;
+  }
+  console.log('[dailyCheckins] DEV_MODE save SUCCESS:', data);
+  return data as CheckinData;
 }
 ```
 
 ---
 
-## Part 4: Add Space for Insights Content
+## Part 3: Fix Insights Page DEV_MODE Queries
 
-Each section should have a dedicated area for dynamic insights. Add after the visualization in each section:
+**File: `src/pages/Insights.tsx`**
 
-**State Patterns Section (add after bar chart):**
-```tsx
-{/* Insight space */}
-<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-  {insightsTier === 'full' && statePatterns?.observation ? (
-    <p className="text-sm text-muted-foreground leading-relaxed italic">
-      "{statePatterns.observation}"
-    </p>
-  ) : checkInCount > 0 && checkInCount < 7 ? (
-    <p className="text-xs text-muted-foreground/60">
-      Complete {7 - checkInCount} more days to unlock pattern insights.
-    </p>
-  ) : null}
-</div>
+The `fetchInsightsData` function (lines 195-282) queries `daily_checkins` and `sanctuary_events` using `user.id`. In DEV_MODE, this should use `DEV_USER.id` explicitly for consistency.
+
+```typescript
+const fetchInsightsData = async () => {
+  if (!user?.id) return;
+  setLoading(true);
+
+  // Use DEV_USER.id in DEV_MODE for consistency
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
+
+  try {
+    const today = new Date();
+    const sevenDaysAgo = subDays(today, 6);
+
+    // Fetch check-ins
+    const { data: checkIns } = await supabase
+      .from('daily_checkins')
+      .select('checkin_date, energy_balance, outcome, created_at')
+      .eq('user_id', effectiveUserId)  // Use effectiveUserId
+      .gte('checkin_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
+      .lte('checkin_date', format(today, 'yyyy-MM-dd'))
+      .order('checkin_date', { ascending: true });
+
+    // ... rest of function uses effectiveUserId
+  }
+};
 ```
 
-**Mind Map Section:**
-```tsx
-{/* Insight space */}
-<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-  {mindMapReady && semanticAnalysis?.unifiedThemes?.length > 0 ? (
-    <p className="text-xs text-muted-foreground leading-relaxed">
-      These themes emerge from your coach conversations, practices, and wins - revealing your inner patterns.
-    </p>
-  ) : (
-    <p className="text-xs text-muted-foreground/60">
-      Engage with the coach and complete practices to see unified themes emerge.
-    </p>
-  )}
-</div>
+---
+
+## Part 4: Fix Performance Plan Completion Status
+
+The issue is that completing a coach session doesn't add to `completed_practice_ids`, so the ritual shows incomplete.
+
+**Root Cause:** When the user completes the coach flow, the practice ID (`coach-integrate`) isn't being added to `completed_practice_ids` in the `daily_ritual_completions` table.
+
+**File: `src/pages/SelfMasteryCoach.tsx`**
+
+After the coach session ends, ensure the coach practice ID is marked complete:
+
+```typescript
+// When coach session is done (user sends final message or closes)
+// Add to completed_practice_ids
+const markCoachComplete = async () => {
+  const ritualData = await getTodayRitual();
+  const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
+  const existingIds = ritualData?.completed_practice_ids || [];
+  
+  if (!existingIds.includes(coachId)) {
+    await upsertRitual({
+      ritual_date: new Date().toISOString().split('T')[0],
+      completed_practice_ids: [...existingIds, coachId]
+    });
+  }
+};
 ```
 
-**Tiny Wins Section:**
-```tsx
-{/* Insight space */}
-<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-  {tinyWinsInsights?.summary ? (
-    <p className="text-sm text-muted-foreground leading-relaxed italic">
-      {tinyWinsInsights.summary}
-    </p>
-  ) : (
-    <p className="text-xs text-muted-foreground/60">
-      Capture wins during evening integration to reveal what you naturally do well.
-    </p>
-  )}
-</div>
-```
+**Alternative Fix in `checkRitualCompletion` (DailyRitual.tsx):**
 
-**Energy Rhythm Section:**
-```tsx
-{/* Insight space */}
-<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-  {checkInsWithTimestamp.length >= 7 ? (
-    <p className="text-xs text-muted-foreground leading-relaxed">
-      Your energy rhythm reveals natural peaks and dips throughout the week.
-    </p>
-  ) : checkInsWithTimestamp.length > 0 ? (
-    <p className="text-xs text-muted-foreground/60">
-      {7 - checkInsWithTimestamp.length} more check-ins will reveal your energy rhythm.
-    </p>
-  ) : null}
-</div>
-```
+The status logic compares `effectiveCompletedCount` to `totalRecommended`, but the calculation might be off. The current ritual data shows:
+- `recommended_practices_count: 3`
+- `completed_practice_ids: []`
+- Boolean flags: all false
+
+If the user completed the coach but it wasn't registered, the fix is in the coach completion flow, not the status calculation.
+
+---
+
+## Part 5: Ensure Tiny Wins Show in Insights
+
+The database shows 2 tiny wins for `dev-user-123`, but they may not display if the Insights page query has issues.
+
+**Verified:** The `fetchTinyWinsInsights` function already has a DEV_MODE branch (lines 289-313) that queries directly with `DEV_USER.id`.
+
+The issue might be:
+1. The query date range (14 days ago) - verify the wins are within range
+2. The themes extraction logic
+
+The wins are dated `2026-01-26`, which is today, so they should appear. The query seems correct.
 
 ---
 
@@ -302,23 +168,33 @@ Each section should have a dedicated area for dynamic insights. Add after the vi
 
 | File | Changes |
 |------|---------|
-| `src/pages/Insights.tsx` | Add DEV_MODE imports, update 3 fetch functions with DEV_MODE branches, rename section titles, add insight space divs |
-| `src/components/home/JustInTimeIntervention.tsx` | Update evening integrate logic to show for all users, check tiny_wins table, customize prompt |
+| `src/components/home/JustInTimeIntervention.tsx` | Remove evening-depleted trigger (lines 305-343) |
+| `src/utils/dailyCheckins.ts` | Add explicit logging for DEV_MODE save |
+| `src/pages/Insights.tsx` | Add `effectiveUserId` for DEV_MODE in `fetchInsightsData` |
+| `src/pages/SelfMasteryCoach.tsx` | Mark coach as complete in `completed_practice_ids` when session ends |
 
 ---
 
 ## Expected Outcomes
 
-1. **Naming**: "Your Tiny Wins" and "Your Energy Rhythm" for personalized feel
-2. **Data Tracking**: DEV_MODE users will see their check-in data in Energy Rhythm and State Patterns
-3. **Evening Prompt**: ALL users will see the evening integrate prompt to capture their tiny win (not just depleted users)
-4. **Insight Spaces**: Each section has a designated area for dynamic insights to appear as data accumulates
+1. **JIT = Urgent Only**: Calendar events (15-60 min) and wearable stress
+2. **Evening Integrate via Performance Plan**: The daily plan includes coach-integrate for evening
+3. **Check-ins Save Properly**: With logging to debug failures
+4. **Energy Rhythm Populates**: When check-ins are saved correctly
+5. **Tiny Wins Display**: Already querying correctly, but verify themes extraction
+6. **Completion Status Accurate**: Only show "completed" when ALL 3-4 items are done
 
 ---
 
-## Technical Note on Check-in Data
+## Technical Notes
 
-The check-in save logic in `DailyCheckIn.tsx` correctly calls `saveCheckin()` which has DEV_MODE handling. If check-ins are not appearing:
-1. The `saveCheckin` function should be logging success/failure
-2. Verify RLS policies on `daily_checkins` table allow inserts for the dev user
-3. The user_id in DEV_MODE is `'dev-user-123'` - ensure this matches what's being saved
+### Current JIT Triggers (keeping these):
+1. `calendar` - High-stakes event in 15-60 min
+2. `wearable` - Stress spike detected
+3. `consecutive-low` - 3+ days of same low state
+
+### Removing from JIT:
+- `evening-depleted` - This duplicates the Performance Plan's Integrate module
+
+### Performance Plan Already Handles Evening:
+The `generatePerformancePlan` function in `performancePlanEngine.ts` includes an Integrate module when `timeOfDay === 'evening'`. This routes to the coach with the evening closure prompt.
