@@ -59,11 +59,15 @@ const WeeklyRitualStreak = () => {
             completion.micro_exercise_completed
           ].filter(Boolean).length;
           
+          // Also count completed_practice_ids for coach sessions and other practices
+          const idsCount = (completion.completed_practice_ids || []).length;
+          const effectiveCompleted = Math.max(booleanCount, idsCount);
+          
           const totalRecommended = completion.recommended_practices_count || 3;
           
-          if (completion.completion_status === 'full' || booleanCount >= totalRecommended) {
+          if (completion.completion_status === 'full' || (effectiveCompleted >= totalRecommended && effectiveCompleted > 0)) {
             status = 'full';
-          } else if (booleanCount > 0 || completion.completion_status === 'partial') {
+          } else if (effectiveCompleted > 0 || completion.completion_status === 'partial') {
             status = 'partial';
           }
         }

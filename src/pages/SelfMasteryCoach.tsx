@@ -57,6 +57,7 @@ const SelfMasteryCoach = () => {
     retryLastMessage,
     clearConversation, 
     endSession, 
+    sessionId,
     setFlowType,
     setPracticeContext,
     restoreMessages 
@@ -243,12 +244,36 @@ const SelfMasteryCoach = () => {
       const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
       const existingIds = ritualData?.completed_practice_ids || [];
       
+      console.log('[SelfMasteryCoach] markCoachComplete called:', { coachId, existingIds, ritualData });
+      
       if (!existingIds.includes(coachId)) {
-        await upsertRitual({
+        const updateData: any = {
           ritual_date: new Date().toISOString().split('T')[0],
           completed_practice_ids: [...existingIds, coachId]
-        });
-        console.log('[SelfMasteryCoach] Marked coach as complete:', coachId);
+        };
+        
+        // Set recommended count if not already set
+        if (!ritualData?.recommended_practices_count) {
+          updateData.recommended_practices_count = practiceQueue.length || 3;
+        }
+        
+        const result = await upsertRitual(updateData);
+        console.log('[SelfMasteryCoach] upsertRitual result:', result);
+        
+        // Recalculate and update status
+        const freshRitual = await getTodayRitual();
+        if (freshRitual) {
+          const completedCount = (freshRitual.completed_practice_ids || []).length;
+          const totalRecommended = freshRitual.recommended_practices_count || 3;
+          const newStatus = completedCount >= totalRecommended ? 'full' : 'partial';
+          
+          console.log('[SelfMasteryCoach] Updating status:', { completedCount, totalRecommended, newStatus });
+          
+          await upsertRitual({
+            ritual_date: new Date().toISOString().split('T')[0],
+            completion_status: newStatus
+          });
+        }
       }
     } catch (error) {
       console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
@@ -283,6 +308,14 @@ const SelfMasteryCoach = () => {
       // Don't send as user - this will be shown as the empty state greeting
     }
   }, [flowType, hasInitialized, messages.length]);
+
+  // Store session in sessionStorage for practice continuity
+  useEffect(() => {
+    if (sessionId && messages.length > 0) {
+      sessionStorage.setItem('coachSessionId', sessionId);
+      sessionStorage.setItem('coachSessionMessages', JSON.stringify(messages));
+    }
+  }, [sessionId, messages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

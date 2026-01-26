@@ -52,7 +52,21 @@ export const ProtocolCard = ({
   const route = getRouteForContentType(contentType, id);
 
   const handleStart = () => {
-    navigate(route);
+    // Check if we're in a coach conversation - get session ID from sessionStorage
+    const coachSessionId = sessionStorage.getItem('coachSessionId');
+    
+    // Save current coach state before navigating for session continuity
+    if (coachSessionId) {
+      sessionStorage.setItem('returnToCoach', 'true');
+      sessionStorage.setItem('returnCoachSessionId', coachSessionId);
+    }
+    
+    navigate(route, {
+      state: {
+        fromCoach: !!coachSessionId,
+        coachSessionId: coachSessionId || undefined
+      }
+    });
   };
 
   return (
