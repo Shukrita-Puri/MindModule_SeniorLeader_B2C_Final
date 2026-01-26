@@ -1,476 +1,324 @@
 
-# Progressive Insights System with Luxury Charting
+# Fix Plan: Data Tracking, Evening Tiny Win Prompt, and UX Improvements
 
-## Overview
+## Issues Identified
 
-This plan implements a **tiered progressive disclosure** system for the Insights page that surfaces valuable data from Day 0 while building toward comprehensive pattern recognition by Day 7+. All charts will receive **luxury 3D styling** with gradients, shadows, and glass morphism suitable for executive users.
+### 1. Naming Changes Needed
+- "Tiny Wins Patterns" → "Your Tiny Wins"
+- "Energy Rhythm" → "Your Energy Rhythm"
 
----
+### 2. Data Not Tracking in DEV_MODE
+The Insights page calls Auth0's `getAccessTokenSilently()` in three functions, which fails in DEV_MODE:
+- `fetchTinyWinsInsights()` - calls `tiny-wins-insights` edge function
+- `fetchStatePatterns()` - calls `state-patterns-insights` edge function  
+- `fetchSemanticAnalysis()` - calls `insights-semantic-analysis` edge function
 
-## Phased Data Disclosure Strategy
+These need DEV_MODE branches to query the database directly instead of using edge functions that require Auth0 tokens.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Day 0         │ Day 1-2       │ Day 3        │ Day 4-6      │ Day 7+       │
-│ (Onboarding)  │ (Early Data)  │ (First View) │ (Deepening)  │ (Full View)  │
-├───────────────┼───────────────┼──────────────┼──────────────┼──────────────┤
-│ Baseline      │ Compare to    │ Factual      │ Deeper       │ Correlations │
-│ Score +       │ baseline +    │ summaries    │ insights +   │ + Patterns + │
-│ Archetype     │ previous day  │ (no arrows)  │ themes       │ Mind Map     │
-└───────────────┴───────────────┴──────────────┴──────────────┴──────────────┘
-```
+### 3. Evening Tiny Win Prompt Not Appearing
+The current logic in `JustInTimeIntervention.tsx` only shows the evening integrate prompt if:
+- It's evening (after 5 PM)
+- AND the user has a check-in with a "low energy" state (overwhelmed, drained, scattered)
 
----
+This is too restrictive. The evening Integrate flow should appear for ALL users in the evening who haven't completed their tiny win for the day - not just those in low-energy states.
 
-## Part 1: Baseline Integration (Day 0+)
-
-### 1.1 Add Baseline Dotted Line to All Charts
-
-The user's onboarding scores become a **dotted reference line** across all metrics:
-
-**Affected Components:**
-- State Patterns bar chart → Add dotted line at onboarding stress response score
-- Energy Rhythm heatmap → Add baseline energy tier indicator
-- Progress stats → Show "vs baseline" comparison
-
-**Implementation:**
-```tsx
-// Fetch baseline from profiles table
-const { data: profile } = await supabase
-  .from('profiles')
-  .select('inner_world_profile, inner_world_archetype, baseline_established_date')
-  .eq('id', user.id)
-  .single();
-
-// Baseline score becomes dotted reference
-const baselineScore = profile?.inner_world_profile?.overallScore || 58;
-```
-
-**Visual Treatment:**
-```tsx
-// Dotted baseline marker on charts
-<div 
-  className="absolute border-t-2 border-dashed border-saffron/40 w-full"
-  style={{ top: `${100 - baselineScore}%` }}
->
-  <span className="absolute -top-3 right-0 text-[10px] text-saffron/60">
-    Baseline ({baselineScore})
-  </span>
-</div>
-```
-
-### 1.2 Add "Your Starting Point" Card (Always Visible)
-
-A permanent card showing the user's onboarding results for reference:
-
-```tsx
-<Card className="relative overflow-hidden">
-  <div className="absolute inset-0 bg-gradient-to-br from-saffron/5 via-transparent to-primary/5" />
-  <CardHeader>
-    <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-      Your Starting Point
-    </span>
-  </CardHeader>
-  <CardContent>
-    <div className="flex items-center gap-4">
-      <div className="text-3xl font-bold text-saffron">{baselineScore}</div>
-      <div>
-        <p className="text-sm font-medium">{archetype.title}</p>
-        <p className="text-xs text-muted-foreground">Established {formatDate}</p>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-```
+### 4. Missing Space for Insights Content
+Each section needs designated space for dynamic AI-generated insights to appear as data accumulates.
 
 ---
 
-## Part 2: Day 1-2 Insights (Early Engagement)
+## Part 1: Naming Updates
 
-### 2.1 Comparison-Based Metrics
+**File: `src/pages/Insights.tsx`**
 
-Show factual data with comparisons to:
-1. **Baseline** (onboarding score)
-2. **Previous day** (when available)
-
-**Streak Card Enhancement:**
-```tsx
-<div className="space-y-1">
-  <p className="text-2xl font-bold">{checkInStreak}</p>
-  <p className="text-xs text-muted-foreground">days</p>
-  {baselineExists && (
-    <p className="text-[10px] text-saffron">
-      {streak > 0 ? 'Building consistency' : 'Start today'}
-    </p>
-  )}
-</div>
-```
-
-**Today vs Yesterday:**
-```tsx
-{checkInCount >= 2 && (
-  <div className="text-xs mt-2 text-muted-foreground">
-    Today: <span className="text-foreground">{todayState}</span>
-    {yesterdayState && (
-      <> • Yesterday: <span className="text-foreground">{yesterdayState}</span></>
-    )}
-  </div>
-)}
-```
-
-### 2.2 Tiny Wins Patterns (Day 1+)
-
-Show wins progressively from the first capture:
-
-```tsx
-const getWinsMessage = (count: number) => {
-  if (count === 0) return 'Capture your first win during evening integration';
-  if (count === 1) return 'First win captured! Each one reveals what you do naturally well.';
-  if (count < 5) return `${count} wins logged. Patterns emerge around 5+ wins.`;
-  return null; // Show full visualization
-};
-```
-
-### 2.3 Energy Rhythm (Day 1+)
-
-Start populating factual data immediately:
-
-```tsx
-const getEnergyMessage = (checkInCount: number) => {
-  if (checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm';
-  if (checkInCount === 1) return 'First data point recorded. Check in at different times to see patterns.';
-  if (checkInCount < 5) return `${checkInCount} check-ins logged. Your rhythm becomes clearer with each one.`;
-  return null; // Show full heatmap
-};
-```
+| Current | New |
+|---------|-----|
+| Line 699: "Tiny Wins Patterns" | "Your Tiny Wins" |
+| Line 750: "Energy Rhythm" | "Your Energy Rhythm" |
 
 ---
 
-## Part 3: Day 3 Insights (First Summary View)
+## Part 2: DEV_MODE Data Fetching Fixes
 
-### 3.1 Factual Summaries (No Direction Arrows)
+**File: `src/pages/Insights.tsx`**
 
-At 3+ check-ins, show aggregated data without trend claims:
+Add DEV_MODE branches to each data fetching function:
 
-**State Patterns Card:**
-```tsx
-{checkInCount >= 3 && checkInCount < 7 && (
-  <p className="text-sm text-muted-foreground mt-4 p-3 bg-muted/30 rounded-lg">
-    "In {checkInCount} check-ins, you've felt {mostCommonState} most often. 
-    A few more days will reveal if this is your typical pattern."
-  </p>
-)}
-```
-
-**What NOT to Show:**
-- ↗ Improving / ↘ Declining arrows
-- "Your trend is..."
-- Pattern confidence percentages
-
----
-
-## Part 4: Day 4-6 Insights (Deepening)
-
-### 4.1 Emerging Insights
-
-Begin showing correlations with appropriate caveats:
-
-**Theme Patterns (Day 4+):**
-```tsx
-{checkInCount >= 4 && semanticAnalysis?.themePatterns.length > 0 && (
-  <div className="space-y-2">
-    <p className="text-xs text-muted-foreground">
-      Emerging themes from your {checkInCount} check-ins:
-    </p>
-    {/* Show theme bubbles */}
-  </div>
-)}
-```
-
-### 4.2 Calendar Correlation Teaser
-
-Show upcoming unlock:
-
-```tsx
-{checkInCount >= 4 && checkInCount < 7 && (
-  <div className="p-4 bg-muted/20 rounded-lg border border-dashed border-muted-foreground/30">
-    <p className="text-sm text-muted-foreground">
-      <span className="font-medium">Calendar → State Patterns</span>
-      <br />
-      Unlocks in {7 - checkInCount} more days of check-ins
-    </p>
-  </div>
-)}
-```
-
----
-
-## Part 5: Day 5+ (Mind Map & Unified Themes)
-
-### 5.1 Mind Map Progressive Reveal
-
-The unified mind map appears when sufficient cross-source data exists:
-
-**Unlock Conditions:**
-- At least 3 coach conversations, OR
-- At least 5 check-ins + 2 wins, OR
-- 5+ total data points across sources
-
-```tsx
-const mindMapReady = useMemo(() => {
-  const coachSessions = semanticAnalysis?.unifiedThemes?.reduce((sum, t) => sum + t.sources.coach, 0) || 0;
-  const totalPoints = checkInCount + (tinyWinsInsights?.winsCount || 0) + coachSessions;
-  return coachSessions >= 3 || (checkInCount >= 5 && (tinyWinsInsights?.winsCount || 0) >= 2) || totalPoints >= 5;
-}, [semanticAnalysis, checkInCount, tinyWinsInsights]);
-
-{!mindMapReady ? (
-  <div className="py-8 text-center">
-    <p className="text-sm text-muted-foreground">
-      Your Mind Map builds from coach conversations, practices, and wins.
-      <br />
-      <span className="text-xs">
-        Keep engaging to see unified themes emerge.
-      </span>
-    </p>
-  </div>
-) : (
-  <InnerWorldBubbles items={semanticAnalysis?.unifiedThemes || []} />
-)}
-```
-
----
-
-## Part 6: Day 7+ (Full Patterns & Correlations)
-
-### 6.1 Calendar-State Correlations Unlock
-
-Show the full correlation analysis:
-
-```tsx
-{checkInCount >= 7 && (
-  <Card>
-    <CardHeader>
-      <span className="text-xs font-medium tracking-widest uppercase">
-        Calendar → State Patterns
-      </span>
-    </CardHeader>
-    <CardContent>
-      <CalendarStateCorrelations userId={user?.id} />
-      <p className="text-xs text-muted-foreground mt-3">
-        "Days you felt scattered or low energy often had high-decision 
-        or back-to-back meetings."
-      </p>
-    </CardContent>
-  </Card>
-)}
-```
-
-### 6.2 Full Pattern Recognition
-
-Enable trend arrows and confidence indicators:
-
-```tsx
-{checkInCount >= 7 && statePatterns?.observation && (
-  <div className="flex items-center gap-2 text-sm">
-    {getTrendDirection(weekData) === 'improving' && (
-      <TrendingUp className="w-4 h-4 text-green-500" />
-    )}
-    {getTrendDirection(weekData) === 'declining' && (
-      <TrendingDown className="w-4 h-4 text-amber-500" />
-    )}
-    <span className="text-muted-foreground">{statePatterns.observation}</span>
-  </div>
-)}
-```
-
----
-
-## Part 7: Luxury Chart Styling
-
-### 7.1 Luxury Card Wrapper
-
-Create a reusable luxury card component:
-
-```tsx
-// src/components/insights/LuxuryInsightCard.tsx
-export const LuxuryInsightCard = ({ children, className }: Props) => (
-  <Card className={cn(
-    "relative overflow-hidden",
-    "bg-gradient-to-br from-card via-card to-card/95",
-    "border border-white/10 dark:border-white/5",
-    "shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]",
-    "backdrop-blur-sm",
-    className
-  )}>
-    {/* Top glass highlight */}
-    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-    {/* Inner glow */}
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,140,66,0.03)_0%,transparent_50%)]" />
-    {children}
-  </Card>
-);
-```
-
-### 7.2 Luxury Bar Chart Styling
-
-Transform the current flat bars into 3D gradient bars:
-
-```tsx
-// Enhanced bar with gradient, shadow, and 3D effect
-<div className="flex-1 h-8 bg-muted/20 rounded-full overflow-hidden relative shadow-inner">
-  {/* 3D inset shadow */}
-  <div className="absolute inset-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]" />
+### 2.1 `fetchTinyWinsInsights` (Lines 284-301)
+```typescript
+const fetchTinyWinsInsights = async () => {
+  if (!user?.id) return;
+  setWinsLoading(true);
   
-  {/* Gradient bar with glow */}
-  <div
-    className="h-full rounded-full relative transition-all duration-700 ease-out"
-    style={{
-      width: `${(item.count / maxStateCount) * 100}%`,
-      background: `linear-gradient(135deg, ${item.fill} 0%, ${lighten(item.fill, 15)} 50%, ${item.fill} 100%)`,
-      boxShadow: `0 2px 8px ${item.fill}40, inset 0 1px 2px rgba(255,255,255,0.3)`,
-      minWidth: item.count > 0 ? '16px' : '0'
-    }}
-  >
-    {/* Top highlight for 3D effect */}
-    <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/25 to-transparent rounded-t-full" />
-  </div>
+  try {
+    // DEV_MODE: Direct database query
+    if (DEV_MODE) {
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      
+      const { data: wins } = await supabase
+        .from('tiny_wins')
+        .select('win_content, win_date')
+        .eq('user_id', DEV_USER.id)
+        .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
+        .order('win_date', { ascending: false });
+      
+      // Simple theme extraction from win content
+      const themes = wins?.slice(0, 5).map(w => 
+        w.win_content.split(' ').slice(0, 4).join(' ')
+      ) || [];
+      
+      setTinyWinsInsights({
+        themes,
+        summary: wins?.length ? `You've captured ${wins.length} wins recently.` : null,
+        winsCount: wins?.length || 0
+      });
+      return;
+    }
+    
+    // Production: Use edge function
+    const accessToken = await getAccessTokenSilently();
+    // ... existing code
+  }
+};
+```
+
+### 2.2 `fetchStatePatterns` (Lines 303-320)
+```typescript
+const fetchStatePatterns = async () => {
+  if (!user?.id) return;
+  setPatternsLoading(true);
+  
+  try {
+    // DEV_MODE: Direct database query
+    if (DEV_MODE) {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: checkins } = await supabase
+        .from('daily_checkins')
+        .select('outcome')
+        .eq('user_id', DEV_USER.id)
+        .gte('checkin_date', sevenDaysAgo.toISOString().split('T')[0]);
+      
+      const distribution: Record<string, number> = {
+        focused: 0, steady: 0, scattered: 0, drained: 0, overwhelmed: 0
+      };
+      
+      checkins?.forEach(c => {
+        if (c.outcome && distribution.hasOwnProperty(c.outcome)) {
+          distribution[c.outcome]++;
+        }
+      });
+      
+      setStatePatterns({
+        distribution,
+        observation: checkins?.length >= 7 
+          ? 'Your week shows a pattern of varied states.'
+          : null,
+        checkInCount: checkins?.length || 0
+      });
+      return;
+    }
+    
+    // Production: Use edge function
+    const accessToken = await getAccessTokenSilently();
+    // ... existing code
+  }
+};
+```
+
+### 2.3 `fetchSemanticAnalysis` (Lines 322-339)
+```typescript
+const fetchSemanticAnalysis = async () => {
+  if (!user?.id) return;
+  setSemanticLoading(true);
+  
+  try {
+    // DEV_MODE: Direct database query for basic themes
+    if (DEV_MODE) {
+      // Query dialogue_sessions for coach conversation themes
+      const { data: sessions } = await supabase
+        .from('dialogue_sessions')
+        .select('id, scenario_id')
+        .eq('user_id', DEV_USER.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      // For now, return empty semantic analysis in DEV_MODE
+      // Full semantic analysis requires AI processing
+      setSemanticAnalysis({
+        themePatterns: [],
+        unifiedThemes: [],
+        themeRelationships: []
+      });
+      return;
+    }
+    
+    // Production: Use edge function
+    const accessToken = await getAccessTokenSilently();
+    // ... existing code
+  }
+};
+```
+
+Also add imports at the top:
+```typescript
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
+```
+
+---
+
+## Part 3: Evening Integrate Flow for All Users
+
+**File: `src/components/home/JustInTimeIntervention.tsx`**
+
+The current logic (lines 305-328) only triggers for users in `LOW_ENERGY_STATES`. 
+
+Change to show for ALL users in the evening:
+
+```typescript
+// 4. Evening → Integrate flow (for all users, not just depleted)
+if (isEvening() && !moduleStatus.integrate) {
+  // Check if user has done their tiny win today via tiny_wins table
+  const today = new Date().toISOString().split('T')[0];
+  const { data: todayWin } = await supabase
+    .from('tiny_wins')
+    .select('id')
+    .eq('user_id', user?.id)
+    .eq('win_date', today)
+    .maybeSingle();
+  
+  // If no tiny win captured today, show integrate prompt
+  if (!todayWin) {
+    const { data: todayCheckin } = await supabase
+      .from('daily_checkins')
+      .select('outcome')
+      .eq('user_id', user?.id)
+      .gte('checkin_date', today)
+      .maybeSingle();
+    
+    // Customize prompt based on state
+    const isLowEnergy = todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome);
+    
+    const interventionData: InterventionData = {
+      trigger: 'evening-depleted', // Keep trigger name for consistency
+      modules: ['integrate'],
+      practices: [],
+      showCoachCard: true,
+      hasFavorites: false
+    };
+    
+    interventionData.coachPrompt = isLowEnergy
+      ? `Let's close out today gently. Take a breath. What's one small thing you did right today?`
+      : `Time to close out today. What's one small win you can celebrate from today?`;
+    
+    setIntervention(interventionData);
+    return;
+  }
+}
+```
+
+Also update the message function:
+```typescript
+if (intervention.trigger === 'evening-depleted') {
+  return 'Capture your win for today';  // Changed from "Time to close out today"
+}
+```
+
+---
+
+## Part 4: Add Space for Insights Content
+
+Each section should have a dedicated area for dynamic insights. Add after the visualization in each section:
+
+**State Patterns Section (add after bar chart):**
+```tsx
+{/* Insight space */}
+<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+  {insightsTier === 'full' && statePatterns?.observation ? (
+    <p className="text-sm text-muted-foreground leading-relaxed italic">
+      "{statePatterns.observation}"
+    </p>
+  ) : checkInCount > 0 && checkInCount < 7 ? (
+    <p className="text-xs text-muted-foreground/60">
+      Complete {7 - checkInCount} more days to unlock pattern insights.
+    </p>
+  ) : null}
 </div>
 ```
 
-### 7.3 Luxury Heatmap Cells (Energy Rhythm)
-
-Enhanced heatmap with depth and glow:
-
+**Mind Map Section:**
 ```tsx
-<div 
-  className={cn(
-    "aspect-square rounded-lg flex items-center justify-center transition-all duration-300",
-    "shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
-    hasCheckIn 
-      ? cn(
-          "relative overflow-hidden",
-          stateColors[cell.outcome || ''],
-          "shadow-lg"
-        )
-      : "bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5"
-  )}
->
-  {hasCheckIn && (
-    <>
-      {/* Inner glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-      {/* Center dot */}
-      <div className="w-2.5 h-2.5 rounded-full bg-white/50 shadow-sm" />
-    </>
+{/* Insight space */}
+<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+  {mindMapReady && semanticAnalysis?.unifiedThemes?.length > 0 ? (
+    <p className="text-xs text-muted-foreground leading-relaxed">
+      These themes emerge from your coach conversations, practices, and wins - revealing your inner patterns.
+    </p>
+  ) : (
+    <p className="text-xs text-muted-foreground/60">
+      Engage with the coach and complete practices to see unified themes emerge.
+    </p>
   )}
 </div>
 ```
 
-### 7.4 Luxury Progress Ring (For Stats)
-
-Replace flat numbers with luxury circular indicators:
-
+**Tiny Wins Section:**
 ```tsx
-// Luxury circular progress for streak/practices
-<div className="relative w-20 h-20">
-  {/* Outer glow ring */}
-  <svg className="absolute inset-0 w-full h-full drop-shadow-lg">
-    <defs>
-      <linearGradient id="luxuryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="hsl(var(--saffron))" stopOpacity="1" />
-        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.8" />
-      </linearGradient>
-      <filter id="glow">
-        <feGaussianBlur stdDeviation="2" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" />
-      </filter>
-    </defs>
-    <circle 
-      cx="40" cy="40" r="35" 
-      fill="none" 
-      stroke="url(#luxuryGradient)"
-      strokeWidth="6"
-      strokeDasharray={`${(value / max) * 220} 220`}
-      strokeLinecap="round"
-      transform="rotate(-90 40 40)"
-      filter="url(#glow)"
-    />
-  </svg>
-  <div className="absolute inset-0 flex items-center justify-center">
-    <span className="text-2xl font-bold text-saffron">{value}</span>
-  </div>
+{/* Insight space */}
+<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+  {tinyWinsInsights?.summary ? (
+    <p className="text-sm text-muted-foreground leading-relaxed italic">
+      {tinyWinsInsights.summary}
+    </p>
+  ) : (
+    <p className="text-xs text-muted-foreground/60">
+      Capture wins during evening integration to reveal what you naturally do well.
+    </p>
+  )}
 </div>
 ```
 
-### 7.5 Luxury Bubble Styling (Mind Map)
-
-Enhanced bubbles with glass morphism:
-
+**Energy Rhythm Section:**
 ```tsx
-<div
-  className={cn(
-    "rounded-full flex flex-col items-center justify-center text-center cursor-pointer",
-    "bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5",
-    "border border-primary/20",
-    "shadow-[0_4px_20px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.1)_inset]",
-    "backdrop-blur-sm",
-    "hover:shadow-[0_8px_30px_rgba(0,0,0,0.15),0_0_20px_rgba(var(--primary),0.1)]",
-    "hover:scale-105 transition-all duration-300"
-  )}
->
-  {/* Glass highlight */}
-  <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-60" />
+{/* Insight space */}
+<div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+  {checkInsWithTimestamp.length >= 7 ? (
+    <p className="text-xs text-muted-foreground leading-relaxed">
+      Your energy rhythm reveals natural peaks and dips throughout the week.
+    </p>
+  ) : checkInsWithTimestamp.length > 0 ? (
+    <p className="text-xs text-muted-foreground/60">
+      {7 - checkInsWithTimestamp.length} more check-ins will reveal your energy rhythm.
+    </p>
+  ) : null}
 </div>
 ```
 
 ---
 
-## Part 8: Implementation Summary
-
-### New Components to Create
-
-| Component | Purpose |
-|-----------|---------|
-| `LuxuryInsightCard.tsx` | Reusable luxury card wrapper with 3D effects |
-| `BaselineReferenceCard.tsx` | Day 0+ baseline score display |
-| `ProgressiveUnlockMessage.tsx` | Shows unlock conditions for locked insights |
-| `LuxuryProgressRing.tsx` | Circular progress with gradient glow |
-
-### Files to Modify
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/Insights.tsx` | Add tier logic, baseline fetching, progressive visibility |
-| `src/components/insights/EnergyRhythm.tsx` | Luxury cell styling, early data messages |
-| `src/components/insights/InnerWorldBubbles.tsx` | Enhanced glass morphism bubbles |
-| `src/components/insights/CalendarStateCorrelations.tsx` | Day 7+ gate |
-
-### Data Tier Logic
-
-```tsx
-// Add to Insights.tsx
-const insightsTier = useMemo(() => {
-  if (checkInCount >= 7) return 'full';       // Day 7+: Full patterns
-  if (checkInCount >= 4) return 'deepening';  // Day 4-6: Emerging insights
-  if (checkInCount >= 3) return 'summary';    // Day 3: Factual summaries
-  if (checkInCount >= 1) return 'early';      // Day 1-2: Comparisons
-  return 'baseline';                           // Day 0: Onboarding only
-}, [checkInCount]);
-```
+| `src/pages/Insights.tsx` | Add DEV_MODE imports, update 3 fetch functions with DEV_MODE branches, rename section titles, add insight space divs |
+| `src/components/home/JustInTimeIntervention.tsx` | Update evening integrate logic to show for all users, check tiny_wins table, customize prompt |
 
 ---
 
-## Expected Visual Outcomes
+## Expected Outcomes
 
-1. **Day 0**: User sees their baseline score, archetype, and empty charts with "Start your journey" messaging
-2. **Day 1-2**: First data points appear with luxury styling, compared to baseline
-3. **Day 3**: Factual summaries without directional claims ("You felt Focused most often")
-4. **Day 4-6**: Theme patterns emerge, Mind Map begins populating
-5. **Day 7+**: Full correlations, trend arrows, calendar-state patterns unlock
+1. **Naming**: "Your Tiny Wins" and "Your Energy Rhythm" for personalized feel
+2. **Data Tracking**: DEV_MODE users will see their check-in data in Energy Rhythm and State Patterns
+3. **Evening Prompt**: ALL users will see the evening integrate prompt to capture their tiny win (not just depleted users)
+4. **Insight Spaces**: Each section has a designated area for dynamic insights to appear as data accumulates
 
-All charts will have:
-- Gradient fills with 3D depth
-- Soft shadows and inner glows
-- Glass morphism effects
-- Smooth animations
-- Baseline dotted reference lines
+---
+
+## Technical Note on Check-in Data
+
+The check-in save logic in `DailyCheckIn.tsx` correctly calls `saveCheckin()` which has DEV_MODE handling. If check-ins are not appearing:
+1. The `saveCheckin` function should be logging success/failure
+2. Verify RLS policies on `daily_checkins` table allow inserts for the dev user
+3. The user_id in DEV_MODE is `'dev-user-123'` - ensure this matches what's being saved
