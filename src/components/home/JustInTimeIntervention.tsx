@@ -43,7 +43,7 @@ interface ConsecutiveState {
 }
 
 interface InterventionData {
-  trigger: 'calendar' | 'wearable' | 'pattern' | 'consecutive-low' | 'evening-depleted';
+  trigger: 'calendar' | 'wearable' | 'pattern' | 'consecutive-low';
   event?: UpcomingEvent;
   stressLevel?: 'elevated' | 'high';
   consecutiveState?: ConsecutiveState;
@@ -77,9 +77,6 @@ const getCoachPromptForIntervention = (intervention: InterventionData): string =
   }
   if (intervention.trigger === 'consecutive-low' && intervention.consecutiveState) {
     return `You've been feeling ${intervention.consecutiveState.state} for ${intervention.consecutiveState.days} days now. This pattern often signals something deeper. What's been weighing on you?`;
-  }
-  if (intervention.trigger === 'evening-depleted') {
-    return `Let's close out today gently. Take a breath. What's one small thing you did right today?`;
   }
   return `Let's take a moment to center before what's ahead. What's on your mind?`;
 };
@@ -302,45 +299,8 @@ const JustInTimeIntervention = () => {
       return;
     }
     
-    // 4. Evening → Integrate flow (for all users, not just depleted)
-    if (isEvening() && !moduleStatus.integrate) {
-      // Check if user has done their tiny win today via tiny_wins table
-      const today = new Date().toISOString().split('T')[0];
-      const { data: todayWin } = await supabase
-        .from('tiny_wins')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('win_date', today)
-        .maybeSingle();
-      
-      // If no tiny win captured today, show integrate prompt
-      if (!todayWin) {
-        const { data: todayCheckin } = await supabase
-          .from('daily_checkins')
-          .select('outcome')
-          .eq('user_id', user?.id)
-          .gte('checkin_date', today)
-          .maybeSingle();
-        
-        // Customize prompt based on state
-        const isLowEnergy = todayCheckin && LOW_ENERGY_STATES.includes(todayCheckin.outcome);
-        
-        const interventionData: InterventionData = {
-          trigger: 'evening-depleted',
-          modules: ['integrate'],
-          practices: [],
-          showCoachCard: true,
-          hasFavorites: false
-        };
-        
-        interventionData.coachPrompt = isLowEnergy
-          ? `Let's close out today gently. Take a breath. What's one small thing you did right today?`
-          : `Time to close out today. What's one small win you can celebrate from today?`;
-        
-        setIntervention(interventionData);
-        return;
-      }
-    }
+    // Note: Evening Integrate flow is handled by the Performance Plan, not JIT
+    // JIT only triggers for urgent scenarios: calendar events, wearable stress, consecutive-low patterns
     
     // No intervention needed
     setIntervention(null);
@@ -478,9 +438,6 @@ const JustInTimeIntervention = () => {
     if (intervention.trigger === 'consecutive-low' && intervention.consecutiveState) {
       return `Day ${intervention.consecutiveState.days} feeling ${intervention.consecutiveState.state}`;
     }
-    if (intervention.trigger === 'evening-depleted') {
-      return 'Capture your win for today';
-    }
     return 'Time for a quick reset';
   };
 
@@ -537,11 +494,6 @@ const JustInTimeIntervention = () => {
             </p>
           )}
           
-          {intervention.trigger === 'evening-depleted' && (
-            <p className="text-xs text-muted-foreground">
-              A gentle close to reset for tomorrow
-            </p>
-          )}
           
           {/* Personalization note */}
           {intervention.hasFavorites && (

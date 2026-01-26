@@ -196,19 +196,28 @@ const Insights = () => {
     if (!user?.id) return;
     setLoading(true);
 
+    // Use DEV_USER.id in DEV_MODE for consistency
+    const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
+
     try {
       // Get last 7 days
       const today = new Date();
       const sevenDaysAgo = subDays(today, 6);
 
       // Fetch check-ins for last 7 days WITH timestamp for Energy Rhythm
-      const { data: checkIns } = await supabase
+      const { data: checkIns, error: checkInsError } = await supabase
         .from('daily_checkins')
         .select('checkin_date, energy_balance, outcome, created_at')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .gte('checkin_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
         .lte('checkin_date', format(today, 'yyyy-MM-dd'))
         .order('checkin_date', { ascending: true });
+
+      if (checkInsError) {
+        console.error('[Insights] Error fetching check-ins:', checkInsError);
+      } else {
+        console.log('[Insights] Fetched check-ins:', checkIns?.length || 0, 'for user:', effectiveUserId);
+      }
 
       // Store check-ins with timestamps for Energy Rhythm
       if (checkIns) {
@@ -223,7 +232,7 @@ const Insights = () => {
       const { data: practices } = await supabase
         .from('sanctuary_events')
         .select('category, duration_seconds, event_type, created_at')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('event_type', 'completed')
         .gte('created_at', startOfDay(sevenDaysAgo).toISOString())
         .lte('created_at', endOfDay(today).toISOString());
