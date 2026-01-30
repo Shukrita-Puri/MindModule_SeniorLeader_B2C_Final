@@ -65,7 +65,8 @@ const WeeklyRitualStreak = () => {
           
           const totalRecommended = completion.recommended_practices_count || 3;
           
-          if (completion.completion_status === 'full' || (effectiveCompleted >= totalRecommended && effectiveCompleted > 0)) {
+          // Strict check: only show "full" if BOTH status is full AND we have actual completions
+          if (completion.completion_status === 'full' && effectiveCompleted >= totalRecommended && effectiveCompleted > 0) {
             status = 'full';
           } else if (effectiveCompleted > 0 || completion.completion_status === 'partial') {
             status = 'partial';
