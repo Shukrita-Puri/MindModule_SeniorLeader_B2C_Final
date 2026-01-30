@@ -339,6 +339,10 @@ const SelfMasteryCoach = () => {
   };
 
   const handleBackNavigation = async () => {
+    // Mark coach complete before ending session if user had a meaningful conversation
+    if (flowType && messages.length > 0) {
+      await markCoachComplete();
+    }
     if (messages.length > 0) {
       await endSession();
     }
@@ -346,6 +350,10 @@ const SelfMasteryCoach = () => {
   };
 
   const handleNewChat = async () => {
+    // Mark coach complete before ending if we had a conversation
+    if (flowType && messages.length > 0) {
+      await markCoachComplete();
+    }
     await endSession();
   };
 
