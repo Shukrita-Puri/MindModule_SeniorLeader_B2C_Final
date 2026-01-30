@@ -1,371 +1,178 @@
 
-# Comprehensive Fix Plan: Completion Status, Tiny Wins Display, Coach Continuity, Baseline Data, and Review Modal
+# Fix Plan: Completion Logic, Tiny Wins Display, and Baseline Data
 
-## Issues Identified
+## Root Cause Analysis
 
-### 1. Performance Plan Showing "Completed" After Only 1 Practice
-**Root Cause:** The database shows:
-- `completed_practice_ids: []` (empty!)
-- `recommended_practices_count: 2`
-- Boolean flags: all `false`
-- Status: `partial`
+### Issue 1: Performance Plan Shows "Completed" After Only Coach
+**Root Cause:** The `markCoachComplete` function is only triggered when the user explicitly clicks the "Complete" button in the queue progress UI. When users simply navigate away (back button, new chat), the `endSession()` is called but `markCoachComplete()` is NOT.
 
-The issue is that when the user completed the coach session, `markCoachComplete` in `SelfMasteryCoach.tsx` is not actually adding the coach ID to `completed_practice_ids`. The `upsertRitual` call may be failing or the array update isn't being persisted.
+**Evidence:**
+- Database shows: `completed_practice_ids: []` (empty)
+- `handleBackNavigation()` and `handleNewChat()` only call `endSession()`, not `markCoachComplete()`
+- The "golden check" Monday indicator is misleading because WeeklyRitualStreak uses faulty logic
 
-Additionally, the completion logic in `WeeklyRitualStreak.tsx` uses `booleanCount >= totalRecommended` which doesn't account for coach completions stored only in `completed_practice_ids`.
-
-### 2. Tiny Wins Not Displaying in Insights
-**Root Cause:** The database has 3 tiny wins for `dev-user-123`, but they may not display because:
-- The `tinyWinsBubbleData` transformation expects specific theme structure
-- The `fetchTinyWinsInsights` DEV_MODE branch extracts themes as first 4 words of content, which may not match expected format
-
-### 3. Practice-to-Coach Continuity Missing
-**Root Cause:** When `ProtocolCard` launches a practice:
-- It doesn't pass `fromCoach: true` or `coachSessionId` in navigation state
-- Practice players don't check for these flags
-- No "Continue with Coach" button after practice completion
-
-### 4. Baseline Data Not Visible
-**Root Cause:** The `BaselineReferenceCard` component exists at line 510 in Insights.tsx, but the `profileBaseline` data may be null if the profile fetch failed or the user hasn't completed onboarding.
-
-### 5. "Rating Saved" Modal Design is Poor
-**Current:** Basic modal with just "✨" emoji and text. Needs premium executive design.
+**Additional Bug:** The `WeeklyRitualStreak` component shows Monday as "full" (gold check), but the database clearly shows `completion_status: partial` with `completed_practice_ids: []`. This means the streak visualization logic has its own bug - it's showing "full" when it shouldn't.
 
 ---
 
-## Part 1: Fix Performance Plan Completion Logic
+### Issue 2: Tiny Wins Not Displaying
+**Root Cause:** RLS policy blocks DEV_MODE access.
 
-### 1.1 Fix `markCoachComplete` in `SelfMasteryCoach.tsx`
-Add better logging and ensure array merging works correctly:
+**Evidence:**
+- Console logs show: `[Insights] DEV_MODE tiny wins fetched: []`
+- Database has 3 wins for `dev-user-123`
+- RLS policies only allow: `(auth.uid())::text = user_id`
+- No DEV_MODE policy exists for `tiny_wins`
+
+---
+
+### Issue 3: Baseline Data Not Showing
+**Root Cause:** Two compounding issues:
+1. The `profiles` table is completely empty - no profile exists for `dev-user-123`
+2. RLS policies only allow `auth.uid()` access, blocking DEV_MODE
+
+**Evidence:**
+- Query `SELECT * FROM profiles` returns `[]`
+- No DEV_MODE RLS policy exists
+
+---
+
+## Solution Overview
+
+### Part 1: Fix Coach Completion Tracking
+
+The `markCoachComplete` function must be called whenever a coach session ends meaningfully - not just when clicking "Complete". 
+
+**Approach:**
+1. Create a helper function `ensureCoachMarkedComplete()` that's called from ALL exit paths
+2. Call it from:
+   - `handleQueueComplete()` (already done)
+   - `handleBackNavigation()` - when user clicks back
+   - `handleNewChat()` - when user starts new chat (closes current)
+   - `endSession()` context - or add as part of session ending
+
+**File:** `src/pages/SelfMasteryCoach.tsx`
 
 ```typescript
-const markCoachComplete = async () => {
-  try {
-    const ritualData = await getTodayRitual();
-    const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
-    const existingIds = ritualData?.completed_practice_ids || [];
-    
-    console.log('[SelfMasteryCoach] markCoachComplete:', { coachId, existingIds });
-    
-    if (!existingIds.includes(coachId)) {
-      // Also update boolean flag based on flow type
-      const updateData: any = {
-        ritual_date: new Date().toISOString().split('T')[0],
-        completed_practice_ids: [...existingIds, coachId]
-      };
-      
-      // Update the recommended count if not set
-      if (!ritualData?.recommended_practices_count) {
-        updateData.recommended_practices_count = recommendations?.length || 3;
-      }
-      
-      const result = await upsertRitual(updateData);
-      console.log('[SelfMasteryCoach] upsertRitual result:', result);
-    }
-  } catch (error) {
-    console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
+// Update handleBackNavigation to mark coach complete
+const handleBackNavigation = async () => {
+  // Mark coach complete before ending session
+  if (flowType && messages.length > 0) {
+    await markCoachComplete();
   }
+  if (messages.length > 0) {
+    await endSession();
+  }
+  navigate('/executive-home');
+};
+
+// Update handleNewChat similarly
+const handleNewChat = async () => {
+  // Mark coach complete before ending
+  if (flowType && messages.length > 0) {
+    await markCoachComplete();
+  }
+  await endSession();
 };
 ```
 
-### 1.2 Fix `WeeklyRitualStreak.tsx` Completion Logic
-Update to check `completed_practice_ids` length along with boolean flags:
+### Part 2: Fix WeeklyRitualStreak Display Logic
+
+The component currently shows "full" incorrectly. The logic needs to properly check that `effectiveCompleted >= totalRecommended` AND `effectiveCompleted > 0`.
+
+**File:** `src/components/home/WeeklyRitualStreak.tsx`
+
+The current logic already has this condition but it's showing the wrong status. The issue is that the Monday ritual has `completion_status: partial` in the database, but the component is showing a gold checkmark.
+
+Looking at lines 46-68, the logic checks `completion_status === 'full'` OR `effectiveCompleted >= totalRecommended`. Since `effectiveCompleted` is `max(0, 0) = 0` and `totalRecommended` is 2, the condition `0 >= 2` is false. But it's still showing as full.
+
+**Root Cause Found:** The WeeklyRitualStreak fetches data via `getRitualRange`, but the TODAY indicator is driven by the homepage DailyRitual component's `completed` state which is cached in the wrong condition.
+
+Need to trace more precisely, but the fix should ensure WeeklyRitualStreak ONLY shows "full" when `completion_status === 'full'` AND `effectiveCompleted >= totalRecommended && effectiveCompleted > 0`.
 
 ```typescript
-// Calculate status based on actual completions
-let status: 'full' | 'partial' | 'skipped' = 'skipped';
-
-if (completion) {
-  const booleanCount = [
-    completion.soundscape_completed,
-    completion.guided_practice_completed,
-    completion.micro_exercise_completed
-  ].filter(Boolean).length;
-  
-  // Also count completed_practice_ids for coach sessions
-  const idsCount = (completion.completed_practice_ids || []).length;
-  const effectiveCompleted = Math.max(booleanCount, idsCount);
-  
-  const totalRecommended = completion.recommended_practices_count || 3;
-  
-  if (completion.completion_status === 'full' || effectiveCompleted >= totalRecommended) {
-    status = 'full';
-  } else if (effectiveCompleted > 0 || completion.completion_status === 'partial') {
-    status = 'partial';
-  }
+// More strict check
+if (completion.completion_status === 'full' && effectiveCompleted >= totalRecommended && effectiveCompleted > 0) {
+  status = 'full';
+} else if (effectiveCompleted > 0 || completion.completion_status === 'partial') {
+  status = 'partial';
 }
 ```
 
-### 1.3 Fix `DailyRitual.tsx` checkRitualCompletion
-Ensure the `effectiveCompletedCount` correctly uses the actual `completed_practice_ids` array:
+### Part 3: Add DEV_MODE RLS Policies for Tiny Wins
 
-```typescript
-// Use ACTUAL completed_practice_ids array length, not max of two
-const idsCompletedCount = completedIds.length;
-const effectiveCompletedCount = Math.max(booleanCompletedCount, idsCompletedCount);
-
-console.log('[DailyRitual] Completion check:', {
-  booleanCompletedCount,
-  idsCompletedCount,
-  effectiveCompletedCount,
-  totalRecommended,
-  recommendedIds: data.recommended_practice_ids,
-  completedIds,
-  dbStatus: data.completion_status
-});
+**Migration SQL:**
+```sql
+-- Allow dev-user-123 to SELECT tiny wins
+CREATE POLICY "DEV_MODE: dev-user-123 can select tiny_wins"
+  ON public.tiny_wins
+  FOR SELECT
+  USING (user_id = 'dev-user-123');
 ```
 
----
+### Part 4: Add DEV_MODE RLS Policy for Profiles + Create Dev Profile
 
-## Part 2: Fix Tiny Wins Display in Insights
+**Migration SQL:**
+```sql
+-- Allow dev-user-123 to SELECT from profiles
+CREATE POLICY "DEV_MODE: dev-user-123 can select profile"
+  ON public.profiles
+  FOR SELECT
+  USING (id = 'dev-user-123');
 
-### 2.1 Update `fetchTinyWinsInsights` DEV_MODE Branch
-Transform win content into proper bubble format for `InnerWorldBubbles`:
+-- Allow dev-user-123 to INSERT/UPDATE profiles
+CREATE POLICY "DEV_MODE: dev-user-123 can insert profile"
+  ON public.profiles
+  FOR INSERT
+  WITH CHECK (id = 'dev-user-123');
 
-```typescript
-if (DEV_MODE) {
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-  
-  const { data: wins } = await supabase
-    .from('tiny_wins')
-    .select('win_content, win_date')
-    .eq('user_id', DEV_USER.id)
-    .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
-    .order('win_date', { ascending: false });
-  
-  console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
-  
-  // Extract meaningful themes from win content (not just first 4 words)
-  const themes = wins?.map(w => {
-    // Use first sentence or up to 50 chars as theme
-    const content = w.win_content;
-    const firstSentence = content.split(/[.!?]/)[0].trim();
-    return firstSentence.length > 50 
-      ? firstSentence.slice(0, 47) + '...' 
-      : firstSentence;
-  }) || [];
-  
-  setTinyWinsInsights({
-    themes,
-    summary: wins?.length 
-      ? `You've captured ${wins.length} win${wins.length > 1 ? 's' : ''} recently.` 
-      : null,
-    winsCount: wins?.length || 0
-  });
-  setWinsLoading(false);
-  return;
-}
-```
+CREATE POLICY "DEV_MODE: dev-user-123 can update profile"
+  ON public.profiles
+  FOR UPDATE
+  USING (id = 'dev-user-123')
+  WITH CHECK (id = 'dev-user-123');
 
-### 2.2 Verify `tinyWinsBubbleData` Transformation
-Check that the themes are being transformed correctly for `InnerWorldBubbles`:
-
-```typescript
-// Transform themes for bubble display
-const tinyWinsBubbleData = useMemo(() => {
-  if (!tinyWinsInsights?.themes?.length) return [];
-  
-  // Create unique themes with counts
-  const themeCounts: Record<string, number> = {};
-  tinyWinsInsights.themes.forEach(theme => {
-    themeCounts[theme] = (themeCounts[theme] || 0) + 1;
-  });
-  
-  return Object.entries(themeCounts).map(([theme, count]) => ({
-    label: theme,
-    count,
-    size: Math.min(count * 20, 80) // Scale bubble size
-  }));
-}, [tinyWinsInsights?.themes]);
-```
-
----
-
-## Part 3: Practice-to-Coach Continuity
-
-### 3.1 Update `ProtocolCard.tsx` to Pass Coach Session Context
-When launching a practice from the coach, pass the session ID:
-
-```typescript
-const handleStart = () => {
-  // Check if we're in a coach conversation - get session ID from sessionStorage
-  const coachSessionId = sessionStorage.getItem('coachSessionId');
-  const coachMessages = sessionStorage.getItem('coachSessionMessages');
-  
-  // Save current coach state before navigating
-  if (coachSessionId) {
-    sessionStorage.setItem('returnToCoach', 'true');
-    sessionStorage.setItem('returnCoachSessionId', coachSessionId);
-  }
-  
-  navigate(route, {
-    state: {
-      fromCoach: !!coachSessionId,
-      coachSessionId: coachSessionId || undefined
-    }
-  });
-};
-```
-
-### 3.2 Update `SelfMasteryCoach.tsx` to Store Session on Practice Launch
-When a ProtocolCard is rendered in the coach, ensure session is stored:
-
-```typescript
-// In useCoachConversation hook or SelfMasteryCoach component
-useEffect(() => {
-  if (sessionId && messages.length > 0) {
-    sessionStorage.setItem('coachSessionId', sessionId);
-    sessionStorage.setItem('coachSessionMessages', JSON.stringify(messages));
-  }
-}, [sessionId, messages]);
-```
-
-### 3.3 Update Practice Players with "Continue with Coach" Button
-In each practice player's completion/rating flow, add coach continuity:
-
-```typescript
-// In handleRatingSubmit or completion handler
-const handleComplete = () => {
-  const fromCoach = locationState?.fromCoach;
-  const coachSessionId = locationState?.coachSessionId || 
-    sessionStorage.getItem('returnCoachSessionId');
-  
-  if (fromCoach && coachSessionId) {
-    // Clear stored coach return data
-    sessionStorage.removeItem('returnToCoach');
-    sessionStorage.removeItem('returnCoachSessionId');
-    
-    navigate('/coach', {
-      state: {
-        resumeSession: true,
-        previousSessionId: coachSessionId
-      }
-    });
-    return;
-  }
-  
-  // Normal completion flow...
-};
-```
-
----
-
-## Part 4: Show Baseline Data
-
-### 4.1 Verify Profile Fetch in Insights.tsx
-Ensure DEV_MODE profile fetch works:
-
-```typescript
-// In fetchInsightsData or separate useEffect
-const fetchProfileBaseline = async () => {
-  const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
-  
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('mental_fitness_baseline, user_archetype, growth_priority')
-    .eq('id', effectiveUserId)
-    .maybeSingle();
-  
-  if (profile) {
-    setProfileBaseline(profile);
-  }
-};
-```
-
-### 4.2 Add BaselineReferenceCard Fallback for Missing Data
-Show a prompt to complete onboarding if no baseline exists:
-
-```tsx
-{profileBaseline ? (
-  <BaselineReferenceCard profile={profileBaseline} />
-) : (
-  <LuxuryInsightCard>
-    <CardContent className="py-6 text-center">
-      <p className="text-sm text-muted-foreground">
-        Complete your onboarding questionnaire to see your baseline profile.
-      </p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-3"
-        onClick={() => navigate('/onboarding')}
-      >
-        Complete Onboarding
-      </Button>
-    </CardContent>
-  </LuxuryInsightCard>
-)}
-```
-
----
-
-## Part 5: Redesign "Rating Saved" Confirmation Modal
-
-### 5.1 Create Premium Confirmation in `PracticeRatingModal.tsx`
-
-```tsx
-if (showConfirmation) {
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="relative bg-gradient-to-br from-charcoal via-charcoal/95 to-charcoal/90 rounded-3xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 border border-saffron/20 shadow-[0_0_60px_rgba(212,175,55,0.15)]">
-        {/* Animated glow effect */}
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-saffron/10 via-transparent to-transparent opacity-50" />
-        
-        {/* Success icon with animation */}
-        <div className="relative mb-6">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-saffron/30 via-saffron/20 to-saffron/10 flex items-center justify-center border border-saffron/30 animate-pulse">
-            <Check className="w-8 h-8 text-saffron" strokeWidth={3} />
-          </div>
-          {/* Radiating circles */}
-          <div className="absolute inset-0 w-16 h-16 mx-auto rounded-full border border-saffron/20 animate-ping" style={{ animationDuration: '1.5s' }} />
-        </div>
-        
-        {/* Text */}
-        <h3 className="text-lg font-headline text-foreground mb-2">
-          Feedback Received
-        </h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Your input helps us personalize your experience and recommend practices that work for you.
-        </p>
-      </div>
-    </div>
-  );
-}
+-- Create a baseline profile for dev-user-123
+INSERT INTO public.profiles (id, email, full_name, mental_fitness_baseline, user_archetype, growth_priority, onboarding_completed_at)
+VALUES (
+  'dev-user-123',
+  'dev@example.com',
+  'Dev User',
+  72,
+  'adaptive-navigator',
+  'mental-clarity',
+  NOW()
+) ON CONFLICT (id) DO NOTHING;
 ```
 
 ---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/pages/SelfMasteryCoach.tsx` | Fix `markCoachComplete` logging and persistence, store session for practice continuity |
-| `src/components/home/WeeklyRitualStreak.tsx` | Fix completion status logic to use `completed_practice_ids` |
-| `src/components/home/DailyRitual.tsx` | Improve completion count logging |
-| `src/pages/Insights.tsx` | Fix DEV_MODE tiny wins display, ensure profile baseline fetch |
-| `src/components/chat/ProtocolCard.tsx` | Pass `fromCoach` and `coachSessionId` when launching practice |
-| `src/components/PracticeRatingModal.tsx` | Redesign confirmation modal with premium styling |
-| `src/pages/SoundscapePlayer.tsx` | Add coach continuity after practice completion |
-| `src/pages/GuidedPracticePlayer.tsx` | Add coach continuity after practice completion |
-| `src/pages/MicroPracticePlayerCards.tsx` | Add coach continuity after practice completion |
+| File | Change |
+|------|--------|
+| `src/pages/SelfMasteryCoach.tsx` | Add `markCoachComplete()` call to `handleBackNavigation` and `handleNewChat` |
+| `src/components/home/WeeklyRitualStreak.tsx` | Tighten "full" status check to require actual completions |
+| Database Migration | Add RLS policies for `tiny_wins` (SELECT) and `profiles` (SELECT/INSERT/UPDATE) for `dev-user-123`, plus insert dev profile |
 
 ---
 
 ## Expected Outcomes
 
-1. **Accurate Completion Status**: Plan only shows "Completed" when ALL recommended practices are done
-2. **Tiny Wins Display**: Win themes appear in Insights page as bubbles
-3. **Coach Continuity**: After completing a practice recommended by coach, user returns to conversation
-4. **Baseline Visibility**: User's onboarding baseline data shows as reference in Insights
-5. **Premium Rating Confirmation**: Elegant, executive-quality confirmation modal
+1. **Accurate Completion:** Coach session ends properly marked, only shows "complete" when ALL recommended practices done
+2. **Tiny Wins Display:** 3 existing wins will show in "Your Tiny Wins" section with bubble visualization
+3. **Baseline Data:** Dev profile with archetype "Adaptive Navigator" and baseline 72 will display in BaselineReferenceCard
 
 ---
 
-## Technical Implementation Order
+## Technical Notes
 
-1. Fix completion logic (Parts 1.1, 1.2, 1.3) - Highest priority
-2. Fix tiny wins display (Part 2) - User is waiting to see their wins
-3. Redesign rating modal (Part 5) - Quick visual improvement
-4. Add coach continuity (Part 3) - Improves flow
-5. Verify baseline display (Part 4) - May already work once profile exists
+### Why This Fix Works
+- Adding `markCoachComplete()` to exit handlers ensures completion is tracked regardless of how user leaves
+- DEV_MODE RLS policies bypass `auth.uid()` requirement for local testing
+- Pre-populating a profile with realistic baseline data allows the Insights page to function correctly
+
+### Related Memory Updates
+After implementation, update these memories:
+- `dev-mode-architecture-v48`: Document the new RLS policies for tiny_wins and profiles
+- `performance-plan-completion-logic-v52`: Note that coach completion is now tracked on ALL exit paths
