@@ -20,6 +20,7 @@ import LuxuryProgressRing from '@/components/insights/LuxuryProgressRing';
 import LuxuryStateBar from '@/components/insights/LuxuryStateBar';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
+import coachVisual from '@/assets/coach-visual.jpeg';
 
 interface DayData {
   date: string;
@@ -522,10 +523,49 @@ const Insights = () => {
 
         console.log('[Insights] DEV_MODE extracted themes:', unifiedThemes);
 
+        // Generate theme relationships based on co-occurrence
+        const themeRelationships: { from: string; to: string; strength: number }[] = [];
+        const themeArray = unifiedThemes.slice(0, 8); // Top 8 for relationships
+        
+        // Create relationships between themes that appear in similar contexts
+        for (let i = 0; i < themeArray.length; i++) {
+          for (let j = i + 1; j < themeArray.length; j++) {
+            const theme1 = themeArray[i];
+            const theme2 = themeArray[j];
+            
+            // Calculate relationship strength based on source overlap
+            let overlap = 0;
+            if (theme1.sources.coach > 0 && theme2.sources.coach > 0) overlap++;
+            if (theme1.sources.wins > 0 && theme2.sources.wins > 0) overlap++;
+            if (theme1.sources.checkins > 0 && theme2.sources.checkins > 0) overlap++;
+            if (theme1.sources.practice > 0 && theme2.sources.practice > 0) overlap++;
+            
+            // Also check semantic similarity (simple approach)
+            const semanticPairs = [
+              ['focus', 'clarity'], ['stress', 'overwhelm'], ['balance', 'steady'],
+              ['energy', 'activation'], ['calm', 'grounding'], ['growth', 'progress']
+            ];
+            const isSemanticallyRelated = semanticPairs.some(pair => 
+              (theme1.theme.toLowerCase().includes(pair[0]) && theme2.theme.toLowerCase().includes(pair[1])) ||
+              (theme1.theme.toLowerCase().includes(pair[1]) && theme2.theme.toLowerCase().includes(pair[0]))
+            );
+            
+            if (overlap >= 2 || isSemanticallyRelated) {
+              themeRelationships.push({
+                from: theme1.theme,
+                to: theme2.theme,
+                strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 4, 1)
+              });
+            }
+          }
+        }
+
+        console.log('[Insights] DEV_MODE generated relationships:', themeRelationships);
+
         setSemanticAnalysis({
           themePatterns: [],
           unifiedThemes,
-          themeRelationships: []
+          themeRelationships
         });
         setSemanticLoading(false);
         return;
@@ -615,10 +655,20 @@ const Insights = () => {
       <div className="relative">
         <FloatingNavigation />
 
-        {/* Page Header - centered */}
-        <div className="pb-4 px-4 max-w-4xl mx-auto text-center">
-          <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">Your Inner World</h1>
-          <p className="text-sm text-muted-foreground mt-1">Past 7 days</p>
+        {/* Coach Visual Header - matching Executive Home style */}
+        <div className="relative w-full h-32 overflow-hidden mb-6 max-w-4xl mx-auto px-4">
+          <div className="relative w-full h-full rounded-xl overflow-hidden">
+            <img 
+              src={coachVisual} 
+              alt="" 
+              className="w-full h-full object-cover object-top opacity-60"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+            <div className="absolute bottom-4 left-4">
+              <h1 className="text-2xl font-headline text-foreground">Your Inner World</h1>
+              <p className="text-sm text-muted-foreground">Past 7 days</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -700,83 +750,7 @@ const Insights = () => {
           </LuxuryInsightCard>
         </div>
 
-        {/* Weekly State Patterns - with luxury bars */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your State Patterns</span>
-              <InsightInfoModal
-                title="Your State Patterns"
-                explanation="Shows the distribution of mental states you've reported in your daily check-ins this week. Recognizing patterns helps you understand your typical energy rhythms."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {patternsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : statePatterns && statePatterns.checkInCount > 0 ? (
-              <div className="space-y-6">
-                {/* Luxury bar chart */}
-                <LuxuryStateBar 
-                  data={stateDistributionData}
-                  maxCount={maxStateCount}
-                  checkInCount={checkInCount}
-                />
-
-                {/* Divider */}
-                <div className="border-t border-border/50" />
-
-                {/* Day 3+ factual summary (no trend arrows until Day 7) */}
-                {insightsTier === 'summary' && mostCommonState && (
-                  <p className="text-sm text-muted-foreground p-3 bg-muted/20 rounded-lg leading-relaxed">
-                    In {checkInCount} check-ins, you've felt <span className="text-foreground font-medium capitalize">{stateLabels[mostCommonState]}</span> most often. 
-                    A few more days will reveal if this is your typical pattern.
-                  </p>
-                )}
-
-                {/* Day 7+ full observation with trend arrows */}
-                {insightsTier === 'full' && statePatterns.observation && (
-                  <div className="flex items-start gap-2">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      "{statePatterns.observation}"
-                    </p>
-                  </div>
-                )}
-
-                {/* Check-in count */}
-                <p className="text-xs text-muted-foreground/60">
-                  Based on {statePatterns.checkInCount} check-ins this week
-                </p>
-                
-                {/* Insight space */}
-                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-                  {insightsTier === 'full' && statePatterns?.observation ? (
-                    <p className="text-sm text-muted-foreground leading-relaxed italic">
-                      "{statePatterns.observation}"
-                    </p>
-                  ) : checkInCount > 0 && checkInCount < 7 ? (
-                    <p className="text-xs text-muted-foreground/60">
-                      Complete {7 - checkInCount} more days to unlock pattern insights.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              <div className="py-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Complete daily check-ins to see your state patterns.
-                </p>
-                {profileBaseline?.mentalFitnessBaseline && (
-                  <p className="text-xs text-saffron/70 mt-2">
-                    Your baseline score is {profileBaseline.mentalFitnessBaseline}
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </LuxuryInsightCard>
+        {/* State Patterns hidden per user request */}
 
         {/* Calendar-State Patterns - Day 7+ unlock */}
         {insightsTier === 'full' ? (
