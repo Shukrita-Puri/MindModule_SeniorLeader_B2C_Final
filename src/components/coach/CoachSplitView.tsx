@@ -72,13 +72,13 @@ const CoachSplitView = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* TOP HALF - Coach Response Area */}
-      <div className="flex-1 relative overflow-hidden min-h-0">
-        {/* Background Visual */}
+      {/* TOP HALF - Coach Response Area - Fixed 50% height */}
+      <div className="h-1/2 relative overflow-hidden">
+        {/* Background Visual - Stronger treatment */}
         <div className="absolute inset-0">
-          {/* Warm gradient backdrop */}
-          <div className="absolute inset-0 bg-gradient-to-b from-saffron/8 via-taupe/5 to-background" />
-          {/* Subtle radial glow */}
+          {/* Warm gradient backdrop - enhanced intensity */}
+          <div className="absolute inset-0 bg-gradient-to-b from-saffron/15 via-taupe/10 to-background" />
+          {/* Radial glow - more visible */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,140,66,0.12)_0%,transparent_70%)]" />
           
           {/* Large transparent branding text - subtle in background */}
@@ -197,10 +197,11 @@ const CoachSplitView = ({
         </div>
       </div>
 
-      {/* BOTTOM HALF - User Input Area */}
+      {/* BOTTOM HALF - User Input Area - Fixed 50% height */}
       <div className={cn(
-        "border-t border-black/[0.06]",
-        "bg-white/80 backdrop-blur-xl",
+        "h-1/2 overflow-y-auto",
+        "border-t-2 border-saffron/20",
+        "bg-background/95 backdrop-blur-xl",
         "p-4 pb-6 space-y-3"
       )}>
         {/* Collapsible message history */}
