@@ -28,6 +28,7 @@ import { type SanctuaryContent } from '@/data/practicesAndSoundscapes';
 // Background images for Coach cards
 import coachPrepareBackground from '@/assets/vibrant-executive-preparation.png';
 import coachIntegrateBackground from '@/assets/ink-reflection-illustration.png';
+import coachVisual from '@/assets/coach-visual.jpeg';
 
 // Check if current time is evening (after 5pm)
 const isEvening = (): boolean => {
@@ -638,15 +639,20 @@ const DailyRitual = () => {
                   >
                     {/* Thumbnail / Visual */}
                     {isCoach ? (
-                      <div className="w-32 h-full flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-charcoal via-slate-800 to-slate-900">
-                        {/* Ambient glow effects */}
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_70%,rgba(255,140,66,0.25)_0%,transparent_60%)]" />
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(155,139,126,0.2)_0%,transparent_50%)]" />
+                      <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
+                        {/* Coach portrait image */}
+                        <img 
+                          src={coachVisual}
+                          alt=""
+                          className="w-full h-full object-cover object-top brightness-75"
+                        />
+                        {/* Gradient overlay for depth */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
                         
-                        {/* SM Monogram */}
+                        {/* SM Monogram overlay */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-4xl font-headline text-saffron/90 tracking-tight leading-none drop-shadow-lg">SM</span>
-                          <span className="text-[9px] uppercase tracking-[0.2em] text-white/60 mt-1">Coach</span>
+                          <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+                          <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
                         </div>
                         
                         {/* Part of Today's Plan badge */}

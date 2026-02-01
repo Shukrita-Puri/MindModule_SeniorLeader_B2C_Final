@@ -87,6 +87,16 @@ const CoachSplitView = ({
 
         {/* Content overlay */}
         <div className="relative z-10 flex-1 flex flex-col">
+          {/* Hero title section - matching Recalibrate Studio pattern */}
+          <div className="pt-8 pb-4 px-6 text-center">
+            <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
+              Self Mastery Coach
+            </h1>
+            <p className="text-base font-subheadline italic text-white/80 mt-1">
+              Inner Awareness. Presence. Growth.
+            </p>
+          </div>
+          
           {/* Centered greeting */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
             <div className="w-16 h-16 rounded-full bg-black/20 backdrop-blur-sm flex flex-col items-center justify-center border border-white/20 shadow-lg">
