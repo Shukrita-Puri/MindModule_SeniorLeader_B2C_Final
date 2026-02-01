@@ -1,393 +1,363 @@
 
-# Insights Page Comprehensive Refinement
+
+# Insights & Feature Pages Refinement + Executive Scenario Expansion
 
 ## Overview
 
-This plan addresses multiple issues with the Insights page and related systems, including:
-1. Today's tiny wins not being recorded/displayed
-2. Performance Plan showing "Completed" after re-check-in
-3. Missing SM Coach visual on executive homepage page- where today's performance plan shows the different modules.
-4. JIT contextual recommendations with scenario-based plans
-5. Clickable tiny wins bubbles with insights (Mindsera-style)
-6. Connected Mind Map patterns visualization
-7. Missing practices tracking
-8. State Patterns hiding
-9. Additional executive-relevant insights
+This plan addresses:
+1. **More "Pre" Executive Scenarios** - Proactive self-mastery focus for senior executives
+2. **Consistent Feature Page Layout** - Match Recalibrate Studio intro text pattern across Insights, Coach, and Daily Check-in
+3. **Remove Coach Visual from Insights** - Replace with consistent header layout
+4. **Add Coach Visual to Executive Homepage** - Show when coach is in the Performance Plan
+5. **Plan Context Labels** - Show source/reasoning for recommendations
 
 ---
 
-## Part 1: Bug Fixes
+## Part 1: Expanded "Pre" Executive Scenarios
 
-### Issue 1.1: Today's Tiny Wins Not Recording
+### Current Scenarios (7 total)
+- Pre-Board Meeting
+- Pre-Investor Meeting
+- High Cognitive Load Day
+- Post-Tough Day Recovery
+- Recovery Day
+- Quarterly Review Prep
+- Difficult Conversation Prep
 
-**Current State:** The tiny wins query shows entries only from January 26, 2026 - no wins for today (Feb 1).
+### New "Pre" Scenarios to Add (8 additional)
 
-**Root Cause:** Tiny wins are captured via the Coach "Integrate" flow, which extracts wins from conversation. If the user didn't complete an Integrate session today or the extraction didn't run, no win was recorded.
+| Scenario | Trigger Keywords | Hours Ahead | Modules |
+|----------|-----------------|-------------|---------|
+| **Pre-Strategic Planning** | "strategy", "strategic planning", "offsite" | 24h | Align + Prepare |
+| **Pre-Negotiations** | "negotiation", "contract", "deal" | 12h | Regulate + Prepare |
+| **Pre-All Hands** | "all hands", "town hall", "company meeting" | 4h | Regulate + Align |
+| **Pre-Media/PR** | "interview", "podcast", "media", "press" | 6h | Regulate + Align + Prepare |
+| **Pre-Crisis Response** | "crisis", "urgent", "emergency" | 2h | Regulate (priority 10) |
+| **Pre-Hiring Decision** | "final round", "hiring committee", "offer" | 4h | Align + Prepare |
+| **Pre-Client Presentation** | "client", "demo", "proposal" | 8h | Align + Prepare |
+| **Pre-Budget/Finance Review** | "budget", "finance review", "forecast" | 24h | Align + Prepare |
 
-**Solution:**
-- Review the `extract-coach-insights` edge function to ensure win detection runs on every coach session
-- Add a manual "Capture Win" option outside of coach flow for quick logging
-- Ensure the Insights page refreshes data after coach sessions complete
+### Implementation in `performancePlanEngine.ts`
 
-**Files to Modify:**
-- `supabase/functions/self-mastery-coach/index.ts` - Add win extraction trigger
-- `src/pages/Insights.tsx` - Add refresh trigger and fallback messaging
+Add to `EXECUTIVE_SCENARIOS` array:
 
----
-
-### Issue 1.2: Performance Plan "Completed" After Re-Check-in
-
-**Current State:** Database shows `completion_status: full` for today with only 1 practice completed (`harmonic-calm`) but 3 recommended.
-
-**Root Cause:** The ritual was marked "full" prematurely. When user checks in again, the system generates a NEW plan but doesn't reset the completion status.
-
-**Solution:**
-```tsx
-// In DailyRitual.tsx loadRecommendations()
-if (checkinTime > ritualTime) {
-  console.log('Check-in is newer than stored plan - regenerating');
-  shouldRegenerate = true;
-  
-  // CRITICAL: Also reset completion status
-  await upsertRitual({
-    ritual_date: today,
-    completion_status: 'partial', // Reset to partial
-    completed_practice_ids: [], // Clear completed IDs
-    soundscape_completed: false,
-    guided_practice_completed: false,
-    micro_exercise_completed: false
-  });
+```ts
+{
+  id: 'pre-strategic-planning',
+  name: 'Pre-Strategic Planning',
+  contextLabel: 'Strategy Session Prep',
+  triggers: { 
+    calendarKeywords: ['strategy', 'strategic planning', 'offsite', 'vision'], 
+    hoursAhead: 24 
+  },
+  modules: [
+    { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+    { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  ]
+},
+{
+  id: 'pre-negotiations',
+  name: 'Pre-Negotiations',
+  contextLabel: 'Negotiation Prep',
+  triggers: { 
+    calendarKeywords: ['negotiation', 'contract', 'deal', 'terms'], 
+    hoursAhead: 12 
+  },
+  modules: [
+    { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
+  ]
+},
+{
+  id: 'pre-all-hands',
+  name: 'Pre-All Hands',
+  contextLabel: 'Company Meeting Prep',
+  triggers: { 
+    calendarKeywords: ['all hands', 'town hall', 'company meeting', 'team meeting'], 
+    hoursAhead: 4 
+  },
+  modules: [
+    { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  ]
+},
+{
+  id: 'pre-media',
+  name: 'Pre-Media/Interview',
+  contextLabel: 'Media Appearance Prep',
+  triggers: { 
+    calendarKeywords: ['interview', 'podcast', 'media', 'press', 'journalist'], 
+    hoursAhead: 6 
+  },
+  modules: [
+    { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+    { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  ]
+},
+{
+  id: 'pre-crisis-response',
+  name: 'Pre-Crisis Response',
+  contextLabel: 'Crisis Preparation',
+  triggers: { 
+    calendarKeywords: ['crisis', 'urgent', 'emergency', 'incident'], 
+    hoursAhead: 2 
+  },
+  modules: [
+    { type: 'regulate', required: true, priority: 10, intensity: 'gentle', duration: 'micro', focus: 'composure' }
+  ]
+},
+{
+  id: 'pre-hiring-decision',
+  name: 'Pre-Hiring Decision',
+  contextLabel: 'Hiring Review Prep',
+  triggers: { 
+    calendarKeywords: ['final round', 'hiring committee', 'offer discussion', 'candidate review'], 
+    hoursAhead: 4 
+  },
+  modules: [
+    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+    { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
+  ]
+},
+{
+  id: 'pre-client-presentation',
+  name: 'Pre-Client Presentation',
+  contextLabel: 'Client Meeting Prep',
+  triggers: { 
+    calendarKeywords: ['client', 'demo', 'proposal', 'customer'], 
+    hoursAhead: 8 
+  },
+  modules: [
+    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+    { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  ]
+},
+{
+  id: 'pre-budget-review',
+  name: 'Pre-Budget/Finance Review',
+  contextLabel: 'Finance Review Prep',
+  triggers: { 
+    calendarKeywords: ['budget', 'finance review', 'forecast', 'financial planning'], 
+    hoursAhead: 24 
+  },
+  modules: [
+    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+    { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
+  ]
 }
 ```
 
-**Button Label Logic:**
-- If `completion_status === 'full'` but new check-in happened: Show "Start Your Performance Plan"
-- Only show "Completed" if plan was fully completed AFTER current check-in
-
-**Files to Modify:**
-- `src/components/home/DailyRitual.tsx` - Reset ritual status on re-check-in
-
 ---
 
-### Issue 1.3: Practices Completed Not Tracking
+## Part 2: Consistent Feature Page Layout
 
-**Current State:** `sanctuary_events` table is empty - no practice completions being logged.
+### Reference: Recalibrate Studio Layout
 
-**Root Cause:** Practice players need to log completion events to `sanctuary_events` with `event_type: 'completed'`.
+```text
++--------------------------------------------------+
+| [Navigation]                                      |
++--------------------------------------------------+
+|                                                  |
+|           Recalibrate Studio                     |  <- text-5xl font-headline
+|                                                  |
+|    Reset. Restore. Refocus. — Master Your        |  <- text-lg font-subheadline italic
+|              Mental Edge                         |
+|                                                  |
+|   Curated Sonic Library, Guided Sessions and     |  <- text-sm text-muted-foreground
+|   Micro Exercises, crafted from centuries...     |
+|                                                  |
++--------------------------------------------------+
+```
 
-**Solution:** Verify and fix practice completion tracking in:
-- `SoundscapePlayer.tsx`
-- `GuidedPracticePlayer.tsx`
-- `MicroPracticeCards.tsx`
+### Pages to Update with This Pattern
 
-Each should call a `logPracticeCompletion()` function that inserts into `sanctuary_events`.
+#### 1. Insights Page (`src/pages/Insights.tsx`)
 
-**Files to Modify:**
-- `src/pages/SoundscapePlayer.tsx`
-- `src/pages/GuidedPracticePlayer.tsx`
-- `src/pages/MicroPracticeCards.tsx`
-- Create: `src/utils/practiceCompletionTracker.ts`
+**Remove:** Coach visual header (lines 658-672)
 
----
-
-### Issue 1.4: Typical State This Week Tracking
-
-**Current State:** Shows correctly based on `statePatterns.distribution` data. Working as expected.
-
-**Verification:** Today's check-in (scattered) is recorded. The Typical State card pulls from `fetchStatePatterns()` which queries `daily_checkins`.
-
----
-
-## Part 2: UI/UX Improvements
-
-### Issue 2.1: Add SM Coach Visual to Insights Page
-
-**Current Implementation:** The Executive Home shows the SM coach visual in the StrategicIntentionCard area.
-
-**Solution:** Add the coach visual as a header element on Insights page for brand consistency.
+**Add:** Typography-based hero matching Recalibrate Studio:
 
 ```tsx
-// In Insights.tsx header section
-import coachVisual from '@/assets/coach-visual.jpeg';
-
-// Add after FloatingNavigation
-<div className="relative w-full h-32 overflow-hidden rounded-xl mb-6">
-  <img 
-    src={coachVisual} 
-    alt="" 
-    className="w-full h-full object-cover object-top opacity-60"
-  />
-  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-  <div className="absolute bottom-4 left-4">
-    <h1 className="text-2xl font-headline text-foreground">Your Inner World</h1>
-    <p className="text-sm text-muted-foreground">Past 7 days</p>
+{/* Hero Banner - matching Recalibrate Studio */}
+<div className="relative h-auto py-8 overflow-hidden">
+  <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
+    <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
+      Your Inner World
+    </h1>
+    <p className="text-lg font-subheadline italic text-muted-foreground">
+      Patterns. Progress. Presence.
+    </p>
+    <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+      Your longitudinal view of mental fitness development — tracking states, wins, and inner patterns over time.
+    </p>
   </div>
 </div>
 ```
 
-**Files to Modify:**
-- `src/pages/Insights.tsx`
+#### 2. Self Mastery Coach Empty State (`src/components/coach/CoachSplitView.tsx`)
 
----
+**Current:** Full-bleed cinematic background with greeting
 
-### Issue 2.2: Hide State Patterns Section
+**Update:** Add hero text overlay matching the pattern (while keeping the visual background):
 
-**Solution:** Wrap the State Patterns card in a conditional or remove entirely (per user request).
-
-```tsx
-// Remove or comment out lines 703-779 in Insights.tsx
-// The "Your State Patterns" LuxuryInsightCard section
-```
-
-**Files to Modify:**
-- `src/pages/Insights.tsx`
-
----
-
-### Issue 2.3: Clickable Tiny Wins Bubbles with Insights (Mindsera-style)
-
-**Reference:** Mindsera shows bubbles that, when clicked, reveal a summary/insight panel.
-
-**Implementation:**
+The Coach already has a visual background which works well. We'll add the title text pattern as an overlay in the greeting area to match the style:
 
 ```tsx
-// New component: ClickableDimensionBubble
-interface BubbleInsight {
-  dimension: string;
-  value: string;
-  count: number;
-  summary: string; // AI-generated insight
-  relatedWins: Array<{ content: string; date: string }>;
-}
-
-// Wrap bubbles in Popover with:
-// - Summary text: "Your wins often reflect {dimension}. This suggests..."
-// - 2-3 recent win snippets that contributed to this bubble
-// - "Explore with Coach" button if applicable
-```
-
-**Visual Design:**
-```text
-+--------------------------------------+
-| [Bubble clicked: "Pride"]            |
-+--------------------------------------+
-| You frequently capture moments of    |
-| pride and accomplishment. This       |
-| reflects strong self-recognition.    |
-|                                      |
-| Recent wins with this theme:         |
-| - "Managed to get traction from..."  |
-| - "I noticed things moved and..."    |
-|                                      |
-| [Explore with Coach]                 |
-+--------------------------------------+
-```
-
-**Files to Modify:**
-- `src/components/insights/PsychologicalDimensionBubbles.tsx` - Add click handling and Popover
-
----
-
-### Issue 2.4: Connected Mind Map Patterns (Mindsera-style)
-
-**Reference:** Mindsera shows thought patterns as connected nodes with lines showing relationships.
-
-**Current State:** `InnerWorldBubbles.tsx` already has `relationships` prop and draws SVG connection lines. The issue is that `themeRelationships` is often empty.
-
-**Solution:** Enhance the semantic analysis to generate theme relationships:
-
-```ts
-// In fetchSemanticAnalysis (DEV_MODE section) or edge function
-// Generate relationships based on co-occurrence in same content
-const themeRelationships = [];
-const themeContent = new Map<string, Set<string>>(); // theme -> content IDs
-
-// For each pair of themes that appear in same content, create a relationship
-for (const [theme1, contents1] of themeContent) {
-  for (const [theme2, contents2] of themeContent) {
-    if (theme1 < theme2) {
-      const overlap = [...contents1].filter(c => contents2.has(c)).length;
-      if (overlap > 0) {
-        themeRelationships.push({
-          from: theme1,
-          to: theme2,
-          strength: Math.min(overlap / 3, 1) // Normalize 0-1
-        });
-      }
-    }
-  }
-}
-```
-
-**Visual Enhancement:**
-- Add descriptive labels on hover/click for connections
-- Show "Connected themes" subtitle
-
-**Files to Modify:**
-- `src/pages/Insights.tsx` - Enhance fetchSemanticAnalysis
-- `src/components/insights/InnerWorldBubbles.tsx` - Improve connection rendering
-
----
-
-## Part 3: Performance Plan Contextual Recommendations
-
-### Issue 3.1: Show Context Source for Recommendations
-
-**Requirement:** If plan is JIT-triggered, show context (e.g., "Board meeting tomorrow"). If it's a generic morning/evening plan, show that context.
-
-**Implementation:**
-
-```tsx
-// New interface in DailyRitual.tsx
-interface PlanContext {
-  source: 'checkin' | 'jit-calendar' | 'jit-wearable' | 'jit-pattern' | 'routine-morning' | 'routine-evening';
-  description?: string; // e.g., "Board Meeting in 2 days"
-  eventDate?: string;
-}
-
-// Display in UI:
-<div className="flex items-center gap-2 mb-3">
-  <span className="text-xs font-medium text-muted-foreground">
-    {planContext.source === 'jit-calendar' && (
-      <>
-        <span className="px-2 py-0.5 bg-saffron/10 text-saffron rounded-full text-[10px] mr-2">
-          JIT
-        </span>
-        {planContext.description}
-      </>
-    )}
-    {planContext.source === 'routine-morning' && "Morning Performance Plan"}
-    {planContext.source === 'routine-evening' && "Evening Integration Plan"}
-    {planContext.source === 'checkin' && "Based on your check-in, calendar, and time of day"}
-  </span>
+{/* Empty state - Hero text before greeting */}
+<div className="text-center mb-6">
+  <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
+    Self Mastery Coach
+  </h1>
+  <p className="text-base font-subheadline italic text-white/80 mt-1">
+    Inner Awareness. Presence. Growth.
+  </p>
 </div>
 ```
 
-**Files to Modify:**
-- `src/components/home/DailyRitual.tsx`
+#### 3. Daily Check-In (`src/pages/DailyCheckIn.tsx`)
 
----
+**Current:** Simple "How are you feeling right now?" header
 
-### Issue 3.2: Executive Scenario-Based Plans
+**Update:** Add hero section matching pattern:
 
-**New Scenarios to Support:**
-
-| Scenario | Trigger | Plan Components |
-|----------|---------|-----------------|
-| Pre-Board Meeting | Calendar: "Board" keyword + 24h window | Regulate (calming) + Align (confidence) + Prepare (mental rehearsal) |
-| High-Pressure Event | Calendar: "Investor", "Keynote" + 24h | Regulate + Prepare (coach for visualization) |
-| High Cognitive Load Day | 4+ back-to-back meetings | Regulate (micro) + Align (focus) |
-| Post-Tough Day | Evening + low check-in | Regulate (release) + Integrate (reflection) |
-| Recovery Day | Low wearable readiness | Regulate (gentle) only - minimal load |
-| Quarterly Review Prep | Calendar: "Quarterly", "Review" | Align (confidence) + Prepare (visualization) |
-
-**Implementation in `performancePlanEngine.ts`:**
-
-```ts
-interface ScenarioPlan {
-  id: string;
-  name: string;
-  triggers: {
-    calendarKeywords?: string[];
-    hoursAhead?: number;
-    wearableCondition?: 'low_readiness' | 'elevated_stress';
-    checkInPattern?: 'consecutive-low';
-  };
-  modules: ModuleSpec[];
-  contextLabel: string;
-}
-
-const EXECUTIVE_SCENARIOS: ScenarioPlan[] = [
-  {
-    id: 'pre-board-meeting',
-    name: 'Pre-Board Meeting',
-    triggers: { calendarKeywords: ['board'], hoursAhead: 24 },
-    modules: [
-      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' },
-      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'rehearsal' }
-    ],
-    contextLabel: 'Board Meeting Prep'
-  },
-  // ... more scenarios
-];
+```tsx
+{/* Hero Banner */}
+<div className="relative h-auto py-6 overflow-hidden mb-4">
+  <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+    <h1 className="text-4xl font-headline text-foreground tracking-tight">
+      Daily Check-In
+    </h1>
+    <p className="text-base font-subheadline italic text-muted-foreground">
+      Awareness First. Action Follows.
+    </p>
+    <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+      A moment to check your inner state — guiding today's performance plan.
+    </p>
+  </div>
+</div>
 ```
 
-**Files to Modify:**
-- `src/utils/performancePlanEngine.ts` - Add scenario detection
-- `src/components/home/DailyRitual.tsx` - Display scenario context
-- `src/components/home/JustInTimeIntervention.tsx` - Link to scenarios
+---
+
+## Part 3: Coach Visual on Executive Homepage
+
+### Requirement
+Show the coach visual in the Performance Plan carousel when coach (Prepare/Integrate) is one of the recommended modules.
+
+### Current State
+Coach cards in `DailyRitual.tsx` show an "SM Coach" monogram on a gradient background (lines 640-656).
+
+### Update
+Replace the monogram with the actual coach visual image for stronger visual presence:
+
+```tsx
+{/* Coach Card Thumbnail - Use actual coach visual */}
+{isCoach ? (
+  <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
+    <img 
+      src={coachVisual}
+      alt=""
+      className="w-full h-full object-cover object-top brightness-75"
+    />
+    {/* Gradient overlay for depth */}
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
+    
+    {/* SM Monogram overlay */}
+    <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
+      <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
+    </div>
+    
+    {/* Part of Today's Plan badge */}
+    <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
+      Today's Plan
+    </div>
+  </div>
+) : (
+  // ... existing thumbnail code
+)}
+```
+
+**Import Required:**
+```tsx
+import coachVisual from '@/assets/coach-visual.jpeg';
+```
 
 ---
 
-### Issue 3.3: Wearable Data Integration Status
+## Part 4: Plan Context Labels
 
-**Current State:** Already incorporated:
-- `computeEnergyState()` in `energyStateEngine.ts` fetches Oura data
-- `JustInTimeIntervention.tsx` checks `oura_daily_data` for stress indicators
-- `historicalPatternEngine.ts` supports HRV pattern detection
+### Current State
+`DailyRitual.tsx` has `planContext` state but doesn't display it prominently.
 
-**Confirmation:** Wearable data IS being used for:
-- Energy state computation
-- JIT stress triggers
-- Historical pattern analysis
+### Update
+Add context badge/label above the Performance Plan carousel:
 
----
+```tsx
+{/* Plan Context Label */}
+{planContext.source !== 'checkin' && (
+  <div className="px-4 max-w-lg mx-auto mb-2">
+    <div className="flex items-center gap-2">
+      {planContext.source === 'executive-scenario' && (
+        <>
+          <span className="px-2 py-0.5 bg-saffron/15 text-saffron rounded-full text-[10px] font-medium uppercase tracking-wider">
+            {planContext.scenarioName || 'Scenario'}
+          </span>
+          {planContext.description && (
+            <span className="text-xs text-muted-foreground">{planContext.description}</span>
+          )}
+        </>
+      )}
+      {planContext.source === 'jit-calendar' && (
+        <>
+          <span className="px-2 py-0.5 bg-amber-500/15 text-amber-600 rounded-full text-[10px] font-medium uppercase tracking-wider">
+            JIT
+          </span>
+          {planContext.description && (
+            <span className="text-xs text-muted-foreground">{planContext.description}</span>
+          )}
+        </>
+      )}
+      {planContext.source === 'routine-morning' && (
+        <span className="text-xs text-muted-foreground">Morning Performance Routine</span>
+      )}
+      {planContext.source === 'routine-evening' && (
+        <span className="text-xs text-muted-foreground">Evening Integration Routine</span>
+      )}
+    </div>
+  </div>
+)}
 
-## Part 4: Additional Executive Insights
+{/* Default context for check-in based plans */}
+{planContext.source === 'checkin' && recommendations.length > 0 && (
+  <div className="px-4 max-w-lg mx-auto mb-2">
+    <span className="text-xs text-muted-foreground">Based on your check-in, calendar, and time of day</span>
+  </div>
+)}
+```
 
-### Missing Insights for Senior Leaders
+### Wire Up Executive Scenario Detection
 
-| Insight Type | Description | Implementation |
-|--------------|-------------|----------------|
-| Decision Quality Tracker | Track when decisions were made under what state | Link check-in state to calendar events marked as "decisions" |
-| Meeting Energy Cost | Calculate energy delta before/after meeting-heavy days | Compare check-in scores on high vs low meeting days |
-| Recovery Velocity | How quickly user returns to "steady" after "overwhelmed" | Track state transitions over time |
-| Optimal Performance Windows | When user reports "focused" most often | Aggregate check-in times by hour |
-| Intervention Effectiveness | Which practices led to state improvements | Track state before/after practice completion |
+In `loadRecommendations()`, after building the context, detect scenarios and update `planContext`:
 
-**Priority Implementation:** Add "Your Energy Rhythm" enhancement to show optimal windows.
-
-**Files to Create/Modify:**
-- `src/components/insights/DecisionQualityTracker.tsx` (new)
-- `src/components/insights/EnergyRhythm.tsx` (enhance)
-
----
-
-## Part 5: Real-Time Data Recording Speed
-
-**User Question:** "How quickly can the system record and analyze with all the historical data?"
-
-**Answer:**
-- **Recording:** Immediate (< 500ms) - Direct Supabase insert on action completion
-- **Analysis:** Near real-time for basic queries (< 2s), batch for AI analysis
-- **Insights Refresh:** Page-level polling every 30-60 seconds, or on navigation
-
-**Current Data Flow:**
-1. User completes Coach session
-2. Edge function extracts insights (1-3s)
-3. Writes to `tiny_wins` / `user_coach_insights` tables
-4. Insights page fetches on load (fresh data)
-
----
-
-## Implementation Priority
-
-1. **Critical Bugs (Immediate):**
-   - Performance Plan completion reset on re-check-in
-   - Practice completion tracking to `sanctuary_events`
-   - Tiny wins not appearing (verification)
-
-2. **UI Quick Wins (Same Session):**
-   - Hide State Patterns section
-   - Add SM Coach visual to Insights
-   - Add context labels to Performance Plan
-
-3. **Feature Enhancements (Next Session):**
-   - Clickable dimension bubbles with insights
-   - Connected Mind Map relationships
-   - Executive scenario plans
-   - Additional executive insights
+```tsx
+// 7b. Check for executive scenarios
+const scenario = detectExecutiveScenario(context);
+if (scenario) {
+  setPlanContext({
+    source: 'executive-scenario',
+    scenarioName: scenario.contextLabel,
+    description: `Detected: ${scenario.name}`
+  });
+} else if (getTimeOfDay() === 'morning' && !energyState.checkInOutcome) {
+  setPlanContext({ source: 'routine-morning' });
+} else if (getTimeOfDay() === 'evening') {
+  setPlanContext({ source: 'routine-evening' });
+} else {
+  setPlanContext({ source: 'checkin' });
+}
+```
 
 ---
 
@@ -395,13 +365,30 @@ const EXECUTIVE_SCENARIOS: ScenarioPlan[] = [
 
 | File | Changes |
 |------|---------|
-| `src/components/home/DailyRitual.tsx` | Reset ritual on re-check-in, add context labels |
-| `src/pages/Insights.tsx` | Add coach visual, hide State Patterns, enhance semantic analysis |
-| `src/components/insights/PsychologicalDimensionBubbles.tsx` | Add click handling and insight popover |
-| `src/components/insights/InnerWorldBubbles.tsx` | Enhance connection rendering |
-| `src/utils/performancePlanEngine.ts` | Add executive scenario detection |
-| `src/pages/SoundscapePlayer.tsx` | Verify/fix completion tracking |
-| `src/pages/GuidedPracticePlayer.tsx` | Verify/fix completion tracking |
-| `src/pages/MicroPracticeCards.tsx` | Verify/fix completion tracking |
-| `src/utils/practiceCompletionTracker.ts` (new) | Unified completion logging |
+| `src/utils/performancePlanEngine.ts` | Add 8 new "Pre" executive scenarios |
+| `src/pages/Insights.tsx` | Remove coach visual, add typography-based hero matching Recalibrate Studio |
+| `src/components/coach/CoachSplitView.tsx` | Add hero title text in empty state (keeping visual background) |
+| `src/pages/DailyCheckIn.tsx` | Add hero section with title/subtitle/description |
+| `src/components/home/DailyRitual.tsx` | Add coach visual to coach cards, add plan context labels |
+
+---
+
+## Visual Consistency Summary
+
+| Page | Title | Subtitle (italic) | Description |
+|------|-------|-------------------|-------------|
+| Recalibrate Studio | "Recalibrate Studio" | "Reset. Restore. Refocus. — Master Your Mental Edge" | Curated Sonic Library... |
+| Your Inner World | "Your Inner World" | "Patterns. Progress. Presence." | Your longitudinal view of mental fitness... |
+| Self Mastery Coach | "Self Mastery Coach" | "Inner Awareness. Presence. Growth." | (keeps visual context) |
+| Daily Check-In | "Daily Check-In" | "Awareness First. Action Follows." | A moment to check your inner state... |
+
+---
+
+## Expected Outcomes
+
+1. **Proactive Self-Mastery**: 15 executive scenarios (8 new "Pre" scenarios) covering common senior leader situations
+2. **Visual Consistency**: All feature pages share the same typography-based hero pattern
+3. **Coach Visual Integration**: Executive Homepage shows coach portrait when coach is in the plan
+4. **Context Clarity**: Users understand why specific recommendations were made (JIT, scenario, routine, or check-in based)
+5. **Professional Polish**: Consistent branding signals a cohesive product experience
 
