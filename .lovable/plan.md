@@ -1,275 +1,413 @@
 
-# Enhancements: Context Connection, Auth Tab Sync, and Logo Update
 
-## Overview
+# Restore Context Connection Design, Use Lambda Icon, and Capacitor Setup Guide
 
-This plan addresses four key issues:
-1. **Context Connection page needs OAuth integration** - Currently toggles only save preferences to localStorage, but need to trigger actual OAuth flows for Google Calendar and Apple Watch
-2. **Auto-close auth tab after signup** - After Auth0 signup in a new tab, that tab should close and user continues in the original app
-3. **Sidebar logo update** - Replace the "K" with either the KAIROS wordmark or the Lambda/Arrow icon when sidebar is collapsed
-4. **Capacitor compatibility** - Ensure the implementation works for future mobile app conversion
+## Summary
+
+This plan addresses three items:
+1. **Use the uploaded Lambda icon image** for the collapsed sidebar (not custom SVG)
+2. **Restore the original Context Connection page design** with toggle switches for both Google Calendar and Apple Watch
+3. **Step-by-step Capacitor setup guide** to convert this web app to a native mobile app
 
 ---
 
-## Part 1: Context Connection - Trigger Actual OAuth Flows
+## Part 1: Use Uploaded Lambda Icon Image
 
 ### Current State
-The `Stage7ContextConnection.tsx` page only saves preferences to localStorage. The actual calendar connection component (`CalendarConnectionSettings.tsx`) exists but requires the user to be authenticated first.
+The sidebar currently uses a custom inline SVG for the Lambda icon when collapsed.
 
-### Problem
-The toggles appear to work but don't actually connect to anything. The user expects that when they toggle "Google Calendar" ON, the OAuth flow initiates.
+### Change
+Copy the uploaded Lambda icon image to `src/assets/kairos-lambda-icon.png` and use it in the LeftSidebar instead of the inline SVG.
 
-### Solution
-Move the Context Connection stage to AFTER signup (it's currently before signup in the flow). This way:
-1. User completes onboarding questionnaire
-2. User signs up via Auth0
-3. User sees results page
-4. User goes to payment page
-5. User reaches Context Connection page (NOW AUTHENTICATED)
-6. Toggle ON triggers actual OAuth flow via `CalendarConnectionSettings` component
-7. User continues to the app
+### File Changes
 
-### Files to Modify
+**Copy file:**
+- From: `user-uploads://PEAK_PERFORMERS_DON'T_JUST_REACT_THEY_ANTICIPATE_-_PROACTIVE_SELF_MASTERY_PLATFORM_5-3.png`
+- To: `src/assets/kairos-lambda-icon.png`
 
-**src/pages/onboarding/stages/Stage7ContextConnection.tsx**
-- Import and use `CalendarConnectionSettings` for Google Calendar
-- For Apple Watch: Show informational toggle (actual HealthKit integration requires native app)
-- Check authentication status - if not authenticated, show message to complete signup first
-- Add useAuth hook to verify user is logged in
-
-### Flow Change (Onboarding Order)
-Current order in `OnboardingFlow.tsx`:
-```
-1. /onboarding (welcome)
-2. /onboarding/identity
-3. /onboarding/emotional-awareness
-4. /onboarding/stress-response
-5. /onboarding/recovery-patterns
-6. /onboarding/mental-clarity
-7. /onboarding/growth-intention
-8. /onboarding/signup-step       <-- Auth0
-9. /onboarding/results
-10. /onboarding/payment
-11. /onboarding/context-connection  <-- NOW with OAuth
-```
-
-This order is already correct - Context Connection comes AFTER signup. The issue is the component isn't using the actual OAuth components.
-
----
-
-## Part 2: Auto-Close Auth Tab After Signup (Cross-Tab Communication)
-
-### The Challenge
-When user clicks "Continue to Signup" in the iframe, a new tab opens. After Auth0 authentication completes in that tab, we want:
-1. The new tab to close automatically
-2. The original iframe/tab to detect the successful auth and continue onboarding
-
-### Solution: BroadcastChannel API
-Use the `BroadcastChannel` API for cross-tab communication:
-
-1. **In the original tab/iframe**: Listen for auth completion messages
-2. **In the new auth tab**: After successful auth, broadcast a message and close the tab
-
-### Implementation
-
-**src/utils/authRedirect.ts**
-Add broadcast channel helpers:
-```typescript
-export const AUTH_CHANNEL_NAME = 'kairos-auth-channel';
-
-export const broadcastAuthSuccess = (destination: string) => {
-  const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
-  channel.postMessage({ type: 'AUTH_SUCCESS', destination });
-  channel.close();
-};
-
-export const listenForAuthSuccess = (callback: (destination: string) => void): () => void => {
-  const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
-  channel.onmessage = (event) => {
-    if (event.data.type === 'AUTH_SUCCESS') {
-      callback(event.data.destination);
-    }
-  };
-  return () => channel.close();
-};
-```
-
-**src/pages/onboarding/stages/Stage8SignupStep.tsx**
-- When in iframe: Start listening for auth success via BroadcastChannel
-- When NOT in iframe (the new tab): After successful auth, broadcast success message and attempt to close the tab
-
-**src/pages/AuthCallback.tsx**
-- After successful authentication, broadcast the success and close the window if it was opened as a popup/new tab
-
-### Capacitor Considerations
-- BroadcastChannel works in modern browsers and WebView
-- For native Capacitor builds, the app won't be in an iframe, so direct Auth0 popup/redirect will work
-- The "new tab" flow is specifically for the Lovable preview iframe scenario
-
----
-
-## Part 3: Sidebar Logo Update - Replace "K" with KAIROS Logo or Lambda
-
-### Current State
-The collapsed sidebar shows a single "K" character:
+**src/components/navigation/LeftSidebar.tsx:**
 ```tsx
-<span className="font-headline text-lg font-semibold tracking-widest text-kairos">K</span>
-```
+// Add import at top
+import kairosLambdaIcon from '@/assets/kairos-lambda-icon.png';
 
-### Options
-Looking at the uploaded images:
-1. **KAIROS wordmark** - Black text logo with distinctive "Λ" (Lambda) shape in the A
-2. **Lambda icon** - The standalone Λ symbol on green background
-
-### Recommendation
-Use the existing `kairos-logo-black.png` asset (KAIROS wordmark) but render it small when collapsed, OR render just the Lambda symbol.
-
-Since the Lambda (Λ) is part of the KAIROS identity and is more compact, use an SVG Lambda for the collapsed state.
-
-### Implementation
-
-**src/components/navigation/LeftSidebar.tsx**
-Replace the "K" with either:
-- Option A: Small version of the KAIROS logo image
-- Option B: Custom Lambda SVG icon (more scalable, better for small sizes)
-
-```tsx
-// Collapsed state
+// Replace the inline SVG with:
 {isCollapsed ? (
-  <svg 
-    viewBox="0 0 24 32" 
-    className="w-6 h-8 text-kairos fill-current"
-    aria-label="Kairos"
-  >
-    <path d="M12 0L0 32h5.5l6.5-18 6.5 18H24L12 0z" />
-  </svg>
-) : (
   <img 
-    src={kairosLogo} 
+    src={kairosLambdaIcon} 
     alt="KAIROS" 
-    className="h-5" 
+    className="w-6 h-6 object-contain"
   />
+) : (
+  // Keep existing expanded view
 )}
 ```
 
 ---
 
-## Part 4: Apple Watch Integration Note
+## Part 2: Restore Original Context Connection Design with Toggles
 
-### Reality Check
-Apple Watch / HealthKit integration requires:
-- Native iOS app (Capacitor can access this via plugins)
-- User permission on the device
-- Cannot be done purely in web
+### Current State
+The page currently shows:
+- CalendarConnectionSettings component (which requires Auth0 - causes errors for unauthenticated users)
+- Apple Watch with "Coming Soon" badge
 
-### Approach for Now
-1. Keep the toggle as a "preference" indicator
-2. When toggled ON, show informational text: "Apple Watch will connect when you install the mobile app"
-3. Store the preference for later use when native app is built
-4. When Capacitor is implemented, use `@capacitor-community/health-kit` plugin
+### Original Design to Restore
+Clean toggle-based design with:
+- Toggle for Google Calendar (triggers OAuth when authenticated)
+- Toggle for Apple Watch (stores preference, shows "Available in mobile app" note)
+- Both toggles functional for storing preferences
 
----
+### File Changes
 
-## Files to Modify
+**src/pages/onboarding/stages/Stage7ContextConnection.tsx:**
 
-| File | Changes |
-|------|---------|
-| `src/utils/authRedirect.ts` | Add BroadcastChannel helpers for cross-tab auth sync |
-| `src/pages/onboarding/stages/Stage8SignupStep.tsx` | Listen for auth success, close tab after broadcast |
-| `src/pages/AuthCallback.tsx` | Broadcast auth success and close tab if popup |
-| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Integrate real CalendarConnectionSettings, handle Apple Watch info |
-| `src/components/navigation/LeftSidebar.tsx` | Replace "K" with Lambda icon or KAIROS logo |
-
----
-
-## Implementation Details
-
-### Cross-Tab Auth Flow
-
-```text
-[Lovable Iframe]                    [New Tab]
-       |                                |
-       |-- Click "Continue" ----------->|
-       |                                |
-       |   Listen for broadcast         |-- Auth0 Login
-       |        ↓                       |
-       |                                |-- Callback
-       |                                |
-       |<-- Broadcast AUTH_SUCCESS -----|
-       |                                |-- window.close()
-       |
-       |-- Navigate to results
-```
-
-### Context Connection with Real OAuth
+Restore the design with Switch toggles:
 
 ```tsx
-// Stage7ContextConnection.tsx
-import { useAuth } from '@/hooks/useAuth';
-import CalendarConnectionSettings from '@/components/CalendarConnectionSettings';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Calendar, Watch } from "lucide-react";
+import { getSession } from "@/utils/onboardingStorage";
+import { useAuth } from "@/hooks/useAuth";
+import { useAuth0 } from "@auth0/auth0-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function Stage7ContextConnection() {
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const { getAccessTokenSilently } = useAuth0();
   
-  // If not authenticated, shouldn't be on this page
-  if (!isAuthenticated) {
-    return <Navigate to="/onboarding/signup-step" />;
-  }
-  
+  const [calendarEnabled, setCalendarEnabled] = useState(false);
+  const [watchEnabled, setWatchEnabled] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Load saved preferences on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('contextConnectionPreferences');
+    if (saved) {
+      const prefs = JSON.parse(saved);
+      setCalendarEnabled(prefs.calendar || false);
+      setWatchEnabled(prefs.watch || false);
+    }
+  }, []);
+
+  // Handle Google Calendar toggle
+  const handleCalendarToggle = async (checked: boolean) => {
+    setCalendarEnabled(checked);
+    
+    // Save preference
+    const prefs = { calendar: checked, watch: watchEnabled };
+    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
+    
+    // If enabling and authenticated, trigger OAuth
+    if (checked && isAuthenticated) {
+      setLoading(true);
+      try {
+        const token = await getAccessTokenSilently();
+        const { data, error } = await supabase.functions.invoke('calendar-auth', {
+          body: { action: 'connect', provider: 'google' },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (error) throw error;
+        if (data.authUrl) {
+          window.location.href = data.authUrl;
+        }
+      } catch (error) {
+        console.error('Error connecting calendar:', error);
+        toast.error('Failed to connect calendar');
+        setCalendarEnabled(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Handle Apple Watch toggle (preference only - native integration coming)
+  const handleWatchToggle = (checked: boolean) => {
+    setWatchEnabled(checked);
+    
+    // Save preference
+    const prefs = { calendar: calendarEnabled, watch: checked };
+    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
+    
+    if (checked) {
+      toast.info('Apple Watch will connect when you install the mobile app');
+    }
+  };
+
+  const handleComplete = () => {
+    const contextData = {
+      onboardingCompletedAt: new Date().toISOString(),
+      calendarEnabled,
+      watchEnabled,
+      plan: 'super-pro'
+    };
+    
+    localStorage.setItem('contextConnections', JSON.stringify(contextData));
+    
+    const session = getSession();
+    if (session) {
+      session.responses.onboardingCompleted = true;
+      session.responses.completedAt = new Date().toISOString();
+      localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
+    }
+    
+    navigate("/daily-check-in");
+  };
+
   return (
-    <div>
-      {/* Google Calendar - Real OAuth */}
-      <CalendarConnectionSettings compact />
-      
-      {/* Apple Watch - Info only */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
-        <div className="flex items-center gap-3">
-          <Watch className="w-5 h-5" />
-          <div>
-            <span className="font-medium">Apple Watch</span>
-            <p className="text-xs text-muted-foreground">Available in mobile app</p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-10">
+        
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Connect Context
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Personalise your experience
+          </p>
         </div>
-        <Badge variant="outline">Coming Soon</Badge>
+
+        {/* Integration Options with Toggles */}
+        <div className="space-y-3">
+          
+          {/* Google Calendar */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="font-medium">Google Calendar</span>
+                <span className="text-xs text-muted-foreground">
+                  Sync your schedule
+                </span>
+              </div>
+            </div>
+            <Switch 
+              checked={calendarEnabled}
+              onCheckedChange={handleCalendarToggle}
+              disabled={loading}
+            />
+          </div>
+          
+          {/* Apple Watch */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
+            <div className="flex items-center gap-3">
+              <Watch className="w-5 h-5 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="font-medium">Apple Watch</span>
+                <span className="text-xs text-muted-foreground">
+                  Available in mobile app
+                </span>
+              </div>
+            </div>
+            <Switch 
+              checked={watchEnabled}
+              onCheckedChange={handleWatchToggle}
+            />
+          </div>
+          
+        </div>
+
+        {/* Coming soon note */}
+        <p className="text-center text-xs text-muted-foreground/70">
+          More calendars, wearables & email integrations coming soon
+        </p>
+
+        {/* CTAs */}
+        <div className="space-y-3">
+          <Button onClick={handleComplete} className="w-full" disabled={loading}>
+            Continue
+          </Button>
+          <button 
+            onClick={handleComplete} 
+            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Skip for now
+          </button>
+        </div>
+
+        {/* Subtle footer */}
+        <p className="text-center text-xs text-muted-foreground/60">
+          You can change this anytime in settings
+        </p>
+
       </div>
     </div>
   );
 }
 ```
 
-### Lambda Icon SVG
-The Lambda symbol from the KAIROS branding:
-```tsx
-const LambdaIcon = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 24 32" 
-    className={className}
-    aria-label="Kairos"
-  >
-    <path d="M12 0L0 32h5.5l6.5-18 6.5 18H24L12 0z" fill="currentColor" />
-  </svg>
-);
+---
+
+## Part 3: Capacitor Setup - Step-by-Step Guide
+
+### Overview
+Capacitor allows you to wrap this React web app as a native iOS and Android app. The app will use the same codebase but can access native device features (like HealthKit for Apple Watch data).
+
+### Prerequisites
+Before starting, you will need:
+- **For iOS**: A Mac computer with Xcode installed (from Mac App Store)
+- **For Android**: Android Studio installed on your computer
+- **Node.js** installed on your machine
+
+### Step-by-Step Instructions
+
+#### Step 1: Export and Clone Your Project
+
+1. In Lovable, click the **"Export to Github"** button (in the top-right menu)
+2. This creates a GitHub repository with your code
+3. On your computer, open Terminal and clone the repository:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+   cd YOUR_REPO_NAME
+   ```
+
+#### Step 2: Install Dependencies
+
+Run this command to install all project packages:
+```bash
+npm install
 ```
 
+#### Step 3: Install Capacitor Packages
+
+Install Capacitor core and platform packages:
+```bash
+npm install @capacitor/core @capacitor/ios @capacitor/android
+npm install -D @capacitor/cli
+```
+
+#### Step 4: Initialize Capacitor
+
+Run the Capacitor initialization:
+```bash
+npx cap init
+```
+
+When prompted:
+- **App name**: KAIROS (or your app name)
+- **App Package ID**: `app.lovable.eb63fb97dcc84fc58148517646438c6d`
+
+This creates a `capacitor.config.ts` file.
+
+#### Step 5: Configure Capacitor for Development
+
+Edit the `capacitor.config.ts` file to enable hot-reload during development:
+
+```typescript
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'app.lovable.eb63fb97dcc84fc58148517646438c6d',
+  appName: 'KAIROS',
+  webDir: 'dist',
+  server: {
+    url: 'https://eb63fb97-dcc8-4fc5-8148-517646438c6d.lovableproject.com?forceHideBadge=true',
+    cleartext: true
+  }
+};
+
+export default config;
+```
+
+Note: The `server.url` enables live-reload from Lovable during development. Remove it for production builds.
+
+#### Step 6: Build the Web App
+
+Build the project to create the `dist` folder:
+```bash
+npm run build
+```
+
+#### Step 7: Add Native Platforms
+
+Add the platforms you want to support:
+
+**For iOS:**
+```bash
+npx cap add ios
+```
+
+**For Android:**
+```bash
+npx cap add android
+```
+
+#### Step 8: Sync and Update
+
+After adding platforms, sync your web code:
+```bash
+npx cap sync
+```
+
+Run this command whenever you:
+- Pull new code from git
+- Make changes to your web app
+- Update Capacitor plugins
+
+#### Step 9: Run on Device/Emulator
+
+**For iOS** (requires Mac with Xcode):
+```bash
+npx cap run ios
+```
+- Select your connected iPhone or choose a simulator
+- Xcode will open and build the app
+
+**For Android**:
+```bash
+npx cap run android
+```
+- Android Studio will open
+- Select an emulator or connected device
+
+### Future: Apple Watch / HealthKit Integration
+
+Once your Capacitor app is running, you can add HealthKit support:
+
+```bash
+npm install @capacitor-community/health-kit
+npx cap sync
+```
+
+Then update your iOS project's Info.plist (in Xcode) with HealthKit permissions.
+
+### Development Workflow
+
+1. Make changes in Lovable (web app)
+2. Export changes to GitHub
+3. On your machine: `git pull`
+4. Run: `npm run build && npx cap sync`
+5. Run: `npx cap run ios` or `npx cap run android`
+
+For faster development with hot-reload:
+- Keep the `server.url` in capacitor.config.ts pointing to your Lovable preview
+- The app will load directly from Lovable (requires internet)
+
 ---
 
-## Testing Checklist
+## Files Summary
 
-- [ ] Collapsed sidebar shows Lambda icon instead of "K"
-- [ ] Expanded sidebar shows full KAIROS wordmark
-- [ ] Context Connection page shows real Google Calendar connect button (for authenticated users)
-- [ ] Apple Watch shows "Coming Soon" badge with explanation
-- [ ] After Auth0 signup in new tab, the tab closes automatically
-- [ ] Original iframe detects auth success and navigates to results
-- [ ] Flow works in direct browser access (non-iframe)
-- [ ] BroadcastChannel gracefully falls back if not supported
+| File | Action |
+|------|--------|
+| `src/assets/kairos-lambda-icon.png` | **Copy** from uploaded file |
+| `src/components/navigation/LeftSidebar.tsx` | Update to use image instead of SVG |
+| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Restore toggle design with working switches |
 
 ---
 
-## Capacitor Compatibility Notes
+## Testing After Implementation
 
-1. **Auth Flow**: In native app (not in iframe), Auth0 will use in-app browser or ASWebAuthenticationSession - no cross-tab needed
-2. **HealthKit**: Will use `@capacitor-community/health-kit` plugin when native build is ready
-3. **BroadcastChannel**: Only used for web/iframe scenario - native app skips this entirely
-4. **Google Calendar OAuth**: Works the same way - redirect to Google, return to app via deep link or redirect URI
+- [ ] Collapsed sidebar shows the uploaded Lambda icon image
+- [ ] Expanded sidebar shows KAIROS wordmark
+- [ ] Context Connection page shows two toggle rows (Google Calendar, Apple Watch)
+- [ ] Google Calendar toggle triggers OAuth when enabled (if authenticated)
+- [ ] Apple Watch toggle shows toast about mobile app availability
+- [ ] Both toggles save preferences to localStorage
+- [ ] Continue button works and navigates to daily check-in
 
