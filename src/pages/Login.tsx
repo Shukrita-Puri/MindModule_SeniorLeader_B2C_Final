@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Loader2, LogIn } from 'lucide-react';
-import { isMobileDevice } from '@/utils/authRedirect';
+import { Loader2, LogIn, ExternalLink } from 'lucide-react';
+import { isMobileDevice, isInIframe, openAuthInNewTab } from '@/utils/authRedirect';
 import { Button } from '@/components/ui/button';
 
 const LOGIN_TRIGGERED_KEY = 'auth_login_triggered';
@@ -13,6 +13,7 @@ const Login = () => {
   const location = useLocation();
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const inIframe = isInIframe();
 
   const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
   const urlParams = new URLSearchParams(window.location.search);
@@ -85,6 +86,28 @@ const Login = () => {
       setIsLoggingIn(false);
     }
   };
+
+  // If in iframe, show "Open in New Tab" UI instead of auto-triggering auth
+  if (inIframe && !isAuthenticated && !isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center max-w-md space-y-4">
+          <h2 className="text-xl font-heading font-semibold text-foreground">Sign In</h2>
+          <p className="text-muted-foreground text-sm">
+            Sign in opens in a new window for security
+          </p>
+          <Button 
+            onClick={() => openAuthInNewTab('/login')}
+            variant="critical"
+            className="gap-2"
+          >
+            Continue to Sign In
+            <ExternalLink className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Show button only if popup was blocked
   if (popupBlocked && !isAuthenticated && !isLoading) {
