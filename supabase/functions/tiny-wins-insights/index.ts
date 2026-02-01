@@ -6,6 +6,111 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Psychological dimension patterns for keyword-based extraction
+const DIMENSION_PATTERNS = {
+  sentiment: {
+    positive: ['good', 'great', 'happy', 'excited', 'proud', 'grateful', 'thankful', 'amazing', 'wonderful', 'love'],
+    negative: ['bad', 'sad', 'angry', 'frustrated', 'upset', 'worried', 'anxious', 'stressed'],
+    mixed: ['mixed', 'complicated', 'bittersweet', 'conflicted'],
+  },
+  emotion: {
+    joy: ['joy', 'happy', 'delighted', 'thrilled', 'ecstatic'],
+    pride: ['proud', 'accomplished', 'achieved', 'succeeded', 'nailed'],
+    relief: ['relief', 'relieved', 'finally', 'weight off'],
+    gratitude: ['grateful', 'thankful', 'appreciate', 'blessed'],
+    confidence: ['confident', 'capable', 'strong', 'powerful', 'certain'],
+    hope: ['hope', 'hopeful', 'optimistic', 'looking forward'],
+    courage: ['brave', 'courageous', 'faced', 'stood up', 'confronted'],
+  },
+  agency: {
+    proactive: ['decided', 'chose', 'initiated', 'started', 'led', 'created', 'built', 'launched'],
+    responsive: ['responded', 'handled', 'managed', 'adapted', 'adjusted', 'dealt with'],
+    collaborative: ['together', 'team', 'asked for', 'partnered', 'collaborated', 'worked with'],
+    supported: ['helped', 'supported', 'guided', 'mentored', 'coached'],
+  },
+  regulation: {
+    regulated: ['calm', 'composed', 'steady', 'controlled', 'breathed', 'centered', 'grounded'],
+    intentional: ['paused', 'thought', 'considered', 'reflected', 'deliberate', 'mindful'],
+    reactive: ['reacted', 'snapped', 'immediately', 'impulsively', 'quick to'],
+  },
+  growth: {
+    learning: ['learned', 'realized', 'understood', 'discovered', 'insight', 'lesson'],
+    breakthrough: ['finally', 'first time', 'breakthrough', 'overcame', 'broke through'],
+    mastery: ['natural', 'effortless', 'automatic', 'second nature', 'instinct'],
+    resilience: ['bounced back', 'recovered', 'persisted', 'kept going', 'didn\'t give up'],
+    boundary: ['said no', 'protected', 'declined', 'limited', 'boundary', 'prioritized myself'],
+    letting_go: ['let go', 'released', 'accepted', 'surrendered', 'moved on'],
+  },
+};
+
+interface Dimensions {
+  sentiment: string | null;
+  primary_emotion: string | null;
+  secondary_emotion: string | null;
+  agency_type: string | null;
+  regulation_level: string | null;
+  growth_signal: string | null;
+}
+
+// Extract dimensions from win text using keyword matching
+function extractDimensionsFromText(text: string): Dimensions {
+  const lowerText = text.toLowerCase();
+  
+  // Extract sentiment
+  let sentiment: string | null = null;
+  for (const [sent, keywords] of Object.entries(DIMENSION_PATTERNS.sentiment)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      sentiment = sent;
+      break;
+    }
+  }
+  if (!sentiment) sentiment = 'positive'; // Default for wins
+  
+  // Extract emotions
+  const emotions: string[] = [];
+  for (const [emotion, keywords] of Object.entries(DIMENSION_PATTERNS.emotion)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      emotions.push(emotion);
+    }
+  }
+  
+  // Extract agency
+  let agency_type: string | null = null;
+  for (const [agency, keywords] of Object.entries(DIMENSION_PATTERNS.agency)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      agency_type = agency;
+      break;
+    }
+  }
+  
+  // Extract regulation
+  let regulation_level: string | null = null;
+  for (const [reg, keywords] of Object.entries(DIMENSION_PATTERNS.regulation)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      regulation_level = reg;
+      break;
+    }
+  }
+  
+  // Extract growth signal
+  let growth_signal: string | null = null;
+  for (const [growth, keywords] of Object.entries(DIMENSION_PATTERNS.growth)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      growth_signal = growth.replace('_', '-');
+      break;
+    }
+  }
+  
+  return {
+    sentiment,
+    primary_emotion: emotions[0] || null,
+    secondary_emotion: emotions[1] || null,
+    agency_type,
+    regulation_level,
+    growth_signal,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -53,7 +158,7 @@ serve(async (req) => {
     
     const { data: wins, error: winsError } = await supabase
       .from("tiny_wins")
-      .select("win_content, win_date, detected_at, source, practice_type")
+      .select("id, win_content, win_date, detected_at, source, practice_type, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal, analyzed_at")
       .eq("user_id", userId)
       .gte("win_date", startDate.toISOString().split("T")[0])
       .order("detected_at", { ascending: false });
@@ -70,6 +175,7 @@ serve(async (req) => {
     if (!wins || wins.length === 0) {
       return new Response(JSON.stringify({ 
         data: { 
+          dimensions: [],
           themes: [], 
           summary: null,
           winsCount: 0 
@@ -79,121 +185,162 @@ serve(async (req) => {
       });
     }
 
-    // Use Lovable AI to analyze patterns
+    // Analyze wins that don't have dimensions yet
+    const winsToAnalyze = wins.filter(w => !w.analyzed_at);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      // Fallback: Simple keyword extraction without AI
-      const simpleThemes = extractSimpleThemes(wins.map(w => w.win_content));
-      return new Response(JSON.stringify({ 
-        data: { 
-          themes: simpleThemes,
-          summary: `You've captured ${wins.length} wins in the past ${days} days.`,
-          winsCount: wins.length
-        } 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    const winsText = wins.map(w => `- ${w.win_content}`).join("\n");
-    
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are analyzing a senior executive's "Tiny Wins" from the past two weeks. 
-Your job is to identify 2-3 patterns or themes that emerge from their wins.
-Be specific, insightful, and encouraging. Use executive-level language.
-Focus on leadership behaviors, not just tasks completed.`
-          },
-          {
-            role: "user",
-            content: `Here are the wins captured:\n\n${winsText}\n\nExtract the patterns and provide a one-sentence insight.`
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "extract_win_patterns",
-              description: "Extract patterns and themes from tiny wins",
-              parameters: {
-                type: "object",
-                properties: {
-                  themes: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "2-3 pattern/theme labels (e.g., 'Delegation', 'Boundary Setting', 'Strategic Focus')"
-                  },
-                  summary: {
-                    type: "string",
-                    description: "One sentence insight about what the user has been winning at"
-                  }
+    // Process wins needing analysis
+    for (const win of winsToAnalyze) {
+      let dimensions: Dimensions;
+      
+      if (LOVABLE_API_KEY) {
+        // Try AI-powered extraction
+        try {
+          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                {
+                  role: "system",
+                  content: `You analyze personal wins to extract psychological dimensions. Be specific and accurate.`
                 },
-                required: ["themes", "summary"],
-                additionalProperties: false
-              }
+                {
+                  role: "user",
+                  content: `Analyze this win: "${win.win_content}"`
+                }
+              ],
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    name: "extract_dimensions",
+                    description: "Extract psychological dimensions from a personal win",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        sentiment: { type: "string", enum: ["positive", "negative", "mixed", "neutral"] },
+                        primary_emotion: { type: "string", enum: ["joy", "pride", "relief", "gratitude", "confidence", "hope", "courage"] },
+                        secondary_emotion: { type: "string", enum: ["joy", "pride", "relief", "gratitude", "confidence", "hope", "courage", ""] },
+                        agency_type: { type: "string", enum: ["proactive", "responsive", "collaborative", "supported"] },
+                        regulation_level: { type: "string", enum: ["regulated", "intentional", "reactive"] },
+                        growth_signal: { type: "string", enum: ["learning", "breakthrough", "mastery", "resilience", "boundary", "letting-go"] }
+                      },
+                      required: ["sentiment"],
+                      additionalProperties: false
+                    }
+                  }
+                }
+              ],
+              tool_choice: { type: "function", function: { name: "extract_dimensions" } }
+            }),
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+            if (toolCall?.function?.arguments) {
+              dimensions = JSON.parse(toolCall.function.arguments);
+            } else {
+              dimensions = extractDimensionsFromText(win.win_content);
             }
+          } else {
+            dimensions = extractDimensionsFromText(win.win_content);
           }
-        ],
-        tool_choice: { type: "function", function: { name: "extract_win_patterns" } }
-      }),
-    });
+        } catch (e) {
+          console.error("AI extraction failed:", e);
+          dimensions = extractDimensionsFromText(win.win_content);
+        }
+      } else {
+        dimensions = extractDimensionsFromText(win.win_content);
+      }
 
-    if (!aiResponse.ok) {
-      console.error("AI gateway error:", aiResponse.status, await aiResponse.text());
-      // Fallback to simple extraction
-      const simpleThemes = extractSimpleThemes(wins.map(w => w.win_content));
-      return new Response(JSON.stringify({ 
-        data: { 
-          themes: simpleThemes,
-          summary: `You've captured ${wins.length} wins in the past ${days} days.`,
-          winsCount: wins.length
-        } 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Update the win with extracted dimensions
+      await supabase
+        .from("tiny_wins")
+        .update({
+          sentiment: dimensions.sentiment,
+          primary_emotion: dimensions.primary_emotion,
+          secondary_emotion: dimensions.secondary_emotion,
+          agency_type: dimensions.agency_type,
+          regulation_level: dimensions.regulation_level,
+          growth_signal: dimensions.growth_signal,
+          analyzed_at: new Date().toISOString(),
+        })
+        .eq("id", win.id);
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      
-      // Calculate source breakdown
-      const sourceBreakdown = {
-        coach: wins.filter((w: any) => !w.source || w.source === 'coach').length,
-        practice: wins.filter((w: any) => w.source === 'practice_reflection').length,
-      };
-      
-      return new Response(JSON.stringify({ 
-        data: { 
-          themes: parsed.themes || [],
-          summary: parsed.summary || null,
-          winsCount: wins.length,
-          sourceBreakdown
-        } 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Re-fetch updated wins
+    const { data: updatedWins } = await supabase
+      .from("tiny_wins")
+      .select("id, win_content, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal, source")
+      .eq("user_id", userId)
+      .gte("win_date", startDate.toISOString().split("T")[0]);
+
+    // Aggregate dimensions into bubbles
+    const dimensionCounts: Record<string, Record<string, number>> = {
+      sentiment: {},
+      emotion: {},
+      agency: {},
+      regulation: {},
+      growth: {},
+    };
+
+    for (const win of updatedWins || []) {
+      if (win.sentiment) {
+        dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
+      }
+      if (win.primary_emotion) {
+        dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
+      }
+      if (win.secondary_emotion) {
+        dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
+      }
+      if (win.agency_type) {
+        dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
+      }
+      if (win.regulation_level) {
+        dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
+      }
+      if (win.growth_signal) {
+        dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
+      }
     }
 
-    // Fallback if AI response doesn't have expected format
-    const simpleThemes = extractSimpleThemes(wins.map(w => w.win_content));
+    // Convert to array format for frontend
+    const dimensions: { dimension: string; value: string; count: number }[] = [];
+    for (const [dimension, values] of Object.entries(dimensionCounts)) {
+      for (const [value, count] of Object.entries(values)) {
+        dimensions.push({ dimension, value, count });
+      }
+    }
+
+    // Sort by count descending
+    dimensions.sort((a, b) => b.count - a.count);
+
+    // Calculate source breakdown
+    const sourceBreakdown = {
+      coach: (updatedWins || []).filter(w => !w.source || w.source === 'coach').length,
+      practice: (updatedWins || []).filter(w => w.source === 'practice_reflection').length,
+    };
+
+    // Generate summary
+    const topDimension = dimensions[0];
+    const summary = topDimension 
+      ? `Your wins reflect ${topDimension.value} energy across ${wins.length} moments.`
+      : `You've captured ${wins.length} wins in the past ${days} days.`;
+
     return new Response(JSON.stringify({ 
       data: { 
-        themes: simpleThemes,
-        summary: `You've captured ${wins.length} wins in the past ${days} days.`,
-        winsCount: wins.length
+        dimensions,
+        themes: dimensions.slice(0, 5).map(d => d.value), // Legacy support
+        summary,
+        winsCount: wins.length,
+        sourceBreakdown
       } 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -207,28 +354,3 @@ Focus on leadership behaviors, not just tasks completed.`
     });
   }
 });
-
-// Simple keyword extraction fallback
-function extractSimpleThemes(wins: string[]): string[] {
-  const text = wins.join(" ").toLowerCase();
-  const themes: string[] = [];
-  
-  const patterns = [
-    { keywords: ["delegat", "assign", "hand off"], theme: "Delegation" },
-    { keywords: ["no", "decline", "boundar", "protect"], theme: "Boundary Setting" },
-    { keywords: ["break", "rest", "pause", "walk"], theme: "Recovery" },
-    { keywords: ["focus", "priorit", "deep work"], theme: "Strategic Focus" },
-    { keywords: ["listen", "empathy", "team", "support"], theme: "Leadership" },
-    { keywords: ["decis", "chose", "commit"], theme: "Decision Making" },
-    { keywords: ["calm", "breath", "regulate", "composed"], theme: "Emotional Regulation" },
-  ];
-  
-  for (const pattern of patterns) {
-    if (pattern.keywords.some(k => text.includes(k))) {
-      themes.push(pattern.theme);
-      if (themes.length >= 3) break;
-    }
-  }
-  
-  return themes.length > 0 ? themes : ["Personal Growth"];
-}

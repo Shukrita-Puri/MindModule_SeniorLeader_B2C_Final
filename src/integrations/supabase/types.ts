@@ -1857,11 +1857,18 @@ export type Database = {
       }
       tiny_wins: {
         Row: {
+          agency_type: string | null
+          analyzed_at: string | null
           created_at: string
           detected_at: string
+          growth_signal: string | null
           id: string
           practice_id: string | null
           practice_type: string | null
+          primary_emotion: string | null
+          regulation_level: string | null
+          secondary_emotion: string | null
+          sentiment: string | null
           session_id: string | null
           source: string | null
           user_id: string
@@ -1869,11 +1876,18 @@ export type Database = {
           win_date: string
         }
         Insert: {
+          agency_type?: string | null
+          analyzed_at?: string | null
           created_at?: string
           detected_at?: string
+          growth_signal?: string | null
           id?: string
           practice_id?: string | null
           practice_type?: string | null
+          primary_emotion?: string | null
+          regulation_level?: string | null
+          secondary_emotion?: string | null
+          sentiment?: string | null
           session_id?: string | null
           source?: string | null
           user_id: string
@@ -1881,11 +1895,18 @@ export type Database = {
           win_date?: string
         }
         Update: {
+          agency_type?: string | null
+          analyzed_at?: string | null
           created_at?: string
           detected_at?: string
+          growth_signal?: string | null
           id?: string
           practice_id?: string | null
           practice_type?: string | null
+          primary_emotion?: string | null
+          regulation_level?: string | null
+          secondary_emotion?: string | null
+          sentiment?: string | null
           session_id?: string | null
           source?: string | null
           user_id?: string

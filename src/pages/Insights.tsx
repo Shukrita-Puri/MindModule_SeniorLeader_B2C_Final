@@ -10,6 +10,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
+import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import EnergyRhythm from '@/components/insights/EnergyRhythm';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import CalendarStateCorrelations from '@/components/insights/CalendarStateCorrelations';
@@ -35,6 +36,7 @@ interface PracticeData {
 
 interface TinyWinsInsights {
   themes: string[];
+  dimensions?: { dimension: string; value: string; count: number }[];
   summary: string | null;
   winsCount: number;
 }
@@ -300,31 +302,45 @@ const Insights = () => {
     if (!user?.id) return;
     setWinsLoading(true);
     try {
-      // DEV_MODE: Direct database query
+      // DEV_MODE: Direct database query with dimension extraction
       if (DEV_MODE) {
         const fourteenDaysAgo = new Date();
         fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
         
         const { data: wins } = await supabase
           .from('tiny_wins')
-          .select('win_content, win_date')
+          .select('win_content, win_date, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal')
           .eq('user_id', DEV_USER.id)
           .gte('win_date', fourteenDaysAgo.toISOString().split('T')[0])
           .order('win_date', { ascending: false });
         
         console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
         
-        // Extract meaningful themes from win content (first sentence or up to 50 chars)
-        const themes = wins?.map(w => {
-          const content = w.win_content || '';
-          const firstSentence = content.split(/[.!?]/)[0].trim();
-          return firstSentence.length > 50 
-            ? firstSentence.slice(0, 47) + '...' 
-            : firstSentence;
-        }) || [];
+        // Aggregate dimensions into bubbles
+        const dimensionCounts: Record<string, Record<string, number>> = {
+          sentiment: {}, emotion: {}, agency: {}, regulation: {}, growth: {}
+        };
+        
+        wins?.forEach(win => {
+          if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
+          if (win.primary_emotion) dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
+          if (win.secondary_emotion) dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
+          if (win.agency_type) dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
+          if (win.regulation_level) dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
+          if (win.growth_signal) dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
+        });
+        
+        const dimensions: { dimension: string; value: string; count: number }[] = [];
+        for (const [dimension, values] of Object.entries(dimensionCounts)) {
+          for (const [value, count] of Object.entries(values)) {
+            dimensions.push({ dimension, value, count });
+          }
+        }
+        dimensions.sort((a, b) => b.count - a.count);
         
         setTinyWinsInsights({
-          themes,
+          themes: dimensions.slice(0, 5).map(d => d.value),
+          dimensions,
           summary: wins?.length 
             ? `You've captured ${wins.length} win${wins.length > 1 ? 's' : ''} recently.` 
             : null,
@@ -847,11 +863,22 @@ const Insights = () => {
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
                 
-                {/* Unified bubble visualization for Tiny Wins */}
-                <InnerWorldBubbles
-                  items={tinyWinsBubbleData}
-                  emptyMessage="Complete evening Integrate flow to capture wins"
-                />
+                {/* Psychological dimension bubbles */}
+                {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
+                  <PsychologicalDimensionBubbles
+                    data={tinyWinsInsights.dimensions.map(d => ({
+                      dimension: d.dimension as 'sentiment' | 'emotion' | 'agency' | 'regulation' | 'growth',
+                      value: d.value,
+                      count: d.count
+                    }))}
+                    emptyMessage="Complete evening Integrate flow to capture wins"
+                  />
+                ) : (
+                  <InnerWorldBubbles
+                    items={tinyWinsBubbleData}
+                    emptyMessage="Complete evening Integrate flow to capture wins"
+                  />
+                )}
                 
                 {/* Summary insight */}
                 {tinyWinsInsights.summary && (
@@ -868,7 +895,7 @@ const Insights = () => {
                 {/* Insight space */}
                 <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
                   <p className="text-xs text-muted-foreground/60">
-                    Capture wins during evening integration to reveal what you naturally do well.
+                    Each bubble represents a psychological dimension from your wins.
                   </p>
                 </div>
               </div>
