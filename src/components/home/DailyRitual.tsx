@@ -263,17 +263,24 @@ const DailyRitual = () => {
       // 3. Time of day has changed significantly (would need to store last time window)
       let shouldRegenerate = !hasStoredPlan;
       
+      // Session cache key to prevent regeneration on page refresh
+      const todayDate = new Date().toISOString().split('T')[0];
+      const sessionKey = `plan-loaded-${todayDate}`;
+      const sessionLoaded = sessionStorage.getItem(sessionKey);
+      
       if (hasStoredPlan && todayCheckin && todayRitual) {
         const checkinTime = new Date(todayCheckin.timestamp);
-        const ritualTime = new Date(todayRitual.created_at || todayRitual.ritual_date);
+        // Use updated_at for more accurate comparison - this tracks when the ritual row was last modified
+        const planTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
         
-        // If check-in is more recent than the stored plan, regenerate AND reset completion status
-        if (checkinTime > ritualTime) {
+        // Only regenerate if check-in is genuinely newer (with 1 minute buffer to avoid timing issues)
+        if (checkinTime.getTime() > planTime.getTime() + 60000) {
           console.log('🔄 Check-in is newer than stored plan - regenerating and resetting completion status');
           shouldRegenerate = true;
+          sessionStorage.removeItem(sessionKey); // Clear session cache
           
           // CRITICAL: Reset completion status when new check-in happens
-          const today = new Date().toISOString().split('T')[0];
+          const today = todayDate;
           await upsertRitual({
             ritual_date: today,
             completion_status: 'partial',
@@ -291,6 +298,11 @@ const DailyRitual = () => {
             totalCount: 0
           });
         }
+      }
+      
+      // If session already loaded plan today and not forcing regeneration, skip regeneration
+      if (!shouldRegenerate && hasStoredPlan && sessionLoaded === 'true') {
+        console.log('📋 Session already loaded plan today - using cached');
       }
       
       // Use stored plan if valid
@@ -387,6 +399,10 @@ const DailyRitual = () => {
           recommended_practices_count: plan.length
         });
         console.log('💾 Stored plan IDs for stability:', plan.map(r => r.content.id));
+        
+        // Mark session as loaded to prevent regeneration on refresh
+        const todayDate = new Date().toISOString().split('T')[0];
+        sessionStorage.setItem(`plan-loaded-${todayDate}`, 'true');
       }
       
       // Update total count and ensure status is correctly set based on completed practices
