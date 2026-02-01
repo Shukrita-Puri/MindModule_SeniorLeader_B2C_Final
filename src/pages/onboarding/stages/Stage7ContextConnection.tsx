@@ -330,24 +330,34 @@ export default function Stage7ContextConnection() {
             />
           </div>
           
-          {/* Apple Watch - coming soon */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-dashed">
+          {/* Apple Watch */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
             <div className="flex items-center gap-3">
-              <Watch className="w-5 h-5 text-muted-foreground/50" />
-              <span className="font-medium text-muted-foreground/70">Apple Watch</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                Soon
-              </span>
+              <Watch className="w-5 h-5 text-muted-foreground" />
+              <span className="font-medium">Apple Watch</span>
             </div>
-            <Switch disabled checked={false} />
+            <Switch checked={false} onCheckedChange={() => {}} />
           </div>
           
         </div>
 
-        {/* Single CTA */}
-        <Button onClick={handleComplete} className="w-full" disabled={checkingConnection}>
-          Continue
-        </Button>
+        {/* Coming soon note */}
+        <p className="text-center text-xs text-muted-foreground/70">
+          More calendars, wearables & email integrations coming soon
+        </p>
+
+        {/* CTAs */}
+        <div className="space-y-3">
+          <Button onClick={handleComplete} className="w-full" disabled={checkingConnection}>
+            Continue
+          </Button>
+          <button 
+            onClick={handleComplete} 
+            className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Skip for now
+          </button>
+        </div>
 
         {/* Subtle footer */}
         <p className="text-center text-xs text-muted-foreground/60">
