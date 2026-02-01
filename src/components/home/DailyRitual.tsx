@@ -12,6 +12,8 @@ import {
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getStrategicTheme } from '@/utils/energyStateScoring';
 import { getTodayRitual, upsertRitual, type RitualData } from '@/utils/dailyRituals';
+import { getTodayCheckin } from '@/utils/dailyCheckins';
+import { reconstructPlanFromIds } from '@/utils/planReconstruction';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -237,13 +239,68 @@ const DailyRitual = () => {
     setLoading(true);
     
     try {
-      // 1. Get energy state
+      // 1. Get energy state (always needed for theme display)
       const energyState = await computeEnergyState(user?.id);
       
       // Store check-in outcome for UI (e.g., "After grounding" badge on scattered Coach cards)
       setCurrentCheckInOutcome(energyState.checkInOutcome || null);
       
-      // 2. Get theme from energy state
+      // 2. Check if we have a stored plan that's still valid
+      const todayRitual = await getTodayRitual();
+      const todayCheckin = await getTodayCheckin();
+      
+      // Determine if we should use stored plan or regenerate
+      const storedPracticeIds = todayRitual?.recommended_practice_ids;
+      const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
+      
+      // Regenerate if:
+      // 1. No stored plan exists
+      // 2. Check-in is newer than the stored plan
+      // 3. Time of day has changed significantly (would need to store last time window)
+      let shouldRegenerate = !hasStoredPlan;
+      
+      if (hasStoredPlan && todayCheckin && todayRitual) {
+        const checkinTime = new Date(todayCheckin.timestamp);
+        const ritualTime = new Date(todayRitual.created_at || todayRitual.ritual_date);
+        
+        // If check-in is more recent than the stored plan, regenerate
+        if (checkinTime > ritualTime) {
+          console.log('🔄 Check-in is newer than stored plan - regenerating');
+          shouldRegenerate = true;
+        }
+      }
+      
+      // Use stored plan if valid
+      if (!shouldRegenerate && storedPracticeIds) {
+        const reconstructedPlan = reconstructPlanFromIds(storedPracticeIds);
+        
+        if (reconstructedPlan.length > 0) {
+          console.log('📋 Using stored Performance Plan:', reconstructedPlan.map(m => m.content.id));
+          setRecommendations(reconstructedPlan);
+          
+          // Update status based on stored data
+          const completedIds = todayRitual?.completed_practice_ids || [];
+          setCompletedPracticeIds(completedIds);
+          setRitualStatus(prev => {
+            const completedCount = completedIds.length;
+            const totalCount = reconstructedPlan.length;
+            const newStatus = completedCount >= totalCount && completedCount > 0
+              ? 'completed'
+              : completedCount > 0
+                ? 'partial'
+                : 'not_started';
+            return { status: newStatus, completedCount, totalCount };
+          });
+          
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Generate fresh plan
+      console.log('🆕 Generating fresh Performance Plan');
+      
+      // 3. Get theme from energy state
       const theme = getStrategicTheme(
         energyState.energyTier,
         energyState.calendarLoad,
@@ -252,17 +309,16 @@ const DailyRitual = () => {
         energyState.checkInOutcome
       );
       
-      // 3. Get user favorites (convert Map to array of content IDs)
+      // 4. Get user favorites (convert Map to array of content IDs)
       const favoriteIds = Array.from(favorites.keys());
       
-      // 4. Get coach insights
+      // 5. Get coach insights
       const coachInsights = user?.id ? await getActiveCoachInsights(user.id) : [];
       
-      // 5. Get completed practice IDs for today
-      const todayRitual = await getTodayRitual();
+      // 6. Get completed practice IDs for today
       const completedToday = todayRitual?.completed_practice_ids || [];
       
-      // 6. Build plan context
+      // 7. Build plan context
       const context: PlanContext = {
         energyTier: energyState.energyTier,
         checkInOutcome: energyState.checkInOutcome || 'steady',
@@ -284,7 +340,7 @@ const DailyRitual = () => {
         calendarLoad: energyState.calendarLoad
       };
       
-      // 7. Generate performance plan (capped at 3-4 modules)
+      // 8. Generate performance plan (capped at 3-4 modules)
       const plan = generatePerformancePlan(context);
       
       console.log('🎯 Performance Plan Generated:', {
@@ -298,6 +354,17 @@ const DailyRitual = () => {
       });
       
       setRecommendations(plan);
+      
+      // 9. Store the generated plan immediately for stability on refresh
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        await upsertRitual({
+          ritual_date: today,
+          recommended_practice_ids: plan.map(r => r.content.id),
+          recommended_practices_count: plan.length
+        });
+        console.log('💾 Stored plan IDs for stability:', plan.map(r => r.content.id));
+      }
       
       // Update total count and ensure status is correctly set based on completed practices
       setRitualStatus(prev => {

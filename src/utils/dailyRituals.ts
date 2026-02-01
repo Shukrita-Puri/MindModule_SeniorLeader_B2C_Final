@@ -25,6 +25,8 @@ export interface RitualData {
   id?: string;
   ritual_date: string;
   user_id?: string;
+  created_at?: string;
+  updated_at?: string;
   soundscape_completed?: boolean;
   soundscape_completed_at?: string | null;
   guided_practice_completed?: boolean;

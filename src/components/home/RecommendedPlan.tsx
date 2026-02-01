@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Clock, Sparkles } from 'lucide-react';
 import { generateRecommendations, type Recommendation } from '@/utils/recommendationEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
+import { getTodayRitual } from '@/utils/dailyRituals';
+import { getTodayCheckin } from '@/utils/dailyCheckins';
 
 const RecommendedPlan = () => {
   const navigate = useNavigate();
@@ -22,9 +24,28 @@ const RecommendedPlan = () => {
 
   const loadRecommendations = async () => {
     setLoading(true);
-    const energyState = await computeEnergyState();
-    const recs = await generateRecommendations(energyState);
-    setRecommendations(recs);
+    
+    try {
+      // Check if we have stored recommendations from DailyRitual
+      // This ensures consistency between the two components
+      const todayRitual = await getTodayRitual();
+      const todayCheckin = await getTodayCheckin();
+      
+      // If no check-in yet, show a message
+      if (!todayCheckin) {
+        setRecommendations({ practices: [], recommendedCount: 0, reasoning: '' });
+        setLoading(false);
+        return;
+      }
+      
+      // Generate recommendations based on energy state
+      const energyState = await computeEnergyState();
+      const recs = await generateRecommendations(energyState);
+      setRecommendations(recs);
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+    }
+    
     setLoading(false);
   };
 
