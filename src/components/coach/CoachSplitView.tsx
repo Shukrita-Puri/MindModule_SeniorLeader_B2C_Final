@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Send, Loader2, Mic, MicOff, ChevronUp, ChevronDown } from 'lucide-react';
+import coachVisual from '@/assets/coach-visual.jpeg';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -74,41 +75,15 @@ const CoachSplitView = ({
     <div className="flex flex-col h-full">
       {/* TOP HALF - Coach Response Area - Fixed 50% height */}
       <div className="h-1/2 relative overflow-hidden">
-        {/* Background Visual - Stronger treatment */}
+        {/* Full-bleed cinematic portrait background */}
         <div className="absolute inset-0">
-          {/* Warm gradient backdrop - enhanced intensity */}
-          <div className="absolute inset-0 bg-gradient-to-b from-saffron/15 via-taupe/10 to-background" />
-          {/* Radial glow - more visible */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,140,66,0.12)_0%,transparent_70%)]" />
-          
-          {/* Large transparent branding text - subtle in background */}
-          <div className="absolute inset-0 flex flex-col items-center justify-start pt-12 select-none pointer-events-none opacity-40">
-            <span 
-              className={cn(
-                "font-headline font-extrabold uppercase tracking-[-0.02em] leading-[0.85]",
-                "text-transparent bg-clip-text",
-                "text-[12vw] sm:text-[10vw] md:text-[8vw]"
-              )}
-              style={{
-                WebkitTextStroke: '1px rgba(155, 139, 126, 0.15)',
-              }}
-            >
-              SELF
-            </span>
-            <span 
-              className={cn(
-                "font-headline font-extrabold uppercase tracking-[-0.02em] leading-[0.85]",
-                "text-transparent bg-clip-text",
-                "text-[12vw] sm:text-[10vw] md:text-[8vw]",
-                "-mt-1 sm:-mt-2"
-              )}
-              style={{
-                WebkitTextStroke: '1px rgba(155, 139, 126, 0.15)',
-              }}
-            >
-              MASTERY
-            </span>
-          </div>
+          <img 
+            src={coachVisual}
+            alt=""
+            className="w-full h-full object-cover object-top"
+          />
+          {/* Dark gradient overlay for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
         </div>
 
         {/* Coach Response Content */}
@@ -116,14 +91,14 @@ const CoachSplitView = ({
           {/* Empty state with greeting */}
           {!hasMessages && (
             <div className="flex flex-col items-center justify-center flex-1 text-center px-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-saffron/25 via-taupe/15 to-transparent flex flex-col items-center justify-center mb-6 border border-saffron/25 shadow-lg">
+              <div className="w-20 h-20 rounded-full bg-black/30 backdrop-blur-sm flex flex-col items-center justify-center mb-6 border border-white/30 shadow-lg">
                 <span className="text-2xl font-headline text-saffron leading-none">SM</span>
-                <span className="text-[7px] uppercase tracking-[0.15em] text-muted-foreground/80 mt-0.5">Coach</span>
+                <span className="text-[7px] uppercase tracking-[0.15em] text-white/70 mt-0.5">Coach</span>
               </div>
-              <h2 className="text-2xl font-headline text-foreground mb-3">
+              <h2 className="text-2xl font-headline text-white mb-3">
                 Hello, {firstName}
               </h2>
-              <p className="text-muted-foreground text-base whitespace-pre-line max-w-md leading-relaxed">
+              <p className="text-white/80 text-base whitespace-pre-line max-w-md leading-relaxed">
                 {contextualGreeting}
               </p>
             </div>
@@ -132,13 +107,13 @@ const CoachSplitView = ({
           {/* Loading/Thinking indicator */}
           {isLoading && hasMessages && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex items-center gap-3 py-4 px-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-saffron/25 via-taupe/15 to-transparent flex items-center justify-center border border-saffron/25">
+              <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border border-white/30">
                 <span className="text-sm font-headline text-saffron">SM</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-saffron/70 animate-pulse" style={{ animationDelay: '0ms' }} />
-                <div className="w-2.5 h-2.5 rounded-full bg-saffron/70 animate-pulse" style={{ animationDelay: '150ms' }} />
-                <div className="w-2.5 h-2.5 rounded-full bg-saffron/70 animate-pulse" style={{ animationDelay: '300ms' }} />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/70 animate-pulse" style={{ animationDelay: '0ms' }} />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/70 animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/70 animate-pulse" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           )}
@@ -151,7 +126,7 @@ const CoachSplitView = ({
                 return (
                   <>
                     {parsed.text && (
-                      <p className="text-foreground text-lg leading-relaxed whitespace-pre-wrap">
+                      <p className="text-white text-lg leading-relaxed whitespace-pre-wrap">
                         {parsed.text}
                       </p>
                     )}
