@@ -1,175 +1,147 @@
 
-# Rebrand to KAIROS + Auth0 Integration + New Color Palette
+# Fix Onboarding Flow, Button Styling, and Connect Context Issues
 
-## Overview
+## Issues Identified
 
-This is a significant rebrand from "Mind Module" / "Inner Architect" / "Mind Atelier" to **KAIROS**. Includes:
-1. Auth0 integration details for edge functions (already configured)
-2. App-wide name change to KAIROS
-3. New logo assets (black/white text logos)
-4. Primary button color change from orange/saffron (#FF8C42) to the new elite green (~#1DB954)
-5. Updated color palette: cinematic, calming, elite, intelligent
+### 1. "Begin Your Journey" Button Text Color
+- **Current**: The `critical` variant uses `text-kairos-foreground` which is white (100% white in CSS)
+- **Needed**: Black text for better contrast on the green button
+- **Fix**: Update `--kairos-foreground` to use black text or add explicit `text-black` class
 
----
+### 2. Wrong Onboarding (School vs Executive)
+- **Finding**: The screenshot shows "How old are you?" with age ranges (13-14, 15-16, 17-18 years old)
+- **Current codebase**: `Stage2Identity.tsx` correctly shows executive options ("Executive / Organisation Leader", "Manager / People Leader", "Others")
+- **Possible causes**:
+  - Cached version in the browser
+  - Different deployment/project
+  - The onboarding flow routing is incorrect
+- **Fix**: Verify the `/onboarding` route correctly leads to the executive flow. Clear cache if needed.
 
-## Part 1: Auth0 Configuration (Already in Place)
+### 3. Connect Context Toggles Don't Work
+- **Error**: `"You forgot to wrap your component in <Auth0Provider>."`
+- **Root cause**: `Stage7ContextConnection.tsx` uses `useAuth0()` hook (`getAccessTokenSilently`) to connect calendar. During onboarding, users haven't completed Auth0 signup yet, so the hook fails.
+- **Fix**: Make the calendar connection optional/deferred. Allow the toggle UI to work, but only attempt actual OAuth connection AFTER user is authenticated. Show a message or save the preference for later.
 
-Good news: **Auth0 is already fully configured** in this project. The secrets are already set up:
-
-| Secret | Status |
-|--------|--------|
-| `AUTH0_DOMAIN` | Configured |
-| `VITE_AUTH0_CLIENT_ID` | Configured |
-| `VITE_AUTH0_CLIENT_SECRET` | Configured |
-| `VITE_AUTH0_DOMAIN` | Configured |
-
-The current architecture routes authentication through Auth0 (as documented in memory). Edge functions that need user authentication:
-- Verify Auth0 token via `/userinfo` endpoint
-- Use the service role key to interact with the database
-- The `AUTH0_DOMAIN` secret is available in edge functions
-
-**No additional secrets needed** - Auth0 is ready to use.
+### 4. Onboarding Signup Page Not Showing
+- **Current**: `/onboarding/signup-step` renders `<Signup />` which immediately tries Auth0 popup/redirect
+- **Issue**: If Auth0 isn't properly configured or popup is blocked, user sees endless loading
+- **Fix**: Create a proper signup step page that shows the user what's happening and handles errors gracefully
 
 ---
 
-## Part 2: Brand Name Change - KAIROS
+## Implementation Plan
 
-### Files Requiring Updates
+### Part 1: Fix Button Text Color (Black text on green)
 
-| Location | Current | New |
-|----------|---------|-----|
-| `index.html` (title + meta) | "Inner Architect" | "Kairos" |
-| `src/components/Header.tsx` | "Inner Architect" | "Kairos" |
-| `src/pages/Front.tsx` | "MIND MODULE" | "KAIROS" |
-| `src/pages/Front.tsx` | "Mind Mastery for High Performers" | Keep or update tagline |
-| `src/components/navigation/LeftSidebar.tsx` | "MIND MODULE" + "Executive Edition" | "KAIROS" + "Executive Edition" |
-| `src/components/home/GreetingBanner.tsx` | "Mind Atelier - Your daily practice" | "Kairos - Your daily practice" |
-| `src/pages/onboarding/stages/Stage1Welcome.tsx` | "MIND MODULE" | "KAIROS" |
-| `src/pages/Privacy.tsx` | Multiple "Mind Module" references | "Kairos" |
-| `src/pages/Terms.tsx` | "Mind Module" | "Kairos" |
-| `src/pages/Refer.tsx` | "Mind Atelier" | "Kairos" |
-| `src/components/PrivacyDashboard.tsx` | "Mind Atelier" | "Kairos" |
-| `src/components/SmartNudge.tsx` | "Mind Module" | "Kairos" |
-| `src/components/WeeklyInsights.tsx` | "Inner Architect Recommendations" | "Kairos Recommendations" |
-| `src/data/roleplayContent.ts` | "Mind Module" | "Kairos" |
-| `src/utils/calendarUrlGenerator.ts` | "Mind Module" | "Kairos" |
+**File**: `src/index.css`
 
----
-
-## Part 3: Logo Assets
-
-### New Assets to Add
-- **Black text logo**: `src/assets/kairos-logo-black.png` (from uploaded KAIROS black text image)
-- **White text logo**: `src/assets/kairos-logo-white.png` (for dark backgrounds if needed)
-- **Lambda mark**: The stylized "Λ" can serve as an app icon/favicon
-
-### Logo Usage
-- Sidebar: Use the black KAIROS text logo when expanded
-- Light backgrounds: Black logo
-- Dark backgrounds: White logo (if applicable)
-
----
-
-## Part 4: Color Palette Update - Elite Green
-
-### New Primary Accent Color
-The green from the images is approximately **#1DB954** (a rich, confident green - similar to Spotify green but branded for KAIROS).
-
-HSL equivalent: `145 72% 53%`
-
-### CSS Variable Changes (`src/index.css`)
-
-**Current saffron (orange) values:**
+Update the kairos foreground color to use black text:
 ```css
---saffron: 24 85% 63%;           /* #FF8C42 */
---saffron-foreground: 0 0% 100%;
+--kairos-foreground: 0 0% 0%;  /* Black text instead of white */
 ```
 
-**New KAIROS green values:**
-```css
---kairos: 145 72% 53%;           /* #1DB954 - Elite Green */
---kairos-foreground: 0 0% 100%;
-```
-
-### Button Component Update (`src/components/ui/button.tsx`)
-
-Change the `critical` variant from saffron to the new KAIROS green:
-
+Alternative: Add explicit class override in `Front.tsx`:
 ```tsx
-// Current
-critical: "bg-saffron text-saffron-foreground shadow-[0_4px_16px_rgba(255,140,66,0.3)]..."
-
-// New
-critical: "bg-kairos text-kairos-foreground shadow-[0_4px_16px_rgba(29,185,84,0.3)]..."
+<Button variant="critical" className="text-black ...">
 ```
 
-### Icon Effects Update (`src/index.css`)
+### Part 2: Fix Connect Context Page (Toggle Without Auth)
 
-The `.icon-luxury` class uses saffron colors - update to use KAIROS green:
-- Change `rgba(255,140,66,...)` to `rgba(29,185,84,...)`
+**File**: `src/pages/onboarding/stages/Stage7ContextConnection.tsx`
 
-### Full Color Palette (Cinematic, Calming, Elite, Intelligent)
+The page should work without requiring authentication:
+1. Remove `useAuth0` hook usage (since user isn't authenticated during onboarding)
+2. Store toggle preferences in localStorage instead of making API calls
+3. Calendar connection will happen AFTER user signs in and completes onboarding
+4. Keep the UI toggles functional for user preference capture
 
-| Color | Hex | Usage |
-|-------|-----|-------|
-| **KAIROS Green** | #1DB954 | Primary CTAs, key actions, active states |
-| **Black** | #000000 | Text on light backgrounds, strong emphasis |
-| **Charcoal** | #2C2C2C | Primary text, foreground |
-| **White** | #FFFFFF | Backgrounds, cards, text on dark |
-| **Warm Taupe** | #9B8B7E | Secondary buttons, subtle accents (keep) |
-| **Mustard/Gold** | #D4AF37 | Decorative accents, badges (keep) |
+Changes:
+- Remove `useAuth0` import and usage
+- Remove `getAccessTokenSilently` calls
+- Store preferences in localStorage for later sync
+- Apple Watch toggle should work similarly (just save preference)
 
----
+### Part 3: Fix Onboarding Signup Step
 
-## Part 5: Files to Modify
+**File**: `src/pages/onboarding/stages/Stage8SignupStep.tsx` (new file or modify existing)
 
-### Critical Files (Branding)
-1. `index.html` - Title and meta tags
-2. `src/pages/Front.tsx` - Hero branding
-3. `src/components/navigation/LeftSidebar.tsx` - Sidebar brand
-4. `src/components/Header.tsx` - Header title
-5. `src/components/home/GreetingBanner.tsx` - Greeting subtext
-6. `src/pages/onboarding/stages/Stage1Welcome.tsx` - Onboarding branding
+Create a proper signup step that:
+1. Shows a clear UI explaining the signup process
+2. Has a "Create Account" button that triggers Auth0
+3. Handles popup blocked scenarios gracefully
+4. Shows loading state appropriately
 
-### Legal/Content Files
-7. `src/pages/Privacy.tsx` - Privacy policy references
-8. `src/pages/Terms.tsx` - Terms of service references
-9. `src/pages/Refer.tsx` - Referral page
-10. `src/components/PrivacyDashboard.tsx` - Privacy dashboard
+The route already points to `Signup.tsx` which handles Auth0 - but we may need to add better UX for the onboarding context.
 
-### Design System Files
-11. `src/index.css` - Add KAIROS green CSS variable, update icon effects
-12. `src/components/ui/button.tsx` - Update critical variant to green
-13. `tailwind.config.ts` - Add kairos color token
+### Part 4: Verify Onboarding Flow Routing
 
-### Utility/Data Files
-14. `src/components/SmartNudge.tsx` - Nudge branding
-15. `src/components/WeeklyInsights.tsx` - Recommendations title
-16. `src/data/roleplayContent.ts` - Creator attribution
-17. `src/utils/calendarUrlGenerator.ts` - Calendar event branding
+**File**: `src/pages/Front.tsx` (already correct)
 
-### New Assets
-18. Copy KAIROS black text logo to `src/assets/kairos-logo-black.png`
-19. (Optional) Create/copy white version for dark backgrounds
+The "Begin Your Journey" button navigates to `/onboarding` which shows `Stage1Welcome`, then `/onboarding/identity` which shows `Stage2Identity` with executive questions. This flow is correct in the current codebase.
+
+If user sees school questions, it's likely a cached version. The fix is to clear browser cache.
 
 ---
 
-## Implementation Sequence
+## Files to Modify
 
-1. **Copy logo assets** to `src/assets/`
-2. **Update CSS variables** in `src/index.css`:
-   - Add `--kairos` and `--kairos-foreground`
-   - Update icon effect colors
-3. **Update Tailwind config** to add `kairos` color token
-4. **Update button component** to use new green for `critical` variant
-5. **Update branding** across all identified files (search & replace + manual review)
-6. **Update meta tags** in `index.html`
-7. **Test** the onboarding flow and signup step
+| File | Changes |
+|------|---------|
+| `src/index.css` | Change `--kairos-foreground` to black (0 0% 0%) |
+| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Remove Auth0 dependency, make toggles work locally |
+| `src/pages/Front.tsx` | (Optional) Add explicit `text-black` class to button for safety |
 
 ---
 
-## Technical Notes
+## Technical Details
 
-- The existing `--mint-green` variable (`145 100% 39%`) is close but the KAIROS green (#1DB954 / `145 72% 53%`) is slightly different - more saturated and vibrant
-- Consider keeping saffron as a secondary accent for warnings/attention if needed
-- The green maintains the "calming yet intelligent" aesthetic requested - it's confident without being aggressive
+### CSS Change (Button Text Color)
+```css
+/* Before */
+--kairos-foreground: 0 0% 100%;  /* White */
+
+/* After */
+--kairos-foreground: 0 0% 0%;    /* Black */
+```
+
+### Context Connection Simplified Logic
+```tsx
+// Remove Auth0 dependencies for toggle functionality
+const [calendarPreference, setCalendarPreference] = useState(false);
+const [watchPreference, setWatchPreference] = useState(false);
+
+const handleToggleCalendar = (checked: boolean) => {
+  setCalendarPreference(checked);
+  // Save to localStorage - actual connection happens post-signup
+  localStorage.setItem('onboarding_calendar_preference', JSON.stringify(checked));
+};
+
+const handleToggleWatch = (checked: boolean) => {
+  setWatchPreference(checked);
+  localStorage.setItem('onboarding_watch_preference', JSON.stringify(checked));
+};
+```
+
+After user completes signup and enters the app, these preferences can be read and actual OAuth connections initiated.
+
+---
+
+## Flow After Fixes
+
+1. User clicks "Begin Your Journey" (black text on green button)
+2. User goes through executive onboarding (Identity, Emotional Awareness, etc.)
+3. User reaches Signup Step - Auth0 flow triggers
+4. After signup, user sees Results page
+5. User reaches Context Connection - toggles work to save preferences
+6. Preferences saved to localStorage
+7. When user enters the authenticated app, calendar/watch connection is offered based on saved preferences
+
+---
+
+## Testing Checklist
+
+- [ ] "Begin Your Journey" button has black text on green background
+- [ ] Onboarding flow shows executive questions (not school/age questions)
+- [ ] Context Connection toggles work without errors
+- [ ] Signup step handles Auth0 properly
+- [ ] Preferences are saved and can be used after authentication
