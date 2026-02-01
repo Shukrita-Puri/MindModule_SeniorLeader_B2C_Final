@@ -88,16 +88,19 @@ const CoachSplitView = ({
         {/* Content overlay */}
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Hero title section - matching Recalibrate Studio pattern */}
-          <div className="pt-8 pb-4 px-6 text-center">
+          <div className="pt-8 pb-4 px-6 text-center space-y-2">
             <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
               Self Mastery Coach
             </h1>
-            <p className="text-base font-subheadline italic text-white/80 mt-1">
+            <p className="text-base font-subheadline italic text-white/80">
               Inner Awareness. Presence. Growth.
+            </p>
+            <p className="text-sm text-white/70 max-w-sm mx-auto leading-relaxed pt-2">
+              I'm your self-mastery coach. Share what's on your mind, and let's explore it together.
             </p>
           </div>
           
-          {/* Centered greeting */}
+          {/* Centered greeting - just personalized hello with monogram */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
             <div className="w-16 h-16 rounded-full bg-black/20 backdrop-blur-sm flex flex-col items-center justify-center border border-white/20 shadow-lg">
               <span className="text-xl font-headline text-saffron leading-none">SM</span>
@@ -106,9 +109,6 @@ const CoachSplitView = ({
             <h2 className="text-xl font-headline text-white mt-5">
               Hello, {firstName}
             </h2>
-            <p className="text-sm text-white/75 mt-2 max-w-sm leading-relaxed whitespace-pre-line">
-              {contextualGreeting}
-            </p>
           </div>
 
           {/* Input area pinned at bottom */}

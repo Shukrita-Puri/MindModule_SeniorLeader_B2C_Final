@@ -326,6 +326,74 @@ export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
       { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
       { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
     ]
+  },
+  // ============= ADDITIONAL PRE-EVENT SCENARIOS =============
+  {
+    id: 'pre-ma-discussion',
+    name: 'Pre-M&A Discussion',
+    contextLabel: 'M&A Preparation',
+    triggers: { 
+      calendarKeywords: ['m&a', 'merger', 'acquisition', 'due diligence', 'acqui-hire'], 
+      hoursAhead: 48 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' },
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-layoff-announcement',
+    name: 'Pre-Layoff Announcement',
+    contextLabel: 'Difficult Announcement Prep',
+    triggers: { 
+      calendarKeywords: ['layoff', 'restructuring', 'reduction', 'rif', 'downsizing'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'composure' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-board-presentation',
+    name: 'Pre-Board Presentation Prep',
+    contextLabel: 'Board Deck Prep',
+    triggers: { 
+      calendarKeywords: ['board deck', 'board presentation', 'board materials'], 
+      hoursAhead: 48 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-competitive-intel',
+    name: 'Pre-Competitive Intel',
+    contextLabel: 'Competitive Review Prep',
+    triggers: { 
+      calendarKeywords: ['competitor', 'competitive analysis', 'competitive intel', 'market analysis'], 
+      hoursAhead: 12 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'focus' }
+    ]
+  },
+  {
+    id: 'pre-product-launch',
+    name: 'Pre-Product Launch',
+    contextLabel: 'Launch Preparation',
+    triggers: { 
+      calendarKeywords: ['launch', 'go live', 'release', 'ship', 'product launch'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
   }
 ];
 
