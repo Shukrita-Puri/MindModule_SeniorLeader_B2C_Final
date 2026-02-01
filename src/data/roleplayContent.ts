@@ -150,7 +150,7 @@ export function createRoleplayContent(
     thumbnail: scenario.thumbnail,
     audioUrl: '',
     tags: ['roleplay', 'practice', ...goalTags],
-    creator: 'Mind Module',
+    creator: 'Kairos',
     storyHook: scenario.description,
     roleplayScenario: scenario
   } as unknown as SanctuaryContent & { roleplayScenario: RoleplayScenario };

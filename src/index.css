@@ -66,9 +66,13 @@
     --taupe-rich: 25 12% 48%;        /* #8B7A6E darker */
     --taupe-foreground: 0 0% 100%;
     
-/* Saffron Accent (Critical Elements) */
+/* Saffron Accent (Secondary/Warning Elements) */
     --saffron: 24 85% 63%;           /* #FF8C42 */
     --saffron-foreground: 0 0% 100%;
+    
+    /* KAIROS Green - Primary Accent (CTAs, Active States) */
+    --kairos: 145 72% 53%;             /* #1DB954 - Elite Green */
+    --kairos-foreground: 0 0% 100%;
     
     /* Vibrant Mint Green Accent (Key Elements) */
     --mint-green: 145 100% 39%;        /* ~#00C853 */
@@ -207,31 +211,31 @@ body {
   }
 }
 
-/* Luxury Icon Button with Gradient & Dimension */
+/* Luxury Icon Button with Gradient & Dimension - KAIROS Green */
 .icon-luxury {
-  background: linear-gradient(135deg, rgba(255, 140, 66, 0.18) 0%, rgba(255, 140, 66, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.18) 0%, rgba(29, 185, 84, 0.08) 100%);
   box-shadow: 
-    0 2px 8px rgba(255, 140, 66, 0.2),
+    0 2px 8px rgba(29, 185, 84, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(255, 140, 66, 0.15);
+  border: 1px solid rgba(29, 185, 84, 0.15);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .icon-luxury:hover {
-  background: linear-gradient(135deg, rgba(255, 140, 66, 0.28) 0%, rgba(255, 140, 66, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.28) 0%, rgba(29, 185, 84, 0.15) 100%);
   box-shadow: 
-    0 4px 16px rgba(255, 140, 66, 0.3),
+    0 4px 16px rgba(29, 185, 84, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     inset 0 -1px 0 rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 140, 66, 0.25);
+  border: 1px solid rgba(29, 185, 84, 0.25);
   transform: translateY(-1px);
 }
 
 .icon-luxury:active {
   transform: translateY(0);
   box-shadow: 
-    0 2px 6px rgba(255, 140, 66, 0.2),
+    0 2px 6px rgba(29, 185, 84, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -281,10 +285,10 @@ body {
   transform: scale(1.1);
 }
 
-/* Sidebar Icon Hover Animation with Scale & Glow */
+/* Sidebar Icon Hover Animation with Scale & Glow - KAIROS Green */
 .group:hover .icon-duotone-luxury,
 .icon-duotone-luxury:hover {
-  filter: drop-shadow(0 3px 8px rgba(255, 140, 66, 0.45));
+  filter: drop-shadow(0 3px 8px rgba(29, 185, 84, 0.45));
   transform: scale(1.1);
 }
 
@@ -292,15 +296,15 @@ body {
   transform: scale(1.05);
 }
 
-/* Active Sidebar Icon Pulse Animation */
+/* Active Sidebar Icon Pulse Animation - KAIROS Green */
 @keyframes icon-pulse {
   0%, 100% {
     transform: scale(1);
-    filter: drop-shadow(0 2px 6px rgba(255, 140, 66, 0.4));
+    filter: drop-shadow(0 2px 6px rgba(29, 185, 84, 0.4));
   }
   50% {
     transform: scale(1.06);
-    filter: drop-shadow(0 3px 10px rgba(255, 140, 66, 0.55));
+    filter: drop-shadow(0 3px 10px rgba(29, 185, 84, 0.55));
   }
 }
 

@@ -130,7 +130,7 @@ const PrivacyDashboard = () => {
   };
 
   const handleCopyReferralLink = () => {
-    const referralLink = `https://mindatelier.app/ref/${user?.id || 'demo'}`;
+    const referralLink = `https://kairos.app/ref/${user?.id || 'demo'}`;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     toast.success("Referral link copied to clipboard");
@@ -248,7 +248,7 @@ const PrivacyDashboard = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-forest" />
-                      <span>Zero data collection by Mind Atelier</span>
+                      <span>Zero data collection by Kairos</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-forest" />
@@ -326,14 +326,14 @@ const PrivacyDashboard = () => {
           <CollapsibleContent>
             <div className="px-6 pb-6 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Share Mind Atelier with your friends and help them discover their mental architecture.
+                Share Kairos with your friends and help them discover their path to self mastery.
               </p>
               
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Your Referral Link</Label>
                 <div className="flex gap-2">
                   <Input 
-                    value={`https://mindatelier.app/ref/${user?.id || 'demo'}`}
+                    value={`https://kairos.app/ref/${user?.id || 'demo'}`}
                     readOnly 
                     className="bg-muted/30"
                   />

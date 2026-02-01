@@ -13,10 +13,10 @@ const Privacy = () => {
           {/* Introduction */}
           <section>
             <p className="mb-4">
-              Mind Module ("we," "our," or "us") is a self-mastery and mental fitness platform designed specifically for senior leaders, executives, founders, and high-performing professionals. We understand that our users require absolute discretion with their personal and professional information.
+              Kairos ("we," "our," or "us") is a self-mastery and mental fitness platform designed specifically for senior leaders, executives, founders, and high-performing professionals. We understand that our users require absolute discretion with their personal and professional information.
             </p>
             <p>
-              This Privacy Policy describes how we collect, use, disclose, and protect your information when you use our website, mobile application, and services (collectively, the "Platform"). By accessing or using Mind Module, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy.
+              This Privacy Policy describes how we collect, use, disclose, and protect your information when you use our website, mobile application, and services (collectively, the "Platform"). By accessing or using Kairos, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy.
             </p>
           </section>
 
@@ -94,7 +94,7 @@ const Privacy = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-4">3. AI-Powered Features Disclosure</h2>
             <p className="mb-4">
-              Mind Module uses artificial intelligence to power the Self Mastery Coach feature. When you engage with the Coach:
+              Kairos uses artificial intelligence to power the Self Mastery Coach feature. When you engage with the Coach:
             </p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Your messages and conversation history are processed by AI models (currently Google Gemini) to generate personalized coaching responses</li>
@@ -134,7 +134,7 @@ const Privacy = () => {
               <li><strong>Service Providers:</strong> With trusted third parties who assist in operating our platform (hosting, authentication, AI processing), bound by confidentiality obligations</li>
               <li><strong>AI Processing:</strong> Conversation data is processed by Google's Gemini AI through Lovable AI infrastructure to generate coaching responses</li>
               <li><strong>Legal Requirements:</strong> When required by law, subpoena, or legal process</li>
-              <li><strong>Safety:</strong> To protect the rights, safety, or property of Mind Module, our users, or others</li>
+              <li><strong>Safety:</strong> To protect the rights, safety, or property of Kairos, our users, or others</li>
               <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets, with notice to you</li>
               <li><strong>With Consent:</strong> When you explicitly authorize specific sharing</li>
             </ul>
@@ -178,7 +178,7 @@ const Privacy = () => {
               <li><strong>Disconnect Integrations:</strong> Disconnect third-party integrations at any time</li>
             </ul>
             <p className="mt-4">
-              To exercise these rights, contact us at privacy@mindmodule.me. We will respond within the timeframe required by applicable law.
+              To exercise these rights, contact us at privacy@kairos.me. We will respond within the timeframe required by applicable law.
             </p>
           </section>
 
@@ -201,7 +201,7 @@ const Privacy = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-4">10. Children's Privacy</h2>
             <p>
-              Mind Module is designed for professionals aged 18 and older. We do not knowingly collect personal information from individuals under 18. If we learn we have collected information from a minor, we will delete it promptly.
+              Kairos is designed for professionals aged 18 and older. We do not knowingly collect personal information from individuals under 18. If we learn we have collected information from a minor, we will delete it promptly.
             </p>
           </section>
 
@@ -231,7 +231,7 @@ const Privacy = () => {
             <p className="mb-4">
               If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
             </p>
-            <p className="mb-2"><strong>Email:</strong> privacy@mindmodule.me</p>
+            <p className="mb-2"><strong>Email:</strong> privacy@kairos.me</p>
             <p className="mb-4"><strong>Subject Line:</strong> Privacy Inquiry</p>
             <p>
               We aim to respond to all inquiries within 30 days.
