@@ -10,8 +10,8 @@ import PracticeQueueProgress from '@/components/PracticeQueueProgress';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
-import CoachHeroBackground from '@/components/coach/CoachHeroBackground';
-import CoachConversationCard from '@/components/coach/CoachConversationCard';
+import CoachSplitView from '@/components/coach/CoachSplitView';
+import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 
 interface PracticeStep {
   title: string;
@@ -61,6 +61,7 @@ const SelfMasteryCoach = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   // Queue state
   const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
@@ -301,9 +302,24 @@ const SelfMasteryCoach = () => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
     
+    // Client-side gibberish detection
+    if (isLikelyGibberish(inputMessage)) {
+      setInputError(getGibberishPrompt());
+      return;
+    }
+    
+    setInputError(null);
     const message = inputMessage;
     setInputMessage('');
     await sendMessage(message);
+  };
+  
+  const handleInputChange = (value: string) => {
+    setInputMessage(value);
+    // Clear error when user starts typing new content
+    if (inputError && value.length > 3) {
+      setInputError(null);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -344,10 +360,7 @@ const SelfMasteryCoach = () => {
   };
 
   return (
-    <div className="relative flex flex-col min-h-screen bg-background animate-page-enter overflow-hidden">
-      {/* Immersive hero background with transparent text */}
-      <CoachHeroBackground />
-
+    <div className="relative flex flex-col h-screen bg-background animate-page-enter overflow-hidden">
       {/* Header Navigation */}
       <FloatingNavigation 
         showCoachButton={false}
@@ -409,13 +422,13 @@ const SelfMasteryCoach = () => {
         </div>
       )}
 
-      {/* Main Content - Centered Conversation Card */}
-      <div className="flex-1 flex items-center justify-center py-8">
-        <CoachConversationCard
+      {/* Main Content - Split Screen Layout */}
+      <div className="flex-1 min-h-0">
+        <CoachSplitView
           messages={messages}
           isLoading={isLoading}
           inputValue={inputMessage}
-          onInputChange={setInputMessage}
+          onInputChange={handleInputChange}
           onSubmit={handleSubmit}
           onKeyDown={handleKeyDown}
           onVoiceToggle={handleVoiceToggle}
@@ -431,6 +444,7 @@ const SelfMasteryCoach = () => {
           }
           promptSuggestions={getFlowPrompts(flowType, locationState?.eventTitle)}
           onPromptClick={sendMessage}
+          inputError={inputError}
         />
       </div>
 
