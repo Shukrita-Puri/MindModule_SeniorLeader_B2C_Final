@@ -1,247 +1,329 @@
 
-# Coach UI Redesign + Gibberish Detection + Visual Asset Fix
+# Fix Plan: Insights Page Bubbles + Coach Split Layout + State Patterns Differentiation
 
-## Overview
+## Issues Identified
 
-This plan addresses three issues:
-1. **Gibberish Detection**: Coach responds to nonsense input ("ko", "ha", "fnfnf") as if meaningful
-2. **UI Layout Reversion**: Revert from centered card to split-screen layout (Coach top half with background visual, User bottom half)
-3. **Visual Asset Isolation**: Confirm no overlap between Executive Home videos and other pages
+### Issue 1: Tiny Wins Bubbles Not Showing
+**Root Cause**: In DEV_MODE, the `fetchTinyWinsInsights` function (lines 306-351) queries the database for psychological dimensions, but if the wins in the database don't have dimensions populated yet (because they were added before the migration or edge function update), the `dimensions` array will be empty even though `winsCount > 0`.
 
----
+**Evidence**: 
+- Lines 320-331 aggregate dimensions only if they exist in the database
+- If `primary_emotion`, `agency_type`, etc. are all NULL, no dimensions are created
+- The UI shows "3 wins logged" but no bubbles because `tinyWinsInsights.dimensions` is empty
 
-## Issue 1: Gibberish/Low-Quality Input Detection
+**Solution**: In DEV_MODE, run the keyword-based dimension extraction client-side for wins that don't have dimensions populated:
 
-### Current Problem
-The AI coach interprets random characters like "ko", "ha", "lo", "nm", "fnfnf", "djkdf" as valid responses. Screenshots show the coach responding:
-- "Steady. 'Ha' often signals a sudden insight..."
-- "Acknowledged. You're keeping it lean..."
-- "System noise detected. The signal is breaking down..."
-
-While the AI eventually notices something is wrong, it should catch this much earlier.
-
-### Solution: Input Quality Validation
-
-**Approach 1: Client-side pre-validation** (before sending to AI)
-Add input quality check in `handleSubmit` that detects:
-- Very short messages (under 3 meaningful characters)
-- No real words (consonant-only strings like "fnfnf")
-- Repeated characters ("aaaa", "hhhh")
-- Random keyboard mashing patterns
-
-When low-quality input is detected, show a gentle prompt asking the user to share more clearly rather than sending to AI.
-
-**Approach 2: System prompt enhancement** (AI-level detection)
-Add to the system prompt:
-
-```text
-=== INPUT QUALITY AWARENESS ===
-
-If the user sends:
-- Random characters or gibberish (e.g., "asdf", "lkjh", "fnfnf")
-- Single letters or very short nonsense responses
-- Keyboard mashing or repeated characters
-
-Do NOT interpret these as meaningful communication. Instead:
-1. Gently acknowledge you're having trouble understanding
-2. Ask them to share what's actually on their mind
-3. Offer to restart with a clear question
-
-Example response:
-"I want to make sure I'm understanding you. Could you share what's on your mind in a full sentence? I'm here when you're ready to talk."
-
-Do not project meaning onto gibberish. Do not treat "ha" as insight or "nm" as "nothing much" unless context clearly supports it.
+```typescript
+// In fetchTinyWinsInsights DEV_MODE block
+wins?.forEach(win => {
+  // If no dimensions populated, extract from text
+  if (!win.sentiment && !win.primary_emotion && !win.agency_type) {
+    const extracted = extractDimensionsFromText(win.win_content);
+    if (extracted.sentiment) dimensionCounts.sentiment[extracted.sentiment] = ...
+    // etc
+  } else {
+    // Use existing dimensions
+    if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = ...
+  }
+});
 ```
 
-### Implementation Files
-- `supabase/functions/self-mastery-coach/index.ts` - Add input quality section to system prompt
-- `src/pages/SelfMasteryCoach.tsx` or `src/hooks/useCoachConversation.ts` - Add optional client-side pre-filter
+### Issue 2: Mind Map Not Showing
+**Root Cause**: In DEV_MODE (lines 426-443), `fetchSemanticAnalysis` sets empty arrays for all semantic data:
 
----
-
-## Issue 2: Coach UI Layout Redesign
-
-### Current Design (Centered Card)
-- `CoachHeroBackground` renders transparent "SELF MASTERY COACH" text
-- `CoachConversationCard` is centered in the middle of the screen
-- User messages and coach responses appear in same card
-
-### Desired Design (Split Screen - Epic Life Reference)
-Based on the reference image:
-- **Top Half**: Coach area with background visual (warm, human-like image), coach response prominently displayed
-- **Bottom Half**: User input area with text field and action buttons
-- Collapsible earlier messages still supported
-- Protocol cards and mental models still render in coach's space
-
-### New Layout Structure
-
-```text
-+--------------------------------------------------+
-|  [Back]           Self Mastery Coach    [New Chat]|
-|                                                   |
-|  +----------------------------------------------+ |
-|  |                                              | |
-|  |         [Background Visual/Gradient]         | |
-|  |                                              | |
-|  |   "Let's close out the day together..."      | |
-|  |                                              | |
-|  |   [Protocol Card / Wisdom Card area]         | |
-|  |                                              | |
-|  |         [Thinking indicator here]            | |
-|  +----------------------------------------------+ |
-|                                                   |
-|  +----------------------------------------------+ |
-|  |     ^ 4 earlier messages (collapsible)       | |
-|  |                                              | |
-|  |   +--------------------------------------+   | |
-|  |   | Type your response...               |   | |
-|  |   +--------------------------------------+   | |
-|  |                                              | |
-|  |       Switch to voice  |  End session        | |
-|  +----------------------------------------------+ |
-+--------------------------------------------------+
+```typescript
+setSemanticAnalysis({
+  themePatterns: [],
+  unifiedThemes: [],  // <-- Always empty in DEV_MODE
+  themeRelationships: []
+});
 ```
 
-### Component Changes
+This causes `mindMapReady` to evaluate to false because `coachSessions = 0` and `unifiedThemes` is empty.
 
-**1. Create `CoachSplitLayout.tsx`** (or rename/refactor `CoachConversationCard`)
-- Top section: Coach response area with visual backdrop
-- Bottom section: User input with history toggle
-- Maintain glass-morphic styling
+**Solution**: In DEV_MODE, populate `unifiedThemes` from available data sources:
+1. Query `dialogue_messages` for coach conversation content
+2. Query `tiny_wins` for win content
+3. Extract themes using simple keyword patterns or use existing win dimensions as themes
+4. Create `unifiedThemes` entries with source attribution
 
-**2. Update `CoachHeroBackground.tsx`**
-- Keep transparent text for empty state
-- Add option for visual backdrop when in conversation
-- Use warm, calming imagery (not the Executive Home videos - those stay exclusive)
+### Issue 3: State Patterns vs Energy Rhythm Overlap
+**Analysis**: Both visualizations show the same underlying data (daily check-in outcomes) but in different formats:
+- **State Patterns** (LuxuryStateBar): Bar chart showing total count of each state across the week
+- **Energy Rhythm** (EnergyRhythm): Heatmap showing state by time-of-day (morning/afternoon/evening) and day
 
-**3. Refactor `SelfMasteryCoach.tsx`**
-- Replace centered `flex items-center justify-center` with split layout
-- Top: Coach visual + latest response
-- Bottom: User input area
+**Current Redundancy**: Both only use check-in data. The user wants State Patterns to incorporate wearable data to show a richer picture.
 
-### Visual Assets
-Coach page will use its own set of assets (not the Executive Home videos):
-- Option 1: Soft gradient backgrounds with subtle animation
-- Option 2: Static calming imagery (separate from architectural illustrations used in Recalibrate)
-- Keep the transparent "SELF MASTERY COACH" text in background (subtle)
+**Proposed Differentiation**:
+| Visualization | Data Source | Purpose |
+|---------------|-------------|---------|
+| **State Patterns** | Check-ins + Wearable (HRV, sleep) | Shows layered state: "You reported focused, but your HRV suggests underlying stress" |
+| **Energy Rhythm** | Check-ins only | When you check in during the week (time patterns) |
+
+**Implementation**:
+1. Rename "State Patterns" to "State + Physiology Patterns" or keep as is
+2. Add wearable data integration to State Patterns section
+3. Display comparison insight: "You felt [check-in state] but your wearable shows [physiological state]"
+
+### Issue 4: Coach Page Not Split from Start
+**Root Cause**: Looking at `CoachSplitView.tsx`, the split layout IS implemented correctly. However, from the screenshots:
+- The top half shows coach area with gradient background
+- The bottom half shows user input area
+
+The issue is that the split may not be visually clear enough. The user message "Hi" appears as a small bubble at bottom right, making it look like the page isn't split.
+
+**Review**: The current implementation in `CoachSplitView.tsx`:
+- Lines 74-198: Top half with `flex-1` for coach response area
+- Lines 200-318: Bottom half with user input area
+
+This IS a split layout, but the visual distinction might not be strong enough. The screenshots show it's working, but we can enhance the visual separation.
+
+**Enhancements**:
+1. Increase the visual contrast between top and bottom halves
+2. Make the coach area more visually distinct with a stronger background treatment
+3. Ensure the page is split 50/50 from the start, not flexible
 
 ---
-
-## Issue 3: Visual Asset Separation Confirmation
-
-### Current State (Already Correct)
-
-| Page | Visual Assets Used |
-|------|-------------------|
-| **Executive Home** | 15 unique videos in `/all-visuals/videos/` (depleted-morning.mp4, etc.) |
-| **Recalibrate** | Architectural illustrations (`architectural-pause.jpg`, etc.) |
-| **Coach** | Currently uses gradients + transparent text only |
-| **Insights** | No hero visual (text header only) |
-| **Practice Players** | Practice-specific thumbnails |
-
-### Verification
-The videos in `/all-visuals/videos/` are ONLY used in `src/pages/ExecutiveHome.tsx` lines 116-147. No other files reference these paths.
-
-The user may be experiencing a visual loading issue or confusion. If there's an actual error:
-- Check video file existence and accessibility
-- Verify video poster fallback images load correctly
-- Add error handling for video loading failures
-
----
-
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/components/coach/CoachSplitView.tsx` | New split-screen layout component |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/self-mastery-coach/index.ts` | Add gibberish detection instructions to system prompt |
-| `src/pages/SelfMasteryCoach.tsx` | Use split layout instead of centered card |
-| `src/components/coach/CoachConversationCard.tsx` | Refactor or replace with split design |
-| `src/components/coach/CoachHeroBackground.tsx` | Update for split layout visual |
-| `src/hooks/useCoachConversation.ts` (optional) | Add client-side input validation |
+| `src/pages/Insights.tsx` | Fix DEV_MODE dimension extraction for tiny wins; Fix DEV_MODE unifiedThemes generation; Add wearable overlay to State Patterns |
+| `src/components/coach/CoachSplitView.tsx` | Strengthen visual split with fixed 50/50 layout |
+| `src/utils/dimensionExtraction.ts` (new) | Client-side dimension extraction helper for DEV_MODE |
 
 ---
 
-## Technical Details
+## Technical Implementation
 
-### Gibberish Detection Patterns
+### Part 1: Fix Tiny Wins Bubbles in DEV_MODE
+
+Create a utility function to extract dimensions client-side:
 
 ```typescript
-const isLikelyGibberish = (text: string): boolean => {
-  const trimmed = text.trim().toLowerCase();
-  
-  // Too short
-  if (trimmed.length < 3) return true;
-  
-  // No vowels (likely random consonants)
-  const vowelCount = (trimmed.match(/[aeiou]/g) || []).length;
-  if (trimmed.length > 3 && vowelCount === 0) return true;
-  
-  // Repeated characters
-  if (/(.)\1{2,}/.test(trimmed)) return true;
-  
-  // Common keyboard patterns
-  const keyboardPatterns = ['asdf', 'qwer', 'zxcv', 'hjkl', 'jkl', 'fgh'];
-  if (keyboardPatterns.some(p => trimmed.includes(p))) return true;
-  
-  // Check against dictionary of known short valid responses
-  const validShortResponses = ['ok', 'yes', 'no', 'hi', 'hey', 'thanks', 'bye'];
-  if (trimmed.length < 4 && !validShortResponses.includes(trimmed)) return true;
-  
-  return false;
+// src/utils/dimensionExtraction.ts
+export const DIMENSION_PATTERNS = {
+  sentiment: {
+    positive: ['good', 'great', 'happy', 'proud', 'grateful', 'amazing'],
+    negative: ['bad', 'sad', 'angry', 'frustrated', 'upset'],
+  },
+  emotion: {
+    pride: ['proud', 'accomplished', 'achieved', 'succeeded', 'nailed'],
+    relief: ['relief', 'relieved', 'finally'],
+    gratitude: ['grateful', 'thankful', 'appreciate'],
+    confidence: ['confident', 'capable', 'strong'],
+  },
+  agency: {
+    proactive: ['decided', 'chose', 'initiated', 'started', 'led'],
+    responsive: ['responded', 'handled', 'managed', 'adapted'],
+    collaborative: ['together', 'team', 'partnered'],
+  },
+  regulation: {
+    regulated: ['calm', 'composed', 'steady', 'controlled', 'breathed'],
+    intentional: ['paused', 'thought', 'considered', 'reflected'],
+  },
+  growth: {
+    learning: ['learned', 'realized', 'understood', 'discovered'],
+    breakthrough: ['finally', 'first time', 'overcame'],
+    resilience: ['bounced back', 'persisted', 'kept going'],
+  },
 };
+
+export function extractDimensionsFromText(text: string) {
+  const lowerText = text.toLowerCase();
+  const dimensions: { dimension: string; value: string }[] = [];
+  
+  for (const [dimension, categories] of Object.entries(DIMENSION_PATTERNS)) {
+    for (const [value, keywords] of Object.entries(categories)) {
+      if (keywords.some(k => lowerText.includes(k))) {
+        dimensions.push({ dimension, value });
+        break; // Only one per dimension
+      }
+    }
+  }
+  
+  // Default to positive sentiment for wins
+  if (!dimensions.find(d => d.dimension === 'sentiment')) {
+    dimensions.push({ dimension: 'sentiment', value: 'positive' });
+  }
+  
+  return dimensions;
+}
 ```
 
-### Split Layout CSS Structure
+Update `fetchTinyWinsInsights` DEV_MODE block:
+
+```typescript
+// In Insights.tsx, fetchTinyWinsInsights DEV_MODE block
+const dimensionCounts: Record<string, Record<string, number>> = {
+  sentiment: {}, emotion: {}, agency: {}, regulation: {}, growth: {}
+};
+
+wins?.forEach(win => {
+  // Check if win has dimensions from database
+  const hasDbDimensions = win.sentiment || win.primary_emotion || win.agency_type;
+  
+  if (hasDbDimensions) {
+    // Use stored dimensions
+    if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
+    // ... rest of existing logic
+  } else {
+    // Extract from text client-side
+    const extracted = extractDimensionsFromText(win.win_content);
+    extracted.forEach(({ dimension, value }) => {
+      if (dimensionCounts[dimension]) {
+        dimensionCounts[dimension][value] = (dimensionCounts[dimension][value] || 0) + 1;
+      }
+    });
+  }
+});
+```
+
+### Part 2: Fix Mind Map in DEV_MODE
+
+Update `fetchSemanticAnalysis` to generate themes from actual data:
+
+```typescript
+// In Insights.tsx, fetchSemanticAnalysis DEV_MODE block
+
+// Query dialogue_messages for coach content
+const { data: messages } = await supabase
+  .from('dialogue_messages')
+  .select('content, session_id')
+  .eq('sender_type', 'user')
+  .order('timestamp', { ascending: false })
+  .limit(50);
+
+// Query tiny_wins for win content
+const { data: recentWins } = await supabase
+  .from('tiny_wins')
+  .select('win_content')
+  .eq('user_id', DEV_USER.id)
+  .limit(20);
+
+// Simple theme extraction from content
+const themeCounts = new Map<string, { count: number; sources: { coach: number; wins: number } }>();
+
+// Extract themes from coach messages
+messages?.forEach(msg => {
+  const themes = extractThemesFromContent(msg.content);
+  themes.forEach(theme => {
+    const existing = themeCounts.get(theme) || { count: 0, sources: { coach: 0, wins: 0 } };
+    existing.count++;
+    existing.sources.coach++;
+    themeCounts.set(theme, existing);
+  });
+});
+
+// Extract themes from wins
+recentWins?.forEach(win => {
+  const themes = extractThemesFromContent(win.win_content);
+  themes.forEach(theme => {
+    const existing = themeCounts.get(theme) || { count: 0, sources: { coach: 0, wins: 0 } };
+    existing.count++;
+    existing.sources.wins++;
+    themeCounts.set(theme, existing);
+  });
+});
+
+// Convert to unifiedThemes format
+const unifiedThemes = Array.from(themeCounts.entries())
+  .map(([theme, data]) => ({
+    theme,
+    totalCount: data.count,
+    weight: Math.min(data.count / 5, 1), // Normalize to 0-1
+    sources: { coach: data.sources.coach, practice: 0, wins: data.sources.wins, checkins: 0 }
+  }))
+  .sort((a, b) => b.totalCount - a.totalCount)
+  .slice(0, 12);
+
+setSemanticAnalysis({
+  themePatterns: [],
+  unifiedThemes,
+  themeRelationships: []
+});
+```
+
+### Part 3: Differentiate State Patterns from Energy Rhythm
+
+Add wearable data overlay to State Patterns section:
+
+```typescript
+// In the State Patterns section of Insights.tsx
+
+{/* Wearable Correlation Insight */}
+{wearableData && checkInCount > 0 && (
+  <div className="mt-4 p-3 bg-muted/20 rounded-lg">
+    <p className="text-xs font-medium text-muted-foreground mb-1">
+      Wearable Insight
+    </p>
+    <p className="text-sm text-foreground">
+      {getWearableStateComparison(statePatterns, wearableData)}
+    </p>
+  </div>
+)}
+```
+
+Where `getWearableStateComparison` analyzes:
+- If check-in says "focused" but HRV is low → "You reported focused, but your body shows signs of stress"
+- If check-in says "drained" and sleep was poor → "Your low energy aligns with a short sleep night"
+
+**Note**: This requires wearable data integration which may not be fully available. If not, we can show a teaser message: "Connect wearable to see how your physiology correlates with your felt state."
+
+### Part 4: Strengthen Coach Split Layout
+
+Update `CoachSplitView.tsx` to have clearer visual separation:
 
 ```tsx
-<div className="flex flex-col h-screen">
-  {/* Navigation */}
-  <header className="relative z-40">...</header>
-  
-  {/* Coach Section - Top Half */}
-  <div className="flex-1 relative overflow-hidden">
-    {/* Visual backdrop */}
-    <div className="absolute inset-0">
-      <div className="w-full h-full bg-gradient-to-b from-saffron/5 via-taupe/3 to-background" />
-    </div>
-    
-    {/* Coach response area */}
-    <div className="relative z-10 h-full flex flex-col justify-end p-4">
-      {/* Latest coach message + embedded content */}
-    </div>
+<div className="flex flex-col h-full">
+  {/* TOP HALF - Coach Response Area - Fixed height */}
+  <div className="h-1/2 relative overflow-hidden">
+    {/* Stronger background treatment */}
+    <div className="absolute inset-0 bg-gradient-to-b from-saffron/12 via-taupe/8 to-background" />
+    {/* ... coach content */}
   </div>
-  
-  {/* User Section - Bottom Half */}
-  <div className="bg-white/70 backdrop-blur-xl border-t border-black/[0.06] p-4">
-    {/* Collapsible history */}
-    {/* Input area */}
-    {/* Action links */}
+
+  {/* BOTTOM HALF - User Input Area - Fixed height */}
+  <div className="h-1/2 border-t-2 border-saffron/20 bg-background/95 backdrop-blur-xl">
+    {/* ... user content */}
   </div>
 </div>
 ```
+
+Key changes:
+- Change from `flex-1` to `h-1/2` for both halves to ensure 50/50 split
+- Stronger border between sections (`border-t-2 border-saffron/20`)
+- Increase gradient intensity in coach area (`from-saffron/12` instead of `from-saffron/8`)
 
 ---
 
 ## Expected Outcomes
 
-1. **Gibberish Rejection**: Coach asks for clarity when receiving nonsense input instead of projecting meaning
-2. **Split Layout**: Coach visual in top half, user input in bottom half (matching Epic Life reference)
-3. **Content Rendering**: Protocol cards and wisdom cards still display correctly in coach's section
-4. **Voice-Ready**: Split design supports future voice mode toggle
-5. **Visual Separation**: Executive Home videos remain exclusive, Coach uses its own visual treatment
+1. **Tiny Wins Bubbles**: Psychological dimension bubbles will appear even in DEV_MODE, extracted from win text
+2. **Mind Map**: Will show unified themes from coach conversations and wins
+3. **State vs Energy**: State Patterns will show wearable correlation insights (or teaser to connect wearable)
+4. **Coach Split**: Clear 50/50 visual split from page load with stronger visual separation
 
 ---
 
-## Implementation Priority
+## Mind Map Data Measurement
 
-1. **Phase 1**: Update system prompt with gibberish detection instructions
-2. **Phase 2**: Create split layout component structure
-3. **Phase 3**: Refactor SelfMasteryCoach.tsx to use new layout
-4. **Phase 4**: Add client-side input validation (optional enhancement)
-5. **Phase 5**: Test all flows (prepare, integrate, guided-reflection)
+The Mind Map (`InnerWorldBubbles`) is populated from `semanticAnalysis.unifiedThemes`, which aggregates:
+
+1. **Coach conversations** (`dialogue_messages`): Themes extracted from user messages to the coach
+2. **Practice completions** (`sanctuary_events`): Categories of practices completed
+3. **Tiny wins** (`tiny_wins`): Themes from win content
+4. **Check-ins** (`daily_checkins`): State patterns
+
+Each theme gets:
+- `totalCount`: Number of times mentioned across all sources
+- `weight`: Normalized 0-1 value for bubble sizing
+- `sources`: Breakdown by source type (coach, practice, wins, checkins)
+
+The `mindMapReady` gate (line 158-161) requires:
+- 3+ coach sessions OR
+- 5+ check-ins AND 2+ wins OR
+- 5+ total data points
+
+In DEV_MODE, the current implementation returns empty arrays, hence no Mind Map. The fix populates this from actual database content.
