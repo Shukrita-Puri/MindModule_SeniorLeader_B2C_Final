@@ -92,7 +92,15 @@ const InnerWorldBubbles = ({
   }, []);
 
   useEffect(() => {
+    // Initial update
     updatePositions();
+    
+    // Delayed update after bubble animations complete (60ms per bubble + 500ms margin)
+    const animationDelay = (sortedItems.length * 60) + 500;
+    const animationTimeout = setTimeout(updatePositions, animationDelay);
+    
+    // Additional delayed update for position settling
+    const settleTimeout = setTimeout(updatePositions, animationDelay + 300);
     
     const resizeObserver = new ResizeObserver(updatePositions);
     if (containerRef.current) {
@@ -102,6 +110,8 @@ const InnerWorldBubbles = ({
     window.addEventListener('scroll', updatePositions);
     
     return () => {
+      clearTimeout(animationTimeout);
+      clearTimeout(settleTimeout);
       resizeObserver.disconnect();
       window.removeEventListener('scroll', updatePositions);
     };
@@ -189,27 +199,26 @@ const InnerWorldBubbles = ({
   return (
     <div className="space-y-4">
       {/* Organic bubble cluster with SVG overlay for connections */}
-      <div ref={containerRef} className="relative">
-        {/* Connection lines SVG */}
-        {connectionPaths.length > 0 && (
-          <svg 
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{ width: '100%', height: '100%' }}
-          >
-            {connectionPaths.map((connection) => connection && (
-              <path
-                key={connection.key}
-                d={connection.path}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeOpacity={connection.strength * 0.2}
-                strokeDasharray="4 4"
-                className="text-muted-foreground"
-              />
-            ))}
-          </svg>
-        )}
+      <div ref={containerRef} className="relative min-h-[200px]">
+        {/* Connection lines SVG - always render, use explicit dimensions */}
+        <svg 
+          className="absolute inset-0 pointer-events-none z-0 overflow-visible"
+          style={{ width: '100%', height: '100%', minHeight: '200px' }}
+          preserveAspectRatio="none"
+        >
+          {connectionPaths.map((connection) => connection && (
+            <path
+              key={connection.key}
+              d={connection.path}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeOpacity={0.25 + connection.strength * 0.25}
+              strokeDasharray="6 4"
+              className="text-primary"
+            />
+          ))}
+        </svg>
         
         {/* Bubbles with luxury glass morphism styling */}
         <div className="flex flex-wrap justify-center items-center gap-2.5 py-4 relative z-10">
