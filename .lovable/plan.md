@@ -1,266 +1,280 @@
 
 
-# Coach UI Refinements: Layout, Typography, Legibility & Contextual Recommendations
+# Self Mastery Coach: Complete UI & Prompt Refinement
 
-## Issues Identified from Screenshots
+## Overview
 
-### Issue 1: Initial State Layout
-The visual should fill the ENTIRE screen when no conversation is active, then transition to the coach's half (top 50%) once conversation begins.
-
-### Issue 2: Missing Section Labels
-- The coach half needs a "Self Mastery Coach" label
-- The user half needs the user's first name (e.g., "Dev") as label
-- This helps users understand who is speaking where
-
-### Issue 3: Text Overflow and Font Issues
-- Text is overflowing/too large (`text-lg` on coach responses)
-- Font appears different/cryptic (possibly due to whitespace/formatting issues)
-- Need to reduce text size and ensure proper line wrapping
-
-### Issue 4: Background Too Dark/Distracting
-- Current gradient overlay is too intense: `from-black/70 via-black/40 to-black/20`
-- Making it hard to see content, especially embedded cards
-- Need to lighten the overlay
-
-### Issue 5: Protocol & Wisdom Cards Not Visible
-- Cards are merging with the dark background
-- Need stronger contrast/styling for cards on dark backgrounds
-
-### Issue 6: Contextual Recommendations Missing
-- Coach recommends practices/wisdom but doesn't explain WHY
-- Recommendations should explain the purpose: "This will help you..."
-- Should not recommend with every exchange - only at key moments
+This plan implements:
+1. **New Coach Visual**: Image 1 (light linen shirt, blue misty background) to signal inner calm
+2. **70/30 Layout Split**: Coach section occupies 70% to emphasize presence
+3. **Sleek Send Button**: Replace `Send` icon with `ArrowUp` in a compact circular button
+4. **Multimodal Input**: Add prominent `Mic` button alongside text input for simultaneous text/voice capability
+5. **Self-Mastery Prompt Focus**: Add explicit guidance to keep coaching on inner awareness, not task management
 
 ---
 
-## Implementation Plan
+## Part 1: New Coach Visual
 
-### Part 1: Full-Screen Visual on Empty State
+### Action
+Replace the current `coach-visual.jpeg` with the uploaded Image 1 (light shirt, blue misty background).
+
+### Why This Image
+- Light linen shirt suggests openness and approachability
+- Blue misty/ethereal background evokes inner calm and reflection
+- Warmer, softer palette compared to the current image
+- Signals "inner mastery" rather than "executive strategy"
+
+### File Changes
+- Copy the uploaded image to `src/assets/coach-visual.jpeg` (replacing existing)
+
+---
+
+## Part 2: 70/30 Asymmetric Layout
+
+### Current State
+```tsx
+<div className="h-1/2 ...">  {/* Coach: 50% */}
+<div className="h-1/2 ...">  {/* User: 50% */}
+```
+
+### New State
+```tsx
+<div className="h-[70%] ...">  {/* Coach: 70% */}
+<div className="h-[30%] ...">  {/* User: 30% */}
+```
+
+### Visual Layout
 
 ```text
-Layout States:
 +--------------------------------------------------+
-|  EMPTY STATE (no messages):                      |
-|  Full-bleed visual covering entire viewport      |
-|  Coach greeting centered                         |
-|  Prompt suggestions at bottom                    |
+| SELF MASTERY COACH                    (70%)      |
 +--------------------------------------------------+
-
+|  [Cinematic portrait - blue mist]                |
+|                                                  |
+|  Coach response - ample space for content        |
+|  Protocol/Wisdom cards with full visibility      |
+|                                                  |
+|                                                  |
 +--------------------------------------------------+
-|  ACTIVE CONVERSATION:                            |
-|  +----------------------------------------------+|
-|  | "Self Mastery Coach"          (top half)     ||
-|  | [Coach visual background - 50%]              ||
-|  | Coach responses here                         ||
-|  +----------------------------------------------+|
-|  | "Dev"                         (bottom half)  ||
-|  | [Light background - 50%]                     ||
-|  | User messages + input here                   ||
-|  +----------------------------------------------+|
+| {firstName}                           (30%)      |
 +--------------------------------------------------+
-```
-
-**Implementation in CoachSplitView.tsx:**
-- Detect `hasMessages` state
-- When empty: visual fills full height, content overlaid
-- When active: visual constrained to top half with label
-
-### Part 2: Add Section Labels
-
-Add clear labels to identify speaker zones:
-
-```tsx
-{/* Coach Section Header */}
-<div className="px-4 py-2 text-center">
-  <span className="text-xs uppercase tracking-wider text-white/80 font-medium">
-    Self Mastery Coach
-  </span>
-</div>
-
-{/* User Section Header */}
-<div className="px-4 py-2 border-b border-border/30">
-  <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-    {firstName}
-  </span>
-</div>
-```
-
-### Part 3: Fix Typography
-
-| Current | New |
-|---------|-----|
-| `text-lg` (coach text) | `text-sm` or `text-base` |
-| `text-2xl` (greeting) | `text-xl` |
-| `text-base` (subtext) | `text-sm` |
-
-Also ensure:
-- Use `font-body` (Inter) for body text, not headline font
-- Add `font-body` class to coach response paragraphs
-- Ensure `whitespace-pre-wrap` doesn't create odd spacing
-
-### Part 4: Lighten Background Overlay
-
-```tsx
-// Current (too dark)
-<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
-
-// New (lighter, more ambient)
-<div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/25 to-black/10" />
-```
-
-Additionally, add a subtle blur to soften the image:
-```tsx
-<img 
-  src={coachVisual}
-  className="w-full h-full object-cover object-top filter brightness-75"
-/>
-```
-
-### Part 5: Enhance Card Visibility on Dark Background
-
-**ProtocolCard on dark background:**
-```tsx
-// Add variant prop or context-aware styling
-<ProtocolCard
-  ...
-  className="bg-white/90 dark:bg-white/85 shadow-lg border-white/20"
-/>
-```
-
-**WisdomCard on dark background:**
-```tsx
-// Update styling for contrast
-<div className={cn(
-  "relative rounded-lg p-4",
-  "bg-white/80 backdrop-blur-sm",
-  "border border-white/20 shadow-md",
-  className
-)}>
-```
-
-### Part 6: Contextual Recommendation Logic
-
-**Update System Prompt** (`supabase/functions/self-mastery-coach/index.ts`):
-
-Add to the content deployment guide:
-
-```text
-=== RECOMMENDATION CONTEXTUALITY ===
-
-When recommending a protocol or wisdom card:
-1. ALWAYS explain WHY this specific practice will help their current situation
-2. Connect the recommendation to what they just shared
-3. Keep explanation brief: 1-2 sentences before the marker
-
-GOOD Example:
-"You mentioned feeling like a train is leaving without you. That urgency in your body is real, but it's clouding your judgment. Let's slow your nervous system first:
-[PROTOCOL:somatic:box-breathing-calm]"
-
-BAD Example (no context):
-"Here's something that might help:
-[PROTOCOL:somatic:box-breathing-calm]"
-
-=== RECOMMENDATION FREQUENCY ===
-
-Do NOT recommend protocols/wisdom with every exchange. Save them for:
-- When the user explicitly asks for help
-- When you detect physiological dysregulation (overwhelmed, scattered, urgent)
-- After they've shared something significant and need grounding
-- Key inflection points (before a meeting, after a difficulty, at closure)
-
-If the conversation is flowing well and they're processing:
-- Stay in dialogue mode
-- Use questions, not recommendations
-- Let them reach their own insights
-
-Only deploy embedded content when it would genuinely serve them.
+|  [History collapse]                              |
+|  [User message]                                  |
+|  [🎤]  [Input field.....................]  [↑]  |
+|  End session                                     |
++--------------------------------------------------+
 ```
 
 ---
 
-## Files to Modify
+## Part 3: Sleek ArrowUp Send Button
+
+### Current State
+- Uses `Send` icon from lucide-react
+- Size: `h-9 w-9`
+
+### New State
+- Replace with `ArrowUp` icon (sleeker, modern)
+- Reduce to `h-8 w-8` for a more compact look
+- Keep saffron background
+
+### Implementation
+```tsx
+import { ArrowUp, Loader2, Mic } from 'lucide-react';
+
+<Button
+  type="submit"
+  size="icon"
+  disabled={!inputValue.trim() || isLoading}
+  className="absolute right-2 bottom-2 h-8 w-8 rounded-full bg-saffron hover:bg-saffron/90"
+>
+  {isLoading ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <ArrowUp className="h-4 w-4" />
+  )}
+</Button>
+```
+
+---
+
+## Part 4: Prominent Mic Button for Voice Input
+
+### Design Principle
+Users should be able to:
+- Type a message and send it (text mode)
+- Tap mic to speak (voice mode)
+- Use both in the same session without switching modes
+
+### Implementation
+
+Add a prominent Mic button to the left of the input field:
+
+```tsx
+<form onSubmit={onSubmit} className="relative flex items-end gap-2">
+  {/* Voice button - prominent, left side */}
+  <button
+    type="button"
+    onClick={onVoiceToggle}
+    className={cn(
+      "h-11 w-11 rounded-full flex items-center justify-center shrink-0",
+      "border-2 transition-all",
+      isVoiceMode 
+        ? "bg-saffron border-saffron text-white" 
+        : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
+    )}
+  >
+    <Mic className="h-5 w-5" />
+  </button>
+
+  {/* Text input with embedded send button */}
+  <div className="flex-1 relative">
+    <Textarea ... />
+    <Button type="submit" ...>
+      <ArrowUp className="h-4 w-4" />
+    </Button>
+  </div>
+</form>
+```
+
+### Remove Mode Toggle Link
+The current "Switch to voice / Switch to text" text link will be removed since both modes are now simultaneously accessible via the buttons.
+
+---
+
+## Part 5: Self-Mastery Focus in System Prompt
+
+### Problem
+The coach sometimes slips into "productivity coach" mode, asking about task steps rather than inner states.
+
+**Example of problematic response:**
+> "What is the very first step of that 'one task' you are looking at right now?"
+
+This is task management, not self-mastery.
+
+### Solution
+Add an explicit "SELF-MASTERY FOCUS" section to the system prompt that:
+1. Explicitly forbids productivity coaching
+2. Redirects task questions back to inner awareness
+3. Provides examples of correct vs incorrect responses
+
+### Prompt Addition (after "STATE > STORY > STRATEGY" section)
+
+```text
+=== SELF-MASTERY FOCUS (CRITICAL) ===
+
+You are NOT a productivity coach. You do NOT help with:
+- Task prioritization or time management
+- Action planning or "first steps"
+- Breaking down projects into tasks
+- Calendar or schedule optimization
+
+Your domain is exclusively the INNER WORLD:
+- Body sensations and somatic awareness
+- Emotional states and their origins
+- Thought patterns and cognitive loops
+- Nervous system regulation
+- Self-awareness, presence, and centeredness
+
+WRONG (productivity coach):
+"What is the very first step of that task?"
+"Let's break this down into action items."
+"How can you prioritize this?"
+"What's the timeline for this project?"
+
+RIGHT (self-mastery coach):
+"What's happening in your body when you think about this?"
+"Where do you feel that urgency sitting right now?"
+"What would it mean to slow down here?"
+"What's the fear beneath the rush?"
+"When you pause, what do you actually know to be true?"
+"What are you avoiding by staying in motion?"
+
+If the user asks for help with tasks or prioritization, gently redirect:
+"That's important, and you'll figure out the logistics. But first — what's going on inside you right now? That's where we work."
+
+Every question should return them to INNER AWARENESS, not outer action.
+Catch yourself if you're about to ask about tasks. Redirect to state.
+```
+
+---
+
+## File Changes Summary
 
 | File | Changes |
 |------|---------|
-| `src/components/coach/CoachSplitView.tsx` | Full-screen empty state, section labels, typography fixes, lighter overlay, card styling |
-| `src/components/chat/ProtocolCard.tsx` | Add dark background variant styling |
-| `src/components/chat/WisdomCard.tsx` | Add dark background variant styling |
-| `supabase/functions/self-mastery-coach/index.ts` | Add contextual recommendation and frequency guidance |
+| `src/assets/coach-visual.jpeg` | Replace with Image 1 (light shirt, blue mist) |
+| `src/components/coach/CoachSplitView.tsx` | 70/30 split, ArrowUp icon, Mic button, remove mode toggle link |
+| `supabase/functions/self-mastery-coach/index.ts` | Add "SELF-MASTERY FOCUS" section to system prompt |
 
 ---
 
-## Visual Layout Details
+## Technical Implementation Details
 
-### Empty State (Full-Screen Visual)
+### CoachSplitView.tsx Changes
 
-```tsx
-{!hasMessages ? (
-  // Full-screen visual for empty state
-  <div className="flex-1 relative overflow-hidden">
-    <div className="absolute inset-0">
-      <img src={coachVisual} className="w-full h-full object-cover object-top brightness-75" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
-    </div>
-    
-    <div className="relative z-10 h-full flex flex-col">
-      {/* Greeting content centered */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-black/20 backdrop-blur ...">
-          <span className="text-xl font-headline text-saffron">SM</span>
-        </div>
-        <h2 className="text-xl font-headline text-white mt-4">Hello, {firstName}</h2>
-        <p className="text-sm text-white/80 mt-2 max-w-sm">{greeting}</p>
-      </div>
-      
-      {/* Input at bottom */}
-      <div className="p-4 bg-background/95 backdrop-blur-xl rounded-t-2xl">
-        {/* Prompt suggestions + input */}
-      </div>
-    </div>
-  </div>
-) : (
-  // Split layout for active conversation
-  <div className="flex flex-col h-full">
-    <div className="h-1/2 relative">...</div>
-    <div className="h-1/2">...</div>
-  </div>
-)}
-```
+1. **Import Change**
+   ```tsx
+   // Before
+   import { Send, Loader2, Mic, MicOff, ChevronUp, ChevronDown } from 'lucide-react';
+   
+   // After
+   import { ArrowUp, Loader2, Mic, ChevronUp, ChevronDown } from 'lucide-react';
+   ```
 
-### Active Conversation (Split Layout)
+2. **Layout Heights**
+   ```tsx
+   // Before
+   <div className="h-1/2 relative overflow-hidden flex flex-col">  // Line 170
+   <div className="h-1/2 overflow-y-auto flex flex-col">  // Line 262
+   
+   // After
+   <div className="h-[70%] relative overflow-hidden flex flex-col">
+   <div className="h-[30%] overflow-y-auto flex flex-col">
+   ```
 
-```text
-+--------------------------------------------------+
-| SELF MASTERY COACH                               |
-+--------------------------------------------------+
-|  [Visual Background - lighter overlay]           |
-|                                                  |
-|  Coach response text (smaller, font-body)        |
-|                                                  |
-|  [Protocol Card - white bg for contrast]         |
-|  [Wisdom Card - white bg for contrast]           |
-+--------------------------------------------------+
-| DEV                                              |
-+--------------------------------------------------+
-|  ^ 4 earlier messages                            |
-|                                                  |
-|  [User message bubble]                           |
-|                                                  |
-|  [Input field]                                   |
-|                                                  |
-|  Switch to voice | End session                   |
-+--------------------------------------------------+
-```
+3. **Input Form Structure** (Lines 323-350)
+   ```tsx
+   <form onSubmit={onSubmit} className="relative flex items-end gap-2">
+     {/* Mic button */}
+     <button
+       type="button"
+       onClick={onVoiceToggle}
+       className={cn(
+         "h-11 w-11 rounded-full flex items-center justify-center shrink-0",
+         "border-2 transition-all",
+         isVoiceMode 
+           ? "bg-saffron border-saffron text-white" 
+           : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
+       )}
+     >
+       <Mic className="h-5 w-5" />
+     </button>
+     
+     {/* Text input with send button */}
+     <div className="flex-1 relative">
+       <Textarea ... />
+       <Button type="submit" size="icon" className="h-8 w-8 ...">
+         <ArrowUp className="h-4 w-4" />
+       </Button>
+     </div>
+   </form>
+   ```
+
+4. **Remove Mode Toggle Link** (Lines 354-362)
+   Delete the "Switch to voice / Switch to text" button entirely.
+
+5. **Empty State Input** (Lines 120-159)
+   Apply same changes: ArrowUp button, Mic button, remove toggle link.
 
 ---
 
 ## Expected Outcomes
 
-1. **Immersive Empty State**: Full-screen cinematic visual before conversation starts
-2. **Clear Speaker Zones**: "Self Mastery Coach" and user's name label their respective halves
-3. **Readable Text**: Smaller font sizes, proper body font, no overflow
-4. **Visible Cards**: Protocol and Wisdom cards have white/light backgrounds for contrast
-5. **Lighter Background**: Softer overlay that doesn't overwhelm content
-6. **Contextual Recommendations**: Coach explains WHY a practice helps before recommending
-7. **Selective Recommendations**: Only at key moments, not every exchange
+1. **Calmer Visual Presence**: Light shirt + blue mist signals inner reflection, not executive strategy
+2. **Clear Visual Hierarchy**: 70% coach section dominates, emphasizing the coach's presence
+3. **Modern Send Button**: Sleek ArrowUp matches contemporary chat UIs
+4. **Multimodal Ready**: Mic button is prominent and always accessible — no mode switching needed
+5. **True Self-Mastery Coaching**: Prompt explicitly prevents productivity coaching and redirects to inner awareness
+6. **Voice-Mode Foundation**: UI structure supports future voice conversation feature
 
