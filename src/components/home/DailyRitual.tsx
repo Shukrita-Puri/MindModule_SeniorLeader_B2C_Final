@@ -7,7 +7,9 @@ import {
   generatePerformancePlan, 
   type ModuleRecommendation,
   type PlanContext,
-  type CoachCard
+  type CoachCard,
+  detectExecutiveScenario,
+  type PlanContextResult
 } from '@/utils/performancePlanEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getStrategicTheme } from '@/utils/energyStateScoring';
@@ -54,6 +56,7 @@ const DailyRitual = () => {
   const [loading, setLoading] = useState(true);
   const [currentCheckInOutcome, setCurrentCheckInOutcome] = useState<string | null>(null);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
+  const [planContext, setPlanContext] = useState<PlanContextResult>({ source: 'checkin' });
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
     completedCount: number;
@@ -263,10 +266,29 @@ const DailyRitual = () => {
         const checkinTime = new Date(todayCheckin.timestamp);
         const ritualTime = new Date(todayRitual.created_at || todayRitual.ritual_date);
         
-        // If check-in is more recent than the stored plan, regenerate
+        // If check-in is more recent than the stored plan, regenerate AND reset completion status
         if (checkinTime > ritualTime) {
-          console.log('🔄 Check-in is newer than stored plan - regenerating');
+          console.log('🔄 Check-in is newer than stored plan - regenerating and resetting completion status');
           shouldRegenerate = true;
+          
+          // CRITICAL: Reset completion status when new check-in happens
+          const today = new Date().toISOString().split('T')[0];
+          await upsertRitual({
+            ritual_date: today,
+            completion_status: 'partial',
+            completed_practice_ids: [],
+            soundscape_completed: false,
+            guided_practice_completed: false,
+            micro_exercise_completed: false
+          });
+          
+          // Reset local state
+          setCompletedPracticeIds([]);
+          setRitualStatus({
+            status: 'not_started',
+            completedCount: 0,
+            totalCount: 0
+          });
         }
       }
       

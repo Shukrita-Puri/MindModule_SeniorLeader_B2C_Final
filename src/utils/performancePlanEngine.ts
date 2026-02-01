@@ -67,6 +67,178 @@ export interface PlanContext {
   upcomingHighStakes?: HighStakesEvent;
   wearableStress?: 'normal' | 'elevated' | 'high';
   patternInsight?: PatternInsight;
+  
+  // Calendar event keywords for scenario detection
+  calendarEventTitles?: string[];
+}
+
+// ==================== EXECUTIVE SCENARIO PLANS ====================
+
+export interface ExecutiveScenario {
+  id: string;
+  name: string;
+  contextLabel: string;
+  triggers: {
+    calendarKeywords?: string[];
+    hoursAhead?: number;
+    wearableCondition?: 'low_readiness' | 'elevated_stress';
+    checkInPattern?: 'consecutive-low' | 'high-cognitive-day';
+    timeOfDay?: 'morning' | 'afternoon' | 'evening';
+  };
+  modules: ModuleSpec[];
+}
+
+// Executive scenarios for senior leaders
+export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
+  {
+    id: 'pre-board-meeting',
+    name: 'Pre-Board Meeting',
+    contextLabel: 'Board Meeting Prep',
+    triggers: { 
+      calendarKeywords: ['board', 'board meeting', 'board of directors'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' },
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-investor-meeting',
+    name: 'Pre-Investor Meeting',
+    contextLabel: 'High-Stakes Presentation',
+    triggers: { 
+      calendarKeywords: ['investor', 'vc', 'funding', 'pitch', 'keynote', 'presentation'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'high-cognitive-load',
+    name: 'High Cognitive Load Day',
+    contextLabel: 'Dense Meeting Day',
+    triggers: { 
+      checkInPattern: 'high-cognitive-day'
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'micro', focus: 'grounding' },
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    ]
+  },
+  {
+    id: 'post-tough-day',
+    name: 'Post-Tough Day Recovery',
+    contextLabel: 'Evening Recovery',
+    triggers: { 
+      timeOfDay: 'evening',
+      checkInPattern: 'consecutive-low'
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
+      { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
+    ]
+  },
+  {
+    id: 'recovery-day',
+    name: 'Recovery Day',
+    contextLabel: 'Low Energy Recovery',
+    triggers: { 
+      wearableCondition: 'low_readiness'
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' }
+    ]
+  },
+  {
+    id: 'quarterly-review-prep',
+    name: 'Quarterly Review Prep',
+    contextLabel: 'Review Preparation',
+    triggers: { 
+      calendarKeywords: ['quarterly', 'review', 'q1', 'q2', 'q3', 'q4', 'performance review'], 
+      hoursAhead: 48 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'difficult-conversation',
+    name: 'Difficult Conversation Prep',
+    contextLabel: 'Conversation Prep',
+    triggers: { 
+      calendarKeywords: ['1:1', 'one on one', 'feedback', 'performance', 'pip', 'termination', 'difficult'], 
+      hoursAhead: 4 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'composure' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  }
+];
+
+/**
+ * Detect if any executive scenario applies based on context
+ */
+export function detectExecutiveScenario(context: PlanContext): ExecutiveScenario | null {
+  const eventTitles = context.calendarEventTitles || [];
+  const allTitlesLower = eventTitles.map(t => t.toLowerCase()).join(' ');
+  
+  for (const scenario of EXECUTIVE_SCENARIOS) {
+    const { triggers } = scenario;
+    let matches = true;
+    
+    // Check calendar keywords
+    if (triggers.calendarKeywords) {
+      const hasKeyword = triggers.calendarKeywords.some(kw => 
+        allTitlesLower.includes(kw.toLowerCase())
+      );
+      if (!hasKeyword) matches = false;
+    }
+    
+    // Check time of day
+    if (triggers.timeOfDay && context.timeOfDay !== triggers.timeOfDay) {
+      matches = false;
+    }
+    
+    // Check wearable condition
+    if (triggers.wearableCondition === 'low_readiness' && context.wearableStress !== 'high') {
+      // Only match if wearable shows stress
+      matches = false;
+    }
+    if (triggers.wearableCondition === 'elevated_stress' && context.wearableStress !== 'elevated') {
+      matches = false;
+    }
+    
+    // Check pattern insight for consecutive-low
+    if (triggers.checkInPattern === 'consecutive-low') {
+      if (!context.patternInsight || context.patternInsight.count < 3) {
+        matches = false;
+      }
+    }
+    
+    // Check high-cognitive-day (calendar load = high)
+    if (triggers.checkInPattern === 'high-cognitive-day' && context.calendarLoad !== 'high') {
+      matches = false;
+    }
+    
+    if (matches) {
+      console.log(`[PerformancePlan] Detected executive scenario: ${scenario.name}`);
+      return scenario;
+    }
+  }
+  
+  return null;
+}
+
+export interface PlanContextResult {
+  source: 'checkin' | 'jit-calendar' | 'jit-wearable' | 'jit-pattern' | 'routine-morning' | 'routine-evening' | 'executive-scenario';
+  description?: string;
+  scenarioName?: string;
 }
 
 export interface ModuleSpec {
