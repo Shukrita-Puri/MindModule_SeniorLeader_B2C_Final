@@ -1,11 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { ChatCircle } from '@phosphor-icons/react';
+import { ChatCircle, X } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 
 interface UnifiedBubbleData {
@@ -52,6 +48,51 @@ const sourceLabels: Record<string, string> = {
   checkins: 'Check-ins'
 };
 
+// Inner Mastery-connected theme insights
+const THEME_INSIGHTS: Record<string, string> = {
+  'focus': `Focus patterns reveal your Self-Regulation capacity. When focus appears frequently, it signals your attention management systems are strengthening—critical for sustained executive performance.`,
+  'presence': `Presence is foundational to Emotional Intelligence. Your repeated attention to being present suggests you're building the awareness that enables responsive (vs. reactive) leadership.`,
+  'communication': `Communication themes reflect Emotional Intelligence development. Effective communication requires reading others' states and adapting your approach—a skill you're evidently practicing.`,
+  'self-awareness': `Self-awareness is the cornerstone of all three Inner Mastery domains. Your attention to this theme suggests strong metacognitive development and growing emotional literacy.`,
+  'energy': `Energy management is core Self-Regulation. Tracking energy patterns helps you optimize performance across different demands and supports sustainable high achievement.`,
+  'growth': `Growth orientation builds Resilience. Each time you notice growth, you reinforce the neural pathways that frame challenges as opportunities rather than threats.`,
+  'balance': `Balance themes indicate sophisticated Self-Regulation. You're attending to the interplay between output and recovery—essential for sustained high performance without burnout.`,
+  'achievement': `Achievement patterns anchor success in your identity. This supports Resilience by building a track record your nervous system can reference during challenging times.`,
+  'calm': `Calm reflects nervous system regulation—a core Self-Regulation indicator. Your attention to calm states suggests you're building vagal tone and stress recovery capacity.`,
+  'clarity': `Clarity emerges when cognitive load is managed well. This theme suggests your Self-Regulation practices are creating mental space for strategic thinking.`,
+  'confidence': `Confidence patterns reflect internal security. This Resilience marker indicates you're building the psychological foundation for taking calculated risks.`,
+  'stress': `Awareness of stress is the first step to managing it. By tracking stress patterns, you're developing the Self-Regulation awareness that enables proactive intervention.`,
+  'relationships': `Relationship themes indicate Emotional Intelligence focus. Your attention here suggests you're developing the social awareness that enables influence and connection.`,
+  'boundaries': `Boundary awareness reflects mature Self-Regulation. Knowing where you end and others begin is essential for sustainable leadership and emotional health.`,
+  'resilience': `You're explicitly building Resilience—the capacity to recover from setback. This meta-skill compounds over time, making you more adaptable.`,
+};
+
+const getThemeInsight = (theme: string): string => {
+  const normalizedTheme = theme.toLowerCase();
+  const insight = THEME_INSIGHTS[normalizedTheme];
+  if (insight) return insight;
+  
+  // Default insight for unknown themes
+  return `"${theme}" emerges as a recurring pattern in your inner world. Awareness of this theme builds Emotional Intelligence through deepening self-knowledge—the foundation of all inner mastery.`;
+};
+
+// Generic patterns to filter out
+const GENERIC_PATTERNS = [
+  /here'?s one thing/i,
+  /today i/i,
+  /^i did$/i,
+  /something good/i,
+  /^win$/i,
+  /^good day$/i,
+  /^ok$/i,
+  /^fine$/i,
+];
+
+const isGenericMention = (content: string): boolean => {
+  if (content.length < 15) return true;
+  return GENERIC_PATTERNS.some(pattern => pattern.test(content.trim()));
+};
+
 const InnerWorldBubbles = ({ 
   items, 
   relationships = [],
@@ -62,7 +103,7 @@ const InnerWorldBubbles = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bubbleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [bubblePositions, setBubblePositions] = useState<Map<string, DOMRect>>(new Map());
-  const [selectedBubble, setSelectedBubble] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<UnifiedBubbleData | null>(null);
   const [bubbleDetails, setBubbleDetails] = useState<BubbleDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
@@ -119,7 +160,7 @@ const InnerWorldBubbles = ({
 
   // Handle bubble click
   const handleBubbleClick = async (item: UnifiedBubbleData) => {
-    setSelectedBubble(item.theme);
+    setSelectedItem(item);
     setBubbleDetails(null);
     
     if (onBubbleClick) {
@@ -135,6 +176,11 @@ const InnerWorldBubbles = ({
     }
   };
 
+  const closeModal = () => {
+    setSelectedItem(null);
+    setBubbleDetails(null);
+  };
+
   // Get source breakdown text
   const getSourceBreakdown = (sources: UnifiedBubbleData['sources']) => {
     const parts: string[] = [];
@@ -143,6 +189,12 @@ const InnerWorldBubbles = ({
     if (sources.wins > 0) parts.push(`${sources.wins} win${sources.wins > 1 ? 's' : ''}`);
     if (sources.checkins > 0) parts.push(`${sources.checkins} check-in${sources.checkins > 1 ? 's' : ''}`);
     return parts.join(', ');
+  };
+
+  // Filter meaningful mentions
+  const getMeaningfulMentions = (mentions: BubbleDetails['recentMentions'] | undefined) => {
+    if (!mentions) return [];
+    return mentions.filter(m => !isGenericMention(m.snippet));
   };
 
   // Calculate SVG paths for connections
@@ -228,141 +280,184 @@ const InnerWorldBubbles = ({
             const isMedium = item.weight > 0.3;
             
             return (
-              <Popover key={`${item.theme}-${index}`}>
-                <PopoverTrigger asChild>
-                  <div
-                    ref={(el) => {
-                      if (el) bubbleRefs.current.set(item.theme.toLowerCase(), el);
-                    }}
-                    onClick={() => handleBubbleClick(item)}
-                    className={cn(
-                      "rounded-full flex flex-col items-center justify-center text-center cursor-pointer",
-                      "bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5",
-                      "border border-primary/20",
-                      "shadow-[0_4px_20px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.1)_inset]",
-                      "backdrop-blur-sm",
-                      "hover:shadow-[0_8px_30px_rgba(0,0,0,0.15),0_0_20px_hsl(var(--primary)/0.1)]",
-                      "hover:scale-105 transition-all duration-300",
-                      "active:scale-100",
-                      "relative overflow-hidden",
-                      // Organic positioning offsets
-                      index % 3 === 0 && "mt-1",
-                      index % 4 === 1 && "-mt-0.5",
-                      index % 5 === 2 && "mt-2"
-                    )}
-                    style={{
-                      width: `${size}px`,
-                      height: `${size}px`,
-                      transform: `rotate(${(index % 5 - 2) * 1}deg)`,
-                      // Staggered entrance animation
-                      animation: 'bubbleEntrance 0.4s ease-out forwards',
-                      animationDelay: `${index * 60}ms`,
-                      opacity: 0,
-                    }}
-                  >
-                    {/* Glass highlight */}
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-60 pointer-events-none" />
-                    
-                    <span 
-                      className={cn(
-                        "font-medium leading-tight px-2 relative z-10",
-                        isLarge ? "text-sm" : isMedium ? "text-xs" : "text-[11px]"
-                      )}
-                      style={{
-                        maxWidth: `${size - 16}px`,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                    >
-                      {item.theme}
-                    </span>
-                    <span 
-                      className={cn(
-                        "opacity-50 mt-0.5 relative z-10",
-                        isLarge ? "text-xs" : "text-[10px]"
-                      )}
-                    >
-                      {item.totalCount}×
-                    </span>
-                  </div>
-                </PopoverTrigger>
+              <div
+                key={`${item.theme}-${index}`}
+                ref={(el) => {
+                  if (el) bubbleRefs.current.set(item.theme.toLowerCase(), el);
+                }}
+                onClick={() => handleBubbleClick(item)}
+                className={cn(
+                  "rounded-full flex flex-col items-center justify-center text-center cursor-pointer",
+                  "bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5",
+                  "border border-primary/20",
+                  "shadow-[0_4px_20px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.1)_inset]",
+                  "backdrop-blur-sm",
+                  "hover:shadow-[0_8px_30px_rgba(0,0,0,0.15),0_0_20px_hsl(var(--primary)/0.1)]",
+                  "hover:scale-105 transition-all duration-300",
+                  "active:scale-100",
+                  "relative overflow-hidden",
+                  // Organic positioning offsets
+                  index % 3 === 0 && "mt-1",
+                  index % 4 === 1 && "-mt-0.5",
+                  index % 5 === 2 && "mt-2"
+                )}
+                style={{
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  transform: `rotate(${(index % 5 - 2) * 1}deg)`,
+                  // Staggered entrance animation
+                  animation: 'bubbleEntrance 0.4s ease-out forwards',
+                  animationDelay: `${index * 60}ms`,
+                  opacity: 0,
+                }}
+              >
+                {/* Glass highlight */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-60 pointer-events-none" />
                 
-                <PopoverContent 
-                  className="w-72 p-4 bg-card/95 backdrop-blur-lg border-border/50 shadow-[0_8px_32px_rgba(0,0,0,0.2)]"
-                  side="top"
-                  sideOffset={8}
+                <span 
+                  className={cn(
+                    "font-medium leading-tight px-2 relative z-10",
+                    isLarge ? "text-sm" : isMedium ? "text-xs" : "text-[11px]"
+                  )}
+                  style={{
+                    maxWidth: `${size - 16}px`,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}
                 >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-foreground">
-                        {item.theme}
-                      </h4>
-                      <span className="text-xs text-muted-foreground">
-                        {item.totalCount} mentions
-                      </span>
-                    </div>
-                    
-                    {/* Source breakdown */}
-                    <p className="text-xs text-muted-foreground">
-                      From: {getSourceBreakdown(item.sources)}
-                    </p>
-                    
-                    {loadingDetails && selectedBubble === item.theme ? (
-                      <div className="flex items-center justify-center py-4">
-                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      </div>
-                    ) : bubbleDetails && selectedBubble === item.theme && bubbleDetails.recentMentions.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Recent mentions
-                        </p>
-                        {bubbleDetails.recentMentions.map((mention, i) => (
-                          <div key={i} className="bg-muted/30 rounded-lg p-2.5">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">
-                                {sourceLabels[mention.source]}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {mention.date}
-                              </span>
-                            </div>
-                            <p className="text-sm text-foreground line-clamp-2">
-                              "{mention.snippet}"
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-2 text-sm text-muted-foreground/70 text-center">
-                        Tap to load recent mentions
-                      </div>
-                    )}
-                    
-                    {/* Explore with coach button - show if theme has coach mentions */}
-                    {item.sources.coach > 0 && (
-                      <button
-                        onClick={() => navigate('/coach', { 
-                          state: { 
-                            initialPrompt: `I'd like to explore the theme of "${item.theme}" that's been coming up.`,
-                            flowType: 'explore'
-                          }
-                        })}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-saffron/15 text-saffron hover:bg-saffron/25 transition-colors text-sm font-medium"
-                      >
-                        <ChatCircle weight="duotone" className="w-4 h-4" />
-                        Explore with Coach
-                      </button>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  {item.theme}
+                </span>
+                <span 
+                  className={cn(
+                    "opacity-50 mt-0.5 relative z-10",
+                    isLarge ? "text-xs" : "text-[10px]"
+                  )}
+                >
+                  {item.totalCount}×
+                </span>
+              </div>
             );
           })}
         </div>
       </div>
+
+      {/* Centered Modal via Portal */}
+      {selectedItem && createPortal(
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={closeModal}
+        >
+          {/* Blur backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          
+          {/* Modal content */}
+          <div 
+            className="relative bg-card border border-border rounded-xl p-6 max-w-sm w-full shadow-lg max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close X button */}
+            <button 
+              onClick={closeModal}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+            
+            {/* Content */}
+            <div className="space-y-4">
+              {/* Theme header */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/15">
+                  <span className="text-sm font-semibold text-primary">
+                    {selectedItem.theme.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground text-lg">
+                    {selectedItem.theme}
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedItem.totalCount} mentions
+                  </span>
+                </div>
+              </div>
+              
+              {/* Source breakdown */}
+              <p className="text-xs text-muted-foreground">
+                From: {getSourceBreakdown(selectedItem.sources)}
+              </p>
+              
+              {/* Insight with border accent */}
+              <div className="border-l-2 border-primary/30 pl-3">
+                <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  Insight
+                </h5>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {getThemeInsight(selectedItem.theme)}
+                </p>
+              </div>
+              
+              {/* Recent mentions */}
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : bubbleDetails && getMeaningfulMentions(bubbleDetails.recentMentions).length > 0 ? (
+                <div className="space-y-2">
+                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Recent mentions
+                  </h5>
+                  {getMeaningfulMentions(bubbleDetails.recentMentions).slice(0, 2).map((mention, i) => (
+                    <div key={i} className="bg-muted/50 rounded-xl p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">
+                          {sourceLabels[mention.source]}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {mention.date}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground line-clamp-2">
+                        "{mention.snippet}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              
+              {/* Explore with coach button */}
+              <button
+                onClick={() => {
+                  closeModal();
+                  navigate('/coach', { 
+                    state: { 
+                      initialPrompt: `I'd like to explore the theme of "${selectedItem.theme}" that's been coming up in my reflections.`,
+                      flowType: 'explore'
+                    }
+                  });
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-saffron/15 text-saffron hover:bg-saffron/25 transition-colors text-sm font-medium"
+              >
+                <ChatCircle weight="duotone" className="w-4 h-4" />
+                Explore with Coach
+              </button>
+            </div>
+            
+            {/* Got it button */}
+            <button
+              onClick={closeModal}
+              className="mt-4 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
       
       {/* Relationship indicator - subtle, no legend */}
       {relationships.length > 0 && (
