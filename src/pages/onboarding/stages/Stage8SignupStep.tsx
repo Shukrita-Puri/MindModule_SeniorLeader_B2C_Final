@@ -3,12 +3,13 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ExternalLink, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isInIframe, openAuthInNewTab } from '@/utils/authRedirect';
+import { isInIframe, openAuthInNewTab, listenForAuthSuccess } from '@/utils/authRedirect';
 
 const Stage8SignupStep = () => {
   const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
   const navigate = useNavigate();
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [waitingForAuth, setWaitingForAuth] = useState(false);
   const inIframe = isInIframe();
 
   // If authenticated, continue to results
@@ -18,8 +19,22 @@ const Stage8SignupStep = () => {
     }
   }, [isLoading, isAuthenticated, navigate]);
 
+  // Listen for auth success from other tabs (when in iframe)
+  useEffect(() => {
+    if (!inIframe) return;
+    
+    const cleanup = listenForAuthSuccess((destination) => {
+      console.log('[Stage8] Received auth success, navigating to:', destination);
+      // Force reload to get fresh auth state
+      window.location.href = destination;
+    });
+    
+    return cleanup;
+  }, [inIframe]);
+
   // Handler for iframe - opens new tab
   const handleOpenInNewTab = () => {
+    setWaitingForAuth(true);
     openAuthInNewTab('/onboarding/signup-step');
   };
 
@@ -29,7 +44,7 @@ const Stage8SignupStep = () => {
     try {
       await loginWithPopup({
         authorizationParams: {
-          redirect_uri: `${window.location.origin}/callback`,
+          redirect_uri: `${window.location.origin}/callback?from=onboarding`,
           screen_hint: 'signup',
           scope: 'openid profile email',
         },
@@ -62,14 +77,34 @@ const Stage8SignupStep = () => {
             Create Your Account
           </h1>
           <p className="text-sm text-muted-foreground">
-            Secure signup opens in a new window
+            {waitingForAuth 
+              ? 'Complete signup in the new tab...'
+              : 'Secure signup opens in a new window'
+            }
           </p>
-          <Button onClick={handleOpenInNewTab} variant="critical" className="w-full gap-2">
-            Continue to Signup
-            <ExternalLink className="w-4 h-4" />
+          <Button 
+            onClick={handleOpenInNewTab} 
+            variant="critical" 
+            className="w-full gap-2"
+            disabled={waitingForAuth}
+          >
+            {waitingForAuth ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Waiting for signup...
+              </>
+            ) : (
+              <>
+                Continue to Signup
+                <ExternalLink className="w-4 h-4" />
+              </>
+            )}
           </Button>
           <p className="text-xs text-muted-foreground/60">
-            You'll complete your profile in the new tab
+            {waitingForAuth 
+              ? 'This page will update automatically'
+              : "You'll complete your profile in the new tab"
+            }
           </p>
         </div>
       </div>

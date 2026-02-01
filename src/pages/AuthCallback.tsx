@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { broadcastAuthSuccess, closeAuthWindow, isInIframe } from '@/utils/authRedirect';
 
 const AuthCallback = () => {
   const { isLoading, error, isAuthenticated } = useAuth0();
@@ -12,7 +13,8 @@ const AuthCallback = () => {
       isLoading, 
       error: error?.message, 
       isAuthenticated,
-      search: window.location.search
+      search: window.location.search,
+      isInIframe: isInIframe()
     });
 
     if (isLoading) return;
@@ -24,20 +26,25 @@ const AuthCallback = () => {
     }
 
     if (isAuthenticated) {
-      // The onRedirectCallback in Auth0Provider handles navigation via appState
-      // This is a fallback in case that doesn't trigger
       const urlParams = new URLSearchParams(window.location.search);
       const fromOnboarding = urlParams.get('from') === 'onboarding';
+      const destination = fromOnboarding ? '/onboarding/results' : '/executive-home';
       
-      console.log('[AuthCallback] Authenticated, checking for destination');
+      console.log('[AuthCallback] Authenticated, destination:', destination);
       
-      if (fromOnboarding) {
-        console.log('[AuthCallback] Navigating to: /onboarding/results');
-        navigate('/onboarding/results');
+      // If this window was opened from an iframe (new tab scenario),
+      // broadcast success to the original tab and close this one
+      if (!isInIframe() && window.opener) {
+        console.log('[AuthCallback] Opened as new tab - broadcasting success and closing');
+        broadcastAuthSuccess(destination);
+        closeAuthWindow();
+        // Fallback: if close doesn't work, still navigate
+        setTimeout(() => {
+          navigate(destination);
+        }, 1000);
       } else {
-        // Default fallback - onRedirectCallback should handle most cases
-        console.log('[AuthCallback] Navigating to: /executive-home');
-        navigate('/executive-home');
+        // Normal navigation (either in iframe or direct access)
+        navigate(destination);
       }
     }
   }, [isLoading, error, isAuthenticated, navigate]);

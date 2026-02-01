@@ -1,47 +1,17 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Calendar, Watch } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Watch } from "lucide-react";
 import { getSession } from "@/utils/onboardingStorage";
+import { useAuth } from "@/hooks/useAuth";
+import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
-  const [calendarPreference, setCalendarPreference] = useState(false);
-  const [watchPreference, setWatchPreference] = useState(false);
-
-  // Load saved preferences on mount
-  useEffect(() => {
-    const savedCalendar = localStorage.getItem('onboarding_calendar_preference');
-    const savedWatch = localStorage.getItem('onboarding_watch_preference');
-    
-    if (savedCalendar) setCalendarPreference(JSON.parse(savedCalendar));
-    if (savedWatch) setWatchPreference(JSON.parse(savedWatch));
-  }, []);
-
-  const handleToggleCalendar = (checked: boolean) => {
-    setCalendarPreference(checked);
-    localStorage.setItem('onboarding_calendar_preference', JSON.stringify(checked));
-  };
-
-  const handleToggleWatch = (checked: boolean) => {
-    setWatchPreference(checked);
-    localStorage.setItem('onboarding_watch_preference', JSON.stringify(checked));
-  };
+  const { isAuthenticated } = useAuth();
 
   const handleComplete = () => {
     const contextData = {
-      calendar: {
-        enabled: calendarPreference,
-        provider: calendarPreference ? 'google' : null,
-        setupCompletedAt: null, // Will be set after actual OAuth connection
-        skipped: !calendarPreference
-      },
-      watch: {
-        enabled: watchPreference,
-        provider: watchPreference ? 'apple' : null,
-        skipped: !watchPreference
-      },
       onboardingCompletedAt: new Date().toISOString(),
       plan: 'super-pro'
     };
@@ -73,31 +43,36 @@ export default function Stage7ContextConnection() {
           </p>
         </div>
 
-        {/* Integration Toggles - clean rows */}
+        {/* Integration Options */}
         <div className="space-y-3">
           
-          {/* Google Calendar */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">Google Calendar</span>
+          {/* Google Calendar - Real OAuth */}
+          {isAuthenticated ? (
+            <CalendarConnectionSettings compact />
+          ) : (
+            <div className="flex items-center justify-between p-4 rounded-xl bg-card border opacity-60">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  Sign in to connect calendar
+                </span>
+              </div>
             </div>
-            <Switch 
-              checked={calendarPreference} 
-              onCheckedChange={handleToggleCalendar}
-            />
-          </div>
+          )}
           
-          {/* Apple Watch */}
+          {/* Apple Watch - Coming Soon */}
           <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
             <div className="flex items-center gap-3">
               <Watch className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">Apple Watch</span>
+              <div className="flex flex-col">
+                <span className="font-medium">Apple Watch</span>
+                <span className="text-xs text-muted-foreground">
+                  Available in mobile app
+                </span>
+              </div>
             </div>
-            <Switch 
-              checked={watchPreference} 
-              onCheckedChange={handleToggleWatch}
-            />
+            <Badge variant="outline" className="text-xs">
+              Coming Soon
+            </Badge>
           </div>
           
         </div>
@@ -106,13 +81,6 @@ export default function Stage7ContextConnection() {
         <p className="text-center text-xs text-muted-foreground/70">
           More calendars, wearables & email integrations coming soon
         </p>
-
-        {/* Info about when connections happen */}
-        {(calendarPreference || watchPreference) && (
-          <p className="text-center text-xs text-muted-foreground">
-            You'll be prompted to connect after signing in
-          </p>
-        )}
 
         {/* CTAs */}
         <div className="space-y-3">
