@@ -1,327 +1,292 @@
 
-# Coach Visual + Mind Map Relationships + Tiny Wins Bubbles Enhancement
+# Fix Tiny Wins Colors, Add Mind Map Insights, and Create Centered Modal System
 
 ## Overview
 
 This plan addresses:
-1. **New Coach Visual Image** - Use a different image (light shirt with blue misty background) for the Self Mastery Coach
-2. **Connected Mind Map Relationships Not Showing** - Fix the relationship line rendering in InnerWorldBubbles.tsx
-3. **Tiny Wins Bubbles Enhancements** - Single-word labels, visible text, color legend explanation, and Mindsera-style insight panel
-4. **Color Legend for Bubbles** - Explain what each color means
+1. **Fix Growth vs Emotion Color Conflict** - Growth is using saffron but showing same orange as Emotion in the legend
+2. **Add Centered Modal with Blur Backdrop** - Replace Popovers with full-screen centered modals (like MetricInfoModal)
+3. **Add Mind Map Insights** - Same insight panel system for Mind Map bubbles
+4. **Deeper Inner Mastery Insights** - Tie summaries to Self-Regulation, Resilience, Emotional Intelligence
+5. **Filter Out Generic Win Examples** - Exclude meaningless examples like "Here's one thing I did right today"
 
 ---
 
-## Part 1: New Coach Visual Image
+## Part 1: Fix Color Legend (Growth vs Emotion)
 
-### Requirement
-User wants "Image 1 (the light shirt with blue misty background)" for the Self Mastery Coach instead of the current `coach-visual.jpeg`.
-
-### Implementation
-The user will need to upload the new image. Once uploaded, it will be copied to `src/assets/` and the import in `CoachSplitView.tsx` and `DailyRitual.tsx` will be updated.
-
-### Files to Modify
-- `src/assets/` - Add new coach image (e.g., `coach-visual-calm.jpeg`)
-- `src/components/coach/CoachSplitView.tsx` - Update import
-- `src/components/home/DailyRitual.tsx` - Update import
-
----
-
-## Part 2: Connected Mind Map Relationships Not Showing
-
-### Root Cause Analysis
-
-The relationship lines aren't showing because of multiple issues:
-
-1. **SVG Container Height Issue**: The SVG uses `height: 100%` but since it's absolutely positioned inside a flex container, it may have height 0 if not properly sized.
-
-2. **Relationship Generation Too Strict**: The condition `overlap >= 2` requires themes to appear in at least 2 common sources (e.g., both coach AND wins). With limited data, this is rarely met.
-
-3. **Position Updates Timing**: The `bubblePositions` Map may not be populated when relationships are being drawn due to animation delays.
+### Current Issue
+In the legend (line 307-310), Growth uses `bg-saffron/50` which appears orange on screen, same as Emotion's `bg-orange-400/50`.
 
 ### Solution
+Change Growth to use amber/gold (`bg-amber-500/50`) or keep saffron but update Emotion to use a different warm tone like `bg-rose-400/50` or `bg-pink-400/50`.
 
-**Fix 1: Improve SVG Container Sizing**
+**Recommended Fix**: Keep Growth as saffron (gold) and change Emotion to use a warmer coral/rose:
 
 ```tsx
-// In InnerWorldBubbles.tsx, change the SVG container:
-<svg 
-  className="absolute inset-0 pointer-events-none z-0 overflow-visible"
-  style={{ 
-    width: '100%', 
-    height: '100%',
-    minHeight: '200px' // Ensure minimum height
-  }}
-  preserveAspectRatio="none"
->
+// In DIMENSION_STYLES
+'emotion': { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/25' },
+
+// In legend
+<span className="w-2.5 h-2.5 rounded-full bg-rose-400/50"></span>
+<span>Emotion</span>
 ```
 
-**Fix 2: Relax Relationship Generation Criteria**
+### Files to Modify
+- `src/components/insights/PsychologicalDimensionBubbles.tsx`
+
+---
+
+## Part 2: Centered Modal with Blur Backdrop
+
+### Current Issue
+Popovers appear attached to bubbles. User wants full-screen centered modal with blur backdrop and "Got it" or X close button (like MetricInfoModal in screenshot 4).
+
+### Solution
+Replace Popover with a React Portal-based modal system:
 
 ```tsx
-// In Insights.tsx, change overlap threshold from 2 to 1
-if (overlap >= 1 || isSemanticallyRelated) {
-  themeRelationships.push({
-    from: theme1.theme,
-    to: theme2.theme,
-    strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 3, 1)
-  });
-}
+// Create InsightModal component pattern
+{isOpen && createPortal(
+  <div 
+    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    onClick={onClose}
+  >
+    {/* Blur backdrop */}
+    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+    
+    {/* Modal content */}
+    <div 
+      className="relative bg-card border border-border rounded-xl p-6 max-w-sm w-full shadow-lg"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Close X button */}
+      <button 
+        onClick={onClose}
+        className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+      >
+        <X size={18} />
+      </button>
+      
+      {/* Content */}
+      {children}
+      
+      {/* Got it button */}
+      <button
+        onClick={onClose}
+        className="mt-4 text-xs text-primary hover:text-primary/80 transition-colors"
+      >
+        Got it
+      </button>
+    </div>
+  </div>,
+  document.body
+)}
 ```
 
-**Fix 3: Add More Semantic Pairs**
+### Files to Modify
+- `src/components/insights/PsychologicalDimensionBubbles.tsx` - Replace Popover with modal
+- `src/components/insights/InnerWorldBubbles.tsx` - Add same modal system
+
+---
+
+## Part 3: Deeper Inner Mastery Insights
+
+### Current Issue
+Insights are generic (e.g., "Your wins reflect awareness of how agency plays out in your experiences"). They need to connect to the three Inner Mastery areas:
+- **Self-Regulation**: Focus, emotional awareness, discipline, nervous system capacity
+- **Resilience**: Recovery, adaptability, persistence, bouncing back
+- **Emotional Intelligence**: Self-awareness, empathy, relationship management, social awareness
+
+### Solution
+Rewrite DIMENSION_INSIGHTS to provide deeper, Inner Mastery-connected summaries:
 
 ```tsx
-const semanticPairs = [
-  ['focus', 'clarity'], ['stress', 'overwhelm'], ['balance', 'steady'],
-  ['energy', 'activation'], ['calm', 'grounding'], ['growth', 'progress'],
-  ['self-awareness', 'presence'], ['emotional regulation', 'calm'],
-  ['confidence', 'achievement'], ['resilience', 'growth'],
-  ['relationships', 'communication'], ['focus', 'presence'],
-  ['energy', 'focus'], ['stress management', 'emotional regulation']
+const DIMENSION_INSIGHTS: Record<string, (value: string, count: number) => string> = {
+  sentiment: (value, count) => {
+    if (value.toLowerCase() === 'positive') {
+      return `Consistently capturing positive moments strengthens your Self-Regulation. This practice builds neural pathways for noticing success, which research shows increases resilience under pressure.`;
+    }
+    if (value.toLowerCase() === 'negative') {
+      return `Acknowledging difficult experiences is a core Emotional Intelligence skill. By naming challenges honestly, you're developing the self-awareness that precedes emotional regulation.`;
+    }
+    if (value.toLowerCase() === 'mixed') {
+      return `Holding both challenge and growth simultaneously reflects mature Self-Regulation. This nuanced awareness prevents reactive thinking and supports clearer decision-making.`;
+    }
+    return `Balanced reflection supports Self-Regulation by maintaining accurate self-perception under varying conditions.`;
+  },
+  
+  emotion: (value, count) => {
+    const emotionMap: Record<string, string> = {
+      pride: `Pride anchors accomplishment in your nervous system. This emotional marker strengthens your internal sense of competence—a key driver of Resilience when facing future challenges.`,
+      gratitude: `Gratitude shifts your nervous system toward parasympathetic activation. Regular gratitude practice has been shown to increase Resilience and reduce stress reactivity by up to 25%.`,
+      relief: `Noticing relief indicates you're tracking pressure cycles. This Self-Regulation skill helps you recognize recovery moments and prevent chronic stress accumulation.`,
+      joy: `Joy captures flow states and peak experiences. Tracking these moments reveals your optimal conditions—key Emotional Intelligence for designing environments that support high performance.`,
+      frustration: `Naming frustration without being consumed by it is advanced Emotional Intelligence. This awareness is the first step toward transforming friction into fuel.`,
+      anxiety: `Acknowledging anxiety patterns builds Self-Regulation capacity. Recognition creates a pause between stimulus and response—the foundation of emotional mastery.`,
+      calm: `Calm appearances reflect nervous system regulation. Your practices are building vagal tone, which research links to faster recovery from stress and improved decision quality.`,
+    };
+    return emotionMap[value.toLowerCase()] || 
+      `This emotional pattern appears ${count} times, suggesting it's a significant part of your inner landscape. Tracking it builds Emotional Intelligence through self-awareness.`;
+  },
+  
+  agency: (value, count) => {
+    if (value.toLowerCase().includes('proactive') || value.toLowerCase().includes('responsive')) {
+      return `Taking initiative before external pressure reflects strong Self-Regulation. This proactive stance is a hallmark of high-performing leaders who shape conditions rather than react to them.`;
+    }
+    if (value.toLowerCase().includes('internal') || value.toLowerCase().includes('self')) {
+      return `Recognizing your role in outcomes reflects an internal locus of control—a core Resilience factor. Leaders with this orientation recover 40% faster from setbacks.`;
+    }
+    return `Your sense of agency—feeling in control of outcomes—is a cornerstone of Resilience. This pattern suggests you're building the psychological capital that sustains performance under pressure.`;
+  },
+  
+  regulation: (value, count) => {
+    if (value.toLowerCase() === 'regulated') {
+      return `Regulated states indicate your nervous system capacity is growing. Each time you notice regulation, you're reinforcing the neural circuitry for calm under pressure—essential for executive decision-making.`;
+    }
+    if (value.toLowerCase() === 'reactive') {
+      return `Noticing reactivity is itself a form of Self-Regulation. This meta-awareness creates space between trigger and response, where better choices become possible.`;
+    }
+    return `Tracking your regulation patterns builds metacognitive awareness—the ability to observe your own emotional state. This is foundational Emotional Intelligence for senior leaders.`;
+  },
+  
+  growth: (value, count) => {
+    const growthMap: Record<string, string> = {
+      mastery: `Mastery orientation reflects your commitment to continuous improvement. This growth mindset is directly correlated with Resilience—you view challenges as development opportunities rather than threats.`,
+      resilience: `You're explicitly building Resilience—the capacity to recover from setback. This meta-skill compounds over time, making you more adaptable and less affected by external volatility.`,
+      presence: `Presence is the foundation of Emotional Intelligence. Your awareness of the present moment creates space for responsive (vs. reactive) leadership and deeper connection with others.`,
+      progress: `Tracking progress builds Self-Regulation by reinforcing momentum. Each noted advancement strengthens your belief in your ability to grow—a key predictor of sustained performance.`,
+      learning: `A learning orientation is the engine of growth. By framing experiences as lessons, you're building Resilience and ensuring that even setbacks contribute to your development.`,
+    };
+    return growthMap[value.toLowerCase()] || 
+      `This growth signal indicates forward momentum in your inner development. Consistent growth tracking strengthens your identity as someone who continuously evolves.`;
+  }
+};
+```
+
+### Files to Modify
+- `src/components/insights/PsychologicalDimensionBubbles.tsx` - Update DIMENSION_INSIGHTS
+
+---
+
+## Part 4: Add Mind Map Insights
+
+### Current Issue
+Mind Map (InnerWorldBubbles) only shows source breakdown and recent mentions. It needs the same depth of insight as Tiny Wins.
+
+### Solution
+Add insight generation for Mind Map themes based on the theme content:
+
+```tsx
+// Theme insights for Mind Map
+const THEME_INSIGHTS: Record<string, string> = {
+  'focus': `Focus patterns reveal your Self-Regulation capacity. When focus appears frequently, it signals your attention management systems are strengthening.`,
+  'presence': `Presence is foundational to Emotional Intelligence. Your repeated focus on being present suggests you're building the awareness that enables responsive leadership.`,
+  'communication': `Communication themes reflect Emotional Intelligence development. Effective communication requires reading others' states—a skill you're evidently practicing.`,
+  'self-awareness': `Self-awareness is the cornerstone of all three Inner Mastery domains. Your attention to this theme suggests strong metacognitive development.`,
+  'energy': `Energy management is core Self-Regulation. Tracking energy patterns helps you optimize performance across different demands and time of day.`,
+  'growth': `Growth orientation builds Resilience. Each time you notice growth, you reinforce the neural pathways that frame challenges as opportunities.`,
+  'balance': `Balance themes indicate sophisticated Self-Regulation. You're attending to the interplay between output and recovery—essential for sustained high performance.`,
+  'achievement': `Achievement patterns anchor success in your identity. This supports Resilience by building a track record your mind can reference during challenging times.`,
+  // Default for unknown themes
+  'default': (theme: string) => `"${theme}" emerges as a recurring pattern in your inner world. Awareness of this theme builds Emotional Intelligence through deepening self-knowledge.`
+};
+
+const getThemeInsight = (theme: string): string => {
+  const normalizedTheme = theme.toLowerCase();
+  return THEME_INSIGHTS[normalizedTheme] || 
+    THEME_INSIGHTS['default'](theme);
+};
+```
+
+### Files to Modify
+- `src/components/insights/InnerWorldBubbles.tsx` - Add THEME_INSIGHTS and modal with insight
+
+---
+
+## Part 5: Filter Generic Win Examples
+
+### Current Issue
+Related wins include meaningless examples like "Here's one thing I did right today" which provide no insight.
+
+### Solution
+Filter out generic/template-like content from `relatedWins` before display:
+
+```tsx
+// Generic patterns to filter out
+const GENERIC_PATTERNS = [
+  /here'?s one thing/i,
+  /today i/i,
+  /^i did$/i,
+  /something good/i,
+  /^win$/i,
+  /^good day$/i,
+  /^ok$/i,
+  /^fine$/i,
 ];
-```
 
-**Fix 4: Update Positions After Animation Delay**
+const isGenericWin = (content: string): boolean => {
+  if (content.length < 20) return true; // Too short to be meaningful
+  return GENERIC_PATTERNS.some(pattern => pattern.test(content.trim()));
+};
 
-```tsx
-// In InnerWorldBubbles.tsx, add delayed position update
-useEffect(() => {
-  // Initial update
-  updatePositions();
-  
-  // Delayed update after bubble animations complete (400ms per bubble + margin)
-  const animationDelay = (sortedItems.length * 60) + 500;
-  const timeoutId = setTimeout(updatePositions, animationDelay);
-  
-  return () => clearTimeout(timeoutId);
-}, [sortedItems, updatePositions]);
-```
-
-**Fix 5: Use Container-Relative Coordinates**
-
-The current implementation uses `getBoundingClientRect()` which gives viewport-relative coordinates. We need to ensure these are properly converted to container-relative:
-
-```tsx
-// Ensure the container has position relative and explicit height
-<div ref={containerRef} className="relative min-h-[200px]">
+// Filter before display
+const meaningfulWins = relatedWins?.filter(win => !isGenericWin(win.content)) || [];
 ```
 
 ### Files to Modify
-- `src/pages/Insights.tsx` - Relax relationship criteria, add more semantic pairs
-- `src/components/insights/InnerWorldBubbles.tsx` - Fix SVG sizing, add delayed position update
+- `src/components/insights/PsychologicalDimensionBubbles.tsx` - Add filtering logic
+- `src/components/insights/InnerWorldBubbles.tsx` - Add filtering logic
 
 ---
 
-## Part 3: Tiny Wins Bubbles Enhancement
-
-### 3.1 Single-Word Labels with Visible Text
-
-Current bubbles may show multi-word values. Update to extract single-word labels:
-
-```tsx
-// In PsychologicalDimensionBubbles.tsx
-// Ensure text is truncated to one word for display
-const displayLabel = item.value.split(' ')[0]; // First word only
-
-<span className={cn(
-  "font-semibold leading-tight relative z-10 capitalize",
-  isLarge ? "text-xs" : "text-[10px]"
-)}>
-  {displayLabel}
-</span>
-```
-
-### 3.2 Mindsera-Style Insight Panel
-
-The current implementation already has Popovers with DIMENSION_INSIGHTS. Enhance to match Mindsera style:
-
-```tsx
-<PopoverContent 
-  className="w-80 p-5 bg-white dark:bg-card border-0 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] rounded-2xl"
-  side="bottom"
-  sideOffset={12}
->
-  <div className="space-y-4">
-    {/* Bubble header with color indicator */}
-    <div className="flex items-center gap-3">
-      <div className={cn(
-        "w-10 h-10 rounded-full flex items-center justify-center",
-        style.bg
-      )}>
-        <span className={cn("text-sm font-semibold capitalize", style.text)}>
-          {item.value.charAt(0).toUpperCase()}
-        </span>
-      </div>
-      <div>
-        <h4 className="font-semibold text-foreground capitalize text-lg">
-          {item.value}
-        </h4>
-        <span className={cn(
-          "text-xs px-2 py-0.5 rounded-full",
-          style.bg, style.text
-        )}>
-          {getDimensionLabel(item.dimension)}
-        </span>
-      </div>
-    </div>
-    
-    {/* Summary insight */}
-    <div className="border-l-2 border-primary/30 pl-3">
-      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-        Summary
-      </h5>
-      <p className="text-sm text-foreground leading-relaxed">
-        {insightText}
-      </p>
-    </div>
-    
-    {/* Related wins */}
-    {relatedWins && relatedWins.length > 0 && (
-      <div className="space-y-2">
-        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          From your wins
-        </h5>
-        {relatedWins.slice(0, 2).map((win, i) => (
-          <div key={i} className="bg-muted/50 rounded-xl p-3 text-sm text-foreground">
-            "{win.content}"
-          </div>
-        ))}
-      </div>
-    )}
-    
-    {/* Explore button */}
-    <button className="...">
-      <ChatCircle /> Explore with Coach
-    </button>
-  </div>
-</PopoverContent>
-```
-
-### 3.3 Color Legend Explanation
-
-Add a legend below the bubbles explaining what each color means:
-
-```tsx
-{/* Color Legend */}
-<div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground mt-4">
-  <div className="flex items-center gap-1">
-    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/50"></span>
-    <span>Sentiment</span>
-  </div>
-  <div className="flex items-center gap-1">
-    <span className="w-2.5 h-2.5 rounded-full bg-orange-400/50"></span>
-    <span>Emotion</span>
-  </div>
-  <div className="flex items-center gap-1">
-    <span className="w-2.5 h-2.5 rounded-full bg-sky-500/50"></span>
-    <span>Agency</span>
-  </div>
-  <div className="flex items-center gap-1">
-    <span className="w-2.5 h-2.5 rounded-full bg-violet-500/50"></span>
-    <span>Regulation</span>
-  </div>
-  <div className="flex items-center gap-1">
-    <span className="w-2.5 h-2.5 rounded-full bg-saffron/50"></span>
-    <span>Growth</span>
-  </div>
-</div>
-```
-
-### Files to Modify
-- `src/components/insights/PsychologicalDimensionBubbles.tsx` - Single-word labels, Mindsera-style popover, color legend
-
----
-
-## Part 4: Pass Related Wins to Dimension Bubbles
-
-Currently `PsychologicalDimensionBubbles` has a `relatedWins` prop but it's not being populated from Insights.tsx.
-
-### Solution
-Fetch and store tiny wins content, then pass to the component:
-
-```tsx
-// In Insights.tsx
-const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string }>>([]);
-
-// In fetchTinyWinsInsights, also store the raw wins content
-const winsWithContent = recentWins?.map(w => ({
-  content: w.win_content,
-  date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-})) || [];
-setTinyWinsContent(winsWithContent);
-
-// Pass to component
-<PsychologicalDimensionBubbles
-  data={...}
-  relatedWins={tinyWinsContent}
-/>
-```
-
-### Files to Modify
-- `src/pages/Insights.tsx` - Fetch and pass related wins data
-
----
-
-## Technical Implementation Summary
+## Implementation Summary
 
 | File | Changes |
 |------|---------|
-| `src/components/coach/CoachSplitView.tsx` | Update coach visual import (once new image is uploaded) |
-| `src/components/home/DailyRitual.tsx` | Update coach visual import (once new image is uploaded) |
-| `src/pages/Insights.tsx` | Relax relationship criteria (overlap >= 1), add more semantic pairs, pass related wins to bubbles |
-| `src/components/insights/InnerWorldBubbles.tsx` | Fix SVG container sizing, add delayed position update, add min-height to container |
-| `src/components/insights/PsychologicalDimensionBubbles.tsx` | Single-word labels, enhanced Mindsera-style popover, add color legend |
+| `src/components/insights/PsychologicalDimensionBubbles.tsx` | Fix Emotion color (rose), replace Popover with centered modal, deeper DIMENSION_INSIGHTS tied to Inner Mastery, filter generic wins |
+| `src/components/insights/InnerWorldBubbles.tsx` | Add modal with insight system like Tiny Wins, add THEME_INSIGHTS, filter generic mentions |
 
 ---
 
-## Expected Visual Outcome
+## Visual Outcome
 
-### Mind Map with Connections
-```text
-    [Focus]•••••••[Clarity]
-         \        /
-          \      /
-    [Self-awareness]•••[Presence]
-          |
-     [Growth]
-```
-
-### Tiny Wins Bubbles with Legend
-```text
-  (Pride)  (Calm)  (Proactive)  (Learning)
-   green   orange    blue        gold
-
-  ─────────────────────────────────────────
-  ● Sentiment  ● Emotion  ● Agency  ● Regulation  ● Growth
-```
-
-### Popover (Mindsera-style)
+### Centered Modal (Both Tiny Wins and Mind Map)
 ```text
 ┌─────────────────────────────────────┐
-│  [P]  Pride                         │
-│       Emotion                       │
+│ bg-black/50 backdrop-blur-sm        │
 │                                     │
-│  Summary                            │
-│  ──────────────────────             │
-│  Pride appears frequently in your   │
-│  wins. You're learning to own your  │
-│  accomplishments.                   │
+│  ┌─────────────────────────────┐   │
+│  │ [X]                          │   │
+│  │                              │   │
+│  │ [P]  Positive                │   │
+│  │      Sentiment               │   │
+│  │                              │   │
+│  │ INSIGHT                      │   │
+│  │ ─────────────────────────    │   │
+│  │ Consistently capturing       │   │
+│  │ positive moments strengthens │   │
+│  │ your Self-Regulation. This   │   │
+│  │ practice builds neural...    │   │
+│  │                              │   │
+│  │ FROM YOUR WINS               │   │
+│  │ ┌────────────────────────┐   │   │
+│  │ │ "Managed to get lot of  │  │   │
+│  │ │  traction from..."      │  │   │
+│  │ └────────────────────────┘   │   │
+│  │                              │   │
+│  │ [ Explore with Coach ]       │   │
+│  │                              │   │
+│  │ Got it                       │   │
+│  └─────────────────────────────┘   │
 │                                     │
-│  From your wins                     │
-│  ┌────────────────────────────┐     │
-│  │ "Managed to get traction..." │   │
-│  └────────────────────────────┘     │
-│                                     │
-│  [ 💬 Explore with Coach ]          │
 └─────────────────────────────────────┘
 ```
 
----
-
-## Note on Coach Image
-
-The user mentioned "Image 1 (light shirt with blue misty background)" but the current assets folder contains `coach-visual.jpeg`. The user will need to either:
-1. Upload the desired new image, or
-2. Confirm which existing asset to use
-
-Once the image is available, it will be integrated into the Coach and DailyRitual components.
+### Updated Color Legend
+```text
+● Sentiment (emerald)
+● Emotion (rose - coral/pink, NOT orange)
+● Agency (sky blue)
+● Regulation (violet)
+● Growth (saffron/gold)
+```
