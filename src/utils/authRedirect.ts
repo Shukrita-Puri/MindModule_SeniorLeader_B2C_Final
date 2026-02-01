@@ -1,7 +1,7 @@
 // Canonical app URL for Auth0 authentication
 // This URL must be whitelisted in Auth0 Application Settings
 // Using preview URL for beta testing without publishing
-export const CANONICAL_APP_URL = 'https://id-preview--5bd59ee0-ab8c-409f-bc56-72fe64069377.lovable.app';
+export const CANONICAL_APP_URL = 'https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app';
 
 /**
  * Detects if the device is a mobile device using userAgent

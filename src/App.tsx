@@ -45,6 +45,7 @@ const Stage5RecoveryPatterns = lazy(() => import("./pages/onboarding/stages/Stag
 const Stage6MentalClarity = lazy(() => import("./pages/onboarding/stages/Stage6MentalClarity"));
 const Stage7GrowthIntention = lazy(() => import("./pages/onboarding/stages/Stage7GrowthIntention"));
 const Stage8Results = lazy(() => import("./pages/onboarding/stages/Stage8Results"));
+const Stage8SignupStep = lazy(() => import("./pages/onboarding/stages/Stage8SignupStep"));
 const Stage6Payment = lazy(() => import("./pages/onboarding/stages/Stage6Payment"));
 const Stage7ContextConnection = lazy(() => import("./pages/onboarding/stages/Stage7ContextConnection"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -175,7 +176,7 @@ const router = createBrowserRouter([
           { path: "recovery-patterns", element: <Suspense fallback={<LoadingFallback />}><Stage5RecoveryPatterns /></Suspense> },
           { path: "mental-clarity", element: <Suspense fallback={<LoadingFallback />}><Stage6MentalClarity /></Suspense> },
           { path: "growth-intention", element: <Suspense fallback={<LoadingFallback />}><Stage7GrowthIntention /></Suspense> },
-          { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Signup /></Suspense> },
+          { path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
           { path: "results", element: <Suspense fallback={<LoadingFallback />}><Stage8Results /></Suspense> },
           { path: "payment", element: <Suspense fallback={<LoadingFallback />}><Stage6Payment /></Suspense> },
           { path: "context-connection", element: <Suspense fallback={<LoadingFallback />}><Stage7ContextConnection /></Suspense> },
