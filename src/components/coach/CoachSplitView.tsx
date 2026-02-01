@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Send, Loader2, Mic, MicOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowUp, Loader2, Mic, ChevronUp, ChevronDown } from 'lucide-react';
 import coachVisual from '@/assets/coach-visual.jpeg';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -116,47 +116,54 @@ const CoachSplitView = ({
               ))}
             </div>
 
-            {/* Input */}
-            <form onSubmit={onSubmit} className="relative">
-              <Textarea
-                ref={textareaRef}
-                placeholder="Type your response..."
-                value={inputValue}
-                onChange={(e) => onInputChange(e.target.value)}
-                onKeyDown={onKeyDown}
-                className={cn(
-                  "min-h-[52px] max-h-[120px] pr-12 resize-none",
-                  "rounded-2xl border-border/60 focus:border-saffron/50",
-                  "bg-white/80 backdrop-blur-sm"
-                )}
-                rows={1}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!inputValue.trim() || isLoading}
-                className="absolute right-2 bottom-2 h-9 w-9 rounded-full bg-saffron hover:bg-saffron/90"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
-
-            {/* Action links */}
-            {onVoiceToggle && (
-              <div className="flex items-center justify-center pt-1">
+            {/* Input with multimodal controls */}
+            <form onSubmit={onSubmit} className="relative flex items-end gap-2">
+              {/* Voice button - prominent, left side */}
+              {onVoiceToggle && (
                 <button
+                  type="button"
                   onClick={onVoiceToggle}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className={cn(
+                    "h-11 w-11 rounded-full flex items-center justify-center shrink-0",
+                    "border-2 transition-all",
+                    isVoiceMode 
+                      ? "bg-saffron border-saffron text-white" 
+                      : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
+                  )}
                 >
-                  {isVoiceMode ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  {isVoiceMode ? 'Switch to text' : 'Switch to voice'}
+                  <Mic className="h-5 w-5" />
                 </button>
+              )}
+
+              {/* Text input with embedded send button */}
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={textareaRef}
+                  placeholder="Type your response..."
+                  value={inputValue}
+                  onChange={(e) => onInputChange(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  className={cn(
+                    "min-h-[52px] max-h-[120px] pr-12 resize-none",
+                    "rounded-2xl border-border/60 focus:border-saffron/50",
+                    "bg-white/80 backdrop-blur-sm"
+                  )}
+                  rows={1}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!inputValue.trim() || isLoading}
+                  className="absolute right-2 bottom-2 h-8 w-8 rounded-full bg-saffron hover:bg-saffron/90"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-            )}
+            </form>
           </div>
         </div>
       </div>
@@ -167,7 +174,7 @@ const CoachSplitView = ({
   return (
     <div className="flex flex-col h-full">
       {/* TOP HALF - Coach Response Area - Fixed 50% height */}
-      <div className="h-1/2 relative overflow-hidden flex flex-col">
+      <div className="h-[70%] relative overflow-hidden flex flex-col">
         {/* Full-bleed cinematic portrait background */}
         <div className="absolute inset-0">
           <img 
@@ -259,8 +266,9 @@ const CoachSplitView = ({
       </div>
 
       {/* BOTTOM HALF - User Input Area - Fixed 50% height */}
+      {/* BOTTOM - User Input Area - 30% height */}
       <div className={cn(
-        "h-1/2 overflow-y-auto flex flex-col",
+        "h-[30%] overflow-y-auto flex flex-col",
         "border-t-2 border-saffron/20",
         "bg-background/95 backdrop-blur-xl"
       )}>
@@ -319,47 +327,58 @@ const CoachSplitView = ({
             </div>
           )}
 
-          {/* Input area */}
-          <form onSubmit={onSubmit} className="relative">
-            <Textarea
-              ref={textareaRef}
-              placeholder="Type your response..."
-              value={inputValue}
-              onChange={(e) => onInputChange(e.target.value)}
-              onKeyDown={onKeyDown}
-              className={cn(
-                "min-h-[52px] max-h-[120px] pr-12 resize-none",
-                "rounded-2xl border-border/60 focus:border-saffron/50",
-                "bg-white/80 backdrop-blur-sm",
-                inputError && "border-amber-400/50"
-              )}
-              rows={1}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!inputValue.trim() || isLoading}
-              className="absolute right-2 bottom-2 h-9 w-9 rounded-full bg-saffron hover:bg-saffron/90"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-
-          {/* Action links */}
-          <div className="flex items-center justify-center gap-5 pt-1">
+          {/* Input area with multimodal controls */}
+          <form onSubmit={onSubmit} className="relative flex items-end gap-2">
+            {/* Voice button - prominent, left side */}
             {onVoiceToggle && (
               <button
+                type="button"
                 onClick={onVoiceToggle}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className={cn(
+                  "h-11 w-11 rounded-full flex items-center justify-center shrink-0",
+                  "border-2 transition-all",
+                  isVoiceMode 
+                    ? "bg-saffron border-saffron text-white" 
+                    : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
+                )}
               >
-                {isVoiceMode ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                {isVoiceMode ? 'Switch to text' : 'Switch to voice'}
+                <Mic className="h-5 w-5" />
               </button>
             )}
+
+            {/* Text input with embedded send button */}
+            <div className="flex-1 relative">
+              <Textarea
+                ref={textareaRef}
+                placeholder="Type your response..."
+                value={inputValue}
+                onChange={(e) => onInputChange(e.target.value)}
+                onKeyDown={onKeyDown}
+                className={cn(
+                  "min-h-[52px] max-h-[120px] pr-12 resize-none",
+                  "rounded-2xl border-border/60 focus:border-saffron/50",
+                  "bg-white/80 backdrop-blur-sm",
+                  inputError && "border-amber-400/50"
+                )}
+                rows={1}
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!inputValue.trim() || isLoading}
+                className="absolute right-2 bottom-2 h-8 w-8 rounded-full bg-saffron hover:bg-saffron/90"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+
+          {/* End session link */}
+          <div className="flex items-center justify-center pt-1">
             <button
               onClick={onEndSession}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
