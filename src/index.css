@@ -72,7 +72,7 @@
     
     /* KAIROS Green - Primary Accent (CTAs, Active States) */
     --kairos: 145 72% 53%;             /* #1DB954 - Elite Green */
-    --kairos-foreground: 0 0% 100%;
+    --kairos-foreground: 0 0% 0%;      /* Black text for contrast */
     
     /* Vibrant Mint Green Accent (Key Elements) */
     --mint-green: 145 100% 39%;        /* ~#00C853 */
