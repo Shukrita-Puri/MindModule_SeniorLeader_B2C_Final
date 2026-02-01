@@ -19,6 +19,7 @@ import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMes
 import LuxuryProgressRing from '@/components/insights/LuxuryProgressRing';
 import LuxuryStateBar from '@/components/insights/LuxuryStateBar';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
+import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
 
 interface DayData {
   date: string;
@@ -302,7 +303,7 @@ const Insights = () => {
     if (!user?.id) return;
     setWinsLoading(true);
     try {
-      // DEV_MODE: Direct database query with dimension extraction
+      // DEV_MODE: Direct database query with client-side dimension extraction
       if (DEV_MODE) {
         const fourteenDaysAgo = new Date();
         fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -316,18 +317,32 @@ const Insights = () => {
         
         console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
         
-        // Aggregate dimensions into bubbles
+        // Aggregate dimensions into bubbles - use DB values if present, else extract from text
         const dimensionCounts: Record<string, Record<string, number>> = {
           sentiment: {}, emotion: {}, agency: {}, regulation: {}, growth: {}
         };
         
         wins?.forEach(win => {
-          if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
-          if (win.primary_emotion) dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
-          if (win.secondary_emotion) dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
-          if (win.agency_type) dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
-          if (win.regulation_level) dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
-          if (win.growth_signal) dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
+          // Check if win has database dimensions populated
+          const hasDbDimensions = win.sentiment || win.primary_emotion || win.agency_type || win.regulation_level || win.growth_signal;
+          
+          if (hasDbDimensions) {
+            // Use stored dimensions from database
+            if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
+            if (win.primary_emotion) dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
+            if (win.secondary_emotion) dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
+            if (win.agency_type) dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
+            if (win.regulation_level) dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
+            if (win.growth_signal) dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
+          } else if (win.win_content) {
+            // Extract dimensions from win text client-side
+            const extracted = extractDimensionsFromText(win.win_content);
+            extracted.forEach(({ dimension, value }) => {
+              if (dimensionCounts[dimension]) {
+                dimensionCounts[dimension][value] = (dimensionCounts[dimension][value] || 0) + 1;
+              }
+            });
+          }
         });
         
         const dimensions: { dimension: string; value: string; count: number }[] = [];
@@ -337,6 +352,8 @@ const Insights = () => {
           }
         }
         dimensions.sort((a, b) => b.count - a.count);
+        
+        console.log('[Insights] DEV_MODE extracted dimensions:', dimensions);
         
         setTinyWinsInsights({
           themes: dimensions.slice(0, 5).map(d => d.value),
@@ -422,21 +439,92 @@ const Insights = () => {
     if (!user?.id) return;
     setSemanticLoading(true);
     try {
-      // DEV_MODE: Direct database query for basic themes
+      // DEV_MODE: Extract themes from actual data
       if (DEV_MODE) {
-        // Query dialogue_sessions for coach conversation themes
-        const { data: sessions } = await supabase
-          .from('dialogue_sessions')
-          .select('id, scenario_id')
+        // Query dialogue_messages for coach conversation content
+        const { data: messages } = await supabase
+          .from('dialogue_messages')
+          .select('content, session_id')
+          .eq('sender_type', 'user')
+          .order('timestamp', { ascending: false })
+          .limit(50);
+
+        // Query tiny_wins for win content
+        const { data: recentWins } = await supabase
+          .from('tiny_wins')
+          .select('win_content')
           .eq('user_id', DEV_USER.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
-        
-        // For now, return empty semantic analysis in DEV_MODE
-        // Full semantic analysis requires AI processing
+          .limit(20);
+
+        // Query daily_checkins for state context
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const { data: checkins } = await supabase
+          .from('daily_checkins')
+          .select('outcome, state_tags')
+          .eq('user_id', DEV_USER.id)
+          .gte('checkin_date', sevenDaysAgo.toISOString().split('T')[0]);
+
+        // Theme extraction from all sources
+        const themeCounts = new Map<string, { count: number; sources: { coach: number; practice: number; wins: number; checkins: number } }>();
+
+        // Extract themes from coach messages
+        messages?.forEach(msg => {
+          const themes = extractThemesFromContent(msg.content);
+          themes.forEach(theme => {
+            const existing = themeCounts.get(theme) || { count: 0, sources: { coach: 0, practice: 0, wins: 0, checkins: 0 } };
+            existing.count++;
+            existing.sources.coach++;
+            themeCounts.set(theme, existing);
+          });
+        });
+
+        // Extract themes from wins
+        recentWins?.forEach(win => {
+          if (win.win_content) {
+            const themes = extractThemesFromContent(win.win_content);
+            themes.forEach(theme => {
+              const existing = themeCounts.get(theme) || { count: 0, sources: { coach: 0, practice: 0, wins: 0, checkins: 0 } };
+              existing.count++;
+              existing.sources.wins++;
+              themeCounts.set(theme, existing);
+            });
+          }
+        });
+
+        // Add state-based themes from check-ins
+        checkins?.forEach(checkin => {
+          if (checkin.outcome) {
+            const stateTheme = checkin.outcome === 'focused' ? 'focus' : 
+                               checkin.outcome === 'steady' ? 'balance' :
+                               checkin.outcome === 'scattered' ? 'focus' :
+                               checkin.outcome === 'drained' ? 'energy' :
+                               checkin.outcome === 'overwhelmed' ? 'stress management' : null;
+            if (stateTheme) {
+              const existing = themeCounts.get(stateTheme) || { count: 0, sources: { coach: 0, practice: 0, wins: 0, checkins: 0 } };
+              existing.count++;
+              existing.sources.checkins++;
+              themeCounts.set(stateTheme, existing);
+            }
+          }
+        });
+
+        // Convert to unifiedThemes format
+        const unifiedThemes = Array.from(themeCounts.entries())
+          .map(([theme, data]) => ({
+            theme,
+            totalCount: data.count,
+            weight: Math.min(data.count / 5, 1), // Normalize to 0-1
+            sources: data.sources
+          }))
+          .sort((a, b) => b.totalCount - a.totalCount)
+          .slice(0, 12);
+
+        console.log('[Insights] DEV_MODE extracted themes:', unifiedThemes);
+
         setSemanticAnalysis({
           themePatterns: [],
-          unifiedThemes: [],
+          unifiedThemes,
           themeRelationships: []
         });
         setSemanticLoading(false);
