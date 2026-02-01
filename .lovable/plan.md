@@ -1,394 +1,342 @@
 
 
-# Insights & Feature Pages Refinement + Executive Scenario Expansion
+# Comprehensive Fix: Performance Plan Stability + Coach UI + Insights Enhancements
 
 ## Overview
 
-This plan addresses:
-1. **More "Pre" Executive Scenarios** - Proactive self-mastery focus for senior executives
-2. **Consistent Feature Page Layout** - Match Recalibrate Studio intro text pattern across Insights, Coach, and Daily Check-in
-3. **Remove Coach Visual from Insights** - Replace with consistent header layout
-4. **Add Coach Visual to Executive Homepage** - Show when coach is in the Performance Plan
-5. **Plan Context Labels** - Show source/reasoning for recommendations
+This plan addresses multiple issues:
+1. **Performance Plan fluctuating on refresh** - Root cause analysis and fix
+2. **Coach greeting text positioning** - Move below hero text
+3. **Clickable Tiny Wins bubbles** - Already implemented, verify working
+4. **Connected Mind Map patterns** - Already implemented, verify relationships generating
+5. **Plan context labels** - Already implemented, verify display
 
 ---
 
-## Part 1: Expanded "Pre" Executive Scenarios
+## Part 1: Performance Plan Stability Fix (CRITICAL)
 
-### Current Scenarios (7 total)
-- Pre-Board Meeting
-- Pre-Investor Meeting
-- High Cognitive Load Day
-- Post-Tough Day Recovery
-- Recovery Day
-- Quarterly Review Prep
-- Difficult Conversation Prep
+### Root Cause Analysis
 
-### New "Pre" Scenarios to Add (8 additional)
+After investigating the code and database, the plan fluctuation has multiple potential causes:
 
-| Scenario | Trigger Keywords | Hours Ahead | Modules |
-|----------|-----------------|-------------|---------|
-| **Pre-Strategic Planning** | "strategy", "strategic planning", "offsite" | 24h | Align + Prepare |
-| **Pre-Negotiations** | "negotiation", "contract", "deal" | 12h | Regulate + Prepare |
-| **Pre-All Hands** | "all hands", "town hall", "company meeting" | 4h | Regulate + Align |
-| **Pre-Media/PR** | "interview", "podcast", "media", "press" | 6h | Regulate + Align + Prepare |
-| **Pre-Crisis Response** | "crisis", "urgent", "emergency" | 2h | Regulate (priority 10) |
-| **Pre-Hiring Decision** | "final round", "hiring committee", "offer" | 4h | Align + Prepare |
-| **Pre-Client Presentation** | "client", "demo", "proposal" | 8h | Align + Prepare |
-| **Pre-Budget/Finance Review** | "budget", "finance review", "forecast" | 24h | Align + Prepare |
+1. **Timestamp Comparison Issue**: In `DailyRitual.tsx` line 268:
+   ```tsx
+   const ritualTime = new Date(todayRitual.created_at || todayRitual.ritual_date);
+   ```
+   The `created_at` from Supabase is `"2026-02-01 17:01:51.519151+00"` but this is compared against `todayCheckin.timestamp` which is `"2026-02-01 16:41:58.948303+00"`. Since the check-in (16:41) is OLDER than the ritual (17:01), the stored plan SHOULD be used - but something is still causing regeneration.
 
-### Implementation in `performancePlanEngine.ts`
+2. **Regeneration on Every Load**: Looking at the data:
+   - `recommended_practice_ids: [deep-calm-forest-bathing, ikigai-purpose, coach-integrate]`
+   - But the plan content may not be reconstructing correctly from these IDs.
 
-Add to `EXECUTIVE_SCENARIOS` array:
+3. **The upsertRitual Updating created_at**: Each call to `upsertRitual` may be resetting the plan comparison baseline.
 
-```ts
-{
-  id: 'pre-strategic-planning',
-  name: 'Pre-Strategic Planning',
-  contextLabel: 'Strategy Session Prep',
-  triggers: { 
-    calendarKeywords: ['strategy', 'strategic planning', 'offsite', 'vision'], 
-    hoursAhead: 24 
-  },
-  modules: [
-    { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'clarity' },
-    { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-  ]
-},
-{
-  id: 'pre-negotiations',
-  name: 'Pre-Negotiations',
-  contextLabel: 'Negotiation Prep',
-  triggers: { 
-    calendarKeywords: ['negotiation', 'contract', 'deal', 'terms'], 
-    hoursAhead: 12 
-  },
-  modules: [
-    { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
-  ]
-},
-{
-  id: 'pre-all-hands',
-  name: 'Pre-All Hands',
-  contextLabel: 'Company Meeting Prep',
-  triggers: { 
-    calendarKeywords: ['all hands', 'town hall', 'company meeting', 'team meeting'], 
-    hoursAhead: 4 
-  },
-  modules: [
-    { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-  ]
-},
-{
-  id: 'pre-media',
-  name: 'Pre-Media/Interview',
-  contextLabel: 'Media Appearance Prep',
-  triggers: { 
-    calendarKeywords: ['interview', 'podcast', 'media', 'press', 'journalist'], 
-    hoursAhead: 6 
-  },
-  modules: [
-    { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-  ]
-},
-{
-  id: 'pre-crisis-response',
-  name: 'Pre-Crisis Response',
-  contextLabel: 'Crisis Preparation',
-  triggers: { 
-    calendarKeywords: ['crisis', 'urgent', 'emergency', 'incident'], 
-    hoursAhead: 2 
-  },
-  modules: [
-    { type: 'regulate', required: true, priority: 10, intensity: 'gentle', duration: 'micro', focus: 'composure' }
-  ]
-},
-{
-  id: 'pre-hiring-decision',
-  name: 'Pre-Hiring Decision',
-  contextLabel: 'Hiring Review Prep',
-  triggers: { 
-    calendarKeywords: ['final round', 'hiring committee', 'offer discussion', 'candidate review'], 
-    hoursAhead: 4 
-  },
-  modules: [
-    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
-    { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
-  ]
-},
-{
-  id: 'pre-client-presentation',
-  name: 'Pre-Client Presentation',
-  contextLabel: 'Client Meeting Prep',
-  triggers: { 
-    calendarKeywords: ['client', 'demo', 'proposal', 'customer'], 
-    hoursAhead: 8 
-  },
-  modules: [
-    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-  ]
-},
-{
-  id: 'pre-budget-review',
-  name: 'Pre-Budget/Finance Review',
-  contextLabel: 'Finance Review Prep',
-  triggers: { 
-    calendarKeywords: ['budget', 'finance review', 'forecast', 'financial planning'], 
-    hoursAhead: 24 
-  },
-  modules: [
-    { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
-    { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
-  ]
-}
-```
+### Solution
 
----
+**Fix 1: Use `updated_at` for comparison instead of `created_at`**
 
-## Part 2: Consistent Feature Page Layout
-
-### Reference: Recalibrate Studio Layout
-
-```text
-+--------------------------------------------------+
-| [Navigation]                                      |
-+--------------------------------------------------+
-|                                                  |
-|           Recalibrate Studio                     |  <- text-5xl font-headline
-|                                                  |
-|    Reset. Restore. Refocus. — Master Your        |  <- text-lg font-subheadline italic
-|              Mental Edge                         |
-|                                                  |
-|   Curated Sonic Library, Guided Sessions and     |  <- text-sm text-muted-foreground
-|   Micro Exercises, crafted from centuries...     |
-|                                                  |
-+--------------------------------------------------+
-```
-
-### Pages to Update with This Pattern
-
-#### 1. Insights Page (`src/pages/Insights.tsx`)
-
-**Remove:** Coach visual header (lines 658-672)
-
-**Add:** Typography-based hero matching Recalibrate Studio:
+The `updated_at` field tracks when the ritual was last modified (including when recommendations were stored). We should compare against this to detect if a new check-in occurred AFTER the plan was stored.
 
 ```tsx
-{/* Hero Banner - matching Recalibrate Studio */}
-<div className="relative h-auto py-8 overflow-hidden">
-  <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
-    <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-      Your Inner World
-    </h1>
-    <p className="text-lg font-subheadline italic text-muted-foreground">
-      Patterns. Progress. Presence.
-    </p>
-    <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-      Your longitudinal view of mental fitness development — tracking states, wins, and inner patterns over time.
-    </p>
-  </div>
+// In loadRecommendations() - line 268
+const ritualTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
+```
+
+**Fix 2: Add explicit plan generation timestamp**
+
+Store when the plan was generated separately from ritual row timestamps:
+
+```tsx
+// When storing the plan (line 384-389)
+await upsertRitual({
+  ritual_date: today,
+  recommended_practice_ids: plan.map(r => r.content.id),
+  recommended_practices_count: plan.length,
+  // Add explicit plan generation timestamp
+  plan_generated_at: new Date().toISOString()
+});
+
+// When checking (line 267-268)
+const planGeneratedAt = todayRitual.plan_generated_at 
+  ? new Date(todayRitual.plan_generated_at) 
+  : new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
+```
+
+**Fix 3: Prevent unnecessary regeneration by caching in session storage**
+
+Add session-level caching to prevent regeneration within the same browser session:
+
+```tsx
+// At the start of loadRecommendations
+const sessionPlanKey = `performancePlan-${new Date().toISOString().split('T')[0]}`;
+const cachedPlan = sessionStorage.getItem(sessionPlanKey);
+
+if (cachedPlan && !forceRegenerate) {
+  const parsed = JSON.parse(cachedPlan);
+  setRecommendations(parsed.recommendations);
+  // ... restore state
+  setLoading(false);
+  return;
+}
+
+// After generating/loading plan
+sessionStorage.setItem(sessionPlanKey, JSON.stringify({
+  recommendations: plan,
+  timestamp: Date.now()
+}));
+```
+
+### Files to Modify
+- `src/components/home/DailyRitual.tsx` - Fix timestamp comparison, add session caching
+
+---
+
+## Part 2: Coach Greeting Text Positioning
+
+### Current State (from screenshot)
+```
++----------------------------------+
+| Self Mastery Coach               |
+| Inner Awareness. Presence. Growth|
+|                                  |
+|           [SM monogram]          |
+|           Hello, Dev             |
+|  I'm your self-mastery coach...  |
++----------------------------------+
+```
+
+The greeting text is already below the hero text, but the user wants to ensure the greeting paragraph ("I'm your self-mastery coach. Share what's on your mind...") appears AFTER the hero section.
+
+### Current Code (CoachSplitView.tsx lines 90-112)
+```tsx
+{/* Hero title section */}
+<div className="pt-8 pb-4 px-6 text-center">
+  <h1>Self Mastery Coach</h1>
+  <p>Inner Awareness. Presence. Growth.</p>
+</div>
+
+{/* Centered greeting */}
+<div className="flex-1 flex flex-col items-center justify-center">
+  <div>[SM monogram]</div>
+  <h2>Hello, {firstName}</h2>
+  <p>{contextualGreeting}</p>  // This is the "I'm your self-mastery coach..." text
 </div>
 ```
 
-#### 2. Self Mastery Coach Empty State (`src/components/coach/CoachSplitView.tsx`)
+### Clarification Needed
+The current structure already has the greeting below the hero. Looking at the screenshot, the layout appears correct. However, if the user wants the greeting text (`contextualGreeting`) to be positioned differently, we can:
 
-**Current:** Full-bleed cinematic background with greeting
+1. Move the greeting paragraph from the monogram section to directly under the subtitle
+2. Make the hero section include the greeting
 
-**Update:** Add hero text overlay matching the pattern (while keeping the visual background):
-
-The Coach already has a visual background which works well. We'll add the title text pattern as an overlay in the greeting area to match the style:
+### Proposed Change
+Move the introductory greeting text to be part of the hero section, so it flows as:
+- Title: "Self Mastery Coach"
+- Subtitle: "Inner Awareness. Presence. Growth."
+- Description: "I'm your self-mastery coach. Share what's on your mind..."
+- Then the monogram + "Hello, {firstName}"
 
 ```tsx
-{/* Empty state - Hero text before greeting */}
-<div className="text-center mb-6">
+{/* Hero title section - matching Recalibrate Studio pattern */}
+<div className="pt-8 pb-4 px-6 text-center">
   <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
     Self Mastery Coach
   </h1>
   <p className="text-base font-subheadline italic text-white/80 mt-1">
     Inner Awareness. Presence. Growth.
   </p>
+  <p className="text-sm text-white/70 mt-3 max-w-sm mx-auto leading-relaxed">
+    I'm your self-mastery coach. Share what's on your mind, and let's explore it together.
+  </p>
+</div>
+
+{/* Centered greeting - just name */}
+<div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+  <div className="w-16 h-16 rounded-full...">SM</div>
+  <h2 className="text-xl font-headline text-white mt-5">
+    Hello, {firstName}
+  </h2>
+  {/* Removed contextualGreeting from here */}
 </div>
 ```
 
-#### 3. Daily Check-In (`src/pages/DailyCheckIn.tsx`)
-
-**Current:** Simple "How are you feeling right now?" header
-
-**Update:** Add hero section matching pattern:
-
-```tsx
-{/* Hero Banner */}
-<div className="relative h-auto py-6 overflow-hidden mb-4">
-  <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
-    <h1 className="text-4xl font-headline text-foreground tracking-tight">
-      Daily Check-In
-    </h1>
-    <p className="text-base font-subheadline italic text-muted-foreground">
-      Awareness First. Action Follows.
-    </p>
-    <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-      A moment to check your inner state — guiding today's performance plan.
-    </p>
-  </div>
-</div>
-```
+### Files to Modify
+- `src/components/coach/CoachSplitView.tsx` - Restructure greeting placement
 
 ---
 
-## Part 3: Coach Visual on Executive Homepage
-
-### Requirement
-Show the coach visual in the Performance Plan carousel when coach (Prepare/Integrate) is one of the recommended modules.
+## Part 3: Verify Clickable Tiny Wins Bubbles
 
 ### Current State
-Coach cards in `DailyRitual.tsx` show an "SM Coach" monogram on a gradient background (lines 640-656).
+The `PsychologicalDimensionBubbles.tsx` component ALREADY has:
+- Popover wrapping each bubble
+- `DIMENSION_INSIGHTS` templates for each dimension
+- "Explore with Coach" button
+- Related wins display (when `relatedWins` prop is passed)
 
-### Update
-Replace the monogram with the actual coach visual image for stronger visual presence:
+### Issue
+The `relatedWins` prop may not be passed from `Insights.tsx`. Let me verify:
+
+Looking at Insights.tsx, the component is rendered without the `relatedWins` prop being connected to actual data.
+
+### Solution
+Enhance the Insights.tsx to pass related wins data:
 
 ```tsx
-{/* Coach Card Thumbnail - Use actual coach visual */}
-{isCoach ? (
-  <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
-    <img 
-      src={coachVisual}
-      alt=""
-      className="w-full h-full object-cover object-top brightness-75"
-    />
-    {/* Gradient overlay for depth */}
-    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
-    
-    {/* SM Monogram overlay */}
-    <div className="absolute inset-0 flex flex-col items-center justify-center">
-      <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
-      <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
-    </div>
-    
-    {/* Part of Today's Plan badge */}
-    <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
-      Today's Plan
-    </div>
-  </div>
-) : (
-  // ... existing thumbnail code
-)}
+// In Insights.tsx, when rendering PsychologicalDimensionBubbles
+<PsychologicalDimensionBubbles
+  data={tinyWinsInsights.dimensions?.map(d => ({
+    dimension: d.dimension as DimensionData['dimension'],
+    value: d.value,
+    count: d.count
+  })) || []}
+  relatedWins={/* Need to fetch and pass related wins here */}
+/>
 ```
 
-**Import Required:**
-```tsx
-import coachVisual from '@/assets/coach-visual.jpeg';
-```
+### Files to Modify
+- `src/pages/Insights.tsx` - Pass related wins data to dimension bubbles
 
 ---
 
-## Part 4: Plan Context Labels
+## Part 4: Verify Connected Mind Map Relationships
 
 ### Current State
-`DailyRitual.tsx` has `planContext` state but doesn't display it prominently.
-
-### Update
-Add context badge/label above the Performance Plan carousel:
+The `fetchSemanticAnalysis` function in `Insights.tsx` (lines 525-560) ALREADY generates theme relationships:
 
 ```tsx
-{/* Plan Context Label */}
-{planContext.source !== 'checkin' && (
-  <div className="px-4 max-w-lg mx-auto mb-2">
-    <div className="flex items-center gap-2">
-      {planContext.source === 'executive-scenario' && (
-        <>
-          <span className="px-2 py-0.5 bg-saffron/15 text-saffron rounded-full text-[10px] font-medium uppercase tracking-wider">
-            {planContext.scenarioName || 'Scenario'}
-          </span>
-          {planContext.description && (
-            <span className="text-xs text-muted-foreground">{planContext.description}</span>
-          )}
-        </>
-      )}
-      {planContext.source === 'jit-calendar' && (
-        <>
-          <span className="px-2 py-0.5 bg-amber-500/15 text-amber-600 rounded-full text-[10px] font-medium uppercase tracking-wider">
-            JIT
-          </span>
-          {planContext.description && (
-            <span className="text-xs text-muted-foreground">{planContext.description}</span>
-          )}
-        </>
-      )}
-      {planContext.source === 'routine-morning' && (
-        <span className="text-xs text-muted-foreground">Morning Performance Routine</span>
-      )}
-      {planContext.source === 'routine-evening' && (
-        <span className="text-xs text-muted-foreground">Evening Integration Routine</span>
-      )}
-    </div>
-  </div>
-)}
-
-{/* Default context for check-in based plans */}
-{planContext.source === 'checkin' && recommendations.length > 0 && (
-  <div className="px-4 max-w-lg mx-auto mb-2">
-    <span className="text-xs text-muted-foreground">Based on your check-in, calendar, and time of day</span>
-  </div>
-)}
+// Generate theme relationships based on co-occurrence
+const themeRelationships: { from: string; to: string; strength: number }[] = [];
+// ... calculation logic
 ```
 
-### Wire Up Executive Scenario Detection
+And `InnerWorldBubbles.tsx` ALREADY renders connection lines (lines 193-211).
 
-In `loadRecommendations()`, after building the context, detect scenarios and update `planContext`:
-
-```tsx
-// 7b. Check for executive scenarios
-const scenario = detectExecutiveScenario(context);
-if (scenario) {
-  setPlanContext({
-    source: 'executive-scenario',
-    scenarioName: scenario.contextLabel,
-    description: `Detected: ${scenario.name}`
-  });
-} else if (getTimeOfDay() === 'morning' && !energyState.checkInOutcome) {
-  setPlanContext({ source: 'routine-morning' });
-} else if (getTimeOfDay() === 'evening') {
-  setPlanContext({ source: 'routine-evening' });
-} else {
-  setPlanContext({ source: 'checkin' });
-}
-```
+### Verification Needed
+Check if relationships are being generated and passed correctly. The DB query and console logs show the logic is in place.
 
 ---
 
-## Files Changed Summary
+## Part 5: Add More Pre-Executive Scenarios
+
+### Current State
+The `performancePlanEngine.ts` already has 15 executive scenarios including:
+- Pre-Board Meeting
+- Pre-Investor Meeting
+- Pre-Strategic Planning
+- Pre-Negotiations
+- Pre-All Hands
+- Pre-Media/Interview
+- Pre-Crisis Response
+- Pre-Hiring Decision
+- Pre-Client Presentation
+- Pre-Budget Review
+- Pre-Performance Review
+- Pre-Difficult Conversation
+- Pre-Quarterly Review
+- Pre-Speaking Engagement
+- Pre-Leadership Meeting
+
+### Additional Scenarios to Add
+
+| Scenario | Trigger Keywords | Hours Ahead |
+|----------|-----------------|-------------|
+| Pre-M&A Discussion | "m&a", "merger", "acquisition", "due diligence" | 48h |
+| Pre-Layoff Announcement | "layoff", "restructuring", "reduction" | 24h |
+| Pre-Board Presentation Prep | "board deck", "board presentation" | 48h |
+| Pre-Competitive Intel | "competitor", "competitive analysis" | 12h |
+| Pre-Product Launch | "launch", "go live", "release" | 24h |
+
+### Files to Modify
+- `src/utils/performancePlanEngine.ts` - Add 5 more proactive scenarios
+
+---
+
+## Implementation Summary
 
 | File | Changes |
 |------|---------|
-| `src/utils/performancePlanEngine.ts` | Add 8 new "Pre" executive scenarios |
-| `src/pages/Insights.tsx` | Remove coach visual, add typography-based hero matching Recalibrate Studio |
-| `src/components/coach/CoachSplitView.tsx` | Add hero title text in empty state (keeping visual background) |
-| `src/pages/DailyCheckIn.tsx` | Add hero section with title/subtitle/description |
-| `src/components/home/DailyRitual.tsx` | Add coach visual to coach cards, add plan context labels |
+| `src/components/home/DailyRitual.tsx` | Fix timestamp comparison, add session caching for plan stability |
+| `src/components/coach/CoachSplitView.tsx` | Move greeting text to below hero subtitle |
+| `src/pages/Insights.tsx` | Pass related wins to dimension bubbles component |
+| `src/utils/performancePlanEngine.ts` | Add 5 more executive scenarios |
 
 ---
 
-## Visual Consistency Summary
+## Technical Details
 
-| Page | Title | Subtitle (italic) | Description |
-|------|-------|-------------------|-------------|
-| Recalibrate Studio | "Recalibrate Studio" | "Reset. Restore. Refocus. — Master Your Mental Edge" | Curated Sonic Library... |
-| Your Inner World | "Your Inner World" | "Patterns. Progress. Presence." | Your longitudinal view of mental fitness... |
-| Self Mastery Coach | "Self Mastery Coach" | "Inner Awareness. Presence. Growth." | (keeps visual context) |
-| Daily Check-In | "Daily Check-In" | "Awareness First. Action Follows." | A moment to check your inner state... |
+### DailyRitual.tsx Changes
+
+**Line 264-294 - Fix regeneration logic:**
+```tsx
+let shouldRegenerate = !hasStoredPlan;
+
+// Use session storage to prevent regeneration within same session
+const sessionKey = `plan-loaded-${new Date().toISOString().split('T')[0]}`;
+const sessionLoaded = sessionStorage.getItem(sessionKey);
+
+if (hasStoredPlan && todayCheckin && todayRitual) {
+  const checkinTime = new Date(todayCheckin.timestamp);
+  // Use updated_at for more accurate comparison
+  const planTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
+  
+  // Only regenerate if check-in is genuinely newer
+  if (checkinTime.getTime() > planTime.getTime() + 60000) { // 1 minute buffer
+    console.log('🔄 Check-in is newer than stored plan - regenerating');
+    shouldRegenerate = true;
+    sessionStorage.removeItem(sessionKey); // Clear session cache
+    
+    // Reset completion status
+    await upsertRitual({...});
+  }
+}
+
+// If we have a valid stored plan and already loaded this session, use it
+if (!shouldRegenerate && storedPracticeIds && sessionLoaded) {
+  // Use stored plan
+}
+
+// After successfully loading/generating plan
+sessionStorage.setItem(sessionKey, 'true');
+```
+
+### CoachSplitView.tsx Changes
+
+**Lines 90-112 - Restructure greeting:**
+```tsx
+{/* Hero title section */}
+<div className="pt-8 pb-4 px-6 text-center space-y-2">
+  <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
+    Self Mastery Coach
+  </h1>
+  <p className="text-base font-subheadline italic text-white/80">
+    Inner Awareness. Presence. Growth.
+  </p>
+  <p className="text-sm text-white/70 max-w-sm mx-auto leading-relaxed pt-2">
+    I'm your self-mastery coach. Share what's on your mind, and let's explore it together.
+  </p>
+</div>
+
+{/* Centered greeting - just personalized hello */}
+<div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+  <div className="w-16 h-16 rounded-full bg-black/20 backdrop-blur-sm flex flex-col items-center justify-center border border-white/20 shadow-lg">
+    <span className="text-xl font-headline text-saffron leading-none">SM</span>
+    <span className="text-[6px] uppercase tracking-[0.12em] text-white/60 mt-0.5">Coach</span>
+  </div>
+  <h2 className="text-xl font-headline text-white mt-5">
+    Hello, {firstName}
+  </h2>
+  {/* Removed contextualGreeting - now in hero */}
+</div>
+```
 
 ---
 
 ## Expected Outcomes
 
-1. **Proactive Self-Mastery**: 15 executive scenarios (8 new "Pre" scenarios) covering common senior leader situations
-2. **Visual Consistency**: All feature pages share the same typography-based hero pattern
-3. **Coach Visual Integration**: Executive Homepage shows coach portrait when coach is in the plan
-4. **Context Clarity**: Users understand why specific recommendations were made (JIT, scenario, routine, or check-in based)
-5. **Professional Polish**: Consistent branding signals a cohesive product experience
+1. **Stable Performance Plan**: Plan won't regenerate on page refresh unless a new check-in occurs
+2. **Consistent Coach UI**: Greeting flows naturally from hero text
+3. **Interactive Insights**: Bubbles show rich context when tapped
+4. **Connected Themes**: Mind Map shows relationship lines between related themes
+5. **Expanded Scenarios**: 20+ executive scenarios covering common senior leader situations
 
