@@ -1,178 +1,278 @@
 
-# Fix Plan: Completion Logic, Tiny Wins Display, and Baseline Data
+# Comprehensive Redesign: Tiny Wins Psychological Analysis + Coach UI Transformation
 
-## Root Cause Analysis
+## Overview
 
-### Issue 1: Performance Plan Shows "Completed" After Only Coach
-**Root Cause:** The `markCoachComplete` function is only triggered when the user explicitly clicks the "Complete" button in the queue progress UI. When users simply navigate away (back button, new chat), the `endSession()` is called but `markCoachComplete()` is NOT.
-
-**Evidence:**
-- Database shows: `completed_practice_ids: []` (empty)
-- `handleBackNavigation()` and `handleNewChat()` only call `endSession()`, not `markCoachComplete()`
-- The "golden check" Monday indicator is misleading because WeeklyRitualStreak uses faulty logic
-
-**Additional Bug:** The `WeeklyRitualStreak` component shows Monday as "full" (gold check), but the database clearly shows `completion_status: partial` with `completed_practice_ids: []`. This means the streak visualization logic has its own bug - it's showing "full" when it shouldn't.
+This plan addresses two major improvements:
+1. **Insights Page - Psychological Dimension Bubbles**: Transform "Your Tiny Wins" from full sentences into color-coded single-word bubbles tracking psychological dimensions
+2. **Coach Page - Immersive Card-Based Conversation UI**: Replace ChatGPT-style layout with transparent text hero and centered card-based conversation design
 
 ---
 
-### Issue 2: Tiny Wins Not Displaying
-**Root Cause:** RLS policy blocks DEV_MODE access.
+## Part 1: Psychological Dimension Analysis for Tiny Wins
 
-**Evidence:**
-- Console logs show: `[Insights] DEV_MODE tiny wins fetched: []`
-- Database has 3 wins for `dev-user-123`
-- RLS policies only allow: `(auth.uid())::text = user_id`
-- No DEV_MODE policy exists for `tiny_wins`
+### New Analysis Framework
 
----
+Each tiny win will be analyzed across 5 psychological dimensions, producing single-word or short-phrase labels:
 
-### Issue 3: Baseline Data Not Showing
-**Root Cause:** Two compounding issues:
-1. The `profiles` table is completely empty - no profile exists for `dev-user-123`
-2. RLS policies only allow `auth.uid()` access, blocking DEV_MODE
+| Dimension | Examples | Bubble Color |
+|-----------|----------|--------------|
+| **Sentiment** | Positive, Negative, Mixed, Neutral | Green/Red/Gray shades |
+| **Emotion (Primary + Secondary)** | Joy, Pride, Relief, Gratitude, Confidence | Warm tones (coral, amber) |
+| **Agency / Locus of Control** | Proactive, Responsive, Collaborative, External | Blue/Teal shades |
+| **Regulation vs Reactivity** | Regulated, Intentional, Reactive, Impulsive | Purple/Violet shades |
+| **Growth Signal** | Learning, Breakthrough, Mastery, Resilience, Letting Go | Saffron/Gold shades |
 
-**Evidence:**
-- Query `SELECT * FROM profiles` returns `[]`
-- No DEV_MODE RLS policy exists
+### Database Schema Enhancement
 
----
+Add new columns to `tiny_wins` table to store analyzed dimensions:
 
-## Solution Overview
-
-### Part 1: Fix Coach Completion Tracking
-
-The `markCoachComplete` function must be called whenever a coach session ends meaningfully - not just when clicking "Complete". 
-
-**Approach:**
-1. Create a helper function `ensureCoachMarkedComplete()` that's called from ALL exit paths
-2. Call it from:
-   - `handleQueueComplete()` (already done)
-   - `handleBackNavigation()` - when user clicks back
-   - `handleNewChat()` - when user starts new chat (closes current)
-   - `endSession()` context - or add as part of session ending
-
-**File:** `src/pages/SelfMasteryCoach.tsx`
-
-```typescript
-// Update handleBackNavigation to mark coach complete
-const handleBackNavigation = async () => {
-  // Mark coach complete before ending session
-  if (flowType && messages.length > 0) {
-    await markCoachComplete();
-  }
-  if (messages.length > 0) {
-    await endSession();
-  }
-  navigate('/executive-home');
-};
-
-// Update handleNewChat similarly
-const handleNewChat = async () => {
-  // Mark coach complete before ending
-  if (flowType && messages.length > 0) {
-    await markCoachComplete();
-  }
-  await endSession();
-};
+```sql
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS sentiment TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS primary_emotion TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS secondary_emotion TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS agency_type TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS regulation_level TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS growth_signal TEXT;
+ALTER TABLE tiny_wins ADD COLUMN IF NOT EXISTS analyzed_at TIMESTAMPTZ;
 ```
 
-### Part 2: Fix WeeklyRitualStreak Display Logic
+### AI Analysis Pipeline
 
-The component currently shows "full" incorrectly. The logic needs to properly check that `effectiveCompleted >= totalRecommended` AND `effectiveCompleted > 0`.
+Update `tiny-wins-insights` edge function to:
+1. Fetch wins without analysis
+2. Use Lovable AI to extract psychological dimensions
+3. Store analysis back to database
+4. Return aggregated dimension bubbles with counts
 
-**File:** `src/components/home/WeeklyRitualStreak.tsx`
+Analysis prompt structure:
+```text
+For this win: "[user's win text]"
 
-The current logic already has this condition but it's showing the wrong status. The issue is that the Monday ritual has `completion_status: partial` in the database, but the component is showing a gold checkmark.
+Extract:
+1. Sentiment (positive/negative/mixed/neutral)
+2. Primary emotion (joy/pride/relief/gratitude/confidence/hope/courage)
+3. Secondary emotion (optional)
+4. Agency type (proactive/responsive/collaborative/supported)
+5. Regulation indicator (regulated/intentional/reactive/impulsive)
+6. Growth signal (learning/breakthrough/mastery/resilience/letting-go/boundary)
+```
 
-Looking at lines 46-68, the logic checks `completion_status === 'full'` OR `effectiveCompleted >= totalRecommended`. Since `effectiveCompleted` is `max(0, 0) = 0` and `totalRecommended` is 2, the condition `0 >= 2` is false. But it's still showing as full.
+### New Component: PsychologicalDimensionBubbles
 
-**Root Cause Found:** The WeeklyRitualStreak fetches data via `getRitualRange`, but the TODAY indicator is driven by the homepage DailyRitual component's `completed` state which is cached in the wrong condition.
+Create `src/components/insights/PsychologicalDimensionBubbles.tsx`:
+- Display single-word bubbles organized by dimension category
+- Color-coded by dimension type
+- Size based on frequency count
+- Similar organic layout to InnerWorldBubbles but with category headers
 
-Need to trace more precisely, but the fix should ensure WeeklyRitualStreak ONLY shows "full" when `completion_status === 'full'` AND `effectiveCompleted >= totalRecommended && effectiveCompleted > 0`.
+### Coach Probing Integration
 
+When user submits a tiny win in the Coach integrate flow, the AI should:
+1. Acknowledge the win
+2. Gently probe for psychological dimensions if not obvious
+3. Ask follow-up questions like:
+   - "What made you decide to do that?" (Agency)
+   - "How did you manage to stay calm?" (Regulation)
+   - "What does this tell you about yourself?" (Identity/Growth)
+
+---
+
+## Part 2: Coach Page Redesign
+
+### Current vs. New Design
+
+| Aspect | Current | New |
+|--------|---------|-----|
+| Background | Solid `bg-background` | Immersive visual with transparent overlay |
+| Title | Small header text | Large transparent text that dominates the page |
+| Conversation | ChatGPT-style bubbles | Centered card with floating messages |
+| Input | Bottom textarea | Centered input inside card |
+| Voice-ready | No | Yes - designed for voice toggle |
+
+### Design Reference (Epic Life / 3rd Screenshot)
+
+The conversation UI should feature:
+- Full-screen atmospheric background (subtle visual/video)
+- Large transparent text title ("Self Mastery Coach")
+- Centered glass-morphic conversation card
+- Messages displayed within the card (not as separate bubbles)
+- Coach messages appear prominently, user responses below
+- Input area at bottom of card
+- "Switch to voice" / "End session" links below input
+
+### New Layout Structure
+
+```text
++--------------------------------------------------+
+|                 [Immersive Visual BG]            |
+|                                                  |
+|        SELF                                      |
+|        MASTERY                                   |
+|        COACH    (Large transparent text)         |
+|                                                  |
+|    +----------------------------------------+    |
+|    |                                        |    |
+|    |   [Thinking indicator if loading]      |    |
+|    |                                        |    |
+|    |   "What's on your mind today?"         |    |
+|    |           - Coach                      |    |
+|    |                                        |    |
+|    |   +--------------------------------+   |    |
+|    |   | Type your response...         |   |    |
+|    |   +--------------------------------+   |    |
+|    |                                        |    |
+|    |     Switch to voice | End session      |    |
+|    |                                        |    |
+|    +----------------------------------------+    |
+|                                                  |
++--------------------------------------------------+
+```
+
+### Voice-Ready Architecture
+
+The card-based design naturally supports voice conversation:
+- When in voice mode, show VoiceOrb component in center of card
+- Transcription appears in the same message area
+- Easy toggle between text and voice input
+- Coach responses can be read aloud (TTS-ready)
+
+### Component Refactoring
+
+#### New: CoachConversationCard.tsx
 ```typescript
-// More strict check
-if (completion.completion_status === 'full' && effectiveCompleted >= totalRecommended && effectiveCompleted > 0) {
-  status = 'full';
-} else if (effectiveCompleted > 0 || completion.completion_status === 'partial') {
-  status = 'partial';
+interface CoachConversationCardProps {
+  messages: Message[];
+  isLoading: boolean;
+  inputValue: string;
+  onInputChange: (value: string) => void;
+  onSubmit: () => void;
+  onVoiceToggle?: () => void;
+  onEndSession: () => void;
+  isVoiceMode?: boolean;
 }
 ```
 
-### Part 3: Add DEV_MODE RLS Policies for Tiny Wins
+Features:
+- Glass-morphic card with backdrop blur
+- Latest coach message displayed prominently
+- Scrollable message history (collapsible)
+- Protocol cards and wisdom cards render inside card area
+- Thinking indicator (animated dots or spinner)
 
-**Migration SQL:**
-```sql
--- Allow dev-user-123 to SELECT tiny wins
-CREATE POLICY "DEV_MODE: dev-user-123 can select tiny_wins"
-  ON public.tiny_wins
-  FOR SELECT
-  USING (user_id = 'dev-user-123');
-```
+#### Updated: SelfMasteryCoach.tsx
+- Replace current layout with new immersive design
+- Add transparent text hero behind conversation card
+- Integrate CoachConversationCard component
+- Keep all existing functionality (protocol cards, wisdom cards, queue)
 
-### Part 4: Add DEV_MODE RLS Policy for Profiles + Create Dev Profile
+### Transparent Text Hero
 
-**Migration SQL:**
-```sql
--- Allow dev-user-123 to SELECT from profiles
-CREATE POLICY "DEV_MODE: dev-user-123 can select profile"
-  ON public.profiles
-  FOR SELECT
-  USING (id = 'dev-user-123');
-
--- Allow dev-user-123 to INSERT/UPDATE profiles
-CREATE POLICY "DEV_MODE: dev-user-123 can insert profile"
-  ON public.profiles
-  FOR INSERT
-  WITH CHECK (id = 'dev-user-123');
-
-CREATE POLICY "DEV_MODE: dev-user-123 can update profile"
-  ON public.profiles
-  FOR UPDATE
-  USING (id = 'dev-user-123')
-  WITH CHECK (id = 'dev-user-123');
-
--- Create a baseline profile for dev-user-123
-INSERT INTO public.profiles (id, email, full_name, mental_fitness_baseline, user_archetype, growth_priority, onboarding_completed_at)
-VALUES (
-  'dev-user-123',
-  'dev@example.com',
-  'Dev User',
-  72,
-  'adaptive-navigator',
-  'mental-clarity',
-  NOW()
-) ON CONFLICT (id) DO NOTHING;
+CSS for large transparent text effect:
+```css
+.coach-hero-text {
+  font-size: 15vw;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255,255,255,0.15);
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  position: absolute;
+  z-index: 0;
+}
 ```
 
 ---
 
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/insights/PsychologicalDimensionBubbles.tsx` | New bubble component for win dimensions |
+| `src/components/coach/CoachConversationCard.tsx` | Centered conversation card UI |
+| `src/components/coach/CoachHeroBackground.tsx` | Immersive background with transparent text |
+
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/pages/SelfMasteryCoach.tsx` | Add `markCoachComplete()` call to `handleBackNavigation` and `handleNewChat` |
-| `src/components/home/WeeklyRitualStreak.tsx` | Tighten "full" status check to require actual completions |
-| Database Migration | Add RLS policies for `tiny_wins` (SELECT) and `profiles` (SELECT/INSERT/UPDATE) for `dev-user-123`, plus insert dev profile |
+| File | Changes |
+|------|---------|
+| `src/pages/SelfMasteryCoach.tsx` | Complete layout redesign to use new components |
+| `src/pages/Insights.tsx` | Replace InnerWorldBubbles for tiny wins with PsychologicalDimensionBubbles |
+| `supabase/functions/tiny-wins-insights/index.ts` | Add psychological dimension extraction |
+| `supabase/migrations/` | Add dimension columns to tiny_wins table |
+| `src/hooks/useCoachConversation.ts` | Potentially add probing prompts for win analysis |
+
+---
+
+## Technical Implementation Details
+
+### Psychological Dimension Detection (Client-Side Fallback)
+
+For DEV_MODE or when AI is unavailable, use keyword-based detection:
+
+```typescript
+const DIMENSION_PATTERNS = {
+  agency: {
+    proactive: ['decided', 'chose', 'initiated', 'started', 'led'],
+    responsive: ['responded', 'handled', 'managed', 'adapted'],
+    collaborative: ['together', 'team', 'asked for', 'partnered'],
+  },
+  regulation: {
+    regulated: ['calm', 'composed', 'steady', 'controlled', 'breathed'],
+    intentional: ['paused', 'thought', 'considered', 'reflected'],
+    reactive: ['reacted', 'snapped', 'immediately', 'impulsively'],
+  },
+  growth: {
+    learning: ['learned', 'realized', 'understood', 'discovered'],
+    breakthrough: ['finally', 'first time', 'breakthrough', 'overcame'],
+    mastery: ['natural', 'effortless', 'automatic', 'second nature'],
+    resilience: ['bounced back', 'recovered', 'persisted', 'kept going'],
+    boundary: ['said no', 'protected', 'declined', 'limited'],
+  }
+};
+```
+
+### Bubble Color Scheme
+
+```typescript
+const DIMENSION_COLORS = {
+  sentiment: {
+    positive: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    negative: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+    mixed: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    neutral: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  },
+  emotion: 'bg-coral-500/20 text-coral-400 border-coral-500/30',
+  agency: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  regulation: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  growth: 'bg-saffron/20 text-saffron border-saffron/30',
+};
+```
 
 ---
 
 ## Expected Outcomes
 
-1. **Accurate Completion:** Coach session ends properly marked, only shows "complete" when ALL recommended practices done
-2. **Tiny Wins Display:** 3 existing wins will show in "Your Tiny Wins" section with bubble visualization
-3. **Baseline Data:** Dev profile with archetype "Adaptive Navigator" and baseline 72 will display in BaselineReferenceCard
+1. **Insights Page**: "Your Tiny Wins" section displays color-coded single-word bubbles like "Pride", "Proactive", "Regulated", "Learning" instead of full sentences
+2. **Coach Page**: Immersive full-screen experience with transparent hero text and centered glass-morphic conversation card
+3. **Voice-Ready**: UI architecture supports future voice conversation toggle
+4. **Coach Probing**: AI naturally asks follow-up questions to extract psychological dimensions from wins
 
 ---
 
-## Technical Notes
+## Implementation Priority
 
-### Why This Fix Works
-- Adding `markCoachComplete()` to exit handlers ensures completion is tracked regardless of how user leaves
-- DEV_MODE RLS policies bypass `auth.uid()` requirement for local testing
-- Pre-populating a profile with realistic baseline data allows the Insights page to function correctly
+1. **Phase 1**: Database migration + dimension extraction in edge function
+2. **Phase 2**: PsychologicalDimensionBubbles component + Insights integration
+3. **Phase 3**: CoachConversationCard + CoachHeroBackground components
+4. **Phase 4**: SelfMasteryCoach.tsx layout refactor
+5. **Phase 5**: Coach probing prompts for dimension extraction
 
-### Related Memory Updates
-After implementation, update these memories:
-- `dev-mode-architecture-v48`: Document the new RLS policies for tiny_wins and profiles
-- `performance-plan-completion-logic-v52`: Note that coach completion is now tracked on ALL exit paths
+---
+
+## Visual References Applied
+
+- **Screenshot 1 (Mindsera)**: Organic bubble cluster with single-word emotions and counts - applied to PsychologicalDimensionBubbles
+- **Screenshot 2 (Epic Life)**: Full-screen visual with centered glass card - applied to Coach hero and conversation card
+- **Screenshot 3 (Classmate)**: Centered conversation UI with prominent messages and text input - applied to CoachConversationCard layout
