@@ -1,236 +1,275 @@
 
-# Fix Auth0 Login/Signup for Iframe Environment
+# Enhancements: Context Connection, Auth Tab Sync, and Logo Update
 
-## Problem Analysis
+## Overview
 
-The Auth0 login/signup is stuck on "Redirecting to..." because:
-
-1. **Iframe Restriction**: Auth0 cannot render its login page inside an iframe (Lovable preview). Popups are blocked.
-2. **Wrong Canonical URL**: `src/utils/authRedirect.ts` has `CANONICAL_APP_URL` pointing to an old project:
-   - Current: `https://id-preview--5bd59ee0-ab8c-409f-bc56-72fe64069377.lovable.app`
-   - Should be: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
-3. **Signup Component Issues**: The `Signup` component doesn't check if it's in an iframe before trying Auth0 popup
+This plan addresses four key issues:
+1. **Context Connection page needs OAuth integration** - Currently toggles only save preferences to localStorage, but need to trigger actual OAuth flows for Google Calendar and Apple Watch
+2. **Auto-close auth tab after signup** - After Auth0 signup in a new tab, that tab should close and user continues in the original app
+3. **Sidebar logo update** - Replace the "K" with either the KAIROS wordmark or the Lambda/Arrow icon when sidebar is collapsed
+4. **Capacitor compatibility** - Ensure the implementation works for future mobile app conversion
 
 ---
 
-## Solution
+## Part 1: Context Connection - Trigger Actual OAuth Flows
 
-### Strategy: Open Auth0 in a New Tab When in Iframe
+### Current State
+The `Stage7ContextConnection.tsx` page only saves preferences to localStorage. The actual calendar connection component (`CalendarConnectionSettings.tsx`) exists but requires the user to be authenticated first.
 
-When running inside the Lovable preview iframe:
-1. Detect iframe environment using `isInIframe()`
-2. Instead of trying popup/redirect, show a UI with a button that opens the canonical app URL in a new tab
-3. User completes Auth0 signup in the new tab
-4. After authentication, user continues in the new tab (not inside iframe)
+### Problem
+The toggles appear to work but don't actually connect to anything. The user expects that when they toggle "Google Calendar" ON, the OAuth flow initiates.
+
+### Solution
+Move the Context Connection stage to AFTER signup (it's currently before signup in the flow). This way:
+1. User completes onboarding questionnaire
+2. User signs up via Auth0
+3. User sees results page
+4. User goes to payment page
+5. User reaches Context Connection page (NOW AUTHENTICATED)
+6. Toggle ON triggers actual OAuth flow via `CalendarConnectionSettings` component
+7. User continues to the app
+
+### Files to Modify
+
+**src/pages/onboarding/stages/Stage7ContextConnection.tsx**
+- Import and use `CalendarConnectionSettings` for Google Calendar
+- For Apple Watch: Show informational toggle (actual HealthKit integration requires native app)
+- Check authentication status - if not authenticated, show message to complete signup first
+- Add useAuth hook to verify user is logged in
+
+### Flow Change (Onboarding Order)
+Current order in `OnboardingFlow.tsx`:
+```
+1. /onboarding (welcome)
+2. /onboarding/identity
+3. /onboarding/emotional-awareness
+4. /onboarding/stress-response
+5. /onboarding/recovery-patterns
+6. /onboarding/mental-clarity
+7. /onboarding/growth-intention
+8. /onboarding/signup-step       <-- Auth0
+9. /onboarding/results
+10. /onboarding/payment
+11. /onboarding/context-connection  <-- NOW with OAuth
+```
+
+This order is already correct - Context Connection comes AFTER signup. The issue is the component isn't using the actual OAuth components.
+
+---
+
+## Part 2: Auto-Close Auth Tab After Signup (Cross-Tab Communication)
+
+### The Challenge
+When user clicks "Continue to Signup" in the iframe, a new tab opens. After Auth0 authentication completes in that tab, we want:
+1. The new tab to close automatically
+2. The original iframe/tab to detect the successful auth and continue onboarding
+
+### Solution: BroadcastChannel API
+Use the `BroadcastChannel` API for cross-tab communication:
+
+1. **In the original tab/iframe**: Listen for auth completion messages
+2. **In the new auth tab**: After successful auth, broadcast a message and close the tab
+
+### Implementation
+
+**src/utils/authRedirect.ts**
+Add broadcast channel helpers:
+```typescript
+export const AUTH_CHANNEL_NAME = 'kairos-auth-channel';
+
+export const broadcastAuthSuccess = (destination: string) => {
+  const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
+  channel.postMessage({ type: 'AUTH_SUCCESS', destination });
+  channel.close();
+};
+
+export const listenForAuthSuccess = (callback: (destination: string) => void): () => void => {
+  const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
+  channel.onmessage = (event) => {
+    if (event.data.type === 'AUTH_SUCCESS') {
+      callback(event.data.destination);
+    }
+  };
+  return () => channel.close();
+};
+```
+
+**src/pages/onboarding/stages/Stage8SignupStep.tsx**
+- When in iframe: Start listening for auth success via BroadcastChannel
+- When NOT in iframe (the new tab): After successful auth, broadcast success message and attempt to close the tab
+
+**src/pages/AuthCallback.tsx**
+- After successful authentication, broadcast the success and close the window if it was opened as a popup/new tab
+
+### Capacitor Considerations
+- BroadcastChannel works in modern browsers and WebView
+- For native Capacitor builds, the app won't be in an iframe, so direct Auth0 popup/redirect will work
+- The "new tab" flow is specifically for the Lovable preview iframe scenario
+
+---
+
+## Part 3: Sidebar Logo Update - Replace "K" with KAIROS Logo or Lambda
+
+### Current State
+The collapsed sidebar shows a single "K" character:
+```tsx
+<span className="font-headline text-lg font-semibold tracking-widest text-kairos">K</span>
+```
+
+### Options
+Looking at the uploaded images:
+1. **KAIROS wordmark** - Black text logo with distinctive "Λ" (Lambda) shape in the A
+2. **Lambda icon** - The standalone Λ symbol on green background
+
+### Recommendation
+Use the existing `kairos-logo-black.png` asset (KAIROS wordmark) but render it small when collapsed, OR render just the Lambda symbol.
+
+Since the Lambda (Λ) is part of the KAIROS identity and is more compact, use an SVG Lambda for the collapsed state.
+
+### Implementation
+
+**src/components/navigation/LeftSidebar.tsx**
+Replace the "K" with either:
+- Option A: Small version of the KAIROS logo image
+- Option B: Custom Lambda SVG icon (more scalable, better for small sizes)
+
+```tsx
+// Collapsed state
+{isCollapsed ? (
+  <svg 
+    viewBox="0 0 24 32" 
+    className="w-6 h-8 text-kairos fill-current"
+    aria-label="Kairos"
+  >
+    <path d="M12 0L0 32h5.5l6.5-18 6.5 18H24L12 0z" />
+  </svg>
+) : (
+  <img 
+    src={kairosLogo} 
+    alt="KAIROS" 
+    className="h-5" 
+  />
+)}
+```
+
+---
+
+## Part 4: Apple Watch Integration Note
+
+### Reality Check
+Apple Watch / HealthKit integration requires:
+- Native iOS app (Capacitor can access this via plugins)
+- User permission on the device
+- Cannot be done purely in web
+
+### Approach for Now
+1. Keep the toggle as a "preference" indicator
+2. When toggled ON, show informational text: "Apple Watch will connect when you install the mobile app"
+3. Store the preference for later use when native app is built
+4. When Capacitor is implemented, use `@capacitor-community/health-kit` plugin
 
 ---
 
 ## Files to Modify
 
-### 1. Update Canonical URL (`src/utils/authRedirect.ts`)
-
-Update the `CANONICAL_APP_URL` to the current project preview URL:
-
-```typescript
-export const CANONICAL_APP_URL = 'https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app';
-```
+| File | Changes |
+|------|---------|
+| `src/utils/authRedirect.ts` | Add BroadcastChannel helpers for cross-tab auth sync |
+| `src/pages/onboarding/stages/Stage8SignupStep.tsx` | Listen for auth success, close tab after broadcast |
+| `src/pages/AuthCallback.tsx` | Broadcast auth success and close tab if popup |
+| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Integrate real CalendarConnectionSettings, handle Apple Watch info |
+| `src/components/navigation/LeftSidebar.tsx` | Replace "K" with Lambda icon or KAIROS logo |
 
 ---
 
-### 2. Create Dedicated Onboarding Signup Step (`src/pages/onboarding/stages/Stage8SignupStep.tsx`)
+## Implementation Details
 
-Create a new component specifically for the onboarding signup step that:
-- Detects if running in iframe
-- If in iframe: Shows a branded UI with "Create Your Account" button that opens new tab
-- If not in iframe: Triggers Auth0 popup/redirect normally
+### Cross-Tab Auth Flow
+
+```text
+[Lovable Iframe]                    [New Tab]
+       |                                |
+       |-- Click "Continue" ----------->|
+       |                                |
+       |   Listen for broadcast         |-- Auth0 Login
+       |        ↓                       |
+       |                                |-- Callback
+       |                                |
+       |<-- Broadcast AUTH_SUCCESS -----|
+       |                                |-- window.close()
+       |
+       |-- Navigate to results
+```
+
+### Context Connection with Real OAuth
 
 ```tsx
-// Stage8SignupStep.tsx
-import { useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, ExternalLink, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { isInIframe, openAuthInNewTab, CANONICAL_APP_URL } from '@/utils/authRedirect';
+// Stage7ContextConnection.tsx
+import { useAuth } from '@/hooks/useAuth';
+import CalendarConnectionSettings from '@/components/CalendarConnectionSettings';
 
-const Stage8SignupStep = () => {
-  const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
-  const navigate = useNavigate();
-  const [isSigningUp, setIsSigningUp] = useState(false);
-  const inIframe = isInIframe();
-
-  // If authenticated, continue to results
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate('/onboarding/results');
-    }
-  }, [isLoading, isAuthenticated, navigate]);
-
-  // Handler for iframe - opens new tab
-  const handleOpenInNewTab = () => {
-    openAuthInNewTab('/onboarding/signup-step');
-  };
-
-  // Handler for non-iframe - direct Auth0 popup
-  const handleDirectSignup = async () => {
-    setIsSigningUp(true);
-    try {
-      await loginWithPopup({
-        authorizationParams: {
-          redirect_uri: `${window.location.origin}/callback?from=onboarding`,
-          screen_hint: 'signup',
-          scope: 'openid profile email',
-        },
-      });
-      navigate('/onboarding/results');
-    } catch (error) {
-      console.error('Signup failed:', error);
-      setIsSigningUp(false);
-    }
-  };
-
-  if (isLoading) {
-    return <LoadingState />;
+export default function Stage7ContextConnection() {
+  const { isAuthenticated } = useAuth();
+  
+  // If not authenticated, shouldn't be on this page
+  if (!isAuthenticated) {
+    return <Navigate to="/onboarding/signup-step" />;
   }
-
-  // If in iframe, show "Open in New Tab" UI
-  if (inIframe) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-8 text-center">
-          <User className="w-12 h-12 mx-auto text-kairos" />
-          <h1 className="text-2xl font-headline font-semibold tracking-tight">
-            Create Your Account
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Secure signup opens in a new window
-          </p>
-          <Button onClick={handleOpenInNewTab} variant="critical" className="w-full gap-2">
-            Continue to Signup
-            <ExternalLink className="w-4 h-4" />
-          </Button>
-          <p className="text-xs text-muted-foreground/60">
-            You'll complete your profile in the new tab
-          </p>
+  
+  return (
+    <div>
+      {/* Google Calendar - Real OAuth */}
+      <CalendarConnectionSettings compact />
+      
+      {/* Apple Watch - Info only */}
+      <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
+        <div className="flex items-center gap-3">
+          <Watch className="w-5 h-5" />
+          <div>
+            <span className="font-medium">Apple Watch</span>
+            <p className="text-xs text-muted-foreground">Available in mobile app</p>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  // If not in iframe, show direct signup button
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm space-y-8 text-center">
-        <User className="w-12 h-12 mx-auto text-kairos" />
-        <h1 className="text-2xl font-headline font-semibold tracking-tight">
-          Create Your Account
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Secure your progress and unlock personalized insights
-        </p>
-        <Button 
-          onClick={handleDirectSignup} 
-          variant="critical" 
-          className="w-full"
-          disabled={isSigningUp}
-        >
-          {isSigningUp ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
-            </>
-          ) : (
-            'Create Account'
-          )}
-        </Button>
-        <p className="text-xs text-muted-foreground/60">
-          By continuing, you agree to our Terms of Service
-        </p>
-      </div>
-    </div>
-  );
-};
-
-export default Stage8SignupStep;
-```
-
----
-
-### 3. Update Route to Use New Component (`src/App.tsx`)
-
-Replace the Signup import with the new Stage8SignupStep for the onboarding route:
-
-```tsx
-// Add import
-const Stage8SignupStep = lazy(() => import("./pages/onboarding/stages/Stage8SignupStep"));
-
-// In routes, change:
-{ path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
-```
-
----
-
-### 4. Update Login.tsx to Handle Iframe (`src/pages/Login.tsx`)
-
-Similar pattern - detect iframe and show "Open in New Tab" UI:
-
-```tsx
-// Add isInIframe check at the top
-const inIframe = isInIframe();
-
-// If in iframe, show new tab button instead of auto-triggering
-if (inIframe && !isAuthenticated && !isLoading) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
-      <div className="text-center max-w-md space-y-4">
-        <h2 className="text-xl font-heading font-semibold">Sign In</h2>
-        <p className="text-muted-foreground text-sm">
-          Sign in opens in a new window for security
-        </p>
-        <Button onClick={() => openAuthInNewTab('/login')} className="gap-2">
-          Continue to Sign In
-          <ExternalLink className="w-4 h-4" />
-        </Button>
+        <Badge variant="outline">Coming Soon</Badge>
       </div>
     </div>
   );
 }
 ```
 
----
-
-## Auth0 Configuration Requirement
-
-The new preview URL must be whitelisted in Auth0 Application Settings:
-- **Allowed Callback URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app/callback`
-- **Allowed Logout URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
-- **Allowed Web Origins**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
-
----
-
-## User Flow After Fix
-
-**In Lovable Preview (Iframe):**
-1. User reaches signup step
-2. Sees branded UI with "Continue to Signup" button
-3. Clicks button → new tab opens with the canonical app URL
-4. Auth0 login/signup works normally in new tab
-5. User completes onboarding in new tab
-
-**Outside Iframe (Direct Access):**
-1. User reaches signup step
-2. Sees branded UI with "Create Account" button
-3. Clicks button → Auth0 popup appears
-4. User signs up and continues in same window
+### Lambda Icon SVG
+The Lambda symbol from the KAIROS branding:
+```tsx
+const LambdaIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 32" 
+    className={className}
+    aria-label="Kairos"
+  >
+    <path d="M12 0L0 32h5.5l6.5-18 6.5 18H24L12 0z" fill="currentColor" />
+  </svg>
+);
+```
 
 ---
 
-## Files Summary
+## Testing Checklist
 
-| File | Action |
-|------|--------|
-| `src/utils/authRedirect.ts` | Update `CANONICAL_APP_URL` to current preview URL |
-| `src/pages/onboarding/stages/Stage8SignupStep.tsx` | **Create** new component for onboarding signup |
-| `src/App.tsx` | Update route to use `Stage8SignupStep` instead of `Signup` |
-| `src/pages/Login.tsx` | Add iframe detection and "Open in New Tab" UI |
+- [ ] Collapsed sidebar shows Lambda icon instead of "K"
+- [ ] Expanded sidebar shows full KAIROS wordmark
+- [ ] Context Connection page shows real Google Calendar connect button (for authenticated users)
+- [ ] Apple Watch shows "Coming Soon" badge with explanation
+- [ ] After Auth0 signup in new tab, the tab closes automatically
+- [ ] Original iframe detects auth success and navigates to results
+- [ ] Flow works in direct browser access (non-iframe)
+- [ ] BroadcastChannel gracefully falls back if not supported
+
+---
+
+## Capacitor Compatibility Notes
+
+1. **Auth Flow**: In native app (not in iframe), Auth0 will use in-app browser or ASWebAuthenticationSession - no cross-tab needed
+2. **HealthKit**: Will use `@capacitor-community/health-kit` plugin when native build is ready
+3. **BroadcastChannel**: Only used for web/iframe scenario - native app skips this entirely
+4. **Google Calendar OAuth**: Works the same way - redirect to Google, return to app via deep link or redirect URI
 
