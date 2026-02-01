@@ -44,12 +44,12 @@ const Front = () => {
         
         {/* LOGO - THE HERO */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
-          MIND<br />MODULE
+          KAIROS
         </h1>
         
         {/* Tagline */}
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">
-          Mind Mastery for High Performers
+          Proactive Self Mastery for Peak Performers
         </h2>
         
         {/* Gold Divider */}

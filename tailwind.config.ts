@@ -72,6 +72,10 @@ export default {
           DEFAULT: "hsl(var(--saffron))",
           foreground: "hsl(var(--saffron-foreground))",
         },
+        kairos: {
+          DEFAULT: "hsl(var(--kairos))",
+          foreground: "hsl(var(--kairos-foreground))",
+        },
         forest: {
           DEFAULT: "hsl(var(--forest))",
           light: "hsl(var(--forest-light))",

@@ -71,11 +71,11 @@ const LeftSidebar = () => {
           isCollapsed ? "justify-center" : "px-3"
         )}>
           {isCollapsed ? (
-            <span className="font-headline text-lg font-semibold tracking-widest text-saffron">MM</span>
+            <span className="font-headline text-lg font-semibold tracking-widest text-kairos">K</span>
           ) : (
             <div className="flex flex-col">
               <span className="font-headline text-base font-semibold tracking-widest text-foreground">
-                MIND MODULE
+                KAIROS
               </span>
               <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
                 Executive Edition
@@ -105,17 +105,17 @@ const LeftSidebar = () => {
                       className={cn(
                         "transition-all duration-200 ease-out font-body group",
                         "hover:scale-[1.02] hover:shadow-sm",
-                        isCollapsed ? "text-primary hover:text-saffron" : "text-primary hover:text-saffron hover:bg-saffron/5",
-                        isActive && "bg-saffron/10 text-saffron shadow-sm"
+                        isCollapsed ? "text-primary hover:text-kairos" : "text-primary hover:text-kairos hover:bg-kairos/5",
+                        isActive && "bg-kairos/10 text-kairos shadow-sm"
                       )}
                     >
                       <IconComponent 
                         size={18} 
                         weight="duotone" 
-                        className={cn(
-                          "icon-duotone-luxury flex-shrink-0 transition-all duration-200",
-                          "group-hover:scale-110 group-hover:drop-shadow-[0_2px_6px_rgba(255,140,66,0.4)]",
-                          isActive ? "text-saffron icon-pulse-active" : "text-primary"
+                          className={cn(
+                            "icon-duotone-luxury flex-shrink-0 transition-all duration-200",
+                            "group-hover:scale-110 group-hover:drop-shadow-[0_2px_6px_rgba(29,185,84,0.4)]",
+                            isActive ? "text-kairos icon-pulse-active" : "text-primary"
                         )} 
                       />
                       <span>{feature.title}</span>
@@ -135,7 +135,7 @@ const LeftSidebar = () => {
             <BookmarkSimple 
               size={14} 
               weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-saffron" : "text-primary")} 
+              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
             />
             Starred
           </SidebarGroupLabel>
@@ -152,7 +152,7 @@ const LeftSidebar = () => {
             <Clock 
               size={14} 
               weight="duotone" 
-              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-saffron" : "text-primary")} 
+              className={cn("mr-1.5 inline icon-duotone-luxury", hideLabels ? "text-kairos" : "text-primary")} 
             />
             Recent
           </SidebarGroupLabel>
