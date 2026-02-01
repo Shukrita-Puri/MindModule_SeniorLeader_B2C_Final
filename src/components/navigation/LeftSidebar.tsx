@@ -28,10 +28,10 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Self Mastery Coach',
-    icon: ChatCircle,
-    path: '/coach',
-    description: 'AI-powered coaching',
+    title: 'Emotional & Cognitive Energy',
+    icon: Smiley,
+    path: '/daily-check-in',
+    description: 'Track your state',
   },
   {
     title: 'Recalibrate Studio',
@@ -40,10 +40,10 @@ const features = [
     description: 'Energy practices',
   },
   {
-    title: 'Emotional & Cognitive Energy',
-    icon: Smiley,
-    path: '/daily-check-in',
-    description: 'Track your state',
+    title: 'Self Mastery Coach',
+    icon: ChatCircle,
+    path: '/coach',
+    description: 'AI-powered coaching',
   },
   {
     title: 'Insights',
