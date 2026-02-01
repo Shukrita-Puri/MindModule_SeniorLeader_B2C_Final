@@ -480,12 +480,29 @@ export function selectContentForModule(
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
   
-  // Randomize among top 3 candidates for variety (prevents always showing same content)
+  // Use date-seeded deterministic selection for variety while maintaining stability
+  // The same content will be selected throughout the day, but different days get different content
   const topCandidates = scored.slice(0, Math.min(3, scored.length));
   if (topCandidates.length === 0) return null;
   
-  const randomIndex = Math.floor(Math.random() * topCandidates.length);
-  return topCandidates[randomIndex]?.content || null;
+  // Create a daily seed based on today's date + module type for deterministic selection
+  const today = new Date().toISOString().split('T')[0];
+  const seedString = `${today}-${moduleSpec.type}-${moduleSpec.focus}`;
+  let hash = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    const char = seedString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  const deterministicIndex = Math.abs(hash) % topCandidates.length;
+  
+  console.log(`[PerformancePlan] Deterministic selection for ${moduleSpec.type}:`, {
+    candidates: topCandidates.length,
+    selectedIndex: deterministicIndex,
+    selectedContent: topCandidates[deterministicIndex]?.content.id
+  });
+  
+  return topCandidates[deterministicIndex]?.content || null;
 }
 
 // ==================== COACH CARDS ====================
