@@ -28,7 +28,7 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Emotional & Cognitive Energy',
+    title: 'Emotional & Cognitive Energy Check in',
     icon: Smiley,
     path: '/daily-check-in',
     description: 'Track your state',
