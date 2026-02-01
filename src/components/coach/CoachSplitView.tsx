@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { ArrowUp, Loader2, Mic, ChevronUp, ChevronDown } from 'lucide-react';
-import coachVisual from '@/assets/coach-visual.jpeg';
+import coachVisual from '@/assets/coach-visual-calm.jpeg';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';

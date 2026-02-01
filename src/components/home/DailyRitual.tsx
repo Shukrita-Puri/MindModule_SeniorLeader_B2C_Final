@@ -28,7 +28,7 @@ import { type SanctuaryContent } from '@/data/practicesAndSoundscapes';
 // Background images for Coach cards
 import coachPrepareBackground from '@/assets/vibrant-executive-preparation.png';
 import coachIntegrateBackground from '@/assets/ink-reflection-illustration.png';
-import coachVisual from '@/assets/coach-visual.jpeg';
+import coachVisual from '@/assets/coach-visual-calm.jpeg';
 
 // Check if current time is evening (after 5pm)
 const isEvening = (): boolean => {
