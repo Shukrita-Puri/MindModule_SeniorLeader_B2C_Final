@@ -1,147 +1,236 @@
 
-# Fix Onboarding Flow, Button Styling, and Connect Context Issues
+# Fix Auth0 Login/Signup for Iframe Environment
 
-## Issues Identified
+## Problem Analysis
 
-### 1. "Begin Your Journey" Button Text Color
-- **Current**: The `critical` variant uses `text-kairos-foreground` which is white (100% white in CSS)
-- **Needed**: Black text for better contrast on the green button
-- **Fix**: Update `--kairos-foreground` to use black text or add explicit `text-black` class
+The Auth0 login/signup is stuck on "Redirecting to..." because:
 
-### 2. Wrong Onboarding (School vs Executive)
-- **Finding**: The screenshot shows "How old are you?" with age ranges (13-14, 15-16, 17-18 years old)
-- **Current codebase**: `Stage2Identity.tsx` correctly shows executive options ("Executive / Organisation Leader", "Manager / People Leader", "Others")
-- **Possible causes**:
-  - Cached version in the browser
-  - Different deployment/project
-  - The onboarding flow routing is incorrect
-- **Fix**: Verify the `/onboarding` route correctly leads to the executive flow. Clear cache if needed.
-
-### 3. Connect Context Toggles Don't Work
-- **Error**: `"You forgot to wrap your component in <Auth0Provider>."`
-- **Root cause**: `Stage7ContextConnection.tsx` uses `useAuth0()` hook (`getAccessTokenSilently`) to connect calendar. During onboarding, users haven't completed Auth0 signup yet, so the hook fails.
-- **Fix**: Make the calendar connection optional/deferred. Allow the toggle UI to work, but only attempt actual OAuth connection AFTER user is authenticated. Show a message or save the preference for later.
-
-### 4. Onboarding Signup Page Not Showing
-- **Current**: `/onboarding/signup-step` renders `<Signup />` which immediately tries Auth0 popup/redirect
-- **Issue**: If Auth0 isn't properly configured or popup is blocked, user sees endless loading
-- **Fix**: Create a proper signup step page that shows the user what's happening and handles errors gracefully
+1. **Iframe Restriction**: Auth0 cannot render its login page inside an iframe (Lovable preview). Popups are blocked.
+2. **Wrong Canonical URL**: `src/utils/authRedirect.ts` has `CANONICAL_APP_URL` pointing to an old project:
+   - Current: `https://id-preview--5bd59ee0-ab8c-409f-bc56-72fe64069377.lovable.app`
+   - Should be: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
+3. **Signup Component Issues**: The `Signup` component doesn't check if it's in an iframe before trying Auth0 popup
 
 ---
 
-## Implementation Plan
+## Solution
 
-### Part 1: Fix Button Text Color (Black text on green)
+### Strategy: Open Auth0 in a New Tab When in Iframe
 
-**File**: `src/index.css`
-
-Update the kairos foreground color to use black text:
-```css
---kairos-foreground: 0 0% 0%;  /* Black text instead of white */
-```
-
-Alternative: Add explicit class override in `Front.tsx`:
-```tsx
-<Button variant="critical" className="text-black ...">
-```
-
-### Part 2: Fix Connect Context Page (Toggle Without Auth)
-
-**File**: `src/pages/onboarding/stages/Stage7ContextConnection.tsx`
-
-The page should work without requiring authentication:
-1. Remove `useAuth0` hook usage (since user isn't authenticated during onboarding)
-2. Store toggle preferences in localStorage instead of making API calls
-3. Calendar connection will happen AFTER user signs in and completes onboarding
-4. Keep the UI toggles functional for user preference capture
-
-Changes:
-- Remove `useAuth0` import and usage
-- Remove `getAccessTokenSilently` calls
-- Store preferences in localStorage for later sync
-- Apple Watch toggle should work similarly (just save preference)
-
-### Part 3: Fix Onboarding Signup Step
-
-**File**: `src/pages/onboarding/stages/Stage8SignupStep.tsx` (new file or modify existing)
-
-Create a proper signup step that:
-1. Shows a clear UI explaining the signup process
-2. Has a "Create Account" button that triggers Auth0
-3. Handles popup blocked scenarios gracefully
-4. Shows loading state appropriately
-
-The route already points to `Signup.tsx` which handles Auth0 - but we may need to add better UX for the onboarding context.
-
-### Part 4: Verify Onboarding Flow Routing
-
-**File**: `src/pages/Front.tsx` (already correct)
-
-The "Begin Your Journey" button navigates to `/onboarding` which shows `Stage1Welcome`, then `/onboarding/identity` which shows `Stage2Identity` with executive questions. This flow is correct in the current codebase.
-
-If user sees school questions, it's likely a cached version. The fix is to clear browser cache.
+When running inside the Lovable preview iframe:
+1. Detect iframe environment using `isInIframe()`
+2. Instead of trying popup/redirect, show a UI with a button that opens the canonical app URL in a new tab
+3. User completes Auth0 signup in the new tab
+4. After authentication, user continues in the new tab (not inside iframe)
 
 ---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/index.css` | Change `--kairos-foreground` to black (0 0% 0%) |
-| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Remove Auth0 dependency, make toggles work locally |
-| `src/pages/Front.tsx` | (Optional) Add explicit `text-black` class to button for safety |
+### 1. Update Canonical URL (`src/utils/authRedirect.ts`)
+
+Update the `CANONICAL_APP_URL` to the current project preview URL:
+
+```typescript
+export const CANONICAL_APP_URL = 'https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app';
+```
 
 ---
 
-## Technical Details
+### 2. Create Dedicated Onboarding Signup Step (`src/pages/onboarding/stages/Stage8SignupStep.tsx`)
 
-### CSS Change (Button Text Color)
-```css
-/* Before */
---kairos-foreground: 0 0% 100%;  /* White */
+Create a new component specifically for the onboarding signup step that:
+- Detects if running in iframe
+- If in iframe: Shows a branded UI with "Create Your Account" button that opens new tab
+- If not in iframe: Triggers Auth0 popup/redirect normally
 
-/* After */
---kairos-foreground: 0 0% 0%;    /* Black */
-```
-
-### Context Connection Simplified Logic
 ```tsx
-// Remove Auth0 dependencies for toggle functionality
-const [calendarPreference, setCalendarPreference] = useState(false);
-const [watchPreference, setWatchPreference] = useState(false);
+// Stage8SignupStep.tsx
+import { useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, ExternalLink, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { isInIframe, openAuthInNewTab, CANONICAL_APP_URL } from '@/utils/authRedirect';
 
-const handleToggleCalendar = (checked: boolean) => {
-  setCalendarPreference(checked);
-  // Save to localStorage - actual connection happens post-signup
-  localStorage.setItem('onboarding_calendar_preference', JSON.stringify(checked));
+const Stage8SignupStep = () => {
+  const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
+  const navigate = useNavigate();
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const inIframe = isInIframe();
+
+  // If authenticated, continue to results
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/onboarding/results');
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
+  // Handler for iframe - opens new tab
+  const handleOpenInNewTab = () => {
+    openAuthInNewTab('/onboarding/signup-step');
+  };
+
+  // Handler for non-iframe - direct Auth0 popup
+  const handleDirectSignup = async () => {
+    setIsSigningUp(true);
+    try {
+      await loginWithPopup({
+        authorizationParams: {
+          redirect_uri: `${window.location.origin}/callback?from=onboarding`,
+          screen_hint: 'signup',
+          scope: 'openid profile email',
+        },
+      });
+      navigate('/onboarding/results');
+    } catch (error) {
+      console.error('Signup failed:', error);
+      setIsSigningUp(false);
+    }
+  };
+
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  // If in iframe, show "Open in New Tab" UI
+  if (inIframe) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-8 text-center">
+          <User className="w-12 h-12 mx-auto text-kairos" />
+          <h1 className="text-2xl font-headline font-semibold tracking-tight">
+            Create Your Account
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Secure signup opens in a new window
+          </p>
+          <Button onClick={handleOpenInNewTab} variant="critical" className="w-full gap-2">
+            Continue to Signup
+            <ExternalLink className="w-4 h-4" />
+          </Button>
+          <p className="text-xs text-muted-foreground/60">
+            You'll complete your profile in the new tab
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not in iframe, show direct signup button
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-8 text-center">
+        <User className="w-12 h-12 mx-auto text-kairos" />
+        <h1 className="text-2xl font-headline font-semibold tracking-tight">
+          Create Your Account
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Secure your progress and unlock personalized insights
+        </p>
+        <Button 
+          onClick={handleDirectSignup} 
+          variant="critical" 
+          className="w-full"
+          disabled={isSigningUp}
+        >
+          {isSigningUp ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            'Create Account'
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground/60">
+          By continuing, you agree to our Terms of Service
+        </p>
+      </div>
+    </div>
+  );
 };
 
-const handleToggleWatch = (checked: boolean) => {
-  setWatchPreference(checked);
-  localStorage.setItem('onboarding_watch_preference', JSON.stringify(checked));
-};
+export default Stage8SignupStep;
 ```
 
-After user completes signup and enters the app, these preferences can be read and actual OAuth connections initiated.
+---
+
+### 3. Update Route to Use New Component (`src/App.tsx`)
+
+Replace the Signup import with the new Stage8SignupStep for the onboarding route:
+
+```tsx
+// Add import
+const Stage8SignupStep = lazy(() => import("./pages/onboarding/stages/Stage8SignupStep"));
+
+// In routes, change:
+{ path: "signup-step", element: <Suspense fallback={<LoadingFallback />}><Stage8SignupStep /></Suspense> },
+```
 
 ---
 
-## Flow After Fixes
+### 4. Update Login.tsx to Handle Iframe (`src/pages/Login.tsx`)
 
-1. User clicks "Begin Your Journey" (black text on green button)
-2. User goes through executive onboarding (Identity, Emotional Awareness, etc.)
-3. User reaches Signup Step - Auth0 flow triggers
-4. After signup, user sees Results page
-5. User reaches Context Connection - toggles work to save preferences
-6. Preferences saved to localStorage
-7. When user enters the authenticated app, calendar/watch connection is offered based on saved preferences
+Similar pattern - detect iframe and show "Open in New Tab" UI:
+
+```tsx
+// Add isInIframe check at the top
+const inIframe = isInIframe();
+
+// If in iframe, show new tab button instead of auto-triggering
+if (inIframe && !isAuthenticated && !isLoading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="text-center max-w-md space-y-4">
+        <h2 className="text-xl font-heading font-semibold">Sign In</h2>
+        <p className="text-muted-foreground text-sm">
+          Sign in opens in a new window for security
+        </p>
+        <Button onClick={() => openAuthInNewTab('/login')} className="gap-2">
+          Continue to Sign In
+          <ExternalLink className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
 
 ---
 
-## Testing Checklist
+## Auth0 Configuration Requirement
 
-- [ ] "Begin Your Journey" button has black text on green background
-- [ ] Onboarding flow shows executive questions (not school/age questions)
-- [ ] Context Connection toggles work without errors
-- [ ] Signup step handles Auth0 properly
-- [ ] Preferences are saved and can be used after authentication
+The new preview URL must be whitelisted in Auth0 Application Settings:
+- **Allowed Callback URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app/callback`
+- **Allowed Logout URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
+- **Allowed Web Origins**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
+
+---
+
+## User Flow After Fix
+
+**In Lovable Preview (Iframe):**
+1. User reaches signup step
+2. Sees branded UI with "Continue to Signup" button
+3. Clicks button → new tab opens with the canonical app URL
+4. Auth0 login/signup works normally in new tab
+5. User completes onboarding in new tab
+
+**Outside Iframe (Direct Access):**
+1. User reaches signup step
+2. Sees branded UI with "Create Account" button
+3. Clicks button → Auth0 popup appears
+4. User signs up and continues in same window
+
+---
+
+## Files Summary
+
+| File | Action |
+|------|--------|
+| `src/utils/authRedirect.ts` | Update `CANONICAL_APP_URL` to current preview URL |
+| `src/pages/onboarding/stages/Stage8SignupStep.tsx` | **Create** new component for onboarding signup |
+| `src/App.tsx` | Update route to use `Stage8SignupStep` instead of `Signup` |
+| `src/pages/Login.tsx` | Add iframe detection and "Open in New Tab" UI |
+
