@@ -156,6 +156,9 @@ const PsychologicalDimensionBubbles = ({
           const insightText = DIMENSION_INSIGHTS[item.dimension]?.(item.value, item.count) || 
             `This theme appears ${item.count} times in your reflections.`;
           
+          // Extract single word for display (first word only)
+          const displayLabel = item.value.split(' ')[0];
+          
           return (
             <Popover key={`${item.dimension}-${item.value}-${index}`}>
               <PopoverTrigger asChild>
@@ -189,19 +192,14 @@ const PsychologicalDimensionBubbles = ({
                   {/* Glass highlight */}
                   <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 to-transparent opacity-50 pointer-events-none" />
                   
+                  {/* Single-word label for visibility */}
                   <span 
                     className={cn(
-                      "font-medium leading-tight px-1.5 relative z-10 capitalize",
+                      "font-semibold leading-tight px-1 relative z-10 capitalize",
                       isLarge ? "text-xs" : "text-[10px]"
                     )}
-                    style={{
-                      maxWidth: `${size - 12}px`,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
                   >
-                    {item.value}
+                    {displayLabel}
                   </span>
                   {item.count > 1 && (
                     <span className="text-[9px] opacity-60 mt-0.5 relative z-10">
@@ -211,49 +209,58 @@ const PsychologicalDimensionBubbles = ({
                 </div>
               </PopoverTrigger>
               
+              {/* Mindsera-style insight popover */}
               <PopoverContent 
-                className="w-72 p-4 bg-card/95 backdrop-blur-lg border-border/50 shadow-[0_8px_32px_rgba(0,0,0,0.2)]"
-                side="top"
-                sideOffset={8}
+                className="w-80 p-5 bg-white dark:bg-card border-0 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] rounded-2xl"
+                side="bottom"
+                sideOffset={12}
               >
-                <div className="space-y-3">
-                  {/* Header with dimension label */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                <div className="space-y-4">
+                  {/* Bubble header with color indicator */}
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center",
+                      style.bg
+                    )}>
+                      <span className={cn("text-sm font-semibold capitalize", style.text)}>
+                        {item.value.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground capitalize text-lg">
+                        {item.value}
+                      </h4>
                       <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide",
+                        "text-xs px-2 py-0.5 rounded-full",
                         style.bg, style.text
                       )}>
                         {getDimensionLabel(item.dimension)}
                       </span>
-                      <h4 className="font-semibold text-foreground capitalize">
-                        {item.value}
-                      </h4>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {item.count}×
-                    </span>
                   </div>
                   
-                  {/* Insight text */}
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {insightText}
-                  </p>
+                  {/* Summary insight with border accent */}
+                  <div className="border-l-2 border-primary/30 pl-3">
+                    <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                      Summary
+                    </h5>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {insightText}
+                    </p>
+                  </div>
                   
                   {/* Related wins preview if available */}
                   {relatedWins && relatedWins.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border/50">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <div className="space-y-2">
+                      <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         From your wins
-                      </p>
+                      </h5>
                       {relatedWins.slice(0, 2).map((win, i) => (
-                        <div key={i} className="bg-muted/30 rounded-lg p-2.5">
-                          <p className="text-sm text-foreground line-clamp-2">
-                            "{win.content}"
-                          </p>
-                          <span className="text-[10px] text-muted-foreground mt-1">
+                        <div key={i} className="bg-muted/50 rounded-xl p-3 text-sm text-foreground">
+                          "{win.content}"
+                          <div className="text-[10px] text-muted-foreground mt-1">
                             {win.date}
-                          </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -267,7 +274,7 @@ const PsychologicalDimensionBubbles = ({
                         flowType: 'explore'
                       }
                     })}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-saffron/15 text-saffron hover:bg-saffron/25 transition-colors text-sm font-medium"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-saffron/15 text-saffron hover:bg-saffron/25 transition-colors text-sm font-medium"
                   >
                     <ChatCircle weight="duotone" className="w-4 h-4" />
                     Explore with Coach
@@ -277,6 +284,30 @@ const PsychologicalDimensionBubbles = ({
             </Popover>
           );
         })}
+      </div>
+
+      {/* Color Legend - explains what each color means */}
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[10px] text-muted-foreground pt-2">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/50"></span>
+          <span>Sentiment</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-orange-400/50"></span>
+          <span>Emotion</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-500/50"></span>
+          <span>Agency</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-violet-500/50"></span>
+          <span>Regulation</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-saffron/50"></span>
+          <span>Growth</span>
+        </div>
       </div>
 
       {/* Hint text */}

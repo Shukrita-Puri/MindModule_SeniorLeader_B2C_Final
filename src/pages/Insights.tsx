@@ -115,6 +115,7 @@ const Insights = () => {
   const [checkInStreak, setCheckInStreak] = useState(0);
   const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
+  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string }>>([]);
   const [winsLoading, setWinsLoading] = useState(false);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
   const [patternsLoading, setPatternsLoading] = useState(false);
@@ -355,6 +356,13 @@ const Insights = () => {
         
         console.log('[Insights] DEV_MODE extracted dimensions:', dimensions);
         
+        // Also store raw win content for passing to dimension bubbles
+        const winsWithContent = wins?.map(w => ({
+          content: w.win_content,
+          date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        })) || [];
+        setTinyWinsContent(winsWithContent);
+        
         setTinyWinsInsights({
           themes: dimensions.slice(0, 5).map(d => d.value),
           dimensions,
@@ -540,20 +548,28 @@ const Insights = () => {
             if (theme1.sources.practice > 0 && theme2.sources.practice > 0) overlap++;
             
             // Also check semantic similarity (simple approach)
+            // Expanded semantic pairs for better relationship detection
             const semanticPairs = [
               ['focus', 'clarity'], ['stress', 'overwhelm'], ['balance', 'steady'],
-              ['energy', 'activation'], ['calm', 'grounding'], ['growth', 'progress']
+              ['energy', 'activation'], ['calm', 'grounding'], ['growth', 'progress'],
+              ['self-awareness', 'presence'], ['emotional regulation', 'calm'],
+              ['confidence', 'achievement'], ['resilience', 'growth'],
+              ['relationships', 'communication'], ['focus', 'presence'],
+              ['energy', 'focus'], ['stress management', 'emotional regulation'],
+              ['balance', 'calm'], ['clarity', 'presence'], ['growth', 'learning'],
+              ['mastery', 'progress'], ['steady', 'calm'], ['overwhelm', 'stress management']
             ];
             const isSemanticallyRelated = semanticPairs.some(pair => 
               (theme1.theme.toLowerCase().includes(pair[0]) && theme2.theme.toLowerCase().includes(pair[1])) ||
               (theme1.theme.toLowerCase().includes(pair[1]) && theme2.theme.toLowerCase().includes(pair[0]))
             );
             
-            if (overlap >= 2 || isSemanticallyRelated) {
+            // Relaxed criteria: overlap >= 1 (single shared source) OR semantic relationship
+            if (overlap >= 1 || isSemanticallyRelated) {
               themeRelationships.push({
                 from: theme1.theme,
                 to: theme2.theme,
-                strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 4, 1)
+                strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 3, 1)
               });
             }
           }
@@ -923,7 +939,7 @@ const Insights = () => {
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
                 
-                {/* Psychological dimension bubbles */}
+                {/* Psychological dimension bubbles with related wins */}
                 {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
                   <PsychologicalDimensionBubbles
                     data={tinyWinsInsights.dimensions.map(d => ({
@@ -931,6 +947,7 @@ const Insights = () => {
                       value: d.value,
                       count: d.count
                     }))}
+                    relatedWins={tinyWinsContent}
                     emptyMessage="Complete evening Integrate flow to capture wins"
                   />
                 ) : (
