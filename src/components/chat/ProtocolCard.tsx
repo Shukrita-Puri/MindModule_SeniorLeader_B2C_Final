@@ -15,6 +15,7 @@ export interface ProtocolCardProps {
   contentType: ContentTypeRoute;
   storyHook?: string;
   className?: string;
+  variant?: 'default' | 'onDark';
 }
 
 const getRouteForContentType = (contentType: ContentTypeRoute, id: string): string => {
@@ -46,7 +47,8 @@ export const ProtocolCard = ({
   thumbnail,
   contentType,
   storyHook,
-  className
+  className,
+  variant = 'default'
 }: ProtocolCardProps) => {
   const navigate = useNavigate();
   const route = getRouteForContentType(contentType, id);
@@ -69,15 +71,16 @@ export const ProtocolCard = ({
     });
   };
 
+  const isOnDark = variant === 'onDark';
+
   return (
     <div
       className={cn(
         "relative flex h-36 overflow-hidden rounded-xl",
-        "bg-white/65 dark:bg-black/20 backdrop-blur-[20px]",
-        "border border-black/[0.06] dark:border-white/10",
-        "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
-        "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
         "transition-all duration-300",
+        isOnDark
+          ? "bg-white/90 backdrop-blur-sm border border-white/30 shadow-lg"
+          : "bg-white/65 dark:bg-black/20 backdrop-blur-[20px] border border-black/[0.06] dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
         className
       )}
     >
@@ -92,22 +95,34 @@ export const ProtocolCard = ({
         <div>
           {/* Module Label + Protocol Type */}
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-semibold tracking-wider uppercase text-saffron">
+            <span className={cn(
+              "text-[10px] font-semibold tracking-wider uppercase",
+              isOnDark ? "text-saffron" : "text-saffron"
+            )}>
               {getModuleLabel(type)}
             </span>
-            <span className="text-[9px] text-muted-foreground/60">
+            <span className={cn(
+              "text-[9px]",
+              isOnDark ? "text-muted-foreground/80" : "text-muted-foreground/60"
+            )}>
               {getProtocolTypeLabel(type)}
             </span>
           </div>
           
           {/* Title */}
-          <h4 className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+          <h4 className={cn(
+            "text-sm font-semibold line-clamp-2 leading-snug",
+            isOnDark ? "text-foreground" : "text-foreground"
+          )}>
             {title}
           </h4>
           
           {/* Story Hook (optional) */}
           {storyHook && (
-            <p className="text-[10px] text-muted-foreground line-clamp-1 mt-1">
+            <p className={cn(
+              "text-[10px] line-clamp-1 mt-1",
+              isOnDark ? "text-muted-foreground/90" : "text-muted-foreground"
+            )}>
               {storyHook}
             </p>
           )}
@@ -115,7 +130,10 @@ export const ProtocolCard = ({
         
         {/* Footer: Duration + Start Button */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className={cn(
+            "flex items-center gap-1 text-xs",
+            isOnDark ? "text-muted-foreground" : "text-muted-foreground"
+          )}>
             <Clock className="w-3 h-3" />
             <span>{duration < 1 ? `${Math.round(duration * 60)}s` : `${Math.round(duration)} min`}</span>
           </div>
