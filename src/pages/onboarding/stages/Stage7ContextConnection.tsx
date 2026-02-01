@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, ArrowRight, Lock, Loader2 } from "lucide-react";
+import { Calendar, Watch, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getSession } from "@/utils/onboardingStorage";
@@ -272,13 +271,13 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  const handleComplete = (skipCalendar = false) => {
+  const handleComplete = () => {
     const contextData = {
       calendar: {
         enabled: calendarConnected,
         provider: calendarConnected ? 'google' : null,
         setupCompletedAt: calendarConnected ? new Date().toISOString() : null,
-        skipped: skipCalendar
+        skipped: !calendarConnected
       },
       onboardingCompletedAt: new Date().toISOString(),
       plan: 'super-pro'
@@ -298,37 +297,31 @@ export default function Stage7ContextConnection() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-10">
         
-        {/* Header */}
+        {/* Header - minimal */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Connect Your Calendar</h1>
-          <p className="text-muted-foreground">
-            Make your journey Proactive and Contextualised. Recalibrate for moments of impact.
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Connect Context
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Personalise your experience
           </p>
         </div>
 
-        {/* Main Calendar Card */}
-        <Card className="p-6">
-          <div className="flex items-start justify-between mb-4">
+        {/* Integration Toggles - clean rows */}
+        <div className="space-y-3">
+          
+          {/* Google Calendar */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                {connecting ? (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                ) : (
-                  <Calendar className="w-5 h-5 text-primary" />
-                )}
-              </div>
-              <div>
-                <h3 className="font-medium text-lg">Calendar Integration</h3>
-                <p className="text-sm text-muted-foreground">
-                  Connect Google Calendar for contextual insights
-                </p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  Optional • Can be set up later in Settings
-                </p>
-              </div>
+              {connecting ? (
+                <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+              ) : (
+                <Calendar className="w-5 h-5 text-muted-foreground" />
+              )}
+              <span className="font-medium">Google Calendar</span>
             </div>
             <Switch 
               checked={calendarConnected} 
@@ -336,55 +329,31 @@ export default function Stage7ContextConnection() {
               disabled={checkingConnection || connecting}
             />
           </div>
-
-          {/* Value Prop Section */}
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-sm font-medium mb-3">
-              Why Our Users Love Integrations
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>3x more consistent practice habit formation</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>67% better transfer to real-world situations</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Proactive support during high-stress moments</span>
-              </li>
-            </ul>
+          
+          {/* Apple Watch - coming soon */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card/50 border border-dashed">
+            <div className="flex items-center gap-3">
+              <Watch className="w-5 h-5 text-muted-foreground/50" />
+              <span className="font-medium text-muted-foreground/70">Apple Watch</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                Soon
+              </span>
+            </div>
+            <Switch disabled checked={false} />
           </div>
-        </Card>
-
-        {/* Coming Soon Teaser */}
-        <Card className="p-4 border-dashed bg-[#fbfbfa]/30">
-          <p className="text-sm text-center text-muted-foreground">
-            More integrations coming soon
-            <span className="block mt-1 text-xs">More Calendar options •Wearables • Voice • Email</span>
-          </p>
-        </Card>
-
-        {/* Privacy Link */}
-        <div className="text-center">
-          <a href="https://docs.lovable.dev/features/security" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors">
-            <Lock className="w-3 h-3" />
-            How we protect your data
-            <ArrowRight className="w-3 h-3" />
-          </a>
+          
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-2">
-          <Button onClick={() => handleComplete(false)} className="w-full" disabled={checkingConnection}>
-            Continue to App
-          </Button>
-          <Button variant="ghost" onClick={() => handleComplete(true)} className="w-full text-sm">
-            Skip for now
-          </Button>
-        </div>
+        {/* Single CTA */}
+        <Button onClick={handleComplete} className="w-full" disabled={checkingConnection}>
+          Continue
+        </Button>
+
+        {/* Subtle footer */}
+        <p className="text-center text-xs text-muted-foreground/60">
+          You can change this anytime in settings
+        </p>
+
       </div>
     </div>
   );
