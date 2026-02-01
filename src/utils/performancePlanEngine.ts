@@ -88,8 +88,9 @@ export interface ExecutiveScenario {
   modules: ModuleSpec[];
 }
 
-// Executive scenarios for senior leaders
+// Executive scenarios for senior leaders - focusing on PROACTIVE self-mastery
 export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
+  // ============= PRE-EVENT SCENARIOS (Proactive) =============
   {
     id: 'pre-board-meeting',
     name: 'Pre-Board Meeting',
@@ -109,7 +110,7 @@ export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
     name: 'Pre-Investor Meeting',
     contextLabel: 'High-Stakes Presentation',
     triggers: { 
-      calendarKeywords: ['investor', 'vc', 'funding', 'pitch', 'keynote', 'presentation'], 
+      calendarKeywords: ['investor', 'vc', 'funding', 'pitch', 'keynote'], 
       hoursAhead: 24 
     },
     modules: [
@@ -117,6 +118,178 @@ export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
       { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
     ]
   },
+  {
+    id: 'pre-strategic-planning',
+    name: 'Pre-Strategic Planning',
+    contextLabel: 'Strategy Session Prep',
+    triggers: { 
+      calendarKeywords: ['strategy', 'strategic planning', 'offsite', 'vision', 'roadmap'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-negotiations',
+    name: 'Pre-Negotiations',
+    contextLabel: 'Negotiation Prep',
+    triggers: { 
+      calendarKeywords: ['negotiation', 'contract', 'deal', 'terms', 'partnership'], 
+      hoursAhead: 12 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-all-hands',
+    name: 'Pre-All Hands',
+    contextLabel: 'Company Meeting Prep',
+    triggers: { 
+      calendarKeywords: ['all hands', 'town hall', 'company meeting', 'team meeting'], 
+      hoursAhead: 4 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-media',
+    name: 'Pre-Media/Interview',
+    contextLabel: 'Media Appearance Prep',
+    triggers: { 
+      calendarKeywords: ['interview', 'podcast', 'media', 'press', 'journalist', 'pr'], 
+      hoursAhead: 6 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-crisis-response',
+    name: 'Pre-Crisis Response',
+    contextLabel: 'Crisis Preparation',
+    triggers: { 
+      calendarKeywords: ['crisis', 'urgent', 'emergency', 'incident', 'escalation'], 
+      hoursAhead: 2 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 10, intensity: 'gentle', duration: 'micro', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-hiring-decision',
+    name: 'Pre-Hiring Decision',
+    contextLabel: 'Hiring Review Prep',
+    triggers: { 
+      calendarKeywords: ['final round', 'hiring committee', 'offer discussion', 'candidate review', 'executive hire'], 
+      hoursAhead: 4 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
+    ]
+  },
+  {
+    id: 'pre-client-presentation',
+    name: 'Pre-Client Presentation',
+    contextLabel: 'Client Meeting Prep',
+    triggers: { 
+      calendarKeywords: ['client', 'demo', 'proposal', 'customer', 'account review'], 
+      hoursAhead: 8 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-budget-review',
+    name: 'Pre-Budget/Finance Review',
+    contextLabel: 'Finance Review Prep',
+    triggers: { 
+      calendarKeywords: ['budget', 'finance review', 'forecast', 'financial planning', 'earnings'], 
+      hoursAhead: 24 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'clarity' }
+    ]
+  },
+  {
+    id: 'pre-performance-review',
+    name: 'Pre-Performance Review',
+    contextLabel: 'Review Preparation',
+    triggers: { 
+      calendarKeywords: ['performance review', 'annual review', 'mid-year review', '360 feedback'], 
+      hoursAhead: 8 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-difficult-conversation',
+    name: 'Pre-Difficult Conversation',
+    contextLabel: 'Conversation Prep',
+    triggers: { 
+      calendarKeywords: ['1:1', 'one on one', 'feedback', 'pip', 'termination', 'difficult', 'conflict'], 
+      hoursAhead: 4 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'composure' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    ]
+  },
+  {
+    id: 'pre-quarterly-review',
+    name: 'Pre-Quarterly Review',
+    contextLabel: 'Quarterly Prep',
+    triggers: { 
+      calendarKeywords: ['quarterly', 'qbr', 'q1', 'q2', 'q3', 'q4'], 
+      hoursAhead: 48 
+    },
+    modules: [
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-speaking-engagement',
+    name: 'Pre-Speaking Engagement',
+    contextLabel: 'Speaking Prep',
+    triggers: { 
+      calendarKeywords: ['conference', 'summit', 'panel', 'speaking', 'presentation', 'webinar'], 
+      hoursAhead: 12 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
+      { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+      { type: 'prepare', required: true, priority: 9, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+    ]
+  },
+  {
+    id: 'pre-leadership-meeting',
+    name: 'Pre-Leadership Meeting',
+    contextLabel: 'Leadership Prep',
+    triggers: { 
+      calendarKeywords: ['leadership team', 'exec team', 'c-suite', 'slt', 'management meeting'], 
+      hoursAhead: 4 
+    },
+    modules: [
+      { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'clarity' }
+    ]
+  },
+  // ============= CONDITION-BASED SCENARIOS =============
   {
     id: 'high-cognitive-load',
     name: 'High Cognitive Load Day',
@@ -130,19 +303,6 @@ export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
     ]
   },
   {
-    id: 'post-tough-day',
-    name: 'Post-Tough Day Recovery',
-    contextLabel: 'Evening Recovery',
-    triggers: { 
-      timeOfDay: 'evening',
-      checkInPattern: 'consecutive-low'
-    },
-    modules: [
-      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
-      { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
-    ]
-  },
-  {
     id: 'recovery-day',
     name: 'Recovery Day',
     contextLabel: 'Low Energy Recovery',
@@ -153,30 +313,18 @@ export const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
       { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' }
     ]
   },
+  // ============= POST-EVENT SCENARIOS =============
   {
-    id: 'quarterly-review-prep',
-    name: 'Quarterly Review Prep',
-    contextLabel: 'Review Preparation',
+    id: 'post-tough-day',
+    name: 'Post-Tough Day Recovery',
+    contextLabel: 'Evening Recovery',
     triggers: { 
-      calendarKeywords: ['quarterly', 'review', 'q1', 'q2', 'q3', 'q4', 'performance review'], 
-      hoursAhead: 48 
+      timeOfDay: 'evening',
+      checkInPattern: 'consecutive-low'
     },
     modules: [
-      { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-    ]
-  },
-  {
-    id: 'difficult-conversation',
-    name: 'Difficult Conversation Prep',
-    contextLabel: 'Conversation Prep',
-    triggers: { 
-      calendarKeywords: ['1:1', 'one on one', 'feedback', 'performance', 'pip', 'termination', 'difficult'], 
-      hoursAhead: 4 
-    },
-    modules: [
-      { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'composure' },
-      { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' }
+      { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
+      { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
     ]
   }
 ];

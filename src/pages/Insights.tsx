@@ -20,7 +20,6 @@ import LuxuryProgressRing from '@/components/insights/LuxuryProgressRing';
 import LuxuryStateBar from '@/components/insights/LuxuryStateBar';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
-import coachVisual from '@/assets/coach-visual.jpeg';
 
 interface DayData {
   date: string;
@@ -655,19 +654,18 @@ const Insights = () => {
       <div className="relative">
         <FloatingNavigation />
 
-        {/* Coach Visual Header - matching Executive Home style */}
-        <div className="relative w-full h-32 overflow-hidden mb-6 max-w-4xl mx-auto px-4">
-          <div className="relative w-full h-full rounded-xl overflow-hidden">
-            <img 
-              src={coachVisual} 
-              alt="" 
-              className="w-full h-full object-cover object-top opacity-60"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-            <div className="absolute bottom-4 left-4">
-              <h1 className="text-2xl font-headline text-foreground">Your Inner World</h1>
-              <p className="text-sm text-muted-foreground">Past 7 days</p>
-            </div>
+        {/* Hero Banner - matching Recalibrate Studio pattern */}
+        <div className="relative h-auto py-8 overflow-hidden">
+          <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
+            <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
+              Your Inner World
+            </h1>
+            <p className="text-lg font-subheadline italic text-muted-foreground">
+              Patterns. Progress. Presence.
+            </p>
+            <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Your longitudinal view of mental fitness development — tracking states, wins, and inner patterns over time.
+            </p>
           </div>
         </div>
       </div>

@@ -158,14 +158,29 @@ const DailyCheckIn = () => {
       {/* Navigation - scrolls with content */}
       <FloatingNavigation />
       
+      {/* Hero Banner - matching Recalibrate Studio pattern */}
+      <div className="relative h-auto py-8 overflow-hidden">
+        <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+          <h1 className="text-4xl font-headline text-foreground tracking-tight">
+            Daily Check-In
+          </h1>
+          <p className="text-base font-subheadline italic text-muted-foreground">
+            Awareness First. Action Follows.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+            A moment to check your inner state — guiding today's performance plan.
+          </p>
+        </div>
+      </div>
+      
       <div className="flex-1 flex items-center justify-center p-4 pb-32">
       
       <div className="w-full max-w-md space-y-6 animate-fade-in">
-        {/* Header */}
+        {/* Question Header */}
         <div className="text-center">
-          <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight mb-2">
+          <h2 className="text-xl md:text-2xl font-headline text-foreground tracking-tight mb-2">
             How are you feeling right now?
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground leading-relaxed font-body">
             Just your first instinct. Don't overthink it.
           </p>
