@@ -46,6 +46,9 @@ const Front = () => {
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
+        <p className="text-sm sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-4">
+          Executive Edition
+        </p>
         
         {/* Tagline */}
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">
