@@ -36,7 +36,7 @@ const getThemeDataSources = (energyState: CurrentEnergyState): string => {
   }
   
   // Time of day always contributes
-  sources.push('time of day');
+  sources.push('circadian rhythm');
   
   return sources.join(', ');
 };
@@ -288,7 +288,7 @@ const StrategicIntentionCard = () => {
         </span>
         <MetricInfoModal
           title="How Your Daily Theme is Selected"
-          description="Your theme combines your current felt state (from check-in and wearable data), calendar pressure (high-stakes events), calendar load (meeting density), and time of day. It provides strategic guidance that acknowledges both how you feel internally and what your day demands externally."
+          description="Your theme combines your current felt state (from check-in and wearable data), calendar pressure (high-stakes events), calendar load (meeting density), and circadian rhythm (time of day and day of week). It provides strategic guidance that acknowledges both how you feel internally and what your day demands externally."
         />
       </div>
 

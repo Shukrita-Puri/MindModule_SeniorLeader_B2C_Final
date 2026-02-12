@@ -90,7 +90,7 @@ const TodayStateCard = () => {
         </span>
         <MetricInfoModal
           title="How Your Energy Score is Calculated"
-          description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
+          description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day and day of week), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
         />
       </div>
       {/* Score and Tier */}

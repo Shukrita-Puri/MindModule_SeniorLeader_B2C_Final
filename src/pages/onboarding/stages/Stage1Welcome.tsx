@@ -22,7 +22,7 @@ export default function Stage1Welcome() {
 
       <div className="text-center space-y-4 animate-fade-in delay-100">
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-display font-bold text-foreground tracking-wide">
-          Welcome to<br/>KAIROS
+          Welcome to<br/>MIND MODULE
         </h1>
         <h2 className="text-xl sm:text-2xl md:text-3xl font-editorial italic text-primary font-medium tracking-wide">
           Proactive Self Mastery for Peak Performers
