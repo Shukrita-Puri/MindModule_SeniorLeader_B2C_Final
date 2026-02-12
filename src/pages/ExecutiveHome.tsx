@@ -180,6 +180,9 @@ const ExecutiveHome = () => {
             
             {/* Greeting content - elevated above visual */}
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
+              <p className="text-[10px] font-medium tracking-[0.3em] uppercase text-muted-foreground/70 mb-1 font-body">
+                Executive Edition
+              </p>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
@@ -213,9 +216,14 @@ const ExecutiveHome = () => {
               {/* Section 3: Performance Plan - "What should I do now?" */}
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
-                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-                    Today's Performance Plan
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
+                      Today's Performance Plan
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                      {new Date().getHours() >= 17 ? 'Evening' : new Date().getHours() >= 12 ? 'Afternoon' : 'Morning'}
+                    </span>
+                  </div>
                   <MetricInfoModal
                     title="How Your Plan is Built"
                     description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day. You don't choose—the system deploys the right intervention at the right time."
