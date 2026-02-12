@@ -155,8 +155,10 @@ serve(async (req) => {
           throw new Error('Google Calendar Client ID not configured');
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        // Pass authenticated userId in state for OAuth callback
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(authenticatedUserId)}`;
+        // Encode userId + redirectPath in state for OAuth callback
+        const statePayload = JSON.stringify({ userId: authenticatedUserId, redirectPath: body?.redirectPath || '/onboarding/context-connection' });
+        const encodedState = btoa(statePayload);
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(encodedState)}`;
         console.log('[calendar-auth] Generated OAuth URL for authenticated user:', authenticatedUserId);
       }
 
@@ -165,22 +167,35 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'callback' || url.searchParams.get('code')) {
-      // Step 2: Handle OAuth callback - userId comes from state parameter (set during connect)
-      // This is the only path that doesn't require JWT verification because it's a redirect from OAuth provider
+      // Step 2: Handle OAuth callback - userId + redirectPath come from state parameter
       const code = url.searchParams.get('code');
       
       if (!code || !stateUserId) {
         throw new Error('Missing code or state');
       }
 
-      // Validate the userId from state - accepts Auth0 format or UUID
+      // Parse state: try new JSON format first, fall back to plain userId for backward compat
+      let validUserId: string;
+      let redirectPath = '/onboarding/context-connection';
+      
+      try {
+        const stateData = JSON.parse(atob(decodeURIComponent(stateUserId)));
+        validUserId = stateData.userId;
+        redirectPath = stateData.redirectPath || redirectPath;
+        console.log('[calendar-auth] Parsed state JSON, userId:', validUserId, 'redirectPath:', redirectPath);
+      } catch {
+        // Backward compatibility: state is just the userId string
+        validUserId = decodeURIComponent(stateUserId);
+        console.log('[calendar-auth] Legacy state format, userId:', validUserId);
+      }
+
+      // Validate the userId - accepts Auth0 format or UUID
       const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       
-      if (!auth0IdPattern.test(stateUserId) && !uuidPattern.test(stateUserId)) {
+      if (!auth0IdPattern.test(validUserId) && !uuidPattern.test(validUserId)) {
         throw new Error('Invalid user ID format in state');
       }
-      const validUserId = stateUserId;
 
       let tokenUrl = '';
       let clientId = '';
@@ -286,9 +301,11 @@ serve(async (req) => {
 
       console.log('[calendar-auth] Calendar connection stored with encrypted tokens for user:', validUserId);
 
-      // Redirect back to the app with success parameter
-      const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ibrvatszexahdqwejahc.lovable.app';
-      const redirectUrl = `${frontendUrl}/onboarding/context-connection?calendar_connected=true`;
+      const frontendUrl = Deno.env.get('FRONTEND_URL');
+      if (!frontendUrl) {
+        throw new Error('FRONTEND_URL not configured');
+      }
+      const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true`;
       
       console.log('[calendar-auth] Redirecting to:', redirectUrl);
 

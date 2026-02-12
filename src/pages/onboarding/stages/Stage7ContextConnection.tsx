@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Calendar, Watch } from "lucide-react";
@@ -8,15 +8,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const { getAccessTokenSilently } = useAuth0();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Handle OAuth callback: check for calendar_connected param
+  useEffect(() => {
+    if (searchParams.get('calendar_connected') === 'true') {
+      setCalendarEnabled(true);
+      toast.success('Google Calendar connected successfully');
+      // Clean URL
+      searchParams.delete('calendar_connected');
+      setSearchParams(searchParams, { replace: true });
+      // Persist
+      const prefs = { calendar: true, watch: watchEnabled };
+      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
+    }
+  }, []);
 
   // Load saved preferences on mount
   useEffect(() => {
@@ -32,17 +48,19 @@ export default function Stage7ContextConnection() {
   const handleCalendarToggle = async (checked: boolean) => {
     setCalendarEnabled(checked);
     
-    // Save preference
     const prefs = { calendar: checked, watch: watchEnabled };
     localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
     
-    // If enabling and authenticated, trigger OAuth
     if (checked && isAuthenticated) {
       setLoading(true);
       try {
         const token = await getAccessTokenSilently();
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
-          body: { action: 'connect', provider: 'google' },
+          body: { 
+            action: 'connect', 
+            provider: 'google',
+            redirectPath: '/onboarding/context-connection'
+          },
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -60,17 +78,22 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  // Handle Apple Watch toggle (preference only - native integration coming)
-  const handleWatchToggle = (checked: boolean) => {
-    setWatchEnabled(checked);
-    
-    // Save preference
-    const prefs = { calendar: calendarEnabled, watch: checked };
-    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
-    
-    if (checked) {
+  // Handle Apple Watch toggle — native HealthKit or preference-only
+  const handleWatchToggle = async (checked: boolean) => {
+    if (checked && isNativeApp()) {
+      const granted = await requestHealthKitPermissions();
+      if (!granted) {
+        toast.error('HealthKit permissions are required for Apple Watch integration');
+        return; // don't toggle on
+      }
+      toast.success('Apple Watch connected via HealthKit');
+    } else if (checked) {
       toast.info('Apple Watch will connect when you install the mobile app');
     }
+
+    setWatchEnabled(checked);
+    const prefs = { calendar: calendarEnabled, watch: checked };
+    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
   };
 
   const handleComplete = () => {
@@ -118,7 +141,7 @@ export default function Stage7ContextConnection() {
               <div className="flex flex-col">
                 <span className="font-medium">Google Calendar</span>
                 <span className="text-xs text-muted-foreground">
-                  Sync your schedule
+                  {calendarEnabled ? 'Connected' : 'Sync your schedule'}
                 </span>
               </div>
             </div>
@@ -136,7 +159,7 @@ export default function Stage7ContextConnection() {
               <div className="flex flex-col">
                 <span className="font-medium">Apple Watch</span>
                 <span className="text-xs text-muted-foreground">
-                  Available in mobile app
+                  {isNativeApp() ? 'HealthKit integration' : 'Available in mobile app'}
                 </span>
               </div>
             </div>
