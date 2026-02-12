@@ -92,6 +92,39 @@ export type Database = {
         }
         Relationships: []
       }
+      behavior_logs: {
+        Row: {
+          behavior_type: string
+          context_event_id: string | null
+          control_level: string | null
+          created_at: string
+          energy_after: string
+          event_title: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          behavior_type: string
+          context_event_id?: string | null
+          control_level?: string | null
+          created_at?: string
+          energy_after: string
+          event_title?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          behavior_type?: string
+          context_event_id?: string | null
+          control_level?: string | null
+          created_at?: string
+          energy_after?: string
+          event_title?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           access_token_enc: string | null
@@ -139,6 +172,36 @@ export type Database = {
           token_expires_at?: string | null
           token_iv?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calendar_event_classifications: {
+        Row: {
+          calendar_event_id: string
+          classified_by: string
+          created_at: string
+          event_type: string
+          id: string
+          stakes_level: string
+          user_id: string
+        }
+        Insert: {
+          calendar_event_id: string
+          classified_by?: string
+          created_at?: string
+          event_type: string
+          id?: string
+          stakes_level?: string
+          user_id: string
+        }
+        Update: {
+          calendar_event_id?: string
+          classified_by?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          stakes_level?: string
           user_id?: string
         }
         Relationships: []
@@ -423,6 +486,8 @@ export type Database = {
       daily_checkins: {
         Row: {
           checkin_date: string
+          clarity_level: number | null
+          confidence_level: number | null
           created_at: string
           data_sources: Json | null
           energy_balance: number | null
@@ -435,6 +500,8 @@ export type Database = {
         }
         Insert: {
           checkin_date: string
+          clarity_level?: number | null
+          confidence_level?: number | null
           created_at?: string
           data_sources?: Json | null
           energy_balance?: number | null
@@ -447,6 +514,8 @@ export type Database = {
         }
         Update: {
           checkin_date?: string
+          clarity_level?: number | null
+          confidence_level?: number | null
           created_at?: string
           data_sources?: Json | null
           energy_balance?: number | null
@@ -951,6 +1020,33 @@ export type Database = {
           presence_percentage?: number | null
           snapshot_date?: string
           total_sessions?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jit_preferences: {
+        Row: {
+          action: string
+          created_at: string
+          event_title: string | null
+          event_type: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          event_title?: string | null
+          event_type?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          event_title?: string | null
+          event_type?: string | null
+          id?: string
           user_id?: string
         }
         Relationships: []

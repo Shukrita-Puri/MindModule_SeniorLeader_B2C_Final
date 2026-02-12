@@ -17,7 +17,8 @@ import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
-import JustInTimeIntervention from "@/components/home/JustInTimeIntervention";
+import JitCarousel from "@/components/home/JitCarousel";
+import PostEventReflection from "@/components/home/PostEventReflection";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
@@ -229,9 +230,14 @@ const ExecutiveHome = () => {
               <DailyRitual />
             </div>
 
-            {/* Just-in-Time Interventions - Only shows when triggered */}
+            {/* JIT Preparation Carousel - Own section, only when triggered */}
+            <div className="animate-in fade-in duration-500 delay-300 mt-6">
+              <JitCarousel />
+            </div>
+
+            {/* Post-Event Micro-Reflection - Shows after high-stakes events end */}
             <div className="px-4 md:px-6 mt-6 max-w-lg mx-auto">
-              <JustInTimeIntervention />
+              <PostEventReflection />
             </div>
 
             <div className="mt-8">
