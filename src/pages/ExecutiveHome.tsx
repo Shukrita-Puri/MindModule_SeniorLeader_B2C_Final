@@ -180,9 +180,6 @@ const ExecutiveHome = () => {
             
             {/* Greeting content - elevated above visual */}
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
-              <p className="text-[10px] font-medium tracking-[0.3em] uppercase text-muted-foreground/70 mb-1 font-body">
-                Executive Edition
-              </p>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
               </h1>
