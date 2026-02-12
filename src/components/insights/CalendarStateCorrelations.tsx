@@ -217,7 +217,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium text-sm text-foreground truncate">
-                  {correlation.eventKeyword} days
+                  When you have {correlation.eventKeyword} events
                 </span>
               </div>
             </div>
@@ -230,7 +230,7 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
               "px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
               stateBgColors[correlation.typicalState] || 'bg-muted text-muted-foreground'
             )}>
-              {correlation.typicalState}
+              you feel {correlation.typicalState}
             </div>
             
             {/* Confidence percentage */}
@@ -251,8 +251,9 @@ const CalendarStateCorrelations = ({ userId }: CalendarStateCorrelationsProps) =
         <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-            {correlations[0].eventKeyword} events often correlate with feeling{' '}
-            <span className="font-medium">{correlations[0].typicalState}</span>.
+            When you have {correlations[0].eventKeyword} events, you check in{' '}
+            <span className="font-medium">{correlations[0].typicalState}</span>{' '}
+            {Math.round(correlations[0].confidence * 100)}% of the time ({correlations[0].occurrences} occurrences).
             Consider scheduling preparation time before these meetings.
           </p>
         </div>
