@@ -108,22 +108,28 @@ serve(async (req) => {
     
     // For connect/disconnect actions, verify JWT and extract user ID
     let authenticatedUserId: string | null = null;
+    let body: Record<string, unknown> = {};
     
     if (req.method === 'POST') {
-      const body = await req.json();
-      action = body.action || action;
-      provider = body.provider || provider;
+      body = await req.json();
+      action = body.action as string || action;
+      provider = body.provider as string || provider;
       
-      // Verify token and extract user ID
-      try {
-        authenticatedUserId = await verifyAuth0Token(authHeader);
-        console.log('[calendar-auth] Authenticated user:', authenticatedUserId);
-      } catch (error) {
-        console.error('[calendar-auth] Authentication failed:', error);
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Try to authenticate via Auth0 token
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          authenticatedUserId = await verifyAuth0Token(authHeader);
+          console.log('[calendar-auth] Authenticated user:', authenticatedUserId);
+        } catch (error) {
+          console.warn('[calendar-auth] Token auth failed, checking for userId in body:', error);
+        }
+      }
+      
+      // For the 'connect' action (URL generation only), allow userId from body as fallback
+      // This enables dev mode and scenarios where Auth0 isn't available (e.g., Capacitor native)
+      if (!authenticatedUserId && body.userId && body.action === 'connect') {
+        authenticatedUserId = body.userId as string;
+        console.log('[calendar-auth] Using userId from body for connect:', authenticatedUserId);
       }
     }
     
@@ -137,17 +143,17 @@ serve(async (req) => {
     const validProvider = providerSchema.parse(provider);
 
     if (action === 'connect') {
-      // Step 1: Generate OAuth URL - requires authenticated user
+      // Step 1: Generate OAuth URL - requires a user ID (from token or body)
       if (!authenticatedUserId) {
         return new Response(
-          JSON.stringify({ error: 'Authentication required for connect action' }),
+          JSON.stringify({ error: 'User ID required for connect action. Provide Authorization header or userId in body.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       let authUrl = '';
       let clientId = '';
-      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
+      const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
       if (validProvider === 'google') {
         clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
@@ -156,10 +162,10 @@ serve(async (req) => {
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
         // Encode userId + redirectPath in state for OAuth callback
-        const statePayload = JSON.stringify({ userId: authenticatedUserId, redirectPath: body?.redirectPath || '/onboarding/context-connection' });
+        const statePayload = JSON.stringify({ userId: authenticatedUserId, redirectPath: (body.redirectPath as string) || '/onboarding/context-connection' });
         const encodedState = btoa(statePayload);
         authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(encodedState)}`;
-        console.log('[calendar-auth] Generated OAuth URL for authenticated user:', authenticatedUserId);
+        console.log('[calendar-auth] Generated OAuth URL for user:', authenticatedUserId);
       }
 
       return new Response(
@@ -189,11 +195,12 @@ serve(async (req) => {
         console.log('[calendar-auth] Legacy state format, userId:', validUserId);
       }
 
-      // Validate the userId - accepts Auth0 format or UUID
+      // Validate the userId - accepts Auth0 format, UUID, or dev-mode IDs (alphanumeric with hyphens)
       const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const devIdPattern = /^[a-zA-Z0-9-]{3,50}$/;
       
-      if (!auth0IdPattern.test(validUserId) && !uuidPattern.test(validUserId)) {
+      if (!auth0IdPattern.test(validUserId) && !uuidPattern.test(validUserId) && !devIdPattern.test(validUserId)) {
         throw new Error('Invalid user ID format in state');
       }
 
