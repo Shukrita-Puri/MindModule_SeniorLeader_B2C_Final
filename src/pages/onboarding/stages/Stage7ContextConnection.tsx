@@ -5,16 +5,30 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar, Watch } from "lucide-react";
 import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuth0 } from "@auth0/auth0-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
+
+/**
+ * Gets Auth0 access token from the global client (set by AuthProvider in production).
+ * Returns null in dev mode or when Auth0 is not available.
+ */
+async function getAuth0Token(): Promise<string | null> {
+  try {
+    if (window.__auth0Client) {
+      return await window.__auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch (e) {
+    console.error('[Stage7] Failed to get Auth0 token:', e);
+    return null;
+  }
+}
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
@@ -54,7 +68,14 @@ export default function Stage7ContextConnection() {
     if (checked && isAuthenticated) {
       setLoading(true);
       try {
-        const token = await getAccessTokenSilently();
+        const token = await getAuth0Token();
+        if (!token) {
+          toast.error('Please sign in first to connect your calendar');
+          setCalendarEnabled(false);
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke('calendar-auth', {
           body: { 
             action: 'connect', 
@@ -66,6 +87,7 @@ export default function Stage7ContextConnection() {
         
         if (error) throw error;
         if (data.authUrl) {
+          // On native Capacitor, use the in-app browser; on web, navigate directly
           window.location.href = data.authUrl;
         }
       } catch (error) {
