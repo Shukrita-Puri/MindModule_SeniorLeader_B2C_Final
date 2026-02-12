@@ -72,18 +72,41 @@ const StrategicIntentionCard = () => {
     staleTime: 30 * 60 * 1000, // 30 min cache
   });
 
-  // Derive archetype details (strength/growth areas) from component scores
+  // Derive archetype details (strength/growth areas) from component scores or archetype string
   const archetypeDetails: UserArchetype | null = (() => {
-    if (!userProfile?.component_scores) return null;
-    try {
-      const scores = userProfile.component_scores as any;
-      return determineArchetype({
-        q2_energy_regulation: scores.q2_energy_regulation ?? 50,
-        q3_focus_recovery: scores.q3_focus_recovery ?? 50,
-        q4_energy_renewal: scores.q4_energy_renewal ?? 50,
-        q5_growth_priority: scores.q5_growth_priority ?? 50,
-      });
-    } catch { return null; }
+    // Try component_scores first for precise archetype
+    if (userProfile?.component_scores) {
+      try {
+        const scores = userProfile.component_scores as any;
+        return determineArchetype({
+          q2_energy_regulation: scores.q2_energy_regulation ?? 50,
+          q3_focus_recovery: scores.q3_focus_recovery ?? 50,
+          q4_energy_renewal: scores.q4_energy_renewal ?? 50,
+          q5_growth_priority: scores.q5_growth_priority ?? 50,
+        });
+      } catch { /* fall through */ }
+    }
+    // Fallback: derive from user_archetype string when component_scores is missing
+    if (userProfile?.user_archetype) {
+      const archetypeFallbacks: Record<string, Pick<UserArchetype, 'id' | 'title' | 'strengthArea' | 'growthArea'>> = {
+        'natural-regulator': { id: 'natural_regulator', title: 'The Natural Regulator', strengthArea: 'Comprehensive Self-Regulation', growthArea: 'Advanced Integration' },
+        'strategic-pauser': { id: 'strategic_pauser', title: 'The Strategic Pauser', strengthArea: 'Focus Recovery & Composure', growthArea: 'Energy Downshift' },
+        'high-octane-performer': { id: 'high_octane_performer', title: 'The High-Octane Performer', strengthArea: 'Energy Renewal', growthArea: 'Proactive Regulation' },
+        'awareness-builder': { id: 'awareness_builder', title: 'The Awareness Builder', strengthArea: 'Growth Awareness', growthArea: 'Foundational Tools' },
+        'adaptive-navigator': { id: 'adaptive_navigator', title: 'The Adaptive Navigator', strengthArea: 'Situational Adaptability', growthArea: 'Consistent Energy Management' },
+      };
+      const fallback = archetypeFallbacks[userProfile.user_archetype];
+      if (fallback) {
+        return {
+          ...fallback,
+          description: '',
+          percentile: '',
+          unlockStatement: '',
+          recommendedMastery: 'Pause' as const,
+        } as UserArchetype;
+      }
+    }
+    return null;
   })();
 
   // Fetch latest coach insights for strength/friction override
