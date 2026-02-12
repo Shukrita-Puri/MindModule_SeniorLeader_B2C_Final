@@ -25,7 +25,7 @@ const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="flex items-center justify-between px-4 py-2">
         {/* Left: Back Button */}
         <Button variant="glass" size="sm" onClick={handleBack}>
