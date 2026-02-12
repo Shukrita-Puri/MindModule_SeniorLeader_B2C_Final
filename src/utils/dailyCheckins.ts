@@ -24,6 +24,8 @@ export interface CheckinData {
   skipped?: boolean | null;
   timestamp: string;
   data_sources?: Record<string, unknown> | null;
+  clarity_level?: number | null;
+  confidence_level?: number | null;
 }
 
 export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
@@ -170,7 +172,9 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
           skipped: checkinData.skipped,
           timestamp: checkinData.timestamp,
           state_tags: checkinData.state_tags,
-          data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json
+          data_sources: checkinData.data_sources as import('@/integrations/supabase/types').Json,
+          clarity_level: checkinData.clarity_level,
+          confidence_level: checkinData.confidence_level,
         }, { onConflict: 'user_id,checkin_date' })
         .select()
         .maybeSingle();
