@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Play, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -614,6 +615,11 @@ const DailyRitual = () => {
 
   return (
     <div className="space-y-4 pt-2">
+      {/* Post-Event Micro-Reflection - shows after high-stakes events */}
+      <div className="px-4 max-w-lg mx-auto">
+        <PostEventReflection />
+      </div>
+
       {/* Progress indicator - compact */}
       {ritualStatus.status === 'partial' && (
         <div className="text-xs text-muted-foreground px-4 max-w-lg mx-auto">

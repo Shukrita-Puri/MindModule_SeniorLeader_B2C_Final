@@ -29,6 +29,7 @@ const Insights = lazy(() => import("./pages/Insights"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
+const CheckInDetail = lazy(() => import("./pages/CheckInDetail"));
 
 // Recalibrate outcome pages
 const PowerUpOutcomePage = lazy(() => import("./pages/recalibrate/PowerUpOutcomePage"));
@@ -110,6 +111,10 @@ const router = createBrowserRouter([
       {
         path: "connected-data",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ConnectedData /></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "check-in-detail",
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><CheckInDetail /></ProtectedRoute></Suspense>,
       },
       {
         path: "refer",
