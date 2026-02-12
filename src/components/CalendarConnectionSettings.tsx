@@ -74,7 +74,8 @@ const CalendarConnectionSettings = ({
       const { data, error } = await supabase.functions.invoke('calendar-auth', {
         body: {
           action: 'connect',
-          provider: selectedProvider
+          provider: selectedProvider,
+          redirectPath: window.location.pathname
         },
         headers: {
           Authorization: `Bearer ${token}`

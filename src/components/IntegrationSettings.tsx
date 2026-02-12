@@ -7,6 +7,7 @@ import { ProviderSelector } from "@/components/onboarding/ProviderSelector";
 import { IntegrationPreviewCard } from "@/components/onboarding/IntegrationPreviewCard";
 import CalendarConnectionSettings from "@/components/CalendarConnectionSettings";
 import { toast } from "@/hooks/use-toast";
+import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
 
 interface ContextConnections {
   calendar: {
@@ -57,7 +58,19 @@ export default function IntegrationSettings() {
     }
   };
 
-  const handleWearableToggle = (checked: boolean) => {
+  const handleWearableToggle = async (checked: boolean) => {
+    if (checked && isNativeApp()) {
+      const granted = await requestHealthKitPermissions();
+      if (!granted) {
+        toast({
+          title: "Permission Required",
+          description: "HealthKit access is needed for wearable integration.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setConnections(prev => ({
       ...prev,
       wearable: { ...prev.wearable, enabled: checked }
@@ -65,8 +78,8 @@ export default function IntegrationSettings() {
     
     if (checked) {
       toast({
-        title: "Wearable Integration Enabled",
-        description: "Select your device to continue setup.",
+        title: isNativeApp() ? "Apple Watch Connected" : "Wearable Integration Enabled",
+        description: isNativeApp() ? "HealthKit data will be used for insights." : "Select your device to continue setup.",
       });
     } else {
       toast({
