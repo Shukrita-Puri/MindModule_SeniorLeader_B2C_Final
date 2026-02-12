@@ -33,8 +33,8 @@ const StarredItems = () => {
     );
   }
 
-  // Show max 5 starred items
-  const displayedFavorites = favoritesArray.slice(0, 5);
+  // Show all starred items (scrollable in sidebar)
+  const displayedFavorites = favoritesArray;
 
   // Navigate to specific practice based on content type
   const handlePracticeClick = (favorite: { content_id: string; content_type?: string; category?: string }) => {
