@@ -103,7 +103,7 @@ export default function OnboardingFlow() {
       
       {/* Fixed Top Bar with Back Arrow */}
       {showBackButton && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08]">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center px-4 py-2">
             <button 
               onClick={() => navigate(getBackPath())}
@@ -118,7 +118,7 @@ export default function OnboardingFlow() {
       
       <div className="relative z-10">
         {/* Progress Bar - below top bar */}
-        <div className={showBackButton ? "pt-[53px]" : ""}>
+        <div className={showBackButton ? "pt-[calc(53px+env(safe-area-inset-top,0px))]" : ""}>
           {!hideProgress && (
             <ProgressIndicator
               percentage={percentage}
