@@ -118,9 +118,9 @@ const DailyCheckIn = () => {
     // Invalidate energy-state query to force refetch
     queryClient.invalidateQueries({ queryKey: ['energy-state'] });
     
-    // Go straight to Today page - no intermediate pages
+    // Navigate to optional detail screen for clarity/confidence
     setTimeout(() => {
-      navigate('/executive-home');
+      navigate('/check-in-detail', { state: { checkinDate } });
     }, 100);
   };
 

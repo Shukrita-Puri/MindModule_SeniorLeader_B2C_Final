@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { computeEnergyState, CurrentEnergyState } from '@/utils/energyStateEngine';
 import { getStrategicTheme } from '@/utils/energyStateScoring';
+import { determineArchetype, type UserArchetype } from '@/utils/userArchetypeEngine';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,19 +57,50 @@ const StrategicIntentionCard = () => {
     staleTime: 0,
   });
 
-  // Fetch user's archetype for personalized unlock statements
+  // Fetch user's archetype and component scores for personalized unlock statements
   const { data: userProfile } = useQuery({
     queryKey: ['user-profile-archetype', user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('user_archetype')
+        .select('user_archetype, component_scores')
         .eq('id', user?.id)
         .single();
       return data;
     },
     enabled: !!user?.id,
     staleTime: 30 * 60 * 1000, // 30 min cache
+  });
+
+  // Derive archetype details (strength/growth areas) from component scores
+  const archetypeDetails: UserArchetype | null = (() => {
+    if (!userProfile?.component_scores) return null;
+    try {
+      const scores = userProfile.component_scores as any;
+      return determineArchetype({
+        q2_energy_regulation: scores.q2_energy_regulation ?? 50,
+        q3_focus_recovery: scores.q3_focus_recovery ?? 50,
+        q4_energy_renewal: scores.q4_energy_renewal ?? 50,
+        q5_growth_priority: scores.q5_growth_priority ?? 50,
+      });
+    } catch { return null; }
+  })();
+
+  // Fetch latest coach insights for strength/friction override
+  const { data: coachInsights } = useQuery({
+    queryKey: ['coach-insights-friction', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_coach_insights')
+        .select('insight_type, insight_content')
+        .eq('user_id', user?.id)
+        .in('insight_type', ['strength', 'growth_area', 'behavior_pattern'])
+        .order('created_at', { ascending: false })
+        .limit(5);
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
   });
 
   // Fetch recent check-ins for pattern recognition
@@ -244,10 +276,24 @@ const StrategicIntentionCard = () => {
           "{theme.phrase}"
         </p>
 
-        {/* Supporting context - pattern-aware or standard (Stakes/Why/Identity structure) */}
+      {/* Supporting context - pattern-aware or standard (Stakes/Why/Identity structure) */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
           {getEnhancedContext()}
         </p>
+
+        {/* Friction + Strength one-liners */}
+        {archetypeDetails && (
+          <div className="space-y-1 pt-1">
+            <p className="text-xs italic text-primary/70 font-body">
+              <span className="font-semibold not-italic">Lean on:</span>{' '}
+              {coachInsights?.find(i => i.insight_type === 'strength')?.insight_content || archetypeDetails.strengthArea}
+            </p>
+            <p className="text-xs italic text-muted-foreground/70 font-body">
+              <span className="font-semibold not-italic">Watch for:</span>{' '}
+              {coachInsights?.find(i => i.insight_type === 'growth_area')?.insight_content || archetypeDetails.growthArea}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer - data sources (matching Today's State) */}

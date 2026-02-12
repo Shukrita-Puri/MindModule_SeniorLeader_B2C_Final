@@ -187,7 +187,19 @@ export function getCircadianScore(hour: number = new Date().getHours()): number 
     'evening': -5      // Natural dip
   };
   
-  return adjustmentMap[time]; // ✅ PHASE 1: Return adjustment directly (-5, 0, +5)
+  // Day-of-week modifier
+  const day = new Date().getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const dayModifiers: Record<number, number> = {
+    0: -3, // Sunday
+    1: -2, // Monday
+    2: 0,  // Tuesday
+    3: 0,  // Wednesday
+    4: 0,  // Thursday
+    5: 2,  // Friday
+    6: -3, // Saturday
+  };
+  
+  return adjustmentMap[time] + (dayModifiers[day] ?? 0);
 }
 
 // ==================== ENERGY TIER CALCULATION ====================
