@@ -757,7 +757,7 @@ const DailyRitual = () => {
 
       {/* Action Button */}
       <div className="px-4 max-w-lg mx-auto">
-        {ritualStatus.status === 'not_started' && (
+        {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
           <Button 
             onClick={handleStartRitual}
             className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
