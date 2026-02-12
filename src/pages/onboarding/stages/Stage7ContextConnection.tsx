@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
-import { DEV_MODE } from "@/config/devMode";
+
 
 /**
  * Gets Auth0 access token from the global client (set by AuthProvider in production).
@@ -47,7 +47,7 @@ async function openOAuthUrl(url: string) {
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
@@ -85,15 +85,6 @@ export default function Stage7ContextConnection() {
       return;
     }
 
-    // Dev mode: save preference only, can't do real OAuth without Auth0
-    if (DEV_MODE) {
-      setCalendarEnabled(true);
-      const prefs = { calendar: true, watch: watchEnabled };
-      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
-      toast.info('Calendar will connect in production (dev mode)');
-      return;
-    }
-
     if (!isAuthenticated) {
       toast.error('Please complete sign-up first to connect your calendar');
       return;
@@ -102,21 +93,22 @@ export default function Stage7ContextConnection() {
     setCalendarEnabled(true);
     setLoading(true);
     try {
+      // Build request: use Auth0 token if available, fall back to userId for dev mode
       const token = await getAuth0Token();
-      if (!token) {
-        toast.error('Unable to authenticate. Please try again.');
-        setCalendarEnabled(false);
-        setLoading(false);
-        return;
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const { data, error } = await supabase.functions.invoke('calendar-auth', {
         body: { 
           action: 'connect', 
           provider: 'google',
-          redirectPath: '/onboarding/context-connection'
+          redirectPath: '/onboarding/context-connection',
+          // Pass userId directly when no Auth0 token (dev mode / native)
+          ...(!token && user?.id ? { userId: user.id } : {})
         },
-        headers: { Authorization: `Bearer ${token}` }
+        headers,
       });
       
       if (error) throw error;
