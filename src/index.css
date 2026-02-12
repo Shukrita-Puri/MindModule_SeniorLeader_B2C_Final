@@ -104,9 +104,16 @@
   * {
     @apply border-border;
   }
+
+  html, body {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   
 body {
   @apply bg-background text-foreground font-body;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
   
   /* Headline Styles */
