@@ -767,87 +767,43 @@ const Insights = () => {
 
         {/* State Patterns hidden per user request */}
 
-        {/* Calendar-State Patterns - Day 7+ unlock */}
-        {insightsTier === 'full' ? (
-          <LuxuryInsightCard>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Calendar → State Patterns</span>
-                <InsightInfoModal
-                  title="Calendar-State Patterns"
-                  explanation="Shows how specific calendar events correlate with your emotional state. Understanding these patterns helps you prepare mentally for challenging events."
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CalendarStateCorrelations userId={user?.id} />
-              <p className="text-xs text-muted-foreground/60 mt-4">
-                Days you felt scattered or low energy often correlate with high-decision or back-to-back meetings.
-              </p>
-            </CardContent>
-           </LuxuryInsightCard>
-         ) : insightsTier === 'deepening' ? (
-           <LuxuryInsightCard>
-             <CardHeader className="pb-4">
-               <div className="flex items-center justify-between">
-                 <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Calendar → State Patterns</span>
-                 <InsightInfoModal
-                   title="Calendar-State Patterns"
-                   explanation="Shows how specific calendar events correlate with your emotional state. This feature unlocks with 7 days of check-in data."
-                 />
-               </div>
-             </CardHeader>
-             <CardContent>
-               <ProgressiveUnlockMessage
-                 currentCount={checkInCount}
-                 unlockAt={7}
-                 featureName="Calendar Correlations"
-                 previewText="Discover how your calendar events affect your mental state."
-               />
-             </CardContent>
-           </LuxuryInsightCard>
-         ) : null}
-
-        {/* Behavior-Outcome Patterns - Day 7+ unlock */}
-        {insightsTier === 'full' ? (
-          <LuxuryInsightCard>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Behavior → Outcome Patterns</span>
-                <InsightInfoModal
-                  title="Behavior-Outcome Patterns"
-                  explanation="Shows how your behavioral responses in moments (confronted, listened, avoided) correlate with your checked-in state. Patterns reveal how your response style affects your mental state."
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <BehaviorOutcomeCorrelations userId={user?.id} />
-              <p className="text-xs text-muted-foreground/60 mt-4">
-                How you respond in the moment shapes how you feel afterward.
-              </p>
-            </CardContent>
-          </LuxuryInsightCard>
-        ) : insightsTier === 'deepening' ? (
-          <LuxuryInsightCard>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Behavior → Outcome Patterns</span>
-                <InsightInfoModal
-                  title="Behavior-Outcome Patterns"
-                  explanation="Shows how your behavioral responses correlate with your mental state. This feature unlocks with 7 days of check-in data."
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ProgressiveUnlockMessage
-                currentCount={checkInCount}
-                unlockAt={7}
-                featureName="Behavior Correlations"
-                previewText="Discover how your behavioral responses affect your mental state."
+        {/* Calendar-State Patterns - Always visible */}
+        <LuxuryInsightCard>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Calendar → State Patterns</span>
+              <InsightInfoModal
+                title="Calendar-State Patterns"
+                explanation="Shows how specific calendar events correlate with your emotional state. Understanding these patterns helps you prepare mentally for challenging events."
               />
-            </CardContent>
-          </LuxuryInsightCard>
-        ) : null}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CalendarStateCorrelations userId={user?.id} />
+            <p className="text-xs text-muted-foreground/60 mt-4">
+              Days you felt scattered or low energy often correlate with high-decision or back-to-back meetings.
+            </p>
+          </CardContent>
+        </LuxuryInsightCard>
+
+        {/* Behavior-Outcome Patterns - Always visible */}
+        <LuxuryInsightCard>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Behavior → Outcome Patterns</span>
+              <InsightInfoModal
+                title="Behavior-Outcome Patterns"
+                explanation="Shows how your behavioral responses in moments (confronted, listened, avoided) correlate with your checked-in state. Patterns reveal how your response style affects your mental state."
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <BehaviorOutcomeCorrelations userId={user?.id} />
+            <p className="text-xs text-muted-foreground/60 mt-4">
+              How you respond in the moment shapes how you feel afterward.
+            </p>
+          </CardContent>
+        </LuxuryInsightCard>
 
         {/* Theme Patterns - Day 4+ */}
         {(insightsTier === 'deepening' || insightsTier === 'full') && (
