@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
+import { DEV_MODE } from "@/config/devMode";
 
 /**
  * Gets Auth0 access token from the global client (set by AuthProvider in production).
@@ -25,6 +26,24 @@ async function getAuth0Token(): Promise<string | null> {
   }
 }
 
+/**
+ * Opens a URL using Capacitor's in-app browser (SFSafariViewController / Chrome Custom Tabs)
+ * on native, or window.location.href on web.
+ */
+async function openOAuthUrl(url: string) {
+  if (isNativeApp()) {
+    try {
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url, presentationStyle: 'popover' });
+    } catch (e) {
+      console.warn('[Stage7] Capacitor Browser not available, falling back to redirect:', e);
+      window.location.href = url;
+    }
+  } else {
+    window.location.href = url;
+  }
+}
+
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,10 +58,8 @@ export default function Stage7ContextConnection() {
     if (searchParams.get('calendar_connected') === 'true') {
       setCalendarEnabled(true);
       toast.success('Google Calendar connected successfully');
-      // Clean URL
       searchParams.delete('calendar_connected');
       setSearchParams(searchParams, { replace: true });
-      // Persist
       const prefs = { calendar: true, watch: watchEnabled };
       localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
     }
@@ -60,43 +77,58 @@ export default function Stage7ContextConnection() {
 
   // Handle Google Calendar toggle
   const handleCalendarToggle = async (checked: boolean) => {
-    setCalendarEnabled(checked);
-    
-    const prefs = { calendar: checked, watch: watchEnabled };
-    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
-    
-    if (checked && isAuthenticated) {
-      setLoading(true);
-      try {
-        const token = await getAuth0Token();
-        if (!token) {
-          toast.error('Please sign in first to connect your calendar');
-          setCalendarEnabled(false);
-          setLoading(false);
-          return;
-        }
+    if (!checked) {
+      // Toggling off — just save preference
+      setCalendarEnabled(false);
+      const prefs = { calendar: false, watch: watchEnabled };
+      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
+      return;
+    }
 
-        const { data, error } = await supabase.functions.invoke('calendar-auth', {
-          body: { 
-            action: 'connect', 
-            provider: 'google',
-            redirectPath: '/onboarding/context-connection'
-          },
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (error) throw error;
-        if (data.authUrl) {
-          // On native Capacitor, use the in-app browser; on web, navigate directly
-          window.location.href = data.authUrl;
-        }
-      } catch (error) {
-        console.error('Error connecting calendar:', error);
-        toast.error('Failed to connect calendar');
+    // Dev mode: save preference only, can't do real OAuth without Auth0
+    if (DEV_MODE) {
+      setCalendarEnabled(true);
+      const prefs = { calendar: true, watch: watchEnabled };
+      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
+      toast.info('Calendar will connect in production (dev mode)');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast.error('Please complete sign-up first to connect your calendar');
+      return;
+    }
+
+    setCalendarEnabled(true);
+    setLoading(true);
+    try {
+      const token = await getAuth0Token();
+      if (!token) {
+        toast.error('Unable to authenticate. Please try again.');
         setCalendarEnabled(false);
-      } finally {
         setLoading(false);
+        return;
       }
+
+      const { data, error } = await supabase.functions.invoke('calendar-auth', {
+        body: { 
+          action: 'connect', 
+          provider: 'google',
+          redirectPath: '/onboarding/context-connection'
+        },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (error) throw error;
+      if (data.authUrl) {
+        await openOAuthUrl(data.authUrl);
+      }
+    } catch (error) {
+      console.error('Error connecting calendar:', error);
+      toast.error('Failed to connect calendar');
+      setCalendarEnabled(false);
+    } finally {
+      setLoading(false);
     }
   };
 
