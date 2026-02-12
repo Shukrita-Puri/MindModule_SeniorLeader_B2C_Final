@@ -15,10 +15,11 @@ import EnergyRhythm from '@/components/insights/EnergyRhythm';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import CalendarStateCorrelations from '@/components/insights/CalendarStateCorrelations';
 import BehaviorOutcomeCorrelations from '@/components/insights/BehaviorOutcomeCorrelations';
+import FrictionAndStrengthDetail from '@/components/insights/FrictionAndStrengthDetail';
+import CauseEffectInsights from '@/components/insights/CauseEffectInsights';
+import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import BaselineReferenceCard from '@/components/insights/BaselineReferenceCard';
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
-import LuxuryProgressRing from '@/components/insights/LuxuryProgressRing';
-import LuxuryStateBar from '@/components/insights/LuxuryStateBar';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
 
@@ -707,22 +708,11 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Consolidated Stats - 3 luxury rings */}
+        {/* Consolidated Stats - Practice Effectiveness (2 cols) + Typical State (1 col) */}
         <div className="grid grid-cols-3 gap-4">
-          <LuxuryInsightCard>
+          <LuxuryInsightCard className="col-span-2">
             <CardContent className="pt-6 pb-4">
-              <div className="flex flex-col items-center">
-                <LuxuryProgressRing 
-                  value={checkInStreak} 
-                  max={7} 
-                  label="Streak"
-                  sublabel="days"
-                  size="md"
-                />
-                {insightsTier === 'early' && checkInStreak > 0 && (
-                  <p className="text-[10px] text-saffron mt-2">Building consistency</p>
-                )}
-              </div>
+              <PracticeEffectiveness userId={user?.id} />
             </CardContent>
           </LuxuryInsightCard>
 
@@ -737,7 +727,6 @@ const Insights = () => {
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">this week</p>
                 
-                {/* Day 1-2: Show today vs yesterday comparison */}
                 {insightsTier === 'early' && todayAndYesterdayStates && (
                   <div className="text-[10px] mt-2 text-muted-foreground">
                     Today: <span className="text-foreground capitalize">{todayAndYesterdayStates.today}</span>
@@ -749,59 +738,37 @@ const Insights = () => {
               </div>
             </CardContent>
           </LuxuryInsightCard>
-
-          <LuxuryInsightCard>
-            <CardContent className="pt-6 pb-4">
-              <div className="flex flex-col items-center">
-                <LuxuryProgressRing 
-                  value={totalPractices} 
-                  max={14} 
-                  label="Practices"
-                  sublabel="completed"
-                  size="md"
-                />
-              </div>
-            </CardContent>
-          </LuxuryInsightCard>
         </div>
 
-        {/* State Patterns hidden per user request */}
-
-        {/* Calendar-State Patterns - Always visible */}
+        {/* Friction & Strength Detail */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Calendar → State Patterns</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Strength & Friction</span>
               <InsightInfoModal
-                title="Calendar-State Patterns"
-                explanation="Shows how specific calendar events correlate with your emotional state. Understanding these patterns helps you prepare mentally for challenging events."
+                title="Strength & Friction"
+                explanation="Your natural strength area and growth edge based on your archetype profile, check-in patterns, and coach conversation insights."
               />
             </div>
           </CardHeader>
           <CardContent>
-            <CalendarStateCorrelations userId={user?.id} />
-            <p className="text-xs text-muted-foreground/60 mt-4">
-              Days you felt scattered or low energy often correlate with high-decision or back-to-back meetings.
-            </p>
+            <FrictionAndStrengthDetail userId={user?.id} profileBaseline={profileBaseline} />
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Behavior-Outcome Patterns - Always visible */}
+        {/* Cause-Effect Insights */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Behavior → Outcome Patterns</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Cause → Effect Patterns</span>
               <InsightInfoModal
-                title="Behavior-Outcome Patterns"
-                explanation="Shows how your behavioral responses in moments (confronted, listened, avoided) correlate with your checked-in state. Patterns reveal how your response style affects your mental state."
+                title="Cause-Effect Patterns"
+                explanation="Cross-references your behaviors, practices, and calendar events with your check-in states to reveal how actions influence your mental state."
               />
             </div>
           </CardHeader>
           <CardContent>
-            <BehaviorOutcomeCorrelations userId={user?.id} />
-            <p className="text-xs text-muted-foreground/60 mt-4">
-              How you respond in the moment shapes how you feel afterward.
-            </p>
+            <CauseEffectInsights userId={user?.id} />
           </CardContent>
         </LuxuryInsightCard>
 
@@ -984,14 +951,14 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Your Energy Rhythm Heatmap - Progressive from Day 1 */}
+        {/* Your Energy Rhythm Heatmap + Calendar Correlations merged */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Energy Rhythm</span>
               <InsightInfoModal
                 title="Your Energy Rhythm"
-                explanation="Visualizes when you typically check in and how you feel at different times of day. Helps identify your natural energy peaks and dips."
+                explanation="Visualizes when you typically check in and how you feel at different times of day. Calendar event correlations show which events influence your state."
               />
             </div>
           </CardHeader>
@@ -999,6 +966,11 @@ const Insights = () => {
             <EnergyRhythm 
               checkIns={checkInsWithTimestamp}
             />
+            {/* Calendar correlation summary merged here */}
+            <div className="mt-5 pt-4 border-t border-border/30">
+              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Calendar Event Correlations</p>
+              <CalendarStateCorrelations userId={user?.id} />
+            </div>
             {/* Insight space */}
             <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
               {checkInsWithTimestamp.length >= 7 ? (
