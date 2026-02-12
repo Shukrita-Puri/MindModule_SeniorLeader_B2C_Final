@@ -31,7 +31,7 @@ const Front = () => {
     }
     navigate('/login');
   };
-  return <div className={`relative min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className={`relative min-h-screen min-h-[100dvh] bg-background flex flex-col items-center justify-center px-6 py-16 overflow-y-auto transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Subtle background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
