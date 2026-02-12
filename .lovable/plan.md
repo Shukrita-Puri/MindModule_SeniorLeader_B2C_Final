@@ -1,258 +1,92 @@
 
 
-# Implementation Plan: Post-Event Micro-Reflection + JIT Integration
+# Fix Google Calendar OAuth and Apple Watch HealthKit Integration
 
-## Overview
-This plan integrates three interconnected features:
-1. **Post-Event Micro-Reflection** - 2-tap behavior logging after high-stakes calendar events
-2. **JIT as Separate Carousel** - Move JIT from a standalone section into its own carousel below the Performance Plan
-3. **Database Schema** - Support the memory system with 3 new tables + 2 new columns on `daily_checkins`
+## Problems Identified
 
----
+1. **Google Calendar OAuth redirect is broken**: After Google OAuth completes, the edge function redirects to a hardcoded fallback URL (`https://ibrvatszexahdqwejahc.lovable.app`) from an old project. The `FRONTEND_URL` secret needs updating to the correct preview URL. Also, the redirect always goes to `/onboarding/context-connection` even when connecting from Settings.
 
-## Part 1: Database Migrations
+2. **Apple Watch toggle is a placeholder**: It just saves a preference and shows a toast. Since you have the mobile app built with HealthKit, it should attempt to request HealthKit permissions via the Capacitor plugin when running natively.
 
-### 1A. New Tables (3 migrations required)
-
-**Table: `jit_preferences`**
-- Tracks user skips and completions of JIT events
-- Enables "show me less" learning in `detectIntervention()` logic
-- Columns: `id, user_id, event_type, action, event_title, created_at`
-- RLS: Users can only CRUD their own records
-
-**Table: `behavior_logs`**
-- Captures post-event behavior reflection (how user showed up)
-- Links to calendar events via `context_event_id`
-- Stores energy level after event
-- Used by Coach and Insights to build behavioral memory
-- Columns: `id, user_id, context_event_id, event_title, behavior_type, control_level, energy_after, created_at`
-- RLS: Users can only CRUD their own records
-
-**Table: `calendar_event_classifications`**
-- Persists auto-detected classifications from `HIGH_STAKES_KEYWORDS`
-- Enables pattern analysis in Insights without re-scanning calendar every time
-- Columns: `id, user_id, calendar_event_id, event_type, stakes_level, classified_by, created_at`
-- RLS: Users can only CRUD their own records
-
-### 1B. Schema Updates on Existing Tables
-
-**Add to `daily_checkins`:**
-- `clarity_level` (integer, nullable, 1-5)
-- `confidence_level` (integer, nullable, 1-5)
+3. **No Capacitor dependency in the codebase**: The `@capacitor/core` and `@perfood/capacitor-healthkit` packages are not installed in the project. HealthKit integration code needs to gracefully detect whether it's running in a native context.
 
 ---
 
-## Part 2: JIT Carousel Refactoring
+## Plan
 
-### 2A. Architecture Change
+### 1. Update FRONTEND_URL Secret
+- Update the `FRONTEND_URL` secret to `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app` (the current preview URL).
 
-**Current state:**
-- `JustInTimeIntervention` renders as a single card section below `DailyRitual`
-- Takes up full width, positioned after the carousel
+### 2. Fix Calendar OAuth Redirect (Edge Function)
+**File: `supabase/functions/calendar-auth/index.ts`**
 
-**New state:**
-- JIT becomes its own carousel section with event-specific cards
-- Two separate carousels on the page:
-  1. **Morning Performance Plan Carousel** - Regulate, Align, Prepare, Integrate (unchanged)
-  2. **JIT Preparation Carousel** - Only renders when JIT is active; shows event-specific prep cards
+- **Pass a `redirect_path` in the OAuth state** so the callback knows where to send the user back (onboarding vs settings).
+- Change the state parameter from just `authenticatedUserId` to a JSON-encoded object: `{ userId, redirectPath }`.
+- In the callback handler, parse the state to extract both `userId` and `redirectPath`.
+- Use `redirectPath` (defaulting to `/onboarding/context-connection`) when building the final redirect URL.
+- Keep `FRONTEND_URL` env var usage (no more hardcoded fallback to old domain).
 
-**Visual hierarchy:**
-```
-[Hero Section]
-[Today's State Card]
-[Strategic Intention Card]
-"Today's Performance Plan" header
-[Morning Performance Plan Carousel]
-[Action Button: Start/Continue]
---- Optional Section (only when JIT active) ---
-"Prepare Now" header
-[JIT Carousel with Event Cards]
-[PrivacyFooter]
+### 3. Pass Redirect Context from Frontend
+**Files: `src/pages/onboarding/stages/Stage7ContextConnection.tsx`, `src/components/CalendarConnectionSettings.tsx`**
+
+- When calling the `calendar-auth` edge function with `action: 'connect'`, include a `redirectPath` in the body (e.g., `/onboarding/context-connection` from onboarding, `/settings` or `/connected-data` from settings).
+- The edge function will encode this into the OAuth state.
+
+### 4. Handle `calendar_connected` Query Param
+**File: `src/pages/onboarding/stages/Stage7ContextConnection.tsx`**
+
+- On mount, check for `?calendar_connected=true` in URL params.
+- If present, set `calendarEnabled` to true, show a success toast, and clean the URL.
+
+### 5. Apple Watch / HealthKit Toggle
+**File: `src/utils/healthKitCapacitor.ts` (new)**
+
+- Create a utility that dynamically imports `@perfood/capacitor-healthkit` (try/catch for web).
+- Export `requestHealthKitPermissions()` -- requests read access to HRV, Resting HR, Sleep Analysis, Active Energy, Steps; and write access for Mindful Sessions.
+- Export `isNativeApp()` -- checks if running in Capacitor context via `window.Capacitor?.isNativePlatform`.
+- Export `queryHealthKitData()` -- reads latest HRV, resting HR, and sleep data and returns a `HealthKitWearableData` object.
+
+**File: `src/pages/onboarding/stages/Stage7ContextConnection.tsx`**
+
+- Update `handleWatchToggle`: if `isNativeApp()` returns true, call `requestHealthKitPermissions()`. On success, save preference. On failure, show error toast and revert toggle.
+- If not native, keep the current behavior (save preference, show info toast about mobile app).
+
+**File: `src/components/IntegrationSettings.tsx`**
+
+- Same pattern for the wearable toggle in settings: detect native and request HealthKit permissions when available.
+
+### 6. Install Capacitor Dependencies
+- Add `@capacitor/core` and `@perfood/capacitor-healthkit` as dependencies so the dynamic imports resolve in the native build.
+
+---
+
+## Technical Details
+
+### Edge Function State Encoding
+```text
+Current:  state = userId (plain string)
+Proposed: state = base64(JSON({ userId, redirectPath }))
 ```
 
-### 2B. JIT Card Design
+The callback handler will decode this, validate the userId format, and use the redirectPath for the final redirect.
 
-Each JIT carousel card displays:
-1. **Event name** (prominent, e.g., "Board Meeting")
-2. **Event classification pill** (saffron background, e.g., "High Stakes" or "Pre-Presentation")
-3. **Minutes until event** (e.g., "in 25 min")
-4. **"Prepare Now" badge** (saffron pill to differentiate from routine modules)
-5. **Skip button** (X icon, top-right)
-6. **Practice recommendations** (1-2 quick practices for regulation/alignment)
-
-### 2C. Skip/Show Less Logic
-
-When user clicks **Skip** on a JIT card:
-1. Save to `jit_preferences` table: `{ user_id, event_type, action: 'skipped', event_title, created_at }`
-2. Remove card from local carousel state immediately
-3. Modify `detectIntervention()` to query skips: if 3+ skips for same `event_type` in last 30 days, deprioritize that type
-
----
-
-## Part 3: Post-Event Micro-Reflection Component
-
-### 3A. New Component: `PostEventReflection.tsx`
-
-**Location:** `src/components/home/PostEventReflection.tsx`
-
-**Detection Logic:**
-1. Query today's calendar events from `calendar_events` table
-2. Filter for events with `stakes_level = 'high'` (via `calendar_event_classifications`)
-3. Check if event `end_time` is within last 2 hours
-4. Skip if `behavior_logs` entry already exists for that event (don't re-ask)
-
-**UI Flow:**
-
-**Step 1: Behavior Reflection**
-- Header: "Your [Board Meeting] just ended"
-- Three pill buttons:
-  - "Avoided" → stores `behavior_type: 'avoided'`
-  - "Confronted" → stores `behavior_type: 'confronted'`
-  - "Listened" → stores `behavior_type: 'listened'`
-- Optional description field (textarea, optional, for narrative capture)
-
-**Step 2: Energy Assessment**
-- After Step 1 tap, transition to Step 2
-- Header: "How's your energy now?"
-- Three pill buttons:
-  - "Drained" → stores `energy_after: 'down'`
-  - "Same" → stores `energy_after: 'same'`
-  - "Energized" → stores `energy_after: 'up'`
-
-**Data Saved:**
-```typescript
-{
-  user_id: string,
-  context_event_id: UUID (from calendar_events),
-  event_title: string,
-  behavior_type: 'avoided' | 'confronted' | 'listened',
-  control_level: null (optional field for future),
-  energy_after: 'down' | 'same' | 'up',
-  created_at: now
+### HealthKit Native Detection Pattern
+```text
+function isNativeApp(): boolean {
+  return !!(window as any).Capacitor?.isNativePlatform;
 }
 ```
 
-### 3B. Coach Integration
+This returns false on web (graceful degradation) and true in the Capacitor shell.
 
-**After behavior_logs save:**
-1. Create a `user_coach_insights` entry with:
-   - `source: 'post_event_reflection'`
-   - `insight_type: 'behavior_pattern'`
-   - `insight_content: "[Event Title] - You [behavior_type] and felt [energy_after]"`
-   - `confidence_score: 0.85`
+### Files to Create
+- `src/utils/healthKitCapacitor.ts` -- native HealthKit bridge
 
-2. Navigate to Coach with contextual flow:
-```typescript
-navigate('/coach', {
-  state: {
-    flowType: 'guided-reflection',
-    initialPrompt: `You just came out of "${eventTitle}". You said you [${behaviorType}] and feel [${energyLevel}]. Let's process that together. What was the moment where you made that choice?`,
-    eventTitle,
-    behaviorType,
-    energyLevel,
-    sourceFlow: 'post_event_reflection'
-  }
-});
-```
+### Files to Modify
+- `supabase/functions/calendar-auth/index.ts` -- state encoding, dynamic redirect path
+- `src/pages/onboarding/stages/Stage7ContextConnection.tsx` -- redirect context, calendar_connected param handling, native HealthKit toggle
+- `src/components/CalendarConnectionSettings.tsx` -- pass redirectPath to edge function
+- `src/components/IntegrationSettings.tsx` -- native HealthKit toggle in settings
 
----
-
-## Part 4: Integration into DailyRitual & ExecutiveHome
-
-### 4A. DailyRitual Changes
-
-**Changes to `src/components/home/DailyRitual.tsx`:**
-1. Import `PostEventReflection` component
-2. Import JIT detection logic from `JustInTimeIntervention` (export it)
-3. Add a check in the render: "Is there a post-event reflection to show?"
-4. If yes, inject `<PostEventReflection />` card into the carousel **as the first card** or **as a standalone card before carousel**
-
-**Alternatively:**
-- Keep `PostEventReflection` separate and position it in `ExecutiveHome` between Performance Plan carousel and JIT carousel
-
-### 4B. ExecutiveHome Changes
-
-**Changes to `src/pages/ExecutiveHome.tsx`:**
-1. Keep `DailyRitual` as-is (renders morning Performance Plan)
-2. Move `JustInTimeIntervention` render into a new **JIT Carousel Section**:
-   - Only renders if JIT has active interventions
-   - New section header: "Prepare Now"
-   - Refactored to use Carousel component instead of single card
-   - Positioned after DailyRitual and action button
-
-3. Add `PostEventReflection` import
-4. Render `PostEventReflection` in a dedicated position (before JIT carousel or inside JIT carousel as first item)
-
----
-
-## Part 5: File Changes Summary
-
-### New Files (1):
-- `src/components/home/PostEventReflection.tsx` - Complete micro-reflection UI + data save logic
-
-### Modified Files (5):
-
-1. **`src/components/home/JustInTimeIntervention.tsx`**
-   - Export `detectIntervention` function and `InterventionData` type
-   - Export `isHighStakesEvent` helper
-   - Add skip persistence logic to write to `jit_preferences`
-   - Modify `detectIntervention()` to query `jit_preferences` and deprioritize skipped event types
-   - Modify render to output carousel-compatible card format (optional, or keep as-is and wrap in parent)
-
-2. **`src/components/home/DailyRitual.tsx`**
-   - No major changes needed initially (PostEventReflection handled separately in ExecutiveHome)
-   - Optional: Import and conditionally render `PostEventReflection` if needed in carousel
-
-3. **`src/pages/ExecutiveHome.tsx`**
-   - Remove current `<JustInTimeIntervention />` section
-   - Add new **JIT Carousel Section** below DailyRitual with its own Carousel wrapper
-   - Import and render `PostEventReflection` (positioned strategically)
-   - Add conditional rendering: only show JIT section if `intervention` exists
-
-4. **`src/utils/dailyCheckins.ts`**
-   - Update `saveCheckin` function to accept `clarity_level` and `confidence_level` parameters
-   - Update database upsert to include these new columns
-
-5. **`src/utils/performancePlanEngine.ts`** (optional enhancement)
-   - Update coach prompt generation to include post-event reflection flow
-   - Add integration point for behavior logs to influence future plan recommendations
-
-### Database Migrations (3):
-- Create `jit_preferences` table
-- Create `behavior_logs` table
-- Create `calendar_event_classifications` table
-- Alter `daily_checkins` to add `clarity_level` and `confidence_level` columns
-
----
-
-## Part 6: Implementation Sequence
-
-1. **Database**: Execute 3 table migrations + alter `daily_checkins`
-2. **PostEventReflection**: Create new component with full UI + data save logic
-3. **JIT Refactoring**: 
-   - Export detection logic from `JustInTimeIntervention`
-   - Add skip persistence
-   - Prepare carousel-ready card format
-4. **ExecutiveHome**: Restructure sections, remove old JIT, add new JIT carousel + PostEventReflection
-5. **DailyCheckins**: Update save function for new optional fields
-6. **Testing**: Verify:
-   - JIT carousel renders when intervention detected
-   - Skip button persists to DB and deprioritizes future triggers
-   - PostEventReflection appears 2 hours after high-stakes event
-   - Coach receives context from behavior logs
-   - Both carousels render independently on homepage
-
----
-
-## Key Design Decisions
-
-1. **Separate Carousels**: Morning plan and JIT are distinct visual sections to emphasize that JIT is reactive/urgent prep, not part of the core ritual sequence
-
-2. **Post-Event Position**: Place `PostEventReflection` either as first item in JIT carousel OR in its own section above JIT, so it captures the immediate post-event window
-
-3. **Coach Integration**: Automatically navigate to Coach after behavior log save to enable "dig deeper" immediately while the event is fresh
-
-4. **Skip Tracking**: Uses simple count logic (3+ skips = deprioritize) rather than complex ML, keeping it predictable and transparent
-
-5. **No Breaking Changes**: Existing DailyRitual and Performance Plan logic remains untouched; new features are additive
-
+### Secrets to Update
+- `FRONTEND_URL` -- set to `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app`
