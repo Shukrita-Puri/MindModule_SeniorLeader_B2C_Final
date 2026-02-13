@@ -58,7 +58,7 @@ export const generateOutlook365Url = (event: CalendarEvent): string => {
 export const downloadIcsFile = (event: CalendarEvent): void => {
   const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Kairos//Dialogue Practice//EN
+PRODID:-//Mind Module//Dialogue Practice//EN
 BEGIN:VEVENT
 DTSTART:${formatIcsDate(event.startDate)}
 DTEND:${formatIcsDate(event.endDate)}
