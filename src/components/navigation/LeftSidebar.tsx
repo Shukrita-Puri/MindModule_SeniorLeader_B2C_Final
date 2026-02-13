@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import mmLogo from '@/assets/mm-logo-icon.png';
 import { 
   ChatCircle, 
   Compass, 
@@ -71,17 +72,7 @@ const LeftSidebar = () => {
           isCollapsed ? "justify-center" : "px-3"
         )}>
           {isCollapsed ? (
-            // Lambda icon when collapsed - MIND MODULE brand mark
-            <svg 
-              viewBox="0 0 24 32" 
-              className="w-5 h-7 text-kairos"
-              aria-label="Mind Module"
-            >
-              <path 
-                d="M12 0L0 32h5.5l6.5-18 6.5 18H24L12 0z" 
-                fill="currentColor" 
-              />
-            </svg>
+            <img src={mmLogo} alt="Mind Module" className="w-7 h-7 object-contain" />
           ) : (
             <div className="flex flex-col">
               <span className="font-headline text-base font-semibold tracking-widest text-foreground">
