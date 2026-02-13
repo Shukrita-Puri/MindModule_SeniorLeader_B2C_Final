@@ -132,7 +132,7 @@ const Terms = () => {
 
           <div className="pt-8 mt-8 border-t border-border">
             <p className="text-sm text-muted-foreground">
-              Last Updated: November 23, 2025
+              Last Updated: February 13, 2026
             </p>
           </div>
         </div>
