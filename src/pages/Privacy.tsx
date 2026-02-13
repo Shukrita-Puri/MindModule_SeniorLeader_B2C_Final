@@ -62,7 +62,7 @@ const Privacy = () => {
             <p className="mb-2">When you choose to connect third-party services, we collect:</p>
             <ul className="list-disc pl-6 space-y-1 mb-4">
               <li><strong>Google Calendar:</strong> We request only the <code>calendar.readonly</code> scope, which provides read-only access to your calendar. We collect event timing, duration, and density to help you understand your schedule load. We do not access event content, descriptions, or attendee details beyond count. We do not modify, create, or delete any calendar events.</li>
-              <li><strong>Oura Ring:</strong> Readiness scores, sleep scores, HRV, and activity data</li>
+              <li><strong>Apple Watch (via Apple Health):</strong> Heart rate variability (HRV), resting heart rate, and sleep data used to calculate readiness scores for personalized recommendations</li>
             </ul>
             <p className="mb-4">
               Integration tokens are encrypted using AES-256-GCM encryption and stored securely. You may disconnect these integrations at any time.

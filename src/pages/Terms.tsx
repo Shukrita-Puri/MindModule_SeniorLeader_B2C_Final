@@ -78,7 +78,7 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Third-Party Integrations</h2>
             <p className="mb-4">
-              Mind Module may integrate with third-party services (Google Calendar, Oura, etc.). Your use of these integrations is subject to:
+              Mind Module may integrate with third-party services (Google Calendar, Apple Health, etc.). Your use of these integrations is subject to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>The terms and policies of those third-party services</li>
