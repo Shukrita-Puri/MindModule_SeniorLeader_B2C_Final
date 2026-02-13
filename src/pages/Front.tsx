@@ -97,9 +97,9 @@ Because being able to recalibrate your mind is a superpower.
       
       {/* Enhanced Privacy Footer */}
       <div className="absolute bottom-8 left-0 right-0 text-center">
-        <button onClick={() => navigate('/privacy')} className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide">
-          Learn about our Privacy by Design commitment →
-        </button>
+        <a href="/privacy" className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide">
+          Privacy Policy →
+        </a>
       </div>
       
     </div>;
