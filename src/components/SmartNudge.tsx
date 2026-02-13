@@ -68,9 +68,9 @@ const SmartNudge = ({
       <div className="flex items-center justify-between p-4 pb-3 bg-gray-50">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <img src="/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png" alt="Kairos" className="w-8 h-8" />
+            <img src="/lovable-uploads/76cee14b-c6a7-4d75-8162-8a5ba6f74a9d.png" alt="Mind Module" className="w-8 h-8" />
             <div>
-              <h4 className="font-bold text-black text-base">Kairos</h4>
+              <h4 className="font-bold text-black text-base">Mind Module</h4>
               <p className="text-gray-500 text-xs">
                 {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>

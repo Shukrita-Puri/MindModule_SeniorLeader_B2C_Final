@@ -31,8 +31,8 @@ const Refer = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Kairos',
-          text: 'Join me on Kairos - Proactive Self Mastery for Peak Performers.',
+          title: 'Mind Module',
+          text: 'Join me on Mind Module - Proactive Self Mastery for Peak Performers.',
           url: referralLink,
         });
       } catch (error) {
@@ -66,7 +66,7 @@ const Refer = () => {
               <Gift className="h-8 w-8 text-primary" />
             </div>
             <h2 className="text-2xl font-headline font-semibold mb-2">
-              Share Kairos
+              Share Mind Module
             </h2>
             <p className="text-muted-foreground max-w-md mx-auto">
               Invite friends and colleagues to join you on the path to mental mastery. 

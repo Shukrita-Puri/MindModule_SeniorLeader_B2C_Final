@@ -11,14 +11,14 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Acceptance of Terms</h2>
             <p>
-              By accessing and using Kairos, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+              By accessing and using Mind Module, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Description of Service</h2>
             <p className="mb-4">
-              Kairos provides a mental fitness platform that includes:
+              Mind Module provides a mental fitness platform that includes:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Daily check-ins and energy state tracking</li>
@@ -44,21 +44,21 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Medical Disclaimer</h2>
             <p className="mb-4">
-              <strong>Important:</strong> Kairos is a mental fitness and wellness tool, not a medical device or mental health treatment service.
+              <strong>Important:</strong> Mind Module is a mental fitness and wellness tool, not a medical device or mental health treatment service.
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Our services do not constitute medical advice, diagnosis, or treatment</li>
               <li>The platform is designed for general wellness and personal development</li>
               <li>If you are experiencing a medical or mental health emergency, please contact emergency services immediately</li>
               <li>Always seek the advice of qualified healthcare providers regarding any medical or mental health concerns</li>
-              <li>Do not use Kairos as a substitute for professional medical care</li>
+              <li>Do not use Mind Module as a substitute for professional medical care</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Subscription and Payment</h2>
             <p className="mb-4">
-              Some features of Kairos require a paid subscription. By subscribing:
+              Some features of Mind Module require a paid subscription. By subscribing:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>You authorize us to charge your payment method on a recurring basis</li>
@@ -71,19 +71,19 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Intellectual Property</h2>
             <p>
-              All content, features, and functionality of Kairos, including but not limited to text, graphics, logos, and software, are the exclusive property of Kairos and are protected by copyright, trademark, and other intellectual property laws.
+              All content, features, and functionality of Mind Module, including but not limited to text, graphics, logos, and software, are the exclusive property of Mind Module and are protected by copyright, trademark, and other intellectual property laws.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Third-Party Integrations</h2>
             <p className="mb-4">
-              Kairos may integrate with third-party services (Google Calendar, Oura, etc.). Your use of these integrations is subject to:
+              Mind Module may integrate with third-party services (Google Calendar, Oura, etc.). Your use of these integrations is subject to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>The terms and policies of those third-party services</li>
               <li>Your explicit consent to connect these services</li>
-              <li>The permissions you grant to Kairos</li>
+              <li>The permissions you grant to Mind Module</li>
             </ul>
             <p className="mt-4">
               You may disconnect third-party integrations at any time through your account settings.
@@ -93,7 +93,7 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Limitation of Liability</h2>
             <p>
-              Kairos and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service, even if we have been advised of the possibility of such damages.
+              Mind Module and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service, even if we have been advised of the possibility of such damages.
             </p>
           </section>
 
@@ -126,7 +126,7 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-subheadline text-foreground mb-3">Contact Information</h2>
             <p>
-              For questions about these Terms of Service, please contact us at support@kairos.me
+              For questions about these Terms of Service, please contact us at support@mindmodule.me
             </p>
           </section>
 
