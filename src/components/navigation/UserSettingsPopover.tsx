@@ -13,11 +13,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import mmLogo from '@/assets/mm-logo-icon.png';
 
 const UserSettingsPopover = () => {
   const navigate = useNavigate();
@@ -25,10 +25,6 @@ const UserSettingsPopover = () => {
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
-
-  const initials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user?.email?.[0]?.toUpperCase() || 'U';
 
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
@@ -58,12 +54,7 @@ const UserSettingsPopover = () => {
             isCollapsed && "justify-center px-0"
           )}
         >
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <img src={mmLogo} alt="Mind Module" className="h-8 w-8 rounded-md object-contain" />
           {!isCollapsed && (
             <>
               <div className="flex-1 text-left">
@@ -83,12 +74,7 @@ const UserSettingsPopover = () => {
       >
         {/* User info header */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
-            <AvatarFallback className="bg-primary/10 text-primary text-lg">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <img src={mmLogo} alt="Mind Module" className="h-12 w-12 rounded-md object-contain" />
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{user?.name || 'User'}</p>
             <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
