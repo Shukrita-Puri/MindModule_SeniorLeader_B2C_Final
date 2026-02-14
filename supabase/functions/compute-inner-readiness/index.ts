@@ -10,7 +10,6 @@ function getFeltStateScore(outcome: string | null): number {
   if (!outcome) return 50;
   const map: Record<string, number> = {
     drained: 20, overwhelmed: 25, scattered: 35, steady: 55, focused: 80,
-    pause: 25, 'power-up': 20, presence: 35, ready: 80,
   };
   return map[outcome] ?? 50;
 }
@@ -78,22 +77,13 @@ function getEnergySubTier(score: number): EnergySubTier {
 }
 
 // ==================== TIER LABELS ====================
-function getTierLabel(tier: string, checkInOutcome?: string | null): string {
-  if (checkInOutcome) {
-    switch (checkInOutcome) {
-      case 'overwhelmed': return 'Regulate and Reset';
-      case 'drained': return 'Rest and Restore';
-      case 'scattered': return 'Ground and Focus';
-      case 'steady': return 'Steady State';
-      case 'focused': return tier === 'peak' ? 'Peak Performance' : 'Perform and Execute';
-    }
-  }
+function getTierLabel(tier: string): string {
   switch (tier) {
-    case 'depleted': return 'Rest and Restore';
-    case 'managing': return 'Stabilize and Simplify';
-    case 'strong': return 'Perform and Execute';
-    case 'peak': return 'Peak Performance';
-    default: return 'Stabilize and Simplify';
+    case 'depleted': return 'Low Reserve';
+    case 'managing': return 'Moderate Capacity';
+    case 'strong': return 'Strong Readiness';
+    case 'peak': return 'Peak Readiness';
+    default: return 'Moderate Capacity';
   }
 }
 
@@ -310,7 +300,7 @@ serve(async (req) => {
       confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
       timeOfDay,
       checkInOutcome: hasCheckIn ? checkInOutcome : null,
-      tierLabel: getTierLabel(tier, hasCheckIn ? checkInOutcome : null),
+      tierLabel: getTierLabel(tier),
     };
 
     return new Response(JSON.stringify(result), {
