@@ -5,6 +5,7 @@
  */
 
 import { CurrentEnergyState } from './energyStateEngine';
+import { getEnergyTier } from './energyStateScoring';
 import type { CalendarEvent } from './historicalPatternEngine';
 
 // Student-specific event types
@@ -137,13 +138,7 @@ function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
   return 'night';
 }
 
-// Get energy tier from check-in or balance score
-function getEnergyTier(balance: number): 'depleted' | 'managing' | 'strong' | 'peak' {
-  if (balance < 40) return 'depleted';
-  if (balance < 60) return 'managing';
-  if (balance < 75) return 'strong';
-  return 'peak';
-}
+// getEnergyTier imported from energyStateScoring (single source of truth)
 
 // Format minutes into readable label
 function formatTimeLabel(minutesUntil: number): string {
