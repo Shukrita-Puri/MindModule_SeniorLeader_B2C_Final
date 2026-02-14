@@ -38,8 +38,8 @@ export interface CoachContext {
     };
   };
   
-  // Theme for Today
-  theme?: {
+   // Mastery recommendation (from energy state — not outer readiness brief)
+   theme?: {
     phrase: string;
     context: string;
     driver?: string;
@@ -522,8 +522,8 @@ export function formatContextForPrompt(context: CoachContext): string {
   
   // Theme
   if (context.theme) {
-    lines.push(`- Theme for Today: "${context.theme.phrase}"`);
-    lines.push(`- Theme Context: ${context.theme.context}`);
+     lines.push(`- Mastery Focus: "${context.theme.phrase}"`);
+     lines.push(`- Mastery Context: ${context.theme.context}`);
   }
   
   // JIT intervention
