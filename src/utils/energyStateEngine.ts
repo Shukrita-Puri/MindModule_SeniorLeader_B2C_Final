@@ -179,9 +179,11 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       persistCompositeScore(todayISO, result.score);
     }
 
-    // Calendar metrics computed client-side (used by Theme for Today, not Inner Readiness score)
-    const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } =
-      hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
+    // Calendar metrics computed client-side (used by Outer Readiness Brief and Performance Plan)
+    const calendarMetrics = hasCalendar ? getCalendarMetrics(calendarData) : null;
+    const calendarLoad = calendarMetrics?.load ?? null;
+    const calendarPressure = calendarMetrics?.pressure ?? null;
+    const calendarDensity = calendarMetrics?.density ?? 0;
 
     // Map tier to mastery type for backward compat with recommendation engine
     const tierToMastery: Record<string, MasteryType> = {
@@ -220,8 +222,10 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       : new Date().getHours() >= 12 && new Date().getHours() < 18 ? 'afternoon' as const
       : 'evening' as const;
 
-    const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } =
-      hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
+    const fallbackCalendar = hasCalendar ? getCalendarMetrics(calendarData) : null;
+    const calendarLoad = fallbackCalendar?.load ?? null;
+    const calendarPressure = fallbackCalendar?.pressure ?? null;
+    const calendarDensity = fallbackCalendar?.density ?? 0;
 
     return {
       overallBalance: 50,
