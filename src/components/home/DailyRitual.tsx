@@ -13,7 +13,7 @@ import {
   type PlanContextResult
 } from '@/utils/performancePlanEngine';
 import { computeEnergyState } from '@/utils/energyStateEngine';
-import { getStrategicTheme } from '@/utils/energyStateScoring';
+import { fetchOuterReadiness } from '@/hooks/useOuterReadiness';
 import { getTodayRitual, upsertRitual, type RitualData } from '@/utils/dailyRituals';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { reconstructPlanFromIds } from '@/utils/planReconstruction';
@@ -336,14 +336,10 @@ const DailyRitual = () => {
       // Generate fresh plan
       console.log('🆕 Generating fresh Performance Plan');
       
-      // 3. Get theme from energy state
-      const theme = getStrategicTheme(
-        energyState.energyTier,
-        energyState.calendarLoad,
-        energyState.calendarPressure,
-        energyState.timeOfDay,
-        energyState.checkInOutcome
-      );
+      // 3. Get theme from outer readiness edge function
+      const outerBrief = await fetchOuterReadiness(user?.id);
+      const themePhrase = outerBrief?.phrase || 'Steady execution.';
+      const themeDriver = outerBrief?.driver || 'state';
       
       // 4. Get user favorites (convert Map to array of content IDs)
       const favoriteIds = Array.from(favorites.keys());
@@ -359,8 +355,8 @@ const DailyRitual = () => {
         energyTier: energyState.energyTier,
         checkInOutcome: energyState.checkInOutcome || 'steady',
         timeOfDay: getTimeOfDay(),
-        themePhrase: theme.phrase,
-        themeDriver: theme.driver || 'state',
+        themePhrase: themePhrase,
+        themeDriver: themeDriver as any,
         favorites: favoriteIds,
         coachInsights: coachInsights.map(i => ({
           id: i.id,
@@ -380,7 +376,7 @@ const DailyRitual = () => {
       const plan = generatePerformancePlan(context);
       
       console.log('🎯 Performance Plan Generated:', {
-        themePhrase: theme.phrase,
+        themePhrase: themePhrase,
         modules: plan.map(m => ({
           type: m.type,
           title: isCoachCard(m.content) ? m.content.title : m.content.title,

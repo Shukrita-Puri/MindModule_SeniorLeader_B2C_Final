@@ -21,7 +21,7 @@ import JitCarousel from "@/components/home/JitCarousel";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
-import { getStrategicTheme } from "@/utils/energyStateScoring";
+import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 
 // Hero fallback images - ES6 imports for proper bundling
 import softnessRelease from '@/assets/softness-release.jpg';
@@ -34,13 +34,16 @@ const ExecutiveHome = () => {
   const { user } = useAuth();
   const [migrationComplete, setMigrationComplete] = useState(false);
   
-  // Fetch energy state for subheadline
+  // Fetch energy state for hero visual
   const { data: energyState } = useQuery({
     queryKey: ['energy-state', user?.id],
     queryFn: async () => computeEnergyState(user?.id),
     enabled: !!user?.id,
     staleTime: 60000,
   });
+  
+  // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
+  const { data: outerBrief } = useOuterReadiness();
   
   // Migrate onboarding data from localStorage to database on first visit
   useEffect(() => {
@@ -68,20 +71,10 @@ const ExecutiveHome = () => {
     return `Evening, ${firstName}`;
   };
   
-  // Get subheadline aligned with Theme for Today
+  // Get subheadline from Outer Readiness Brief (shared cache)
   const getSubheadline = () => {
-    if (!energyState) return "Let's make today count.";
-    
-    // Use the same theme engine as Theme for Today for alignment
-    const theme = getStrategicTheme(
-      energyState.energyTier,
-      energyState.calendarLoad || 'low',
-      energyState.calendarPressure || 'low',
-      energyState.timeOfDay,
-      energyState.checkInOutcome
-    );
-    
-    return theme.phrase || "Let's make today count.";
+    if (!outerBrief) return "Let's make today count.";
+    return outerBrief.phrase || "Let's make today count.";
   };
   
   // Get calming visual fallback based on energy state (ES6 imports)

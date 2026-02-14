@@ -1,250 +1,18 @@
 /**
- * StrategicIntentionCard - "What matters today?"
- * Displays ONE psychological frame for the entire day
- * Enhanced with: Why (mechanism) + Stakes + Unlock (archetype-aware)
- * Not interactive - pure framing instruction
- * Now saves daily theme to database for Insights tracking
+ * StrategicIntentionCard - "Outer Readiness Brief"
+ * Displays the strategic frame for the day: theme + context + lean on + watch for
+ * All logic now lives in compute-outer-readiness edge function.
+ * This is a thin presentation component.
  */
 
-import { useEffect, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useQuery } from '@tanstack/react-query';
-import { computeEnergyState, CurrentEnergyState } from '@/utils/energyStateEngine';
-import { getStrategicTheme } from '@/utils/energyStateScoring';
-import { determineArchetype, type UserArchetype } from '@/utils/userArchetypeEngine';
+import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { format, subDays } from 'date-fns';
-
-// Build data sources list based on what influenced the theme
-const getThemeDataSources = (energyState: CurrentEnergyState): string => {
-  const sources: string[] = [];
-  
-  // Check-in source
-  if (energyState.checkInOutcome) sources.push('check-in');
-  
-  // Wearable source
-  if (energyState.dataSources?.includes('wearable')) sources.push('wearable');
-  
-  // Calendar sources (only if they influenced theme)
-  if (energyState.calendarPressure === 'high' || energyState.calendarPressure === 'medium') {
-    sources.push('calendar pressure');
-  }
-  if (energyState.calendarLoad === 'high' || energyState.calendarLoad === 'medium') {
-    sources.push('calendar load');
-  }
-  
-  // Time of day always contributes
-  sources.push('circadian rhythm');
-  
-  return sources.join(', ');
-};
 
 const StrategicIntentionCard = () => {
-  const { user } = useAuth();
-  const themeSavedRef = useRef<string | null>(null);
+  const { data: brief, isLoading } = useOuterReadiness();
 
-  const { data: energyState, isLoading } = useQuery({
-    queryKey: ['energy-state', user?.id],
-    queryFn: async () => {
-      return await computeEnergyState(user?.id);
-    },
-    enabled: !!user?.id,
-    refetchInterval: 5 * 60 * 1000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
-
-  // Fetch user's archetype and component scores for personalized unlock statements
-  const { data: userProfile } = useQuery({
-    queryKey: ['user-profile-archetype', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_archetype, component_scores')
-        .eq('id', user?.id)
-        .single();
-      return data;
-    },
-    enabled: !!user?.id,
-    staleTime: 30 * 60 * 1000, // 30 min cache
-  });
-
-  // Derive archetype details (strength/growth areas) from component scores or archetype string
-  const archetypeDetails: UserArchetype | null = (() => {
-    // Try component_scores first for precise archetype
-    if (userProfile?.component_scores) {
-      try {
-        const scores = userProfile.component_scores as any;
-        return determineArchetype({
-          q2_energy_regulation: scores.q2_energy_regulation ?? 50,
-          q3_focus_recovery: scores.q3_focus_recovery ?? 50,
-          q4_energy_renewal: scores.q4_energy_renewal ?? 50,
-          q5_growth_priority: scores.q5_growth_priority ?? 50,
-        });
-      } catch { /* fall through */ }
-    }
-    // Fallback: derive from user_archetype string when component_scores is missing
-    if (userProfile?.user_archetype) {
-      const archetypeFallbacks: Record<string, Pick<UserArchetype, 'id' | 'title' | 'strengthArea' | 'growthArea'>> = {
-        'natural-regulator': { id: 'natural_regulator', title: 'The Natural Regulator', strengthArea: 'Comprehensive Self-Regulation', growthArea: 'Advanced Integration' },
-        'strategic-pauser': { id: 'strategic_pauser', title: 'The Strategic Pauser', strengthArea: 'Focus Recovery & Composure', growthArea: 'Energy Downshift' },
-        'high-octane-performer': { id: 'high_octane_performer', title: 'The High-Octane Performer', strengthArea: 'Energy Renewal', growthArea: 'Proactive Regulation' },
-        'awareness-builder': { id: 'awareness_builder', title: 'The Awareness Builder', strengthArea: 'Growth Awareness', growthArea: 'Foundational Tools' },
-        'adaptive-navigator': { id: 'adaptive_navigator', title: 'The Adaptive Navigator', strengthArea: 'Situational Adaptability', growthArea: 'Consistent Energy Management' },
-      };
-      const fallback = archetypeFallbacks[userProfile.user_archetype];
-      if (fallback) {
-        return {
-          ...fallback,
-          description: '',
-          percentile: '',
-          unlockStatement: '',
-          recommendedMastery: 'Pause' as const,
-        } as UserArchetype;
-      }
-    }
-    return null;
-  })();
-
-  // Fetch latest coach insights for strength/friction override
-  const { data: coachInsights } = useQuery({
-    queryKey: ['coach-insights-friction', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_coach_insights')
-        .select('insight_type, insight_content')
-        .eq('user_id', user?.id)
-        .in('insight_type', ['strength', 'growth_area', 'behavior_pattern'])
-        .order('created_at', { ascending: false })
-        .limit(5);
-      return data || [];
-    },
-    enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  // Fetch recent check-ins for pattern recognition
-  const { data: recentCheckIns } = useQuery({
-    queryKey: ['recent-checkins-pattern', user?.id],
-    queryFn: async () => {
-      const today = new Date();
-      const sevenDaysAgo = subDays(today, 6);
-      
-      const { data } = await supabase
-        .from('daily_checkins')
-        .select('checkin_date, outcome')
-        .eq('user_id', user?.id)
-        .gte('checkin_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
-        .lte('checkin_date', format(today, 'yyyy-MM-dd'))
-        .order('checkin_date', { ascending: false });
-      
-      return data || [];
-    },
-    enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Calculate pattern recognition - count CONSECUTIVE days in same low-energy state
-  const getConsecutivePatternInsight = (currentOutcome: string | undefined): { 
-    count: number; 
-    message: string; 
-    recommendation: string;
-  } | null => {
-    if (!currentOutcome || !recentCheckIns || recentCheckIns.length < 2) return null;
-    
-    // Only track patterns for low-energy states
-    const lowEnergyStates = ['overwhelmed', 'drained', 'scattered'];
-    if (!lowEnergyStates.includes(currentOutcome)) return null;
-    
-    // Sort by date descending (most recent first)
-    const sortedCheckIns = [...recentCheckIns].sort((a, b) => 
-      new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime()
-    );
-    
-    // Count consecutive days with same state
-    let consecutiveCount = 0;
-    for (const checkIn of sortedCheckIns) {
-      if (checkIn.outcome === currentOutcome) {
-        consecutiveCount++;
-      } else {
-        break;
-      }
-    }
-    
-    if (consecutiveCount >= 3) {
-      const stateLabels: Record<string, string> = {
-        overwhelmed: 'overwhelmed',
-        drained: 'drained',
-        scattered: 'scattered'
-      };
-      const label = stateLabels[currentOutcome] || currentOutcome;
-      
-      // Get state-specific recommendation
-      const recommendations: Record<string, string> = {
-        overwhelmed: 'accumulated stress that daily regulation alone may not resolve. Consider what boundary or recovery practice has been missing.',
-        drained: 'a deeper energy deficit requiring restoration beyond daily practices. Your system may need extended recovery time.',
-        scattered: 'persistent cognitive overload. Consider what open loops or unprocessed decisions are fragmenting your attention.'
-      };
-      
-      return {
-        count: consecutiveCount,
-        message: `This is day ${consecutiveCount} you've checked in ${label}.`,
-        recommendation: recommendations[currentOutcome] || 'a pattern that warrants attention.'
-      };
-    }
-    return null;
-  };
-
-  // Save theme to database for Insights tracking (once per day)
-  // IMPORTANT: This hook must be called unconditionally (before any early returns)
-  useEffect(() => {
-    const saveThemeToDb = async () => {
-      // Guard inside effect instead of conditional hook call
-      if (!user?.id || isLoading || !energyState) return;
-      
-      const theme = getStrategicTheme(
-        energyState.energyTier,
-        energyState.calendarLoad,
-        energyState.calendarPressure,
-        energyState.timeOfDay,
-        energyState.checkInOutcome,
-        userProfile?.user_archetype || undefined
-      );
-      
-      if (!theme.phrase) return;
-      
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const themeKey = `${today}-${theme.phrase}`;
-      
-      // Only save once per theme per day
-      if (themeSavedRef.current === themeKey) return;
-      
-      try {
-        await supabase.from('daily_themes').upsert({
-          user_id: user.id,
-          theme_date: today,
-          theme_phrase: theme.phrase,
-          theme_driver: theme.driver || 'state',
-          check_in_outcome: energyState.checkInOutcome || null,
-          calendar_pressure: energyState.calendarPressure || null,
-          calendar_load: energyState.calendarLoad || null,
-          time_of_day: energyState.timeOfDay || null
-        }, {
-          onConflict: 'user_id,theme_date'
-        });
-        themeSavedRef.current = themeKey;
-      } catch (error) {
-        console.error('Error saving theme:', error);
-      }
-    };
-    
-    saveThemeToDb();
-  }, [user?.id, isLoading, energyState, userProfile?.user_archetype]);
-
-  if (isLoading || !energyState) {
+  if (isLoading || !brief) {
     return (
       <div className="animate-pulse p-5 md:p-6">
         <div className="h-4 bg-muted/50 rounded w-24 mb-3" />
@@ -254,26 +22,6 @@ const StrategicIntentionCard = () => {
     );
   }
 
-  const theme = getStrategicTheme(
-    energyState.energyTier,
-    energyState.calendarLoad,
-    energyState.calendarPressure,
-    energyState.timeOfDay,
-    energyState.checkInOutcome,
-    userProfile?.user_archetype || undefined
-  );
-
-  const patternInsight = getConsecutivePatternInsight(energyState.checkInOutcome);
-
-  // Build enhanced context with pattern insight if applicable
-  const getEnhancedContext = (): string => {
-    if (patternInsight) {
-      // Pattern-aware context replaces standard context
-      return `${patternInsight.message} Your system may be signaling ${patternInsight.recommendation}`;
-    }
-    return theme.context;
-  };
-
   return (
     <div className={cn(
       "rounded-xl p-5 space-y-3 transition-all duration-300",
@@ -281,48 +29,46 @@ const StrategicIntentionCard = () => {
       "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
       "border-l-2 border-l-taupe/40"
     )}>
-      {/* Header - just label and info button */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-          Theme for Today
+          Outer Readiness Brief
         </span>
         <MetricInfoModal
-          title="How Your Daily Theme is Selected"
-          description="Your theme combines your current felt state (from check-in and wearable data), calendar pressure (high-stakes events), calendar load (meeting density), and circadian rhythm (time of day and day of week). It provides strategic guidance that acknowledges both how you feel internally and what your day demands externally."
+          title="Your Outer Readiness Brief"
+          description="Your Compass is where your inner world meets the outer demands of the day. It takes your Inner Readiness Score — how resourced, clear, and confident you are right now — and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
         />
       </div>
 
-      {/* Theme content with fade animation */}
-      <div key={theme.phrase} className="animate-fade-in space-y-3">
-        {/* Theme phrase - serif, italic for elegance */}
+      {/* Theme content */}
+      <div key={brief.phrase} className="animate-fade-in space-y-3">
+        {/* Theme phrase */}
         <p className="text-xl md:text-2xl font-headline italic text-foreground leading-snug">
-          "{theme.phrase}"
+          "{brief.phrase}"
         </p>
 
-      {/* Supporting context - pattern-aware or standard (Stakes/Why/Identity structure) */}
+        {/* Context line */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
-          {getEnhancedContext()}
+          {brief.context}
         </p>
 
-        {/* Friction + Strength one-liners */}
-        {archetypeDetails && (
-          <div className="space-y-1 pt-1">
-            <p className="text-xs italic text-primary/70 font-body">
-              <span className="font-semibold not-italic">Lean on:</span>{' '}
-              {coachInsights?.find(i => i.insight_type === 'strength')?.insight_content || archetypeDetails.strengthArea}
-            </p>
-            <p className="text-xs italic text-muted-foreground/70 font-body">
-              <span className="font-semibold not-italic">Watch for:</span>{' '}
-              {coachInsights?.find(i => i.insight_type === 'growth_area')?.insight_content || archetypeDetails.growthArea}
-            </p>
-          </div>
-        )}
+        {/* Lean On + Watch For */}
+        <div className="space-y-1 pt-1">
+          <p className="text-xs italic text-primary/70 font-body">
+            <span className="font-semibold not-italic">Lean on:</span>{' '}
+            {brief.leanOn}
+          </p>
+          <p className="text-xs italic text-muted-foreground/70 font-body">
+            <span className="font-semibold not-italic">Watch for:</span>{' '}
+            {brief.watchFor}
+          </p>
+        </div>
       </div>
 
-      {/* Footer - data sources (matching Today's State) */}
+      {/* Footer - data sources */}
       <div className="pt-1">
         <span className="text-xs text-muted-foreground/50 font-body">
-          Based on {getThemeDataSources(energyState)}
+          Based on {brief.dataSources.join(', ')}
         </span>
       </div>
     </div>
