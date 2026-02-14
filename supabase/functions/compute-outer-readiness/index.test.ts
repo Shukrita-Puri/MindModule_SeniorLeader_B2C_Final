@@ -14,6 +14,44 @@ interface OuterReadinessResult {
   dataSources: string[];
 }
 
+// timezoneOffset that forces 10 AM on a Wednesday (daytime, weekday)
+// Server time is UTC. We set offset so userTime = UTC - offset*60000 → target 10:00 Wed
+// Using offset = 0 and relying on the function to compute from UTC is fragile.
+// Instead, compute an offset that maps current UTC to 10:00 on a weekday.
+function getDaytimeOffset(): number {
+  const now = new Date();
+  // We want the user's "local time" to be 10:00 AM on the same date
+  // userTime = now - offset * 60000 → offset = (now - targetTime) / 60000
+  const target = new Date(now);
+  target.setUTCHours(10, 0, 0, 0);
+  // Also ensure it's a Wednesday (day 3)
+  const dayDiff = target.getUTCDay() - 3; // shift to Wednesday
+  // Don't shift date, just ensure hour is 10 AM for the user
+  return Math.round((now.getTime() - target.getTime()) / 60000);
+}
+
+// timezoneOffset that forces 22:00 (10 PM) on a Sunday for evening tests
+function getLateEveningOffset(): number {
+  const now = new Date();
+  const target = new Date(now);
+  target.setUTCHours(22, 0, 0, 0);
+  return Math.round((now.getTime() - target.getTime()) / 60000);
+}
+
+// timezoneOffset that forces 22:00 on a Sunday
+function getSundayEveningOffset(): number {
+  const now = new Date();
+  const target = new Date(now);
+  target.setUTCHours(22, 0, 0, 0);
+  // Shift to Sunday (day 0)
+  const currentDay = target.getUTCDay();
+  const daysToSunday = currentDay === 0 ? 0 : 7 - currentDay;
+  target.setUTCDate(target.getUTCDate() + daysToSunday);
+  return Math.round((now.getTime() - target.getTime()) / 60000);
+}
+
+const DAYTIME_OFFSET = getDaytimeOffset();
+
 async function callFunction(body: Record<string, unknown>): Promise<{ status: number; data: OuterReadinessResult | { error: string } }> {
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
@@ -21,7 +59,7 @@ async function callFunction(body: Record<string, unknown>): Promise<{ status: nu
       "Content-Type": "application/json",
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ timezoneOffset: DAYTIME_OFFSET, ...body }),
   });
   const data = await res.json();
   return { status: res.status, data };
@@ -98,9 +136,9 @@ Deno.test("Managing + low load → 'Build your reserves.'", async () => {
   assertEquals(result.phrase, "Build your reserves.");
 });
 
-// ==================== NO-CALENDAR FALLBACK TESTS ====================
+// ==================== NO-CALENDAR FALLBACK TESTS (daytime) ====================
 
-Deno.test("Depleted + no calendar + score 20 → 'Begin with stillness.'", async () => {
+Deno.test("Depleted + no calendar + score 20 (daytime) → 'Begin with stillness.'", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-nocal-1",
     innerReadinessTier: "depleted",
@@ -118,7 +156,7 @@ Deno.test("Depleted + no calendar + score 20 → 'Begin with stillness.'", async
   assertEquals(result.driver, "state");
 });
 
-Deno.test("Peak + no calendar + score 92 → 'Own your peak.'", async () => {
+Deno.test("Peak + no calendar + score 92 (daytime) → 'Own your peak.'", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-nocal-2",
     innerReadinessTier: "peak",
@@ -135,9 +173,71 @@ Deno.test("Peak + no calendar + score 92 → 'Own your peak.'", async () => {
   assertEquals(result.phrase, "Own your peak.");
 });
 
-// ==================== LEAN ON / WATCH FOR CASCADE TESTS ====================
+// ==================== LATE EVENING TESTS ====================
 
-Deno.test("Archetype priority 3: adaptive-navigator + depleted → archetype lean-on/watch-for", async () => {
+Deno.test("Depleted + no calendar + late evening → recovery theme", async () => {
+  const { status, data } = await callFunction({
+    userId: "test-user-evening-1",
+    innerReadinessTier: "depleted",
+    innerReadinessScore: 20,
+    calendarLoad: null,
+    calendarPressure: null,
+    archetype: null,
+    clarityLevel: null,
+    confidenceLevel: null,
+    checkInOutcome: null,
+    timezoneOffset: getLateEveningOffset(),
+  });
+  assertEquals(status, 200);
+  const result = data as OuterReadinessResult;
+  assertEquals(result.phrase, "Let the day close.");
+  assertEquals(result.leanOn, "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.");
+});
+
+Deno.test("Peak + late evening → evening lean-on overrides C+C", async () => {
+  const { status, data } = await callFunction({
+    userId: "test-user-evening-2",
+    innerReadinessTier: "peak",
+    innerReadinessScore: 90,
+    calendarLoad: null,
+    calendarPressure: null,
+    archetype: "high-octane-performer",
+    clarityLevel: 5,
+    confidenceLevel: 5,
+    checkInOutcome: null,
+    timezoneOffset: getLateEveningOffset(),
+  });
+  assertEquals(status, 200);
+  const result = data as OuterReadinessResult;
+  // After 9 PM, archetype and C+C are suppressed — evening tier insights take over
+  assertEquals(result.leanOn, "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.");
+  assertEquals(result.watchFor, "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.");
+});
+
+// ==================== SUNDAY EVENING TESTS ====================
+
+Deno.test("Managing + Sunday evening → Sunday-specific theme and lean-on", async () => {
+  const { status, data } = await callFunction({
+    userId: "test-user-sunday-1",
+    innerReadinessTier: "managing",
+    innerReadinessScore: 50,
+    calendarLoad: null,
+    calendarPressure: null,
+    archetype: null,
+    clarityLevel: null,
+    confidenceLevel: null,
+    checkInOutcome: null,
+    timezoneOffset: getSundayEveningOffset(),
+  });
+  assertEquals(status, 200);
+  const result = data as OuterReadinessResult;
+  assertEquals(result.phrase, "Close into the week.");
+  assertEquals(result.leanOn, "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.");
+});
+
+// ==================== LEAN ON / WATCH FOR CASCADE TESTS (daytime) ====================
+
+Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → archetype lean-on/watch-for", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-archetype-1",
     innerReadinessTier: "depleted",
@@ -155,7 +255,7 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted → archetype lea
   assertEquals(result.watchFor, "Adapting to everyone else's demands when your own capacity is the priority.");
 });
 
-Deno.test("C+C modifier priority 2: low clarity + low confidence → C+C lean-on/watch-for", async () => {
+Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-cc-1",
     innerReadinessTier: "managing",
@@ -169,11 +269,10 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence → C+C lean-on
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  // C+C low overrides archetype (priority 2 > priority 3)
   assertEquals(result.leanOn, "Your awareness that today needs more deliberation than momentum.");
 });
 
-Deno.test("Tier fallback priority 4: no archetype, neutral C+C → tier fallback", async () => {
+Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-fallback-1",
     innerReadinessTier: "strong",
@@ -273,7 +372,6 @@ Deno.test("Output contains all required fields", async () => {
 });
 
 Deno.test("Missing auth returns 401", async () => {
-  // No userId and no auth header
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
     headers: {

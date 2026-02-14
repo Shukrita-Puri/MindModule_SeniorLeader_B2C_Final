@@ -1,5 +1,5 @@
 /**
- * CheckInDetail - Clarity & Confidence sliders after daily check-in
+ * CheckInDetail - Clarity & Confidence Check-In
  * Mandatory step in the check-in flow for C-Suite leaders.
  */
 
@@ -80,7 +80,7 @@ const CheckInDetail = () => {
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
           <h1 className="text-3xl font-headline text-foreground tracking-tight">
-            Clarity & Confidence
+            Clarity & Confidence Check-In
           </h1>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
             Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated.

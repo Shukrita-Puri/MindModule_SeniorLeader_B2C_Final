@@ -43,6 +43,31 @@ interface ComputeRequest {
   clarityLevel: number | null;
   confidenceLevel: number | null;
   checkInOutcome: string | null;
+  timezoneOffset?: number;
+}
+
+// ==================== TIME HELPERS ====================
+function getUserTime(timezoneOffset: number): Date {
+  const now = new Date();
+  return new Date(now.getTime() - timezoneOffset * 60000);
+}
+
+function getTimeOfDay(hour: number): 'morning' | 'afternoon' | 'evening' {
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+function isLateEvening(hour: number): boolean {
+  return hour >= 21 || hour < 6;
+}
+
+type DayContext = 'weekday' | 'friday' | 'saturday' | 'sunday';
+function getDayContext(dayOfWeek: number): DayContext {
+  if (dayOfWeek === 5) return 'friday';
+  if (dayOfWeek === 6) return 'saturday';
+  if (dayOfWeek === 0) return 'sunday';
+  return 'weekday';
 }
 
 // ==================== THEME MATRIX (v3.0 — 40 themes) ====================
@@ -50,16 +75,18 @@ function getTheme(
   tier: EnergyTier,
   pressure: CalendarLevel | null,
   load: CalendarLevel | null,
-  score: number
+  score: number,
+  hour: number,
+  dayOfWeek: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   // No calendar connected — tier-only fallbacks with sub-tier precision
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek);
   }
 
-  const hour = new Date().getHours();
-  const timeOfDay = hour >= 6 && hour < 12 ? 'morning' : hour >= 12 && hour < 18 ? 'afternoon' : 'evening';
+  const timeOfDay = getTimeOfDay(hour);
+  const dayCtx = getDayContext(dayOfWeek);
 
   // DEPLETED TIER
   if (tier === 'depleted') {
@@ -79,8 +106,13 @@ function getTheme(
       return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery.", driver: 'load' };
     if (timeOfDay === 'morning')
       return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
-    if (timeOfDay === 'evening')
+    if (timeOfDay === 'evening') {
+      if (dayCtx === 'sunday')
+        return { phrase: "Close before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'evening' };
+      if (dayCtx === 'friday')
+        return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return { phrase: "Close before tomorrow.", context: "What you don't release tonight you carry into tomorrow's first decisions and interactions.", driver: 'evening' };
+    }
     return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today.", driver: 'state' };
   }
 
@@ -102,8 +134,13 @@ function getTheme(
       return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today.", driver: 'load' };
     if (timeOfDay === 'morning')
       return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
-    if (timeOfDay === 'evening')
+    if (timeOfDay === 'evening') {
+      if (dayCtx === 'sunday')
+        return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'evening' };
+      if (dayCtx === 'friday')
+        return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity. How you close is how you recover.", driver: 'evening' };
+    }
     return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of the day.", driver: 'state' };
   }
 
@@ -125,8 +162,13 @@ function getTheme(
       return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
     if (timeOfDay === 'morning')
       return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
-    if (timeOfDay === 'evening')
+    if (timeOfDay === 'evening') {
+      if (dayCtx === 'sunday')
+        return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday rather than spending it before the week begins.", driver: 'evening' };
+      if (dayCtx === 'friday')
+        return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return { phrase: "Close strong.", context: "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.", driver: 'evening' };
+    }
     return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing.", driver: 'state' };
   }
 
@@ -147,35 +189,103 @@ function getTheme(
     return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
   if (timeOfDay === 'morning')
     return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
-  if (timeOfDay === 'evening')
+  if (timeOfDay === 'evening') {
+    if (dayCtx === 'sunday')
+      return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'evening' };
+    if (dayCtx === 'friday')
+      return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return { phrase: "Close with intention.", context: "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.", driver: 'evening' };
+  }
   return { phrase: "Own your optimal state.", context: "Full readiness is present. The priority is protecting that state through the full shape of what the day holds.", driver: 'state' };
 }
 
-// ==================== NO-CALENDAR FALLBACKS (8 entries, sub-tier precision) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number): { phrase: string; context: string; driver: ThemeDriver } {
+// ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number): { phrase: string; context: string; driver: ThemeDriver } {
+  const dayCtx = getDayContext(dayOfWeek);
+  const lateEvening = isLateEvening(hour);
+
   if (tier === 'depleted') {
+    if (lateEvening) {
+      if (dayCtx === 'sunday')
+        return { phrase: "Rest before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'state' };
+      return { phrase: "Let the day close.", context: "Your system has already given what it had. The most important thing now is genuine release and recovery.", driver: 'state' };
+    }
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
   }
   if (tier === 'managing') {
+    if (lateEvening) {
+      if (dayCtx === 'sunday')
+        return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'state' };
+      return { phrase: "Close the day cleanly.", context: "Operational capacity has served its purpose today. A clean close now protects tomorrow's opening state.", driver: 'state' };
+    }
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
   }
   if (tier === 'strong') {
+    if (lateEvening) {
+      if (dayCtx === 'sunday')
+        return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday.", driver: 'state' };
+      return { phrase: "Protect tomorrow's advantage.", context: "Above-baseline readiness at this hour is worth protecting through deliberate wind-down rather than spending.", driver: 'state' };
+    }
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you.", driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.", driver: 'state' };
   }
   // Peak
+  if (lateEvening) {
+    if (dayCtx === 'sunday')
+      return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'state' };
+    return { phrase: "Wind down deliberately.", context: "Peak activation at this hour needs a deliberate transition. Your nervous system needs the wind-down even when your mind doesn't.", driver: 'state' };
+  }
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
 }
 
 // ==================== LEAN ON / WATCH FOR ====================
+
+// Late evening (9 PM+) recovery-oriented Lean On / Watch For by tier
+const eveningTierInsights: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
+  depleted: {
+    leanOn: "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.",
+    watchFor: "Replaying the day when what your system actually needs is release.",
+  },
+  managing: {
+    leanOn: "Your capacity to close cleanly. The day is done and your system knows it.",
+    watchFor: "Carrying unfinished mental threads into the hours your body needs to recover.",
+  },
+  strong: {
+    leanOn: "Your ability to transition. You can shift from performance mode to recovery mode deliberately.",
+    watchFor: "Staying in problem-solving mode past the point where it serves tomorrow.",
+  },
+  peak: {
+    leanOn: "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.",
+    watchFor: "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.",
+  },
+};
+
+// Sunday evening Lean On / Watch For by tier
+const sundayEveningInsights: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
+  depleted: {
+    leanOn: "Your awareness that starting the week already depleted is itself useful information. What you protect tonight is the most important leadership decision you make before Monday.",
+    watchFor: "Pushing through Sunday evening when your system needs recovery. Deficit carried into Monday compounds through the week.",
+  },
+  managing: {
+    leanOn: "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.",
+    watchFor: "Drifting into Monday without a clear internal anchor. Operational capacity without direction diffuses quickly.",
+  },
+  strong: {
+    leanOn: "Your readiness to open the week from a position of genuine strength. Above-baseline on a Sunday evening is a real advantage if protected.",
+    watchFor: "Spending Sunday evening energy on low-value thinking when the higher-leverage move is protecting the state you're already in.",
+  },
+  peak: {
+    leanOn: "Full readiness at the start of the week is among the rarest and most valuable conditions. Your priority tonight is protecting it, not spending it.",
+    watchFor: "Using peak Sunday activation for work or planning rather than genuine wind-down. The week needs this state intact, not already drawn from.",
+  },
+};
 
 // Priority 2: C+C Signal Modifier
 function getCCModifier(clarity: number | null, confidence: number | null): { leanOn: string; watchFor: string } | null {
@@ -255,7 +365,27 @@ function getLeanOnWatchFor(
   confidence: number | null,
   coachStrength: string | null,
   coachGrowth: string | null,
+  hour: number,
+  dayOfWeek: number,
 ): { leanOn: string; watchFor: string } {
+  const lateEvening = isLateEvening(hour);
+  const dayCtx = getDayContext(dayOfWeek);
+
+  // After 9 PM: recovery-oriented insights override everything except coach insights
+  if (lateEvening) {
+    // Priority 1: Coach insights still take precedence
+    if (coachStrength && coachGrowth) {
+      return { leanOn: coachStrength, watchFor: coachGrowth };
+    }
+    // Sunday evening gets its own set
+    if (dayCtx === 'sunday') {
+      return sundayEveningInsights[tier];
+    }
+    // All other late evenings
+    return eveningTierInsights[tier];
+  }
+
+  // Daytime: full cascade
   // Priority 1: Coach insights
   if (coachStrength && coachGrowth) {
     return { leanOn: coachStrength, watchFor: coachGrowth };
@@ -362,7 +492,13 @@ serve(async (req) => {
       clarityLevel,
       confidenceLevel,
       checkInOutcome,
+      timezoneOffset = 0,
     } = body;
+
+    // Compute user's local time
+    const userTime = getUserTime(timezoneOffset);
+    const hour = userTime.getHours();
+    const dayOfWeek = userTime.getDay();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -390,17 +526,18 @@ serve(async (req) => {
     const coachStrength = coachInsights.find((i: any) => i.insight_type === 'strength')?.insight_content || null;
     const coachGrowth = coachInsights.find((i: any) => i.insight_type === 'growth_area')?.insight_content || null;
 
-    const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore);
+    const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
     const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
     const finalContext = patternOverride || theme.context;
     const { leanOn, watchFor } = getLeanOnWatchFor(
       innerReadinessTier, archetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth
+      coachStrength, coachGrowth, hour, dayOfWeek
     );
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
     const dataSources = buildDataSources(hasCalendar, archetype, checkInOutcome);
 
+    const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
     try {
       await db.from('daily_themes').upsert({
@@ -411,7 +548,7 @@ serve(async (req) => {
         check_in_outcome: checkInOutcome || null,
         calendar_pressure: calendarPressure || null,
         calendar_load: calendarLoad || null,
-        time_of_day: new Date().getHours() >= 6 && new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
+        time_of_day: timeOfDay,
         lean_on: leanOn,
         watch_for: watchFor,
         inner_readiness_score: innerReadinessScore,
