@@ -8,7 +8,11 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin } from "@/utils/dailyCheckins";
-import { getCheckInScore } from "@/utils/energyStateScoring";
+// Simple outcome-to-balance mapping for localStorage (actual scoring happens server-side)
+const getCheckInBalance = (outcome: string): number => {
+  const map: Record<string, number> = { drained: 20, overwhelmed: 25, scattered: 35, steady: 55, focused: 80 };
+  return map[outcome] ?? 50;
+};
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 
 // New outcome types mapping to internal axes
@@ -83,7 +87,7 @@ const DailyCheckIn = () => {
     
     const timestamp = new Date().toISOString();
     const checkinDate = timestamp.split('T')[0];
-    const energyBalance = getCheckInScore(outcome);
+    const energyBalance = getCheckInBalance(outcome);
     
     const checkInData: CheckInData = {
       outcome,
