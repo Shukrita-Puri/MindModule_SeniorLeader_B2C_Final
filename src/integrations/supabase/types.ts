@@ -584,40 +584,52 @@ export type Database = {
       }
       daily_themes: {
         Row: {
+          archetype: string | null
           calendar_load: string | null
           calendar_pressure: string | null
           check_in_outcome: string | null
           created_at: string | null
           id: string
+          inner_readiness_score: number | null
+          lean_on: string | null
           theme_date: string
           theme_driver: string | null
           theme_phrase: string
           time_of_day: string | null
           user_id: string
+          watch_for: string | null
         }
         Insert: {
+          archetype?: string | null
           calendar_load?: string | null
           calendar_pressure?: string | null
           check_in_outcome?: string | null
           created_at?: string | null
           id?: string
+          inner_readiness_score?: number | null
+          lean_on?: string | null
           theme_date: string
           theme_driver?: string | null
           theme_phrase: string
           time_of_day?: string | null
           user_id: string
+          watch_for?: string | null
         }
         Update: {
+          archetype?: string | null
           calendar_load?: string | null
           calendar_pressure?: string | null
           check_in_outcome?: string | null
           created_at?: string | null
           id?: string
+          inner_readiness_score?: number | null
+          lean_on?: string | null
           theme_date?: string
           theme_driver?: string | null
           theme_phrase?: string
           time_of_day?: string | null
           user_id?: string
+          watch_for?: string | null
         }
         Relationships: []
       }
