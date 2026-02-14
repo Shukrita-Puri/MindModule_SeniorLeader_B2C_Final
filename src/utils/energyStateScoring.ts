@@ -132,14 +132,6 @@ export function getCalendarMetrics(calendarData: any[]): CalendarMetrics {
   };
 }
 
-// ==================== STRATEGIC THEME (Outer Readiness) ====================
-// All theme logic has been moved to the compute-outer-readiness edge function.
-// Type exports kept for backward compatibility with PlanContext.
+// ==================== PLAN CONTEXT TYPES ====================
 
 export type ThemeDriver = 'pressure+load' | 'pressure' | 'load' | 'morning' | 'evening' | 'state';
-
-export interface StrategicTheme {
-  phrase: string;
-  context: string;
-  driver: ThemeDriver;
-}
