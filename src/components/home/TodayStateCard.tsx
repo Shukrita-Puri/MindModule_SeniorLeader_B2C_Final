@@ -102,7 +102,9 @@ const TodayStateCard = () => {
         onClick={() => navigate('/insights')}
       >
         <span className="text-xs text-muted-foreground/50 font-body">
-          Based on {energyState.dataSources?.join(', ') || 'check-in'}
+          Based on {(energyState.dataSources || ['check-in']).map(s => 
+            s === 'circadian' ? 'time-of-day rhythm' : s === 'wearable' ? 'recovery data' : 'your check-in'
+          ).join(', ')}
         </span>
         <div className="flex items-center text-xs text-foreground font-medium group-hover:underline font-body">
           <span>View insights</span>
