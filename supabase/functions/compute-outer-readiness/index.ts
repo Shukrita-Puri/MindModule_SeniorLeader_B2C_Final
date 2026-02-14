@@ -324,12 +324,8 @@ function buildDataSources(
   _checkInOutcome: string | null,
 ): string[] {
   const sources: string[] = [];
-  // Inner readiness score is the umbrella input (includes self check-in, circadian score, wearable score)
   sources.push('inner readiness score');
-  if (hasCalendar) {
-    sources.push('calendar load');
-    sources.push('calendar pressure');
-  }
+  if (hasCalendar) sources.push('calendar');
   if (archetype) sources.push('archetype');
   return sources;
 }
