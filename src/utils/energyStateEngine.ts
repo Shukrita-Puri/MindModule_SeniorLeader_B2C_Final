@@ -111,12 +111,15 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     const result = response.data;
 
     // Persist composite score to DB for historical tracking (fire-and-forget)
-    const today = new Date().toISOString().split('T')[0];
+    const todayISO = new Date().toISOString().split('T')[0];
     const token = localStorage.getItem('auth0_access_token');
     if (token && hasCheckIn) {
       supabase.functions.invoke('daily-checkins', {
-        body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate: today, energyBalance: result.score },
+        body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate: todayISO, energyBalance: result.score },
         headers: { Authorization: `Bearer ${token}` },
+      }).then(res => {
+        if (res.error) console.warn('[energyStateEngine] UPDATE_ENERGY_BALANCE failed:', res.error);
+        else console.log('[energyStateEngine] Composite score persisted:', result.score);
       }).catch(err => console.warn('[energyStateEngine] Failed to persist score:', err));
     }
 
