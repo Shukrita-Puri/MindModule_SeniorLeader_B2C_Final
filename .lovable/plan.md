@@ -1,72 +1,31 @@
 
 
-# Inner Readiness: DB Fix + Edge Function Cleanup
+# Validation: Energy Rhythm Does Not Need Raw Score
 
-## Problem Summary
+## Finding
 
-Three issues identified during audit:
+The Energy Rhythm heatmap (`EnergyRhythm.tsx`) uses **only two fields** from check-in data:
 
-1. **CheckInDetail bypasses edge functions** — clarity/confidence are saved via direct DB call which fails silently under Auth0 + RLS architecture
-2. **Legacy V1 outcome mappings** still in edge function (`pause`, `power-up`, `presence`, `ready`)
-3. **Old outcome-specific tier labels** still in edge function (redundant since UI uses tier-only labels)
+- **`outcome`** — the felt state string (focused, steady, scattered, overwhelmed, drained)
+- **`timestamp`** — used to place the dot in the correct time-of-day x day-of-week cell
 
-The circadian calculation in the edge function is **correct** — no change needed.
+It does **not** reference `energy_balance` anywhere.
 
-## Plan
+## Where `energy_balance` IS used on the Insights page
 
-### Step 1: Fix CheckInDetail to route through edge function
+The Insights page fetches `energy_balance` from `daily_checkins` for the **weekly trend line** (the 7-day energy chart showing daily composite scores). This is a separate component from Energy Rhythm.
 
-The `CheckInDetail.tsx` page currently does:
-```
-supabase.from('daily_checkins').update({ clarity_level, confidence_level })
-```
+## Conclusion
 
-This fails silently because RLS blocks direct client access. Will refactor to call the `daily-checkins` edge function with a new `UPDATE_CLARITY_CONFIDENCE` action, matching the project's Auth0 architecture pattern.
+No changes needed. Removing the raw felt state score from the `SAVE_CHECKIN` payload and only writing the composite score via `UPDATE_ENERGY_BALANCE` will not affect Energy Rhythm or any other Insights feature.
 
-**Files changed:**
-- `src/pages/CheckInDetail.tsx` — use `saveCheckin()` or invoke edge function with Auth0 token
-- `supabase/functions/daily-checkins/index.ts` — add `UPDATE_CLARITY_CONFIDENCE` action if not already present
+The fix from the previous plan (stop writing raw score in SAVE_CHECKIN, write composite score via UPDATE_ENERGY_BALANCE) remains safe to implement.
 
-### Step 2: Clean up edge function — remove legacy mappings
+### Step 1: Remove raw `energy_balance` from SAVE_CHECKIN
 
-Remove from `compute-inner-readiness/index.ts`:
-- Line 13: Delete `pause: 25, 'power-up': 20, presence: 35, ready: 80` (old V1 outcome keys)
-- Lines 81-98: Replace outcome-specific tier labels with tier-only labels matching the UI:
-  - depleted -> "Low Reserve"
-  - managing -> "Moderate Capacity"  
-  - strong -> "Strong Readiness"
-  - peak -> "Peak Readiness"
+In `src/pages/DailyCheckIn.tsx`, remove the `energy_balance: energyBalance` field from the `saveCheckin()` call and delete the `getCheckInBalance()` helper function. The composite score will be written later by `computeEnergyState()` via the `UPDATE_ENERGY_BALANCE` action.
 
-### Step 3: Verify the daily-checkins edge function handles upsert correctly
+### Step 2: Remove duplicate `const today` in energyStateEngine.ts
 
-Confirm that when a user checks in again on the same day, the edge function properly upserts (updates the existing row) rather than failing on a duplicate.
-
----
-
-## Technical Details
-
-### CheckInDetail fix (Step 1)
-
-```text
-Current (broken):
-  CheckInDetail -> supabase.from('daily_checkins').update() -> RLS BLOCKS -> silent failure
-
-Fixed:
-  CheckInDetail -> getAccessTokenSilently() -> supabase.functions.invoke('daily-checkins', {
-    action: 'UPDATE_CLARITY_CONFIDENCE',
-    checkinDate, clarity, confidence
-  }) -> edge function verifies Auth0 token -> service role updates DB
-```
-
-### Edge function cleanup (Step 2)
-
-Felt state map reduced to 5 canonical outcomes only:
-```
-{ drained: 20, overwhelmed: 25, scattered: 35, steady: 55, focused: 80 }
-```
-
-Tier labels simplified to tier-only (no outcome branching):
-```
-{ depleted: 'Low Reserve', managing: 'Moderate Capacity', strong: 'Strong Readiness', peak: 'Peak Readiness' }
-```
+There are two `const today` declarations in the `computeEnergyState` function. Remove the duplicate to avoid the variable shadowing issue.
 
