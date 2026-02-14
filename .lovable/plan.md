@@ -1,42 +1,72 @@
 
 
-# Update Inner Readiness Labels and Tooltip
+# Inner Readiness: DB Fix + Edge Function Cleanup
 
-## Overview
+## Problem Summary
 
-Two changes: (1) Replace outcome-specific labels with pure tier-based labels driven by the final composite score, and (2) update the tooltip text to reference "Outer Readiness Brief" instead of "Theme for Today".
+Three issues identified during audit:
 
-## Changes
+1. **CheckInDetail bypasses edge functions** — clarity/confidence are saved via direct DB call which fails silently under Auth0 + RLS architecture
+2. **Legacy V1 outcome mappings** still in edge function (`pause`, `power-up`, `presence`, `ready`)
+3. **Old outcome-specific tier labels** still in edge function (redundant since UI uses tier-only labels)
 
-### 1. Simplify `getStateLabel()` in `TodayStateCard.tsx`
+The circadian calculation in the edge function is **correct** — no change needed.
 
-Remove the outcome-specific branch entirely. The label is now determined solely by the `energyTier` (which comes from the composite score including check-in, C+C, wearable, and circadian):
+## Plan
 
-| Tier | Label |
-|---|---|
-| depleted | Low Reserve |
-| managing | Moderate Capacity |
-| strong | Strong Readiness |
-| peak | Peak Readiness |
+### Step 1: Fix CheckInDetail to route through edge function
 
-This means a user who checks in as "focused" but has low Clarity+Confidence and low wearable (scoring 51) will see **"Moderate Capacity"** -- the label reflects the full composite truth, not just the check-in tap.
+The `CheckInDetail.tsx` page currently does:
+```
+supabase.from('daily_checkins').update({ clarity_level, confidence_level })
+```
 
-### 2. Update Tooltip in Both Components
+This fails silently because RLS blocks direct client access. Will refactor to call the `daily-checkins` edge function with a new `UPDATE_CLARITY_CONFIDENCE` action, matching the project's Auth0 architecture pattern.
 
-Update MetricInfoModal description in `TodayStateCard.tsx` and `EnergyStateHeader.tsx` to use the exact provided text, with the final sentence referencing **"Outer Readiness Brief"**:
+**Files changed:**
+- `src/pages/CheckInDetail.tsx` — use `saveCheckin()` or invoke edge function with Auth0 token
+- `supabase/functions/daily-checkins/index.ts` — add `UPDATE_CLARITY_CONFIDENCE` action if not already present
 
-> Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day.
->
-> It draws from three sources: your check-in - your felt state combined with your clarity and confidence in this moment; your internal readiness - how certain and grounded you feel in your judgment today; and your circadian context - the natural performance rhythm of the time of day and point in the week.
->
-> If you have an Apple Watch connected, your HRV is added as a physiological signal - specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight.
->
-> This score does not measure how busy you are or what your calendar holds. That layer - how to deploy your current readiness against today's actual demands - lives in your Outer Readiness Brief
+### Step 2: Clean up edge function — remove legacy mappings
 
-### Files Modified
+Remove from `compute-inner-readiness/index.ts`:
+- Line 13: Delete `pause: 25, 'power-up': 20, presence: 35, ready: 80` (old V1 outcome keys)
+- Lines 81-98: Replace outcome-specific tier labels with tier-only labels matching the UI:
+  - depleted -> "Low Reserve"
+  - managing -> "Moderate Capacity"  
+  - strong -> "Strong Readiness"
+  - peak -> "Peak Readiness"
 
-- `src/components/home/TodayStateCard.tsx` -- simplify getStateLabel to tier-only + update tooltip
-- `src/components/home/EnergyStateHeader.tsx` -- update tooltip only
+### Step 3: Verify the daily-checkins edge function handles upsert correctly
 
-No backend changes. No design changes. Text-only updates.
+Confirm that when a user checks in again on the same day, the edge function properly upserts (updates the existing row) rather than failing on a duplicate.
+
+---
+
+## Technical Details
+
+### CheckInDetail fix (Step 1)
+
+```text
+Current (broken):
+  CheckInDetail -> supabase.from('daily_checkins').update() -> RLS BLOCKS -> silent failure
+
+Fixed:
+  CheckInDetail -> getAccessTokenSilently() -> supabase.functions.invoke('daily-checkins', {
+    action: 'UPDATE_CLARITY_CONFIDENCE',
+    checkinDate, clarity, confidence
+  }) -> edge function verifies Auth0 token -> service role updates DB
+```
+
+### Edge function cleanup (Step 2)
+
+Felt state map reduced to 5 canonical outcomes only:
+```
+{ drained: 20, overwhelmed: 25, scattered: 35, steady: 55, focused: 80 }
+```
+
+Tier labels simplified to tier-only (no outcome branching):
+```
+{ depleted: 'Low Reserve', managing: 'Moderate Capacity', strong: 'Strong Readiness', peak: 'Peak Readiness' }
+```
 
