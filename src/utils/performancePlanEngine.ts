@@ -501,172 +501,131 @@ interface ThemeModuleMapping {
   integrate?: ModuleSpec;
 }
 
-// Complete mapping of all 45+ theme phrases to module requirements
+// Theme-to-module mapping for v3.0 Outer Readiness Brief themes
+// Keys match the theme phrases returned by the compute-outer-readiness edge function
 const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
-  // ============= OVERWHELMED THEMES =============
-  "Survival mode activated.": {
+  // ============= DEPLETED TIER =============
+  "One thing at a time.": {
     regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'composure' },
     align: { type: 'align', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' }
   },
-  "Steady your ground.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' }
-  },
-  "Protect your boundaries today.": {
+  "Protect what matters.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
     align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' }
   },
-  "Simplify to survive.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+  "Reserve for the moment.": {
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' }
   },
-  "Choose your battles wisely.": {
+  "Navigate, don't absorb.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
-  "Pace your recovery.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' }
+  "Move through gently.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
-  "Set the tone gently.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  "Decompress before you rest.": {
-    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'release' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' },
-    integrate: { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
-  },
-  "Regulate before you engage.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'composure' }
-  },
-
-  // ============= DRAINED THEMES =============
-  "Conserve for what counts.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'micro', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'micro', focus: 'composure' }
-  },
-  "Strategic bursts only.": {
-    regulate: { type: 'regulate', required: true, priority: 6, intensity: 'gentle', duration: 'micro', focus: 'restore' }
-  },
-  "Guard your reserves.": {
+  "Pace and protect.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'composure' }
-  },
-  "Endurance over excellence.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' }
-  },
-  "Navigate, don't sprint.": {
-    regulate: { type: 'regulate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'restore' }
-  },
-  "Gentle momentum.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 3, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  "Ease into the day.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'standard', focus: 'restore' },
     align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
-  "Rest is productive.": {
+  "Rest is the work.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
     integrate: { type: 'integrate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
-  "Restore before you push.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'standard', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' }
+  "Begin with intention.": {
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
-
-  // ============= SCATTERED THEMES =============
-  // Note: Scattered users get Coach (prepare) as optional AFTER grounding (Regulate + Align)
-  "Focus or fragment.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'focus' }
-  },
-  "Clarity before stakes.": {
-    regulate: { type: 'regulate', required: true, priority: 6, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'clarity' }
-  },
-  "Find your center first.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  "Anchor and execute.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'focus' }
-  },
-  "One thread at a time.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'focus' }
-  },
-  "Reclaim your attention.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'focus' }
-  },
-  "Ground before you go.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  "Release the threads.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' },
+  "Close before tomorrow.": {
+    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'release' },
     integrate: { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
-  "Find your anchor point.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
-    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+  "Protect your reserves.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'composure' }
   },
 
-  // ============= STEADY THEMES =============
-  "Anchor in the storm.": {
+  // ============= MANAGING TIER =============
+  "Hold your ground.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'composure' },
     align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
     prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' }
   },
-  "Calm confidence.": {
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  "Steady into the stakes.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' }
   },
-  "Rise to the moment.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'confidence' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  "Depth over breadth.": {
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
-  "Sustainable pace required.": {
+  "Rhythm over intensity.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' },
     align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
   "Ride the rhythm.": {
     align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
-  "Steady as she goes.": {
+  "Steady execution.": {
     align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
-  "Build your reserves today.": {
+  "Build your reserves.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' }
   },
-  "Set the rhythm.": {
+  "Set a sustainable pace.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
     align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'grounding' }
   },
-  "Maintain your balance.": {
+  "Close with care.": {
     align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'release' },
     integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
-  "Build on your balance.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+  "Maintain your rhythm.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
 
-  // ============= FOCUSED THEMES =============
+  // ============= STRONG TIER =============
+  "Lead from strength.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'confidence' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Execute with presence.": {
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Bring your full weight.": {
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Sustain the quality.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'focus' },
+    align: { type: 'align', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Move with confidence.": {
+    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Invest the advantage.": {
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Protect and build.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+  },
+  "Protect the window.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' }
+  },
+  "Close strong.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+    integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
+  },
+  "Leverage your position.": {
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+
+  // ============= PEAK TIER =============
   "Peak performance day.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'confidence' },
     align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
@@ -681,30 +640,60 @@ const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
     align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
     prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
   },
-  "Channel the intensity.": {
+  "Channel the capacity.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
     align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'focus' }
   },
-  "Sprint through the density.": {
-    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'focus' }
+  "Move with full confidence.": {
+    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'confidence' }
   },
-  "Strategic deployment.": {
+  "Depth and precision.": {
     align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
     prepare: { type: 'prepare', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
-  "Maximize your morning.": {
+  "Deep work window.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Protect the peak.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
     align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' },
     prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' }
   },
-  "Channel wisely.": {
-    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
+  "Close with intention.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
     integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
   "Own your optimal state.": {
     align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
     prepare: { type: 'prepare', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' }
-  }
+  },
+
+  // ============= NO-CALENDAR FALLBACKS =============
+  "Begin with stillness.": {
+    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'release' }
+  },
+  "Operate with care.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+  },
+  "Steady and selective.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+  },
+  "Lead with confidence.": {
+    align: { type: 'align', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  },
+  "Invest your advantage.": {
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Bring your full presence.": {
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Own your peak.": {
+    align: { type: 'align', required: false, priority: 4, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
 };
 
 // Default fallback mapping if theme phrase not found
