@@ -321,12 +321,11 @@ function getPatternOverride(
 function buildDataSources(
   hasCalendar: boolean,
   archetype: string | null,
-  checkInOutcome: string | null,
+  _checkInOutcome: string | null,
 ): string[] {
   const sources: string[] = [];
+  // Inner readiness score is the umbrella input (includes self check-in, circadian score, wearable score)
   sources.push('inner readiness score');
-  if (checkInOutcome) sources.push('self check-in');
-  sources.push('circadian rhythm');
   if (hasCalendar) {
     sources.push('calendar load');
     sources.push('calendar pressure');

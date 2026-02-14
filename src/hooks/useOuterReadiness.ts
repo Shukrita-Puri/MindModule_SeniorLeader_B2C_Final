@@ -34,13 +34,23 @@ async function getAuth0Token(): Promise<string | null> {
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
   if (!userId) return null;
 
-  // Get energy state + today's check-in + profile in parallel
-  const [energyState, checkin, token] = await Promise.all([
+  // Get energy state + today's check-in in parallel
+  const [energyState, checkin] = await Promise.all([
     computeEnergyState(userId),
     getTodayCheckin(),
-    getAuth0Token(),
   ]);
-  if (!token) return null;
+
+  // Retry token acquisition (Auth0 client may not be ready immediately)
+  let token: string | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    token = await getAuth0Token();
+    if (token) break;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (!token) {
+    console.warn('[useOuterReadiness] No Auth0 token after retries — skipping edge call');
+    return null;
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
