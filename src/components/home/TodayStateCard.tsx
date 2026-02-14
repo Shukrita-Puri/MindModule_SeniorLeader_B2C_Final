@@ -13,34 +13,18 @@ import { cn } from '@/lib/utils';
 import MetricInfoModal from './MetricInfoModal';
 
 // Outcome-aware tier labels - specific to what user selected
-const getStateLabel = (tier: string, checkInOutcome?: string): string => {
-  // Outcome-specific labels override tier labels
-  if (checkInOutcome) {
-    switch (checkInOutcome) {
-      case 'overwhelmed':
-        return 'Regulate and Reset';
-      case 'drained':
-        return 'Rest and Restore';
-      case 'scattered':
-        return 'Ground and Focus';
-      case 'steady':
-        return 'Steady State';
-      case 'focused':
-        return tier === 'peak' ? 'Peak Performance' : 'Perform and Execute';
-    }
-  }
-  // Fallback to tier-based labels (if no check-in)
+const getStateLabel = (tier: string): string => {
   switch (tier) {
     case 'depleted':
-      return 'Rest and Restore';
+      return 'Low Reserve';
     case 'managing':
-      return 'Stabilize and Simplify';
+      return 'Moderate Capacity';
     case 'strong':
-      return 'Perform and Execute';
+      return 'Strong Readiness';
     case 'peak':
-      return 'Peak Performance';
+      return 'Peak Readiness';
     default:
-      return 'Stabilize and Simplify';
+      return 'Moderate Capacity';
   }
 };
 
@@ -73,7 +57,7 @@ const TodayStateCard = () => {
   // Clean dashes from context statement
   const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/—/g, ' ').replace(/ – /g, ' ');
   
-  const tierLabel = getStateLabel(energyState.energyTier, energyState.checkInOutcome);
+  const tierLabel = getStateLabel(energyState.energyTier);
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
 
@@ -90,7 +74,7 @@ const TodayStateCard = () => {
         </span>
         <MetricInfoModal
           title="How Your Inner Readiness Score is Calculated"
-          description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in — your felt state combined with your clarity and confidence in this moment; your internal readiness — how certain and grounded you feel in your judgment today; and your circadian context — the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal — specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight. This score does not measure how busy you are or what your calendar holds. That layer — how to deploy your current readiness against today's actual demands — lives in your Theme for Today."
+          description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in - your felt state combined with your clarity and confidence in this moment; your internal readiness - how certain and grounded you feel in your judgment today; and your circadian context - the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal - specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight. This score does not measure how busy you are or what your calendar holds. That layer - how to deploy your current readiness against today's actual demands - lives in your Outer Readiness Brief"
         />
       </div>
       {/* Score and Tier */}
