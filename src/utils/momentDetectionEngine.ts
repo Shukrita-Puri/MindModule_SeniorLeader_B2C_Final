@@ -139,8 +139,8 @@ function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
 
 // Get energy tier from check-in or balance score
 function getEnergyTier(balance: number): 'depleted' | 'managing' | 'strong' | 'peak' {
-  if (balance < 35) return 'depleted';
-  if (balance < 55) return 'managing';
+  if (balance < 40) return 'depleted';
+  if (balance < 60) return 'managing';
   if (balance < 75) return 'strong';
   return 'peak';
 }
