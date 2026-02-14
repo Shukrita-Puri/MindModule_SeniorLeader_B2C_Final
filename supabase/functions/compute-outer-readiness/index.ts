@@ -64,115 +64,115 @@ function getTheme(
   // DEPLETED TIER
   if (tier === 'depleted') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "One thing at a time.", context: "A heavy and high-stakes calendar is meeting a leader running below full capacity — what genuinely requires your full presence today, and what can be held or delegated?", driver: 'pressure+load' };
+      return { phrase: "One thing at a time.", context: "A heavy and high-stakes calendar is meeting a leader running below full capacity. What genuinely requires your full presence today, and what can be held or delegated?", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Protect what matters.", context: "Significant stakes ahead with a manageable schedule — the space exists to be selective. Where you spend your capacity today determines the quality of your most important moments.", driver: 'pressure+load' };
+      return { phrase: "Protect what matters.", context: "Significant stakes ahead with a manageable schedule. The space exists to be selective. Where you spend your capacity today determines the quality of your most important moments.", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Reserve for the moment.", context: "High stakes on a light schedule — a rare alignment. Your recovery window today is also your preparation window.", driver: 'pressure' };
+      return { phrase: "Reserve for the moment.", context: "High stakes on a light schedule, a rare alignment. Your recovery window today is also your preparation window.", driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Navigate, don't absorb.", context: "A dense calendar without the high-stakes pressure of your hardest days — steady passage through the volume is the goal, not deep engagement with each moment.", driver: 'load' };
+      return { phrase: "Navigate, don't absorb.", context: "A dense calendar without the high-stakes pressure of your hardest days. Steady passage through the volume is the goal, not deep engagement with each moment.", driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Move through gently.", context: "High volume without high stakes — the risk today is volume draining what little reserve you have. Move through rather than absorb.", driver: 'load' };
+      return { phrase: "Move through gently.", context: "High volume without high stakes. The risk today is volume draining what little reserve you have. Move through rather than absorb.", driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending — each recovery window between engagements is worth protecting.", driver: 'load' };
+      return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending. Each recovery window between engagements is worth protecting.", driver: 'load' };
     if (load === 'low')
-      return { phrase: "Rest is the work.", context: "A light calendar and a depleted system — today's most productive act is genuine recovery.", driver: 'load' };
+      return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead — how you enter each moment today matters more than how much you do.", driver: 'morning' };
+      return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
     if (timeOfDay === 'evening')
       return { phrase: "Close before tomorrow.", context: "What you don't release tonight you carry into tomorrow's first decisions and interactions.", driver: 'evening' };
-    return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have — deliberate pacing is your strategy today.", driver: 'state' };
+    return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today.", driver: 'state' };
   }
 
   // MANAGING TIER
   if (tier === 'managing') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader — steadiness through the full weight of the day is both the challenge and the achievement.", driver: 'pressure+load' };
+      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader. Steadiness through the full weight of the day is both the challenge and the achievement.", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule — you have the capacity to show up well for what matters most today.", driver: 'pressure+load' };
+      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule. You have the capacity to show up well for what matters most today.", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule — your operating capacity is well-matched to the important moments today if you protect the space around them.", driver: 'pressure' };
+      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule. Your operating capacity is well-matched to the important moments today if you protect the space around them.", driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing — sustainable engagement through the full day rather than peaks and drops.", driver: 'load' };
+      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing. Sustainable engagement through the full day rather than peaks and drops.", driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Ride the rhythm.", context: "High volume without high stakes — a day to move steadily through rather than push against.", driver: 'load' };
+      return { phrase: "Ride the rhythm.", context: "High volume without high stakes. A day to move steadily through rather than push against.", driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity — a well-matched day for consistent, quality output.", driver: 'load' };
+      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity. A well-matched day for consistent, quality output.", driver: 'load' };
     if (load === 'low')
-      return { phrase: "Build your reserves.", context: "Light demands on a managing state — a genuine opportunity to invest rather than spend today.", driver: 'load' };
+      return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead — how you pace the opening determines whether you finish well.", driver: 'morning' };
+      return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
     if (timeOfDay === 'evening')
-      return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity — how you close is how you recover.", driver: 'evening' };
-    return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement — protecting your operational state through the full shape of the day.", driver: 'state' };
+      return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity. How you close is how you recover.", driver: 'evening' };
+    return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of the day.", driver: 'state' };
   }
 
   // STRONG TIER
   if (tier === 'strong') {
     if (pressure === 'high' && load === 'high')
-      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader — a day where your readiness is genuinely being asked for.", driver: 'pressure+load' };
+      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader. A day where your readiness is genuinely being asked for.", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
-      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule — you have both the capacity and the space to bring your best to the moments that count.", driver: 'pressure+load' };
+      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule. You have both the capacity and the space to bring your best to the moments that count.", driver: 'pressure+load' };
     if (pressure === 'high' && load === 'low')
-      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover — conditions that allow your strongest leadership to show up fully.", driver: 'pressure' };
+      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover. Conditions that allow your strongest leadership to show up fully.", driver: 'pressure' };
     if (pressure === 'medium' && load === 'high')
-      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes — your above-baseline capacity is what keeps quality consistent across the full day.", driver: 'load' };
+      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes. Your above-baseline capacity is what keeps quality consistent across the full day.", driver: 'load' };
     if (load === 'high' && pressure === 'low')
-      return { phrase: "Move with confidence.", context: "High volume meets strong capacity — a day you can move through with assurance rather than caution.", driver: 'load' };
+      return { phrase: "Move with confidence.", context: "High volume meets strong capacity. A day you can move through with assurance rather than caution.", driver: 'load' };
     if (load === 'medium')
-      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day — the conditions are there to go deep on what matters rather than wide across everything.", driver: 'load' };
+      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day. The conditions are there to go deep on what matters rather than wide across everything.", driver: 'load' };
     if (load === 'low')
-      return { phrase: "Protect and build.", context: "Strong readiness on a light day — rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
+      return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Protect the window.", context: "Strong readiness at the start of the day — how you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
+      return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
     if (timeOfDay === 'evening')
-      return { phrase: "Close strong.", context: "Above-baseline capacity at close of day — a strong finish is within reach and worth protecting.", driver: 'evening' };
-    return { phrase: "Leverage your position.", context: "You are above baseline today — the question is where that advantage is most worth investing.", driver: 'state' };
+      return { phrase: "Close strong.", context: "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.", driver: 'evening' };
+    return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing.", driver: 'state' };
   }
 
   // PEAK TIER
   if (pressure === 'high' && load === 'high')
-    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness — a genuine high-leverage day where your leadership capacity is fully called upon.", driver: 'pressure+load' };
+    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness. A genuine high-leverage day where your leadership capacity is fully called upon.", driver: 'pressure+load' };
   if (pressure === 'high' && load === 'medium')
-    return { phrase: "Execute with precision.", context: "High stakes on a focused schedule — conditions for your sharpest, most decisive leadership are fully in place.", driver: 'pressure+load' };
+    return { phrase: "Execute with precision.", context: "High stakes on a focused schedule. Conditions for your sharpest, most decisive leadership are fully in place.", driver: 'pressure+load' };
   if (pressure === 'high' && load === 'low')
-    return { phrase: "Seize the high ground.", context: "Your highest readiness meeting your most important moments with space to prepare — rare and powerful conditions.", driver: 'pressure' };
+    return { phrase: "Seize the high ground.", context: "Your highest readiness meeting your most important moments with space to prepare. Rare and powerful conditions.", driver: 'pressure' };
   if (pressure === 'medium' && load === 'high')
-    return { phrase: "Channel the capacity.", context: "A full calendar meeting your fullest state — directing that capacity with precision prevents diffusion across the volume.", driver: 'load' };
+    return { phrase: "Channel the capacity.", context: "A full calendar meeting your fullest state. Directing that capacity with precision prevents diffusion across the volume.", driver: 'load' };
   if (load === 'high' && pressure === 'low')
-    return { phrase: "Move with full confidence.", context: "High volume, full capacity — a day to move through with assurance and presence across the full schedule.", driver: 'load' };
+    return { phrase: "Move with full confidence.", context: "High volume, full capacity. A day to move through with assurance and presence across the full schedule.", driver: 'load' };
   if (load === 'medium')
-    return { phrase: "Depth and precision.", context: "Selective demands meeting peak readiness — conditions for the quality of leadership that defines your best days.", driver: 'load' };
+    return { phrase: "Depth and precision.", context: "Selective demands meeting peak readiness. Conditions for the quality of leadership that defines your best days.", driver: 'load' };
   if (load === 'low')
-    return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule — among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
+    return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
   if (timeOfDay === 'morning')
-    return { phrase: "Protect the peak.", context: "Full readiness at the start of the day — a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
+    return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
   if (timeOfDay === 'evening')
-    return { phrase: "Close with intention.", context: "Peak activation at the close of the day — a structured, intentional close protects tonight's recovery and tomorrow's readiness.", driver: 'evening' };
-  return { phrase: "Own your optimal state.", context: "Full readiness is present — the priority is protecting that state through the full shape of what the day holds.", driver: 'state' };
+    return { phrase: "Close with intention.", context: "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.", driver: 'evening' };
+  return { phrase: "Own your optimal state.", context: "Full readiness is present. The priority is protecting that state through the full shape of what the day holds.", driver: 'state' };
 }
 
 // ==================== NO-CALENDAR FALLBACKS (8 entries, sub-tier precision) ====================
 function getNoCalendarTheme(tier: EnergyTier, score: number): { phrase: string; context: string; driver: ThemeDriver } {
   if (tier === 'depleted') {
     if (score <= 25)
-      return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition — every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
-    return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today — how much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
+      return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
+    return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
   }
   if (tier === 'managing') {
     if (score <= 49)
-      return { phrase: "Operate with care.", context: "Operational but not at full capacity — a day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
-    return { phrase: "Steady and selective.", context: "Baseline readiness is present — you have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
+      return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
+    return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
   }
   if (tier === 'strong') {
     if (score <= 69)
-      return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today — your presence, judgment, and influence are all working well for you.", driver: 'state' };
-    return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence — the question is where that advantage is most worth directing.", driver: 'state' };
+      return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you.", driver: 'state' };
+    return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.", driver: 'state' };
   }
   // Peak
   if (score <= 89)
-    return { phrase: "Bring your full presence.", context: "Full readiness — your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
-  return { phrase: "Own your peak.", context: "Exceptional readiness is present — a rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
+    return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
+  return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
 }
 
 // ==================== LEAN ON / WATCH FOR ====================
@@ -189,7 +189,7 @@ function getCCModifier(clarity: number | null, confidence: number | null): { lea
     if (lowC && lowConf)
       return { leanOn: "Your awareness that today needs more deliberation than momentum.", watchFor: "High-stakes commitments made before your judgment has found its footing." };
     if (lowConf)
-      return { leanOn: "Your self-awareness — you know you're operating with uncertainty today, and that honesty is itself a form of leadership.", watchFor: "Decisions performed from projected confidence rather than genuine conviction." };
+      return { leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.", watchFor: "Decisions performed from projected confidence rather than genuine conviction." };
     return { leanOn: "Your capacity to ask the right question before committing to a direction.", watchFor: "Moving into the day's demands before you've found your anchor point." };
   }
   
@@ -197,10 +197,10 @@ function getCCModifier(clarity: number | null, confidence: number | null): { lea
     const highC = c >= 4.5;
     const highConf = conf >= 4.5;
     if (highC && highConf)
-      return { leanOn: "Full decision readiness — you are resourced, clear, and certain in your direction today.", watchFor: "Operating as if today's peak readiness is the norm — protect it, don't spend it." };
+      return { leanOn: "Full decision readiness. You are resourced, clear, and certain in your direction today.", watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it." };
     if (highConf)
-      return { leanOn: "Your conviction — you trust your judgment today and can move with authority.", watchFor: "Confidence tipping into certainty that closes off important inputs." };
-    return { leanOn: "Your directional certainty — you know what matters today and why.", watchFor: "Clarity about your own view crowding out the perspectives you need." };
+      return { leanOn: "Your conviction. You trust your judgment today and can move with authority.", watchFor: "Confidence tipping into certainty that closes off important inputs." };
+    return { leanOn: "Your directional certainty. You know what matters today and why.", watchFor: "Clarity about your own view crowding out the perspectives you need." };
   }
   
   return null;
@@ -209,43 +209,43 @@ function getCCModifier(clarity: number | null, confidence: number | null): { lea
 // Priority 3: Archetype × Tier matrix
 const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watchFor: string }>> = {
   'natural-regulator': {
-    depleted: { leanOn: "Your instinct to return to stillness — it restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
+    depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
     managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
-    strong: { leanOn: "Your natural stability — it's a leadership presence others orient around.", watchFor: "Staying in maintenance mode when your state supports something more." },
-    peak: { leanOn: "Your grounded precision — full presence with full capacity.", watchFor: "Tunnel focus that closes off peripheral awareness at the moment it matters." },
+    strong: { leanOn: "Your natural stability. It's a leadership presence others orient around.", watchFor: "Staying in maintenance mode when your state supports something more." },
+    peak: { leanOn: "Your grounded precision. Full presence with full capacity.", watchFor: "Tunnel focus that closes off peripheral awareness at the moment it matters." },
   },
   'high-octane-performer': {
-    depleted: { leanOn: "Your knowledge that recovery is part of performance — not a retreat from it.", watchFor: "Performing resilience instead of actually recovering." },
-    managing: { leanOn: "Your baseline reliability — showing up consistently is its own form of leadership.", watchFor: "Settling for operational when your performance instinct wants to push." },
-    strong: { leanOn: "Your above-baseline capacity — a real performance window is available.", watchFor: "Burning the window early by going too hard before the high-stakes moments." },
-    peak: { leanOn: "Your full competitive edge — this is your signature performance state.", watchFor: "Spending the peak too fast without protecting what carries you through the full day." },
+    depleted: { leanOn: "Your knowledge that recovery is part of performance, not a retreat from it.", watchFor: "Performing resilience instead of actually recovering." },
+    managing: { leanOn: "Your baseline reliability. Showing up consistently is its own form of leadership.", watchFor: "Settling for operational when your performance instinct wants to push." },
+    strong: { leanOn: "Your above-baseline capacity. A real performance window is available.", watchFor: "Burning the window early by going too hard before the high-stakes moments." },
+    peak: { leanOn: "Your full competitive edge. This is your signature performance state.", watchFor: "Spending the peak too fast without protecting what carries you through the full day." },
   },
   'strategic-pauser': {
-    depleted: { leanOn: "Your ability to think simply when complexity costs too much — straight lines today.", watchFor: "Over-processing when low energy needs economy of thought." },
+    depleted: { leanOn: "Your ability to think simply when complexity costs too much. Straight lines today.", watchFor: "Over-processing when low energy needs economy of thought." },
     managing: { leanOn: "Your capacity to bring analytical clarity to what genuinely requires it.", watchFor: "Applying deep analysis to decisions that don't warrant the cognitive spend." },
-    strong: { leanOn: "Your sharpest insights surface from a stable, well-resourced state — conditions are good.", watchFor: "Staying in analysis past the point where the insight is already clear." },
-    peak: { leanOn: "Your analytical precision at full cognitive capacity — your highest-value thinking window.", watchFor: "Intellectual momentum that runs past the decision point and into complexity for its own sake." },
+    strong: { leanOn: "Your sharpest insights surface from a stable, well-resourced state. Conditions are good.", watchFor: "Staying in analysis past the point where the insight is already clear." },
+    peak: { leanOn: "Your analytical precision at full cognitive capacity. Your highest-value thinking window.", watchFor: "Intellectual momentum that runs past the decision point and into complexity for its own sake." },
   },
   'awareness-builder': {
-    depleted: { leanOn: "Your knowledge that genuine rest is what fuels your next surge — not pushing through.", watchFor: "Forcing intensity on empty — it produces noise rather than output." },
-    managing: { leanOn: "Your drive, held in check — directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
-    strong: { leanOn: "Your capacity to amplify from a stable base — above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
-    peak: { leanOn: "Your full-force capability — focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
+    depleted: { leanOn: "Your knowledge that genuine rest is what fuels your next surge, not pushing through.", watchFor: "Forcing intensity on empty. It produces noise rather than output." },
+    managing: { leanOn: "Your drive, held in check. Directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
+    strong: { leanOn: "Your capacity to amplify from a stable base. Above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
+    peak: { leanOn: "Your full-force capability. Focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
   },
   'adaptive-navigator': {
-    depleted: { leanOn: "Your ability to read what a situation actually needs — even in a depleted state your situational awareness is sharp.", watchFor: "Adapting to everyone else's demands when your own capacity is the priority." },
-    managing: { leanOn: "Your flexibility — meeting the day's variability without resistance.", watchFor: "Staying adaptive when the moment calls for a fixed position." },
-    strong: { leanOn: "Your strategic read of the full field — you see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
-    peak: { leanOn: "Your strategic agility at full cognitive capacity — your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
+    depleted: { leanOn: "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.", watchFor: "Adapting to everyone else's demands when your own capacity is the priority." },
+    managing: { leanOn: "Your flexibility. Meeting the day's variability without resistance.", watchFor: "Staying adaptive when the moment calls for a fixed position." },
+    strong: { leanOn: "Your strategic read of the full field. You see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
+    peak: { leanOn: "Your strategic agility at full cognitive capacity. Your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
   },
 };
 
 // Priority 4: Hardcoded tier fallbacks
 const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: { leanOn: "Your awareness of your own state — knowing you're depleted is itself a form of self-leadership.", watchFor: "Committing to demands that require more than your current state can sustain." },
-  managing: { leanOn: "Your operational steadiness — consistent presence is a form of strength.", watchFor: "Over-extending into territory that requires more than your current reserves." },
-  strong: { leanOn: "Your above-baseline readiness — a real asset that is worth protecting through the day.", watchFor: "Diffusing strong capacity across too many demands rather than concentrating it." },
-  peak: { leanOn: "Your full readiness — you are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
+  depleted: { leanOn: "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.", watchFor: "Committing to demands that require more than your current state can sustain." },
+  managing: { leanOn: "Your operational steadiness. Consistent presence is a form of strength.", watchFor: "Over-extending into territory that requires more than your current reserves." },
+  strong: { leanOn: "Your above-baseline readiness. A real asset that is worth protecting through the day.", watchFor: "Diffusing strong capacity across too many demands rather than concentrating it." },
+  peak: { leanOn: "Your full readiness. You are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
 };
 
 function getLeanOnWatchFor(
@@ -265,7 +265,6 @@ function getLeanOnWatchFor(
   const ccMod = getCCModifier(clarity, confidence);
   
   if (coachStrength) {
-    // Have strength but no growth — use coach strength + fill watchFor from CC or archetype
     const watchFor = ccMod?.watchFor || archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
     return { leanOn: coachStrength, watchFor };
   }
@@ -309,12 +308,12 @@ function getPatternOverride(
   if (count < 3) return null;
   
   const signals: Record<string, string> = {
-    overwhelmed: "Sustained overload at this level points to something structural — not something a daily regulation practice alone resolves. What has been consistently missing?",
-    drained: "A multi-day depletion pattern signals an accumulating recovery deficit — not a single bad night. Your system may need more than the day's margins can provide.",
-    scattered: "Persistent fragmentation across consecutive days points to unresolved open loops or an unprocessed decision backlog — what is still occupying bandwidth that needs to be closed?",
+    overwhelmed: "Sustained overload at this level points to something structural, not something a daily regulation practice alone resolves. What has been consistently missing?",
+    drained: "A multi-day depletion pattern signals an accumulating recovery deficit, not a single bad night. Your system may need more than the day's margins can provide.",
+    scattered: "Persistent fragmentation across consecutive days points to unresolved open loops or an unprocessed decision backlog. What is still occupying bandwidth that needs to be closed?",
   };
   
-  return `Day ${count} at this state. Your system is showing a pattern — ${signals[currentOutcome]}`;
+  return `Day ${count} at this state. Your system is showing a pattern. ${signals[currentOutcome]}`;
 }
 
 // ==================== DATA SOURCES BUILDER ====================
@@ -337,13 +336,10 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body first (needed for userId fallback)
     const body: ComputeRequest & { userId?: string } = await req.json();
 
-    // Auth — accept userId from body (dev mode) first, then try Auth0 token
     let userId: string;
     if (body.userId) {
-      // Dev mode fallback — accept userId from body
       console.log('[compute-outer-readiness] Using userId from body (dev mode):', body.userId);
       userId = body.userId;
     } else {
@@ -368,12 +364,10 @@ serve(async (req) => {
       checkInOutcome,
     } = body;
 
-    // DB client (service role)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const db = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch coach insights + recent check-ins in parallel
     const [coachRes, checkInRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content')
@@ -396,24 +390,17 @@ serve(async (req) => {
     const coachStrength = coachInsights.find((i: any) => i.insight_type === 'strength')?.insight_content || null;
     const coachGrowth = coachInsights.find((i: any) => i.insight_type === 'growth_area')?.insight_content || null;
 
-    // 1. Theme selection
     const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore);
-
-    // 2. Pattern recognition override
     const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
     const finalContext = patternOverride || theme.context;
-
-    // 3. Lean On / Watch For
     const { leanOn, watchFor } = getLeanOnWatchFor(
       innerReadinessTier, archetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth
     );
 
-    // 4. Data sources
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
     const dataSources = buildDataSources(hasCalendar, archetype, checkInOutcome);
 
-    // 5. Persist to daily_themes
     const today = new Date().toISOString().split('T')[0];
     try {
       await db.from('daily_themes').upsert({

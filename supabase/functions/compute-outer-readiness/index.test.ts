@@ -151,7 +151,7 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted → archetype lea
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Your ability to read what a situation actually needs — even in a depleted state your situational awareness is sharp.");
+  assertEquals(result.leanOn, "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.");
   assertEquals(result.watchFor, "Adapting to everyone else's demands when your own capacity is the priority.");
 });
 
@@ -187,7 +187,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C → tier fallback
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Your above-baseline readiness — a real asset that is worth protecting through the day.");
+  assertEquals(result.leanOn, "Your above-baseline readiness. A real asset that is worth protecting through the day.");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================

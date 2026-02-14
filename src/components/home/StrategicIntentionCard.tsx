@@ -36,7 +36,7 @@ const StrategicIntentionCard = () => {
         </span>
         <MetricInfoModal
           title="Your Outer Readiness Brief"
-          description="Your Compass is where your inner world meets the outer demands of the day. It takes your Inner Readiness Score — how resourced, clear, and confident you are right now — and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
+          description="Your Compass is where your inner world meets the outer demands of the day. It takes your Inner Readiness Score, how resourced, clear, and confident you are right now, and reads it against what your calendar is genuinely asking of you. The result is a single frame for how to orient yourself today: what to lean on, and what to watch for. Not a prescription. A direction."
         />
       </div>
 
@@ -54,12 +54,12 @@ const StrategicIntentionCard = () => {
 
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
-          <p className="text-xs italic text-primary/70 font-body">
-            <span className="font-semibold not-italic">Lean on:</span>{' '}
+          <p className="text-xs text-primary/70 font-subheadline">
+            <span className="font-semibold">Lean on:</span>{' '}
             {brief.leanOn}
           </p>
-          <p className="text-xs italic text-muted-foreground/70 font-body">
-            <span className="font-semibold not-italic">Watch for:</span>{' '}
+          <p className="text-xs text-muted-foreground/70 font-subheadline">
+            <span className="font-semibold">Watch for:</span>{' '}
             {brief.watchFor}
           </p>
         </div>
