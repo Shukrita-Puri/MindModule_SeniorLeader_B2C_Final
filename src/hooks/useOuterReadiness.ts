@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 export interface OuterReadinessData {
   phrase: string;
@@ -40,16 +41,20 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     getTodayCheckin(),
   ]);
 
-  // Retry token acquisition (Auth0 client may not be ready immediately)
-  let token: string | null = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    token = await getAuth0Token();
-    if (token) break;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  if (!token) {
-    console.warn('[useOuterReadiness] No Auth0 token after retries — skipping edge call');
-    return null;
+  // Build auth headers — in DEV_MODE, skip Auth0 token and pass userId in body
+  const headers: Record<string, string> = {};
+  if (!DEV_MODE) {
+    let token: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      token = await getAuth0Token();
+      if (token) break;
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (!token) {
+      console.warn('[useOuterReadiness] No Auth0 token after retries — skipping edge call');
+      return null;
+    }
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const { data: profile } = await supabase
@@ -68,8 +73,9 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
+      ...(DEV_MODE ? { userId } : {}),
     },
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
   });
 
   if (res.error) {
@@ -82,11 +88,12 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
 
 export function useOuterReadiness() {
   const { user } = useAuth();
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : user?.id;
 
   return useQuery({
-    queryKey: ['outer-readiness', user?.id],
-    queryFn: () => fetchOuterReadiness(user?.id),
-    enabled: !!user?.id,
+    queryKey: ['outer-readiness', effectiveUserId],
+    queryFn: () => fetchOuterReadiness(effectiveUserId),
+    enabled: !!effectiveUserId,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
