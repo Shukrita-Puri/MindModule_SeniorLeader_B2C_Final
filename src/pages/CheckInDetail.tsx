@@ -7,14 +7,26 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
+
+// Helper to get Auth0 access token
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const auth0Client = (window as any).__auth0Client;
+    if (auth0Client) {
+      return await auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
   const [saving, setSaving] = useState(false);
@@ -25,14 +37,38 @@ const CheckInDetail = () => {
   const confidenceLabels = ['Uncertain', 'Hesitant', 'Neutral', 'Steady', 'Certain'];
 
   const handleSave = async () => {
-    if (!user?.id) return;
     setSaving(true);
     try {
-      await supabase
-        .from('daily_checkins')
-        .update({ clarity_level: clarity, confidence_level: confidence })
-        .eq('user_id', user.id)
-        .eq('checkin_date', checkinDate);
+      if (DEV_MODE) {
+        // DEV_MODE: Direct DB update
+        await supabase
+          .from('daily_checkins')
+          .update({ clarity_level: clarity, confidence_level: confidence })
+          .eq('user_id', DEV_USER.id)
+          .eq('checkin_date', checkinDate);
+      } else {
+        // Production: Route through edge function with Auth0 token
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          console.error('[CheckInDetail] No access token available');
+          navigate('/executive-home');
+          return;
+        }
+
+        const { error } = await supabase.functions.invoke('daily-checkins', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            action: 'UPDATE_CLARITY_CONFIDENCE',
+            checkinDate,
+            clarity,
+            confidence,
+          },
+        });
+
+        if (error) {
+          console.error('[CheckInDetail] Edge function error:', error);
+        }
+      }
     } catch (e) {
       console.error('[CheckInDetail] Save error:', e);
     }

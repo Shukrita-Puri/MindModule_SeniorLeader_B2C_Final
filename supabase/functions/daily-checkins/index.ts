@@ -8,10 +8,13 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_CHECKINS' | 'GET_TODAY_CHECKIN' | 'SAVE_CHECKIN' | 'GET_CHECKIN_RANGE';
+  action: 'GET_CHECKINS' | 'GET_TODAY_CHECKIN' | 'SAVE_CHECKIN' | 'GET_CHECKIN_RANGE' | 'UPDATE_CLARITY_CONFIDENCE';
   days?: number;
   startDate?: string;
   endDate?: string;
+  checkinDate?: string;
+  clarity?: number;
+  confidence?: number;
   checkinData?: {
     checkin_date: string;
     outcome: string;
@@ -60,7 +63,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, days, startDate, endDate, checkinData } = await req.json() as RequestBody;
+    const { action, days, startDate, endDate, checkinData, checkinDate, clarity, confidence } = await req.json() as RequestBody;
     console.log(`[daily-checkins] Action: ${action}, User: ${userId}`);
 
     switch (action) {
@@ -151,6 +154,32 @@ serve(async (req) => {
 
         if (error) {
           console.error('[daily-checkins] SAVE_CHECKIN error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'UPDATE_CLARITY_CONFIDENCE': {
+        if (!checkinDate || clarity == null || confidence == null) {
+          return new Response(JSON.stringify({ error: 'Missing checkinDate, clarity, or confidence' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await supabase
+          .from('daily_checkins')
+          .update({ clarity_level: clarity, confidence_level: confidence })
+          .eq('user_id', userId)
+          .eq('checkin_date', checkinDate)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('[daily-checkins] UPDATE_CLARITY_CONFIDENCE error:', error);
           throw error;
         }
 
