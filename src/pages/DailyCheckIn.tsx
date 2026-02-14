@@ -159,13 +159,13 @@ const DailyCheckIn = () => {
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
           <h1 className="text-4xl font-headline text-foreground tracking-tight">
-            Daily Check-In
+            Emotional & Cognitive Check-In
           </h1>
           <p className="text-base font-subheadline italic text-muted-foreground">
             Awareness First. Action Follows.
           </p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            A moment to check your inner state — guiding today's performance plan.
+            A moment to check your inner state, guiding today's performance plan.
           </p>
         </div>
       </div>

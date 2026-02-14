@@ -73,6 +73,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
+      timezoneOffset: new Date().getTimezoneOffset(),
       ...(DEV_MODE ? { userId } : {}),
     },
     headers,
