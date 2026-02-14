@@ -20,6 +20,56 @@ async function getAuth0Token(): Promise<string | null> {
   }
 }
 
+// ==================== RETRY GUARDRAIL ====================
+const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_RETRIES = 6; // max 30 min of retrying
+let pendingScoreUpdate: { checkinDate: string; score: number; retries: number } | null = null;
+let retryTimerId: ReturnType<typeof setTimeout> | null = null;
+
+async function persistCompositeScore(checkinDate: string, score: number): Promise<void> {
+  // Clear any existing retry for a different date
+  if (pendingScoreUpdate && pendingScoreUpdate.checkinDate !== checkinDate) {
+    if (retryTimerId) clearTimeout(retryTimerId);
+    retryTimerId = null;
+    pendingScoreUpdate = null;
+  }
+
+  pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0 };
+
+  try {
+    const token = await getAuth0Token();
+    if (!token) throw new Error('No Auth0 token available');
+
+    const res = await supabase.functions.invoke('daily-checkins', {
+      body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate, energyBalance: score },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.error) throw new Error(typeof res.error === 'string' ? res.error : res.error.message || 'Edge function error');
+
+    console.log('[energyStateEngine] Composite score persisted:', score);
+    pendingScoreUpdate = null;
+    if (retryTimerId) { clearTimeout(retryTimerId); retryTimerId = null; }
+  } catch (err) {
+    console.warn('[energyStateEngine] UPDATE_ENERGY_BALANCE failed (attempt', (pendingScoreUpdate?.retries ?? 0) + 1, '):', err);
+
+    if (pendingScoreUpdate && pendingScoreUpdate.retries < MAX_RETRIES) {
+      pendingScoreUpdate.retries++;
+      if (retryTimerId) clearTimeout(retryTimerId);
+      retryTimerId = setTimeout(() => {
+        if (pendingScoreUpdate) {
+          persistCompositeScore(pendingScoreUpdate.checkinDate, pendingScoreUpdate.score);
+        }
+      }, RETRY_INTERVAL_MS);
+      console.log('[energyStateEngine] Scheduled retry in 5 min (attempt', pendingScoreUpdate.retries, '/', MAX_RETRIES, ')');
+    } else {
+      console.error('[energyStateEngine] All retries exhausted. Score NOT persisted for', checkinDate);
+      pendingScoreUpdate = null;
+    }
+  }
+}
+
+
 export interface CurrentEnergyState {
   overallBalance: number;
   state: string;
@@ -123,17 +173,10 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
     const result = response.data;
 
-    // Persist composite score to DB for historical tracking (fire-and-forget)
+    // Persist composite score to DB with retry guardrail
     const todayISO = new Date().toISOString().split('T')[0];
-    const token = await getAuth0Token();
-    if (token && hasCheckIn) {
-      supabase.functions.invoke('daily-checkins', {
-        body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate: todayISO, energyBalance: result.score },
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(res => {
-        if (res.error) console.warn('[energyStateEngine] UPDATE_ENERGY_BALANCE failed:', res.error);
-        else console.log('[energyStateEngine] Composite score persisted:', result.score);
-      }).catch(err => console.warn('[energyStateEngine] Failed to persist score:', err));
+    if (hasCheckIn) {
+      persistCompositeScore(todayISO, result.score);
     }
 
     // Calendar metrics computed client-side (used by Theme for Today, not Inner Readiness score)
