@@ -7,6 +7,19 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 
+// Helper to get Auth0 access token via global client
+async function getAuth0Token(): Promise<string | null> {
+  try {
+    const auth0Client = (window as any).__auth0Client;
+    if (auth0Client) {
+      return await auth0Client.getAccessTokenSilently();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export interface CurrentEnergyState {
   overallBalance: number;
   state: string;
@@ -38,7 +51,7 @@ export interface CurrentEnergyState {
 // Fetch today's check-in from DB to get clarity/confidence
 async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null } | null> {
   try {
-    const token = localStorage.getItem('auth0_access_token');
+    const token = await getAuth0Token();
     if (!token) return null;
 
     const response = await supabase.functions.invoke('daily-checkins', {
@@ -112,7 +125,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
     // Persist composite score to DB for historical tracking (fire-and-forget)
     const todayISO = new Date().toISOString().split('T')[0];
-    const token = localStorage.getItem('auth0_access_token');
+    const token = await getAuth0Token();
     if (token && hasCheckIn) {
       supabase.functions.invoke('daily-checkins', {
         body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate: todayISO, energyBalance: result.score },
