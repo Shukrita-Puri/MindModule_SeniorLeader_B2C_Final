@@ -1,29 +1,11 @@
 /**
- * Energy State Engine - NEW SYSTEM (Phase 1-3)
- * Calculates user's current energy state from multiple data sources
+ * Energy State Engine — v2.0 (Inner Readiness)
+ * Thin client orchestrator: gathers inputs, calls backend for scoring.
+ * No proprietary scoring logic lives here.
  */
 
-import { getEnergyStateFromCheckIn } from './checkInToTags';
-import { getUserEnergyProfile } from './memoryEngine';
-import { 
-  getCheckInScore, 
-  getWearableScore, 
-  getWearableFunction,
-  getCalendarScore, 
-  getCalendarMetrics,
-  getCircadianScore,
-  getEnergyTier,
-  getEnergySubTier,
-  getTimeOfDay,
-  getRecommendation,
-  type WearableFunction,
-  type CalendarLoad,
-  type CalendarPressure,
-  type EnergyTier,
-  type EnergySubTier,
-  type MasteryType,
-  type MasterySubtype
-} from './energyStateScoring';
+import { supabase } from '@/integrations/supabase/client';
+import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 
 export interface CurrentEnergyState {
   overallBalance: number;
@@ -37,8 +19,8 @@ export interface CurrentEnergyState {
   calendarDensity?: number;
   calendarLoad?: CalendarLoad;
   calendarPressure?: CalendarPressure;
-  wearableFunction?: WearableFunction;
-  energyTier: EnergyTier;
+  wearableFunction?: 'low' | 'medium' | 'high';
+  energyTier: 'depleted' | 'managing' | 'strong' | 'peak';
   timeOfDay: 'morning' | 'afternoon' | 'evening';
   recommendation?: {
     primary: MasteryType;
@@ -48,85 +30,149 @@ export interface CurrentEnergyState {
     contextStatement: string;
   };
   checkInOutcome?: string;
+  divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
+  hrvDeviation?: number | null;
+  tierLabel?: string;
+}
+
+// Fetch today's check-in from DB to get clarity/confidence
+async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null } | null> {
+  try {
+    const token = localStorage.getItem('auth0_access_token');
+    if (!token) return null;
+
+    const response = await supabase.functions.invoke('daily-checkins', {
+      body: { action: 'GET_TODAY_CHECKIN' },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.error || !response.data?.data) return null;
+    const row = response.data.data;
+    return {
+      outcome: row.skipped ? null : row.outcome,
+      clarity: row.clarity_level,
+      confidence: row.confidence_level,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
-  // Try both possible localStorage keys for check-in
+  // 1. Read raw inputs from localStorage
   const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || localStorage.getItem('todayCheckIn') || '{}');
   const checkInSkipped = JSON.parse(localStorage.getItem('checkInSkipped') || '{}');
   const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
   const calendarData = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
 
-  // Phase 1 Fix: Check if check-in is from TODAY
   const today = new Date().toDateString();
   const checkInToday = checkInData.timestamp && new Date(checkInData.timestamp).toDateString() === today;
-  const hasCheckIn = checkInToday && checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
+  const hasCheckInLocal = checkInToday && checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
 
-  const hasWearable = wearableData.readiness > 0 || wearableData.hrv > 0;
+  const hasWearable = (wearableData.readiness > 0 || wearableData.hrv > 0);
   const hasCalendar = calendarData.length > 0;
 
-  // OPTION B: Separate Energy Score from Ritual Selection
-  // Energy Score = Internal State Only (Check-in + Wearable + Circadian)
-  const checkInScore = hasCheckIn ? getCheckInScore(checkInData.outcome) : 50; // Default to neutral
-  const wearableScore = hasWearable ? getWearableScore(wearableData) : 0;
-  const circadianAdjustment = getCircadianScore(); // Returns -5, 0, +5
-  
-  // Calculate dynamic weights based on available data
-  const weights = hasWearable 
-    ? { checkIn: 0.65, wearable: 0.30, circadian: 0.05 } // Super Pro
-    : { checkIn: 0.90, wearable: 0, circadian: 0.10 };    // Pro
+  // 2. Fetch clarity/confidence from DB (not in localStorage)
+  let clarityLevel: number | null = null;
+  let confidenceLevel: number | null = null;
+  let checkInOutcome: string | null = hasCheckInLocal ? checkInData.outcome : null;
+  let hasCheckIn = !!hasCheckInLocal;
 
-  // Energy score (no calendar influence)
-  const energyScore = Math.round(
-    (checkInScore * weights.checkIn) +
-    (wearableScore * weights.wearable) +
-    (circadianAdjustment * weights.circadian)
-  );
+  if (userId) {
+    const dbCheckin = await fetchTodayCheckin(userId);
+    if (dbCheckin) {
+      clarityLevel = dbCheckin.clarity;
+      confidenceLevel = dbCheckin.confidence;
+      // DB is authoritative for outcome if available
+      if (dbCheckin.outcome) {
+        checkInOutcome = dbCheckin.outcome;
+        hasCheckIn = true;
+      }
+    }
+  }
 
-  // Tier determined by energy score alone
-  const energyTier = getEnergyTier(energyScore);
-  const energySubTier = getEnergySubTier(energyScore);
+  // 3. Call backend scoring function
+  try {
+    const response = await supabase.functions.invoke('compute-inner-readiness', {
+      body: {
+        checkInOutcome: hasCheckIn ? checkInOutcome : null,
+        clarityLevel,
+        confidenceLevel,
+        wearableHRV: hasWearable ? (wearableData.hrv || null) : null,
+        wearableBaseline: hasWearable ? (wearableData.baseline || null) : null,
+        hasCheckIn,
+        hasWearable,
+        timezoneOffset: new Date().getTimezoneOffset(),
+      },
+    });
 
-  // Calendar metrics calculated separately for ritual selection
-  const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } = 
-    hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
+    if (response.error) throw new Error(response.error.message);
 
-  // Recommendation uses BOTH energy tier AND calendar context
-  const recommendation = getRecommendation(
-    energyScore,
-    energyTier,
-    { load: calendarLoad, pressure: calendarPressure, density: calendarDensity, pressureScore: 0, loadScore: 0 },
-    hasWearable ? getWearableFunction(wearableData) : 'medium',
-    checkInData.outcome || null,
-    getTimeOfDay(new Date().getHours()),
-    hasCalendar,
-    hasWearable
-  );
+    const result = response.data;
 
-  const timeOfDay = getTimeOfDay(new Date().getHours());
+    // Calendar metrics computed client-side (used by Theme for Today, not Inner Readiness score)
+    const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } =
+      hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
 
-  return {
-    overallBalance: energyScore,
-    state: energyTier,
-    contextTags: [],
-    energyTags: [],
-    stateTags: [],
-    recommendationPriority: recommendation.primary,
-    dataSources: [
-      ...(hasCheckIn ? ['check-in'] : []),
-      ...(hasWearable ? ['wearable'] : []),
-      'circadian'
-    ],
-    confidence: hasCheckIn ? (hasWearable ? 'high' : 'medium') : 'low',
-    calendarDensity,
-    calendarLoad,
-    calendarPressure,
-    wearableFunction: hasWearable ? getWearableFunction(wearableData) : undefined,
-    energyTier,
-    timeOfDay,
-    recommendation,
-    checkInOutcome: hasCheckIn ? checkInData.outcome : undefined
-  };
+    // Map tier to mastery type for backward compat with recommendation engine
+    const tierToMastery: Record<string, MasteryType> = {
+      depleted: 'renewal', managing: 'pause', strong: 'flow', peak: 'flow',
+    };
+    const primaryMastery: MasteryType = tierToMastery[result.tier] || 'pause';
+
+    return {
+      overallBalance: result.score,
+      state: result.tier,
+      contextTags: [],
+      energyTags: [],
+      stateTags: [],
+      recommendationPriority: primaryMastery,
+      dataSources: result.dataSources,
+      confidence: result.confidence,
+      calendarDensity,
+      calendarLoad,
+      calendarPressure,
+      wearableFunction: hasWearable ? (wearableData.readiness >= 75 ? 'high' : wearableData.readiness >= 50 ? 'medium' : 'low') : undefined,
+      energyTier: result.tier,
+      timeOfDay: result.timeOfDay,
+      recommendation: {
+        primary: primaryMastery,
+        contextStatement: result.contextStatement,
+      },
+      checkInOutcome: result.checkInOutcome || undefined,
+      divergenceFlag: result.divergenceFlag,
+      hrvDeviation: result.hrvDeviation,
+      tierLabel: result.tierLabel,
+    };
+  } catch (err) {
+    console.error('[energyStateEngine] Backend call failed, using fallback:', err);
+    // Fallback: return a minimal state so UI doesn't break
+    const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 12 ? 'morning' as const
+      : new Date().getHours() >= 12 && new Date().getHours() < 18 ? 'afternoon' as const
+      : 'evening' as const;
+
+    const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } =
+      hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
+
+    return {
+      overallBalance: 50,
+      state: 'managing',
+      contextTags: [],
+      energyTags: [],
+      stateTags: [],
+      recommendationPriority: 'managing',
+      dataSources: ['circadian'],
+      confidence: 'low',
+      calendarDensity,
+      calendarLoad,
+      calendarPressure,
+      energyTier: 'managing',
+      timeOfDay,
+      recommendation: { primary: 'pause' as MasteryType, contextStatement: 'Unable to compute readiness score. Check-in to get your personalized reading.' },
+      checkInOutcome: undefined,
+      divergenceFlag: 'ALIGNED',
+    };
+  }
 }
 
 export function getEnergyStateInsight(energyState: CurrentEnergyState): string {
