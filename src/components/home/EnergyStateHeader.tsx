@@ -48,7 +48,7 @@ const EnergyStateHeader = () => {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Sources:</span>
           <span>{energyState.dataSources.map(s => 
-            s === 'circadian' ? 'time-of-day rhythm' : s === 'wearable' ? 'recovery data' : 'your check-in'
+            s === 'circadian' ? 'circadian score' : s === 'wearable' ? 'wearable score' : 'self check-in'
           ).join(' + ')}</span>
         </div>
 
