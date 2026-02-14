@@ -67,7 +67,7 @@ const StrategicIntentionCard = () => {
 
       {/* Footer - data sources */}
       <div className="pt-1">
-        <span className="text-xs text-muted-foreground/50 font-body">
+        <span className="text-[10px] text-muted-foreground/50 font-body">
           Based on {brief.dataSources.join(', ')}
         </span>
       </div>
