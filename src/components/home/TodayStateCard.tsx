@@ -86,11 +86,11 @@ const TodayStateCard = () => {
       {/* Header with info button - aligned */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-          Today's State
+          Inner Readiness
         </span>
         <MetricInfoModal
-          title="How Your Energy Score is Calculated"
-          description="Your energy score reflects your current felt state. It combines your check-in (emotional and cognitive state), circadian rhythm (time of day and day of week), and any connected wearable data. Calendar demands are handled separately in your Theme for Today."
+          title="How Your Inner Readiness Score is Calculated"
+          description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in — your felt state combined with your clarity and confidence in this moment; your internal readiness — how certain and grounded you feel in your judgment today; and your circadian context — the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal — specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight. This score does not measure how busy you are or what your calendar holds. That layer — how to deploy your current readiness against today's actual demands — lives in your Theme for Today."
         />
       </div>
       {/* Score and Tier */}

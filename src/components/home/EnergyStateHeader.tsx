@@ -58,8 +58,8 @@ const EnergyStateHeader = () => {
               <span className="text-xs font-light text-muted-foreground ml-1">/100</span>
             </div>
             <MetricInfoModal
-              title="Energy Balance"
-              description="Your current energy balance score from 0-100. Depleted (0-39): deep rest and restoration needed. Managing (40-59): holding steady, focus on balance. Strong (60-75): performing well, maintain momentum. Peak (76-100): optimal state, sustain performance."
+              title="How Your Inner Readiness Score is Calculated"
+              description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in — your felt state combined with your clarity and confidence in this moment; your internal readiness — how certain and grounded you feel in your judgment today; and your circadian context — the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal — specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight. This score does not measure how busy you are or what your calendar holds. That layer — how to deploy your current readiness against today's actual demands — lives in your Theme for Today."
               className="ml-1"
             />
           </div>
