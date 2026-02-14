@@ -110,6 +110,16 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
     const result = response.data;
 
+    // Persist composite score to DB for historical tracking (fire-and-forget)
+    const today = new Date().toISOString().split('T')[0];
+    const token = localStorage.getItem('auth0_access_token');
+    if (token && hasCheckIn) {
+      supabase.functions.invoke('daily-checkins', {
+        body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate: today, energyBalance: result.score },
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(err => console.warn('[energyStateEngine] Failed to persist score:', err));
+    }
+
     // Calendar metrics computed client-side (used by Theme for Today, not Inner Readiness score)
     const { load: calendarLoad, pressure: calendarPressure, density: calendarDensity } =
       hasCalendar ? getCalendarMetrics(calendarData) : { load: 'low' as CalendarLoad, pressure: 'low' as CalendarPressure, density: 0 };
