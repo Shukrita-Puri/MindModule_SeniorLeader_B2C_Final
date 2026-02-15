@@ -1,61 +1,115 @@
 
 
-## Your Mind Map — Redesign Plan
+## Your Mind Map V2 — Node-and-Line Graph Redesign
 
-### What's Changing
+### Overview
 
-**Rename**: "Your Theme Map" becomes **"Your Mind Map"**
+Replace the current filled SVG bubble chart with a clean node-and-line graph inspired by the Mindsera thought pattern map. Nodes are small circles (8-24px) with labels beside them. Connection lines are thin, curved, and labeled on hover. Tapping a node opens a rich AI-generated summary panel instead of the current basic modal.
 
-**Add AI Observation**: A personalized insight sentence appears **above** the bubble chart, generated via Lovable AI (replacing the broken direct Gemini API call that silently fails). Algorithmic fallback retained.
+### Visual Changes
 
-**Redesign Bubble Chart for Clarity**:
-- Cap at **8 bubbles** (currently 12), sizes **64-96px** (currently 64-110px)
-- Each bubble shows its **theme name + source icon row** (tiny dots for coach/practice/wins/checkins) so the user instantly sees where the theme comes from without clicking
-- Connection lines become **labeled**: a small text label on hover or inline like "related" so dotted lines aren't mysterious
-- Replace the generic bottom text with the AI observation above the map
+**Current**: Large filled gradient bubbles (64-96px) arranged in a flex-wrap layout with source indicator dots inside.
 
-**Redesign Click-Through Modal**:
-- Remove the long generic insight paragraph (e.g., the "Communication themes reflect Emotional Intelligence development..." block)
-- Replace with a **concise one-liner** tied to the user's actual data, e.g., "Appeared 7 times across your coach sessions this month"
-- Keep: Theme name, mention count, source breakdown, most recent mention (date + source), "Explore with Coach" button
-- Remove the "Got it" button — the X close button is sufficient
+**New**: Small solid circles (8-24px) positioned in a force-like layout within an SVG canvas. Each node has:
+- Circle sized by weight: `8 + (weight * 16)` px diameter
+- Theme label text next to the circle, sized 12-16px
+- Entry count beneath the label in muted text (e.g., "7 entries")
+- No fill gradients, no source dots inside the circle — clean, minimal
 
-**Fix AI Pipeline**: The edge function currently calls the Google Generative AI API directly with `GEMINI_API_KEY` (which is not configured). This is the V1 bug mentioned in the spec. Migrate to Lovable AI Gateway so AI actually works.
+**Connection lines**:
+- Thin quadratic Bezier curves (1-2px stroke)
+- Single muted color (no color coding)
+- Opacity: `0.3 + (strength * 0.4)`
+- On hover: label appears showing relationship type ("often co-occur", "tension between", "feeds into", "grounded by")
+- Max 8 lines (up from 6)
 
----
+### Node Click — Rich Summary Panel
 
-### Technical Changes
+Replaces the current simple modal. New panel structure:
 
-#### 1. Edge Function: `insights-semantic-analysis/index.ts`
+1. **Header**: Theme name, source breakdown line ("Appears in: X check-ins, Y coach sessions, Z practices"), most recent mention date
+2. **"What this theme reveals"**: AI-generated 3-5 sentence synthesis specific to this leader's data (not generic)
+3. **"Where it shows up most"**: Source breakdown with counts
+4. **"Connected to"**: List of 1-3 connected themes with relationship type labels
+5. **"Explore with Coach"** button
 
-- **Add AI observation generation**: After computing `unifiedThemes`, take the top 5 weighted themes and call Lovable AI Gateway to generate a 2-sentence observation. Prompt: *"These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language."*
-- **Algorithmic fallback**: If AI fails or rate-limited, generate observation from top 2 themes and their source distribution (e.g., "Your inner world is currently shaped by [theme1] and [theme2], surfacing most in your coach conversations.")
-- **Replace Gemini direct API call** (lines 151-212) with Lovable AI Gateway call for coach message theme extraction
-- **Cap `unifiedThemes` to 8** (currently 15 on line 314)
-- **Cap `themeRelationships` to 6** (currently 4 on line 364)
-- **Return new field**: `aiObservation: string` in the response
+### Edge Function Changes
 
-#### 2. Component: `InnerWorldBubbles.tsx`
+Add a new action `getNodeSummary` to `insights-semantic-analysis` that:
+1. Gathers all source text mentioning the theme (check-in notes, coach excerpts, practice notes)
+2. Calls Lovable AI Gateway with the synthesis prompt
+3. Returns pre-computed summary string + connected themes with relationship types
+4. Algorithmic fallback if AI fails
 
-- **Bubble size range**: Change from 64-110px to 64-96px (line 112-114)
-- **Max items**: Change `.slice(0, 12)` to `.slice(0, 8)` (line 119)
-- **Add source indicator row** inside each bubble: 4 tiny dots below the theme name, colored/filled based on which sources contributed (coach = amber, practice = blue, wins = green, checkins = purple). This replaces the current `{item.totalCount}x` count display.
-- **Connection line labels**: Add small text labels at the midpoint of each Bezier curve saying the relationship type or simply showing both connected theme names
-- **Simplify modal**: Remove the long `THEME_INSIGHTS` paragraph. Replace with a concise data-driven line: "[N] mentions — mostly from [top source]". Keep source breakdown, recent mentions, and "Explore with Coach" button. Remove "Got it" button.
+Update relationship data to include a `type` field: "often co-occur" | "tension between" | "feeds into" | "grounded by"
 
-#### 3. Page: `Insights.tsx`
+### Technical Details
 
-- **Rename** card header from "Your Theme Map" to "Your Mind Map"
-- **Update tooltip** text to match the spec
-- **Add `aiObservation` to `SemanticAnalysis` interface** and display it above the `InnerWorldBubbles` component inside the card
-- **Replace** the generic bottom text ("These themes emerge from your coach conversations...") with the AI observation rendered above the map
-- **DEV_MODE**: Generate a simple algorithmic observation from the dev data so the observation box always renders during development
+#### 1. Edge Function: `supabase/functions/insights-semantic-analysis/index.ts`
+
+**New action handler** — `getNodeSummary`:
+- Input: `keyword` (theme name)
+- Gathers all source excerpts mentioning this theme (reuses existing `getBubbleDetails` logic)
+- Calls Lovable AI Gateway with prompt: "Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme '[theme name]' reveals about their inner world. Speak directly to the leader. Be specific to their data. Name the pattern, its context, and what it signals. No soft language."
+- Falls back to template: "[Theme] has appeared [N] times across your [top source], most recently on [date]. It tends to surface alongside [co-occurring theme]."
+- Returns: `{ keyword, totalCount, sources, recentDate, aiSummary, connectedThemes: [{theme, relationshipType}] }`
+
+**Relationship type assignment** — Update the AI extraction prompt to also return relationship types. For hardcoded pairs, assign types:
+- stress/grounding, overwhelm/calm, anxiety/calm = "grounded by"
+- energy drain/energy renewal, scattered/focus = "tension between"  
+- stress/calm, decision fatigue/clarity = "feeds into"
+- Default for AI-extracted relationships without type = "often co-occur"
+
+**Response shape update** — `themeRelationships` gains a `type` field
+
+#### 2. Component: `src/components/insights/InnerWorldBubbles.tsx`
+
+Complete rewrite of the visual approach:
+
+**Layout**: Use a deterministic positioning algorithm (not CSS flex-wrap). Place nodes in a roughly circular/organic spread within a fixed-height SVG container (~300px). Positions computed from index and weight to create a natural graph feel without physics simulation.
+
+**Node rendering**: Each node is an SVG group containing:
+- `<circle>` with radius `4 + (weight * 8)` (gives 8-24px diameter)
+- `<text>` label positioned to the right or below, font-size `12 + (weight * 4)`
+- `<text>` count label beneath in muted color, font-size 11
+
+**Connection lines**: SVG paths rendered behind nodes. On hover (via SVG `<title>` or React state), show relationship type label at midpoint.
+
+**Click handler**: Instead of opening a basic modal, calls new `onNodeClick` prop that fetches AI summary and opens the rich panel.
+
+**Rich Summary Panel**: Full-screen modal (like current) but with the new structure:
+- Loading state with spinner while AI generates
+- Header with theme name + source line + date
+- "What this theme reveals" section with AI paragraph
+- "Where it shows up most" with source breakdown
+- "Connected to" list with relationship labels
+- "Explore with Coach" button
+
+**Props update**:
+```
+interface ThemeRelationship {
+  from: string;
+  to: string;
+  strength: number;
+  type?: string; // "often co-occur" | "tension between" | "feeds into" | "grounded by"
+}
+
+onBubbleClick renamed to onNodeClick
+New prop: onNodeSummary?: (keyword: string) => Promise<NodeSummary | null>
+```
+
+#### 3. Page: `src/pages/Insights.tsx`
+
+- Add `fetchNodeSummary` function that calls edge function with `action: 'getNodeSummary'`
+- Pass it to `InnerWorldBubbles` as `onNodeSummary` prop
+- Update `SemanticAnalysis` interface to include `type` on relationships
+- DEV_MODE: add relationship types to dev data
 
 #### 4. Files Modified
 
 | File | Change |
 |---|---|
-| `supabase/functions/insights-semantic-analysis/index.ts` | Migrate AI to Lovable Gateway, add observation generation, cap themes to 8, cap relationships to 6 |
-| `src/components/insights/InnerWorldBubbles.tsx` | Resize bubbles (64-96px), cap to 8, add source indicator dots, simplify modal, remove generic insights |
-| `src/pages/Insights.tsx` | Rename to "Your Mind Map", add AI observation display above bubbles, update interface and DEV_MODE |
+| `supabase/functions/insights-semantic-analysis/index.ts` | Add `getNodeSummary` action, add relationship types to extraction + hardcoded pairs |
+| `src/components/insights/InnerWorldBubbles.tsx` | Full rewrite: node-and-line graph, rich summary panel |
+| `src/pages/Insights.tsx` | Add `fetchNodeSummary`, update interfaces, pass new props |
 
