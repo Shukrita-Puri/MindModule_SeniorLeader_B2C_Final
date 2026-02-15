@@ -65,51 +65,48 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG dimensions — wide and tall canvas
-  const svgWidth = 600;
-  const svgHeight = 500;
+  // SVG uses a wide viewBox; width="100%" makes it fill the card
+  const svgWidth = 700;
+  const svgHeight = 480;
   const centerX = svgWidth / 2;
 
-  // Deterministic node positioning — flowing vertical cascade
+  // Node positioning — spread across full width with vertical cascade
   const nodePositions = useMemo(() => {
     const count = sortedItems.length;
     if (count === 0) return [];
 
-    const padX = 40;
-    const padY = 30;
+    const padX = 30;
+    const padY = 35;
     const usableW = svgWidth - padX * 2;
     const usableH = svgHeight - padY * 2;
 
-    // Cascading vertical positions with horizontal zigzag
-    // Mimics the Mindsera pattern: nodes flow top-to-bottom, alternating left-right
-    const positions = sortedItems.map((item, i) => {
-      const nodeR = 4 + item.weight * 8;
-      
-      // Vertical: distribute evenly with generous spacing
-      const verticalStep = usableH / (count + 1);
-      const y = padY + verticalStep * (i + 1);
-      
-      // Horizontal: zigzag pattern — odd nodes right-of-center, even left-of-center
-      // with slight randomness for organic feel
-      let x: number;
-      if (i === 0) {
-        x = centerX + usableW * 0.18;
-      } else if (i % 3 === 0) {
-        x = padX + usableW * 0.1 + ((i * 23) % 40);
-      } else if (i % 3 === 1) {
-        x = centerX + usableW * 0.2 + ((i * 17) % 35);
-      } else {
-        x = centerX - usableW * 0.1 + ((i * 11) % 30);
-      }
+    // Pre-defined positions that spread across the full canvas width
+    // Inspired by Mindsera: organic scatter, not grid-like
+    const layoutSlots = [
+      { xFrac: 0.55, yFrac: 0.10 }, // top center-right (heaviest)
+      { xFrac: 0.25, yFrac: 0.25 }, // upper-left
+      { xFrac: 0.75, yFrac: 0.30 }, // upper-right
+      { xFrac: 0.15, yFrac: 0.48 }, // mid-left
+      { xFrac: 0.60, yFrac: 0.50 }, // mid-right
+      { xFrac: 0.40, yFrac: 0.68 }, // lower-center
+      { xFrac: 0.80, yFrac: 0.72 }, // lower-right
+      { xFrac: 0.30, yFrac: 0.88 }, // bottom-left
+    ];
 
-      // Clamp within bounds — allow labels to use full width
-      x = Math.max(padX + nodeR + 40, Math.min(svgWidth - padX - nodeR - 40, x));
+    return sortedItems.map((item, i) => {
+      const nodeR = 5 + item.weight * 8;
+      const slot = layoutSlots[i] || { xFrac: 0.5, yFrac: 0.5 };
       
+      // Add subtle jitter for organic feel
+      const jX = ((i * 17) % 13) - 6;
+      const jY = ((i * 11) % 9) - 4;
+      
+      const x = Math.max(padX + nodeR, Math.min(svgWidth - padX - nodeR, padX + usableW * slot.xFrac + jX));
+      const y = Math.max(padY + nodeR, Math.min(svgHeight - padY - nodeR, padY + usableH * slot.yFrac + jY));
+
       return { x, y, radius: nodeR };
     });
-
-    return positions;
-  }, [sortedItems, centerX, svgWidth, svgHeight]);
+  }, [sortedItems, svgWidth, svgHeight]);
 
   // Connection paths
   const connectionPaths = useMemo(() => {
@@ -186,13 +183,13 @@ const InnerWorldBubbles = ({
   }
 
   return (
-    <div className="space-y-2">
-      {/* SVG Node-and-Line Graph */}
+    <div className="w-full">
+      {/* SVG Node-and-Line Graph — centered, responsive */}
       <svg 
         width="100%" 
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        className="overflow-visible"
-        style={{ minHeight: '400px' }}
+        preserveAspectRatio="xMidYMid meet"
+        className="overflow-visible mx-auto block"
       >
         {/* Connection lines */}
         {connectionPaths.map((conn) => (
@@ -206,9 +203,9 @@ const InnerWorldBubbles = ({
               d={conn.path}
               fill="none"
               stroke="hsl(var(--muted-foreground))"
-              strokeWidth={0.8}
-              strokeOpacity={0.15 + conn.strength * 0.25}
-              strokeDasharray="none"
+              strokeWidth={1}
+              strokeOpacity={0.18 + conn.strength * 0.22}
+              strokeLinecap="round"
             />
             {/* Wider invisible hit area for hover */}
             <path
@@ -251,10 +248,10 @@ const InnerWorldBubbles = ({
         {sortedItems.map((item, index) => {
           const pos = nodePositions[index];
           if (!pos) return null;
-          const fontSize = 12 + (item.weight * 4);
-          // Labels go right by default; left if node is in right 40% of canvas
-          const labelRight = pos.x < svgWidth * 0.6;
-          const labelX = labelRight ? pos.x + pos.radius + 8 : pos.x - pos.radius - 8;
+          const fontSize = Math.round(12 + (item.weight * 3));
+          // Labels go right by default; left if node is in right 45% of canvas
+          const labelRight = pos.x < svgWidth * 0.55;
+          const labelX = labelRight ? pos.x + pos.radius + 10 : pos.x - pos.radius - 10;
           const anchor = labelRight ? 'start' : 'end';
 
           return (
@@ -269,8 +266,9 @@ const InnerWorldBubbles = ({
                 cy={pos.y}
                 r={pos.radius}
                 fill="hsl(var(--muted-foreground))"
-                fillOpacity={0.3 + item.weight * 0.3}
-                className="transition-all duration-300 hover:fill-opacity-70"
+                fillOpacity={0.35 + item.weight * 0.35}
+                className="transition-all duration-300 hover:fill-opacity-80"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
               />
               {/* Theme label — beside node */}
               <text
@@ -280,7 +278,8 @@ const InnerWorldBubbles = ({
                 dominantBaseline="auto"
                 fill="hsl(var(--foreground))"
                 fontSize={fontSize}
-                fontWeight="500"
+                fontWeight="600"
+                letterSpacing="-0.01em"
                 className="pointer-events-none select-none"
               >
                 {item.theme}
