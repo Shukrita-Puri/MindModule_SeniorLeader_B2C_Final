@@ -65,8 +65,8 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG dimensions — tall vertical canvas like Mindsera reference
-  const svgWidth = 380;
+  // SVG dimensions — wide and tall canvas
+  const svgWidth = 600;
   const svgHeight = 500;
   const centerX = svgWidth / 2;
 
@@ -75,7 +75,7 @@ const InnerWorldBubbles = ({
     const count = sortedItems.length;
     if (count === 0) return [];
 
-    const padX = 60;
+    const padX = 40;
     const padY = 30;
     const usableW = svgWidth - padX * 2;
     const usableH = svgHeight - padY * 2;
@@ -93,21 +93,17 @@ const InnerWorldBubbles = ({
       // with slight randomness for organic feel
       let x: number;
       if (i === 0) {
-        // First (heaviest) node: upper right area
-        x = centerX + usableW * 0.15;
+        x = centerX + usableW * 0.18;
       } else if (i % 3 === 0) {
-        // Every 3rd: left side
-        x = padX + usableW * 0.15 + ((i * 23) % 30);
+        x = padX + usableW * 0.1 + ((i * 23) % 40);
       } else if (i % 3 === 1) {
-        // Center-right
-        x = centerX + usableW * 0.12 + ((i * 17) % 25);
+        x = centerX + usableW * 0.2 + ((i * 17) % 35);
       } else {
-        // Center-left  
-        x = centerX - usableW * 0.05 + ((i * 11) % 20);
+        x = centerX - usableW * 0.1 + ((i * 11) % 30);
       }
 
-      // Clamp within bounds
-      x = Math.max(padX + nodeR + 60, Math.min(svgWidth - padX - nodeR - 60, x));
+      // Clamp within bounds — allow labels to use full width
+      x = Math.max(padX + nodeR + 40, Math.min(svgWidth - padX - nodeR - 40, x));
       
       return { x, y, radius: nodeR };
     });
