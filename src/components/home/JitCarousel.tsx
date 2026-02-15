@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { X, Heart, Play, ChevronDown } from 'lucide-react';
+import { X, Heart, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -184,7 +184,6 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
               onClick={handleStartPrep}
               className="w-full h-10 text-sm font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl"
             >
-              <Play size={14} className="mr-1.5" />
               Start Pack
             </Button>
 
