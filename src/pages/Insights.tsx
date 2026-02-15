@@ -18,7 +18,35 @@ import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 // BaselineReferenceCard removed — archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
-import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
+// Theme extraction for DEV_MODE Mind Map (lightweight keyword matching)
+const THEME_KEYWORDS: Record<string, string[]> = {
+  'self-awareness': ['aware', 'realized', 'noticed', 'recognized', 'understood', 'insight', 'clarity'],
+  'emotional regulation': ['calm', 'regulated', 'controlled', 'paused', 'breathed', 'centered', 'grounded', 'steady'],
+  'stress management': ['stress', 'pressure', 'overwhelmed', 'deadline', 'tension', 'relaxed', 'cope'],
+  'focus': ['focused', 'concentrate', 'attention', 'distracted', 'clarity', 'present', 'mindful'],
+  'energy': ['energy', 'tired', 'energized', 'drained', 'vitality', 'fatigue', 'rest'],
+  'relationships': ['team', 'colleague', 'partner', 'family', 'friend', 'connection', 'together'],
+  'communication': ['said', 'told', 'expressed', 'listened', 'conversation', 'discussed', 'shared'],
+  'decision making': ['decided', 'chose', 'choice', 'option', 'considered', 'evaluated'],
+  'confidence': ['confident', 'believe', 'trust', 'capable', 'ready', 'sure'],
+  'resilience': ['bounced', 'recovered', 'persisted', 'despite', 'anyway', 'overcame'],
+  'growth': ['learned', 'grew', 'improved', 'progress', 'developed', 'better'],
+  'presence': ['present', 'moment', 'now', 'here', 'mindful', 'aware'],
+  'gratitude': ['grateful', 'thankful', 'appreciate', 'blessed'],
+  'achievement': ['accomplished', 'achieved', 'completed', 'finished', 'done', 'success'],
+  'balance': ['balance', 'harmony', 'aligned', 'equilibrium', 'steady'],
+};
+
+function extractThemesFromContent(text: string): string[] {
+  const lowerText = text.toLowerCase();
+  const themes: string[] = [];
+  for (const [theme, keywords] of Object.entries(THEME_KEYWORDS)) {
+    if (keywords.some(k => lowerText.includes(k))) {
+      themes.push(theme);
+    }
+  }
+  return themes;
+}
 
 interface DayData {
   date: string;
@@ -36,7 +64,9 @@ interface PracticeData {
 
 interface TinyWinsInsights {
   themes: string[];
-  dimensions?: { dimension: string; value: string; count: number }[];
+  dimensions?: { dimension: string; value: string; count: number; displayLabel?: string; insight?: string }[];
+  observation?: string | null;
+  patternLine?: string | null;
   summary: string | null;
   winsCount: number;
 }
@@ -275,7 +305,7 @@ const Insights = () => {
     if (!user?.id) return;
     setWinsLoading(true);
     try {
-      // DEV_MODE: Direct database query with client-side dimension extraction
+      // DEV_MODE: Direct database query with server-side dimensions (no client extraction)
       if (DEV_MODE) {
         const fourteenDaysAgo = new Date();
         fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -289,54 +319,54 @@ const Insights = () => {
         
         console.log('[Insights] DEV_MODE tiny wins fetched:', wins);
         
-        // Aggregate dimensions into bubbles - use DB values if present, else extract from text
+        // Aggregate dimensions — exclude sentiment (internal only)
         const dimensionCounts: Record<string, Record<string, number>> = {
-          sentiment: {}, emotion: {}, agency: {}, regulation: {}, growth: {}
+          emotion: {}, agency: {}, regulation: {}, growth: {}
         };
         
         wins?.forEach(win => {
-          // Check if win has database dimensions populated
-          const hasDbDimensions = win.sentiment || win.primary_emotion || win.agency_type || win.regulation_level || win.growth_signal;
-          
-          if (hasDbDimensions) {
-            // Use stored dimensions from database
-            if (win.sentiment) dimensionCounts.sentiment[win.sentiment] = (dimensionCounts.sentiment[win.sentiment] || 0) + 1;
-            if (win.primary_emotion) dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
-            if (win.secondary_emotion) dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
-            if (win.agency_type) dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
-            if (win.regulation_level) dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
-            if (win.growth_signal) dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
-          } else if (win.win_content) {
-            // Extract dimensions from win text client-side
-            const extracted = extractDimensionsFromText(win.win_content);
-            extracted.forEach(({ dimension, value }) => {
-              if (dimensionCounts[dimension]) {
-                dimensionCounts[dimension][value] = (dimensionCounts[dimension][value] || 0) + 1;
-              }
-            });
-          }
+          if (win.primary_emotion) dimensionCounts.emotion[win.primary_emotion] = (dimensionCounts.emotion[win.primary_emotion] || 0) + 1;
+          if (win.secondary_emotion) dimensionCounts.emotion[win.secondary_emotion] = (dimensionCounts.emotion[win.secondary_emotion] || 0) + 1;
+          if (win.agency_type) dimensionCounts.agency[win.agency_type] = (dimensionCounts.agency[win.agency_type] || 0) + 1;
+          if (win.regulation_level) dimensionCounts.regulation[win.regulation_level] = (dimensionCounts.regulation[win.regulation_level] || 0) + 1;
+          if (win.growth_signal) dimensionCounts.growth[win.growth_signal] = (dimensionCounts.growth[win.growth_signal] || 0) + 1;
         });
         
-        const dimensions: { dimension: string; value: string; count: number }[] = [];
+        const displayLabels: Record<string, string> = {
+          emotion: 'What you felt',
+          agency: 'How you showed up',
+          regulation: 'How you led yourself',
+          growth: 'What it built',
+        };
+        
+        const dimensions: { dimension: string; value: string; count: number; displayLabel: string }[] = [];
         for (const [dimension, values] of Object.entries(dimensionCounts)) {
           for (const [value, count] of Object.entries(values)) {
-            dimensions.push({ dimension, value, count });
+            dimensions.push({ dimension, value, count, displayLabel: displayLabels[dimension] || dimension });
           }
         }
         dimensions.sort((a, b) => b.count - a.count);
         
         console.log('[Insights] DEV_MODE extracted dimensions:', dimensions);
         
-        // Also store raw win content for passing to dimension bubbles
         const winsWithContent = wins?.map(w => ({
           content: w.win_content,
           date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         })) || [];
         setTinyWinsContent(winsWithContent);
         
+        const topEmotion = dimensions.find(d => d.dimension === 'emotion');
+        const topGrowth = dimensions.find(d => d.dimension === 'growth');
+        
         setTinyWinsInsights({
           themes: dimensions.slice(0, 5).map(d => d.value),
           dimensions,
+          observation: topEmotion && topGrowth
+            ? `Over the past two weeks your wins most reflect ${topEmotion.value} and ${topGrowth.value}.`
+            : wins?.length ? `You've captured ${wins.length} win${wins.length > 1 ? 's' : ''} recently.` : null,
+          patternLine: topEmotion && topGrowth
+            ? `Your wins over the past 14 days most reflect ${topEmotion.value} and ${topGrowth.value}`
+            : null,
           summary: wins?.length 
             ? `You've captured ${wins.length} win${wins.length > 1 ? 's' : ''} recently.` 
             : null,
@@ -794,6 +824,15 @@ const Insights = () => {
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
+                {/* AI observation headline */}
+                {tinyWinsInsights.observation && (
+                  <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {tinyWinsInsights.observation}
+                    </p>
+                  </div>
+                )}
+                
                 {winsProgressMessage && (
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
@@ -801,9 +840,11 @@ const Insights = () => {
                 {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
                   <PsychologicalDimensionBubbles
                     data={tinyWinsInsights.dimensions.map(d => ({
-                      dimension: d.dimension as 'sentiment' | 'emotion' | 'agency' | 'regulation' | 'growth',
+                      dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
                       value: d.value,
-                      count: d.count
+                      count: d.count,
+                      displayLabel: d.displayLabel,
+                      insight: d.insight,
                     }))}
                     relatedWins={tinyWinsContent}
                     emptyMessage="Complete evening Integrate flow to capture wins"
@@ -815,9 +856,10 @@ const Insights = () => {
                   />
                 )}
                 
-                {tinyWinsInsights.summary && (
+                {/* Pattern line */}
+                {tinyWinsInsights.patternLine && (
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {tinyWinsInsights.summary}
+                    {tinyWinsInsights.patternLine}
                   </p>
                 )}
                 
