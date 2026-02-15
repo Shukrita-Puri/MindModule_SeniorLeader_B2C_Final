@@ -7,10 +7,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
-import { determineArchetype, type UserArchetype } from '@/utils/userArchetypeEngine';
 
 interface LeadershipPatternsData {
   userArchetype: string | null;
+  archetypeTitle: string | null;
+  strengthArea: string | null;
+  growthArea: string | null;
   typicalState: string | null;
   distribution: Record<string, number>;
   compositeAvg30: number;
@@ -26,10 +28,6 @@ interface LeadershipPatternsData {
 
 interface LeadershipPatternsCardProps {
   userId?: string;
-  profileBaseline?: {
-    userArchetype?: string;
-    componentScores?: Record<string, number>;
-  } | null;
 }
 
 const stateLabels: Record<string, string> = {
@@ -52,33 +50,13 @@ const trendColors = {
   stable: 'text-muted-foreground',
 };
 
-const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsCardProps) => {
+const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [archetype, setArchetype] = useState<UserArchetype | null>(null);
 
   useEffect(() => {
     if (userId) fetchData();
   }, [userId]);
-
-  // Resolve archetype from profile baseline
-  useEffect(() => {
-    if (profileBaseline?.componentScores) {
-      const arch = determineArchetype(profileBaseline.componentScores as any);
-      setArchetype(arch);
-    } else if (profileBaseline?.userArchetype) {
-      setArchetype({
-        id: profileBaseline.userArchetype,
-        title: profileBaseline.userArchetype.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-        description: '',
-        percentile: '',
-        unlockStatement: '',
-        strengthArea: 'Self-Regulation',
-        growthArea: 'Energy Management',
-        recommendedMastery: 'Pause',
-      });
-    }
-  }, [profileBaseline]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -107,7 +85,7 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
             .limit(10),
           supabase
             .from('profiles')
-            .select('user_archetype')
+            .select('user_archetype, component_scores')
             .eq('id', effectiveUserId)
             .single(),
         ]);
@@ -170,8 +148,15 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
           if (coachStrength && coachFriction) break;
         }
 
+        // Resolve archetype details from profile data (mirrors edge function logic)
+        const arch = profileRes.data?.user_archetype;
+        const archetypeTitle = arch ? arch.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
+
         setData({
-          userArchetype: profileRes.data?.user_archetype || null,
+          userArchetype: arch || null,
+          archetypeTitle,
+          strengthArea: 'Self-Regulation',
+          growthArea: 'Energy Management',
           typicalState,
           distribution,
           compositeAvg30,
@@ -242,11 +227,11 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
             )}
 
             {/* Archetype line */}
-            {(archetype || data.userArchetype) && (
+            {data.archetypeTitle && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Archetype</span>
                 <span className="text-sm font-semibold text-foreground">
-                  {archetype?.title || data.userArchetype?.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                  {data.archetypeTitle}
                 </span>
               </div>
             )}
@@ -285,22 +270,22 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
             </div>
 
             {/* Strength & Friction from coach */}
-            {(archetype || data.coachStrength || data.coachFriction) && (
+            {(data.strengthArea || data.coachStrength || data.coachFriction) && (
               <div className="pt-3 border-t border-border/30 space-y-3">
                 {/* Strength */}
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
                   <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      Lean on: {archetype?.strengthArea || 'Self-Regulation'}
+                      Lean on: {data.strengthArea || 'Self-Regulation'}
                     </p>
                     {data.coachStrength ? (
                       <div className="flex items-start gap-1.5">
                         <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
                         <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
                       </div>
-                    ) : archetype ? (
-                      <p className="text-xs text-muted-foreground">Based on your {archetype.title} profile</p>
+                    ) : data.archetypeTitle ? (
+                      <p className="text-xs text-muted-foreground">Based on your {data.archetypeTitle} profile</p>
                     ) : null}
                   </div>
                 </div>
@@ -310,7 +295,7 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
                   <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      Watch for: {archetype?.growthArea || 'Energy Management'}
+                      Watch for: {data.growthArea || 'Energy Management'}
                     </p>
                     {data.coachFriction ? (
                       <div className="flex items-start gap-1.5">
@@ -321,8 +306,8 @@ const LeadershipPatternsCard = ({ userId, profileBaseline }: LeadershipPatternsC
                       <p className="text-xs text-muted-foreground">
                         Low-state patterns appeared in {data.frictionPct}% of check-ins over 30 days
                       </p>
-                    ) : archetype ? (
-                      <p className="text-xs text-muted-foreground">Based on your {archetype.title} profile</p>
+                    ) : data.archetypeTitle ? (
+                      <p className="text-xs text-muted-foreground">Based on your {data.archetypeTitle} profile</p>
                     ) : null}
                   </div>
                 </div>

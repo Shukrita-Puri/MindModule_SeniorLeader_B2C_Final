@@ -72,8 +72,12 @@ serve(async (req) => {
     const themes = themesRes.data || [];
     const coachInsights = coachInsightsRes.data || [];
 
-    // --- Archetype ---
+    // --- Archetype with strength/growth areas ---
     const userArchetype = profile?.user_archetype || null;
+    const archetypeDetails = resolveArchetypeDetails(userArchetype, profile?.component_scores);
+    const archetypeTitle = archetypeDetails.title;
+    const strengthArea = archetypeDetails.strengthArea;
+    const growthArea = archetypeDetails.growthArea;
 
     // --- State distribution (30 days) ---
     const distribution: Record<string, number> = {
@@ -234,6 +238,9 @@ serve(async (req) => {
     const response = {
       data: {
         userArchetype,
+        archetypeTitle,
+        strengthArea,
+        growthArea,
         typicalState,
         distribution,
         compositeAvg30,
@@ -259,6 +266,36 @@ serve(async (req) => {
     );
   }
 });
+
+function resolveArchetypeDetails(
+  archetypeId: string | null,
+  componentScores: any
+): { title: string; strengthArea: string; growthArea: string } {
+  // If we have component scores, determine archetype from scores
+  if (componentScores) {
+    const q2 = componentScores.q2_energy_regulation ?? 50;
+    const q3 = componentScores.q3_focus_recovery ?? 50;
+    const q4 = componentScores.q4_energy_renewal ?? 50;
+    const q5 = componentScores.q5_growth_priority ?? 50;
+    const avg = (q2 + q3 + q4) / 3;
+
+    if (avg >= 80) return { title: "The Natural Regulator", strengthArea: "Comprehensive Self-Regulation", growthArea: "Advanced Integration" };
+    if (q3 >= 75 && q5 >= 75) return { title: "The Strategic Pauser", strengthArea: "Focus Recovery & Composure", growthArea: "Energy Downshift" };
+    if (q2 <= 50 && q4 >= 70) return { title: "The High-Octane Performer", strengthArea: "Energy Renewal", growthArea: "Proactive Regulation" };
+    return { title: "The Awareness Builder", strengthArea: "Growth Awareness", growthArea: "Foundational Tools" };
+  }
+
+  // Fallback: resolve from archetype ID string
+  const map: Record<string, { title: string; strengthArea: string; growthArea: string }> = {
+    natural_regulator: { title: "The Natural Regulator", strengthArea: "Comprehensive Self-Regulation", growthArea: "Advanced Integration" },
+    strategic_pauser: { title: "The Strategic Pauser", strengthArea: "Focus Recovery & Composure", growthArea: "Energy Downshift" },
+    high_octane_performer: { title: "The High-Octane Performer", strengthArea: "Energy Renewal", growthArea: "Proactive Regulation" },
+    awareness_builder: { title: "The Awareness Builder", strengthArea: "Growth Awareness", growthArea: "Foundational Tools" },
+  };
+  if (archetypeId && map[archetypeId]) return map[archetypeId];
+  if (archetypeId) return { title: archetypeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), strengthArea: "Self-Regulation", growthArea: "Energy Management" };
+  return { title: "", strengthArea: "Self-Regulation", growthArea: "Energy Management" };
+}
 
 function generateSimpleObservation(
   trend: string,
