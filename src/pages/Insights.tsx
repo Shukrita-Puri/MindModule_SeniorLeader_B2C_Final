@@ -55,8 +55,17 @@ interface SemanticAnalysis {
     weight: number;
     sources: { coach: number; practice: number; wins: number; checkins: number };
   }[];
-  themeRelationships: { from: string; to: string; strength: number }[];
+  themeRelationships: { from: string; to: string; strength: number; type?: string }[];
   aiObservation?: string;
+}
+
+interface NodeSummary {
+  keyword: string;
+  totalCount: number;
+  sources: { coach: number; practice: number; wins: number; checkins: number };
+  recentDate: string;
+  aiSummary: string;
+  connectedThemes: { theme: string; relationshipType: string }[];
 }
 
 interface BubbleDetails {
@@ -493,7 +502,7 @@ const Insights = () => {
         console.log('[Insights] DEV_MODE extracted themes:', unifiedThemes);
 
         // Generate theme relationships based on co-occurrence
-        const themeRelationships: { from: string; to: string; strength: number }[] = [];
+        const themeRelationships: { from: string; to: string; strength: number; type?: string }[] = [];
         const themeArray = unifiedThemes.slice(0, 8); // Top 8 for relationships
         
         // Create relationships between themes that appear in similar contexts
@@ -528,10 +537,27 @@ const Insights = () => {
             
             // Relaxed criteria: overlap >= 1 (single shared source) OR semantic relationship
             if (overlap >= 1 || isSemanticallyRelated) {
+              // Assign relationship type based on semantic pairs
+              const tensionPairs = [['stress', 'overwhelm'], ['energy', 'focus'], ['scattered', 'focus']];
+              const groundedPairs = [['calm', 'grounding'], ['balance', 'steady']];
+              const feedsPairs = [['stress management', 'emotional regulation'], ['clarity', 'presence']];
+              
+              let relType = 'often co-occur';
+              const t1l = theme1.theme.toLowerCase();
+              const t2l = theme2.theme.toLowerCase();
+              if (tensionPairs.some(p => (t1l.includes(p[0]) && t2l.includes(p[1])) || (t1l.includes(p[1]) && t2l.includes(p[0])))) {
+                relType = 'tension between';
+              } else if (groundedPairs.some(p => (t1l.includes(p[0]) && t2l.includes(p[1])) || (t1l.includes(p[1]) && t2l.includes(p[0])))) {
+                relType = 'grounded by';
+              } else if (feedsPairs.some(p => (t1l.includes(p[0]) && t2l.includes(p[1])) || (t1l.includes(p[1]) && t2l.includes(p[0])))) {
+                relType = 'feeds into';
+              }
+
               themeRelationships.push({
                 from: theme1.theme,
                 to: theme2.theme,
-                strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 3, 1)
+                strength: Math.min((overlap + (isSemanticallyRelated ? 1 : 0)) / 3, 1),
+                type: relType
               });
             }
           }
@@ -578,19 +604,53 @@ const Insights = () => {
     }
   };
 
-  const fetchBubbleDetails = async (keyword: string): Promise<BubbleDetails | null> => {
+  const fetchNodeSummary = async (keyword: string): Promise<NodeSummary | null> => {
     try {
+      if (DEV_MODE) {
+        // DEV_MODE: generate a simple algorithmic summary
+        const theme = semanticAnalysis?.unifiedThemes.find(t => t.theme === keyword);
+        if (!theme) return null;
+        const sources = theme.sources;
+        const topSource = Object.entries(sources).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+        const topSourceName = topSource.length > 0 
+          ? { coach: 'coach conversations', practice: 'practices', wins: 'wins', checkins: 'check-ins' }[topSource[0][0]] || 'your reflections'
+          : 'your reflections';
+        
+        // Find connected themes from relationships
+        const connected = (semanticAnalysis?.themeRelationships || [])
+          .filter(r => r.from.toLowerCase() === keyword.toLowerCase() || r.to.toLowerCase() === keyword.toLowerCase())
+          .map(r => ({
+            theme: r.from.toLowerCase() === keyword.toLowerCase() ? r.to : r.from,
+            relationshipType: r.type || 'often co-occur'
+          }))
+          .slice(0, 3);
+
+        return {
+          keyword,
+          totalCount: theme.totalCount,
+          sources,
+          recentDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          aiSummary: `${keyword} has appeared ${theme.totalCount} times across your ${topSourceName}. ${connected.length > 0 ? `It tends to surface alongside ${connected[0].theme}.` : 'This is one of your most consistent patterns.'}`,
+          connectedThemes: connected
+        };
+      }
+
       const accessToken = await getAccessTokenSilently();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'getBubbleDetails', keyword }
+        body: { 
+          days: 7, 
+          action: 'getNodeSummary', 
+          keyword,
+          relationships: semanticAnalysis?.themeRelationships || []
+        }
       });
       if (!error && data?.data) {
-        return data.data as BubbleDetails;
+        return data.data as NodeSummary;
       }
       return null;
     } catch (error) {
-      console.error('Error fetching bubble details:', error);
+      console.error('Error fetching node summary:', error);
       return null;
     }
   };
@@ -709,7 +769,7 @@ const Insights = () => {
                 <InnerWorldBubbles
                   items={semanticAnalysis?.unifiedThemes || []}
                   relationships={semanticAnalysis?.themeRelationships || []}
-                  onBubbleClick={fetchBubbleDetails}
+                  onNodeSummary={fetchNodeSummary}
                 />
               </>
             )}

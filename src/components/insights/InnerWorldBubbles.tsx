@@ -1,8 +1,9 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { ChatCircle, X } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface UnifiedBubbleData {
   theme: string;
@@ -16,28 +17,28 @@ interface UnifiedBubbleData {
   };
 }
 
-interface BubbleDetails {
-  keyword: string;
-  totalCount: number;
-  recentMentions: {
-    snippet: string;
-    date: string;
-    source: 'coach' | 'practice' | 'wins' | 'checkins';
-    sessionId?: string;
-  }[];
-}
-
 interface ThemeRelationship {
   from: string;
   to: string;
   strength: number;
+  type?: string;
+}
+
+interface NodeSummary {
+  keyword: string;
+  totalCount: number;
+  sources: { coach: number; practice: number; wins: number; checkins: number };
+  recentDate: string;
+  aiSummary: string;
+  connectedThemes: { theme: string; relationshipType: string }[];
 }
 
 interface InnerWorldBubblesProps {
   items: UnifiedBubbleData[];
   relationships?: ThemeRelationship[];
   emptyMessage?: string;
-  onBubbleClick?: (keyword: string) => Promise<BubbleDetails | null>;
+  onBubbleClick?: (keyword: string) => Promise<any>;
+  onNodeSummary?: (keyword: string) => Promise<NodeSummary | null>;
 }
 
 const sourceLabels: Record<string, string> = {
@@ -47,141 +48,124 @@ const sourceLabels: Record<string, string> = {
   checkins: 'Check-ins'
 };
 
-// Source dot colors
-const sourceColors: Record<string, string> = {
-  coach: 'bg-amber-400',
-  practice: 'bg-blue-400',
-  wins: 'bg-emerald-400',
-  checkins: 'bg-violet-400'
-};
-
-const GENERIC_PATTERNS = [
-  /here'?s one thing/i, /today i/i, /^i did$/i, /something good/i,
-  /^win$/i, /^good day$/i, /^ok$/i, /^fine$/i,
-];
-
-const isGenericMention = (content: string): boolean => {
-  if (content.length < 15) return true;
-  return GENERIC_PATTERNS.some(pattern => pattern.test(content.trim()));
-};
-
 const InnerWorldBubbles = ({ 
   items, 
   relationships = [],
   emptyMessage = 'Complete check-ins, practices, and coach chats to see patterns emerge.',
-  onBubbleClick
+  onNodeSummary
 }: InnerWorldBubblesProps) => {
   const navigate = useNavigate();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const bubbleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [bubblePositions, setBubblePositions] = useState<Map<string, DOMRect>>(new Map());
   const [selectedItem, setSelectedItem] = useState<UnifiedBubbleData | null>(null);
-  const [bubbleDetails, setBubbleDetails] = useState<BubbleDetails | null>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [nodeSummary, setNodeSummary] = useState<NodeSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [hoveredLine, setHoveredLine] = useState<string | null>(null);
 
-  // Bubble sizes: 64-96px
-  const getBubbleSize = (weight: number) => 64 + (weight * 32);
-
-  // Cap at 8 bubbles, sorted by weight
+  // Cap at 8 nodes, sorted by weight
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  const updatePositions = useCallback(() => {
-    if (!containerRef.current) return;
-    const newPositions = new Map<string, DOMRect>();
-    bubbleRefs.current.forEach((element, key) => {
-      if (element) newPositions.set(key.toLowerCase(), element.getBoundingClientRect());
-    });
-    setBubblePositions(newPositions);
-  }, []);
+  // SVG dimensions
+  const svgWidth = 360;
+  const svgHeight = 300;
+  const centerX = svgWidth / 2;
+  const centerY = svgHeight / 2;
 
-  useEffect(() => {
-    updatePositions();
-    const animationDelay = (sortedItems.length * 60) + 500;
-    const t1 = setTimeout(updatePositions, animationDelay);
-    const t2 = setTimeout(updatePositions, animationDelay + 300);
-    
-    const resizeObserver = new ResizeObserver(updatePositions);
-    if (containerRef.current) resizeObserver.observe(containerRef.current);
-    window.addEventListener('scroll', updatePositions);
-    
-    return () => { clearTimeout(t1); clearTimeout(t2); resizeObserver.disconnect(); window.removeEventListener('scroll', updatePositions); };
-  }, [sortedItems, updatePositions]);
+  // Deterministic node positioning — organic circular spread
+  const nodePositions = useMemo(() => {
+    const count = sortedItems.length;
+    if (count === 0) return [];
 
-  const handleBubbleClick = async (item: UnifiedBubbleData) => {
-    setSelectedItem(item);
-    setBubbleDetails(null);
-    if (onBubbleClick) {
-      setLoadingDetails(true);
-      try {
-        setBubbleDetails(await onBubbleClick(item.theme));
-      } catch (error) {
-        console.error('Failed to fetch bubble details:', error);
-      } finally {
-        setLoadingDetails(false);
+    return sortedItems.map((item, i) => {
+      const radius = item.weight > 0.6 ? 50 + (i * 15) : 70 + (i * 18);
+      const angleOffset = Math.PI * 0.3;
+      const angle = angleOffset + (i / count) * Math.PI * 2 + (i % 2 === 0 ? 0.15 : -0.1);
+      const jitterX = ((i * 17) % 11) - 5;
+      const jitterY = ((i * 13) % 9) - 4;
+      
+      let x = centerX + Math.cos(angle) * Math.min(radius, svgWidth * 0.35) + jitterX;
+      let y = centerY + Math.sin(angle) * Math.min(radius, svgHeight * 0.32) + jitterY;
+      
+      // Keep first (largest) node near center
+      if (i === 0) {
+        x = centerX + jitterX * 0.5;
+        y = centerY + jitterY * 0.5;
       }
-    }
-  };
 
-  const closeModal = () => { setSelectedItem(null); setBubbleDetails(null); };
+      // Clamp to SVG bounds with padding
+      const nodeR = 4 + item.weight * 8;
+      x = Math.max(nodeR + 50, Math.min(svgWidth - nodeR - 50, x));
+      y = Math.max(nodeR + 20, Math.min(svgHeight - nodeR - 30, y));
 
-  const getTopSource = (sources: UnifiedBubbleData['sources']): string => {
-    const entries = Object.entries(sources).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    if (entries.length === 0) return 'your reflections';
-    return sourceLabels[entries[0][0]] || 'your reflections';
-  };
+      return { x, y, radius: nodeR };
+    });
+  }, [sortedItems, centerX, centerY, svgWidth, svgHeight]);
 
-  const getSourceBreakdown = (sources: UnifiedBubbleData['sources']) => {
-    const parts: string[] = [];
-    if (sources.coach > 0) parts.push(`${sources.coach} coach`);
-    if (sources.practice > 0) parts.push(`${sources.practice} practice`);
-    if (sources.wins > 0) parts.push(`${sources.wins} win${sources.wins > 1 ? 's' : ''}`);
-    if (sources.checkins > 0) parts.push(`${sources.checkins} check-in${sources.checkins > 1 ? 's' : ''}`);
-    return parts.join(', ');
-  };
-
-  const getMeaningfulMentions = (mentions: BubbleDetails['recentMentions'] | undefined) => {
-    if (!mentions) return [];
-    return mentions.filter(m => !isGenericMention(m.snippet));
-  };
-
-  // SVG connection paths with midpoint for labels
+  // Connection paths
   const connectionPaths = useMemo(() => {
-    if (!containerRef.current || relationships.length === 0 || bubblePositions.size === 0) return [];
-    const containerRect = containerRef.current.getBoundingClientRect();
-    
-    return relationships.slice(0, 6).map((rel, index) => {
-      const fromRect = bubblePositions.get(rel.from.toLowerCase());
-      const toRect = bubblePositions.get(rel.to.toLowerCase());
-      if (!fromRect || !toRect) return null;
-      
-      const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + fromRect.height / 2 - containerRect.top;
-      const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top + toRect.height / 2 - containerRect.top;
-      
-      const midX = (x1 + x2) / 2;
-      const midY = (y1 + y2) / 2;
-      const dx = x2 - x1;
-      const dy = y2 - y1;
+    if (relationships.length === 0 || nodePositions.length === 0) return [];
+
+    return relationships.slice(0, 8).map((rel, index) => {
+      const fromIdx = sortedItems.findIndex(n => n.theme.toLowerCase() === rel.from.toLowerCase());
+      const toIdx = sortedItems.findIndex(n => n.theme.toLowerCase() === rel.to.toLowerCase());
+      if (fromIdx === -1 || toIdx === -1) return null;
+
+      const from = nodePositions[fromIdx];
+      const to = nodePositions[toIdx];
+      if (!from || !to) return null;
+
+      const midX = (from.x + to.x) / 2;
+      const midY = (from.y + to.y) / 2;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3;
+      const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.25;
       const perpX = dist > 0 ? (-dy / dist) * offset : 0;
       const perpY = dist > 0 ? (dx / dist) * offset : 0;
       const cx = midX + perpX;
       const cy = midY + perpY;
-      
+
+      const key = `${rel.from}-${rel.to}-${index}`;
+      const labelX = (from.x + 2 * cx + to.x) / 4;
+      const labelY = (from.y + 2 * cy + to.y) / 4;
+
       return {
-        path: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
+        path: `M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`,
         strength: rel.strength,
-        key: `${rel.from}-${rel.to}-${index}`,
-        labelX: (x1 + 2 * cx + x2) / 4, // Point on quadratic curve at t=0.5
-        labelY: (y1 + 2 * cy + y2) / 4,
-        label: 'related',
+        type: rel.type || 'often co-occur',
+        key,
+        labelX,
+        labelY,
       };
-    }).filter(Boolean);
-  }, [relationships, bubblePositions]);
+    }).filter(Boolean) as { path: string; strength: number; type: string; key: string; labelX: number; labelY: number }[];
+  }, [relationships, nodePositions, sortedItems]);
+
+  const handleNodeClick = useCallback(async (item: UnifiedBubbleData) => {
+    setSelectedItem(item);
+    setNodeSummary(null);
+    if (onNodeSummary) {
+      setLoadingSummary(true);
+      try {
+        const summary = await onNodeSummary(item.theme);
+        setNodeSummary(summary);
+      } catch (error) {
+        console.error('Failed to fetch node summary:', error);
+      } finally {
+        setLoadingSummary(false);
+      }
+    }
+  }, [onNodeSummary]);
+
+  const closeModal = () => { setSelectedItem(null); setNodeSummary(null); };
+
+  const getSourceLine = (sources: UnifiedBubbleData['sources']): string => {
+    const parts: string[] = [];
+    if (sources.checkins > 0) parts.push(`${sources.checkins} check-in${sources.checkins > 1 ? 's' : ''}`);
+    if (sources.coach > 0) parts.push(`${sources.coach} coach session${sources.coach > 1 ? 's' : ''}`);
+    if (sources.practice > 0) parts.push(`${sources.practice} practice${sources.practice > 1 ? 's' : ''}`);
+    if (sources.wins > 0) parts.push(`${sources.wins} win${sources.wins > 1 ? 's' : ''}`);
+    return parts.join(' · ');
+  };
 
   if (items.length === 0) {
     return (
@@ -192,110 +176,137 @@ const InnerWorldBubbles = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div ref={containerRef} className="relative min-h-[200px]">
-        {/* Connection lines with labels */}
-        <svg 
-          className="absolute inset-0 pointer-events-none z-0 overflow-visible"
-          style={{ width: '100%', height: '100%', minHeight: '200px' }}
-          preserveAspectRatio="none"
-        >
-          {connectionPaths.map((connection) => connection && (
-            <g key={connection.key}>
-              <path
-                d={connection.path}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeOpacity={0.25 + connection.strength * 0.25}
-                strokeDasharray="6 4"
-                className="text-primary"
+    <div className="space-y-2">
+      {/* SVG Node-and-Line Graph */}
+      <svg 
+        width="100%" 
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        className="overflow-visible"
+        style={{ minHeight: '250px' }}
+      >
+        {/* Connection lines */}
+        {connectionPaths.map((conn) => (
+          <g 
+            key={conn.key}
+            onMouseEnter={() => setHoveredLine(conn.key)}
+            onMouseLeave={() => setHoveredLine(null)}
+            className="cursor-default"
+          >
+            <path
+              d={conn.path}
+              fill="none"
+              stroke="hsl(var(--muted-foreground))"
+              strokeWidth={1.5}
+              strokeOpacity={0.3 + conn.strength * 0.4}
+              strokeDasharray="none"
+            />
+            {/* Wider invisible hit area for hover */}
+            <path
+              d={conn.path}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={14}
+            />
+            {/* Hover label */}
+            {hoveredLine === conn.key && (
+              <g>
+                <rect
+                  x={conn.labelX - 40}
+                  y={conn.labelY - 10}
+                  width={80}
+                  height={16}
+                  rx={4}
+                  fill="hsl(var(--card))"
+                  stroke="hsl(var(--border))"
+                  strokeWidth={0.5}
+                  opacity={0.95}
+                />
+                <text
+                  x={conn.labelX}
+                  y={conn.labelY + 1}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="hsl(var(--muted-foreground))"
+                  fontSize="9"
+                  fontWeight="500"
+                >
+                  {conn.type}
+                </text>
+              </g>
+            )}
+          </g>
+        ))}
+
+        {/* Nodes */}
+        {sortedItems.map((item, index) => {
+          const pos = nodePositions[index];
+          if (!pos) return null;
+          const fontSize = 12 + (item.weight * 4);
+          const labelOffset = pos.radius + 6;
+
+          return (
+            <g 
+              key={`${item.theme}-${index}`}
+              onClick={() => handleNodeClick(item)}
+              className="cursor-pointer"
+              style={{
+                animation: 'nodeEntrance 0.4s ease-out forwards',
+                animationDelay: `${index * 60}ms`,
+                opacity: 0,
+              }}
+            >
+              {/* Node circle */}
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={pos.radius}
+                fill="hsl(var(--primary))"
+                fillOpacity={0.7 + item.weight * 0.3}
+                className="transition-all duration-200 hover:fill-opacity-100"
               />
+              {/* Subtle glow on hover */}
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={pos.radius + 3}
+                fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth={1}
+                strokeOpacity={0}
+                className="transition-all duration-200"
+                style={{ pointerEvents: 'none' }}
+              />
+              {/* Theme label */}
               <text
-                x={connection.labelX}
-                y={connection.labelY - 6}
+                x={pos.x}
+                y={pos.y - labelOffset}
                 textAnchor="middle"
-                className="fill-muted-foreground"
-                fontSize="9"
-                opacity={0.5}
+                dominantBaseline="auto"
+                fill="hsl(var(--foreground))"
+                fontSize={fontSize}
+                fontWeight="500"
+                className="pointer-events-none select-none"
               >
-                {connection.label}
+                {item.theme}
+              </text>
+              {/* Entry count */}
+              <text
+                x={pos.x}
+                y={pos.y - labelOffset + fontSize + 2}
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fill="hsl(var(--muted-foreground))"
+                fontSize="11"
+                className="pointer-events-none select-none"
+              >
+                {item.totalCount} {item.totalCount === 1 ? 'entry' : 'entries'}
               </text>
             </g>
-          ))}
-        </svg>
-        
-        {/* Bubbles */}
-        <div className="flex flex-wrap justify-center items-center gap-2.5 py-4 relative z-10">
-          {sortedItems.map((item, index) => {
-            const size = getBubbleSize(item.weight);
-            const isLarge = item.weight > 0.6;
-            const isMedium = item.weight > 0.3;
-            const activeSources = (['coach', 'practice', 'wins', 'checkins'] as const).filter(s => item.sources[s] > 0);
-            
-            return (
-              <div
-                key={`${item.theme}-${index}`}
-                ref={(el) => { if (el) bubbleRefs.current.set(item.theme.toLowerCase(), el); }}
-                onClick={() => handleBubbleClick(item)}
-                className={cn(
-                  "rounded-full flex flex-col items-center justify-center text-center cursor-pointer",
-                  "bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5",
-                  "border border-primary/20",
-                  "shadow-[0_4px_20px_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.1)_inset]",
-                  "backdrop-blur-sm",
-                  "hover:shadow-[0_8px_30px_rgba(0,0,0,0.15),0_0_20px_hsl(var(--primary)/0.1)]",
-                  "hover:scale-105 transition-all duration-300",
-                  "active:scale-100 relative overflow-hidden",
-                  index % 3 === 0 && "mt-1",
-                  index % 4 === 1 && "-mt-0.5",
-                  index % 5 === 2 && "mt-2"
-                )}
-                style={{
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  transform: `rotate(${(index % 5 - 2) * 1}deg)`,
-                  animation: 'bubbleEntrance 0.4s ease-out forwards',
-                  animationDelay: `${index * 60}ms`,
-                  opacity: 0,
-                }}
-              >
-                <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-60 pointer-events-none" />
-                
-                <span 
-                  className={cn(
-                    "font-medium leading-tight px-2 relative z-10",
-                    isLarge ? "text-sm" : isMedium ? "text-xs" : "text-[11px]"
-                  )}
-                  style={{
-                    maxWidth: `${size - 16}px`,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                  }}
-                >
-                  {item.theme}
-                </span>
-                
-                {/* Source indicator dots */}
-                <div className="flex gap-1 mt-1 relative z-10">
-                  {activeSources.map(source => (
-                    <div 
-                      key={source}
-                      className={cn("w-1.5 h-1.5 rounded-full", sourceColors[source])}
-                      title={sourceLabels[source]}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+          );
+        })}
+      </svg>
 
-      {/* Modal */}
+      {/* Rich Summary Panel (Modal) */}
       {selectedItem && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={closeModal}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -307,51 +318,69 @@ const InnerWorldBubbles = ({
               <X size={18} />
             </button>
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Header */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/15">
-                  <span className="text-sm font-semibold text-primary">
-                    {selectedItem.theme.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-foreground text-lg">{selectedItem.theme}</h4>
-                  <span className="text-xs text-muted-foreground">
-                    {selectedItem.totalCount} mentions — mostly from {getTopSource(selectedItem.sources)}
-                  </span>
-                </div>
+              <div>
+                <h4 className="font-semibold text-foreground text-lg">{selectedItem.theme}</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Appears in: {getSourceLine(selectedItem.sources)}
+                </p>
+                {nodeSummary?.recentDate && (
+                  <p className="text-xs text-muted-foreground">
+                    Most recent: {nodeSummary.recentDate}
+                  </p>
+                )}
               </div>
-              
-              {/* Source breakdown */}
-              <div className="flex flex-wrap gap-2">
-                {(['coach', 'practice', 'wins', 'checkins'] as const).filter(s => selectedItem.sources[s] > 0).map(source => (
-                  <span key={source} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <div className={cn("w-2 h-2 rounded-full", sourceColors[source])} />
-                    {selectedItem.sources[source]} {sourceLabels[source]}
-                  </span>
-                ))}
-              </div>
-              
-              {/* Recent mentions */}
-              {loadingDetails ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+
+              {/* What this theme reveals */}
+              {loadingSummary ? (
+                <div className="space-y-3">
+                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What this theme reveals</h5>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/6" />
+                  </div>
                 </div>
-              ) : bubbleDetails && getMeaningfulMentions(bubbleDetails.recentMentions).length > 0 ? (
+              ) : nodeSummary?.aiSummary ? (
                 <div className="space-y-2">
-                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent mentions</h5>
-                  {getMeaningfulMentions(bubbleDetails.recentMentions).slice(0, 2).map((mention, i) => (
-                    <div key={i} className="bg-muted/50 rounded-xl p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">{sourceLabels[mention.source]}</span>
-                        <span className="text-[10px] text-muted-foreground">{mention.date}</span>
-                      </div>
-                      <p className="text-sm text-foreground line-clamp-2">"{mention.snippet}"</p>
-                    </div>
-                  ))}
+                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What this theme reveals</h5>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {nodeSummary.aiSummary}
+                  </p>
                 </div>
               ) : null}
+
+              {/* Where it shows up most */}
+              <div className="space-y-2">
+                <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Where it shows up most</h5>
+                <div className="flex flex-wrap gap-2">
+                  {(['checkins', 'coach', 'practice', 'wins'] as const)
+                    .filter(s => selectedItem.sources[s] > 0)
+                    .sort((a, b) => selectedItem.sources[b] - selectedItem.sources[a])
+                    .map(source => (
+                      <span key={source} className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
+                        {sourceLabels[source]} ({selectedItem.sources[source]})
+                      </span>
+                    ))}
+                </div>
+              </div>
+
+              {/* Connected to */}
+              {nodeSummary?.connectedThemes && nodeSummary.connectedThemes.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Connected to</h5>
+                  <div className="space-y-1.5">
+                    {nodeSummary.connectedThemes.map((ct, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <span className="text-xs text-muted-foreground capitalize">{ct.relationshipType}</span>
+                        <span className="text-foreground">→</span>
+                        <span className="text-foreground font-medium">{ct.theme}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* Explore with coach */}
               <button
@@ -375,10 +404,10 @@ const InnerWorldBubbles = ({
         document.body
       )}
 
-      {/* CSS for bubble entrance animation */}
+      {/* CSS for node entrance animation */}
       <style>{`
-        @keyframes bubbleEntrance {
-          from { opacity: 0; transform: scale(0.8); }
+        @keyframes nodeEntrance {
+          from { opacity: 0; transform: scale(0.7); }
           to { opacity: 1; transform: scale(1); }
         }
       `}</style>

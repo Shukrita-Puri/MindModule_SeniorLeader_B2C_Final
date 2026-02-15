@@ -22,7 +22,7 @@ interface UnifiedTheme {
 interface SemanticAnalysisResponse {
   themePatterns: { phrase: string; count: number; driver: string }[];
   unifiedThemes: UnifiedTheme[];
-  themeRelationships: { from: string; to: string; strength: number }[];
+  themeRelationships: { from: string; to: string; strength: number; type: string }[];
   aiObservation: string;
 }
 
@@ -35,6 +35,45 @@ interface BubbleDetailsResponse {
     source: 'coach' | 'practice' | 'wins' | 'checkins';
     sessionId?: string;
   }[];
+}
+
+interface NodeSummaryResponse {
+  keyword: string;
+  totalCount: number;
+  sources: { coach: number; practice: number; wins: number; checkins: number };
+  recentDate: string;
+  aiSummary: string;
+  connectedThemes: { theme: string; relationshipType: string }[];
+}
+
+// Hardcoded relationship type mappings
+const RELATIONSHIP_TYPE_MAP: Record<string, string> = {
+  'stress|grounding': 'grounded by',
+  'overwhelm|calm': 'grounded by',
+  'anxiety|calm': 'grounded by',
+  'overwhelm|calm & regulate': 'grounded by',
+  'stress|calm': 'feeds into',
+  'decision fatigue|clarity': 'feeds into',
+  'stress management|calm': 'feeds into',
+  'energy drain|energy renewal': 'tension between',
+  'scattered|focus': 'tension between',
+  'mental scatter|focus & presence': 'tension between',
+  'mental scatter|grounding': 'grounded by',
+  'overwhelm|grounding': 'grounded by',
+  'focus|clarity': 'often co-occur',
+  'confidence|achievement': 'often co-occur',
+  'balance|calm': 'often co-occur',
+  'growth|progress': 'often co-occur',
+  'energy|focus': 'feeds into',
+  'stress management|emotional regulation': 'often co-occur',
+  'steady|calm': 'often co-occur',
+  'overwhelm|stress management': 'feeds into',
+};
+
+function getRelationshipType(from: string, to: string): string {
+  const key1 = `${from.toLowerCase()}|${to.toLowerCase()}`;
+  const key2 = `${to.toLowerCase()}|${from.toLowerCase()}`;
+  return RELATIONSHIP_TYPE_MAP[key1] || RELATIONSHIP_TYPE_MAP[key2] || 'often co-occur';
 }
 
 // Generate algorithmic fallback observation from themes
@@ -97,11 +136,20 @@ serve(async (req) => {
     startDate.setDate(startDate.getDate() - days);
     const startDateStr = startDate.toISOString().split('T')[0];
 
-    // Handle bubble details request
+    // Handle bubble details request (legacy)
     if (action === 'getBubbleDetails' && keyword) {
       const details = await getBubbleDetails(supabase, userId, keyword, startDate);
       return new Response(
         JSON.stringify({ data: details }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle node summary request (V2)
+    if (action === 'getNodeSummary' && keyword) {
+      const summary = await getNodeSummary(supabase, userId, keyword, startDate, requestBody.relationships || []);
+      return new Response(
+        JSON.stringify({ data: summary }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -151,7 +199,7 @@ serve(async (req) => {
       .eq('context_type', 'coach')
       .gte('created_at', startDate.toISOString());
 
-    let themeRelationships: { from: string; to: string; strength: number }[] = [];
+    let themeRelationships: { from: string; to: string; strength: number; type: string }[] = [];
     
     if (sessions && sessions.length > 0) {
       const sessionIds = sessions.map(s => s.id);
@@ -181,15 +229,16 @@ serve(async (req) => {
                     role: 'user',
                     content: `Analyze these coaching conversation excerpts and:
 1. Extract the 5-8 most important themes or topics the user discussed
-2. Identify 2-4 meaningful relationships between themes (problem/solution, cause/effect, related concepts)
+2. Identify 2-4 meaningful relationships between themes with relationship types
 
 Return ONLY valid JSON in this exact format:
 {
   "keywords": [{"keyword": "decision fatigue", "count": 3}],
-  "relationships": [{"from": "stress", "to": "grounding", "strength": 0.8}]
+  "relationships": [{"from": "stress", "to": "grounding", "strength": 0.8, "type": "grounded by"}]
 }
 
 Keywords should be 2-4 word phrases. Count is how many times this theme appeared.
+Relationship types must be one of: "often co-occur", "tension between", "feeds into", "grounded by"
 
 Conversation excerpts:
 ${allContent.slice(0, 3000)}`
@@ -213,10 +262,11 @@ ${allContent.slice(0, 3000)}`
                 }
                 
                 if (parsed.relationships && Array.isArray(parsed.relationships)) {
-                  themeRelationships = parsed.relationships.map((r: { from: string; to: string; strength: number }) => ({
+                  themeRelationships = parsed.relationships.map((r: { from: string; to: string; strength: number; type?: string }) => ({
                     from: r.from.toLowerCase(),
                     to: r.to.toLowerCase(),
-                    strength: r.strength
+                    strength: r.strength,
+                    type: r.type || getRelationshipType(r.from, r.to)
                   }));
                 }
               }
@@ -314,7 +364,7 @@ ${allContent.slice(0, 3000)}`
       .sort((a, b) => b.totalCount - a.totalCount)
       .slice(0, 8);
 
-    // Generate algorithmic relationships if AI didn't extract any — cap at 6
+    // Generate algorithmic relationships if AI didn't extract any — cap at 8
     if (themeRelationships.length === 0 && unifiedThemes.length >= 2) {
       const themesLower = unifiedThemes.map(t => t.theme.toLowerCase());
       const knownPairs: [string, string, number][] = [
@@ -336,14 +386,19 @@ ${allContent.slice(0, 3000)}`
           const toTheme = unifiedThemes.find(t => t.theme.toLowerCase().includes(to) || to.includes(t.theme.toLowerCase()));
           
           if (fromTheme && toTheme && fromTheme.theme !== toTheme.theme) {
-            themeRelationships.push({ from: fromTheme.theme.toLowerCase(), to: toTheme.theme.toLowerCase(), strength });
+            themeRelationships.push({ 
+              from: fromTheme.theme.toLowerCase(), 
+              to: toTheme.theme.toLowerCase(), 
+              strength,
+              type: getRelationshipType(from, to)
+            });
           }
         }
-        if (themeRelationships.length >= 6) break;
+        if (themeRelationships.length >= 8) break;
       }
     }
-    // Cap relationships at 6
-    themeRelationships = themeRelationships.slice(0, 6);
+    // Cap relationships at 8
+    themeRelationships = themeRelationships.slice(0, 8);
 
     // ============================================
     // AI OBSERVATION via Lovable AI Gateway
@@ -408,6 +463,108 @@ ${allContent.slice(0, 3000)}`
     );
   }
 });
+
+// ============================================
+// getNodeSummary — V2 Rich AI Summary
+// ============================================
+async function getNodeSummary(
+  supabase: any,
+  userId: string,
+  keyword: string,
+  startDate: Date,
+  relationships: { from: string; to: string; strength: number; type?: string }[]
+): Promise<NodeSummaryResponse> {
+  // Reuse getBubbleDetails to gather source excerpts
+  const details = await getBubbleDetails(supabase, userId, keyword, startDate);
+  
+  // Compute source counts from mentions
+  const sources = { coach: 0, practice: 0, wins: 0, checkins: 0 };
+  details.recentMentions.forEach(m => { sources[m.source]++; });
+  
+  // Find most recent date
+  const recentDate = details.recentMentions.length > 0 
+    ? details.recentMentions[0].date 
+    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Find connected themes from relationships
+  const keywordLower = keyword.toLowerCase();
+  const connectedThemes = relationships
+    .filter(r => r.from.toLowerCase() === keywordLower || r.to.toLowerCase() === keywordLower)
+    .map(r => ({
+      theme: r.from.toLowerCase() === keywordLower
+        ? r.to.charAt(0).toUpperCase() + r.to.slice(1)
+        : r.from.charAt(0).toUpperCase() + r.from.slice(1),
+      relationshipType: r.type || getRelationshipType(r.from, r.to)
+    }))
+    .slice(0, 3);
+
+  // Build context for AI summary
+  const excerpts = details.recentMentions.map(m => `[${m.source}] "${m.snippet}"`).join('\n');
+  const sourceBreakdown = Object.entries(sources).filter(([, v]) => v > 0)
+    .map(([k, v]) => `${v} ${k}`).join(', ');
+  const connectedList = connectedThemes.map(c => `${c.theme} (${c.relationshipType})`).join(', ');
+
+  let aiSummary = '';
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  
+  if (lovableApiKey && excerpts.length > 20) {
+    try {
+      const summaryResponse = await fetch(
+        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-lite',
+            messages: [{
+              role: 'user',
+              content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data — not generic. Name the pattern, its context, and what it signals. No soft language.
+
+Source breakdown: ${sourceBreakdown}
+Connected themes: ${connectedList || 'none identified'}
+Total mentions: ${details.totalCount}
+Most recent: ${recentDate}
+
+Recent excerpts:
+${excerpts}`
+            }],
+          })
+        }
+      );
+
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        aiSummary = summaryData.choices?.[0]?.message?.content?.trim() || '';
+      }
+    } catch (summaryError) {
+      console.error('AI node summary error:', summaryError);
+    }
+  }
+
+  // Algorithmic fallback
+  if (!aiSummary) {
+    const topSource = Object.entries(sources).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const topSourceName = topSource.length > 0 
+      ? { coach: 'coach conversations', practice: 'practices', wins: 'wins', checkins: 'check-ins' }[topSource[0][0]] || 'your reflections'
+      : 'your reflections';
+    const connectedNote = connectedThemes.length > 0 
+      ? ` It tends to surface alongside ${connectedThemes[0].theme}.` 
+      : '';
+    aiSummary = `${keyword} has appeared ${details.totalCount} times across your ${topSourceName}, most recently on ${recentDate}.${connectedNote}`;
+  }
+
+  return {
+    keyword,
+    totalCount: details.totalCount,
+    sources,
+    recentDate,
+    aiSummary,
+    connectedThemes
+  };
+}
 
 // Helper function to get bubble details from ALL sources
 async function getBubbleDetails(
