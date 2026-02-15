@@ -869,10 +869,13 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const moduleMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
-  // Evening: always ensure Regulate + Integrate modules are present (even without check-in)
+  // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
   if (timeOfDay === 'evening') {
     if (!moduleMapping.regulate) {
       moduleMapping.regulate = { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' };
+    }
+    if (!moduleMapping.align) {
+      moduleMapping.align = { type: 'align', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' };
     }
     if (!moduleMapping.integrate) {
       moduleMapping.integrate = { type: 'integrate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' };
