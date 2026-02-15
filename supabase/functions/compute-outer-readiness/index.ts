@@ -371,12 +371,28 @@ function getLeanOnWatchFor(
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
 
-  // After 9 PM: recovery-oriented insights override everything except coach insights
+  // After 9 PM: recovery-oriented insights, but C+C can override when extreme
   if (lateEvening) {
     // Priority 1: Coach insights still take precedence
     if (coachStrength && coachGrowth) {
       return { leanOn: coachStrength, watchFor: coachGrowth };
     }
+    
+    // Priority 2: Extreme low C+C overrides evening defaults
+    // When clarity/confidence are very low, the "strong readiness" evening message is misleading
+    const ccMod = getCCModifier(clarity, confidence);
+    if (ccMod) {
+      // Blend C+C insight with evening context
+      const eveningSet = dayCtx === 'sunday' ? sundayEveningInsights[tier] : eveningTierInsights[tier];
+      const avgCC = ((clarity ?? 3) + (confidence ?? 3)) / 2;
+      if (avgCC <= 2.5) {
+        // Low C+C dominates: use C+C leanOn/watchFor since felt readiness is undermined
+        return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor };
+      }
+      // High C+C: blend evening context with C+C confidence boost
+      return { leanOn: eveningSet.leanOn, watchFor: eveningSet.watchFor };
+    }
+    
     // Sunday evening gets its own set
     if (dayCtx === 'sunday') {
       return sundayEveningInsights[tier];
@@ -528,7 +544,19 @@ serve(async (req) => {
 
     const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
     const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
-    const finalContext = patternOverride || theme.context;
+    
+    // C+C divergence override: if tier is strong/peak but C+C is very low,
+    // override theme phrase and context to reflect the internal conflict
+    const avgCC = ((clarityLevel ?? 3) + (confidenceLevel ?? 3)) / 2;
+    const ccProvided = clarityLevel !== null || confidenceLevel !== null;
+    let finalPhrase = theme.phrase;
+    let finalContext = patternOverride || theme.context;
+    
+    if (ccProvided && avgCC <= 2.0 && (innerReadinessTier === 'strong' || innerReadinessTier === 'peak')) {
+      finalPhrase = "Strength without clarity.";
+      finalContext = "Your felt energy is high, but your internal compass — clarity and confidence — is signalling uncertainty. High activation without direction can lead to misplaced effort. Before deploying your readiness, find your anchor.";
+    }
+    
     const { leanOn, watchFor } = getLeanOnWatchFor(
       innerReadinessTier, archetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, hour, dayOfWeek
@@ -559,7 +587,7 @@ serve(async (req) => {
     }
 
     const result: OuterReadinessResult = {
-      phrase: theme.phrase,
+      phrase: finalPhrase,
       context: finalContext,
       leanOn,
       watchFor,
