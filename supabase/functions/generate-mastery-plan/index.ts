@@ -869,9 +869,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const moduleMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
-  // Evening: always ensure Integrate module is present
-  if (timeOfDay === 'evening' && !moduleMapping.integrate) {
-    moduleMapping.integrate = { type: 'integrate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' };
+  // Evening: always ensure Regulate + Integrate modules are present (even without check-in)
+  if (timeOfDay === 'evening') {
+    if (!moduleMapping.regulate) {
+      moduleMapping.regulate = { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' };
+    }
+    if (!moduleMapping.integrate) {
+      moduleMapping.integrate = { type: 'integrate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' };
+    }
   }
 
   // Afternoon: suppress Prepare unless scenario detected
