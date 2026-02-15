@@ -1,119 +1,61 @@
 
 
-# Card 4 — Your Performance Rhythm: Qualitative Insight Redesign
+## Your Mind Map — Redesign Plan
 
-## What This Changes
+### What's Changing
 
-The current Performance Rhythm card stacks three independent client-side components (`CauseEffectInsights`, `EnergyRhythm`, `CalendarStateCorrelations`) each running their own DB queries and rendering lists/tables. This redesign replaces all three with a single server-side edge function that triangulates Inner Readiness composite scores (`energy_balance`) with calendar and behavior data to produce **qualitative context sentences** and a pre-computed heatmap grid.
+**Rename**: "Your Theme Map" becomes **"Your Mind Map"**
 
----
+**Add AI Observation**: A personalized insight sentence appears **above** the bubble chart, generated via Lovable AI (replacing the broken direct Gemini API call that silently fails). Algorithmic fallback retained.
 
-## Architecture
+**Redesign Bubble Chart for Clarity**:
+- Cap at **8 bubbles** (currently 12), sizes **64-96px** (currently 64-110px)
+- Each bubble shows its **theme name + source icon row** (tiny dots for coach/practice/wins/checkins) so the user instantly sees where the theme comes from without clicking
+- Connection lines become **labeled**: a small text label on hover or inline like "related" so dotted lines aren't mysterious
+- Replace the generic bottom text with the AI observation above the map
 
-```text
-daily_checkins (30d) ──┐
-                       ├── performance-rhythm-insights edge function ──> display-ready JSON
-calendar_events (30d) ─┤
-behavior_logs (30d) ───┘
-calendar_connections ──┘
-```
+**Redesign Click-Through Modal**:
+- Remove the long generic insight paragraph (e.g., the "Communication themes reflect Emotional Intelligence development..." block)
+- Replace with a **concise one-liner** tied to the user's actual data, e.g., "Appeared 7 times across your coach sessions this month"
+- Keep: Theme name, mention count, source breakdown, most recent mention (date + source), "Explore with Coach" button
+- Remove the "Got it" button — the X close button is sufficient
 
-The client receives a single JSON object and renders it. No proprietary correlation logic runs in the browser.
-
----
-
-## Edge Function: `performance-rhythm-insights`
-
-**Auth**: Auth0 token verification via `/userinfo` (same pattern as all other edge functions). Service role key for DB reads.
-
-**What it queries (30 days)**:
-- `daily_checkins` — `outcome`, `energy_balance` (0-100 composite score), `checkin_date`, `created_at` (time-of-day)
-- `calendar_events` — event titles matched against high-stakes keywords
-- `calendar_connections` — whether calendar is connected
-- `behavior_logs` — `behavior_type`, `created_at`
-
-**What it computes**:
-
-1. **Heatmap grid (3x7)** — Morning/Afternoon/Evening x Mon-Sun
-   - Primary: most recent check-in outcome per cell (color)
-   - Secondary: average `energy_balance` per cell across 30 days (numeric overlay)
-   - Divergence flag: cells where felt state is "focused" but energy_balance < 50 (Managing tier)
-
-2. **Best performance window** — the cell with the highest average composite score. Returns a sentence like "Your sharpest window this month has been Tuesday mornings."
-
-3. **Calendar pattern observations** (max 2)
-   - Keywords: board, quarterly, investor, pitch, review, presentation, interview, deadline, client, all-hands, performance, budget, strategy, executive, stakeholder
-   - For each keyword found in calendar events on check-in days, compute average `energy_balance` on those days vs overall 30-day average
-   - If delta is significant (10+ points), produce: "On days with [keyword] events, your Inner Readiness tends to be [X points lower/higher] than your average -- observed across [N] days."
-   - Falls back to the existing outcome-correlation approach (keyword to most common outcome) if energy_balance data is sparse
-
-4. **Behavior-state observation** (max 1)
-   - From `behavior_logs` + `daily_checkins`: 0-1 day temporal window
-   - Group by (behavior_type to outcome). Filter: total >= 2, confidence >= 0.5
-   - Top pattern as sentence: "On days following [behaviour], you tend to check in [state] [X]% of the time."
-
-**Response shape**:
-```json
-{
-  "heatmap": {
-    "morning": { "Mon": { "outcome": "focused", "avgScore": 72, "divergence": false }, ... },
-    "afternoon": { ... },
-    "evening": { ... }
-  },
-  "bestWindow": "Tuesday mornings",
-  "observations": [
-    "On days with Board events, your Inner Readiness tends to be 14 points lower than your average -- observed across 5 days.",
-    "On days following Avoided behaviors, you tend to check in scattered 70% of the time."
-  ],
-  "hasCalendar": true,
-  "checkInCount": 12
-}
-```
+**Fix AI Pipeline**: The edge function currently calls the Google Generative AI API directly with `GEMINI_API_KEY` (which is not configured). This is the V1 bug mentioned in the spec. Migrate to Lovable AI Gateway so AI actually works.
 
 ---
 
-## New Component: `PerformanceRhythmCard.tsx`
+### Technical Changes
 
-Replaces the current inline rendering of three components. Calls the edge function on mount and renders:
+#### 1. Edge Function: `insights-semantic-analysis/index.ts`
 
-1. **Qualitative observation box** (top of card) — max 2 sentences from `observations[]`, styled as a subtle insight panel. If no observations available, shows progressive prompt.
+- **Add AI observation generation**: After computing `unifiedThemes`, take the top 5 weighted themes and call Lovable AI Gateway to generate a 2-sentence observation. Prompt: *"These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language."*
+- **Algorithmic fallback**: If AI fails or rate-limited, generate observation from top 2 themes and their source distribution (e.g., "Your inner world is currently shaped by [theme1] and [theme2], surfacing most in your coach conversations.")
+- **Replace Gemini direct API call** (lines 151-212) with Lovable AI Gateway call for coach message theme extraction
+- **Cap `unifiedThemes` to 8** (currently 15 on line 314)
+- **Cap `themeRelationships` to 6** (currently 4 on line 364)
+- **Return new field**: `aiObservation: string` in the response
 
-2. **3x7 heatmap grid** — same visual structure as current `EnergyRhythm` but with:
-   - Composite score number overlaid in each cell (small text)
-   - Divergence indicator (subtle border pulse) on cells where felt state diverges from composite score
+#### 2. Component: `InnerWorldBubbles.tsx`
 
-3. **Best performance window** — single line beneath the heatmap
+- **Bubble size range**: Change from 64-110px to 64-96px (line 112-114)
+- **Max items**: Change `.slice(0, 12)` to `.slice(0, 8)` (line 119)
+- **Add source indicator row** inside each bubble: 4 tiny dots below the theme name, colored/filled based on which sources contributed (coach = amber, practice = blue, wins = green, checkins = purple). This replaces the current `{item.totalCount}x` count display.
+- **Connection line labels**: Add small text labels at the midpoint of each Bezier curve saying the relationship type or simply showing both connected theme names
+- **Simplify modal**: Remove the long `THEME_INSIGHTS` paragraph. Replace with a concise data-driven line: "[N] mentions — mostly from [top source]". Keep source breakdown, recent mentions, and "Explore with Coach" button. Remove "Got it" button.
 
-4. **Progressive states**:
-   - 0 check-ins: "Complete your first check-in to start mapping your rhythm"
-   - 1-4: Shows heatmap with progressive message
-   - 5+: Calendar observations appear (if calendar connected)
-   - No calendar: "Connect your calendar to see how your outer world affects your inner state"
+#### 3. Page: `Insights.tsx`
 
----
+- **Rename** card header from "Your Theme Map" to "Your Mind Map"
+- **Update tooltip** text to match the spec
+- **Add `aiObservation` to `SemanticAnalysis` interface** and display it above the `InnerWorldBubbles` component inside the card
+- **Replace** the generic bottom text ("These themes emerge from your coach conversations...") with the AI observation rendered above the map
+- **DEV_MODE**: Generate a simple algorithmic observation from the dev data so the observation box always renders during development
 
-## Changes to `Insights.tsx`
+#### 4. Files Modified
 
-- Remove imports: `EnergyRhythm`, `CalendarStateCorrelations`, `CauseEffectInsights`
-- Remove client-side data passed to these components (`checkInsWithTimestamp` no longer needed for this card)
-- Replace the Card 4 section (lines 779-815) with a single `<PerformanceRhythmCard userId={user?.id} />` call
-- The `checkInsWithTimestamp` state and its fetching in `fetchInsightsData` can be simplified (it was primarily used by `EnergyRhythm`)
-
----
-
-## Files Created/Modified
-
-| File | Action |
+| File | Change |
 |---|---|
-| `supabase/functions/performance-rhythm-insights/index.ts` | New edge function with all computation logic |
-| `src/components/insights/PerformanceRhythmCard.tsx` | New unified renderer |
-| `src/pages/Insights.tsx` | Swap three components for `PerformanceRhythmCard`, clean up state |
-| `supabase/config.toml` | Add `[functions.performance-rhythm-insights]` with `verify_jwt = false` |
+| `supabase/functions/insights-semantic-analysis/index.ts` | Migrate AI to Lovable Gateway, add observation generation, cap themes to 8, cap relationships to 6 |
+| `src/components/insights/InnerWorldBubbles.tsx` | Resize bubbles (64-96px), cap to 8, add source indicator dots, simplify modal, remove generic insights |
+| `src/pages/Insights.tsx` | Rename to "Your Mind Map", add AI observation display above bubbles, update interface and DEV_MODE |
 
----
-
-## Security
-
-All correlation logic (calendar keyword matching, behavior-outcome grouping, divergence detection) moves server-side. The client renders pre-computed strings and a grid object. No proprietary scoring visible in the browser bundle.
-
-The existing `CauseEffectInsights.tsx`, `CalendarStateCorrelations.tsx`, and `EnergyRhythm.tsx` files are retained in the codebase but no longer imported on the Insights page.
