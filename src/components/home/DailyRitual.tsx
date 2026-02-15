@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PostEventReflection from '@/components/home/PostEventReflection';
 import { Button } from '@/components/ui/button';
-import { Check, RotateCcw, Play, Heart } from 'lucide-react';
+import { Check, RotateCcw, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -489,11 +489,11 @@ const DailyRitual = () => {
     ? plan.preEventPlan.modules
     : plan?.timeOfDayPlan?.modules || [];
 
-  if (activeModules.length === 0) {
+  if (activeModules.length === 0 && !loading) {
     return (
       <div className="px-4 py-5">
         <p className="text-sm text-muted-foreground">
-          Unable to generate recommendations. Please complete your daily check-in.
+          Your plan is being prepared. Pull down to refresh.
         </p>
       </div>
     );
@@ -653,20 +653,17 @@ const DailyRitual = () => {
             onClick={handleStartRitual}
             className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
           >
-            <Play size={16} className="mr-2" />
             Start Pack
           </Button>
         ) : (
           <>
             {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
               <Button onClick={handleStartRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                <Play size={16} className="mr-2" />
                 Start Your Mastery Plan
               </Button>
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
               <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                <Play size={16} className="mr-2" />
                 {(() => {
                   const queue = localStorage.getItem('practiceQueue');
                   const currentIndex = parseInt(localStorage.getItem('queueIndex') || '0');
