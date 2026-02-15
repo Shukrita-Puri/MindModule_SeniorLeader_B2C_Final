@@ -8,13 +8,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
-import WeeklyRitualStreak from '@/components/home/WeeklyRitualStreak';
+// WeeklyRitualStreak removed — lives on homepage via InsightProgressCard
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import EnergyRhythm from '@/components/insights/EnergyRhythm';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import CalendarStateCorrelations from '@/components/insights/CalendarStateCorrelations';
-import BehaviorOutcomeCorrelations from '@/components/insights/BehaviorOutcomeCorrelations';
+// BehaviorOutcomeCorrelations absorbed into CauseEffectInsights within Performance Rhythm
 import FrictionAndStrengthDetail from '@/components/insights/FrictionAndStrengthDetail';
 import CauseEffectInsights from '@/components/insights/CauseEffectInsights';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
@@ -682,7 +682,7 @@ const Insights = () => {
               Patterns. Progress. Presence.
             </p>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Your longitudinal view of mental fitness development — tracking states, wins, and inner patterns over time.
+              What is consistently true about how you lead, perform, and recover — drawn from everything the app knows about you.
             </p>
           </div>
         </div>
@@ -692,154 +692,136 @@ const Insights = () => {
         {/* Baseline Reference Card - Always visible */}
         <BaselineReferenceCard profile={profileBaseline} />
 
-        {/* Weekly Progress Streak */}
+        {/* What Works For You (Practice Effectiveness) */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Progress This Week</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">What Works For You</span>
               <InsightInfoModal
-                title="Your Progress This Week"
-                explanation="Tracks your daily ritual completions over the past 7 days. Consistency helps build mental fitness habits that compound over time."
+                title="What Works For You"
+                explanation="The practices that actually move the needle for you — not in general, but based on your own data. Drawn from your Recalibration sessions across Pause, Flow, and Renergise, correlated with your state the following day."
               />
             </div>
           </CardHeader>
           <CardContent>
-            <WeeklyRitualStreak />
+            <PracticeEffectiveness userId={user?.id} />
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Consolidated Stats - Practice Effectiveness (2 cols) + Typical State (1 col) */}
-        <div className="grid grid-cols-3 gap-4">
-          <LuxuryInsightCard className="col-span-2">
-            <CardContent className="pt-6 pb-4">
-              <PracticeEffectiveness userId={user?.id} />
-            </CardContent>
-          </LuxuryInsightCard>
+        {/* Your Leadership Patterns — consolidates Typical State, Strength & Friction, Theme Patterns */}
+        <LuxuryInsightCard>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Leadership Patterns</span>
+              <InsightInfoModal
+                title="Your Leadership Patterns"
+                explanation="What is consistently true about how you lead. This card draws from your coach sessions, your recurring Compass themes, and your check-in history over 30 days — surfacing the strengths your coach keeps returning to, the friction patterns that keep showing up, and the overall direction of your inner state over time."
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Typical State — supporting line */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Most frequent state this period</span>
+              <span className="text-sm font-semibold text-foreground capitalize">
+                {mostCommonState ? stateLabels[mostCommonState] : '—'}
+              </span>
+            </div>
 
-          <LuxuryInsightCard>
-            <CardContent className="pt-6 pb-4">
-              <div className="flex flex-col items-center">
-                <div className="flex items-center justify-between w-full mb-2">
-                  <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body mx-auto">Typical State</span>
-                </div>
-                <p className="text-xl font-headline font-semibold text-foreground capitalize mt-1">
-                  {mostCommonState ? stateLabels[mostCommonState] : '—'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">this week</p>
-                
-                {insightsTier === 'early' && todayAndYesterdayStates && (
-                  <div className="text-[10px] mt-2 text-muted-foreground">
-                    Today: <span className="text-foreground capitalize">{todayAndYesterdayStates.today}</span>
-                    {todayAndYesterdayStates.yesterday && (
-                      <> • Yesterday: <span className="text-foreground capitalize">{todayAndYesterdayStates.yesterday}</span></>
-                    )}
-                  </div>
+            {insightsTier === 'early' && todayAndYesterdayStates && (
+              <div className="text-[10px] text-muted-foreground">
+                Today: <span className="text-foreground capitalize">{todayAndYesterdayStates.today}</span>
+                {todayAndYesterdayStates.yesterday && (
+                  <> · Yesterday: <span className="text-foreground capitalize">{todayAndYesterdayStates.yesterday}</span></>
                 )}
               </div>
-            </CardContent>
-          </LuxuryInsightCard>
-        </div>
+            )}
 
-        {/* Friction & Strength Detail */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Strength & Friction</span>
-              <InsightInfoModal
-                title="Strength & Friction"
-                explanation="Your natural strength area and growth edge based on your archetype profile, check-in patterns, and coach conversation insights."
-              />
+            {/* Strength & Friction */}
+            <div className="pt-3 border-t border-border/30">
+              <FrictionAndStrengthDetail userId={user?.id} profileBaseline={profileBaseline} />
             </div>
-          </CardHeader>
-          <CardContent>
-            <FrictionAndStrengthDetail userId={user?.id} profileBaseline={profileBaseline} />
-          </CardContent>
-        </LuxuryInsightCard>
 
-        {/* Cause-Effect Insights */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Cause → Effect Patterns</span>
-              <InsightInfoModal
-                title="Cause-Effect Patterns"
-                explanation="Cross-references your behaviors, practices, and calendar events with your check-in states to reveal how actions influence your mental state."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CauseEffectInsights userId={user?.id} />
-          </CardContent>
-        </LuxuryInsightCard>
-
-        {/* Theme Patterns - Day 4+ */}
-        {(insightsTier === 'deepening' || insightsTier === 'full') && (
-          <LuxuryInsightCard>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Theme Patterns</span>
-                <InsightInfoModal
-                  title="Theme Patterns"
-                  explanation="The psychological frames generated for you based on your state, calendar load, and time of day. Repeated themes reveal what your system is asking for."
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {semanticLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Emerging themes from your {checkInCount} check-ins:
-                  </p>
-                  {/* Theme bubbles with luxury styling */}
-                  <div className="flex flex-wrap gap-2">
-                    {semanticAnalysis.themePatterns.map((theme, i) => (
-                      <span 
-                        key={i} 
-                        className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                      >
-                        "{theme.phrase}"
-                        {theme.count > 1 && (
-                          <span className="ml-1 opacity-60">({theme.count}x)</span>
-                        )}
-                      </span>
-                    ))}
+            {/* Theme Patterns — deepening tier+ */}
+            {(insightsTier === 'deepening' || insightsTier === 'full') && (
+              <div className="pt-3 border-t border-border/30">
+                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Recurring Themes</p>
+                {semanticLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                  
-                  {/* Driver summary */}
-                  <p className="text-xs text-muted-foreground/60">
-                    Most common driver: {
-                      (() => {
-                        const driverCounts = semanticAnalysis.themePatterns.reduce((acc, t) => {
-                          acc[t.driver] = (acc[t.driver] || 0) + t.count;
-                          return acc;
-                        }, {} as Record<string, number>);
-                        const topDriver = Object.entries(driverCounts).sort((a, b) => b[1] - a[1])[0];
-                        return topDriver ? topDriver[0].replace('+', ' + ') : 'state';
-                      })()
-                    }-based
+                ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {semanticAnalysis.themePatterns.map((theme, i) => (
+                        <span 
+                          key={i} 
+                          className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                        >
+                          "{theme.phrase}"
+                          {theme.count > 1 && (
+                            <span className="ml-1 opacity-60">({theme.count}×)</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-2">
+                    More check-ins will reveal recurring themes.
                   </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4">
-                  Complete a few more check-ins to see theme patterns.
-                </p>
-              )}
-            </CardContent>
-          </LuxuryInsightCard>
-        )}
+                )}
+              </div>
+            )}
+          </CardContent>
+        </LuxuryInsightCard>
 
-        {/* Your Inner World - Mind Map (Day 5+ or sufficient data) */}
+        {/* Card 4 — Your Performance Rhythm */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Performance Rhythm</span>
               <InsightInfoModal
-                title="Your Mind Map"
-                explanation="A unified view of themes emerging from your coach conversations, practices, wins, and check-ins. Bubbles are sized by frequency. Lines show conceptually related themes."
+                title="Your Performance Rhythm"
+                explanation="When you perform, when you don't, and what your outer world is doing to your inner state. Your cognitive and emotional rhythm across the week — paired with a read on which calendar conditions consistently lift or drain your readiness."
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Qualitative observation — cause-effect absorbed here */}
+            <div className="mb-5">
+              <CauseEffectInsights userId={user?.id} />
+            </div>
+
+            <EnergyRhythm 
+              checkIns={checkInsWithTimestamp}
+            />
+            <div className="mt-5 pt-4 border-t border-border/30">
+              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Calendar Event Correlations</p>
+              <CalendarStateCorrelations userId={user?.id} />
+            </div>
+            <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
+              {checkInsWithTimestamp.length >= 7 ? (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your performance rhythm reveals natural peaks and dips throughout the week.
+                </p>
+              ) : checkInsWithTimestamp.length > 0 ? (
+                <p className="text-xs text-muted-foreground/60">
+                  {7 - checkInsWithTimestamp.length} more check-ins will reveal your performance rhythm.
+                </p>
+              ) : null}
+            </div>
+          </CardContent>
+        </LuxuryInsightCard>
+
+        {/* Card 5 — Your Inner World */}
+        <LuxuryInsightCard>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Inner World</span>
+              <InsightInfoModal
+                title="Your Inner World"
+                explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day — what keeps coming up. The picture your data is painting of your inner world right now."
               />
             </div>
           </CardHeader>
@@ -851,7 +833,7 @@ const Insights = () => {
             ) : !mindMapReady ? (
               <div className="py-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Your Mind Map builds from coach conversations, practices, and wins.
+                  Your Inner World builds from coach conversations, practices, and wins.
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-2">
                   Keep engaging to see unified themes emerge.
@@ -864,11 +846,10 @@ const Insights = () => {
                   relationships={semanticAnalysis?.themeRelationships || []}
                   onBubbleClick={fetchBubbleDetails}
                 />
-                {/* Insight space */}
                 <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
                   {semanticAnalysis?.unifiedThemes?.length > 0 ? (
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      These themes emerge from your coach conversations, practices, and wins - revealing your inner patterns.
+                      These themes emerge from your coach conversations, practices, and wins — revealing your inner patterns.
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground/60">
@@ -881,14 +862,14 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Your Tiny Wins - Progressive from Day 1 */}
+        {/* Card 6 — Your Momentum */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Tiny Wins</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
-                title="Your Tiny Wins"
-                explanation="Themes extracted from the wins you've captured during evening Integrate sessions with your coach. These reveal what you're naturally doing well."
+                title="Your Momentum"
+                explanation="The wins you've logged over the past two weeks — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
@@ -899,12 +880,10 @@ const Insights = () => {
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
-                {/* Progressive message for early wins */}
                 {winsProgressMessage && (
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
                 
-                {/* Psychological dimension bubbles with related wins */}
                 {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
                   <PsychologicalDimensionBubbles
                     data={tinyWinsInsights.dimensions.map(d => ({
@@ -922,24 +901,15 @@ const Insights = () => {
                   />
                 )}
                 
-                {/* Summary insight */}
                 {tinyWinsInsights.summary && (
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tinyWinsInsights.summary}
                   </p>
                 )}
                 
-                {/* Win count */}
                 <p className="text-xs text-muted-foreground/60">
                   Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
                 </p>
-                
-                {/* Insight space */}
-                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-                  <p className="text-xs text-muted-foreground/60">
-                    Each bubble represents a psychological dimension from your wins.
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="py-4">
@@ -948,41 +918,6 @@ const Insights = () => {
                 </p>
               </div>
             )}
-          </CardContent>
-        </LuxuryInsightCard>
-
-        {/* Your Energy Rhythm Heatmap + Calendar Correlations merged */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Energy Rhythm</span>
-              <InsightInfoModal
-                title="Your Energy Rhythm"
-                explanation="Visualizes when you typically check in and how you feel at different times of day. Calendar event correlations show which events influence your state."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <EnergyRhythm 
-              checkIns={checkInsWithTimestamp}
-            />
-            {/* Calendar correlation summary merged here */}
-            <div className="mt-5 pt-4 border-t border-border/30">
-              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Calendar Event Correlations</p>
-              <CalendarStateCorrelations userId={user?.id} />
-            </div>
-            {/* Insight space */}
-            <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-              {checkInsWithTimestamp.length >= 7 ? (
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your energy rhythm reveals natural peaks and dips throughout the week.
-                </p>
-              ) : checkInsWithTimestamp.length > 0 ? (
-                <p className="text-xs text-muted-foreground/60">
-                  {7 - checkInsWithTimestamp.length} more check-ins will reveal your energy rhythm.
-                </p>
-              ) : null}
-            </div>
           </CardContent>
         </LuxuryInsightCard>
       </div>

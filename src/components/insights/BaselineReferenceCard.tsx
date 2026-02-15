@@ -16,11 +16,16 @@ interface BaselineReferenceCardProps {
 
 // Archetype display names
 const archetypeLabels: Record<string, string> = {
-  'grounded-leader': 'The Grounded Leader',
+  'grounded-leader': 'The Grounded Master',
   'resilient-performer': 'The Resilient Performer',
   'adaptive-navigator': 'The Adaptive Navigator',
   'mindful-strategist': 'The Mindful Strategist',
   'balanced-achiever': 'The Balanced Achiever',
+  // Engine output ID mappings
+  'natural_regulator': 'The Grounded Master',
+  'strategic_pauser': 'The Grounded Master',
+  'high_octane_performer': 'The Resilient Performer',
+  'awareness_builder': 'The Adaptive Navigator',
 };
 
 const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
@@ -45,11 +50,11 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Starting Point
+            Your Leadership Blueprint
           </span>
           <InsightInfoModal
-            title="Your Starting Point"
-            explanation="Your baseline from onboarding. This reference helps track your growth over time. The dotted lines on charts show this baseline for comparison."
+            title="Your Leadership Blueprint"
+            explanation="Your foundation. This is who you are based on your onboarding assessment — your mental fitness baseline, your archetype, and the component scores that define how you regulate, focus, and recover. Every other insight on this page is measured against this."
           />
         </div>
       </CardHeader>
