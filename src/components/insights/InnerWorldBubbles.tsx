@@ -65,48 +65,54 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG dimensions — spacious vertical layout
+  // SVG dimensions — tall vertical canvas like Mindsera reference
   const svgWidth = 380;
-  const svgHeight = 420;
+  const svgHeight = 500;
   const centerX = svgWidth / 2;
-  const centerY = svgHeight / 2;
 
-  // Deterministic node positioning — spacious staggered vertical spread
+  // Deterministic node positioning — flowing vertical cascade
   const nodePositions = useMemo(() => {
     const count = sortedItems.length;
     if (count === 0) return [];
 
-    const padX = 80;
-    const padY = 40;
+    const padX = 60;
+    const padY = 30;
     const usableW = svgWidth - padX * 2;
     const usableH = svgHeight - padY * 2;
-    // Horizontal placement columns: left, center-left, center, center-right, right
-    const xSlots = [0.2, 0.45, 0.7, 0.3, 0.6, 0.15, 0.55, 0.8];
 
-    return sortedItems.map((item, i) => {
+    // Cascading vertical positions with horizontal zigzag
+    // Mimics the Mindsera pattern: nodes flow top-to-bottom, alternating left-right
+    const positions = sortedItems.map((item, i) => {
       const nodeR = 4 + item.weight * 8;
-      // Vertical: evenly distribute rows with jitter
-      const rowY = padY + (usableH / (count + 1)) * (i + 1);
-      const jitterY = ((i * 13) % 9) - 4;
-      // Horizontal: pick from staggered slots with jitter
-      const baseX = padX + usableW * xSlots[i % xSlots.length];
-      const jitterX = ((i * 17) % 11) - 5;
-
-      let x = baseX + jitterX;
-      let y = rowY + jitterY;
-
-      // First (heaviest) node sits upper-center
+      
+      // Vertical: distribute evenly with generous spacing
+      const verticalStep = usableH / (count + 1);
+      const y = padY + verticalStep * (i + 1);
+      
+      // Horizontal: zigzag pattern — odd nodes right-of-center, even left-of-center
+      // with slight randomness for organic feel
+      let x: number;
       if (i === 0) {
-        x = centerX + jitterX * 0.3;
-        y = padY + usableH * 0.15;
+        // First (heaviest) node: upper right area
+        x = centerX + usableW * 0.15;
+      } else if (i % 3 === 0) {
+        // Every 3rd: left side
+        x = padX + usableW * 0.15 + ((i * 23) % 30);
+      } else if (i % 3 === 1) {
+        // Center-right
+        x = centerX + usableW * 0.12 + ((i * 17) % 25);
+      } else {
+        // Center-left  
+        x = centerX - usableW * 0.05 + ((i * 11) % 20);
       }
 
-      // Clamp within padded bounds
-      x = Math.max(padX + nodeR, Math.min(svgWidth - padX - nodeR, x));
-      y = Math.max(padY + nodeR, Math.min(svgHeight - padY - nodeR, y));
-
+      // Clamp within bounds
+      x = Math.max(padX + nodeR + 60, Math.min(svgWidth - padX - nodeR - 60, x));
+      
       return { x, y, radius: nodeR };
     });
+
+    return positions;
   }, [sortedItems, centerX, svgWidth, svgHeight]);
 
   // Connection paths
@@ -127,7 +133,7 @@ const InnerWorldBubbles = ({
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.4;
+      const offset = Math.min(dist * 0.3, 60);
       const perpX = dist > 0 ? (-dy / dist) * offset : 0;
       const perpY = dist > 0 ? (dx / dist) * offset : 0;
       const cx = midX + perpX;
@@ -190,7 +196,7 @@ const InnerWorldBubbles = ({
         width="100%" 
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="overflow-visible"
-        style={{ minHeight: '340px' }}
+        style={{ minHeight: '400px' }}
       >
         {/* Connection lines */}
         {connectionPaths.map((conn) => (
@@ -204,8 +210,8 @@ const InnerWorldBubbles = ({
               d={conn.path}
               fill="none"
               stroke="hsl(var(--muted-foreground))"
-              strokeWidth={1}
-              strokeOpacity={0.2 + conn.strength * 0.35}
+              strokeWidth={0.8}
+              strokeOpacity={0.15 + conn.strength * 0.25}
               strokeDasharray="none"
             />
             {/* Wider invisible hit area for hover */}
@@ -267,8 +273,8 @@ const InnerWorldBubbles = ({
                 cy={pos.y}
                 r={pos.radius}
                 fill="hsl(var(--muted-foreground))"
-                fillOpacity={0.35 + item.weight * 0.35}
-                className="transition-all duration-200 hover:fill-opacity-80"
+                fillOpacity={0.3 + item.weight * 0.3}
+                className="transition-all duration-300 hover:fill-opacity-70"
               />
               {/* Theme label — beside node */}
               <text
