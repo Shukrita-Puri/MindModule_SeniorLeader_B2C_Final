@@ -609,6 +609,14 @@ const DailyRitual = () => {
     };
   };
 
+  // Time-of-day label
+  const getTimeLabel = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Morning Start';
+    if (hour >= 12 && hour < 17) return 'Afternoon Reset';
+    return 'Evening Close';
+  };
+
   return (
     <div className="space-y-4 pt-2">
       {/* Post-Event Micro-Reflection - shows after high-stakes events */}
@@ -616,12 +624,23 @@ const DailyRitual = () => {
         <PostEventReflection />
       </div>
 
-      {/* Progress indicator - compact */}
-      {ritualStatus.status === 'partial' && (
-        <div className="text-xs text-muted-foreground px-4 max-w-lg mx-auto">
-          {ritualStatus.completedCount} of {ritualStatus.totalCount} modules completed
+      {/* Time-of-day header with progress tracker */}
+      <div className="px-4 max-w-lg mx-auto flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground font-body">
+            {getTimeLabel()}
+          </span>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+            {new Date().getHours() >= 17 ? 'Evening' : new Date().getHours() >= 12 ? 'Afternoon' : 'Morning'}
+          </span>
         </div>
-      )}
+        <span className={cn(
+          "text-xs font-medium font-body",
+          ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
+        )}>
+          {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
+        </span>
+      </div>
 
       {/* Recommended Content - Full Width Carousel */}
       <div className="relative w-full">

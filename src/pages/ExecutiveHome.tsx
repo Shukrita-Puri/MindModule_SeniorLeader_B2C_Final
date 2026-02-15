@@ -203,32 +203,29 @@ const ExecutiveHome = () => {
               {/* Subtle separator */}
               <div className="border-t border-black/[0.06] my-8" />
 
-              {/* Section 3: Performance Plan - "What should I do now?" */}
+              {/* Section 3: Today's Plan - unified section */}
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-                      Today's Performance Plan
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                      {new Date().getHours() >= 17 ? 'Evening' : new Date().getHours() >= 12 ? 'Afternoon' : 'Morning'}
+                      Today's Plan
                     </span>
                   </div>
                   <MetricInfoModal
                     title="How Your Plan is Built"
-                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. The system selects the right protocols, durations, and sequence to optimize your day. You don't choose—the system deploys the right intervention at the right time."
+                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. Time-of-day plans (Morning Start, Evening Close) count toward your daily progress. Just-in-time preparations for upcoming events are shown separately."
                   />
                 </div>
               </section>
             </div>
 
-            {/* Daily Ritual Carousel - Full width */}
+            {/* Time-of-Day Plan - Primary importance */}
             <div className="animate-in fade-in duration-500 delay-200">
               <DailyRitual />
             </div>
 
-            {/* JIT Preparation Carousel - Own section, only when triggered */}
-            <div className="animate-in fade-in duration-500 delay-300 mt-6">
+            {/* JIT Preparation - Secondary importance, smaller */}
+            <div className="animate-in fade-in duration-500 delay-300 mt-4">
               <JitCarousel />
             </div>
 

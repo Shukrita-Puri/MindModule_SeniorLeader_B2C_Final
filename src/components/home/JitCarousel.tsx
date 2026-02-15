@@ -307,16 +307,16 @@ const JitCarousel = () => {
   if (loading || visibleInterventions.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Section header */}
+    <div className="space-y-3">
+      {/* Section header - smaller, secondary */}
       <div className="px-4 md:px-6 max-w-lg mx-auto">
-        <div className="flex items-center justify-between py-2">
-          <span className="text-xs font-medium tracking-widest uppercase text-saffron font-body">
-            Prepare Now
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
+            Just-in-Time
           </span>
           <MetricInfoModal
             title="Just-in-Time Preparation"
-            description="When a high-stakes event is approaching, the system assembles a quick preparation sequence — somatic regulation, mental alignment, and coach-guided rehearsal — to help you show up at your best."
+            description="When a high-stakes event is approaching, the system assembles a quick preparation sequence. These do not count toward your daily plan progress — they're additional support for specific moments."
           />
         </div>
       </div>
@@ -330,11 +330,11 @@ const JitCarousel = () => {
               const isLast = idx === visibleInterventions.length - 1;
 
               return (
-                <CarouselItem key={event?.id || `jit-${idx}`} className="pl-4 basis-[85%] sm:basis-[75%] md:basis-[50%]">
+                <CarouselItem key={event?.id || `jit-${idx}`} className="pl-3 basis-[80%] sm:basis-[70%] md:basis-[45%]">
                   <div className={cn(
-                    "relative rounded-xl overflow-hidden p-4",
-                    "bg-white/65 backdrop-blur-[20px] border border-saffron/20",
-                    "shadow-[0_4px_16px_rgba(255,140,66,0.08)]",
+                    "relative rounded-lg overflow-hidden p-3",
+                    "bg-white/50 backdrop-blur-[16px] border border-black/[0.04]",
+                    "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
                     isLast && "mr-4"
                   )}>
                     {/* Skip button */}
@@ -347,7 +347,7 @@ const JitCarousel = () => {
                       <X size={16} />
                     </button>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {/* Event name + time */}
                       <div className="flex items-start gap-2 pr-6">
                         <Clock size={14} className="text-saffron mt-0.5 flex-shrink-0" />
@@ -413,10 +413,10 @@ const JitCarousel = () => {
                       {/* Action button */}
                       <Button
                         onClick={() => handleStartPrep(intervention)}
-                        className="w-full h-10 text-sm font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
+                        className="w-full h-9 text-xs font-semibold bg-muted-foreground/80 text-white hover:bg-muted-foreground/90 rounded-lg"
                       >
-                        <Play size={14} className="mr-1.5" />
-                        Start Preparation
+                        <Play size={12} className="mr-1.5" />
+                        Prepare
                       </Button>
                     </div>
                   </div>
