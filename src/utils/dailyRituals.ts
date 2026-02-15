@@ -37,6 +37,7 @@ export interface RitualData {
   recommended_practice_ids?: string[];
   completed_practice_ids?: string[];
   recommended_practices_count?: number;
+  session_period?: string;
 }
 
 export async function getRituals(days: number = 30): Promise<RitualData[]> {
