@@ -47,15 +47,23 @@ const CollegeAdmissionsSimulation = ({
   const timerRef = useRef<NodeJS.Timeout>();
   const responseTimerRef = useRef<NodeJS.Timeout>();
 
-  // Meta skill mapping
+  // Meta skill mapping - aligned to 8 canonical Meta Skills
   const metaSkillMap: Record<string, string> = {
-    "mental-clarity": "Mental Clarity",
-    "social-intelligence": "Social Intelligence",
+    "self-regulation": "Self-Regulation",
     "resilience": "Resilience",
-    "leadership": "Leadership",
-    "adaptability": "Adaptability",
-    "creative-thinking": "Creative Thinking",
-    "ancient-wisdom": "Wisdom"
+    "emotional-intelligence": "Emotional Intelligence",
+    "confidence": "Confidence",
+    "thinking-clarity": "Thinking Clarity",
+    "adaptive-capacity": "Adaptive Capacity",
+    "influence": "Influence",
+    "presence": "Presence",
+    // Legacy keys
+    "mental-clarity": "Thinking Clarity",
+    "social-intelligence": "Influence",
+    "leadership": "Presence",
+    "adaptability": "Adaptive Capacity",
+    "creative-thinking": "Thinking Clarity",
+    "ancient-wisdom": "Thinking Clarity"
   };
 
   // Meta skills are shown from start, no need to track dynamically

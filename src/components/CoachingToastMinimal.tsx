@@ -14,23 +14,39 @@ interface CoachingToastMinimalProps {
 }
 
 const CoachingToastMinimal = ({ feedback, onClose }: CoachingToastMinimalProps) => {
-  // Meta skill type mapping
+  // Meta skill type mapping - aligned to 8 canonical Meta Skills
   const metaSkillLabels: Record<string, string> = {
-    "mental-clarity": "Mental Clarity",
-    "social-intelligence": "Social Intelligence",
+    "self-regulation": "Self-Regulation",
     "resilience": "Resilience",
-    "leadership": "Leadership",
-    "adaptability": "Adaptability",
-    "creative-thinking": "Creative Thinking",
-    "ancient-wisdom": "Ancient Wisdom",
-    "crisis-communication": "Crisis Communication"
+    "emotional-intelligence": "Emotional Intelligence",
+    "confidence": "Confidence",
+    "thinking-clarity": "Thinking Clarity",
+    "adaptive-capacity": "Adaptive Capacity",
+    "influence": "Influence",
+    "presence": "Presence",
+    // Legacy keys
+    "mental-clarity": "Thinking Clarity",
+    "social-intelligence": "Influence",
+    "leadership": "Presence",
+    "adaptability": "Adaptive Capacity",
+    "creative-thinking": "Thinking Clarity",
+    "ancient-wisdom": "Thinking Clarity",
+    "crisis-communication": "Influence"
   };
 
   // Icon mapping for each meta skill
   const metaSkillIcons: Record<string, React.ReactNode> = {
+    "self-regulation": <Target size={14} className="text-forest" />,
+    "resilience": <Shield size={14} className="text-forest" />,
+    "emotional-intelligence": <Compass size={14} className="text-forest" />,
+    "confidence": <Target size={14} className="text-forest" />,
+    "thinking-clarity": <Compass size={14} className="text-forest" />,
+    "adaptive-capacity": <Zap size={14} className="text-forest" />,
+    "influence": <Users size={14} className="text-forest" />,
+    "presence": <Lightbulb size={14} className="text-forest" />,
+    // Legacy keys
     "mental-clarity": <Compass size={14} className="text-forest" />,
     "social-intelligence": <Users size={14} className="text-forest" />,
-    "resilience": <Shield size={14} className="text-forest" />,
     "leadership": <Target size={14} className="text-forest" />,
     "adaptability": <Zap size={14} className="text-forest" />,
     "creative-thinking": <Lightbulb size={14} className="text-forest" />,

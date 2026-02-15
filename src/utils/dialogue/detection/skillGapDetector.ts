@@ -1,4 +1,5 @@
 // Dialogue Room - Meta-Skill Gap Detection Module
+// Aligned to the 8 canonical Meta Skills
 
 import { SkillGap } from '../types';
 
@@ -13,7 +14,7 @@ interface SkillPattern {
 // Self Mastery Cluster
 const SELF_MASTERY_PATTERNS: SkillPattern[] = [
   {
-    metaSkill: 'emotional_intelligence',
+    metaSkill: 'self_regulation',
     subSkill: 'emotional_regulation',
     cluster: 'self_mastery',
     gapIndicators: [
@@ -23,19 +24,6 @@ const SELF_MASTERY_PATTERNS: SkillPattern[] = [
     strengthIndicators: [
       'staying calm', 'managed to', 'kept my composure', 'took a breath',
       'paused before', 'controlled my'
-    ]
-  },
-  {
-    metaSkill: 'emotional_intelligence',
-    subSkill: 'self_awareness',
-    cluster: 'self_mastery',
-    gapIndicators: [
-      'dont know why', "don't know why", 'not sure what i feel',
-      'confused about my', 'no idea why i'
-    ],
-    strengthIndicators: [
-      'i realize', 'i notice', 'im aware', "i'm aware",
-      'i recognize in myself', 'reflecting on'
     ]
   },
   {
@@ -65,20 +53,7 @@ const SELF_MASTERY_PATTERNS: SkillPattern[] = [
     ]
   },
   {
-    metaSkill: 'learning_agility',
-    subSkill: 'adaptability_to_feedback',
-    cluster: 'self_mastery',
-    gapIndicators: [
-      'thats not fair', "that's not fair", 'you dont understand',
-      "you don't understand", 'but i', 'thats wrong', "that's wrong"
-    ],
-    strengthIndicators: [
-      'good point', 'i hadnt considered', "i hadn't considered",
-      'youre right', "you're right", 'i can see', 'thank you for'
-    ]
-  },
-  {
-    metaSkill: 'emotional_resilience',
+    metaSkill: 'resilience',
     subSkill: 'stress_management',
     cluster: 'self_mastery',
     gapIndicators: [
@@ -89,15 +64,37 @@ const SELF_MASTERY_PATTERNS: SkillPattern[] = [
       'managing', 'coping well', 'handling the pressure',
       'taking it in stride', 'staying grounded'
     ]
-  }
-];
-
-// Social Mastery Cluster
-const SOCIAL_MASTERY_PATTERNS: SkillPattern[] = [
+  },
   {
-    metaSkill: 'social_intelligence',
+    metaSkill: 'resilience',
+    subSkill: 'recovery',
+    cluster: 'self_mastery',
+    gapIndicators: [
+      'cant bounce back', "can't bounce back", 'still stuck',
+      'keeps happening', 'never gets better'
+    ],
+    strengthIndicators: [
+      'bounced back', 'recovered', 'learned from', 'grew stronger',
+      'moved past it'
+    ]
+  },
+  {
+    metaSkill: 'emotional_intelligence',
+    subSkill: 'self_awareness',
+    cluster: 'self_mastery',
+    gapIndicators: [
+      'dont know why', "don't know why", 'not sure what i feel',
+      'confused about my', 'no idea why i'
+    ],
+    strengthIndicators: [
+      'i realize', 'i notice', 'im aware', "i'm aware",
+      'i recognize in myself', 'reflecting on'
+    ]
+  },
+  {
+    metaSkill: 'emotional_intelligence',
     subSkill: 'empathy',
-    cluster: 'social_mastery',
+    cluster: 'self_mastery',
     gapIndicators: [
       'dont care', "don't care", 'not my problem', 'whatever',
       'their issue', 'why should i'
@@ -108,21 +105,64 @@ const SOCIAL_MASTERY_PATTERNS: SkillPattern[] = [
     ]
   },
   {
-    metaSkill: 'social_intelligence',
-    subSkill: 'active_listening',
-    cluster: 'social_mastery',
+    metaSkill: 'confidence',
+    subSkill: 'decisiveness',
+    cluster: 'self_mastery',
     gapIndicators: [
-      'wait what', 'sorry what', 'i wasnt listening',
-      "i wasn't listening", 'can you repeat'
+      'not sure if i should', 'what if im wrong', "what if i'm wrong",
+      'maybe i shouldnt', "maybe i shouldn't", 'i dont think i can', "i don't think i can"
     ],
     strengthIndicators: [
-      'so youre saying', "so you're saying", 'if i understand correctly',
-      'what i hear is', 'to summarize'
+      'i decided', 'im going to', "i'm going to", 'i chose to',
+      'i trust my', 'i believe i can'
     ]
   },
   {
-    metaSkill: 'communication_excellence',
-    subSkill: 'clarity',
+    metaSkill: 'thinking_clarity',
+    subSkill: 'perspective_taking',
+    cluster: 'self_mastery',
+    gapIndicators: [
+      'thats not fair', "that's not fair", 'you dont understand',
+      "you don't understand", 'but i', 'thats wrong', "that's wrong"
+    ],
+    strengthIndicators: [
+      'good point', 'i hadnt considered', "i hadn't considered",
+      'youre right', "you're right", 'i can see', 'thank you for'
+    ]
+  }
+];
+
+// Social Mastery Cluster
+const SOCIAL_MASTERY_PATTERNS: SkillPattern[] = [
+  {
+    metaSkill: 'adaptive_capacity',
+    subSkill: 'context_reading',
+    cluster: 'social_mastery',
+    gapIndicators: [
+      'is this wrong', 'should i not have', 'was that inappropriate',
+      'did i say something'
+    ],
+    strengthIndicators: [
+      'given the context', 'considering', 'appropriate to',
+      'in this situation'
+    ]
+  },
+  {
+    metaSkill: 'adaptive_capacity',
+    subSkill: 'adaptability_to_feedback',
+    cluster: 'social_mastery',
+    gapIndicators: [
+      'thats not fair', "that's not fair", 'but thats not',
+      "but that's not", 'i disagree completely'
+    ],
+    strengthIndicators: [
+      'good feedback', 'ill try that', "i'll try that",
+      'that makes sense', 'i can adjust'
+    ]
+  },
+  {
+    metaSkill: 'influence',
+    subSkill: 'clarity_of_communication',
     cluster: 'social_mastery',
     gapIndicators: [
       'i mean', 'like', 'sort of', 'kind of', 'you know',
@@ -134,7 +174,7 @@ const SOCIAL_MASTERY_PATTERNS: SkillPattern[] = [
     ]
   },
   {
-    metaSkill: 'communication_excellence',
+    metaSkill: 'influence',
     subSkill: 'rapport_building',
     cluster: 'social_mastery',
     gapIndicators: [
@@ -147,16 +187,29 @@ const SOCIAL_MASTERY_PATTERNS: SkillPattern[] = [
     ]
   },
   {
-    metaSkill: 'adaptive_social_navigation',
-    subSkill: 'context_reading',
+    metaSkill: 'presence',
+    subSkill: 'active_listening',
     cluster: 'social_mastery',
     gapIndicators: [
-      'is this wrong', 'should i not have', 'was that inappropriate',
-      'did i say something'
+      'wait what', 'sorry what', 'i wasnt listening',
+      "i wasn't listening", 'can you repeat'
     ],
     strengthIndicators: [
-      'given the context', 'considering', 'appropriate to',
-      'in this situation'
+      'so youre saying', "so you're saying", 'if i understand correctly',
+      'what i hear is', 'to summarize'
+    ]
+  },
+  {
+    metaSkill: 'presence',
+    subSkill: 'composure_under_scrutiny',
+    cluster: 'social_mastery',
+    gapIndicators: [
+      'i froze', 'went blank', 'couldnt think', "couldn't think",
+      'panicked', 'lost my train'
+    ],
+    strengthIndicators: [
+      'held my ground', 'stayed present', 'kept composure',
+      'remained focused', 'owned the room'
     ]
   }
 ];
