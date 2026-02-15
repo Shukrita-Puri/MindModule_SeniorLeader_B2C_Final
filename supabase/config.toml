@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.generate-mastery-plan]
 verify_jwt = false
+
+[functions.performance-rhythm-insights]
+verify_jwt = false

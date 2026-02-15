@@ -11,12 +11,9 @@ import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 // WeeklyRitualStreak removed — lives on homepage via InsightProgressCard
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
-import EnergyRhythm from '@/components/insights/EnergyRhythm';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
-import CalendarStateCorrelations from '@/components/insights/CalendarStateCorrelations';
-// BehaviorOutcomeCorrelations absorbed into CauseEffectInsights within Performance Rhythm
 import FrictionAndStrengthDetail from '@/components/insights/FrictionAndStrengthDetail';
-import CauseEffectInsights from '@/components/insights/CauseEffectInsights';
+import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import BaselineReferenceCard from '@/components/insights/BaselineReferenceCard';
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
@@ -777,42 +774,7 @@ const Insights = () => {
         </LuxuryInsightCard>
 
         {/* Card 4 — Your Performance Rhythm */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Performance Rhythm</span>
-              <InsightInfoModal
-                title="Your Performance Rhythm"
-                explanation="When you perform, when you don't, and what your outer world is doing to your inner state. Your cognitive and emotional rhythm across the week — paired with a read on which calendar conditions consistently lift or drain your readiness."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Qualitative observation — cause-effect absorbed here */}
-            <div className="mb-5">
-              <CauseEffectInsights userId={user?.id} />
-            </div>
-
-            <EnergyRhythm 
-              checkIns={checkInsWithTimestamp}
-            />
-            <div className="mt-5 pt-4 border-t border-border/30">
-              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Calendar Event Correlations</p>
-              <CalendarStateCorrelations userId={user?.id} />
-            </div>
-            <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-              {checkInsWithTimestamp.length >= 7 ? (
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your performance rhythm reveals natural peaks and dips throughout the week.
-                </p>
-              ) : checkInsWithTimestamp.length > 0 ? (
-                <p className="text-xs text-muted-foreground/60">
-                  {7 - checkInsWithTimestamp.length} more check-ins will reveal your performance rhythm.
-                </p>
-              ) : null}
-            </div>
-          </CardContent>
-        </LuxuryInsightCard>
+        <PerformanceRhythmCard userId={user?.id} />
 
         {/* Card 5 — Your Inner World */}
         <LuxuryInsightCard>
