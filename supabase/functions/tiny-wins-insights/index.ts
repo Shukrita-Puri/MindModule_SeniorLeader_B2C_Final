@@ -39,9 +39,58 @@ const DIMENSION_PATTERNS = {
     mastery: ['natural', 'effortless', 'automatic', 'second nature', 'instinct'],
     resilience: ['bounced back', 'recovered', 'persisted', 'kept going', 'didn\'t give up'],
     boundary: ['said no', 'protected', 'declined', 'limited', 'boundary', 'prioritized myself'],
-    letting_go: ['let go', 'released', 'accepted', 'surrendered', 'moved on'],
+    'letting-go': ['let go', 'released', 'accepted', 'surrendered', 'moved on'],
   },
 };
+
+// Display labels for C-suite language
+const DISPLAY_LABELS: Record<string, string> = {
+  emotion: "What you felt",
+  agency: "How you showed up",
+  regulation: "How you led yourself",
+  growth: "What it built",
+};
+
+// Per-dimension insight text (moved from client-side)
+const DIMENSION_INSIGHTS: Record<string, Record<string, string>> = {
+  emotion: {
+    pride: "Pride anchors accomplishment in your nervous system. This emotional marker strengthens your internal sense of competence—a key driver of Resilience when facing future challenges.",
+    gratitude: "Gratitude shifts your nervous system toward parasympathetic activation. Regular gratitude practice has been shown to increase Resilience and reduce stress reactivity by up to 25%.",
+    relief: "Noticing relief indicates you're tracking pressure cycles. This Self-Regulation skill helps you recognize recovery moments and prevent chronic stress accumulation.",
+    joy: "Joy captures flow states and peak experiences. Tracking these moments reveals your optimal conditions—key Emotional Intelligence for designing environments that support high performance.",
+    confidence: "Confidence in your wins reflects a growing internal locus of control. This self-trust is foundational for making decisive calls under pressure.",
+    hope: "Hope signals forward orientation and optimism. Leaders who track hopeful moments build psychological capital that sustains performance through uncertainty.",
+    courage: "Courage reflects your willingness to face discomfort. This pattern indicates growing capacity for bold leadership moves and difficult conversations.",
+  },
+  agency: {
+    proactive: "Taking initiative before external pressure reflects strong Self-Regulation. This proactive stance is a hallmark of high-performing leaders who shape conditions rather than react to them.",
+    responsive: "Adapting effectively to circumstances shows emotional agility. Your responsiveness indicates mature leadership that reads situations and adjusts without rigidity.",
+    collaborative: "Leveraging collective intelligence is advanced leadership. Your collaborative wins show you're building the relational capital that multiplies your impact.",
+    supported: "Seeking and accepting support reflects secure leadership. This pattern indicates psychological safety and the wisdom to leverage others' strengths.",
+  },
+  regulation: {
+    regulated: "Regulated states indicate your nervous system capacity is growing. Each time you notice regulation, you're reinforcing the neural circuitry for calm under pressure—essential for executive decision-making.",
+    intentional: "Intentional pauses before action reflect meta-cognitive mastery. This deliberate approach to decisions is what separates reactive management from strategic leadership.",
+    reactive: "Noticing reactivity is itself a form of Self-Regulation. This meta-awareness creates space between trigger and response, where better choices become possible.",
+  },
+  growth: {
+    learning: "A learning orientation is the engine of growth. By framing experiences as lessons, you're building Resilience and ensuring that even setbacks contribute to your development.",
+    breakthrough: "Breakthroughs mark threshold moments in your development. These aren't just wins—they're evidence that sustained effort is reshaping your capabilities.",
+    mastery: "Mastery orientation reflects your commitment to continuous improvement. This growth mindset is directly correlated with Resilience—you view challenges as development opportunities rather than threats.",
+    resilience: "You're explicitly building Resilience—the capacity to recover from setback. This meta-skill compounds over time, making you more adaptable and less affected by external volatility.",
+    boundary: "Setting boundaries is an advanced leadership skill. This pattern shows you're protecting your capacity for what matters most—a critical self-regulation behaviour.",
+    'letting-go': "Letting go reflects emotional maturity and trust in outcomes. This capacity to release control where appropriate frees cognitive resources for higher-order decisions.",
+  },
+};
+
+function getInsightText(dimension: string, value: string, count: number): string {
+  const dimensionInsights = DIMENSION_INSIGHTS[dimension];
+  if (dimensionInsights) {
+    const insight = dimensionInsights[value.toLowerCase()];
+    if (insight) return insight;
+  }
+  return `This pattern appears ${count} times in your recent wins, suggesting it's a significant part of your leadership momentum.`;
+}
 
 interface Dimensions {
   sentiment: string | null;
@@ -56,7 +105,6 @@ interface Dimensions {
 function extractDimensionsFromText(text: string): Dimensions {
   const lowerText = text.toLowerCase();
   
-  // Extract sentiment
   let sentiment: string | null = null;
   for (const [sent, keywords] of Object.entries(DIMENSION_PATTERNS.sentiment)) {
     if (keywords.some(k => lowerText.includes(k))) {
@@ -64,9 +112,8 @@ function extractDimensionsFromText(text: string): Dimensions {
       break;
     }
   }
-  if (!sentiment) sentiment = 'positive'; // Default for wins
+  if (!sentiment) sentiment = 'positive';
   
-  // Extract emotions
   const emotions: string[] = [];
   for (const [emotion, keywords] of Object.entries(DIMENSION_PATTERNS.emotion)) {
     if (keywords.some(k => lowerText.includes(k))) {
@@ -74,7 +121,6 @@ function extractDimensionsFromText(text: string): Dimensions {
     }
   }
   
-  // Extract agency
   let agency_type: string | null = null;
   for (const [agency, keywords] of Object.entries(DIMENSION_PATTERNS.agency)) {
     if (keywords.some(k => lowerText.includes(k))) {
@@ -83,7 +129,6 @@ function extractDimensionsFromText(text: string): Dimensions {
     }
   }
   
-  // Extract regulation
   let regulation_level: string | null = null;
   for (const [reg, keywords] of Object.entries(DIMENSION_PATTERNS.regulation)) {
     if (keywords.some(k => lowerText.includes(k))) {
@@ -92,11 +137,10 @@ function extractDimensionsFromText(text: string): Dimensions {
     }
   }
   
-  // Extract growth signal
   let growth_signal: string | null = null;
   for (const [growth, keywords] of Object.entries(DIMENSION_PATTERNS.growth)) {
     if (keywords.some(k => lowerText.includes(k))) {
-      growth_signal = growth.replace('_', '-');
+      growth_signal = growth;
       break;
     }
   }
@@ -117,7 +161,6 @@ serve(async (req) => {
   }
 
   try {
-    // Get auth token
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -128,7 +171,7 @@ serve(async (req) => {
 
     // Verify user via Auth0 userinfo
     const token = authHeader.replace("Bearer ", "");
-    const AUTH0_DOMAIN = Deno.env.get("AUTH0_DOMAIN");
+    const AUTH0_DOMAIN = Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN");
     
     const userInfoRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -144,10 +187,8 @@ serve(async (req) => {
     const userInfo = await userInfoRes.json();
     const userId = userInfo.sub;
 
-    // Get request body
     const { days = 14 } = await req.json().catch(() => ({}));
 
-    // Create Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -171,12 +212,12 @@ serve(async (req) => {
       });
     }
 
-    // If no wins, return empty response
     if (!wins || wins.length === 0) {
       return new Response(JSON.stringify({ 
         data: { 
           dimensions: [],
-          themes: [], 
+          observation: null,
+          patternLine: null,
           summary: null,
           winsCount: 0 
         } 
@@ -189,12 +230,10 @@ serve(async (req) => {
     const winsToAnalyze = wins.filter(w => !w.analyzed_at);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // Process wins needing analysis
     for (const win of winsToAnalyze) {
       let dimensions: Dimensions;
       
       if (LOVABLE_API_KEY) {
-        // Try AI-powered extraction
         try {
           const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
@@ -207,7 +246,7 @@ serve(async (req) => {
               messages: [
                 {
                   role: "system",
-                  content: `You analyze personal wins to extract psychological dimensions. Be specific and accurate.`
+                  content: "You analyze personal wins to extract psychological dimensions. Be specific and accurate."
                 },
                 {
                   role: "user",
@@ -259,7 +298,6 @@ serve(async (req) => {
         dimensions = extractDimensionsFromText(win.win_content);
       }
 
-      // Update the win with extracted dimensions
       await supabase
         .from("tiny_wins")
         .update({
@@ -281,7 +319,7 @@ serve(async (req) => {
       .eq("user_id", userId)
       .gte("win_date", startDate.toISOString().split("T")[0]);
 
-    // Aggregate dimensions into bubbles
+    // Aggregate dimensions into counts
     const dimensionCounts: Record<string, Record<string, number>> = {
       sentiment: {},
       emotion: {},
@@ -311,36 +349,92 @@ serve(async (req) => {
       }
     }
 
-    // Convert to array format for frontend
-    const dimensions: { dimension: string; value: string; count: number }[] = [];
+    // Build dimensions array — EXCLUDE sentiment from client response (internal only)
+    const dimensions: { dimension: string; value: string; count: number; displayLabel: string; insight: string }[] = [];
     for (const [dimension, values] of Object.entries(dimensionCounts)) {
+      if (dimension === 'sentiment') continue; // Gap 1: sentiment is internal filter only
       for (const [value, count] of Object.entries(values)) {
-        dimensions.push({ dimension, value, count });
+        dimensions.push({
+          dimension,
+          value,
+          count,
+          displayLabel: DISPLAY_LABELS[dimension] || dimension,
+          insight: getInsightText(dimension, value, count),
+        });
       }
     }
 
-    // Sort by count descending
     dimensions.sort((a, b) => b.count - a.count);
 
-    // Calculate source breakdown
-    const sourceBreakdown = {
-      coach: (updatedWins || []).filter(w => !w.source || w.source === 'coach').length,
-      practice: (updatedWins || []).filter(w => w.source === 'practice_reflection').length,
-    };
+    // Identify top emotion and top growth for AI observation
+    const topEmotion = dimensions.find(d => d.dimension === 'emotion');
+    const topGrowth = dimensions.find(d => d.dimension === 'growth');
 
-    // Generate summary
-    const topDimension = dimensions[0];
-    const summary = topDimension 
-      ? `Your wins reflect ${topDimension.value} energy across ${wins.length} moments.`
-      : `You've captured ${wins.length} wins in the past ${days} days.`;
+    // Gap 3: AI-generated momentum observation
+    let observation: string | null = null;
+    let patternLine: string | null = null;
+
+    if (topEmotion && topGrowth) {
+      patternLine = `Your wins over the past 14 days most reflect ${topEmotion.value} and ${topGrowth.value}`;
+
+      if (LOVABLE_API_KEY) {
+        try {
+          const observationPrompt = `This leader's recent wins most reflect ${topEmotion.value} and ${topGrowth.value}. In one sentence, what does this pattern of wins reveal about their current momentum and how they are leading themselves? Speak directly to the leader. No generic language.`;
+
+          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a senior executive coach observing patterns in a leader's recent wins. Respond with exactly one sentence. Be direct, specific, and insight-driven. No filler."
+                },
+                { role: "user", content: observationPrompt }
+              ],
+            }),
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            const content = aiData.choices?.[0]?.message?.content;
+            if (content) {
+              observation = content.trim();
+            }
+          }
+
+          if (aiResponse.status === 429 || aiResponse.status === 402) {
+            console.warn("AI rate limit / payment issue for observation, using fallback");
+          }
+        } catch (e) {
+          console.error("AI observation failed:", e);
+        }
+      }
+
+      // Fallback template
+      if (!observation) {
+        observation = `Over the past two weeks your wins most reflect ${topEmotion.value} and ${topGrowth.value}.`;
+      }
+    } else if (topEmotion) {
+      observation = `Over the past two weeks your wins most reflect ${topEmotion.value}.`;
+      patternLine = `Your wins over the past 14 days most reflect ${topEmotion.value}`;
+    } else if (dimensions.length > 0) {
+      const top = dimensions[0];
+      observation = `Over the past two weeks your wins most reflect ${top.value}.`;
+      patternLine = `Your wins over the past 14 days most reflect ${top.value}`;
+    }
 
     return new Response(JSON.stringify({ 
       data: { 
         dimensions,
-        themes: dimensions.slice(0, 5).map(d => d.value), // Legacy support
-        summary,
+        observation,
+        patternLine,
+        summary: `You've captured ${wins.length} wins in the past ${days} days.`,
         winsCount: wins.length,
-        sourceBreakdown
       } 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

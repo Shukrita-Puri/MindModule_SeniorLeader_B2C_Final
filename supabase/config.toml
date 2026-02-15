@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.performance-rhythm-insights]
 verify_jwt = false
+
+[functions.tiny-wins-insights]
+verify_jwt = false
