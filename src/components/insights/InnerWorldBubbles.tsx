@@ -65,41 +65,49 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG dimensions
-  const svgWidth = 360;
-  const svgHeight = 300;
+  // SVG dimensions — spacious vertical layout
+  const svgWidth = 380;
+  const svgHeight = 420;
   const centerX = svgWidth / 2;
   const centerY = svgHeight / 2;
 
-  // Deterministic node positioning — organic circular spread
+  // Deterministic node positioning — spacious staggered vertical spread
   const nodePositions = useMemo(() => {
     const count = sortedItems.length;
     if (count === 0) return [];
 
+    const padX = 80;
+    const padY = 40;
+    const usableW = svgWidth - padX * 2;
+    const usableH = svgHeight - padY * 2;
+    // Horizontal placement columns: left, center-left, center, center-right, right
+    const xSlots = [0.2, 0.45, 0.7, 0.3, 0.6, 0.15, 0.55, 0.8];
+
     return sortedItems.map((item, i) => {
-      const radius = item.weight > 0.6 ? 50 + (i * 15) : 70 + (i * 18);
-      const angleOffset = Math.PI * 0.3;
-      const angle = angleOffset + (i / count) * Math.PI * 2 + (i % 2 === 0 ? 0.15 : -0.1);
-      const jitterX = ((i * 17) % 11) - 5;
+      const nodeR = 4 + item.weight * 8;
+      // Vertical: evenly distribute rows with jitter
+      const rowY = padY + (usableH / (count + 1)) * (i + 1);
       const jitterY = ((i * 13) % 9) - 4;
-      
-      let x = centerX + Math.cos(angle) * Math.min(radius, svgWidth * 0.35) + jitterX;
-      let y = centerY + Math.sin(angle) * Math.min(radius, svgHeight * 0.32) + jitterY;
-      
-      // Keep first (largest) node near center
+      // Horizontal: pick from staggered slots with jitter
+      const baseX = padX + usableW * xSlots[i % xSlots.length];
+      const jitterX = ((i * 17) % 11) - 5;
+
+      let x = baseX + jitterX;
+      let y = rowY + jitterY;
+
+      // First (heaviest) node sits upper-center
       if (i === 0) {
-        x = centerX + jitterX * 0.5;
-        y = centerY + jitterY * 0.5;
+        x = centerX + jitterX * 0.3;
+        y = padY + usableH * 0.15;
       }
 
-      // Clamp to SVG bounds with padding
-      const nodeR = 4 + item.weight * 8;
-      x = Math.max(nodeR + 50, Math.min(svgWidth - nodeR - 50, x));
-      y = Math.max(nodeR + 20, Math.min(svgHeight - nodeR - 30, y));
+      // Clamp within padded bounds
+      x = Math.max(padX + nodeR, Math.min(svgWidth - padX - nodeR, x));
+      y = Math.max(padY + nodeR, Math.min(svgHeight - padY - nodeR, y));
 
       return { x, y, radius: nodeR };
     });
-  }, [sortedItems, centerX, centerY, svgWidth, svgHeight]);
+  }, [sortedItems, centerX, svgWidth, svgHeight]);
 
   // Connection paths
   const connectionPaths = useMemo(() => {
@@ -119,7 +127,7 @@ const InnerWorldBubbles = ({
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.25;
+      const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.4;
       const perpX = dist > 0 ? (-dy / dist) * offset : 0;
       const perpY = dist > 0 ? (dx / dist) * offset : 0;
       const cx = midX + perpX;
@@ -182,7 +190,7 @@ const InnerWorldBubbles = ({
         width="100%" 
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="overflow-visible"
-        style={{ minHeight: '250px' }}
+        style={{ minHeight: '340px' }}
       >
         {/* Connection lines */}
         {connectionPaths.map((conn) => (
@@ -196,8 +204,8 @@ const InnerWorldBubbles = ({
               d={conn.path}
               fill="none"
               stroke="hsl(var(--muted-foreground))"
-              strokeWidth={1.5}
-              strokeOpacity={0.3 + conn.strength * 0.4}
+              strokeWidth={1}
+              strokeOpacity={0.2 + conn.strength * 0.35}
               strokeDasharray="none"
             />
             {/* Wider invisible hit area for hover */}
@@ -242,45 +250,31 @@ const InnerWorldBubbles = ({
           const pos = nodePositions[index];
           if (!pos) return null;
           const fontSize = 12 + (item.weight * 4);
-          const labelOffset = pos.radius + 6;
+          // Labels go right by default; left if node is in right 40% of canvas
+          const labelRight = pos.x < svgWidth * 0.6;
+          const labelX = labelRight ? pos.x + pos.radius + 8 : pos.x - pos.radius - 8;
+          const anchor = labelRight ? 'start' : 'end';
 
           return (
             <g 
               key={`${item.theme}-${index}`}
               onClick={() => handleNodeClick(item)}
               className="cursor-pointer"
-              style={{
-                animation: 'nodeEntrance 0.4s ease-out forwards',
-                animationDelay: `${index * 60}ms`,
-                opacity: 0,
-              }}
             >
               {/* Node circle */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
                 r={pos.radius}
-                fill="hsl(var(--primary))"
-                fillOpacity={0.7 + item.weight * 0.3}
-                className="transition-all duration-200 hover:fill-opacity-100"
+                fill="hsl(var(--muted-foreground))"
+                fillOpacity={0.35 + item.weight * 0.35}
+                className="transition-all duration-200 hover:fill-opacity-80"
               />
-              {/* Subtle glow on hover */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={pos.radius + 3}
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth={1}
-                strokeOpacity={0}
-                className="transition-all duration-200"
-                style={{ pointerEvents: 'none' }}
-              />
-              {/* Theme label */}
+              {/* Theme label — beside node */}
               <text
-                x={pos.x}
-                y={pos.y - labelOffset}
-                textAnchor="middle"
+                x={labelX}
+                y={pos.y - 2}
+                textAnchor={anchor}
                 dominantBaseline="auto"
                 fill="hsl(var(--foreground))"
                 fontSize={fontSize}
@@ -289,11 +283,11 @@ const InnerWorldBubbles = ({
               >
                 {item.theme}
               </text>
-              {/* Entry count */}
+              {/* Entry count — below label */}
               <text
-                x={pos.x}
-                y={pos.y - labelOffset + fontSize + 2}
-                textAnchor="middle"
+                x={labelX}
+                y={pos.y + fontSize}
+                textAnchor={anchor}
                 dominantBaseline="auto"
                 fill="hsl(var(--muted-foreground))"
                 fontSize="11"
@@ -404,13 +398,6 @@ const InnerWorldBubbles = ({
         document.body
       )}
 
-      {/* CSS for node entrance animation */}
-      <style>{`
-        @keyframes nodeEntrance {
-          from { opacity: 0; transform: scale(0.7); }
-          to { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
     </div>
   );
 };
