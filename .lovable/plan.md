@@ -1,214 +1,178 @@
 
-# Your Proactive Mastery Plan -- Refinement Plan
 
-## What This Is
+# MIND Module — Insights Page v2.0 Redesign
 
-A targeted refinement -- not a rewrite. Most of the architecture (executive scenarios, theme-to-module mapping, content scoring, JIT detection) already exists in `performancePlanEngine.ts`. The work is:
+## Overview
 
-1. Moving that existing logic into a backend function (IP protection)
-2. Adding coach inclusion rules (morning = practice-heavy; evening = always coach + Tiny Wins)
-3. Adding pill navigation for calendar context
-4. Adding `session_period` tracking for progress
-5. Cleaning up orphaned files
+This is a major restructuring of the Insights page based on the final architecture document. The work covers **card renames + tooltip updates**, **card consolidation** (10 cards down to 6), **component cleanup**, and **security migrations** (moving client-side scoring logic to edge functions).
 
 ---
 
-## Phase 1: Create `generate-mastery-plan` Backend Function
+## Phase 1: Card Renames, Tooltips, and Structural Reorganization
 
-A new backend function that receives user context and returns the fully assembled plan. This is a **lift-and-shift** of existing `performancePlanEngine.ts` logic with three additions:
+### 1.1 Rename all card titles and tooltips in `src/pages/Insights.tsx`
 
-### What moves (already written, just relocating):
-- `EXECUTIVE_SCENARIOS` array (20+ scenarios with keywords, lead times, modules)
-- `THEME_MODULE_MAP` (40+ theme phrases to module specs)
-- `detectExecutiveScenario()` function
-- `calculateContentScore()` with the 7-factor scoring system
-- `selectContentForModule()` with date-seeded deterministic selection
-- `generatePerformancePlan()` orchestrator
-- Content pool filters (`REGULATE_CONTENT_FILTERS`, `ALIGN_CONTENT_FILTERS`, `DURATION_FILTERS`)
+| Current Name | New Name | New Tooltip |
+|---|---|---|
+| Your Starting Point (BaselineReferenceCard) | Your Leadership Blueprint | "Your foundation. This is who you are based on your onboarding assessment -- your mental fitness baseline, your archetype, and the component scores that define how you regulate, focus, and recover. Every other insight on this page is measured against this." |
+| Your Progress This Week | *Remove entirely* (moved to homepage -- already lives there via `InsightProgressCard`) | -- |
+| Typical State | *Absorb into Your Leadership Patterns* | -- |
+| Practice Effectiveness | What Works For You | "The practices that actually move the needle for you -- not in general, but based on your own data. Drawn from your Recalibration sessions across Pause, Flow, and Renergise, correlated with your state the following day." |
+| Strength and Friction | *Absorb into Your Leadership Patterns* | -- |
+| Cause to Effect Patterns | *Absorb into Your Performance Rhythm* | -- |
+| Theme Patterns | *Absorb into Your Leadership Patterns* | -- |
+| Your Mind Map | Your Inner World | "The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day -- what keeps coming up. The picture your data is painting of your inner world right now." |
+| Your Tiny Wins | Your Momentum | "The wins you've logged over the past two weeks -- and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does." |
+| Your Energy Rhythm | Your Performance Rhythm | "When you perform, when you don't, and what your outer world is doing to your inner state. Your cognitive and emotional rhythm across the week -- paired with a read on which calendar conditions consistently lift or drain your readiness." |
 
-### What is new (additions to the relocated logic):
+### 1.2 Update `BaselineReferenceCard.tsx`
+- Rename header from "Your Starting Point" to "Your Leadership Blueprint"
+- Update tooltip text
+- Fix archetype ID mismatch: add mapping for engine output IDs (`natural_regulator`, `strategic_pauser`, `high_octane_performer`, `awareness_builder`) to display names
 
-**Coach Inclusion Rules:**
-- Morning (strong/peak tier): NO coach card. Practice-only session.
-- Morning (depleted/managing tier): Coach card included, but brief -- focused on regulation, not unpacking.
-- Morning (consecutive-low 3+ days): Coach card included with pattern acknowledgement prompt.
-- Afternoon: Coach card only when executive scenario has Prepare module.
-- Evening: Coach card ALWAYS included. Prompt always references Tiny Wins ("What's one thing you did right today?"). Covers day unpacking and next-day preparation.
-- JIT/Pre-event: Coach card included for mental rehearsal.
-
-**Calendar Event Prioritisation** (new logic):
-- Scoring factors: immediacy (+40/+30/+20/+10), organiser (+15), attendees >5 (+10), duration >60min (+8), non-recurring (+10), scenario keyword match (+25), prime hours (+5), back-to-back (+5), skip penalty (-15 or removal at 3+)
-- Top 2 events become calendar context pills
-- Highest-scoring event populates the pre-event plan
-
-**Duration Ceiling by Calendar Load:**
-- Low (0-2 meetings): 12-15 min, 4 modules max
-- Medium (3-4 meetings): 7-10 min, 3 modules max
-- High (5+ meetings): 3-5 min, 2 modules max
-- No calendar: 10 min default, 3 modules max
-
-**Evening-specific rules:**
-- Prepare module only surfaces if high-priority event within 18 hours
-- Integrate module always included
-- If HRV load delta is significant: "You started today at [X]. You're closing at [Y]..." prompt
-
-**Skip Learning:**
-- Queries `jit_preferences` for last 30 days
-- Event types with 3+ skips are filtered from surfacing
-
-**Future feature tags** (stored but not surfaced):
-- `role_play_eligible` on relevant scenarios
-- `mental_model_tag` on relevant scenarios
-
-### Inputs (sent from client):
-`userId`, `innerReadinessTier`, `innerReadinessScore`, `outerReadinessPhrase`, `outerReadinessDriver`, `calendarLoad`, `calendarPressure`, `calendarEvents` (titles + start times), `favorites`, `completedToday`, `timezoneOffset`, `clarityLevel`, `confidenceLevel`, `checkInOutcome`, `archetype`
-
-### Output shape:
-```text
-timeOfDayPlan:
-  label (Morning Start / Afternoon Reset / Evening Close)
-  period (morning / afternoon / evening)
-  modules[] (type, contentId, title, contentType, duration, focus, intensity, isFavorite, reasoning)
-  coachCard (prompt, title, duration) -- or null if not included
-  totalDuration
-  progressTracked: true
-
-calendarPills[] (label, eventId, priorityScore) -- max 2
-
-preEventPlan (if any):
-  eventTitle, eventType, minutesUntil, timePill, contextDescription
-  modules[], coachCard
-  progressTracked: false
-
-meta:
-  generatedAt, scenarioId, durationCeiling, maxModules
-```
-
-Config addition to `supabase/config.toml`:
-```text
-[functions.generate-mastery-plan]
-verify_jwt = false
-```
+### 1.3 Update page hero text
+- Keep "Your Inner World" as page title (matches the document's naming)
+- Update subtitle to match v2 positioning
 
 ---
 
-## Phase 2: Database Changes
+## Phase 2: Card Consolidation (10 cards to 6)
 
-### Add column to `daily_ritual_completions`:
-- `session_period` (text, nullable) -- "morning", "afternoon", or "evening"
-- Enables per-period progress tracking on the Insights page
+### 2.1 Remove "Your Progress This Week" card
+- Remove the `WeeklyRitualStreak` section from Insights page (it already lives on the homepage via `InsightProgressCard`)
 
-### Add column to `jit_preferences`:
-- `dismissed` (boolean, default false) -- distinguishes "snoozed" (temporary) from "X dismissed" (permanent for this instance)
+### 2.2 Create new "Your Leadership Patterns" card
+This card consolidates:
+- **Typical State** (most common check-in outcome)
+- **Strength and Friction** (coach insight pattern matching)
+- **Theme Patterns** (recurring Compass themes)
 
----
+New card displays:
+- Archetype name + strength description
+- 30-day composite score average + 7-day trend direction
+- Most frequent check-in outcome (supporting line)
+- Friction frequency with qualitative label
+- Top 3 recurring Compass themes
+- Coach insight excerpts (strength + friction quotes)
+- AI-generated pattern observation (headline)
 
-## Phase 3: Refactor `DailyRitual.tsx` (Thin Renderer)
+### 2.3 Restructure "Your Performance Rhythm" card
+Absorbs:
+- **Energy Rhythm** heatmap (renamed)
+- **Calendar Correlations** (already merged in v1)
+- **Cause-Effect Patterns** (as qualitative observation text, not a standalone card)
+- **Behavior-Outcome Correlations** (as qualitative observation text)
 
-### Remove:
-- All imports of `performancePlanEngine`, `planReconstruction`, `energyStateEngine`, `coachInsightsExtractor`
-- The entire `loadRecommendations()` method body (currently ~180 lines of local orchestration)
+Display structure:
+- Qualitative insight observation box (top)
+- 3x7 heatmap grid (morning/afternoon/evening x Mon-Sun)
+- Best performance window line
 
-### Replace with:
-- Single call to `generate-mastery-plan` backend function
-- Receives the full plan object and renders it directly
-
-### Add:
-- **Pill navigation** at the top: 1 time-of-day pill (active by default) + up to 2 calendar context pills
-- Clicking a calendar pill switches carousel to show pre-event session; clicking time-of-day pill switches back
-- **Progress counter** continues to show `X of N completed` for time-of-day plans only
-- **Session period** stored with completions for Insights tracking
-- Tooltip updated: "Your Proactive Mastery Plan is built from your Inner Readiness Score and Outer Readiness Brief -- what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-
-### Keep unchanged:
-- Card design (carousel with thumbnail, module label, title, duration, favorite heart, completion checkmark)
-- "Start Your Mastery Plan" button styling (bg-taupe text-white)
-- Celebration confetti on completion
-- Practice queue and navigation logic
-- Coach card visual (SM monogram, portrait image)
-
----
-
-## Phase 4: Refactor `JitCarousel.tsx` (Thin Renderer)
-
-### Remove:
-- All local detection logic: `detectInterventions()`, `checkConsecutiveLow()`, `getQuickPractices()`, `persistClassification()`
-- Imports of `recommendationEngine`, `energyStateEngine`, `useCalendarSync`
-
-### Replace with:
-- Consume `preEventPlan` and `calendarPills` from the same backend response used by DailyRitual (passed as props or shared via context/query cache)
-
-### Keep unchanged:
-- X dismiss button (writes `action: 'dismissed'` to `jit_preferences`)
-- Snooze button (writes `action: 'snoozed'` to `jit_preferences`)
-- Time pills ("In 2 days", "In 30 min")
-- Context descriptions
-- "Start Pack" button
-- Visual hierarchy (secondary to time-of-day plan)
-- JIT plans excluded from progress tracking
+### 2.4 Reorder cards to match v2 sequence
+1. Your Leadership Blueprint
+2. Your Leadership Patterns (new consolidated card)
+3. What Works For You
+4. Your Performance Rhythm (consolidated)
+5. Your Inner World
+6. Your Momentum
 
 ---
 
-## Phase 5: Delete Orphaned Files
+## Phase 3: Component Cleanup
 
-### Components (confirmed no imports from any active page/route):
-- `src/components/home/PerformancePreparation.tsx`
-- `src/components/home/MicroInterventions.tsx`
-- `src/components/home/MomentCard.tsx`
-- `src/components/home/MomentCarousel.tsx`
-- `src/components/home/DailyRitualCard.tsx`
-- `src/components/home/IntelligentPriorityCard.tsx`
-- `src/components/home/JustInTimeIntervention.tsx`
-- `src/components/home/RecommendedPlan.tsx`
+### 3.1 Components to delete (no card home)
+- `AlignmentTimeline.tsx`
+- `CircadianGraph.tsx`
+- `ContentTypeAnalysis.tsx`
+- `DecisionQualityChart.tsx`
+- `ElementalMandala.tsx`
+- `EnergyDistributionChart.tsx`
+- `EnergyGauge.tsx`
+- `MentalFitnessScoreCard.tsx`
+- `PracticeFocusBar.tsx`
+- `LuxuryStateBar.tsx`
 
-### Utilities (logic moved to backend):
-- `src/utils/performancePlanEngine.ts` -- relocated to edge function
-- `src/utils/planReconstruction.ts` -- no longer needed
-- `src/utils/recommendationEngine.ts` -- replaced by backend scoring
-- `src/utils/interventionContentMatcher.ts` -- only used by orphaned MicroInterventions
-- `src/utils/interventionTracking.ts` -- only used by orphaned MicroInterventions
-- `src/utils/momentDetectionEngine.ts` -- only used by orphaned PerformancePreparation
-- `src/utils/packBuilderSystem.ts` -- only used by orphaned components
-- `src/utils/contentRecommendationEngine.ts` -- only used by orphaned DailyRitualCard
-- `src/utils/intelligenceEngine.ts` -- only used by orphaned IntelligentPriorityCard
-
-### Note on `selfRegulationScoring.ts`:
-- Still imported by `userArchetypeEngine.ts` for the `ComponentScores` type
-- Will inline the type definition into userArchetypeEngine rather than keeping the whole file
+### 3.2 Components to retain (future use)
+- `LuxuryProgressRing.tsx`
+- `WeeklyRhythmHeatmap.tsx`
+- `SemanticBubbles.tsx`
+- `EnergyRhythmCurve.tsx`
 
 ---
 
-## Phase 6: Update Naming and Tooltips
+## Phase 4: Progressive Unlock Update
 
-- Section header: "Your Proactive Mastery Plan" (already in place)
-- MetricInfoModal description updated to: "Your Proactive Mastery Plan is built from your Inner Readiness Score and Outer Readiness Brief -- what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
-- JIT section tooltip: "A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice -- regulation, alignment, and a coaching prompt -- designed to bring your best self into the room."
-- Button text: "Start Your Mastery Plan" (already in place)
+Update tier gates in `Insights.tsx`:
+
+| Tier | Check-ins | Cards Visible |
+|---|---|---|
+| baseline | 0 | Your Leadership Blueprint only |
+| early | 1-2 | + Your Leadership Patterns, What Works For You summary |
+| summary | 3 | + Your Momentum |
+| deepening | 4-6 | + Your Performance Rhythm |
+| full | 7+ | All cards including Your Inner World |
+
+Your Inner World gate: 3+ coach sessions OR (5+ check-ins AND 2+ momentum entries) OR total data points 5+ (unchanged from v1).
 
 ---
 
-## Summary of Changes
+## Phase 5: Security -- Edge Function Migrations
 
-```text
-NEW FILES:
-  supabase/functions/generate-mastery-plan/index.ts
+### 5.1 Update `state-patterns-insights` edge function
+- Expand from 7-day to 30-day window
+- Add composite score trend calculation (7-day avg vs prior 7-day avg)
+- Add friction frequency calculation
+- Add recurring theme aggregation (from `daily_themes`)
+- Add coach insight pattern matching (from `user_coach_insights`)
+- Return display-ready object for the new Leadership Patterns card
 
-MODIFIED FILES:
-  src/components/home/DailyRitual.tsx (thin renderer + pills)
-  src/components/home/JitCarousel.tsx (thin renderer)
-  src/pages/ExecutiveHome.tsx (tooltip text update)
-  src/utils/userArchetypeEngine.ts (inline ComponentScores type)
+### 5.2 Update `insights-semantic-analysis` edge function
+- Switch from direct Google API (`GEMINI_API_KEY`) to Lovable Gateway (`LOVABLE_API_KEY`) -- fixes v1 silent failure
+- Reduce max bubbles from 12 to 8
+- Reduce max relationship lines to 6
+- Update AI prompt per v2 spec
 
-DB MIGRATION:
-  daily_ritual_completions: add session_period column
-  jit_preferences: add dismissed column
+### 5.3 Update `tiny-wins-insights` edge function
+- Update AI observation prompt to speak to momentum and leadership
+- Update dimension display labels (v2 C-suite language)
 
-DELETED FILES (8 components + 9 utilities = 17 files):
-  Components: PerformancePreparation, MicroInterventions, MomentCard,
-    MomentCarousel, DailyRitualCard, IntelligentPriorityCard,
-    JustInTimeIntervention, RecommendedPlan
-  Utilities: performancePlanEngine, planReconstruction,
-    recommendationEngine, interventionContentMatcher,
-    interventionTracking, momentDetectionEngine, packBuilderSystem,
-    contentRecommendationEngine, intelligenceEngine
-```
+### 5.4 Create practice effectiveness calculation in edge function
+- Move effectiveness scoring from `PracticeEffectiveness.tsx` client-side to a server-side calculation
+- Add pillar-level effectiveness (Pause/Flow/Renergise)
+- Add time-of-day split analysis
+- Client receives ranked display list only
+
+### 5.5 Strip client-side proprietary logic
+- Remove `extractDimensionsFromText` and `extractThemesFromContent` usage from Insights.tsx (DEV_MODE path)
+- All scoring flows through edge functions
+
+---
+
+## Files Modified
+
+| File | Action |
+|---|---|
+| `src/pages/Insights.tsx` | Major restructure -- rename cards, reorder, consolidate, update progressive unlock |
+| `src/components/insights/BaselineReferenceCard.tsx` | Rename to "Your Leadership Blueprint", fix archetype ID mismatch |
+| `src/components/insights/InsightInfoModal.tsx` | No change (tooltip content passed as props) |
+| `src/components/insights/PracticeEffectiveness.tsx` | Update header to "What Works For You", update tooltip |
+| `src/components/insights/FrictionAndStrengthDetail.tsx` | Absorb into Leadership Patterns inline rendering |
+| `src/components/insights/CauseEffectInsights.tsx` | Absorb into Performance Rhythm as qualitative text |
+| `supabase/functions/state-patterns-insights/index.ts` | Expand to 30-day, add trend/friction/themes/coach insights |
+| `supabase/functions/insights-semantic-analysis/index.ts` | Switch to Lovable Gateway, reduce bubbles to 8 |
+| `supabase/functions/tiny-wins-insights/index.ts` | Update prompts for momentum language |
+| 10 orphaned components | Delete |
+
+---
+
+## Implementation Order
+
+1. Card renames + tooltip updates (quick wins, immediate visual impact)
+2. Remove Weekly Progress Streak from Insights
+3. Create Leadership Patterns consolidated card
+4. Restructure Performance Rhythm card
+5. Update progressive unlock tiers
+6. Edge function updates (state-patterns-insights, insights-semantic-analysis, tiny-wins-insights)
+7. Delete orphaned components
+8. Strip client-side proprietary logic from DEV_MODE paths
+
