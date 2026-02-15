@@ -53,7 +53,7 @@ const outcomes = [
   {
     value: "focused" as Outcome,
     icon: Sparkles,
-    title: "Focused / Energized",
+    title: "Focused / Energised",
     subtitle: "Sharp and ready",
     gradient: "from-green-800/90 to-yellow-500/90",
   },
@@ -219,7 +219,7 @@ const DailyCheckIn = () => {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex gap-4 overflow-x-auto w-full max-w-[100vw] px-[calc(50vw-170px)] pb-4 snap-x snap-mandatory scrollbar-hide"
+          className="flex gap-4 overflow-x-auto w-full max-w-[100vw] px-[calc(50vw-120px)] pb-4 snap-x snap-mandatory scrollbar-hide"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
           {outcomes.map((outcome, idx) => {
@@ -233,7 +233,7 @@ const DailyCheckIn = () => {
               >
                 <div
                   className={`
-                    w-[340px] h-[280px] rounded-2xl bg-gradient-to-br ${outcome.gradient}
+                    w-[240px] h-[280px] rounded-2xl bg-gradient-to-br ${outcome.gradient}
                     flex flex-col items-center justify-center gap-4 p-6
                     border border-white/20 backdrop-blur-sm
                     shadow-[0_8px_32px_rgba(0,0,0,0.15)]
