@@ -65,9 +65,9 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG uses a wide viewBox; width="100%" makes it fill the card
-  const svgWidth = 700;
-  const svgHeight = 480;
+  // SVG viewBox — compact enough that nodes render large within the card
+  const svgWidth = 420;
+  const svgHeight = 380;
   const centerX = svgWidth / 2;
 
   // Node positioning — spread across full width with vertical cascade
@@ -75,29 +75,27 @@ const InnerWorldBubbles = ({
     const count = sortedItems.length;
     if (count === 0) return [];
 
-    const padX = 30;
-    const padY = 35;
+    const padX = 15;
+    const padY = 20;
     const usableW = svgWidth - padX * 2;
     const usableH = svgHeight - padY * 2;
 
-    // Pre-defined positions that spread across the full canvas width
-    // Inspired by Mindsera: organic scatter, not grid-like
+    // Pre-defined positions that spread across the full canvas
     const layoutSlots = [
-      { xFrac: 0.55, yFrac: 0.10 }, // top center-right (heaviest)
-      { xFrac: 0.25, yFrac: 0.25 }, // upper-left
-      { xFrac: 0.75, yFrac: 0.30 }, // upper-right
-      { xFrac: 0.15, yFrac: 0.48 }, // mid-left
-      { xFrac: 0.60, yFrac: 0.50 }, // mid-right
-      { xFrac: 0.40, yFrac: 0.68 }, // lower-center
-      { xFrac: 0.80, yFrac: 0.72 }, // lower-right
-      { xFrac: 0.30, yFrac: 0.88 }, // bottom-left
+      { xFrac: 0.55, yFrac: 0.08 }, // top center-right (heaviest)
+      { xFrac: 0.20, yFrac: 0.24 }, // upper-left
+      { xFrac: 0.78, yFrac: 0.28 }, // upper-right
+      { xFrac: 0.12, yFrac: 0.48 }, // mid-left
+      { xFrac: 0.65, yFrac: 0.48 }, // mid-right
+      { xFrac: 0.38, yFrac: 0.65 }, // lower-center
+      { xFrac: 0.82, yFrac: 0.70 }, // lower-right
+      { xFrac: 0.25, yFrac: 0.88 }, // bottom-left
     ];
 
     return sortedItems.map((item, i) => {
-      const nodeR = 5 + item.weight * 8;
+      const nodeR = 6 + item.weight * 10;
       const slot = layoutSlots[i] || { xFrac: 0.5, yFrac: 0.5 };
       
-      // Add subtle jitter for organic feel
       const jX = ((i * 17) % 13) - 6;
       const jY = ((i * 11) % 9) - 4;
       
@@ -248,7 +246,7 @@ const InnerWorldBubbles = ({
         {sortedItems.map((item, index) => {
           const pos = nodePositions[index];
           if (!pos) return null;
-          const fontSize = Math.round(12 + (item.weight * 3));
+          const fontSize = Math.round(13 + (item.weight * 4));
           // Labels go right by default; left if node is in right 45% of canvas
           const labelRight = pos.x < svgWidth * 0.55;
           const labelX = labelRight ? pos.x + pos.radius + 10 : pos.x - pos.radius - 10;
