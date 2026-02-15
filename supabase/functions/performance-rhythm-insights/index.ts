@@ -326,6 +326,56 @@ serve(async (req) => {
       }
     }
 
+    // ── 5. Time-of-day & day-of-week pattern observations (no calendar needed) ──
+    if (checkIns.length >= 3 && observations.length < 2) {
+      const twOutcomes: Record<string, Record<string, number>> = { morning: {}, afternoon: {}, evening: {} };
+      const twTotals: Record<string, number> = { morning: 0, afternoon: 0, evening: 0 };
+      for (const ci of checkIns) {
+        if (!ci.created_at || !ci.outcome) continue;
+        const h = new Date(ci.created_at).getHours();
+        const tw = h >= 5 && h <= 11 ? "morning" : h >= 12 && h <= 17 ? "afternoon" : "evening";
+        twOutcomes[tw][ci.outcome] = (twOutcomes[tw][ci.outcome] || 0) + 1;
+        twTotals[tw]++;
+      }
+      let bestTw: { window: string; state: string; pct: number } | null = null;
+      for (const [tw, outs] of Object.entries(twOutcomes)) {
+        if (twTotals[tw] < 2) continue;
+        const sorted = Object.entries(outs).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) {
+          const pct = sorted[0][1] / twTotals[tw];
+          if (pct >= 0.6 && (!bestTw || pct > bestTw.pct)) {
+            bestTw = { window: tw, state: sorted[0][0], pct };
+          }
+        }
+      }
+      if (bestTw && observations.length < 2) {
+        const label = bestTw.window === "morning" ? "mornings" : bestTw.window === "afternoon" ? "afternoons" : "evenings";
+        observations.push(`You tend to check in ${bestTw.state} during ${label} — ${Math.round(bestTw.pct * 100)}% of the time.`);
+      }
+
+      if (observations.length < 2) {
+        const dayLabelsArr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dayScores: Record<string, number[]> = {};
+        for (const ci of checkIns) {
+          if (ci.energy_balance == null) continue;
+          const d = dayLabelsArr[new Date(ci.checkin_date).getDay()];
+          if (!dayScores[d]) dayScores[d] = [];
+          dayScores[d].push(ci.energy_balance as number);
+        }
+        let bestDay: { day: string; avg: number } | null = null;
+        let worstDay: { day: string; avg: number } | null = null;
+        for (const [day, scores] of Object.entries(dayScores)) {
+          if (scores.length < 2) continue;
+          const avg = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+          if (!bestDay || avg > bestDay.avg) bestDay = { day, avg: Math.round(avg) };
+          if (!worstDay || avg < worstDay.avg) worstDay = { day, avg: Math.round(avg) };
+        }
+        if (bestDay && worstDay && bestDay.day !== worstDay.day) {
+          observations.push(`Your readiness tends to peak on ${bestDay.day}s (avg ${bestDay.avg}) and dip on ${worstDay.day}s (avg ${worstDay.avg}).`);
+        }
+      }
+    }
+
     // Cap at 2 observations
     const finalObservations = observations.slice(0, 2);
 
