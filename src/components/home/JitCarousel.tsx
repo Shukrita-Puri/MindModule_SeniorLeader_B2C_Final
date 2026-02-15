@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Clock, X, Heart, Play } from 'lucide-react';
+import { Clock, X, Heart, Play, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
@@ -109,6 +109,7 @@ const JitCarousel = () => {
 
   const [interventions, setInterventions] = useState<InterventionData[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -276,6 +277,23 @@ const JitCarousel = () => {
     setDismissedIds(prev => new Set([...prev, key]));
   };
 
+  const handleSnooze = async (intervention: InterventionData) => {
+    const key = intervention.event?.id || intervention.trigger;
+    setSnoozedIds(prev => new Set([...prev, key]));
+    
+    if (!userId) return;
+    const eventType = intervention.event?.eventType || intervention.trigger;
+    const eventTitle = intervention.event?.title || intervention.consecutiveState?.state || '';
+    try {
+      await supabase.from('jit_preferences').insert({
+        user_id: userId,
+        event_type: eventType,
+        action: 'snoozed',
+        event_title: eventTitle,
+      });
+    } catch { /* silent */ }
+  };
+
   const handleStartPrep = (intervention: InterventionData) => {
     if (intervention.practices.length > 0) {
       // Store JIT data for post-practice coach nav
@@ -298,17 +316,52 @@ const JitCarousel = () => {
     }
   };
 
+  // Get contextual description for the intervention
+  const getContextDescription = (intervention: InterventionData): string => {
+    if (intervention.trigger === 'calendar' && intervention.event) {
+      const title = intervention.event.title;
+      if (intervention.event.minutesUntil <= 60) {
+        return `${title} in ${intervention.event.minutesUntil} minutes. Start preparing now with practice and mental rehearsal.`;
+      }
+      const days = Math.ceil(intervention.event.minutesUntil / (60 * 24));
+      return `${title} in ${days} day${days > 1 ? 's' : ''}. Start preparing now with practice and mental rehearsal.`;
+    }
+    if (intervention.trigger === 'consecutive-low' && intervention.consecutiveState) {
+      return `You've been feeling ${intervention.consecutiveState.state} for ${intervention.consecutiveState.days} days. Reset during this pattern.`;
+    }
+    return 'Contextual preparation for your upcoming moment.';
+  };
+
+  // Get time pill label (e.g., "In 2 days", "In 30 min")
+  const getTimePill = (intervention: InterventionData): string => {
+    if (intervention.trigger === 'calendar' && intervention.event) {
+      if (intervention.event.minutesUntil < 60) {
+        return `In ${intervention.event.minutesUntil} min`;
+      }
+      const hours = Math.floor(intervention.event.minutesUntil / 60);
+      if (hours < 24) {
+        return `In ${hours} hr${hours > 1 ? 's' : ''}`;
+      }
+      const days = Math.ceil(intervention.event.minutesUntil / (60 * 24));
+      return `In ${days} day${days > 1 ? 's' : ''}`;
+    }
+    if (intervention.trigger === 'consecutive-low') {
+      return 'Pattern Alert';
+    }
+    return 'Upcoming';
+  };
+
   // Filter dismissed
   const visibleInterventions = interventions.filter(i => {
     const key = i.event?.id || i.trigger;
-    return !dismissedIds.has(key);
+    return !dismissedIds.has(key) && !snoozedIds.has(key);
   });
 
   if (loading || visibleInterventions.length === 0) return null;
 
   return (
     <div className="space-y-3">
-      {/* Section header - smaller, secondary */}
+      {/* Section header */}
       <div className="px-4 md:px-6 max-w-lg mx-auto">
         <div className="flex items-center justify-between py-1">
           <span className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
@@ -321,128 +374,95 @@ const JitCarousel = () => {
         </div>
       </div>
 
-      {/* JIT Carousel */}
-      <div className="relative w-full">
-        <Carousel opts={{ align: 'start', loop: false, watchDrag: true }} className="w-full" setApi={setCarouselApi}>
-          <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
-            {visibleInterventions.map((intervention, idx) => {
-              const event = intervention.event;
-              const isLast = idx === visibleInterventions.length - 1;
+      {/* JIT Cards - vertical stack, not carousel */}
+      <div className="px-4 md:px-6 max-w-lg mx-auto space-y-4">
+        {visibleInterventions.map((intervention, idx) => {
+          const event = intervention.event;
 
-              return (
-                <CarouselItem key={event?.id || `jit-${idx}`} className="pl-3 basis-[80%] sm:basis-[70%] md:basis-[45%]">
-                  <div className={cn(
-                    "relative rounded-lg overflow-hidden p-3",
-                    "bg-white/50 backdrop-blur-[16px] border border-black/[0.04]",
-                    "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
-                    isLast && "mr-4"
-                  )}>
-                    {/* Skip button */}
-                    <button
-                      onClick={() => handleSkip(intervention)}
-                      className="absolute top-3 right-3 p-1 text-muted-foreground hover:text-foreground transition-colors z-10"
-                      aria-label="Skip / Show less like this"
-                      title="Show less like this"
-                    >
-                      <X size={16} />
-                    </button>
+          return (
+            <div key={event?.id || `jit-${idx}`} className={cn(
+              "relative rounded-xl overflow-hidden",
+              "bg-white/50 backdrop-blur-[16px] border border-black/[0.04]",
+              "shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+            )}>
+              <div className="p-4 space-y-3">
+                {/* Time pill + dismiss */}
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-background border border-black/[0.08] text-foreground">
+                    {getTimePill(intervention)}
+                  </span>
+                  <button
+                    onClick={() => handleSkip(intervention)}
+                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
 
-                    <div className="space-y-2">
-                      {/* Event name + time */}
-                      <div className="flex items-start gap-2 pr-6">
-                        <Clock size={14} className="text-saffron mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="text-sm font-semibold text-foreground block">
-                            {event?.title || 'Upcoming Event'}
-                          </span>
-                          {event && (
-                            <span className="text-xs text-muted-foreground">
-                              in {event.minutesUntil} min
-                            </span>
-                          )}
-                          {intervention.trigger === 'consecutive-low' && intervention.consecutiveState && (
-                            <span className="text-xs text-muted-foreground">
-                              Day {intervention.consecutiveState.days} feeling {intervention.consecutiveState.state}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                {/* Event title */}
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground font-body">
+                    {event?.title || 'Upcoming Event'}
+                  </h3>
+                  {event && (
+                    <p className="text-sm text-muted-foreground font-body">
+                      {getEventPillLabel(event.title)}
+                    </p>
+                  )}
+                </div>
 
-                      {/* Classification pills */}
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-saffron/20 text-saffron border border-saffron/30">
-                          Prepare Now
+                {/* Context description */}
+                <p className="text-sm text-muted-foreground italic font-body leading-relaxed">
+                  {getContextDescription(intervention)}
+                </p>
+
+                {/* Practice recommendations */}
+                {intervention.practices.length > 0 && (
+                  <div className="space-y-1.5">
+                    {intervention.practices.map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-2 text-xs">
+                        <span className="font-medium uppercase text-saffron w-16">
+                          {intervention.modules[i] === 'regulate' ? 'Regulate' : 'Align'}
                         </span>
-                        {event && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                            {getEventPillLabel(event.title)}
-                          </span>
-                        )}
-                        {intervention.trigger === 'consecutive-low' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                            Pattern Alert
-                          </span>
-                        )}
+                        <span className="text-muted-foreground">—</span>
+                        <span className="text-foreground truncate flex-1">{p.title}</span>
+                        {isFavorite(p.id) && <Heart size={10} className="fill-saffron text-saffron flex-shrink-0" />}
+                        <span className="text-muted-foreground flex-shrink-0">({p.duration}m)</span>
                       </div>
-
-                      {/* Practice recommendations */}
-                      {intervention.practices.length > 0 && (
-                        <div className="space-y-1.5">
-                          {intervention.practices.map((p, i) => (
-                            <div key={p.id} className="flex items-center gap-2 text-xs">
-                              <span className="font-medium uppercase text-saffron w-16">
-                                {intervention.modules[i] === 'regulate' ? 'Regulate' : 'Align'}
-                              </span>
-                              <span className="text-muted-foreground">—</span>
-                              <span className="text-foreground truncate flex-1">{p.title}</span>
-                              {isFavorite(p.id) && <Heart size={10} className="fill-saffron text-saffron flex-shrink-0" />}
-                              <span className="text-muted-foreground flex-shrink-0">({p.duration}m)</span>
-                            </div>
-                          ))}
-                          {intervention.showCoachCard && (
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="font-medium uppercase text-saffron w-16">Prepare</span>
-                              <span className="text-muted-foreground">—</span>
-                              <span className="text-foreground">Mental Rehearsal</span>
-                              <span className="text-muted-foreground ml-auto">(Coach)</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Action button */}
-                      <Button
-                        onClick={() => handleStartPrep(intervention)}
-                        className="w-full h-9 text-xs font-semibold bg-muted-foreground/80 text-white hover:bg-muted-foreground/90 rounded-lg"
-                      >
-                        <Play size={12} className="mr-1.5" />
-                        Prepare
-                      </Button>
-                    </div>
+                    ))}
+                    {intervention.showCoachCard && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-medium uppercase text-saffron w-16">Prepare</span>
+                        <span className="text-muted-foreground">—</span>
+                        <span className="text-foreground">Mental Rehearsal</span>
+                        <span className="text-muted-foreground ml-auto">(Coach)</span>
+                      </div>
+                    )}
                   </div>
-                </CarouselItem>
-              );
-            })}
-          </CarouselContent>
-        </Carousel>
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
-      </div>
+                )}
 
-      {/* Pagination dots */}
-      {slideCount > 1 && (
-        <div className="flex justify-center gap-1.5">
-          {Array.from({ length: slideCount }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => carouselApi?.scrollTo(index)}
-              className={cn(
-                "h-2 rounded-full transition-all",
-                index === currentSlide ? "bg-saffron w-4" : "bg-muted-foreground/30 w-2"
-              )}
-            />
-          ))}
-        </div>
-      )}
+                {/* Start Pack button */}
+                <Button
+                  onClick={() => handleStartPrep(intervention)}
+                  className="w-full h-10 text-sm font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl"
+                >
+                  <Play size={14} className="mr-1.5" />
+                  Start Pack
+                </Button>
+
+                {/* Snooze */}
+                <button
+                  onClick={() => handleSnooze(intervention)}
+                  className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  Snooze <ChevronDown size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

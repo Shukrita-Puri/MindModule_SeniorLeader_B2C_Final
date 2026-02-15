@@ -208,12 +208,12 @@ const ExecutiveHome = () => {
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-                      Today's Plan
+                      Your Proactive Mastery Plan
                     </span>
                   </div>
                   <MetricInfoModal
-                    title="How Your Plan is Built"
-                    description="Your performance plan is intelligently assembled from your energy state, calendar demands, and completion history. Time-of-day plans (Morning Start, Evening Close) count toward your daily progress. Just-in-time preparations for upcoming events are shown separately."
+                    title="Your Proactive Mastery Plan"
+                    description="Your mastery plan is intelligently assembled from your energy state, calendar demands, and completion history. Time-of-day plans (Morning Start, Evening Close) count toward your daily progress. Just-in-time preparations for upcoming events are shown separately and don't affect progress tracking."
                   />
                 </div>
               </section>
