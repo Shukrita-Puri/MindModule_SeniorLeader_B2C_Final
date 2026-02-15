@@ -213,7 +213,7 @@ const ExecutiveHome = () => {
                   </div>
                   <MetricInfoModal
                     title="Your Proactive Mastery Plan"
-                    description="Your mastery plan is intelligently assembled from your energy state, calendar demands, and completion history. Time-of-day plans (Morning Start, Evening Close) count toward your daily progress. Just-in-time preparations for upcoming events are shown separately and don't affect progress tracking."
+                    description="Your Proactive Mastery Plan is built from your Inner Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
                   />
                 </div>
               </section>

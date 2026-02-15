@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.compute-inner-readiness]
 verify_jwt = false
+
+[functions.generate-mastery-plan]
+verify_jwt = false
