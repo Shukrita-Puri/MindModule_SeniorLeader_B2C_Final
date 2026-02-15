@@ -272,12 +272,18 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           <p className="text-sm text-muted-foreground text-center py-6">Unable to load rhythm data.</p>
         ) : (
           <div className="space-y-5">
-            {/* Qualitative Observation Box */}
+            {/* Dedicated Calendar Insights Box */}
             {data.observations.length > 0 ? (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10">
-                <div className="space-y-2">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary/70" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Pattern Insights
+                  </span>
+                </div>
+                <div className="space-y-2.5 pl-6">
                   {data.observations.map((obs, i) => (
-                    <p key={i} className="text-sm text-foreground/90 leading-relaxed">
+                    <p key={i} className="text-sm text-foreground/85 leading-relaxed">
                       {obs}
                     </p>
                   ))}
