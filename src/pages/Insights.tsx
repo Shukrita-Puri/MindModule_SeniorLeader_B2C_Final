@@ -15,7 +15,7 @@ import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LeadershipPatternsCard from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
-import BaselineReferenceCard from '@/components/insights/BaselineReferenceCard';
+// BaselineReferenceCard removed — archetype data now lives in LeadershipPatternsCard
 import ProgressiveUnlockMessage from '@/components/insights/ProgressiveUnlockMessage';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { extractDimensionsFromText, extractThemesFromContent } from '@/utils/dimensionExtraction';
@@ -634,8 +634,8 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Baseline Reference Card - Always visible */}
-        <BaselineReferenceCard profile={profileBaseline} />
+        {/* Your Leadership Patterns — unified card */}
+        <LeadershipPatternsCard userId={user?.id} />
 
         {/* What Works For You (Practice Effectiveness) */}
         <LuxuryInsightCard>
@@ -653,19 +653,16 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Your Leadership Patterns — unified card */}
-        <LeadershipPatternsCard userId={user?.id} profileBaseline={profileBaseline} />
-
         {/* Card 4 — Your Performance Rhythm */}
         <PerformanceRhythmCard userId={user?.id} />
 
-        {/* Card 5 — Your Inner World */}
+        {/* Card 5 — Your Theme Map */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Inner World</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Theme Map</span>
               <InsightInfoModal
-                title="Your Inner World"
+                title="Your Theme Map"
                 explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day — what keeps coming up. The picture your data is painting of your inner world right now."
               />
             </div>
