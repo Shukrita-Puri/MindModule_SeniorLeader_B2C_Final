@@ -60,6 +60,8 @@ const TodayStateCard = () => {
   const tierLabel = getStateLabel(energyState.energyTier);
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
+  const layersActive = energyState.layersActive || ['base'];
+  const hasExtraLayers = layersActive.includes('clarity-confidence') || layersActive.includes('divergence');
 
   return (
     <div className={cn(
@@ -74,7 +76,7 @@ const TodayStateCard = () => {
         </span>
         <MetricInfoModal
           title="How Your Inner Readiness Score is Calculated"
-          description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in - your felt state combined with your clarity and confidence in this moment; your internal readiness - how certain and grounded you feel in your judgment today; and your circadian context - the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal - specifically how recovered your nervous system is relative to your own personal baseline. When your physiological data and your felt state diverge significantly, the score will surface that gap as an insight. This score does not measure how busy you are or what your calendar holds. That layer - how to deploy your current readiness against today's actual demands - lives in your Outer Readiness Brief"
+          description="Your Inner Readiness Score is a triangulated read of how resourced, clear, and confident you are before you engage with the demands of the day. It draws from three sources: your check-in, your felt state combined with your clarity and confidence in this moment; your internal readiness, how certain and grounded you feel in your judgment today; and your circadian context, the natural performance rhythm of the time of day and point in the week. If you have an Apple Watch connected, your HRV is added as a physiological signal, specifically how recovered your nervous system is relative to your own personal baseline. The insight below is built in layers. Layer 1 is always present: a base read of your felt state at this time of day. Layer 2 appears only when your clarity and confidence are notably low or high, adding nuance to the base read. Layer 3 appears only when your wearable data diverges significantly from your felt state, surfacing a gap between what you feel and what your body is showing. Most of the time you will see Layer 1 only. When additional layers appear, it means the system has detected a signal worth naming."
         />
       </div>
       {/* Score and Tier */}
@@ -92,9 +94,27 @@ const TodayStateCard = () => {
       </p>
 
       {/* Contextual Insight - Enriched */}
-      <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-body">
+      <p className="text-sm text-muted-foreground leading-relaxed mb-2 font-body">
         {insight}
       </p>
+
+      {/* Layer indicator - only shown when extra layers triggered */}
+      {hasExtraLayers && (
+        <div className="flex items-center gap-1.5 mb-4">
+          {layersActive.includes('clarity-confidence') && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-saffron/10 text-saffron font-medium font-body">
+              Clarity &amp; Confidence signal
+            </span>
+          )}
+          {layersActive.includes('divergence') && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium font-body">
+              Physiological divergence
+            </span>
+          )}
+        </div>
+      )}
+
+      {!hasExtraLayers && <div className="mb-4" />}
 
       {/* Data Sources + CTA - clickable for navigation */}
       <div 
