@@ -1,65 +1,67 @@
 
 
-## Check-In Detail Page Redesign + Outer Readiness Brief Polish
+## Catalog-Style Emotional & Cognitive Check-In
 
-This plan covers two areas: (1) a complete redesign of the Check-In Detail page for C-Suite leaders, and (2) removing em dashes and fixing styling on the Outer Readiness Brief card.
-
----
-
-### 1. Check-In Detail Page (`src/pages/CheckInDetail.tsx`)
-
-**Title and copy changes:**
-- Title: "Clarity & Confidence" (replaces "Want to add more detail?")
-- Subtitle: "Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated." (replaces the "Optional" messaging)
-- This screen becomes mandatory in the flow (no skip option)
-
-**Navigation changes:**
-- Back button navigates to `/daily-check-in` instead of `/executive-home`
-- Remove the "Skip for now" button entirely
-
-**Button styling:**
-- "Save & Continue" button: white text (`text-white`) instead of `text-charcoal`
-
-**Slider redesign (prominent, sleek):**
-- Increase track height from `h-2` to `h-3` with a gradient track fill (primary to saffron)
-- Increase thumb size from `h-5 w-5` to `h-7 w-7` with a shadow and border glow
-- Increase label font sizes: metric name `text-base font-semibold`, value label `text-base`
-- Add more vertical spacing between sliders
-
-**Luxury 3D glass styling:**
-- Page background: subtle gradient (`bg-gradient-to-br from-background via-background to-muted/20`)
-- Slider card wrapper: frosted glass card with depth shadow, rounded-2xl, gradient border highlight, inner radial glow (similar to `LuxuryInsightCard` pattern)
-- Subtle top-line glass highlight for premium feel
+Transform the current vertical list of small cards into a premium, catalog-flip style selection experience with large, visually distinct cards that C-Suite leaders swipe or tap through.
 
 ---
 
-### 2. Outer Readiness Brief Styling (`src/components/home/StrategicIntentionCard.tsx`)
+### Design Concept
 
-**Remove em dashes from tooltip:**
-- Replace all `—` (em dashes) in the tooltip description with `. ` or restructure sentences
+Inspired by the Dribbble "Catalog Flip" reference, each of the 5 emotional states becomes a large, full-width card with:
+- A unique gradient background per state (no stock images needed)
+- The state title prominently displayed
+- A subtle one-line descriptor
+- The Lucide icon enlarged as a visual anchor
+- Stacked/fanned layout where the active card is front-center and adjacent cards peek from behind
 
-**Lean On / Watch For styling:**
-- Remove `italic` class from the text
-- Change font from `font-body` (Inter) to `font-subheadline` (Crimson Pro) for a distinct, editorial feel
-- Keep `font-semibold not-italic` on the labels
+### Card Visual Identity (Gradient per State)
 
----
+| State | Gradient | Mood |
+|-------|----------|------|
+| Overwhelmed / Stressed | Deep red to warm amber | Tension, heat |
+| Low Energy / Drained | Slate blue to cool grey | Depletion, stillness |
+| Okay / Steady | Warm neutral to soft sand | Grounded, balanced |
+| Scattered / Unfocused | Teal to seafoam | Movement, diffusion |
+| Focused / Energized | Rich green to gold | Clarity, power |
 
-### 3. Edge Function: Remove Em Dashes (`supabase/functions/compute-outer-readiness/index.ts`)
+### Interaction Model
 
-- Find and replace all `—` (em dash) characters with `. ` or restructure to use periods/commas across all 40+ theme context lines, Lean On/Watch For statements, pattern recognition overrides, and no-calendar fallbacks
-- Update test file assertions to match
+- **Horizontal swipeable carousel** using CSS scroll-snap on mobile, or click navigation on desktop
+- Each card is tall (~280px) and rounded (rounded-2xl) with the luxury glass border treatment
+- Active card is fully visible; adjacent cards show ~20px peek from left/right edges
+- Tapping a card selects it and triggers the check-in flow
+- Dot indicators below show position in the carousel
+
+### Layout Structure
+
+```
+[Hero: "Emotional & Cognitive Check-In"]
+[Subtitle: "How are you feeling right now?"]
+
+  [ peek ] [=== ACTIVE CARD ===] [ peek ]
+           |  Icon (large)      |
+           |  "Okay / Steady"   |
+           |  "Grounded. Present"|
+           
+        * * * o *  (dot indicators)
+```
 
 ---
 
 ### Technical Details
 
-**Files to modify:**
-1. `src/pages/CheckInDetail.tsx` - Full redesign (title, copy, navigation, styling, remove skip)
-2. `src/components/ui/slider.tsx` - Create a new luxury slider variant with larger track/thumb and gradient fill
-3. `src/components/home/StrategicIntentionCard.tsx` - Remove italic from Lean On/Watch For, change font, remove em dashes from tooltip
-4. `supabase/functions/compute-outer-readiness/index.ts` - Replace all em dashes in theme/insight strings
-5. `supabase/functions/compute-outer-readiness/index.test.ts` - Update assertions to match removed em dashes
+**File modified:** `src/pages/DailyCheckIn.tsx`
 
-**No new dependencies required.** All styling uses existing Tailwind classes and design tokens.
+**Changes:**
+1. Replace the vertical `space-y-3` card list with a horizontal scroll-snap container
+2. Each card becomes a large `min-w-[85vw] max-w-[340px] h-[280px]` rounded card with a unique `bg-gradient-to-br` per state
+3. Add a short evocative subtitle per card (e.g., "Too much, too fast" for Overwhelmed)
+4. Enlarge the icon to `w-12 h-12` with a frosted circle backdrop
+5. Add dot indicators below the carousel showing the current scroll position
+6. Use CSS `scroll-snap-type: x mandatory` and `scroll-snap-align: center` for smooth catalog browsing
+7. Cards have depth shadow (`shadow-[0_8px_32px_rgba(0,0,0,0.15)]`), glass border highlight, and 3D transform on hover/press
+8. All existing logic (handleOutcomeSelect, TouchOptimized, save to localStorage/DB) remains unchanged
+9. The "Don't overthink it" subtitle moves above the carousel
 
+**No new files or dependencies.** Pure CSS scroll-snap with existing Tailwind classes.
