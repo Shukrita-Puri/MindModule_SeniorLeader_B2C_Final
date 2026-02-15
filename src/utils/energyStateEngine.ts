@@ -96,6 +96,7 @@ export interface CurrentEnergyState {
   divergenceFlag?: 'ALIGNED' | 'MASKED_HIGH' | 'RECOVERY_UNDERWAY';
   hrvDeviation?: number | null;
   tierLabel?: string;
+  layersActive?: string[];
 }
 
 // Fetch today's check-in from DB to get clarity/confidence
@@ -214,6 +215,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       divergenceFlag: result.divergenceFlag,
       hrvDeviation: result.hrvDeviation,
       tierLabel: result.tierLabel,
+      layersActive: result.layersActive || ['base'],
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);

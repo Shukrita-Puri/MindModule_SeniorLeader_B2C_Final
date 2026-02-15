@@ -168,8 +168,9 @@ function assembleContextStatement(
   confidence: number,
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null
-): string {
+): { text: string; layersActive: string[] } {
   const parts: string[] = [];
+  const layersActive: string[] = ['base'];
 
   // Layer 1: Base statement
   if (hasCheckIn && outcome && BASE_STATEMENTS[outcome]) {
@@ -183,19 +184,23 @@ function assembleContextStatement(
     const avgCC = (clarity + confidence) / 2;
     if (avgCC <= 2.5 && LOW_CC_MODIFIERS[outcome]) {
       parts.push(LOW_CC_MODIFIERS[outcome]);
+      layersActive.push('clarity-confidence');
     } else if (avgCC >= 4.5 && HIGH_CC_MODIFIERS[outcome]) {
       parts.push(HIGH_CC_MODIFIERS[outcome]);
+      layersActive.push('clarity-confidence');
     }
   }
 
   // Layer 3: Divergence overlay
   if (divergenceFlag === 'MASKED_HIGH' && hrvDeviation !== null) {
     parts.push(`Your HRV is reading ${Math.abs(hrvDeviation)}% below your baseline — your physiological load is higher than your felt state suggests.`);
+    layersActive.push('divergence');
   } else if (divergenceFlag === 'RECOVERY_UNDERWAY' && hrvDeviation !== null) {
     parts.push(`Your HRV is reading ${Math.abs(hrvDeviation)}% above your baseline — your body is more recovered than you currently feel.`);
+    layersActive.push('divergence');
   }
 
-  return parts.join(' ');
+  return { text: parts.join(' '), layersActive };
 }
 
 // ==================== MAIN SCORING ====================
@@ -278,7 +283,7 @@ serve(async (req) => {
     const subTier = getEnergySubTier(score);
 
     // Assemble context statement
-    const contextStatement = assembleContextStatement(
+    const { text: contextStatement, layersActive } = assembleContextStatement(
       checkInOutcome, hasCheckIn, timeOfDay, tier,
       clarity, confidence, divergenceFlag, hrvDeviation
     );
@@ -294,6 +299,7 @@ serve(async (req) => {
       tier,
       subTier,
       contextStatement,
+      layersActive,
       divergenceFlag,
       hrvDeviation,
       dataSources,
