@@ -1,4 +1,5 @@
-import { TrendingUp, Brain, Users, Zap, Target } from 'lucide-react';
+import { TrendingUp, Brain, Users, Zap, Target, Shield, Heart, Crown, Megaphone, Eye } from 'lucide-react';
+import { META_SKILLS, getSkillsByCluster } from '@/constants/metaSkills';
 
 interface MetaSkillScore {
   current: number;
@@ -8,22 +9,29 @@ interface MetaSkillScore {
 interface Props {
   mentalFitnessScore: number;
   mentalFitnessChange: number;
-  thinkingClarity: MetaSkillScore;
-  socialIntelligence: MetaSkillScore;
-  adaptiveCapacity: MetaSkillScore;
-  selfRegulation: MetaSkillScore;
+  skillScores: Record<string, MetaSkillScore>;
   percentile?: number;
 }
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  Target: <Target size={16} className="text-primary" />,
+  Shield: <Shield size={16} className="text-primary" />,
+  Heart: <Heart size={16} className="text-primary" />,
+  Crown: <Crown size={16} className="text-primary" />,
+  Brain: <Brain size={16} className="text-primary" />,
+  Zap: <Zap size={16} className="text-primary" />,
+  Megaphone: <Megaphone size={16} className="text-primary" />,
+  Eye: <Eye size={16} className="text-primary" />,
+};
 
 const MetaSkillProgressCard = ({
   mentalFitnessScore,
   mentalFitnessChange,
-  thinkingClarity,
-  socialIntelligence,
-  adaptiveCapacity,
-  selfRegulation,
+  skillScores,
   percentile = 12
 }: Props) => {
+  const allSkills = Object.values(META_SKILLS);
+
   return (
     <div className="bg-card border border-gold/20 rounded-lg p-6 shadow-md">
       {/* Mental Fitness Score - Hero */}
@@ -46,63 +54,26 @@ const MetaSkillProgressCard = ({
         </p>
       </div>
 
-      {/* Four Meta-Skill Pillars */}
-      <div className="space-y-4">
-        {/* Thinking Clarity */}
-        <div className="flex items-center justify-between py-2 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Brain size={16} className="text-primary" />
-            <span className="text-sm font-medium">Thinking Clarity</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-foreground">{thinkingClarity.current}/100</span>
-            {thinkingClarity.change > 0 && (
-              <span className="text-xs text-accent">↑ +{thinkingClarity.change}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Social Intelligence */}
-        <div className="flex items-center justify-between py-2 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-primary" />
-            <span className="text-sm font-medium">Social Intelligence</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-foreground">{socialIntelligence.current}/100</span>
-            {socialIntelligence.change > 0 && (
-              <span className="text-xs text-accent">↑ +{socialIntelligence.change}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Adaptive Capacity */}
-        <div className="flex items-center justify-between py-2 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Zap size={16} className="text-primary" />
-            <span className="text-sm font-medium">Adaptive Capacity</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-foreground">{adaptiveCapacity.current}/100</span>
-            {adaptiveCapacity.change > 0 && (
-              <span className="text-xs text-accent">↑ +{adaptiveCapacity.change}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Self-Regulation */}
-        <div className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-2">
-            <Target size={16} className="text-primary" />
-            <span className="text-sm font-medium">Self-Regulation</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-foreground">{selfRegulation.current}/100</span>
-            {selfRegulation.change > 0 && (
-              <span className="text-xs text-accent">↑ +{selfRegulation.change}</span>
-            )}
-          </div>
-        </div>
+      {/* 8 Meta-Skill Pillars */}
+      <div className="space-y-3">
+        {allSkills.map((skill, index) => {
+          const score = skillScores[skill.key] || { current: 0, change: 0 };
+          const isLast = index === allSkills.length - 1;
+          return (
+            <div key={skill.key} className={`flex items-center justify-between py-2 ${!isLast ? 'border-b border-border' : ''}`}>
+              <div className="flex items-center gap-2">
+                {ICON_MAP[skill.icon] || <Target size={16} className="text-primary" />}
+                <span className="text-sm font-medium">{skill.displayName}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-foreground">{score.current}/100</span>
+                {score.change > 0 && (
+                  <span className="text-xs text-accent">↑ +{score.change}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

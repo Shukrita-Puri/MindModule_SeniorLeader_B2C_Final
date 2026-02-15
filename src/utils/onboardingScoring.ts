@@ -1,4 +1,5 @@
 // Streamlined scoring for 3 behavioral questions
+// Scores now map to the 8 canonical Meta Skills
 
 export interface BehavioralAnswers {
   q1_setback_response: string;
@@ -7,9 +8,14 @@ export interface BehavioralAnswers {
 }
 
 export interface MetaSkillScores {
-  adaptability_learning: number;
-  communication_social: number;
   self_regulation: number;
+  resilience: number;
+  emotional_intelligence: number;
+  confidence: number;
+  thinking_clarity: number;
+  adaptive_capacity: number;
+  influence: number;
+  presence: number;
 }
 
 export interface ScoringResult {
@@ -18,140 +24,101 @@ export interface ScoringResult {
   profileDescription: string;
 }
 
-// Scoring matrices for 3 questions (max 3 points per skill per question)
-const Q1_SCORES = {
-  analyzed_adjusted: { ALA: 3, SRR: 2, CSI: 1 },
-  took_break: { SRR: 3, ALA: 1, CSI: 0 },
-  pushed_through: { SRR: 1, ALA: 1, CSI: 0 },
-  questioned_path: { ALA: 0, CSI: 0, SRR: 0 },
+// Scoring matrices for 3 questions
+// Each answer distributes points across the 8 meta skills (max 3 per skill per question)
+const Q1_SCORES: Record<string, Partial<Record<keyof MetaSkillScores, number>>> = {
+  analyzed_adjusted:  { thinking_clarity: 3, adaptive_capacity: 2, resilience: 1, confidence: 1 },
+  took_break:         { self_regulation: 3, emotional_intelligence: 2, resilience: 1 },
+  pushed_through:     { resilience: 2, confidence: 1, self_regulation: 1 },
+  questioned_path:    { thinking_clarity: 1, adaptive_capacity: 1 },
 };
 
-const Q2_SCORES = {
-  pause_collect: { SRR: 3, CSI: 2, ALA: 1 },
-  stay_calm: { SRR: 3, CSI: 1, ALA: 1 },
-  defend_explain: { CSI: 1, SRR: 0, ALA: 0 },
-  flustered: { ALA: 0, CSI: 0, SRR: 0 },
+const Q2_SCORES: Record<string, Partial<Record<keyof MetaSkillScores, number>>> = {
+  pause_collect:    { self_regulation: 3, presence: 2, thinking_clarity: 1, confidence: 1 },
+  stay_calm:        { self_regulation: 2, presence: 2, resilience: 1, confidence: 1 },
+  defend_explain:   { influence: 2, confidence: 1 },
+  flustered:        { emotional_intelligence: 1 },
 };
 
-const Q3_SCORES = {
-  ask_questions: { CSI: 3, ALA: 2, SRR: 1 },
-  find_analogy: { CSI: 3, ALA: 2, SRR: 1 },
-  walk_through_logic: { CSI: 1, ALA: 0, SRR: 0 },
-  frustrated: { ALA: 0, CSI: 0, SRR: 0 },
+const Q3_SCORES: Record<string, Partial<Record<keyof MetaSkillScores, number>>> = {
+  ask_questions:      { influence: 3, emotional_intelligence: 2, adaptive_capacity: 1, presence: 1 },
+  find_analogy:       { thinking_clarity: 3, influence: 2, adaptive_capacity: 1 },
+  walk_through_logic: { thinking_clarity: 2, influence: 1 },
+  frustrated:         { emotional_intelligence: 1 },
 };
+
+const ALL_SKILL_KEYS: (keyof MetaSkillScores)[] = [
+  'self_regulation', 'resilience', 'emotional_intelligence', 'confidence',
+  'thinking_clarity', 'adaptive_capacity', 'influence', 'presence'
+];
 
 export function calculateMetaSkillScores(
   answers: BehavioralAnswers
 ): ScoringResult {
-  // Initialize raw scores
-  let rawALA = 0;
-  let rawCSI = 0;
-  let rawSRR = 0;
+  const raw: Record<string, number> = {};
+  ALL_SKILL_KEYS.forEach(k => raw[k] = 0);
 
-  // Q1: Setback Response
-  const q1Key = answers.q1_setback_response as keyof typeof Q1_SCORES;
-  if (Q1_SCORES[q1Key]) {
-    rawALA += Q1_SCORES[q1Key].ALA;
-    rawCSI += Q1_SCORES[q1Key].CSI;
-    rawSRR += Q1_SCORES[q1Key].SRR;
+  // Accumulate raw scores from all 3 questions
+  const matrices = [
+    { key: answers.q1_setback_response, table: Q1_SCORES },
+    { key: answers.q2_pressure_response, table: Q2_SCORES },
+    { key: answers.q3_communication_style, table: Q3_SCORES },
+  ];
+
+  for (const { key, table } of matrices) {
+    const entry = table[key];
+    if (entry) {
+      for (const [skill, pts] of Object.entries(entry)) {
+        raw[skill] = (raw[skill] || 0) + (pts || 0);
+      }
+    }
   }
 
-  // Q2: Pressure Response
-  const q2Key = answers.q2_pressure_response as keyof typeof Q2_SCORES;
-  if (Q2_SCORES[q2Key]) {
-    rawALA += Q2_SCORES[q2Key].ALA;
-    rawCSI += Q2_SCORES[q2Key].CSI;
-    rawSRR += Q2_SCORES[q2Key].SRR;
+  // Normalize to 0-10 scale (theoretical max per skill across 3 questions is ~9)
+  const scores = {} as MetaSkillScores;
+  for (const k of ALL_SKILL_KEYS) {
+    scores[k] = Math.round(Math.min(10, (raw[k] / 9) * 10) * 10) / 10;
   }
 
-  // Q3: Communication Style
-  const q3Key = answers.q3_communication_style as keyof typeof Q3_SCORES;
-  if (Q3_SCORES[q3Key]) {
-    rawALA += Q3_SCORES[q3Key].ALA;
-    rawCSI += Q3_SCORES[q3Key].CSI;
-    rawSRR += Q3_SCORES[q3Key].SRR;
-  }
+  const { profileType, profileDescription } = generateProfile(scores);
 
-  // Normalize to 0-10 scale (max raw score is 9 per skill)
-  const normalizedScores: MetaSkillScores = {
-    adaptability_learning: Math.round((rawALA / 9) * 100) / 10,
-    communication_social: Math.round((rawCSI / 9) * 100) / 10,
-    self_regulation: Math.round((rawSRR / 9) * 100) / 10,
-  };
-
-  // Generate profile based on scores
-  const { profileType, profileDescription } = generateProfile(normalizedScores);
-
-  return {
-    scores: normalizedScores,
-    profileType,
-    profileDescription,
-  };
+  return { scores, profileType, profileDescription };
 }
 
 function generateProfile(scores: MetaSkillScores): {
   profileType: string;
   profileDescription: string;
 } {
-  const sortedSkills = [
-    { name: "ALA", score: scores.adaptability_learning },
-    { name: "CSI", score: scores.communication_social },
-    { name: "SRR", score: scores.self_regulation },
-  ].sort((a, b) => b.score - a.score);
+  const sorted = ALL_SKILL_KEYS
+    .map(k => ({ key: k, score: scores[k] }))
+    .sort((a, b) => b.score - a.score);
 
-  const highest = sortedSkills[0];
-  const secondHighest = sortedSkills[1];
+  const top = sorted[0];
+  const second = sorted[1];
 
-  // If top two are within 0.5 points, consider it balanced
-  if (Math.abs(highest.score - secondHighest.score) < 0.5) {
+  if (Math.abs(top.score - second.score) < 0.5) {
     return {
-      profileType: "Balanced Developer",
+      profileType: "Balanced Leader",
       profileDescription:
-        "You show balanced capability across all three Meta Skills. This versatility is valuable—you can adapt your approach based on what each situation demands. Your development path will focus on deepening your strongest area while maintaining this balance.",
+        "You show balanced capability across multiple Meta Skills. This versatility is valuable—you can adapt your approach based on what each situation demands.",
     };
   }
 
-  // Generate profile based on top two skills
-  const combo = `${highest.name}-${secondHighest.name}`;
-
-  const profiles: Record<string, { type: string; description: string }> = {
-    "ALA-CSI": {
-      type: "Adaptive Communicator",
-      description:
-        "You excel at reading situations and adjusting your communication approach. You're likely strongest when navigating change while keeping people aligned. Your development path will focus on maintaining composure when both adaptation and influence are needed simultaneously.",
-    },
-    "ALA-SRR": {
-      type: "Adaptive Regulator",
-      description:
-        "You combine flexibility with composure—able to shift direction while staying centered. You're likely strongest when facing unexpected challenges that require both quick thinking and emotional steadiness. Your development path will focus on bringing others along as you adapt.",
-    },
-    "CSI-ALA": {
-      type: "Social Adapter",
-      description:
-        "You lead with connection and reading the room, backed by mental flexibility. You're likely strongest in situations requiring influence through changing circumstances. Your development path will focus on maintaining your calm center when both relationship dynamics and plans are shifting.",
-    },
-    "CSI-SRR": {
-      type: "Empathic Regulator",
-      description:
-        "You combine social awareness with emotional steadiness—able to read others while staying composed yourself. You're likely strongest in high-stakes interpersonal situations. Your development path will focus on maintaining this balance when circumstances change rapidly.",
-    },
-    "SRR-ALA": {
-      type: "Centered Adapter",
-      description:
-        "You lead with composure and add mental agility when needed. You're likely strongest when facing pressure that requires both staying calm and thinking differently. Your development path will focus on reading social dynamics while maintaining this centered flexibility.",
-    },
-    "SRR-CSI": {
-      type: "Centered Communicator",
-      description:
-        "You combine emotional regulation with social intelligence—staying composed while reading others. You're likely strongest in tense interpersonal situations. Your development path will focus on maintaining this balance when rapid adaptation is also required.",
-    },
+  const LABELS: Record<string, string> = {
+    self_regulation: "Self-Regulation",
+    resilience: "Resilience",
+    emotional_intelligence: "Emotional Intelligence",
+    confidence: "Confidence",
+    thinking_clarity: "Thinking Clarity",
+    adaptive_capacity: "Adaptive Capacity",
+    influence: "Influence",
+    presence: "Presence",
   };
 
-  const profile = profiles[combo] || profiles["ALA-CSI"];
-
   return {
-    profileType: profile.type,
-    profileDescription: profile.description,
+    profileType: `${LABELS[top.key]} Leader`,
+    profileDescription:
+      `Your strongest area is ${LABELS[top.key]}, supported by ${LABELS[second.key]}. Mind Module will help you leverage these strengths while developing across all eight Meta Skills.`,
   };
 }
 
@@ -163,67 +130,67 @@ export function determineAlignment(
   message: string;
   actualHighest: string;
 } {
-  // Map self-assessment to skill names
-  const skillMap: Record<string, keyof MetaSkillScores> = {
-    ALA: "adaptability_learning",
-    CSI: "communication_social",
-    SRR: "self_regulation",
-  };
-
-  const skillNameMap: Record<keyof MetaSkillScores, string> = {
-    adaptability_learning: "Adaptive Capacity",
-    communication_social: "Social Intelligence",
+  const LABELS: Record<string, string> = {
     self_regulation: "Self-Regulation",
+    resilience: "Resilience",
+    emotional_intelligence: "Emotional Intelligence",
+    confidence: "Confidence",
+    thinking_clarity: "Thinking Clarity",
+    adaptive_capacity: "Adaptive Capacity",
+    influence: "Influence",
+    presence: "Presence",
+    // Legacy mappings
+    ALA: "Adaptive Capacity",
+    CSI: "Influence",
+    SRR: "Self-Regulation",
   };
 
-  // Find actual highest score
-  const scoresArray = [
-    { skill: "adaptability_learning", score: scores.adaptability_learning },
-    { skill: "communication_social", score: scores.communication_social },
-    { skill: "self_regulation", score: scores.self_regulation },
-  ];
+  // Legacy key → new key mapping
+  const legacyToNew: Record<string, keyof MetaSkillScores> = {
+    ALA: 'adaptive_capacity',
+    CSI: 'influence',
+    SRR: 'self_regulation',
+  };
 
-  const highest = scoresArray.reduce((prev, current) =>
-    current.score > prev.score ? current : prev
-  );
+  // Find actual highest
+  const sorted = ALL_SKILL_KEYS
+    .map(k => ({ key: k, score: scores[k] }))
+    .sort((a, b) => b.score - a.score);
+  const highest = sorted[0];
+  const actualHighestName = LABELS[highest.key] || highest.key;
 
-  const actualHighestSkill = highest.skill as keyof MetaSkillScores;
-  const actualHighestName = skillNameMap[actualHighestSkill];
-
-  // Handle "none" self-assessment
   if (selfAssessedStrength === "none") {
     return {
       status: "UNDERESTIMATE",
-      message: `You're being modest! Your responses show clear strength in ${actualHighestName}. This self-awareness gap is common—Mind Module will help you recognize and leverage your natural capabilities.`,
+      message: `You're being modest! Your responses show clear strength in ${actualHighestName}. Mind Module will help you recognise and leverage your natural capabilities.`,
       actualHighest: actualHighestName,
     };
   }
 
-  const selfAssessedSkill = skillMap[selfAssessedStrength];
-  const selfAssessedScore = scores[selfAssessedSkill];
-  const actualHighestScore = highest.score;
+  const assessedKey = legacyToNew[selfAssessedStrength] || selfAssessedStrength as keyof MetaSkillScores;
+  const selfScore = scores[assessedKey] ?? 0;
+  const diff = highest.score - selfScore;
+  const selfLabel = LABELS[selfAssessedStrength] || LABELS[assessedKey] || selfAssessedStrength;
 
-  const difference = actualHighestScore - selfAssessedScore;
-
-  if (Math.abs(difference) <= 1.0) {
+  if (Math.abs(diff) <= 1.0) {
     return {
       status: "MATCH",
-      message: `Your self-perception aligns with your behavioral patterns! ${actualHighestName} is indeed your strongest area. This accurate self-awareness is a valuable meta-skill itself.`,
+      message: `Your self-perception aligns with your behavioral patterns! ${actualHighestName} is indeed your strongest area.`,
       actualHighest: actualHighestName,
     };
   }
 
-  if (difference > 1.5) {
+  if (diff > 1.5) {
     return {
       status: "UNDERESTIMATE",
-      message: `Interesting insight: Your responses reveal ${actualHighestName} as your strongest area, but you identified ${skillNameMap[selfAssessedSkill]}. This hidden strength is worth exploring—Mind Module will help you recognize and leverage it more intentionally.`,
+      message: `Your responses reveal ${actualHighestName} as your strongest area, but you identified ${selfLabel}. This hidden strength is worth exploring.`,
       actualHighest: actualHighestName,
     };
   }
 
   return {
     status: "OVERESTIMATE",
-    message: `Valuable insight: While you identified ${skillNameMap[selfAssessedSkill]} as your strength, your responses show ${actualHighestName} is currently your strongest pattern. Mind Module will help you develop ${skillNameMap[selfAssessedSkill]} through targeted practice.`,
+    message: `While you identified ${selfLabel} as your strength, your responses show ${actualHighestName} is currently your strongest pattern. Mind Module will help you develop ${selfLabel} through targeted practice.`,
     actualHighest: actualHighestName,
   };
 }
