@@ -936,6 +936,21 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
+      } else if (timeOfDay === 'evening' && moduleType === 'regulate') {
+        // Fallback: always include a regulate module for evenings even if no DB content matches
+        todModules.push({
+          type: 'regulate',
+          contentId: 'evening-regulate-fallback',
+          title: 'Evening Grounding',
+          contentType: 'guided-practice',
+          duration: 3,
+          focus: 'release',
+          intensity: 'gentle',
+          isFavorite: false,
+          reasoning: 'Wind down with grounding and regulation before rest',
+          required: true,
+          thumbnailUrl: null
+        });
       }
     }
   }
@@ -1015,8 +1030,10 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
   if (spec.type === 'regulate') {
     pool = contentLibrary.filter(c =>
       c.content_type === 'soundbath' ||
-      (c.content_type === 'guided-practice' && c.tags?.some((t: string) =>
-        t.toLowerCase().includes('breathing') || t.toLowerCase().includes('somatic')
+      (c.content_type === 'guided-practice' && (
+        c.tags?.some((t: string) =>
+          t.toLowerCase().includes('breathing') || t.toLowerCase().includes('somatic') || t.toLowerCase().includes('grounding') || t.toLowerCase().includes('calm')
+        ) || c.category === 'pause'
       )) ||
       (c.content_type === 'micro-practice' && c.sub_type !== 'mindset' && c.tags?.some((t: string) =>
         t.toLowerCase().includes('breathing') || t.toLowerCase().includes('somatic') || t.toLowerCase().includes('grounding')
