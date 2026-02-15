@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +12,7 @@ import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
-import FrictionAndStrengthDetail from '@/components/insights/FrictionAndStrengthDetail';
+import LeadershipPatternsCard from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 import BaselineReferenceCard from '@/components/insights/BaselineReferenceCard';
@@ -83,24 +83,6 @@ interface ProfileBaseline {
   growthPriority?: string;
 }
 
-// State colors for the bar chart
-const stateColors: Record<string, string> = {
-  focused: 'hsl(142 76% 36%)',
-  steady: 'hsl(217 91% 60%)',
-  scattered: 'hsl(38 92% 50%)',
-  drained: 'hsl(0 0% 62%)',
-  overwhelmed: 'hsl(0 84% 60%)'
-};
-
-// State display names
-const stateLabels: Record<string, string> = {
-  focused: 'Focused',
-  steady: 'Steady',
-  scattered: 'Scattered',
-  drained: 'Drained',
-  overwhelmed: 'Overwhelmed'
-};
-
 // Insights tier based on check-in count
 type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 
@@ -134,26 +116,6 @@ const Insights = () => {
     return 'baseline';
   }, [checkInCount]);
 
-  // Calculate most common state this week
-  const mostCommonState = useMemo(() => {
-    if (!statePatterns?.distribution) return null;
-    const entries = Object.entries(statePatterns.distribution);
-    if (entries.length === 0) return null;
-    const sorted = entries.sort((a, b) => b[1] - a[1]);
-    return sorted[0][1] > 0 ? sorted[0][0] : null;
-  }, [statePatterns]);
-
-  // Get yesterday's state for comparison
-  const todayAndYesterdayStates = useMemo(() => {
-    if (checkInsWithTimestamp.length < 2) return null;
-    const sorted = [...checkInsWithTimestamp].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    return {
-      today: sorted[0]?.outcome,
-      yesterday: sorted[1]?.outcome
-    };
-  }, [checkInsWithTimestamp]);
 
   // Mind Map readiness check
   const mindMapReady = useMemo(() => {
@@ -618,17 +580,6 @@ const Insights = () => {
     }
   };
 
-  // Prepare state distribution data for bar chart
-  const getStateDistributionData = () => {
-    if (!statePatterns?.distribution) return [];
-    
-    const orderedStates = ['focused', 'steady', 'scattered', 'drained', 'overwhelmed'];
-    return orderedStates.map(state => ({
-      state: stateLabels[state],
-      count: statePatterns.distribution[state] || 0,
-      fill: stateColors[state]
-    }));
-  };
 
   // Transform Tiny Wins themes to bubble format for unified styling
   const tinyWinsBubbleData = useMemo(() => {
@@ -658,9 +609,6 @@ const Insights = () => {
     );
   }
 
-  const totalPractices = practiceData.reduce((sum, p) => sum + p.count, 0);
-  const stateDistributionData = getStateDistributionData();
-  const maxStateCount = Math.max(...stateDistributionData.map(d => d.count), 1);
   const winsProgressMessage = getWinsProgressMessage();
 
   return (
@@ -705,73 +653,8 @@ const Insights = () => {
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Your Leadership Patterns — consolidates Typical State, Strength & Friction, Theme Patterns */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Leadership Patterns</span>
-              <InsightInfoModal
-                title="Your Leadership Patterns"
-                explanation="What is consistently true about how you lead. This card draws from your coach sessions, your recurring Compass themes, and your check-in history over 30 days — surfacing the strengths your coach keeps returning to, the friction patterns that keep showing up, and the overall direction of your inner state over time."
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Typical State — supporting line */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Most frequent state this period</span>
-              <span className="text-sm font-semibold text-foreground capitalize">
-                {mostCommonState ? stateLabels[mostCommonState] : '—'}
-              </span>
-            </div>
-
-            {insightsTier === 'early' && todayAndYesterdayStates && (
-              <div className="text-[10px] text-muted-foreground">
-                Today: <span className="text-foreground capitalize">{todayAndYesterdayStates.today}</span>
-                {todayAndYesterdayStates.yesterday && (
-                  <> · Yesterday: <span className="text-foreground capitalize">{todayAndYesterdayStates.yesterday}</span></>
-                )}
-              </div>
-            )}
-
-            {/* Strength & Friction */}
-            <div className="pt-3 border-t border-border/30">
-              <FrictionAndStrengthDetail userId={user?.id} profileBaseline={profileBaseline} />
-            </div>
-
-            {/* Theme Patterns — deepening tier+ */}
-            {(insightsTier === 'deepening' || insightsTier === 'full') && (
-              <div className="pt-3 border-t border-border/30">
-                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">Recurring Themes</p>
-                {semanticLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : semanticAnalysis && semanticAnalysis.themePatterns.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {semanticAnalysis.themePatterns.map((theme, i) => (
-                        <span 
-                          key={i} 
-                          className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                        >
-                          "{theme.phrase}"
-                          {theme.count > 1 && (
-                            <span className="ml-1 opacity-60">({theme.count}×)</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground py-2">
-                    More check-ins will reveal recurring themes.
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </LuxuryInsightCard>
+        {/* Your Leadership Patterns — unified card */}
+        <LeadershipPatternsCard userId={user?.id} profileBaseline={profileBaseline} />
 
         {/* Card 4 — Your Performance Rhythm */}
         <PerformanceRhythmCard userId={user?.id} />
