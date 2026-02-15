@@ -939,21 +939,26 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
-      } else if (timeOfDay === 'evening' && moduleType === 'regulate') {
-        // Fallback: always include a regulate module for evenings even if no DB content matches
-        todModules.push({
-          type: 'regulate',
-          contentId: 'evening-regulate-fallback',
-          title: 'Evening Grounding',
-          contentType: 'guided-practice',
-          duration: 3,
-          focus: 'release',
-          intensity: 'gentle',
-          isFavorite: false,
-          reasoning: 'Wind down with grounding and regulation before rest',
-          required: true,
-          thumbnailUrl: null
-        });
+      } else if (timeOfDay === 'evening') {
+        // Fallback: try to find ANY real content from DB for this module type
+        const fallbackCategory = moduleType === 'regulate' ? 'somatic' : 'mindset';
+        const fallbackItem = enrichedContent.find((c: any) => c.category === fallbackCategory);
+        if (fallbackItem) {
+          todModules.push({
+            type: moduleType,
+            contentId: fallbackItem.id,
+            title: fallbackItem.title,
+            contentType: fallbackItem.content_type,
+            duration: fallbackItem.duration,
+            focus: spec.focus,
+            intensity: spec.intensity,
+            isFavorite: req.favorites.includes(fallbackItem.id),
+            reasoning: getModuleReasoning(moduleType, spec.focus),
+            required: spec.required,
+            thumbnailUrl: fallbackItem.thumbnail_url
+          });
+        }
+        // If no real content exists at all, skip the module entirely
       }
     }
   }
