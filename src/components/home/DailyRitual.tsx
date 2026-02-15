@@ -309,7 +309,7 @@ const DailyRitual = () => {
       const requestBody = {
         userId: user?.id || '',
         innerReadinessTier: energyState.energyTier,
-        innerReadinessScore: energyState.energyBalance || 50,
+        innerReadinessScore: energyState.overallBalance || 50,
         outerReadinessPhrase: outerBrief?.phrase || 'Steady execution.',
         outerReadinessDriver: outerBrief?.driver || 'state',
         calendarLoad: energyState.calendarLoad || 'none',
