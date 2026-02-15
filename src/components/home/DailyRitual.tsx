@@ -775,17 +775,17 @@ const DailyRitual = () => {
         {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
           <Button 
             onClick={handleStartRitual}
-            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
+            className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
           >
             <Play size={16} className="mr-2" />
-            Start: Today's Performance Plan
+            Start Your Mastery Plan
           </Button>
         )}
 
         {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
           <Button 
             onClick={handleContinueRitual}
-            className="w-full h-12 text-base font-semibold bg-saffron text-charcoal hover:bg-saffron/90 rounded-xl shadow-[0_4px_16px_rgba(255,140,66,0.25)]"
+            className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
           >
             <Play size={16} className="mr-2" />
             {(() => {
