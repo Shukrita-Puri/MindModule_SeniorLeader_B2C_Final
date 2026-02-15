@@ -56,6 +56,7 @@ interface SemanticAnalysis {
     sources: { coach: number; practice: number; wins: number; checkins: number };
   }[];
   themeRelationships: { from: string; to: string; strength: number }[];
+  aiObservation?: string;
 }
 
 interface BubbleDetails {
@@ -487,7 +488,7 @@ const Insights = () => {
             sources: data.sources
           }))
           .sort((a, b) => b.totalCount - a.totalCount)
-          .slice(0, 12);
+          .slice(0, 8);
 
         console.log('[Insights] DEV_MODE extracted themes:', unifiedThemes);
 
@@ -538,10 +539,24 @@ const Insights = () => {
 
         console.log('[Insights] DEV_MODE generated relationships:', themeRelationships);
 
+        // Generate algorithmic observation for DEV_MODE
+        const topTheme = unifiedThemes[0];
+        const secondTheme = unifiedThemes[1];
+        let devObservation = '';
+        if (topTheme && secondTheme) {
+          const getTopSrc = (s: typeof topTheme.sources) => {
+            const entries = Object.entries(s).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+            const map: Record<string, string> = { coach: 'coach conversations', practice: 'practices', wins: 'wins', checkins: 'check-ins' };
+            return entries.length > 0 ? map[entries[0][0]] || 'your reflections' : 'your reflections';
+          };
+          devObservation = `Your inner world is currently shaped by ${topTheme.theme} and ${secondTheme.theme}, surfacing most in your ${getTopSrc(topTheme.sources)}. These recurring patterns suggest where your attention and energy are drawn right now.`;
+        }
+
         setSemanticAnalysis({
           themePatterns: [],
           unifiedThemes,
-          themeRelationships
+          themeRelationships,
+          aiObservation: devObservation,
         });
         setSemanticLoading(false);
         return;
@@ -656,13 +671,13 @@ const Insights = () => {
         {/* Card 4 — Your Performance Rhythm */}
         <PerformanceRhythmCard userId={user?.id} />
 
-        {/* Card 5 — Your Theme Map */}
+        {/* Card 5 — Your Mind Map */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Theme Map</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Mind Map</span>
               <InsightInfoModal
-                title="Your Theme Map"
+                title="Your Mind Map"
                 explanation="The recurring themes, patterns, and preoccupations that surface across your check-ins, coaching sessions, and practices. Not what you reported on any single day — what keeps coming up. The picture your data is painting of your inner world right now."
               />
             </div>
@@ -675,7 +690,7 @@ const Insights = () => {
             ) : !mindMapReady ? (
               <div className="py-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Your Inner World builds from coach conversations, practices, and wins.
+                  Your Mind Map builds from coach conversations, practices, and wins.
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-2">
                   Keep engaging to see unified themes emerge.
@@ -683,22 +698,19 @@ const Insights = () => {
               </div>
             ) : (
               <>
+                {/* AI Observation above the bubble map */}
+                {semanticAnalysis?.aiObservation && (
+                  <div className="mb-4 p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {semanticAnalysis.aiObservation}
+                    </p>
+                  </div>
+                )}
                 <InnerWorldBubbles
                   items={semanticAnalysis?.unifiedThemes || []}
                   relationships={semanticAnalysis?.themeRelationships || []}
                   onBubbleClick={fetchBubbleDetails}
                 />
-                <div className="mt-4 p-3 bg-muted/10 rounded-lg min-h-[40px]">
-                  {semanticAnalysis?.unifiedThemes?.length > 0 ? (
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      These themes emerge from your coach conversations, practices, and wins — revealing your inner patterns.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground/60">
-                      Engage with the coach and complete practices to see unified themes emerge.
-                    </p>
-                  )}
-                </div>
               </>
             )}
           </CardContent>
