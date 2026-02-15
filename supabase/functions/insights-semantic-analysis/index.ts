@@ -7,7 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Unified theme from all sources
 interface UnifiedTheme {
   theme: string;
   totalCount: number;
@@ -24,6 +23,7 @@ interface SemanticAnalysisResponse {
   themePatterns: { phrase: string; count: number; driver: string }[];
   unifiedThemes: UnifiedTheme[];
   themeRelationships: { from: string; to: string; strength: number }[];
+  aiObservation: string;
 }
 
 interface BubbleDetailsResponse {
@@ -37,13 +37,32 @@ interface BubbleDetailsResponse {
   }[];
 }
 
+// Generate algorithmic fallback observation from themes
+function generateAlgorithmicObservation(themes: UnifiedTheme[]): string {
+  if (themes.length === 0) return '';
+  
+  const top1 = themes[0];
+  const top2 = themes.length > 1 ? themes[1] : null;
+  
+  const getTopSource = (sources: UnifiedTheme['sources']): string => {
+    const entries = Object.entries(sources).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return 'your reflections';
+    const map: Record<string, string> = { coach: 'coach conversations', practice: 'practices', wins: 'wins', checkins: 'check-ins' };
+    return map[entries[0][0]] || 'your reflections';
+  };
+
+  if (top2) {
+    return `Your inner world is currently shaped by ${top1.theme} and ${top2.theme}, surfacing most in your ${getTopSource(top1.sources)}. These recurring patterns suggest where your attention and energy are drawn right now.`;
+  }
+  return `${top1.theme} is the dominant theme in your inner world right now, appearing ${top1.totalCount} times across your ${getTopSource(top1.sources)}.`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get Auth0 token from header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -52,7 +71,6 @@ serve(async (req) => {
       );
     }
 
-    // Verify Auth0 token
     const token = authHeader.replace('Bearer ', '');
     const userInfoResponse = await fetch('https://dev-lq1jvpvlg5hjbhz0.us.auth0.com/userinfo', {
       headers: { Authorization: `Bearer ${token}` }
@@ -71,7 +89,6 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { days = 7, action = 'analyze', keyword } = requestBody;
 
-    // Create Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -108,7 +125,7 @@ serve(async (req) => {
       themeMap.set(normalizedTheme, existing);
     };
 
-    // 1. Fetch theme patterns from daily_themes (for Theme Patterns section)
+    // 1. Fetch theme patterns from daily_themes
     const { data: themes } = await supabase
       .from('daily_themes')
       .select('theme_phrase, theme_driver')
@@ -116,7 +133,6 @@ serve(async (req) => {
       .gte('theme_date', startDateStr)
       .order('theme_date', { ascending: false });
 
-    // Aggregate theme patterns for display
     const themePatternMap = new Map<string, { count: number; driver: string }>();
     themes?.forEach(t => {
       const existing = themePatternMap.get(t.theme_phrase) || { count: 0, driver: t.theme_driver || 'state' };
@@ -127,7 +143,7 @@ serve(async (req) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
 
-    // 2. Fetch coach dialogue messages and extract themes
+    // 2. Fetch coach dialogue messages and extract themes via Lovable AI Gateway
     const { data: sessions } = await supabase
       .from('dialogue_sessions')
       .select('id')
@@ -148,18 +164,22 @@ serve(async (req) => {
       if (messages && messages.length > 0) {
         const allContent = messages.map(m => m.content).join('\n\n');
         
-        const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-        if (geminiApiKey && allContent.length > 50) {
+        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+        if (lovableApiKey && allContent.length > 50) {
           try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+            const aiResponse = await fetch(
+              'https://ai.gateway.lovable.dev/v1/chat/completions',
               {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Authorization': `Bearer ${lovableApiKey}`,
+                  'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
-                  contents: [{
-                    parts: [{
-                      text: `Analyze these coaching conversation excerpts and:
+                  model: 'google/gemini-2.5-flash-lite',
+                  messages: [{
+                    role: 'user',
+                    content: `Analyze these coaching conversation excerpts and:
 1. Extract the 5-8 most important themes or topics the user discussed
 2. Identify 2-4 meaningful relationships between themes (problem/solution, cause/effect, related concepts)
 
@@ -173,19 +193,14 @@ Keywords should be 2-4 word phrases. Count is how many times this theme appeared
 
 Conversation excerpts:
 ${allContent.slice(0, 3000)}`
-                    }]
                   }],
-                  generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 800
-                  }
                 })
               }
             );
 
-            if (geminiResponse.ok) {
-              const geminiData = await geminiResponse.json();
-              const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (aiResponse.ok) {
+              const aiData = await aiResponse.json();
+              const responseText = aiData.choices?.[0]?.message?.content || '';
               
               const jsonMatch = responseText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -205,6 +220,8 @@ ${allContent.slice(0, 3000)}`
                   }));
                 }
               }
+            } else if (aiResponse.status === 429 || aiResponse.status === 402) {
+              console.warn('AI gateway rate limited or payment required, using algorithmic fallback');
             }
           } catch (aiError) {
             console.error('AI extraction error:', aiError);
@@ -222,10 +239,8 @@ ${allContent.slice(0, 3000)}`
       .gte('created_at', startDate.toISOString());
 
     practiceEvents?.forEach(p => {
-      // Add category as theme
       if (p.category) {
         const category = p.category.toLowerCase();
-        // Normalize to meaningful names
         if (category.includes('pause') || category.includes('regulate') || category.includes('calm')) {
           mergeTheme('calm & regulate', 'practice', 1);
         } else if (category.includes('flow') || category.includes('presence') || category.includes('focus')) {
@@ -236,12 +251,9 @@ ${allContent.slice(0, 3000)}`
           mergeTheme(category, 'practice', 1);
         }
       }
-      
-      // Add tags as themes
       if (p.tags && Array.isArray(p.tags)) {
         p.tags.forEach((tag: string) => {
-          const normalizedTag = tag.toLowerCase().replace(/-/g, ' ');
-          mergeTheme(normalizedTag, 'practice', 1);
+          mergeTheme(tag.toLowerCase().replace(/-/g, ' '), 'practice', 1);
         });
       }
     });
@@ -254,14 +266,12 @@ ${allContent.slice(0, 3000)}`
       .gte('win_date', startDateStr);
 
     if (tinyWins && tinyWins.length > 0) {
-      // Extract simple keyword themes from wins
       const winKeywords = [
         'confidence', 'calm', 'focus', 'energy', 'clarity', 'connection',
         'productivity', 'balance', 'growth', 'resilience', 'mindfulness',
         'stress', 'anxiety', 'overwhelm', 'decision', 'communication',
         'leadership', 'patience', 'gratitude', 'momentum', 'breakthrough'
       ];
-      
       tinyWins.forEach(w => {
         const content = w.win_content.toLowerCase();
         winKeywords.forEach(keyword => {
@@ -280,95 +290,109 @@ ${allContent.slice(0, 3000)}`
       .gte('checkin_date', startDateStr);
 
     checkins?.forEach(c => {
-      // Map outcomes to meaningful theme names
       if (c.outcome) {
         const outcomeThemes: Record<string, string> = {
-          'focused': 'high focus',
-          'steady': 'steady state',
-          'scattered': 'mental scatter',
-          'drained': 'energy drain',
-          'overwhelmed': 'overwhelm'
+          'focused': 'high focus', 'steady': 'steady state', 'scattered': 'mental scatter',
+          'drained': 'energy drain', 'overwhelmed': 'overwhelm'
         };
-        const themeName = outcomeThemes[c.outcome] || c.outcome;
-        mergeTheme(themeName, 'checkins', 1);
+        mergeTheme(outcomeThemes[c.outcome] || c.outcome, 'checkins', 1);
       }
-      
-      // Add state tags as themes
       if (c.state_tags && Array.isArray(c.state_tags)) {
-        c.state_tags.forEach((tag: string) => {
-          mergeTheme(tag, 'checkins', 1);
-        });
+        c.state_tags.forEach((tag: string) => mergeTheme(tag, 'checkins', 1));
       }
     });
 
-    // Calculate unified themes with weights
+    // Calculate unified themes — cap at 8
     const maxCount = Math.max(...Array.from(themeMap.values()).map(v => v.count), 1);
     const unifiedThemes: UnifiedTheme[] = Array.from(themeMap.entries())
       .map(([theme, data]) => ({
-        theme: theme.charAt(0).toUpperCase() + theme.slice(1), // Capitalize
+        theme: theme.charAt(0).toUpperCase() + theme.slice(1),
         totalCount: data.count,
         weight: data.count / maxCount,
         sources: data.sources
       }))
       .sort((a, b) => b.totalCount - a.totalCount)
-      .slice(0, 15); // Top 15 themes
+      .slice(0, 8);
 
-    // Generate algorithmic relationships if AI didn't extract any
-    // This ensures relationship lines appear even without AI extraction
+    // Generate algorithmic relationships if AI didn't extract any — cap at 6
     if (themeRelationships.length === 0 && unifiedThemes.length >= 2) {
-      const themes = unifiedThemes.map(t => t.theme.toLowerCase());
-      
-      // Known semantic pairs - common relationships in coaching/wellness context
+      const themesLower = unifiedThemes.map(t => t.theme.toLowerCase());
       const knownPairs: [string, string, number][] = [
-        ['stress', 'grounding', 0.85],
-        ['stress', 'calm', 0.8],
-        ['overwhelm', 'calm & regulate', 0.9],
-        ['overwhelm', 'grounding', 0.8],
-        ['energy drain', 'energy renewal', 0.85],
-        ['mental scatter', 'focus & presence', 0.9],
-        ['mental scatter', 'grounding', 0.75],
-        ['anxiety', 'calm', 0.85],
-        ['anxiety', 'grounding', 0.8],
-        ['decision fatigue', 'clarity', 0.8],
-        ['high focus', 'confidence', 0.7],
-        ['steady state', 'balance', 0.75],
-        ['overwhelm', 'release', 0.8],
-        ['drained', 'restore', 0.85],
-        ['scattered', 'focus', 0.85]
+        ['stress', 'grounding', 0.85], ['stress', 'calm', 0.8],
+        ['overwhelm', 'calm & regulate', 0.9], ['overwhelm', 'grounding', 0.8],
+        ['energy drain', 'energy renewal', 0.85], ['mental scatter', 'focus & presence', 0.9],
+        ['mental scatter', 'grounding', 0.75], ['anxiety', 'calm', 0.85],
+        ['decision fatigue', 'clarity', 0.8], ['high focus', 'confidence', 0.7],
+        ['steady state', 'balance', 0.75], ['overwhelm', 'release', 0.8],
+        ['drained', 'restore', 0.85], ['scattered', 'focus', 0.85]
       ];
       
-      // Check which pairs exist in user's themes
       for (const [from, to, strength] of knownPairs) {
-        const fromExists = themes.some(t => t.includes(from) || from.includes(t));
-        const toExists = themes.some(t => t.includes(to) || to.includes(t));
+        const fromExists = themesLower.some(t => t.includes(from) || from.includes(t));
+        const toExists = themesLower.some(t => t.includes(to) || to.includes(t));
         
         if (fromExists && toExists) {
-          // Find the actual theme names for proper matching
-          const fromTheme = unifiedThemes.find(t => 
-            t.theme.toLowerCase().includes(from) || from.includes(t.theme.toLowerCase())
-          );
-          const toTheme = unifiedThemes.find(t => 
-            t.theme.toLowerCase().includes(to) || to.includes(t.theme.toLowerCase())
-          );
+          const fromTheme = unifiedThemes.find(t => t.theme.toLowerCase().includes(from) || from.includes(t.theme.toLowerCase()));
+          const toTheme = unifiedThemes.find(t => t.theme.toLowerCase().includes(to) || to.includes(t.theme.toLowerCase()));
           
           if (fromTheme && toTheme && fromTheme.theme !== toTheme.theme) {
-            themeRelationships.push({
-              from: fromTheme.theme.toLowerCase(),
-              to: toTheme.theme.toLowerCase(),
-              strength
-            });
+            themeRelationships.push({ from: fromTheme.theme.toLowerCase(), to: toTheme.theme.toLowerCase(), strength });
           }
         }
-        
-        // Limit to 4 relationships for clean visualization
-        if (themeRelationships.length >= 4) break;
+        if (themeRelationships.length >= 6) break;
+      }
+    }
+    // Cap relationships at 6
+    themeRelationships = themeRelationships.slice(0, 6);
+
+    // ============================================
+    // AI OBSERVATION via Lovable AI Gateway
+    // ============================================
+    let aiObservation = '';
+    
+    if (unifiedThemes.length >= 2) {
+      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+      if (lovableApiKey) {
+        try {
+          const top5 = unifiedThemes.slice(0, 5).map(t => `${t.theme} (${t.totalCount} mentions)`).join(', ');
+          const observationResponse = await fetch(
+            'https://ai.gateway.lovable.dev/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${lovableApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash-lite',
+                messages: [{
+                  role: 'user',
+                  content: `These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days: ${top5}. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language.`
+                }],
+              })
+            }
+          );
+
+          if (observationResponse.ok) {
+            const obsData = await observationResponse.json();
+            aiObservation = obsData.choices?.[0]?.message?.content?.trim() || '';
+          }
+        } catch (obsError) {
+          console.error('AI observation error:', obsError);
+        }
+      }
+      
+      // Algorithmic fallback
+      if (!aiObservation) {
+        aiObservation = generateAlgorithmicObservation(unifiedThemes);
       }
     }
 
     const response: SemanticAnalysisResponse = {
       themePatterns,
       unifiedThemes,
-      themeRelationships
+      themeRelationships,
+      aiObservation,
     };
 
     return new Response(
@@ -420,10 +444,7 @@ async function getBubbleDetails(
       messages.forEach((m: { content: string; timestamp: string; session_id: string }) => {
         recentMentions.push({
           snippet: m.content.slice(0, 100) + (m.content.length > 100 ? '...' : ''),
-          date: new Date(m.timestamp).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric'
-          }),
+          date: new Date(m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           source: 'coach',
           sessionId: m.session_id
         });
@@ -431,7 +452,7 @@ async function getBubbleDetails(
     }
   }
 
-  // 2. Search sanctuary events (practices)
+  // 2. Search sanctuary events
   const { data: practiceEvents } = await supabase
     .from('sanctuary_events')
     .select('category, tags, created_at')
@@ -442,19 +463,14 @@ async function getBubbleDetails(
 
   if (practiceEvents) {
     const matchingPractices = practiceEvents.filter((p: { category?: string; tags?: string[] }) => {
-      const categoryMatch = p.category?.toLowerCase().includes(keywordLower);
-      const tagMatch = p.tags?.some((t: string) => t.toLowerCase().includes(keywordLower));
-      return categoryMatch || tagMatch;
+      return p.category?.toLowerCase().includes(keywordLower) || p.tags?.some((t: string) => t.toLowerCase().includes(keywordLower));
     }).slice(0, 2);
 
     totalCount += matchingPractices.length;
     matchingPractices.forEach((p: { category: string; created_at: string }) => {
       recentMentions.push({
         snippet: `Completed ${p.category} practice`,
-        date: new Date(p.created_at).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric'
-        }),
+        date: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         source: 'practice'
       });
     });
@@ -475,10 +491,7 @@ async function getBubbleDetails(
     tinyWins.forEach((w: { win_content: string; win_date: string }) => {
       recentMentions.push({
         snippet: w.win_content.slice(0, 100) + (w.win_content.length > 100 ? '...' : ''),
-        date: new Date(w.win_date).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric'
-        }),
+        date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         source: 'wins'
       });
     });
@@ -494,30 +507,24 @@ async function getBubbleDetails(
 
   if (checkins) {
     const matchingCheckins = checkins.filter((c: { outcome?: string; state_tags?: string[] }) => {
-      const outcomeMatch = c.outcome?.toLowerCase().includes(keywordLower);
-      const tagMatch = c.state_tags?.some((t: string) => t.toLowerCase().includes(keywordLower));
-      return outcomeMatch || tagMatch;
+      return c.outcome?.toLowerCase().includes(keywordLower) || c.state_tags?.some((t: string) => t.toLowerCase().includes(keywordLower));
     }).slice(0, 2);
 
     totalCount += matchingCheckins.length;
     matchingCheckins.forEach((c: { outcome: string; checkin_date: string }) => {
       recentMentions.push({
         snippet: `Check-in: feeling ${c.outcome}`,
-        date: new Date(c.checkin_date).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric'
-        }),
+        date: new Date(c.checkin_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         source: 'checkins'
       });
     });
   }
 
-  // Sort mentions by date (most recent first)
   recentMentions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return {
     keyword,
     totalCount,
-    recentMentions: recentMentions.slice(0, 5) // Top 5 mentions
+    recentMentions: recentMentions.slice(0, 5)
   };
 }
