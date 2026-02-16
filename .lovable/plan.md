@@ -1,138 +1,79 @@
 
 
-## Fix Gaps in `generate-mastery-plan` Edge Function
+## Coach Page Redesign + Fix 3 Completion
 
-Five targeted fixes to align the edge function with the final architecture document.
+### Issue Summary
 
----
+Six issues identified from the screenshots and feedback:
 
-### Fix 1: Correct Theme-to-Module Mapping (Gap 1)
-
-The `THEME_MODULE_MAP` in the edge function has discrepancies compared to the corrected v2 mapping from `compute-outer-readiness`. Key differences to fix:
-
-**DEPLETED TIER** (lines 292-329):
-- "One thing at a time." -- current has `gentle/standard/composure` for regulate. Doc says `gentle/short/composure`. Change duration from `standard` to `short`.
-- "Protect what matters." -- current has `grounding` for regulate focus. Doc says `restore`. Change focus. Also priority P8 not P8 (OK). Also align: doc says `○ P5 gentle/micro/composure` -- current has `gentle/short`. Change duration to `micro`.
-- "Reserve for the moment." -- current has align module. Doc says no align. Remove align.
-- "Navigate, don't absorb." -- doc says `○ P5 gentle/micro/restore` for align. Current has no align. Add optional align.
-- "Move through gently." -- matches (regulate only). OK.
-- "Pace and protect." -- current has `restore` for regulate, `grounding` for align. Doc says regulate `gentle/standard/restore` (current is `short` -- change to `standard`). Align `○ P5 gentle/short/grounding` -- current is `P4` -- change to `P5`.
-- "Rest is the work." -- current regulate P8, doc says P9. Change. Current integrate P7, doc says P8. Change.
-- "Begin with intention." -- current align `gentle/short/grounding`, doc says `○ P5 gentle/micro/restore`. Change focus from `grounding` to `restore`, duration from `short` to `micro`.
-- "Close before tomorrow." -- current align `gentle/short/release` optional. Doc says `○ P5 gentle/short/release`. Add optional align P5. Also integrate: current P8 matches. OK.
-- "Protect your reserves." -- current align `P4 gentle/short/composure`. Doc says `○ P4 gentle/micro/grounding`. Change duration to `micro`, focus to `grounding`.
-
-**MANAGING TIER** (lines 331-368):
-- "Hold your ground." -- current has regulate + align + prepare. Doc says regulate `✅ P8 gentle/short/composure` + align `○ P5 moderate/micro/focus`. Remove prepare. Change regulate: required=true, P8, gentle, short. Change align: P5, micro.
-- "Steady into the stakes." -- current has regulate + align + prepare. Doc says `✅ P7 moderate/short/composure` regulate + `○ P6 moderate/short/confidence` align. Remove prepare. Fix regulate to P7, required=true, moderate, short. Fix align to P6, confidence.
-- "Depth over breadth." -- current has align + prepare. Doc says `○ P4 gentle/micro/grounding` regulate + `✅ P7 moderate/short/focus` align. Remove prepare, add regulate.
-- "Rhythm over intensity." -- current regulate `P4 gentle/short/grounding`, align `P4 gentle/short/grounding`. Doc says regulate `✅ P7 gentle/short/grounding` + align `○ P5 moderate/short/focus`. Fix both.
-- "Ride the rhythm." -- current `align P4 moderate/short/focus`. Doc says `✅ P6 moderate/short/focus`. Fix to P6 required.
-- "Steady execution." -- current `align P4 gentle/short/grounding`. Doc says `○ P4 gentle/micro/composure` regulate + `✅ P6 moderate/short/focus` align. Add regulate, fix align.
-- "Build your reserves." -- current `regulate P4 gentle/short/restore`. Doc says `✅ P7 gentle/standard/restore` regulate + `○ P4 gentle/short/grounding` align. Fix regulate, add align.
-- "Set a sustainable pace." -- current `regulate P4 moderate/micro/grounding` + `align P4 moderate/short/grounding`. Doc says `✅ P7 moderate/short/grounding` regulate + `○ P5 moderate/micro/focus` align. Fix both.
-- "Close with care." -- current align `P4 gentle/short/release` + integrate `P6 gentle/short/release`. Doc says regulate `✅ P8 gentle/short/release` + align `○ P5 gentle/short/release`. Remove integrate, add regulate, fix align.
-- "Maintain your rhythm." -- current `align P4 gentle/short/grounding`. Doc says regulate `○ P4 gentle/micro/composure` + align `✅ P6 moderate/short/focus`. Fix align, add regulate.
-
-**STRONG TIER** (lines 370-408):
-- "Lead from strength." -- current has regulate + align + prepare. Doc says regulate `○ P5 moderate/micro/composure` + align `✅ P8 activating/short/confidence`. Remove prepare. Fix regulate to P5, moderate, composure.
-- "Execute with presence." -- doc says align `✅ P8 activating/short/confidence` + prepare `○ P6 moderate/short/focus`. Current has align P7 + prepare P7 both activating/confidence. Fix align P8, prepare P6 moderate/focus.
-- "Bring your full weight." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P8 activating/short/confidence`. Current missing regulate, has align P7 + prepare P7. Remove prepare, add regulate, fix align P8.
-- "Sustain the quality." -- doc says regulate `✅ P7 moderate/short/composure` + align `✅ P7 moderate/short/focus`. Current regulate P4 micro/focus, align P6. Fix both.
-- "Move with confidence." -- doc says align `✅ P7 activating/short/confidence`. Current P6. Fix to P7.
-- "Invest the advantage." -- doc says align `✅ P7 activating/short/focus` + prepare `○ P5 gentle/short/restore`. Current align P5 moderate, prepare P6 moderate/focus. Fix both.
-- "Protect and build." -- doc says regulate `○ P5 gentle/short/grounding` + align `✅ P7 gentle/standard/restore` + prepare `○ P6 moderate/short/focus`. Current only has align P4 moderate/grounding. Add regulate, fix align, add prepare.
-- "Protect the window." -- doc says regulate `○ P4 moderate/micro/composure` + align `✅ P7 activating/short/focus`. Current regulate P4 activating/focus, align P7 activating/focus. Fix regulate to moderate/composure.
-- "Close strong." -- doc says regulate `○ P5 gentle/short/release` + align `✅ P7 gentle/short/release` + prepare `○ P5 moderate/short/confidence`. Current align P4 moderate/confidence + integrate P6. Remove integrate, add regulate, fix align, add prepare.
-- "Leverage your position." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P7 activating/short/confidence`. Current align P5 moderate/focus + prepare P4 moderate/focus. Remove prepare, add regulate, fix align.
-
-**PEAK TIER** (lines 410-450):
-- "Peak performance day." -- doc says regulate `○ P5 moderate/micro/composure` + align `✅ P8 activating/short/confidence` + prepare `✅ P7 activating/short/confidence`. Current regulate P4 activating/confidence, align P7, prepare P8. Fix priorities and regulate intensity/focus.
-- "Execute with precision." -- doc says regulate `○ P4 activating/micro/focus` + align `✅ P8 activating/short/focus` + prepare `○ P6 activating/micro/confidence`. Current align P7, prepare P7 short. Fix align P8, prepare P6 micro/confidence.
-- "Seize the high ground." -- doc says align `✅ P8 activating/short/confidence` + prepare `✅ P7 activating/short/focus`. Current align P7 confidence, prepare P7 confidence. Fix align P8, prepare focus.
-- "Channel the capacity." -- doc says regulate `○ P5 moderate/micro/grounding` + align `✅ P8 activating/short/focus`. Current regulate P4 activating/focus, align P6. Fix both.
-- "Move with full confidence." -- doc says align `✅ P7 activating/short/confidence`. Current P6. Fix to P7.
-- "Depth and precision." -- doc says align `✅ P8 activating/short/focus` + prepare `○ P6 moderate/short/confidence`. Current align P5 moderate, prepare P6 moderate/focus. Fix align P8/activating, prepare confidence.
-- "Deep work window." -- doc says align `✅ P8 activating/standard/focus` + prepare `○ P5 gentle/short/restore`. Current align P4 moderate/short. Fix to P8 activating/standard, add prepare.
-- "Protect the peak." -- doc says regulate `✅ P7 moderate/short/composure` + align `✅ P8 activating/short/confidence`. Current regulate P4 activating/micro/focus + align P7 activating/focus + prepare P7 activating/focus. Remove prepare, fix both.
-- "Close with intention." -- doc says regulate `○ P5 gentle/short/composure` + align `✅ P7 gentle/short/release`. Current align P4 moderate/confidence + integrate P6 gentle/release. Remove integrate, add regulate, fix align.
-- "Own your optimal state." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P7 activating/short/confidence` + prepare `○ P4 moderate/short/confidence`. Current align P4 moderate/confidence, prepare P4 moderate/confidence. Add regulate, fix align P7/activating.
-
-The entire `THEME_MODULE_MAP` will be rewritten to match the doc exactly.
+1. **Coach response appearing in user section** -- "Take your time..." text shows in the bottom user area because the split-view layout (70/30) is fundamentally broken for conversation flow
+2. **Submit button blocked** -- the 30% user area overflows, preventing interaction
+3. **Coach photo placement** -- currently used as full background; should be a small circle avatar next to "Self Mastery Coach" header
+4. **Layout ratio** -- 70/30 split is unworkable; user requests a single-page chat layout (WhatsApp/ChatGPT style)
+5. **Fix 3 incomplete** -- "Evening Flow" still appears in `performancePlanEngine.ts`, `planReconstruction.ts`, and one path in the edge function (pre-event integrate cards)
+6. **Landing page prompts** -- should be white text overlaid on the coach visual background, not in a separate white panel
 
 ---
 
-### Fix 2: Structured Coach Inclusion Logic (Gap 5)
+### Change 1: Rewrite CoachSplitView to Single-Page Chat Layout
 
-Current state: Morning coach is suppressed for strong/peak tiers but doesn't account for `calendarPressure` or user coach-favourite preference. Afternoon coach is fully suppressed.
+Replace the broken 70/30 split with a standard messaging layout:
 
-Changes to `getCoachPromptForContext` and the main plan assembly:
+**Empty state (no messages):**
+- Full-screen coach visual background (keep existing)
+- "Self Mastery Coach" title, tagline, and description in white text overlaid on the visual
+- Coach avatar as a small circle (using the coach-visual-calm.jpeg cropped into a round avatar) with "Hello, [Name]" below
+- Prompt suggestion buttons styled with semi-transparent dark backgrounds and white text, overlaid on the visual (not in a separate white panel)
+- Input bar pinned at the bottom with a subtle frosted glass background
 
-**Morning session coach decision tree:**
-- IF tier is `depleted` or `managing` --> INCLUDE
-- ELSE IF `consecutiveLowDays >= 3` (patternInsight) --> INCLUDE
-- ELSE IF `calendarPressure === 'high'` --> INCLUDE
-- ELSE IF user has marked coach as favourite --> INCLUDE
-- ELSE --> EXCLUDE
+**Active conversation (has messages):**
+- Standard vertical chat flow (like WhatsApp/ChatGPT)
+- Top bar: small circle coach avatar + "Self Mastery Coach" label + session context subtitle
+- Messages scroll vertically in a single column:
+  - User messages: right-aligned bubbles with primary background
+  - Coach messages: left-aligned, preceded by small coach avatar, white/light background bubbles
+  - Protocol cards and wisdom cards render inline within coach messages
+- Input bar pinned at bottom with voice toggle and send button
+- "End session" link below input
+- No split, no 70/30, no separate sections for coach vs user
 
-**Afternoon session coach decision tree:**
-- IF tier is `depleted` --> INCLUDE
-- ELSE IF `calendarPressure === 'high'` AND pre-event within 4 hours --> INCLUDE
-- ELSE --> EXCLUDE
-
-**Evening session:** Always include (unchanged).
-
-**Pre-event session:** Always include (unchanged).
-
-This requires passing `calendarPressure` and `favorites` into `getCoachPromptForContext`. The function signature will be updated.
-
-**File:** `supabase/functions/generate-mastery-plan/index.ts` -- update `getCoachPromptForContext` function and its call site.
-
----
-
-### Fix 3: Evening Tiny Win + Reflection Coach Card Label (Gap 3)
-
-Two changes:
-
-**A. Coach card label on the carousel for evening sessions:**
-- Currently shows "Today's Plan" badge on all coach cards
-- For evening sessions, change the badge text to "Tiny Win and Reflection"
-- Change the coach card `title` from "Evening Flow" to "Tiny Win and Reflection"
-
-**B. Evening coach prompt explicitly triggers Tiny Win capture:**
-- The evening coach prompt already says "what's one thing you did right today?" -- this is correct
-- The coach AI (Self Mastery Coach) should be instructed to store the user's response as a tiny win via `store-tiny-win`. This is handled in the coach's system prompt/intervention logic, not in the plan generator. No edge function change needed for this part -- it's a coach-side concern.
-- In the plan generator, update the evening coach card `title` to "Tiny Win and Reflection" so the carousel card renders the correct label.
-
-**Files modified:**
-- `supabase/functions/generate-mastery-plan/index.ts` -- evening coach card title/label
-- `src/components/home/DailyRitual.tsx` -- conditionally render "Tiny Win and Reflection" badge instead of "Today's Plan" for evening coach cards
+**Technical approach:**
+- Remove the `h-[70%]` / `h-[30%]` split entirely
+- Remove the full-bleed background image from the active conversation state
+- Messages rendered in a single scrollable container
+- Coach avatar: a 36px circle with the coach-visual-calm.jpeg as `object-cover` background
+- Auto-scroll to bottom on new messages (existing logic preserved)
 
 ---
 
-### Fix 4: Back-to-Back Event Scoring (Gap 4)
+### Change 2: Fix "Evening Flow" References (Fix 3 Completion)
 
-Add `+5` to `scoreCalendarEvents` when an event starts within 15 minutes of the previous event ending.
+Three files still contain "Evening Flow" instead of "Tiny Win and Reflection":
 
-After sorting events by start time, iterate and check if `nextStart - currentEnd < 15 min`. If so, add +5 to the next event's score.
+**A. `src/utils/performancePlanEngine.ts` (line 906):**
+- Change `title: 'Evening Flow'` to `title: 'Tiny Win and Reflection'`
 
-**File:** `supabase/functions/generate-mastery-plan/index.ts` -- `scoreCalendarEvents` function.
+**B. `src/utils/planReconstruction.ts` (line 37):**
+- Change `title: 'Evening Flow'` to `title: 'Tiny Win and Reflection'`
 
----
-
-### Fix 5: Morning Label (Gap 6)
-
-Change `periodLabels.morning` from `'Morning Start'` to `'Morning Practice'`.
-
-**File:** `supabase/functions/generate-mastery-plan/index.ts` -- line 1061.
+**C. `supabase/functions/generate-mastery-plan/index.ts` (line 950):**
+- The pre-event integrate card still falls back to `'Evening Flow'`. Change to `'Tiny Win and Reflection'`
 
 ---
 
-### Technical Summary
+### Change 3: DailyRitual Badge Logic Fix
 
-**Files modified:**
-1. `supabase/functions/generate-mastery-plan/index.ts` -- All 5 fixes (theme map rewrite, coach logic, evening label, back-to-back scoring, morning label)
-2. `src/components/home/DailyRitual.tsx` -- Evening coach card badge text change
+The badge logic on line 613 of `DailyRitual.tsx` checks `module.title === 'Tiny Win and Reflection'` which is correct, but the client-side fallback engines were still producing "Evening Flow" titles. Once Change 2 is applied, the badge will render correctly as "Tiny Win and Reflection" for all evening coach cards.
 
-**Edge function deployed:** `generate-mastery-plan`
+---
 
+### Files Modified
+
+1. `src/components/coach/CoachSplitView.tsx` -- Complete rewrite from split-view to single-page chat layout
+2. `src/utils/performancePlanEngine.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 906)
+3. `src/utils/planReconstruction.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 37)
+4. `supabase/functions/generate-mastery-plan/index.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 950)
+
+### Edge Function Deployed
+
+- `generate-mastery-plan`
