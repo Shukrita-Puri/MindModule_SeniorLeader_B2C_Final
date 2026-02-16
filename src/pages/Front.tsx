@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 
 const Front = () => {
   const navigate = useNavigate();
+  const { loginWithRedirect } = useAuth0();
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   const handleGetStarted = () => {
@@ -17,7 +19,13 @@ const Front = () => {
   };
 
   const handleSignIn = () => {
-    navigate('/login');
+    loginWithRedirect({
+      appState: { returnTo: '/executive-home' },
+      authorizationParams: {
+        redirect_uri: `${window.location.origin}/callback`,
+        scope: 'openid profile email',
+      },
+    });
   };
 
   return <div className={`relative min-h-screen min-h-[100dvh] bg-background flex flex-col items-center justify-center px-6 py-16 overflow-y-auto transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
