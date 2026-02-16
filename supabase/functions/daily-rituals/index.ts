@@ -31,16 +31,22 @@ async function verifyAuth0Token(authHeader: string): Promise<string> {
   const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
   if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
   
-  const response = await fetch(`https://${auth0Domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  
-  if (!response.ok) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 300 * attempt));
+    const response = await fetch(`https://${auth0Domain}/userinfo`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      const userInfo = await response.json();
+      return userInfo.sub;
+    }
+    if (response.status === 429) {
+      console.warn(`[daily-rituals] Auth0 rate limited, attempt ${attempt + 1}/3`);
+      continue;
+    }
     throw new Error('Invalid token');
   }
-  
-  const userInfo = await response.json();
-  return userInfo.sub;
+  throw new Error('Auth0 rate limited after retries');
 }
 
 serve(async (req) => {
