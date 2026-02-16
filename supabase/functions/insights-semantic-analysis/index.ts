@@ -111,7 +111,11 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const userInfoResponse = await fetch('https://dev-lq1jvpvlg5hjbhz0.us.auth0.com/userinfo', {
+    const AUTH0_DOMAIN = Deno.env.get('VITE_AUTH0_DOMAIN');
+    if (!AUTH0_DOMAIN) {
+      throw new Error('VITE_AUTH0_DOMAIN not configured');
+    }
+    const userInfoResponse = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
