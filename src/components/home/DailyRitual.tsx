@@ -610,7 +610,7 @@ const DailyRitual = () => {
                           <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
                         </div>
                         <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
-                          Today's Plan
+                          {module.title === 'Tiny Win and Reflection' ? 'Tiny Win & Reflection' : "Today's Plan"}
                         </div>
                       </div>
                     ) : (
