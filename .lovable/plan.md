@@ -1,75 +1,66 @@
 
 
-## Fix Post-Auth Redirect, Context Connection Flow, and Edge Function Errors
+## Fix: Restore Coach Sessions and Add Retry Logic
 
-### Problem Summary
+### Problem
+1. The `dialogue-session-manage` edge function returns 500 "Invalid or expired token" because it lacks the retry-with-backoff logic added to the other edge functions -- Auth0 rate-limits concurrent `/userinfo` calls.
+2. The production coach session fetching was removed from `useRecentActivity` in a previous edit and needs to be restored.
 
-Three separate issues:
+### Changes
 
-1. **Post-signup redirect goes to executive-home instead of /onboarding/results** -- The `onRedirectCallback` in `main.tsx` uses `window.history.replaceState()` which changes the browser URL but does NOT trigger React Router navigation. Then `AuthCallback` reads the already-replaced URL (missing `?from=onboarding`) and defaults to `/executive-home`.
+#### 1. `supabase/functions/dialogue-session-manage/index.ts`
+Add retry logic (3 attempts, 300ms backoff) to the `verifyAuth0Token` function, matching the pattern already applied to `daily-checkins`, `compute-outer-readiness`, and `daily-rituals`.
 
-2. **Context Connection skips daily check-in** -- Stage7ContextConnection already navigates to `/daily-check-in` on completion, so this may be a routing issue or the page isn't rendering properly due to the edge function errors causing a blank screen.
-
-3. **Edge function 500 errors** -- `compute-outer-readiness` and `daily-rituals` both look for `Deno.env.get('AUTH0_DOMAIN')`, but the configured secret is named `VITE_AUTH0_DOMAIN`. The name mismatch means the functions get `undefined`.
-
----
-
-### Fix 1: AuthCallback redirect logic
-
-**File: `src/main.tsx`**
-
-- In `onRedirectCallback`, save `appState.returnTo` to `sessionStorage` instead of using `replaceState` to change the URL (which breaks React Router).
-
-**File: `src/pages/AuthCallback.tsx`**
-
-- Read the saved `returnTo` from `sessionStorage` (set by `onRedirectCallback`) and navigate there.
-- Remove the fragile `?from=onboarding` query-param approach.
-- Clear the sessionStorage value after reading.
-
-```text
-Auth0 redirect -> /callback
-  -> onRedirectCallback saves returnTo to sessionStorage
-  -> AuthCallback reads sessionStorage, navigates to /onboarding/results (or /executive-home)
+```typescript
+// Replace lines 22-37 with retry loop
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) await new Promise(r => setTimeout(r, 300 * attempt));
+  const response = await fetch(`https://${auth0Domain}/userinfo`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (response.ok) {
+    const userInfo = await response.json();
+    if (!userInfo.sub) throw new Error("Token verification failed - no sub claim");
+    return userInfo.sub;
+  }
+  if (response.status === 429) {
+    console.warn(`[dialogue-session-manage] Auth0 rate limited, attempt ${attempt + 1}/3`);
+    continue;
+  }
+  const errorText = await response.text();
+  console.error("Auth0 userinfo failed:", response.status, errorText);
+  throw new Error("Invalid or expired token");
+}
+throw new Error("Auth0 rate limited after retries");
 ```
 
-### Fix 2: Edge function secret name mismatch
+#### 2. `src/hooks/useRecentActivity.ts`
+Restore the production (non-DEV_MODE) path that calls `dialogue-session-manage` with action `LIST_COACH_SESSIONS` via the edge function, using the Auth0 access token. This block will be added after the DEV_MODE block (after line 77), so coach sessions appear in Recent Activity for authenticated users.
 
-**Files: `supabase/functions/compute-outer-readiness/index.ts` and `supabase/functions/daily-rituals/index.ts`**
-
-- Change `Deno.env.get('AUTH0_DOMAIN')` to `Deno.env.get('VITE_AUTH0_DOMAIN')` in both functions, matching the actual configured secret name.
-- Add a null guard in `daily-rituals` (it currently lacks one, producing `https://undefined/userinfo`).
-
-### Fix 3: Audit other edge functions
-
-- Search all edge functions for `AUTH0_DOMAIN` references and update them to `VITE_AUTH0_DOMAIN` to prevent the same error elsewhere.
-
----
-
-### Technical Details
-
-**main.tsx change:**
 ```typescript
-onRedirectCallback={(appState) => {
-  const returnTo = appState?.returnTo || '/executive-home';
-  sessionStorage.setItem('auth0_return_to', returnTo);
-  // Remove auth params from URL without navigating
-  window.history.replaceState({}, document.title, window.location.pathname);
-}}
-```
-
-**AuthCallback.tsx change:**
-```typescript
-if (isAuthenticated) {
-  const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
-  sessionStorage.removeItem('auth0_return_to');
-  toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
-  navigate(returnTo);
+// Production: fetch coach sessions via edge function
+if (!DEV_MODE) {
+  try {
+    const accessToken = await getAccessToken();
+    if (accessToken) {
+      const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { action: 'LIST_COACH_SESSIONS', limit: 5 },
+      });
+      if (!error && data?.success && data.sessions) {
+        data.sessions.forEach((session: any) => {
+          allActivities.push({
+            id: session.id,
+            type: 'coach',
+            title: session.title?.length >= 50 ? `${session.title}...` : (session.title || 'Coach Conversation'),
+            date: new Date(session.started_at || Date.now()),
+            sessionId: session.id,
+          });
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[useRecentActivity] Failed to fetch coach sessions:', err);
+  }
 }
 ```
-
-**Edge functions change (both files):**
-```typescript
-const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
-```
-
