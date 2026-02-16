@@ -6,45 +6,176 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ==================== SCORING ENGINE v2.0 ====================
+// 3-component model: Energy Regulation, Focus Recovery, Energy Renewal
+// Component weights per question:
+//   ER: Q1=40%, Q2=35%, Q3=10%, Q4=15%
+//   FR: Q1=25%, Q2=20%, Q3=30%, Q4=25%
+//   EN: Q1=35%, Q2=45%, Q3=60%, Q4=60%
+
+interface ComponentScores {
+  energyRegulation: number;
+  focusRecovery: number;
+  energyRenewal: number;
+}
+
+// Q1: Emotional Awareness — how early you notice internal shifts
+const Q1_SCORES: Record<string, { er: number; fr: number; en: number }> = {
+  notice_early:   { er: 85, fr: 75, en: 70 },
+  physical_signs: { er: 60, fr: 55, en: 65 },
+  realize_after:  { er: 45, fr: 40, en: 50 },
+  push_through:   { er: 35, fr: 55, en: 30 },
+};
+
+// Q2: Stress Response — what happens under pressure
+const Q2_SCORES: Record<string, { er: number; fr: number; en: number }> = {
+  stay_grounded:    { er: 90, fr: 80, en: 80 },
+  react_quickly:    { er: 45, fr: 50, en: 55 },
+  freeze_overthink: { er: 55, fr: 35, en: 50 },
+  power_through:    { er: 50, fr: 60, en: 35 },
+};
+
+// Q3: Recovery Patterns — how you recharge
+const Q3_SCORES: Record<string, { er: number; fr: number; en: number }> = {
+  bounce_back:          { er: 80, fr: 85, en: 90 },
+  weekend_recover:      { er: 55, fr: 55, en: 60 },
+  accumulating_fatigue: { er: 45, fr: 40, en: 35 },
+  always_tired:         { er: 35, fr: 30, en: 25 },
+};
+
+// Q4: Mental Clarity — cognitive load management
+const Q4_SCORES: Record<string, { er: number; fr: number; en: number }> = {
+  crystal_clear: { er: 80, fr: 90, en: 75 },
+  mostly_clear:  { er: 65, fr: 70, en: 60 },
+  fog_creeps:    { er: 45, fr: 40, en: 45 },
+  overwhelmed:   { er: 35, fr: 25, en: 35 },
+};
+
+const DEFAULT = { er: 50, fr: 50, en: 50 };
+
+function calculateScores(q1: string, q2: string, q3: string, q4: string): { scores: ComponentScores; baseline: number } {
+  const s1 = Q1_SCORES[q1] || DEFAULT;
+  const s2 = Q2_SCORES[q2] || DEFAULT;
+  const s3 = Q3_SCORES[q3] || DEFAULT;
+  const s4 = Q4_SCORES[q4] || DEFAULT;
+
+  const energyRegulation = Math.min(100, Math.round(
+    s1.er * 0.40 + s2.er * 0.35 + s3.er * 0.10 + s4.er * 0.15
+  ));
+  const focusRecovery = Math.min(100, Math.round(
+    s1.fr * 0.25 + s2.fr * 0.20 + s3.fr * 0.30 + s4.fr * 0.25
+  ));
+  const energyRenewal = Math.min(100, Math.round(
+    s1.en * 0.35 + s2.en * 0.45 + s3.en * 0.60 + s4.en * 0.60
+  ));
+
+  // Baseline: ER 35% + FR 35% + EN 30%
+  const baseline = Math.min(100, Math.round(
+    energyRegulation * 0.35 + focusRecovery * 0.35 + energyRenewal * 0.30
+  ));
+
+  return {
+    scores: { energyRegulation, focusRecovery, energyRenewal },
+    baseline,
+  };
+}
+
+// ==================== ARCHETYPE ASSIGNMENT v2.0 ====================
+interface ArchetypeResult {
+  id: string;
+  title: string;
+  description: string;
+}
+
+const ARCHETYPES: Record<string, { title: string; description: string }> = {
+  'grounded-leader': {
+    title: 'The Grounded Master',
+    description: 'You lead from stillness. Stability under pressure is your signature.',
+  },
+  'resilient-performer': {
+    title: 'The Resilient Performer',
+    description: 'You absorb impact and recover fast. Endurance under sustained demand is your edge.',
+  },
+  'clear-thinker': {
+    title: 'The Clear Thinker',
+    description: 'You cut through complexity with precision. Clarity under cognitive load is your advantage.',
+  },
+  'intensity-driver': {
+    title: 'The Intensity Driver',
+    description: 'You channel directed force into every challenge. Controlled intensity is your operating mode.',
+  },
+  'adaptive-navigator': {
+    title: 'The Adaptive Navigator',
+    description: 'You read the field and adjust in real time. Strategic flexibility is your strength.',
+  },
+};
+
+function assignArchetype(scores: ComponentScores): ArchetypeResult {
+  const { energyRegulation, focusRecovery, energyRenewal } = scores;
+
+  // Priority order: first match wins
+  if (energyRegulation >= 65 && energyRenewal >= 55) {
+    return { id: 'grounded-leader', ...ARCHETYPES['grounded-leader'] };
+  }
+  if (energyRenewal >= 65 && energyRegulation >= 50) {
+    return { id: 'resilient-performer', ...ARCHETYPES['resilient-performer'] };
+  }
+  if (focusRecovery >= 65 && energyRegulation >= 45) {
+    return { id: 'clear-thinker', ...ARCHETYPES['clear-thinker'] };
+  }
+  if (energyRegulation >= 60 && focusRecovery < 50) {
+    return { id: 'intensity-driver', ...ARCHETYPES['intensity-driver'] };
+  }
+  return { id: 'adaptive-navigator', ...ARCHETYPES['adaptive-navigator'] };
+}
+
+// ==================== MAIN HANDLER ====================
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { baselineScore, componentScores, archetype, biggestPressure } = await req.json();
+    const body = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const prompt = `You are an Executive Energy and Performance Management Coach. A leader just completed their Self-Regulation baseline assessment.
+    // Support both v1 (legacy) and v2 payloads
+    let baselineScore: number;
+    let componentScores: ComponentScores;
+    let archetype: ArchetypeResult;
+
+    if (body.answers) {
+      // v2 payload: raw answers → server-side scoring
+      const { q1, q2, q3, q4 } = body.answers;
+      const result = calculateScores(q1, q2, q3, q4);
+      baselineScore = result.baseline;
+      componentScores = result.scores;
+      archetype = assignArchetype(componentScores);
+    } else {
+      // v1 legacy payload: pre-computed values
+      baselineScore = body.baselineScore || 50;
+      componentScores = body.componentScores || { energyRegulation: 50, focusRecovery: 50, energyRenewal: 50 };
+      archetype = assignArchetype(componentScores);
+    }
+
+    const pressureContext = body.pressureContextTag || body.biggestPressure || '';
+    const practiceGoal = body.practicePriorityTag || '';
+
+    const prompt = `You are an Executive Performance Coach. A leader just completed their baseline assessment.
 
 Results:
-- Mental Fitness Baseline: ${baselineScore}/100
+- Archetype: ${archetype.title}
 - Energy Regulation: ${componentScores.energyRegulation}/100
 - Focus Recovery: ${componentScores.focusRecovery}/100
 - Energy Renewal: ${componentScores.energyRenewal}/100
-- Archetype: ${archetype}
-- Biggest Pressure: ${biggestPressure}
+- Primary pressure: ${pressureContext}
+- Practice goal: ${practiceGoal}
 
-Your Task:
-Generate a 2-3 sentence personalized pattern revelation that:
-1. Names their specific behavioral pattern (what they do in pressure moments)
-2. Shows consequence without fear-mongering (what this costs them)
-3. Points to unlock potential (what changes if they build this skill)
-
-Meta-Skill Context:
-They're building Self-Regulation mastery, which includes: emotional awareness, focus, discipline, mindfulness, emotional regulation, attention management, and task switching. This is taught through Pause (calming/grounding), Flow (focus/clarity), and Renewal (energizing) practices.
-
-Tone: Direct, research-backed, status-aware (speak to executives)
-
-Examples:
-- "Your pattern: push through fatigue until performance drops sharply. Most leaders in your archetype plateau here. The unlock: strategic micro-recovery sustains peak output 40% longer."
-- "You rely on willpower to stay focused when scattered. Research shows this drains decision quality by afternoon. The shift: centering practices protect your hardest calls."
-
-Generate insight:`;
+Write 2-3 sentences that name this leader's specific pattern — what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -55,8 +186,8 @@ Generate insight:`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.8,
+        max_tokens: 200,
+        temperature: 0.7,
       }),
     });
 
@@ -70,7 +201,14 @@ Generate insight:`;
     const insight = data.choices?.[0]?.message?.content?.trim() || "";
 
     return new Response(
-      JSON.stringify({ insight }),
+      JSON.stringify({
+        baselineScore,
+        componentScores,
+        archetype: archetype.id,
+        archetypeTitle: archetype.title,
+        archetypeDescription: archetype.description,
+        insight,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

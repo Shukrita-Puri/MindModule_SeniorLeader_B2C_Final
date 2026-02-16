@@ -1441,6 +1441,8 @@ export type Database = {
           meta_skill_scores: Json | null
           onboarding_completed_at: string | null
           onboarding_session_id: string | null
+          practice_priority_tag: string | null
+          pressure_context_tag: string | null
           profile_description: string | null
           profile_type: string | null
           q1_setback_response: string | null
@@ -1475,6 +1477,8 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
+          practice_priority_tag?: string | null
+          pressure_context_tag?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null
@@ -1509,6 +1513,8 @@ export type Database = {
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
           onboarding_session_id?: string | null
+          practice_priority_tag?: string | null
+          pressure_context_tag?: string | null
           profile_description?: string | null
           profile_type?: string | null
           q1_setback_response?: string | null

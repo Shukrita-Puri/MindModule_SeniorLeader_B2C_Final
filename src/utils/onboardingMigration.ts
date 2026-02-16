@@ -2,20 +2,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSession, clearSession } from './onboardingStorage';
 
 /**
- * Migrates onboarding data from localStorage to Supabase database
+ * Migrates onboarding data from localStorage to database
  * Called after user completes payment/conversion
  */
 export async function migrateOnboardingToDatabase(userId: string): Promise<boolean> {
   try {
-    // Get localStorage session
     const session = getSession();
     if (!session) {
       console.log('No onboarding session to migrate');
       return false;
     }
 
-    // Prepare data for database
-    const onboardingData = {
+    const onboardingData: Record<string, any> = {
       onboarding_completed_at: new Date().toISOString(),
       onboarding_session_id: session.sessionId,
       
@@ -23,29 +21,39 @@ export async function migrateOnboardingToDatabase(userId: string): Promise<boole
       identity_role: session.responses.identity_role || session.responses.q1_identity,
       biggest_pressure: session.responses.biggest_pressure || session.responses.q2_pressure,
       
-      // Self-regulation responses (MVP)
+      // v2 onboarding signals
+      practice_priority_tag: session.responses.practice_priority_tag,
+      pressure_context_tag: session.responses.pressure_context_tag,
+      
+      // Self-regulation responses
       energy_regulation_response: session.responses.energy_regulation_response,
       focus_recovery_response: session.responses.focus_recovery_response,
       energy_renewal_response: session.responses.energy_renewal_response,
-      growth_priority: session.responses.growth_priority,
+      growth_priority: session.responses.practice_priority_tag || session.responses.growth_priority,
       
-      // Full onboarding responses (if present)
+      // Full onboarding responses
       q1_setback_response: session.responses.q1_setback_response,
       q2_pressure_response: session.responses.q2_pressure_response,
       q3_communication_style: session.responses.q3_communication_style,
       q4_self_assessed_strength: session.responses.q4_self_assessed_strength,
       
-      // Calculated results
+      // Calculated results (v2 — from edge function)
       mental_fitness_baseline: session.mental_fitness_baseline,
       component_scores: session.component_scores,
+      user_archetype: session.user_archetype,
+      
+      // Legacy fields
       meta_skill_scores: session.responses.metaSkillScores,
       profile_type: session.responses.profileType,
       profile_description: session.responses.profileDescription,
-      user_archetype: session.user_archetype,
       alignment_status: session.responses.alignment?.status,
     };
 
-    // Update profiles table
+    // Remove undefined values
+    Object.keys(onboardingData).forEach(key => {
+      if (onboardingData[key] === undefined) delete onboardingData[key];
+    });
+
     const { error } = await supabase
       .from('profiles')
       .update(onboardingData)
@@ -56,7 +64,7 @@ export async function migrateOnboardingToDatabase(userId: string): Promise<boole
       return false;
     }
 
-    // Create initial mental fitness score record if baseline exists
+    // Create initial mental fitness score record
     if (session.mental_fitness_baseline) {
       const { error: scoreError } = await supabase
         .from('mental_fitness_scores')
@@ -73,9 +81,7 @@ export async function migrateOnboardingToDatabase(userId: string): Promise<boole
       }
     }
 
-    // Clear localStorage after successful migration
     clearSession();
-    
     console.log('✅ Onboarding data migrated to database');
     return true;
     
@@ -109,7 +115,7 @@ export async function loadOnboardingFromDatabase(userId: string): Promise<any> {
 }
 
 /**
- * Checks if user has completed onboarding and has data in database
+ * Checks if user has completed onboarding
  */
 export async function hasCompletedOnboarding(userId: string): Promise<boolean> {
   try {

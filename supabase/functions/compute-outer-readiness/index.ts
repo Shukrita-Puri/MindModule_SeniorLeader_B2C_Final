@@ -330,6 +330,37 @@ function getCCModifier(clarity: number | null, confidence: number | null): { lea
 
 // Priority 3: Archetype × Tier matrix
 const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watchFor: string }>> = {
+  'grounded-leader': {
+    depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
+    managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
+    strong: { leanOn: "Your natural stability. It's a leadership presence others orient around.", watchFor: "Staying in maintenance mode when your state supports something more." },
+    peak: { leanOn: "Your grounded precision. Full presence with full capacity.", watchFor: "Tunnel focus that closes off peripheral awareness at the moment it matters." },
+  },
+  'resilient-performer': {
+    depleted: { leanOn: "Your knowledge that recovery is part of performance, not a retreat from it.", watchFor: "Performing resilience instead of actually recovering." },
+    managing: { leanOn: "Your baseline reliability. Showing up consistently is its own form of leadership.", watchFor: "Settling for operational when your performance instinct wants to push." },
+    strong: { leanOn: "Your above-baseline capacity. A real performance window is available.", watchFor: "Burning the window early by going too hard before the high-stakes moments." },
+    peak: { leanOn: "Your full competitive edge. This is your signature performance state.", watchFor: "Spending the peak too fast without protecting what carries you through the full day." },
+  },
+  'clear-thinker': {
+    depleted: { leanOn: "Your ability to think simply when complexity costs too much. Straight lines today.", watchFor: "Over-processing when low energy needs economy of thought." },
+    managing: { leanOn: "Your capacity to bring analytical clarity to what genuinely requires it.", watchFor: "Applying deep analysis to decisions that don't warrant the cognitive spend." },
+    strong: { leanOn: "Your sharpest insights surface from a stable, well-resourced state. Conditions are good.", watchFor: "Staying in analysis past the point where the insight is already clear." },
+    peak: { leanOn: "Your analytical precision at full cognitive capacity. Your highest-value thinking window.", watchFor: "Intellectual momentum that runs past the decision point and into complexity for its own sake." },
+  },
+  'intensity-driver': {
+    depleted: { leanOn: "Your knowledge that genuine rest is what fuels your next surge, not pushing through.", watchFor: "Forcing intensity on empty. It produces noise rather than output." },
+    managing: { leanOn: "Your drive, held in check. Directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
+    strong: { leanOn: "Your capacity to amplify from a stable base. Above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
+    peak: { leanOn: "Your full-force capability. Focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
+  },
+  'adaptive-navigator': {
+    depleted: { leanOn: "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.", watchFor: "Adapting to everyone else's demands when your own capacity is the priority." },
+    managing: { leanOn: "Your flexibility. Meeting the day's variability without resistance.", watchFor: "Staying adaptive when the moment calls for a fixed position." },
+    strong: { leanOn: "Your strategic read of the full field. You see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
+    peak: { leanOn: "Your strategic agility at full cognitive capacity. Your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
+  },
+  // Legacy ID fallbacks for backward compatibility
   'natural-regulator': {
     depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
     managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
@@ -353,12 +384,6 @@ const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watch
     managing: { leanOn: "Your drive, held in check. Directed intensity at operational capacity is still formidable.", watchFor: "Impatience with the pace your current state requires." },
     strong: { leanOn: "Your capacity to amplify from a stable base. Above-baseline intensity is powerful and sustainable.", watchFor: "Accelerating past the pace that keeps the full day's output high." },
     peak: { leanOn: "Your full-force capability. Focused intensity at peak readiness is your highest-performance state.", watchFor: "Opening at full intensity before the highest-leverage moments of the day." },
-  },
-  'adaptive-navigator': {
-    depleted: { leanOn: "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.", watchFor: "Adapting to everyone else's demands when your own capacity is the priority." },
-    managing: { leanOn: "Your flexibility. Meeting the day's variability without resistance.", watchFor: "Staying adaptive when the moment calls for a fixed position." },
-    strong: { leanOn: "Your strategic read of the full field. You see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
-    peak: { leanOn: "Your strategic agility at full cognitive capacity. Your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
   },
 };
 

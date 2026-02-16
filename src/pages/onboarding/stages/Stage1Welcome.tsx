@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, ArrowRight, Target, TrendingUp, Zap, Shield, Lock, CheckCircle, MessageCircle, BarChart3 } from "lucide-react";
-import { GoldDivider } from "@/components/ui/divider";
+import { Brain, ArrowRight, Shield, Lock } from "lucide-react";
 
 export default function Stage1Welcome() {
   const navigate = useNavigate();
@@ -29,53 +28,10 @@ export default function Stage1Welcome() {
         </h2>
       </div>
 
-      <GoldDivider />
-
-      <div className="bg-card/80 backdrop-blur-sm border border-gold/20 rounded-xl p-8 space-y-5 animate-fade-in delay-200">
+      <div className="bg-card/80 backdrop-blur-sm border border-gold/20 rounded-xl p-8 animate-fade-in delay-200">
         <p className="text-base text-foreground/90 leading-relaxed">
-          Before we begin, let's understand your starting point.
+          This takes three minutes. Your answers shape everything the app surfaces for you — your practices, your daily brief, your coaching. The more honest you are, the more precisely it works.
         </p>
-        
-        <p className="text-lg text-foreground/90 leading-relaxed font-medium">
-          Answer a few questions (~5 minutes). You'll discover:
-        </p>
-
-        <ul className="space-y-4">
-          {[
-            { icon: Target, text: "Your natural thinking patterns" },
-            { icon: TrendingUp, text: "Where you're strongest" },
-            { icon: Zap, text: "Your fastest path to improvement" },
-          ].map((item, index) => (
-            <li key={index} className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-full bg-gold/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <item.icon size={16} className="text-gold" />
-              </div>
-              <span className="text-base text-foreground/80">{item.text}</span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="text-sm text-muted-foreground italic pt-4 border-t border-gold/10">
-          Everything you need to master high-pressure moments starts with knowing where you are today.
-        </p>
-      </div>
-
-      {/* How It Works Section */}
-      <div className="bg-muted/30 backdrop-blur-sm border border-border rounded-xl p-6 space-y-4 animate-fade-in delay-250">
-        <p className="text-sm font-medium text-foreground/90 uppercase tracking-wider">How It Works</p>
-        <ul className="space-y-3">
-          {[
-            { icon: CheckCircle, text: "Daily Check-ins to calibrate your inner state" },
-            { icon: Zap, text: "AI-curated Performance Plans matched to your energy" },
-            { icon: MessageCircle, text: "Self Mastery Coach for real-time guidance" },
-            { icon: BarChart3, text: "Insights dashboard tracking your growth over time" },
-          ].map((item, index) => (
-            <li key={index} className="flex items-start gap-3">
-              <item.icon size={16} className="text-primary/70 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-foreground/70">{item.text}</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
       {/* Privacy continuity footer */}
@@ -96,7 +52,7 @@ export default function Stage1Welcome() {
         onClick={() => navigate("/onboarding/identity")}
         className="w-full text-lg py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
       >
-        Discover My Baseline
+        Begin
         <ArrowRight size={20} className="ml-2" />
       </Button>
     </div>
