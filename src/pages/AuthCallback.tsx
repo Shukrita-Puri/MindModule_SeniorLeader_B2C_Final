@@ -2,9 +2,10 @@ import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AuthCallback = () => {
-  const { isLoading, error, isAuthenticated } = useAuth0();
+  const { isLoading, error, isAuthenticated, user } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -12,6 +13,7 @@ const AuthCallback = () => {
 
     if (error) {
       console.error('[AuthCallback] Auth0 callback error:', error);
+      toast.error('Authentication failed. Please try again.');
       navigate('/signup?error=auth_failed');
       return;
     }
@@ -20,9 +22,10 @@ const AuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const fromOnboarding = urlParams.get('from') === 'onboarding';
       const destination = fromOnboarding ? '/onboarding/results' : '/executive-home';
+      toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
       navigate(destination);
     }
-  }, [isLoading, error, isAuthenticated, navigate]);
+  }, [isLoading, error, isAuthenticated, navigate, user]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
