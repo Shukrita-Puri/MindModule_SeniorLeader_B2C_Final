@@ -1,41 +1,75 @@
 
 
-## Fix Onboarding Signup Step: Dev Mode Bypass and Iframe Detection
+## Fix Post-Auth Redirect, Context Connection Flow, and Edge Function Errors
 
-### Problem
-The `/onboarding/signup-step` page calls `loginWithRedirect()` which fails inside the Lovable editor iframe because Auth0 blocks rendering with `X-Frame-Options: DENY`, leaving users stuck on a broken spinner.
+### Problem Summary
 
-### Changes
+Three separate issues:
 
-**File: `src/pages/onboarding/stages/Stage8SignupStep.tsx`**
+1. **Post-signup redirect goes to executive-home instead of /onboarding/results** -- The `onRedirectCallback` in `main.tsx` uses `window.history.replaceState()` which changes the browser URL but does NOT trigger React Router navigation. Then `AuthCallback` reads the already-replaced URL (missing `?from=onboarding`) and defaults to `/executive-home`.
 
-1. **Dev Mode bypass** -- when `DEV_MODE = true`, skip Auth0 entirely and navigate straight to `/onboarding/results`
-2. **Iframe detection** -- when running inside an iframe, show a styled message with an "Open in new tab" link (matching the pattern already used in `Login.tsx`) instead of attempting a redirect that will fail
-3. **Standalone browser / Capacitor** -- keep existing `loginWithRedirect()` behavior unchanged (it works correctly there)
+2. **Context Connection skips daily check-in** -- Stage7ContextConnection already navigates to `/daily-check-in` on completion, so this may be a routing issue or the page isn't rendering properly due to the edge function errors causing a blank screen.
 
-### Logic Flow
+3. **Edge function 500 errors** -- `compute-outer-readiness` and `daily-rituals` both look for `Deno.env.get('AUTH0_DOMAIN')`, but the configured secret is named `VITE_AUTH0_DOMAIN`. The name mismatch means the functions get `undefined`.
+
+---
+
+### Fix 1: AuthCallback redirect logic
+
+**File: `src/main.tsx`**
+
+- In `onRedirectCallback`, save `appState.returnTo` to `sessionStorage` instead of using `replaceState` to change the URL (which breaks React Router).
+
+**File: `src/pages/AuthCallback.tsx`**
+
+- Read the saved `returnTo` from `sessionStorage` (set by `onRedirectCallback`) and navigate there.
+- Remove the fragile `?from=onboarding` query-param approach.
+- Clear the sessionStorage value after reading.
 
 ```text
-Component mounts
-  |
-  +--> DEV_MODE enabled?
-  |      YES --> navigate('/onboarding/results') immediately
-  |
-  +--> Running in iframe?
-  |      YES --> Render "Open in new tab" UI with link to
-  |              preview URL + /onboarding/signup-step
-  |
-  +--> Already authenticated?
-  |      YES --> navigate('/onboarding/results')
-  |
-  +--> Call loginWithRedirect() with screen_hint: 'signup'
+Auth0 redirect -> /callback
+  -> onRedirectCallback saves returnTo to sessionStorage
+  -> AuthCallback reads sessionStorage, navigates to /onboarding/results (or /executive-home)
 ```
 
-### Technical Detail
+### Fix 2: Edge function secret name mismatch
 
-- Import `DEV_MODE` from `@/config/devMode`
-- Reuse the `isInIframe()` helper pattern from `Login.tsx`
-- The "Open in new tab" link points to `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app/onboarding/signup-step`
-- Uses `ExternalLink` icon from lucide-react, consistent with existing Login page styling
-- No other files need changes
+**Files: `supabase/functions/compute-outer-readiness/index.ts` and `supabase/functions/daily-rituals/index.ts`**
+
+- Change `Deno.env.get('AUTH0_DOMAIN')` to `Deno.env.get('VITE_AUTH0_DOMAIN')` in both functions, matching the actual configured secret name.
+- Add a null guard in `daily-rituals` (it currently lacks one, producing `https://undefined/userinfo`).
+
+### Fix 3: Audit other edge functions
+
+- Search all edge functions for `AUTH0_DOMAIN` references and update them to `VITE_AUTH0_DOMAIN` to prevent the same error elsewhere.
+
+---
+
+### Technical Details
+
+**main.tsx change:**
+```typescript
+onRedirectCallback={(appState) => {
+  const returnTo = appState?.returnTo || '/executive-home';
+  sessionStorage.setItem('auth0_return_to', returnTo);
+  // Remove auth params from URL without navigating
+  window.history.replaceState({}, document.title, window.location.pathname);
+}}
+```
+
+**AuthCallback.tsx change:**
+```typescript
+if (isAuthenticated) {
+  const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
+  sessionStorage.removeItem('auth0_return_to');
+  toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
+  navigate(returnTo);
+}
+```
+
+**Edge functions change (both files):**
+```typescript
+const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
+if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
+```
 
