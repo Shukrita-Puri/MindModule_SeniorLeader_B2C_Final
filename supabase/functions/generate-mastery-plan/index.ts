@@ -288,164 +288,169 @@ const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
 // ==================== THEME TO MODULE MAPPING ====================
 
 const THEME_MODULE_MAP: Record<string, ThemeModuleMapping> = {
-  // DEPLETED TIER
+  // ==================== DEPLETED TIER (Score 0–39) ====================
   "One thing at a time.": {
-    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'composure' },
+    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'composure' },
     align: { type: 'align', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' }
   },
   "Protect what matters.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' }
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'micro', focus: 'composure' }
   },
   "Reserve for the moment.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' }
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'restore' }
   },
   "Navigate, don't absorb.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'micro', focus: 'restore' }
   },
   "Move through gently.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' }
   },
   "Pace and protect.": {
-    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
   },
   "Rest is the work.": {
-    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'standard', focus: 'release' },
-    integrate: { type: 'integrate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' }
+    regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'release' },
+    integrate: { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
   "Begin with intention.": {
     regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'micro', focus: 'restore' }
   },
   "Close before tomorrow.": {
     regulate: { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'standard', focus: 'release' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' },
     integrate: { type: 'integrate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
   "Protect your reserves.": {
     regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'restore' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'composure' }
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'micro', focus: 'grounding' }
   },
-  // MANAGING TIER
+  // ==================== MANAGING TIER (Score 40–59) ====================
   "Hold your ground.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'composure' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'composure' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'focus' }
   },
   "Steady into the stakes.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'composure' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' }
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    align: { type: 'align', required: false, priority: 6, intensity: 'moderate', duration: 'short', focus: 'confidence' }
   },
   "Depth over breadth.": {
-    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
   "Rhythm over intensity.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
   "Ride the rhythm.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
-  },
-  "Steady execution.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  "Build your reserves.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'restore' }
-  },
-  "Set a sustainable pace.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'grounding' }
-  },
-  "Close with care.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'release' },
-    integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
-  },
-  "Maintain your rhythm.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
-  },
-  // STRONG TIER
-  "Lead from strength.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'confidence' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
-  },
-  "Execute with presence.": {
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
-  },
-  "Bring your full weight.": {
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
-  },
-  "Sustain the quality.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'focus' },
     align: { type: 'align', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
+  "Steady execution.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'micro', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Build your reserves.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'standard', focus: 'restore' },
+    align: { type: 'align', required: false, priority: 4, intensity: 'gentle', duration: 'short', focus: 'grounding' }
+  },
+  "Set a sustainable pace.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'grounding' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'focus' }
+  },
+  "Close with care.": {
+    regulate: { type: 'regulate', required: true, priority: 8, intensity: 'gentle', duration: 'short', focus: 'release' },
+    align: { type: 'align', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' }
+  },
+  "Maintain your rhythm.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'gentle', duration: 'micro', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  // ==================== STRONG TIER (Score 60–74) ====================
+  "Lead from strength.": {
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Execute with presence.": {
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: false, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
+  "Bring your full weight.": {
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Sustain the quality.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'focus' }
+  },
   "Move with confidence.": {
-    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'confidence' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
   },
   "Invest the advantage.": {
-    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'restore' }
   },
   "Protect and build.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'grounding' }
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'gentle', duration: 'standard', focus: 'restore' },
+    prepare: { type: 'prepare', required: false, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
   },
   "Protect the window.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'composure' },
     align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' }
   },
   "Close strong.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'release' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'confidence' }
   },
   "Leverage your position.": {
-    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
   },
-  // PEAK TIER
+  // ==================== PEAK TIER (Score 75–100) ====================
   "Peak performance day.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'confidence' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' },
+    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
   },
   "Execute with precision.": {
     regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' }
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 6, intensity: 'activating', duration: 'micro', focus: 'confidence' }
   },
   "Seize the high ground.": {
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
-    prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
-  },
-  "Channel the capacity.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
-    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'focus' }
-  },
-  "Move with full confidence.": {
-    align: { type: 'align', required: true, priority: 6, intensity: 'activating', duration: 'short', focus: 'confidence' }
-  },
-  "Depth and precision.": {
-    align: { type: 'align', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' },
-    prepare: { type: 'prepare', required: true, priority: 6, intensity: 'moderate', duration: 'short', focus: 'focus' }
-  },
-  "Deep work window.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'focus' }
-  },
-  "Protect the peak.": {
-    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'activating', duration: 'micro', focus: 'focus' },
-    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' },
     prepare: { type: 'prepare', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'focus' }
   },
+  "Channel the capacity.": {
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'focus' }
+  },
+  "Move with full confidence.": {
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
+  "Depth and precision.": {
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 6, intensity: 'moderate', duration: 'short', focus: 'confidence' }
+  },
+  "Deep work window.": {
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'standard', focus: 'focus' },
+    prepare: { type: 'prepare', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'restore' }
+  },
+  "Protect the peak.": {
+    regulate: { type: 'regulate', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 8, intensity: 'activating', duration: 'short', focus: 'confidence' }
+  },
   "Close with intention.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
-    integrate: { type: 'integrate', required: true, priority: 6, intensity: 'gentle', duration: 'short', focus: 'release' }
+    regulate: { type: 'regulate', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'composure' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'release' }
   },
   "Own your optimal state.": {
-    align: { type: 'align', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' },
+    regulate: { type: 'regulate', required: false, priority: 4, intensity: 'moderate', duration: 'micro', focus: 'grounding' },
+    align: { type: 'align', required: true, priority: 7, intensity: 'activating', duration: 'short', focus: 'confidence' },
     prepare: { type: 'prepare', required: false, priority: 4, intensity: 'moderate', duration: 'short', focus: 'confidence' }
   },
   // NO-CALENDAR FALLBACKS
@@ -532,7 +537,11 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
   const now = new Date();
   const scored: ScoredEvent[] = [];
 
-  for (const event of events) {
+  // Sort events by start time first for back-to-back detection
+  const sortedEvents = [...events].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  for (let ei = 0; ei < sortedEvents.length; ei++) {
+    const event = sortedEvents[ei];
     const startTime = new Date(event.startTime);
     const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / (1000 * 60));
     if (minutesUntil < 0) continue; // Skip past events
@@ -575,11 +584,20 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
     const eventHour = startTime.getHours();
     if ((eventHour >= 9 && eventHour <= 12) || (eventHour >= 14 && eventHour <= 16)) score += 5;
 
+    // Back-to-back event detection (+5 if previous event ends within 15 min of this event's start)
+    if (ei > 0) {
+      const prevEvent = sortedEvents[ei - 1];
+      if (prevEvent.endTime) {
+        const prevEnd = new Date(prevEvent.endTime);
+        const gapMinutes = (startTime.getTime() - prevEnd.getTime()) / 60000;
+        if (gapMinutes >= 0 && gapMinutes < 15) score += 5;
+      }
+    }
+
     // Skip penalty
     const eventType = matchedScenario?.id || 'general';
     if (skippedTypes.includes(eventType)) {
       score -= 15;
-      // 3+ skips = remove entirely (handled by caller checking skippedTypes3Plus)
     }
 
     // Generate time pill
@@ -755,7 +773,7 @@ function generateCoachCard(
       type: 'integrate',
       label: 'Integrate',
       protocolType: 'Self Mastery Coach',
-      title: 'Evening Flow',
+      title: 'Tiny Win and Reflection',
       duration: 2,
       sortOrder: 4,
       isCoachCard: true,
@@ -770,42 +788,91 @@ function getCoachPromptForContext(
   timeOfDay: string,
   tier: string,
   patternInsight: any,
-  innerReadinessScore?: number
+  innerReadinessScore?: number,
+  calendarPressure?: string,
+  hasCoachFavorite?: boolean,
+  hasPreEventWithin4h?: boolean
 ): { prompt: string; title: string } | null {
-  // Morning: NO coach for strong/peak (practice-heavy)
+  // Evening: ALWAYS include
+  if (timeOfDay === 'evening') {
+    return {
+      prompt: "A managed close. What's one thing you did right today? Share your small win — and what's one thing worth carrying into tomorrow, and one thing worth leaving here?",
+      title: 'Tiny Win and Reflection'
+    };
+  }
+
+  // Morning coach decision tree
   if (timeOfDay === 'morning') {
-    if (tier === 'strong' || tier === 'peak') return null;
+    // Depleted or managing: always include
+    if (tier === 'depleted' || tier === 'managing') {
+      if (patternInsight && patternInsight.count >= 3) {
+        return {
+          prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper — what's been weighing on you?`,
+          title: 'Pattern Check-in'
+        };
+      }
+      if (tier === 'depleted') {
+        return {
+          prompt: "You're running low coming into the day. What's one thing you can genuinely let go of before you move into it?",
+          title: 'Morning Reset'
+        };
+      }
+      return {
+        prompt: "You're operational. What's the most important thing you want to carry well today?",
+        title: 'Morning Focus'
+      };
+    }
+    // Strong/peak: include only if consecutive low pattern, high pressure, or coach favourite
     if (patternInsight && patternInsight.count >= 3) {
       return {
         prompt: `You've been feeling ${patternInsight.state} for ${patternInsight.count} days. This pattern often signals something deeper — what's been weighing on you?`,
         title: 'Pattern Check-in'
       };
     }
-    if (tier === 'depleted') {
+    if (calendarPressure === 'high') {
+      if (tier === 'strong') {
+        return {
+          prompt: "You're well-resourced. Where do you most want to direct that today?",
+          title: 'Morning Direction'
+        };
+      }
       return {
-        prompt: "You're running low coming into the day. What's one thing you can genuinely let go of before you move into it?",
-        title: 'Morning Reset'
+        prompt: "You're at your best. What does making the most of today actually look like — specifically?",
+        title: 'Morning Precision'
       };
     }
-    if (tier === 'managing') {
+    if (hasCoachFavorite) {
+      if (tier === 'strong') {
+        return {
+          prompt: "You're well-resourced. Where do you most want to direct that today?",
+          title: 'Morning Direction'
+        };
+      }
       return {
-        prompt: "You're operational. What's the most important thing you want to carry well today?",
-        title: 'Morning Focus'
+        prompt: "You're at your best. What does making the most of today actually look like — specifically?",
+        title: 'Morning Precision'
       };
     }
+    // Strong/peak with low/medium pressure and no favourite: EXCLUDE coach
     return null;
   }
 
-  // Afternoon: only with Prepare module from scenario (handled by caller)
-  if (timeOfDay === 'afternoon') return null;
-
-  // Evening: ALWAYS
-  if (timeOfDay === 'evening') {
-    // Always include Tiny Wins in evening prompt
-    return {
-      prompt: "A managed close. What's one thing you did right today? Share your small win — and what's one thing worth carrying into tomorrow, and one thing worth leaving here?",
-      title: 'Evening Flow'
-    };
+  // Afternoon coach decision tree
+  if (timeOfDay === 'afternoon') {
+    if (tier === 'depleted') {
+      return {
+        prompt: "You're running low. What's one thing you can let go of to make it through the afternoon?",
+        title: 'Afternoon Reset'
+      };
+    }
+    if (calendarPressure === 'high' && hasPreEventWithin4h) {
+      return {
+        prompt: "You have a high-stakes moment coming up this afternoon. What outcome would make this a success for you?",
+        title: 'Afternoon Prep'
+      };
+    }
+    // All other cases: EXCLUDE coach
+    return null;
   }
 
   return null;
@@ -1020,7 +1087,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
   // 7. Coach card for time-of-day plan (separate from module coach cards)
   let todCoachCard: any = null;
-  const coachContext = getCoachPromptForContext(timeOfDay, req.innerReadinessTier, req.patternInsight, req.innerReadinessScore);
+  const hasCoachFavorite = req.favorites.some(fav => fav.startsWith('coach-') || fav === 'coach');
+  const hasPreEventWithin4h = filteredEvents.some(e => e.minutesUntil <= 240);
+  const coachContext = getCoachPromptForContext(timeOfDay, req.innerReadinessTier, req.patternInsight, req.innerReadinessScore, req.calendarPressure, hasCoachFavorite, hasPreEventWithin4h);
   if (coachContext) {
     // Only add coach card to modules if not already there as prepare/integrate
     const hasCoachModule = todModules.some(m => m.isCoachCard);
@@ -1058,7 +1127,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
   // Time-of-day label
   const periodLabels: Record<string, string> = {
-    morning: 'Morning Start',
+    morning: 'Morning Practice',
     afternoon: 'Afternoon Reset',
     evening: 'Evening Close'
   };
