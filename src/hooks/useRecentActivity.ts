@@ -76,6 +76,32 @@ export const useRecentActivity = () => {
         }
       }
 
+      // Production: fetch coach sessions via edge function
+      if (!DEV_MODE) {
+        try {
+          const accessToken = await getAccessToken();
+          if (accessToken) {
+            const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              body: { action: 'LIST_COACH_SESSIONS', limit: 5 },
+            });
+            if (!error && data?.success && data.sessions) {
+              data.sessions.forEach((session: any) => {
+                allActivities.push({
+                  id: session.id,
+                  type: 'coach',
+                  title: session.title?.length >= 50 ? `${session.title}...` : (session.title || 'Coach Conversation'),
+                  date: new Date(session.started_at || Date.now()),
+                  sessionId: session.id,
+                });
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[useRecentActivity] Failed to fetch coach sessions:', err);
+        }
+      }
+
       // Fetch recent check-ins
       const { data: checkins } = await supabase
         .from('daily_checkins')
