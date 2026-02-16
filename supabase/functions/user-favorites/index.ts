@@ -15,7 +15,8 @@ const corsHeaders = {
 
 async function verifyAuth0Token(authHeader: string): Promise<string> {
   const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('AUTH0_DOMAIN');
+  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
+  if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
   
   const response = await fetch(`https://${auth0Domain}/userinfo`, {
     headers: { Authorization: `Bearer ${token}` }

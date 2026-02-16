@@ -171,7 +171,7 @@ serve(async (req) => {
 
     // Verify user via Auth0 userinfo
     const token = authHeader.replace("Bearer ", "");
-    const AUTH0_DOMAIN = Deno.env.get("AUTH0_DOMAIN") || Deno.env.get("VITE_AUTH0_DOMAIN");
+    const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
     
     const userInfoRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },

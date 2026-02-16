@@ -20,7 +20,8 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const AUTH0_DOMAIN = Deno.env.get("AUTH0_DOMAIN");
+    const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
+    if (!AUTH0_DOMAIN) throw new Error('VITE_AUTH0_DOMAIN not configured');
     const userInfoRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
     });

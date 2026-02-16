@@ -19,11 +19,10 @@ const AuthCallback = () => {
     }
 
     if (isAuthenticated) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const fromOnboarding = urlParams.get('from') === 'onboarding';
-      const destination = fromOnboarding ? '/onboarding/results' : '/executive-home';
+      const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
+      sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
-      navigate(destination);
+      navigate(returnTo);
     }
   }, [isLoading, error, isAuthenticated, navigate, user]);
 
