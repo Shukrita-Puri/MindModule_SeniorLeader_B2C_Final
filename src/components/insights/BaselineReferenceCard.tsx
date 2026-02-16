@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { format } from 'date-fns';
 import InsightInfoModal from './InsightInfoModal';
+import { getArchetypeDisplay, PRACTICE_PRIORITY_LABELS } from '@/utils/innerWorldArchetypes';
 
 interface ProfileBaseline {
   mentalFitnessBaseline?: number;
@@ -8,25 +9,12 @@ interface ProfileBaseline {
   userArchetype?: string;
   onboardingCompletedAt?: string;
   growthPriority?: string;
+  practicePriorityTag?: string;
 }
 
 interface BaselineReferenceCardProps {
   profile: ProfileBaseline | null;
 }
-
-// Archetype display names
-const archetypeLabels: Record<string, string> = {
-  'grounded-leader': 'The Grounded Master',
-  'resilient-performer': 'The Resilient Performer',
-  'adaptive-navigator': 'The Adaptive Navigator',
-  'mindful-strategist': 'The Mindful Strategist',
-  'balanced-achiever': 'The Balanced Achiever',
-  // Engine output ID mappings
-  'natural_regulator': 'The Grounded Master',
-  'strategic_pauser': 'The Grounded Master',
-  'high_octane_performer': 'The Resilient Performer',
-  'awareness_builder': 'The Adaptive Navigator',
-};
 
 const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
   if (!profile?.mentalFitnessBaseline) {
@@ -34,11 +22,16 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
   }
 
   const baselineScore = profile.mentalFitnessBaseline;
-  const archetype = profile.userArchetype || 'adaptive-navigator';
-  const archetypeLabel = archetypeLabels[archetype] || 'Your Profile';
+  const archetypeInfo = getArchetypeDisplay(profile.userArchetype);
   const establishedDate = profile.onboardingCompletedAt 
     ? format(new Date(profile.onboardingCompletedAt), 'MMM d, yyyy')
     : 'Recently';
+
+  const focusLabel = profile.practicePriorityTag
+    ? PRACTICE_PRIORITY_LABELS[profile.practicePriorityTag]
+    : profile.growthPriority
+      ? profile.growthPriority.replace(/-/g, ' ').replace(/_/g, ' ')
+      : null;
 
   return (
     <Card className="relative overflow-hidden bg-gradient-to-br from-card via-card to-card/95 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
@@ -102,14 +95,14 @@ const BaselineReferenceCard = ({ profile }: BaselineReferenceCardProps) => {
           {/* Archetype info */}
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-foreground truncate">
-              {archetypeLabel}
+              {archetypeInfo.title}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Established {establishedDate}
+              Assessed {establishedDate}
             </p>
-            {profile.growthPriority && (
-              <p className="text-xs text-saffron/80 mt-2">
-                Focus: {profile.growthPriority.replace(/-/g, ' ')}
+            {focusLabel && (
+              <p className="text-xs text-saffron/80 mt-2 capitalize">
+                Focus: {focusLabel}
               </p>
             )}
           </div>

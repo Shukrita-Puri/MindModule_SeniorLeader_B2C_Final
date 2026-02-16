@@ -1,42 +1,81 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { getAllResponses, saveResponse } from "@/utils/onboardingStorage";
-import { calculateInnerWorldScores, DIMENSION_LABELS, getNationalAverage } from "@/utils/innerWorldScoring";
-import { determineArchetype, getArchetypeInsights } from "@/utils/innerWorldArchetypes";
-import { ArrowRight, Target, TrendingUp, Lightbulb, Sparkles } from "lucide-react";
+import { getAllResponses, saveResponse, updateSession } from "@/utils/onboardingStorage";
+import { ARCHETYPES, PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
+import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
+import { ArrowRight, Target, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface ResultsData {
+  baselineScore: number;
+  scores: ComponentScoresV2;
+  archetype: string;
+  archetypeTitle: string;
+  archetypeDescription: string;
+  insight: string;
+  practiceGoalLabel: string;
+}
 
 export default function Stage8Results() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<ResultsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      const responses = getAllResponses();
-      const innerWorldAnswers = {
-        emotional_awareness_response: responses.emotional_awareness_response,
-        stress_response_response: responses.stress_response_response,
-        recovery_patterns_response: responses.recovery_patterns_response,
-        mental_clarity_response: responses.mental_clarity_response,
-        growth_intention_response: responses.growth_intention_response,
-      };
+    async function computeResults() {
+      try {
+        const responses = getAllResponses();
+        
+        const { data, error: fnError } = await supabase.functions.invoke('generate-onboarding-insight', {
+          body: {
+            answers: {
+              q1: responses.emotional_awareness_response,
+              q2: responses.stress_response_response,
+              q3: responses.recovery_patterns_response,
+              q4: responses.mental_clarity_response,
+            },
+            pressureContextTag: responses.pressure_context_tag,
+            practicePriorityTag: responses.practice_priority_tag,
+          },
+        });
 
-      const profile = calculateInnerWorldScores(innerWorldAnswers);
-      const archetype = determineArchetype(profile);
-      const insights = getArchetypeInsights(archetype, profile);
-      const nationalAvg = getNationalAverage();
+        if (fnError) throw fnError;
 
-      // Save results
-      saveResponse('inner_world_profile', profile);
-      saveResponse('inner_world_archetype', archetype);
-      saveResponse('mental_fitness_baseline', profile.overallScore);
-      saveResponse('baseline_established_date', new Date().toISOString());
+        const { baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight } = data;
+        
+        // Save results to localStorage session
+        saveResponse('mental_fitness_baseline', baselineScore);
+        saveResponse('baseline_established_date', new Date().toISOString());
+        saveResponse('inner_world_archetype', { id: archetype, title: archetypeTitle });
+        
+        updateSession({
+          mental_fitness_baseline: baselineScore,
+          user_archetype: archetype,
+          component_scores: componentScores,
+        });
 
-      setResults({ profile, archetype, insights, nationalAvg });
-      setLoading(false);
-    }, 2000);
+        const goalLabel = PRACTICE_PRIORITY_LABELS[responses.practice_priority_tag] || 'your highest-leverage area';
+
+        setResults({
+          baselineScore,
+          scores: componentScores,
+          archetype,
+          archetypeTitle,
+          archetypeDescription,
+          insight,
+          practiceGoalLabel: goalLabel,
+        });
+      } catch (err) {
+        console.error('Error computing results:', err);
+        setError('Unable to generate your results. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    computeResults();
   }, []);
 
   if (loading) {
@@ -45,112 +84,151 @@ export default function Stage8Results() {
         <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
           <Target size={40} className="text-primary" />
         </div>
-        <h2 className="text-2xl font-headline font-bold">Analyzing Your Inner World...</h2>
-        <div className="space-y-2 text-sm text-muted-foreground">
-          <p>Mapping your self-mastery patterns...</p>
-          <p>Identifying strengths and growth areas...</p>
-        </div>
+        <h2 className="text-2xl font-headline font-bold">Analyzing Your Pattern...</h2>
+        <p className="text-sm text-muted-foreground">Mapping your self-mastery profile</p>
       </div>
     );
   }
 
-  const { profile, archetype, insights, nationalAvg } = results;
+  if (error || !results) {
+    return (
+      <div className="space-y-6 py-12 text-center animate-fade-in">
+        <p className="text-destructive">{error || 'Something went wrong.'}</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    );
+  }
+
+  const { baselineScore, scores, archetypeTitle, archetypeDescription, insight, practiceGoalLabel } = results;
+
+  // Radar chart data
+  const radarPoints = [
+    { label: COMPONENT_LABELS.energyRegulation, value: scores.energyRegulation },
+    { label: COMPONENT_LABELS.focusRecovery, value: scores.focusRecovery },
+    { label: COMPONENT_LABELS.energyRenewal, value: scores.energyRenewal },
+  ];
+
+  // SVG radar chart helpers
+  const cx = 150, cy = 130, radius = 90;
+  const angleStep = (2 * Math.PI) / 3;
+  const startAngle = -Math.PI / 2;
+  
+  const getPoint = (index: number, value: number) => {
+    const angle = startAngle + index * angleStep;
+    const r = (value / 100) * radius;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  };
+
+  const radarPath = radarPoints
+    .map((p, i) => {
+      const pt = getPoint(i, p.value);
+      return `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`;
+    })
+    .join(' ') + ' Z';
+
+  const gridLevels = [25, 50, 75, 100];
 
   return (
     <div className="space-y-6 py-8 animate-fade-in">
-      {/* Hero Score */}
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl md:text-3xl font-headline font-bold">Your Inner World Score</h2>
-        <div className="text-5xl md:text-6xl font-bold text-primary">
-          {profile.overallScore}<span className="text-2xl text-muted-foreground">/100</span>
-        </div>
-        <div className="max-w-md mx-auto space-y-3">
-          <div className="relative">
-            <Progress value={profile.overallScore} className="h-3" />
-            <div className="absolute top-0 bottom-0 w-0.5 bg-muted-foreground/50" style={{ left: `${nationalAvg}%` }} />
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>National Avg: {nationalAvg}/100</span>
-            <span className="text-primary font-medium">You: {profile.overallScore}/100</span>
-          </div>
-        </div>
-        <p className="text-sm bg-primary/5 border border-border p-4 rounded-xl max-w-lg mx-auto">
-          You're at the <span className="font-semibold text-primary">{profile.readinessLevel}</span> level. 
-          Your strength is <span className="font-semibold">{DIMENSION_LABELS[profile.primaryStrength]}</span>.
+      {/* Archetype Reveal */}
+      <div className="text-center space-y-3">
+        <p className="text-sm text-muted-foreground uppercase tracking-widest">Your Leadership Pattern</p>
+        <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground">
+          You are {archetypeTitle}.
+        </h2>
+        <p className="text-base text-muted-foreground max-w-md mx-auto">
+          {archetypeDescription}
         </p>
       </div>
 
-      {/* Archetype */}
-      <div className="bg-gradient-to-br from-primary/10 to-saffron/10 border border-primary/20 rounded-xl p-6 shadow-lg">
-        <h3 className="text-xl font-headline font-bold mb-1">You're {archetype.title}</h3>
-        <p className="text-xs text-muted-foreground mb-3">Found in the {archetype.percentile} of professionals</p>
-        <p className="text-sm leading-relaxed mb-3">{archetype.description}</p>
-        <div className="bg-background/50 rounded-lg p-3 border border-border">
-          <p className="text-sm font-medium text-primary">{archetype.unlockStatement}</p>
-        </div>
+      {/* Radar Chart */}
+      <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+        <svg viewBox="0 0 300 270" className="w-full max-w-xs mx-auto">
+          {/* Grid */}
+          {gridLevels.map((level) => (
+            <polygon
+              key={level}
+              points={radarPoints.map((_, i) => {
+                const pt = getPoint(i, level);
+                return `${pt.x},${pt.y}`;
+              }).join(' ')}
+              fill="none"
+              stroke="hsl(var(--border))"
+              strokeWidth="0.5"
+              opacity={0.5}
+            />
+          ))}
+          {/* Axes */}
+          {radarPoints.map((_, i) => {
+            const pt = getPoint(i, 100);
+            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.5" opacity={0.3} />;
+          })}
+          {/* Data polygon */}
+          <polygon
+            points={radarPoints.map((p, i) => {
+              const pt = getPoint(i, p.value);
+              return `${pt.x},${pt.y}`;
+            }).join(' ')}
+            fill="hsl(var(--primary) / 0.15)"
+            stroke="hsl(var(--primary))"
+            strokeWidth="2"
+          />
+          {/* Data points */}
+          {radarPoints.map((p, i) => {
+            const pt = getPoint(i, p.value);
+            return <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="hsl(var(--primary))" />;
+          })}
+          {/* Labels */}
+          {radarPoints.map((p, i) => {
+            const labelPt = getPoint(i, 120);
+            return (
+              <text
+                key={i}
+                x={labelPt.x}
+                y={labelPt.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="text-[10px] fill-muted-foreground"
+              >
+                {p.label} ({p.value})
+              </text>
+            );
+          })}
+        </svg>
       </div>
 
-      {/* Pattern Insights */}
-      <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-        <div className="flex items-center gap-2 mb-4">
-          <Lightbulb className="w-5 h-5 text-saffron" />
-          <h3 className="font-semibold text-lg">What Your Patterns Reveal</h3>
+      {/* AI Pattern Insight */}
+      {insight && (
+        <div className="bg-gradient-to-br from-primary/10 to-saffron/10 border border-primary/20 rounded-xl p-6">
+          <p className="text-sm leading-relaxed text-foreground/90 italic">
+            "{insight}"
+          </p>
         </div>
-        <div className="space-y-3">
-          {insights.patternRevelations.map((pattern: string, index: number) => (
-            <p key={index} className="text-sm leading-relaxed text-muted-foreground pb-3 border-b border-border last:border-0 last:pb-0">
-              {pattern}
-            </p>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Development Path */}
-      <div className="bg-gradient-to-br from-saffron/10 to-primary/10 border border-saffron/20 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-saffron" />
-          <h3 className="font-semibold text-lg">Your Development Path</h3>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm font-medium mb-1">Primary Focus: {insights.primaryFocus}</div>
-          </div>
-          <div className="bg-background/50 rounded-lg p-4 space-y-2">
-            <div className="text-sm font-medium">You'll build the ability to:</div>
-            <ul className="text-sm space-y-1.5 text-muted-foreground">
-              {insights.expectedOutcomes.map((outcome: string, i: number) => <li key={i}>• {outcome}</li>)}
-            </ul>
-          </div>
-          <p className="text-xs text-muted-foreground italic">{insights.timeline}</p>
-        </div>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <p className="text-sm text-foreground leading-relaxed">
+          Your practice will prioritise <span className="font-semibold text-primary">{practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+        </p>
       </div>
 
-      {/* How We'll Help You Grow */}
-      <div className="bg-muted/30 rounded-xl p-5 border border-border">
-        <h4 className="text-sm font-semibold mb-3 text-foreground">How We'll Help You Grow</h4>
-        <ul className="text-xs text-muted-foreground space-y-2">
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Your daily check-ins feed personalized Performance Plans</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Your archetype (<span className="font-medium text-foreground">{archetype.title}</span>) shapes how your coach guides you</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Your growth goal (<span className="font-medium text-foreground">{insights.primaryFocus}</span>) weights practice recommendations</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary">•</span>
-            <span>Your patterns appear in the Insights dashboard over time</span>
-          </li>
-        </ul>
+      {/* What the app does */}
+      <div className="bg-muted/30 rounded-xl p-5 border border-border space-y-2.5">
+        <p className="text-xs text-muted-foreground">
+          <span className="text-primary">•</span> Your daily check-in feeds a personalised Inner Readiness Score.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          <span className="text-primary">•</span> Your archetype shapes the strengths and watch-fors in your daily Compass.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          <span className="text-primary">•</span> Your practice is selected based on what your state and day actually need.
+        </p>
       </div>
 
       <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg">
         <Sparkles className="w-5 h-5 mr-2" />
-        Unlock Your Plan
+        Connect &amp; Continue
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
     </div>
