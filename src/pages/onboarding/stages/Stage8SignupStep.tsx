@@ -1,145 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ExternalLink, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { isInIframe, openAuthInNewTab, listenForAuthSuccess } from '@/utils/authRedirect';
+import { Loader2 } from 'lucide-react';
 
 const Stage8SignupStep = () => {
-  const { isAuthenticated, isLoading, loginWithPopup } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const navigate = useNavigate();
-  const [isSigningUp, setIsSigningUp] = useState(false);
-  const [waitingForAuth, setWaitingForAuth] = useState(false);
-  const inIframe = isInIframe();
+  const redirectInitiated = useRef(false);
 
-  // If authenticated, continue to results
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (isLoading) return;
+
+    if (isAuthenticated) {
       navigate('/onboarding/results');
+      return;
     }
-  }, [isLoading, isAuthenticated, navigate]);
 
-  // Listen for auth success from other tabs (when in iframe)
-  useEffect(() => {
-    if (!inIframe) return;
-    
-    const cleanup = listenForAuthSuccess((destination) => {
-      console.log('[Stage8] Received auth success, navigating to:', destination);
-      // Force reload to get fresh auth state
-      window.location.href = destination;
+    if (redirectInitiated.current) return;
+    redirectInitiated.current = true;
+
+    loginWithRedirect({
+      appState: { returnTo: '/onboarding/results' },
+      authorizationParams: {
+        redirect_uri: `${window.location.origin}/callback?from=onboarding`,
+        screen_hint: 'signup',
+        scope: 'openid profile email',
+      },
     });
-    
-    return cleanup;
-  }, [inIframe]);
+  }, [isLoading, isAuthenticated, navigate, loginWithRedirect]);
 
-  // Handler for iframe - opens new tab
-  const handleOpenInNewTab = () => {
-    setWaitingForAuth(true);
-    openAuthInNewTab('/onboarding/signup-step');
-  };
-
-  // Handler for non-iframe - direct Auth0 popup
-  const handleDirectSignup = async () => {
-    setIsSigningUp(true);
-    try {
-      await loginWithPopup({
-        authorizationParams: {
-          redirect_uri: `${window.location.origin}/callback?from=onboarding`,
-          screen_hint: 'signup',
-          scope: 'openid profile email',
-        },
-      });
-      navigate('/onboarding/results');
-    } catch (error) {
-      console.error('Signup failed:', error);
-      setIsSigningUp(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If in iframe, show "Open in New Tab" UI
-  if (inIframe) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-8 text-center">
-          <User className="w-12 h-12 mx-auto text-kairos" />
-          <h1 className="text-2xl font-headline font-semibold tracking-tight">
-            Create Your Account
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {waitingForAuth 
-              ? 'Complete signup in the new tab...'
-              : 'Secure signup opens in a new window'
-            }
-          </p>
-          <Button 
-            onClick={handleOpenInNewTab} 
-            variant="critical" 
-            className="w-full gap-2"
-            disabled={waitingForAuth}
-          >
-            {waitingForAuth ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Waiting for signup...
-              </>
-            ) : (
-              <>
-                Continue to Signup
-                <ExternalLink className="w-4 h-4" />
-              </>
-            )}
-          </Button>
-          <p className="text-xs text-muted-foreground/60">
-            {waitingForAuth 
-              ? 'This page will update automatically'
-              : "You'll complete your profile in the new tab"
-            }
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // If not in iframe, show direct signup button
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm space-y-8 text-center">
-        <User className="w-12 h-12 mx-auto text-kairos" />
-        <h1 className="text-2xl font-headline font-semibold tracking-tight">
-          Create Your Account
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Secure your progress and unlock personalized insights
-        </p>
-        <Button 
-          onClick={handleDirectSignup} 
-          variant="critical" 
-          className="w-full"
-          disabled={isSigningUp}
-        >
-          {isSigningUp ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
-            </>
-          ) : (
-            'Create Account'
-          )}
-        </Button>
-        <p className="text-xs text-muted-foreground/60">
-          By continuing, you agree to our Terms of Service
-        </p>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-muted-foreground">Redirecting to create your account...</p>
       </div>
     </div>
   );

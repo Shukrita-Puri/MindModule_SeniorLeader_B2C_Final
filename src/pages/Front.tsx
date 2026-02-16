@@ -3,19 +3,12 @@ import { Shield, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "@/utils/onboardingStorage";
-import { isInIframe, openAuthInNewTab } from "@/utils/authRedirect";
 
 const Front = () => {
   const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   const handleGetStarted = () => {
-    // If in iframe, open onboarding in new tab
-    if (isInIframe()) {
-      openAuthInNewTab('/onboarding');
-      return;
-    }
-    
     setIsTransitioning(true);
     setTimeout(() => {
       clearSession();
@@ -24,13 +17,9 @@ const Front = () => {
   };
 
   const handleSignIn = () => {
-    // If in iframe, open login in new tab
-    if (isInIframe()) {
-      openAuthInNewTab('/login');
-      return;
-    }
     navigate('/login');
   };
+
   return <div className={`relative min-h-screen min-h-[100dvh] bg-background flex flex-col items-center justify-center px-6 py-16 overflow-y-auto transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Subtle background gradient overlay */}

@@ -2,21 +2,12 @@ import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { broadcastAuthSuccess, closeAuthWindow, isInIframe } from '@/utils/authRedirect';
 
 const AuthCallback = () => {
   const { isLoading, error, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('[AuthCallback] State:', { 
-      isLoading, 
-      error: error?.message, 
-      isAuthenticated,
-      search: window.location.search,
-      isInIframe: isInIframe()
-    });
-
     if (isLoading) return;
 
     if (error) {
@@ -29,23 +20,7 @@ const AuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const fromOnboarding = urlParams.get('from') === 'onboarding';
       const destination = fromOnboarding ? '/onboarding/results' : '/executive-home';
-      
-      console.log('[AuthCallback] Authenticated, destination:', destination);
-      
-      // If this window was opened from an iframe (new tab scenario),
-      // broadcast success to the original tab and close this one
-      if (!isInIframe() && window.opener) {
-        console.log('[AuthCallback] Opened as new tab - broadcasting success and closing');
-        broadcastAuthSuccess(destination);
-        closeAuthWindow();
-        // Fallback: if close doesn't work, still navigate
-        setTimeout(() => {
-          navigate(destination);
-        }, 1000);
-      } else {
-        // Normal navigation (either in iframe or direct access)
-        navigate(destination);
-      }
+      navigate(destination);
     }
   }, [isLoading, error, isAuthenticated, navigate]);
 
