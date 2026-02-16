@@ -947,7 +947,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           preEventModules.push({
             type: spec.type,
             contentId: `coach-${spec.type}`,
-            title: spec.type === 'prepare' ? 'Mental Rehearsal' : 'Evening Flow',
+            title: spec.type === 'prepare' ? 'Mental Rehearsal' : 'Tiny Win and Reflection',
             contentType: 'coach',
             duration: 2,
             focus: spec.focus,

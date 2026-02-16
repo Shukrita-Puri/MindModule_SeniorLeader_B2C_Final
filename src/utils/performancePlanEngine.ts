@@ -903,7 +903,7 @@ function createCoachCard(type: 'prepare' | 'integrate'): CoachCard {
     type: 'integrate',
     label: 'Integrate',
     protocolType: 'Self Mastery Coach',
-    title: 'Evening Flow',
+    title: 'Tiny Win and Reflection',
     duration: 2,
     sortOrder: 4,
     isCoachCard: true,
