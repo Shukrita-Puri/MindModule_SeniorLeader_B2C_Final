@@ -1,84 +1,87 @@
 
 
-## Fix "Your Momentum" Card — Close 3 Spec Gaps + Move IP Server-Side
+## Fix Auth0 Login — Switch from Popup to Redirect
 
-### What's Changing
+### Problem
 
-Three gaps exist between the current implementation and the spec, plus client-side code contains proprietary logic (dimension extraction, insight text) that must move server-side.
+All login flows use `loginWithPopup()` on desktop. This gets blocked by browsers (especially incognito, iframe, and strict popup blockers). Once blocked, the `sessionStorage` flag `auth_login_triggered` is set to `'true'` and never cleared, permanently trapping the user on the spinner.
 
-### Gap 1: Hide Sentiment Bubbles from UI
+### Solution
 
-The spec says sentiment is "internal filter only -- not shown." Currently, sentiment bubbles (emerald-colored) appear in the bubble cluster.
+Replace every `loginWithPopup()` call with `loginWithRedirect()` across the entire app. This is the Auth0-recommended approach for SPAs.
 
-**Edge function change:** Filter out `sentiment` dimension entries from the `dimensions` array before returning to client. Keep sentiment data in the database for internal analytics but exclude it from the response payload.
+### Auth0 Dashboard Configuration (User Action Required)
 
-**Client change:** Remove sentiment color definitions, legend entry, and insight text from `PsychologicalDimensionBubbles.tsx`. Remove `sentiment` from the `DimensionData` type union.
+Go to Auth0 Dashboard → Applications → Your App → Settings and set:
 
----
+- **Application Type**: Single Page Application
+- **Allowed Callback URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app/callback, https://mindmodule.me/callback, https://www.mindmodule.me/callback`
+- **Allowed Logout URLs**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app, https://mindmodule.me, https://www.mindmodule.me`
+- **Allowed Web Origins**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app, https://mindmodule.me, https://www.mindmodule.me`
+- **Allowed Origins (CORS)**: `https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app, https://mindmodule.me, https://www.mindmodule.me`
 
-### Gap 2: Elevated C-Suite Display Labels
+### Code Changes
 
-Current labels: "Emotion", "Agency", "Regulation", "Growth Signal"
-Required labels: "What you felt", "How you showed up", "How you led yourself", "What it built"
+#### 1. `src/pages/Login.tsx`
+- Remove `loginWithPopup` import and all popup logic
+- Remove `popupBlocked` state, `handleManualLogin`, and the popup-blocked UI
+- Remove the iframe-specific "Open in New Tab" UI
+- Remove `sessionStorage` flag logic (redirect handles this natively)
+- Simplify to: if not authenticated and not loading, call `loginWithRedirect()` with `redirect_uri` and `appState: { returnTo: finalDestination }`
+- Keep the spinner as the only UI (user is immediately redirected to Auth0)
 
-**Edge function change:** Add a `displayLabel` field to each dimension object in the response, mapped server-side:
-- emotion -> "What you felt"
-- agency -> "How you showed up"
-- regulation -> "How you led yourself"
-- growth -> "What it built"
+#### 2. `src/pages/Signup.tsx`
+- Same pattern: remove `loginWithPopup`, `popupBlocked`, `handleManualSignup`
+- Call `loginWithRedirect()` with `screen_hint: 'signup'` to show the signup screen
+- Simplify to spinner + redirect only
 
-**Client change:** Update `PsychologicalDimensionBubbles.tsx` to use `item.displayLabel` from the server response instead of the local `getDimensionLabel()` function. Update the color legend to use these labels.
+#### 3. `src/components/ProtectedRoute.tsx`
+- Remove `loginWithPopup` and all popup-related state (`popupBlocked`, `isLoggingIn`, `handleManualLogin`)
+- Remove the popup-blocked fallback UI
+- When user is not authenticated: call `loginWithRedirect()` with `appState: { returnTo: location.pathname }`
+- Remove `sessionStorage` flag (unnecessary with redirect flow)
+- Keep the spinner for loading/unauthenticated state
 
----
+#### 4. `src/pages/AuthCallback.tsx`
+- Remove cross-tab broadcast logic (`broadcastAuthSuccess`, `closeAuthWindow`)
+- Simplify: when authenticated, read `appState?.returnTo` from the URL or default to `/executive-home`, then navigate
+- The Auth0Provider's `onRedirectCallback` in `main.tsx` already handles the redirect via `window.history.replaceState` — the callback page just needs to wait for `isAuthenticated` then navigate
 
-### Gap 3: AI-Generated Momentum Observation
+#### 5. `src/main.tsx`
+- Update `redirect_uri` in Auth0Provider to use `window.location.origin + '/callback'` (already correct)
+- Confirm `cacheLocation: "localstorage"` and `useRefreshTokens: true` are present (already correct)
+- No other changes needed
 
-The edge function currently generates a template string. The spec requires an AI call with the specific prompt:
+#### 6. `src/pages/Front.tsx`
+- Remove iframe check for "Sign In" button — just navigate to `/login` directly (redirect flow works everywhere)
+- Keep iframe check for "Begin Your Journey" if desired, or simplify that too
 
-> "This leader's recent wins most reflect [emotion] and [growth dimension]. In one sentence, what does this pattern of wins reveal about their current momentum and how they are leading themselves? Speak directly to the leader. No generic language."
-
-**Edge function change:** After aggregating dimensions, identify the top emotion and top growth signal. If LOVABLE_API_KEY is available, call Gemini with the exact prompt above (non-streaming). Use the AI response as the `observation` field. Fallback template: "Over the past two weeks your wins most reflect [top emotion] and [top growth dimension]."
-
-**Response shape update:** Add two new fields:
-- `observation`: The AI-generated one-sentence headline
-- `patternLine`: "Your wins over the past 14 days most reflect [top emotion] and [top growth dimension]"
-
-**Client change:** In `Insights.tsx`, render `observation` as the card headline (above bubbles) and `patternLine` below the bubble map.
-
----
-
-### Gap 4: Move Proprietary Logic Server-Side
-
-**Remove from client bundle:**
-- `src/utils/dimensionExtraction.ts` -- keyword patterns and extraction logic (already duplicated in edge function)
-- `DIMENSION_INSIGHTS` object from `PsychologicalDimensionBubbles.tsx` -- the per-dimension psychological insight text
-
-**Move to edge function:**
-- The `DIMENSION_INSIGHTS` text will be included in the edge function response as an `insight` field per dimension, computed server-side
-- The client modal will simply render `item.insight` instead of calling a local function
-
-**DEV_MODE path in Insights.tsx:**
-- Remove client-side `extractDimensionsFromText()` calls
-- DEV_MODE will call the edge function the same as production (the edge function handles auth via Auth0 token)
-- If DEV_MODE needs to remain purely client-side, it will use the edge function with a mock/test path, or the dimension extraction stays in the edge function only
-
----
+#### 7. `src/utils/authRedirect.ts`
+- `openAuthInNewTab`, `broadcastAuthSuccess`, `closeAuthWindow`, `listenForAuthSuccess`, `AUTH_CHANNEL_NAME` become unused — remove them
+- Keep `isMobileDevice()` and `isInIframe()` if used elsewhere, otherwise clean up
 
 ### Files Modified
 
 | File | Change |
 |---|---|
-| `supabase/functions/tiny-wins-insights/index.ts` | Filter sentiment from response; add displayLabel + insight text per dimension; add AI observation call; add patternLine field |
-| `src/components/insights/PsychologicalDimensionBubbles.tsx` | Remove sentiment styles/legend; use server displayLabel + insight; remove DIMENSION_INSIGHTS object |
-| `src/pages/Insights.tsx` | Render observation headline + patternLine; remove client-side dimension extraction import; update DEV_MODE path |
-| `src/utils/dimensionExtraction.ts` | Delete file (logic lives in edge function only) |
+| `src/pages/Login.tsx` | Replace popup with `loginWithRedirect()`, remove fallback UIs |
+| `src/pages/Signup.tsx` | Replace popup with `loginWithRedirect()`, remove fallback UIs |
+| `src/components/ProtectedRoute.tsx` | Replace popup with `loginWithRedirect()`, remove popup-blocked UI |
+| `src/pages/AuthCallback.tsx` | Simplify to navigate on authenticated, remove cross-tab sync |
+| `src/pages/Front.tsx` | Remove iframe-specific "open in new tab" logic |
+| `src/utils/authRedirect.ts` | Remove unused cross-tab and popup helpers |
 
-### Testing
+### What This Fixes
 
-After deployment, the edge function will be called to verify:
-1. Existing wins get analyzed (analyzed_at populated)
-2. Response excludes sentiment dimensions
-3. Display labels use C-suite language
-4. AI observation is generated
-5. Pattern line follows the specified format
+- Spinner stuck forever (popup silently fails, flag blocks retry)
+- Incognito login broken (popups blocked by default)
+- Iframe preview login broken (popups blocked in iframes)
+- Unnecessary complexity (cross-tab broadcast, BroadcastChannel, manual login buttons)
+
+### What Stays the Same
+
+- Auth0Provider config in `main.tsx` (already correct with `cacheLocation` and `useRefreshTokens`)
+- `useAuth` hook (no changes needed)
+- DEV_MODE bypass (unaffected)
+- Edge function auth token pattern (unaffected)
 
