@@ -306,6 +306,19 @@ const DailyRitual = () => {
         }
       }
 
+      // Fetch onboarding tags from profile
+      let practicePriorityTag = '';
+      let pressureContextTag = '';
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('practice_priority_tag, pressure_context_tag')
+          .eq('id', user.id)
+          .maybeSingle();
+        practicePriorityTag = profile?.practice_priority_tag || '';
+        pressureContextTag = profile?.pressure_context_tag || '';
+      }
+
       const requestBody = {
         userId: user?.id || '',
         innerReadinessTier: energyState.energyTier,
@@ -324,7 +337,9 @@ const DailyRitual = () => {
         archetype: '',
         coachInsights: coachInsights.map(i => ({ id: i.id, type: i.type, content: i.content, contentReference: i.contentReference, confidence: i.confidence })),
         effectiveContent: [],
-        patternInsight
+        patternInsight,
+        practicePriorityTag,
+        pressureContextTag
       };
 
       const { data: planData, error } = await supabase.functions.invoke('generate-mastery-plan', {

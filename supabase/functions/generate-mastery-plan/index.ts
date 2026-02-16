@@ -69,6 +69,8 @@ interface PlanRequest {
   effectiveContent?: string[];
   patternInsight?: { count: number; state: string };
   wearableStress?: string;
+  practicePriorityTag?: string;
+  pressureContextTag?: string;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -619,15 +621,39 @@ function getDurationCeiling(calendarLoad: string): { maxDuration: number; maxMod
 
 // ==================== CONTENT SCORING ====================
 
+// Mapping from practice_priority_tag to focus tags for content matching
+const PRIORITY_TAG_FOCUS_MAP: Record<string, string[]> = {
+  regulation_composure: ['composure', 'grounding', 'calm'],
+  regulation_early: ['composure', 'restore', 'breathing'],
+  recovery_resilience: ['restore', 'release', 'recovery'],
+  energy_endurance: ['restore', 'grounding', 'energy'],
+  focus_clarity: ['focus', 'grounding', 'clarity'],
+  mindset_reframe: ['confidence', 'focus', 'reframe'],
+};
+
+// Mapping from pressure_context_tag to focus tags for content matching
+const PRESSURE_TAG_FOCUS_MAP: Record<string, string[]> = {
+  high_stakes_decisions: ['composure', 'clarity', 'focus'],
+  influence_stakeholders: ['confidence', 'composure', 'presence'],
+  conflict_navigation: ['composure', 'grounding', 'calm'],
+  self_regulation: ['grounding', 'restore', 'breathing'],
+  cognitive_load: ['focus', 'grounding', 'clarity'],
+};
+
 function calculateContentScore(
   content: any,
   moduleSpec: ModuleSpec,
   favorites: string[],
   coachInsights: any[],
   effectiveContent: string[],
-  completedToday: string[]
+  completedToday: string[],
+  practicePriorityTag?: string,
+  pressureContextTag?: string
 ): number {
   let score = 0;
+  const hasFavorites = favorites.length > 0;
+  const hasCoachInsights = coachInsights?.length > 0;
+
   if (favorites.includes(content.id)) score += 30;
   if (coachInsights?.some((i: any) => i.contentReference === content.id || (i.content && content.title && content.title.toLowerCase().includes(i.content.toLowerCase().split(' ').find((w: string) => w.length > 3) || '')))) score += 25;
   if (effectiveContent?.includes(content.id)) score += 20;
@@ -642,9 +668,38 @@ function calculateContentScore(
   else if (moduleSpec.duration === 'short' && dur > 2 && dur <= 5) score += 10;
   else if (moduleSpec.duration === 'standard' && dur > 5 && dur <= 15) score += 10;
 
-  // Focus match
+  // Focus match (general)
   if (content.structured_tags?.goalTags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
   else if (content.tags?.some((t: string) => t.toLowerCase().includes(moduleSpec.focus))) score += 10;
+
+  // Onboarding signal boosts — full weight when no dynamic signals exist, decayed otherwise
+  const onboardingFullWeight = !hasFavorites && !hasCoachInsights;
+  const priorityBoost = onboardingFullWeight ? 15 : 5;
+  const pressureBoost = onboardingFullWeight ? 8 : 3;
+
+  // Practice priority tag match (+15 full / +5 decayed)
+  if (practicePriorityTag) {
+    const focusTags = PRIORITY_TAG_FOCUS_MAP[practicePriorityTag] || [];
+    const contentTags = [
+      ...(content.structured_tags?.goalTags || []),
+      ...(content.tags || [])
+    ].map((t: string) => t.toLowerCase());
+    if (focusTags.some(ft => contentTags.some((ct: string) => ct.includes(ft)))) {
+      score += priorityBoost;
+    }
+  }
+
+  // Pressure context tag match (+8 full / +3 decayed)
+  if (pressureContextTag) {
+    const focusTags = PRESSURE_TAG_FOCUS_MAP[pressureContextTag] || [];
+    const contentTags = [
+      ...(content.structured_tags?.goalTags || []),
+      ...(content.tags || [])
+    ].map((t: string) => t.toLowerCase());
+    if (focusTags.some(ft => contentTags.some((ct: string) => ct.includes(ft)))) {
+      score += pressureBoost;
+    }
+  }
 
   // Recency - not completed in last 3 days (simplified: not completed today)
   if (!completedToday.includes(content.id)) score += 5;
@@ -1060,7 +1115,7 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
   // Score
   const scored = available.map(c => ({
     content: c,
-    score: calculateContentScore(c, spec, req.favorites, req.coachInsights || [], req.effectiveContent || [], req.completedToday)
+    score: calculateContentScore(c, spec, req.favorites, req.coachInsights || [], req.effectiveContent || [], req.completedToday, req.practicePriorityTag, req.pressureContextTag)
   }));
   scored.sort((a, b) => b.score - a.score);
 
