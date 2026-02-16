@@ -1,206 +1,138 @@
 
 
-## Onboarding Architecture v2.0 Implementation Plan
+## Fix Gaps in `generate-mastery-plan` Edge Function
 
-This is a significant architectural overhaul of the onboarding system. The questions (Stages 2-6) remain the same, but the scoring engine, archetype system, results screen, and downstream connections all change fundamentally.
-
-### Scope Summary
-
-- **Scoring engine**: Replace 5-dimension model with 3-component model (Energy Regulation, Focus Recovery, Energy Renewal)
-- **Archetype system**: Unify to 5 archetypes using hyphenated profile IDs (`grounded-leader`, `resilient-performer`, `clear-thinker`, `intensity-driver`, `adaptive-navigator`)
-- **Stage 1 (Welcome)**: Add self-mastery positioning statement, simplify to "Begin" CTA
-- **Stage 7 (Growth Intention)**: Split into two signals — pressure context + practice goal
-- **Stage 9 (Results)**: Complete redesign — archetype reveal, no national average, no percentile, no level labels
-- **Edge function**: Move scoring + archetype logic server-side into `generate-onboarding-insight`
-- **Database**: Add `practice_priority_tag` and `pressure_context_tag` columns to profiles
-- **Archetype matrix alignment**: Update `compute-outer-readiness` to use new archetype IDs
+Five targeted fixes to align the edge function with the final architecture document.
 
 ---
 
-### Phase 1: Database Schema
+### Fix 1: Correct Theme-to-Module Mapping (Gap 1)
 
-Add two new columns to the `profiles` table:
+The `THEME_MODULE_MAP` in the edge function has discrepancies compared to the corrected v2 mapping from `compute-outer-readiness`. Key differences to fix:
 
-```sql
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS practice_priority_tag text;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS pressure_context_tag text;
-```
+**DEPLETED TIER** (lines 292-329):
+- "One thing at a time." -- current has `gentle/standard/composure` for regulate. Doc says `gentle/short/composure`. Change duration from `standard` to `short`.
+- "Protect what matters." -- current has `grounding` for regulate focus. Doc says `restore`. Change focus. Also priority P8 not P8 (OK). Also align: doc says `○ P5 gentle/micro/composure` -- current has `gentle/short`. Change duration to `micro`.
+- "Reserve for the moment." -- current has align module. Doc says no align. Remove align.
+- "Navigate, don't absorb." -- doc says `○ P5 gentle/micro/restore` for align. Current has no align. Add optional align.
+- "Move through gently." -- matches (regulate only). OK.
+- "Pace and protect." -- current has `restore` for regulate, `grounding` for align. Doc says regulate `gentle/standard/restore` (current is `short` -- change to `standard`). Align `○ P5 gentle/short/grounding` -- current is `P4` -- change to `P5`.
+- "Rest is the work." -- current regulate P8, doc says P9. Change. Current integrate P7, doc says P8. Change.
+- "Begin with intention." -- current align `gentle/short/grounding`, doc says `○ P5 gentle/micro/restore`. Change focus from `grounding` to `restore`, duration from `short` to `micro`.
+- "Close before tomorrow." -- current align `gentle/short/release` optional. Doc says `○ P5 gentle/short/release`. Add optional align P5. Also integrate: current P8 matches. OK.
+- "Protect your reserves." -- current align `P4 gentle/short/composure`. Doc says `○ P4 gentle/micro/grounding`. Change duration to `micro`, focus to `grounding`.
 
-No RLS changes needed — profiles table already has policies.
+**MANAGING TIER** (lines 331-368):
+- "Hold your ground." -- current has regulate + align + prepare. Doc says regulate `✅ P8 gentle/short/composure` + align `○ P5 moderate/micro/focus`. Remove prepare. Change regulate: required=true, P8, gentle, short. Change align: P5, micro.
+- "Steady into the stakes." -- current has regulate + align + prepare. Doc says `✅ P7 moderate/short/composure` regulate + `○ P6 moderate/short/confidence` align. Remove prepare. Fix regulate to P7, required=true, moderate, short. Fix align to P6, confidence.
+- "Depth over breadth." -- current has align + prepare. Doc says `○ P4 gentle/micro/grounding` regulate + `✅ P7 moderate/short/focus` align. Remove prepare, add regulate.
+- "Rhythm over intensity." -- current regulate `P4 gentle/short/grounding`, align `P4 gentle/short/grounding`. Doc says regulate `✅ P7 gentle/short/grounding` + align `○ P5 moderate/short/focus`. Fix both.
+- "Ride the rhythm." -- current `align P4 moderate/short/focus`. Doc says `✅ P6 moderate/short/focus`. Fix to P6 required.
+- "Steady execution." -- current `align P4 gentle/short/grounding`. Doc says `○ P4 gentle/micro/composure` regulate + `✅ P6 moderate/short/focus` align. Add regulate, fix align.
+- "Build your reserves." -- current `regulate P4 gentle/short/restore`. Doc says `✅ P7 gentle/standard/restore` regulate + `○ P4 gentle/short/grounding` align. Fix regulate, add align.
+- "Set a sustainable pace." -- current `regulate P4 moderate/micro/grounding` + `align P4 moderate/short/grounding`. Doc says `✅ P7 moderate/short/grounding` regulate + `○ P5 moderate/micro/focus` align. Fix both.
+- "Close with care." -- current align `P4 gentle/short/release` + integrate `P6 gentle/short/release`. Doc says regulate `✅ P8 gentle/short/release` + align `○ P5 gentle/short/release`. Remove integrate, add regulate, fix align.
+- "Maintain your rhythm." -- current `align P4 gentle/short/grounding`. Doc says regulate `○ P4 gentle/micro/composure` + align `✅ P6 moderate/short/focus`. Fix align, add regulate.
 
----
+**STRONG TIER** (lines 370-408):
+- "Lead from strength." -- current has regulate + align + prepare. Doc says regulate `○ P5 moderate/micro/composure` + align `✅ P8 activating/short/confidence`. Remove prepare. Fix regulate to P5, moderate, composure.
+- "Execute with presence." -- doc says align `✅ P8 activating/short/confidence` + prepare `○ P6 moderate/short/focus`. Current has align P7 + prepare P7 both activating/confidence. Fix align P8, prepare P6 moderate/focus.
+- "Bring your full weight." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P8 activating/short/confidence`. Current missing regulate, has align P7 + prepare P7. Remove prepare, add regulate, fix align P8.
+- "Sustain the quality." -- doc says regulate `✅ P7 moderate/short/composure` + align `✅ P7 moderate/short/focus`. Current regulate P4 micro/focus, align P6. Fix both.
+- "Move with confidence." -- doc says align `✅ P7 activating/short/confidence`. Current P6. Fix to P7.
+- "Invest the advantage." -- doc says align `✅ P7 activating/short/focus` + prepare `○ P5 gentle/short/restore`. Current align P5 moderate, prepare P6 moderate/focus. Fix both.
+- "Protect and build." -- doc says regulate `○ P5 gentle/short/grounding` + align `✅ P7 gentle/standard/restore` + prepare `○ P6 moderate/short/focus`. Current only has align P4 moderate/grounding. Add regulate, fix align, add prepare.
+- "Protect the window." -- doc says regulate `○ P4 moderate/micro/composure` + align `✅ P7 activating/short/focus`. Current regulate P4 activating/focus, align P7 activating/focus. Fix regulate to moderate/composure.
+- "Close strong." -- doc says regulate `○ P5 gentle/short/release` + align `✅ P7 gentle/short/release` + prepare `○ P5 moderate/short/confidence`. Current align P4 moderate/confidence + integrate P6. Remove integrate, add regulate, fix align, add prepare.
+- "Leverage your position." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P7 activating/short/confidence`. Current align P5 moderate/focus + prepare P4 moderate/focus. Remove prepare, add regulate, fix align.
 
-### Phase 2: New Scoring Engine
+**PEAK TIER** (lines 410-450):
+- "Peak performance day." -- doc says regulate `○ P5 moderate/micro/composure` + align `✅ P8 activating/short/confidence` + prepare `✅ P7 activating/short/confidence`. Current regulate P4 activating/confidence, align P7, prepare P8. Fix priorities and regulate intensity/focus.
+- "Execute with precision." -- doc says regulate `○ P4 activating/micro/focus` + align `✅ P8 activating/short/focus` + prepare `○ P6 activating/micro/confidence`. Current align P7, prepare P7 short. Fix align P8, prepare P6 micro/confidence.
+- "Seize the high ground." -- doc says align `✅ P8 activating/short/confidence` + prepare `✅ P7 activating/short/focus`. Current align P7 confidence, prepare P7 confidence. Fix align P8, prepare focus.
+- "Channel the capacity." -- doc says regulate `○ P5 moderate/micro/grounding` + align `✅ P8 activating/short/focus`. Current regulate P4 activating/focus, align P6. Fix both.
+- "Move with full confidence." -- doc says align `✅ P7 activating/short/confidence`. Current P6. Fix to P7.
+- "Depth and precision." -- doc says align `✅ P8 activating/short/focus` + prepare `○ P6 moderate/short/confidence`. Current align P5 moderate, prepare P6 moderate/focus. Fix align P8/activating, prepare confidence.
+- "Deep work window." -- doc says align `✅ P8 activating/standard/focus` + prepare `○ P5 gentle/short/restore`. Current align P4 moderate/short. Fix to P8 activating/standard, add prepare.
+- "Protect the peak." -- doc says regulate `✅ P7 moderate/short/composure` + align `✅ P8 activating/short/confidence`. Current regulate P4 activating/micro/focus + align P7 activating/focus + prepare P7 activating/focus. Remove prepare, fix both.
+- "Close with intention." -- doc says regulate `○ P5 gentle/short/composure` + align `✅ P7 gentle/short/release`. Current align P4 moderate/confidence + integrate P6 gentle/release. Remove integrate, add regulate, fix align.
+- "Own your optimal state." -- doc says regulate `○ P4 moderate/micro/grounding` + align `✅ P7 activating/short/confidence` + prepare `○ P4 moderate/short/confidence`. Current align P4 moderate/confidence, prepare P4 moderate/confidence. Add regulate, fix align P7/activating.
 
-**Replace** `src/utils/innerWorldScoring.ts` with the v2 3-component scoring model.
-
-The new engine calculates:
-- **Energy Regulation** (35% weight in baseline)
-- **Focus Recovery** (35% weight)
-- **Energy Renewal** (30% weight)
-
-Each of Q1-Q4 contributes to all 3 components via a weighted matrix:
-
-| Component | Q1 Weight | Q2 Weight | Q3 Weight | Q4 Weight |
-|---|---|---|---|---|
-| Energy Regulation | 40% | 35% | 10% | 15% |
-| Focus Recovery | 25% | 20% | 30% | 25% |
-| Energy Renewal | 35% | 45% | 60% | 60% |
-
-Q1 answer scores per component:
-- `notice_early` (was the old Q1 value) mapped to: ER=85, FR=75, EN=70 (example — values from doc's push-through/withdraw/over-analyze/delegate-avoid rows need mapping to the actual question answer keys)
-
-**Important mapping issue**: The v2 doc uses answer keys (`push-through`, `withdraw`, `over-analyze`, `delegate-avoid`) that do not match the current Q1 answer keys (`notice_early`, `physical_signs`, `realize_after`, `push_through`). The current questions are about emotional awareness, not setback response. I will map the current answer keys to the closest v2 component score equivalents based on the behavioral meaning of each answer.
-
----
-
-### Phase 3: New Archetype Assignment
-
-**Replace** `src/utils/innerWorldArchetypes.ts` with v2 archetype logic using the 3-component scores.
-
-Priority order (first condition met wins):
-1. **The Grounded Master** (`grounded-leader`): energyRegulation >= 65 AND energyRenewal >= 55
-2. **The Resilient Performer** (`resilient-performer`): energyRenewal >= 65 AND energyRegulation >= 50
-3. **The Clear Thinker** (`clear-thinker`): focusRecovery >= 65 AND energyRegulation >= 45
-4. **The Intensity Driver** (`intensity-driver`): energyRegulation >= 60 AND focusRecovery < 50
-5. **The Adaptive Navigator** (`adaptive-navigator`): Default
-
----
-
-### Phase 4: Update Stage 1 (Welcome)
-
-Simplify `Stage1Welcome.tsx`:
-- Remove "How It Works" section
-- Remove bullet point discovery list
-- Add single positioning statement: "This takes three minutes. Your answers shape everything the app surfaces for you — your practices, your daily brief, your coaching. The more honest you are, the more precisely it works."
-- Change CTA from "Discover My Baseline" to "Begin"
-- No progress bar (already handled)
+The entire `THEME_MODULE_MAP` will be rewritten to match the doc exactly.
 
 ---
 
-### Phase 5: Update Stage 7 (Growth Intention)
+### Fix 2: Structured Coach Inclusion Logic (Gap 5)
 
-Redesign `Stage7GrowthIntention.tsx` to capture two signals on one screen:
+Current state: Morning coach is suppressed for strong/peak tiers but doesn't account for `calendarPressure` or user coach-favourite preference. Afternoon coach is fully suppressed.
 
-**Signal A — Biggest Pressure** (saves as `pressure_context_tag`):
-- High-stakes decisions under uncertainty -> `high_stakes_decisions`
-- Leading / influencing difficult stakeholders -> `influence_stakeholders`
-- Navigating conflict or politics -> `conflict_navigation`
-- Managing my own stress and energy -> `self_regulation`
-- Multiple competing priorities -> `cognitive_load`
+Changes to `getCoachPromptForContext` and the main plan assembly:
 
-**Signal B — Practice Goal** (saves as `practice_priority_tag`):
-- Staying calm and grounded under pressure -> `regulation_composure`
-- Managing stress before it escalates -> `regulation_early`
-- Recovering faster from setbacks -> `recovery_resilience`
-- Sustaining energy without burning out -> `energy_endurance`
-- Sharpening focus and cutting through brain fog -> `focus_clarity`
-- Reframing negative thoughts and rewiring patterns -> `mindset_reframe`
+**Morning session coach decision tree:**
+- IF tier is `depleted` or `managing` --> INCLUDE
+- ELSE IF `consecutiveLowDays >= 3` (patternInsight) --> INCLUDE
+- ELSE IF `calendarPressure === 'high'` --> INCLUDE
+- ELSE IF user has marked coach as favourite --> INCLUDE
+- ELSE --> EXCLUDE
 
-Both saved to localStorage during flow and written to profiles on completion.
+**Afternoon session coach decision tree:**
+- IF tier is `depleted` --> INCLUDE
+- ELSE IF `calendarPressure === 'high'` AND pre-event within 4 hours --> INCLUDE
+- ELSE --> EXCLUDE
 
----
+**Evening session:** Always include (unchanged).
 
-### Phase 6: Redesign Stage 9 (Results)
+**Pre-event session:** Always include (unchanged).
 
-Complete redesign of `Stage8Results.tsx`:
+This requires passing `calendarPressure` and `favorites` into `getCoachPromptForContext`. The function signature will be updated.
 
-**Remove entirely:**
-- National average comparison bar
-- Percentile ranking text
-- "Building level" / readiness level label
-- Research-backed timeline claims
-- "Found in top X% of professionals"
-
-**New design:**
-1. **Archetype name** (large, centered): "You are The [Archetype Name]."
-2. **One-line descriptor** per archetype
-3. **Radar chart** — 3 components (Energy Regulation, Focus Recovery, Energy Renewal) — leader's own pattern only, no benchmark line
-4. **AI-generated pattern insight** — 2-3 sentences from `generate-onboarding-insight` edge function
-5. **Development path** — one line: "Your practice will prioritise [practice_priority_label]"
-6. **What the app does** — 3 concise lines about check-in, archetype, and practice
-7. **CTA**: "Connect your calendar and Apple Watch to unlock the full experience" -> payment
+**File:** `supabase/functions/generate-mastery-plan/index.ts` -- update `getCoachPromptForContext` function and its call site.
 
 ---
 
-### Phase 7: Update Edge Function — `generate-onboarding-insight`
+### Fix 3: Evening Tiny Win + Reflection Coach Card Label (Gap 3)
 
-Modify `supabase/functions/generate-onboarding-insight/index.ts`:
+Two changes:
 
-1. **Accept v2 inputs**: archetype ID, 3 component scores, pressure_context_tag, practice_priority_tag
-2. **Move scoring + archetype calculation server-side**: Accept raw Q1-Q4 answers, calculate scores and archetype in the edge function (proprietary logic protection), return scores + archetype + AI insight
-3. **Update AI prompt**: Remove research citations, timeline promises. New prompt speaks directly to leader about their pattern.
-4. **Return**: `{ scores, archetype, archetypeDescription, insight }`
+**A. Coach card label on the carousel for evening sessions:**
+- Currently shows "Today's Plan" badge on all coach cards
+- For evening sessions, change the badge text to "Tiny Win and Reflection"
+- Change the coach card `title` from "Evening Flow" to "Tiny Win and Reflection"
 
----
-
-### Phase 8: Update Outer Readiness Archetype Matrix
-
-In `supabase/functions/compute-outer-readiness/index.ts`:
-
-Replace the old archetype IDs in the `archetypeMatrix` with the v2 IDs:
-- `natural-regulator` -> `grounded-leader`
-- `high-octane-performer` -> `resilient-performer`
-- `strategic-pauser` -> `clear-thinker`
-- `awareness-builder` -> `intensity-driver`
-- `adaptive-navigator` -> `adaptive-navigator` (unchanged)
-
-The Lean On / Watch For copy per tier stays the same — only the keys change.
-
----
-
-### Phase 9: Update Baseline Reference Card
-
-Update `src/components/insights/BaselineReferenceCard.tsx` to use v2 archetype IDs and 3-component radar chart instead of 5-dimension display.
-
----
-
-### Phase 10: Data Migration / Persistence
-
-Update `src/utils/onboardingMigration.ts` to write the new fields:
-- `practice_priority_tag`
-- `pressure_context_tag`
-- `mental_fitness_baseline` (from v2 scoring)
-- `component_scores` (3 components instead of 5 dimensions)
-- `user_archetype` (v2 hyphenated IDs)
-
-Remove the old `selfRegulationScoring.ts` file (replaced by v2 scoring engine).
-
----
-
-### Phase 11: Clean Up Legacy Code
-
-- Remove `src/utils/selfRegulationScoring.ts` (v1 self-regulation scoring — superseded)
-- Update any remaining references to old archetype IDs or 5-dimension scoring
-- Ensure localStorage session structure matches v2 spec
-
----
-
-### Technical Details
-
-**Files created:**
-- None new — all changes are to existing files
+**B. Evening coach prompt explicitly triggers Tiny Win capture:**
+- The evening coach prompt already says "what's one thing you did right today?" -- this is correct
+- The coach AI (Self Mastery Coach) should be instructed to store the user's response as a tiny win via `store-tiny-win`. This is handled in the coach's system prompt/intervention logic, not in the plan generator. No edge function change needed for this part -- it's a coach-side concern.
+- In the plan generator, update the evening coach card `title` to "Tiny Win and Reflection" so the carousel card renders the correct label.
 
 **Files modified:**
-1. `src/pages/onboarding/stages/Stage1Welcome.tsx` — simplify welcome
-2. `src/pages/onboarding/stages/Stage7GrowthIntention.tsx` — two-signal capture
-3. `src/pages/onboarding/stages/Stage8Results.tsx` — complete redesign
-4. `src/utils/innerWorldScoring.ts` — v2 3-component scoring engine
-5. `src/utils/innerWorldArchetypes.ts` — v2 archetype assignment
-6. `supabase/functions/generate-onboarding-insight/index.ts` — server-side scoring + new prompt
-7. `supabase/functions/compute-outer-readiness/index.ts` — archetype ID alignment
-8. `src/components/insights/BaselineReferenceCard.tsx` — v2 archetype IDs
-9. `src/utils/onboardingMigration.ts` — new fields
+- `supabase/functions/generate-mastery-plan/index.ts` -- evening coach card title/label
+- `src/components/home/DailyRitual.tsx` -- conditionally render "Tiny Win and Reflection" badge instead of "Today's Plan" for evening coach cards
 
-**Files potentially removed:**
-- `src/utils/selfRegulationScoring.ts` (if no other code depends on it)
+---
 
-**Database migration:**
-- Add `practice_priority_tag` and `pressure_context_tag` columns to `profiles`
+### Fix 4: Back-to-Back Event Scoring (Gap 4)
 
-**Edge functions deployed:**
-- `generate-onboarding-insight`
-- `compute-outer-readiness`
+Add `+5` to `scoreCalendarEvents` when an event starts within 15 minutes of the previous event ending.
 
-**Important note on existing users:** Any user who completed onboarding v1 will have old archetype IDs (`grounded_master`, `aware_leader`, etc.) in their profile. The Outer Readiness function needs a fallback mapping from old IDs to new IDs, or existing users need a one-time data migration.
+After sorting events by start time, iterate and check if `nextStart - currentEnd < 15 min`. If so, add +5 to the next event's score.
+
+**File:** `supabase/functions/generate-mastery-plan/index.ts` -- `scoreCalendarEvents` function.
+
+---
+
+### Fix 5: Morning Label (Gap 6)
+
+Change `periodLabels.morning` from `'Morning Start'` to `'Morning Practice'`.
+
+**File:** `supabase/functions/generate-mastery-plan/index.ts` -- line 1061.
+
+---
+
+### Technical Summary
+
+**Files modified:**
+1. `supabase/functions/generate-mastery-plan/index.ts` -- All 5 fixes (theme map rewrite, coach logic, evening label, back-to-back scoring, morning label)
+2. `src/components/home/DailyRitual.tsx` -- Evening coach card badge text change
+
+**Edge function deployed:** `generate-mastery-plan`
 
