@@ -80,7 +80,7 @@ export default function Stage6Payment() {
             </ul>
             <Button 
               className="w-full" 
-              variant={idx === 1 ? "default" : "outline"}
+              variant={idx === 1 ? "critical" : "outline"}
               onClick={() => {
                 // Save selected plan
                 localStorage.setItem('selectedPlan', plan.name);
