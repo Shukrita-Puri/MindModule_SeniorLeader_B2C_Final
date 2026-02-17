@@ -168,7 +168,7 @@ export default function Stage8Results() {
         <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
           You are {archetypeTitle}.
         </h2>
-        <p className="text-base max-w-md mx-auto font-subheadline italic" style={{ color: '#08d780' }}>
+        <p className="text-base max-w-md mx-auto font-subheadline italic text-saffron">
           {archetypeDescription}
         </p>
       </div>
@@ -257,7 +257,7 @@ export default function Stage8Results() {
       {/* Development Path */}
       <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-4 text-center">
         <p className="text-sm text-muted-foreground">
-          Your practice will prioritise <span className="font-semibold" style={{ color: '#08d780' }}>{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+          Your practice will prioritise <span className="font-semibold text-saffron">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
         </p>
       </div>
 

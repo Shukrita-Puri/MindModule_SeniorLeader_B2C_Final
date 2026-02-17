@@ -18,7 +18,7 @@ export default function Stage1Welcome() {
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline text-foreground tracking-tight">
           Welcome to<br/>MIND MODULE
         </h1>
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-subheadline italic text-primary font-medium tracking-wide">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-subheadline italic text-saffron font-medium tracking-wide">
           Proactive Self Mastery for Peak Performers
         </h2>
       </div>
@@ -32,12 +32,12 @@ export default function Stage1Welcome() {
       {/* Privacy continuity footer */}
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2 animate-fade-in delay-300">
         <div className="flex items-center gap-1.5">
-          <Shield size={14} className="text-primary/60" />
+          <Shield size={14} className="text-saffron/60" />
           <span>Privacy by Design</span>
         </div>
-        <span className="text-primary/40">•</span>
+        <span className="text-saffron/40">•</span>
         <div className="flex items-center gap-1.5">
-          <Lock size={14} className="text-primary/60" />
+          <Lock size={14} className="text-saffron/60" />
           <span>Data Stays Local</span>
         </div>
       </div>

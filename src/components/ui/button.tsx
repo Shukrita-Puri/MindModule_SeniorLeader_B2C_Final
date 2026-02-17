@@ -22,7 +22,7 @@ const buttonVariants = cva(
         link: "text-foreground underline-offset-4 hover:underline",
         forest: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         glass: "bg-white/50 backdrop-blur-xl border border-black/10 text-foreground hover:bg-white/80 transition-all duration-300",
-        critical: "bg-[#1DB954] text-black font-semibold shadow-[0_4px_16px_rgba(29,185,84,0.3)] hover:shadow-[0_6px_24px_rgba(29,185,84,0.4)] hover:-translate-y-0.5 active:scale-[0.98]",
+        critical: "bg-saffron text-white font-semibold shadow-[0_4px_16px_rgba(255,140,66,0.3)] hover:shadow-[0_6px_24px_rgba(255,140,66,0.4)] hover:-translate-y-0.5 active:scale-[0.98]",
       },
       size: {
         default: "h-10 px-6 py-2",
