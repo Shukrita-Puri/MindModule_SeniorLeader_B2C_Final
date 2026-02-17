@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { ArrowUp, Loader2, Mic } from 'lucide-react';
 import coachVisual from '@/assets/coach-visual-calm.jpeg';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,104 @@ const CoachMessageContent = ({ content, variant = 'default' }: { content: string
   );
 };
 
+/** Input bar extracted as a stable component to prevent focus loss */
+const InputBar = ({
+  glass,
+  inputError,
+  onSubmit,
+  onVoiceToggle,
+  isVoiceMode,
+  inputValue,
+  onInputChange,
+  onKeyDown,
+  isLoading,
+  hasMessages,
+  onEndSession,
+}: {
+  glass: boolean;
+  inputError?: string | null;
+  onSubmit: (e: React.FormEvent) => void;
+  onVoiceToggle?: () => void;
+  isVoiceMode: boolean;
+  inputValue: string;
+  onInputChange: (value: string) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  isLoading: boolean;
+  hasMessages: boolean;
+  onEndSession: () => void;
+}) => (
+  <div className={cn(
+    "px-4 py-3 pb-5 space-y-2 shrink-0",
+    glass
+      ? "bg-black/40 backdrop-blur-xl border-t border-white/10"
+      : "bg-background border-t border-border/30"
+  )}>
+    {inputError && (
+      <div className="px-2 py-1.5 text-sm text-muted-foreground bg-muted/50 rounded-lg text-center">
+        {inputError}
+      </div>
+    )}
+    <form onSubmit={onSubmit} className="relative flex items-end gap-2">
+      {onVoiceToggle && (
+        <button
+          type="button"
+          onClick={onVoiceToggle}
+          className={cn(
+            "h-11 w-11 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
+            isVoiceMode
+              ? "bg-saffron border-saffron text-white"
+              : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
+          )}
+        >
+          <Mic className="h-5 w-5" />
+        </button>
+      )}
+      <div className="flex-1 relative">
+        <Textarea
+          placeholder="Type your response..."
+          value={inputValue}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          className={cn(
+            "min-h-[52px] max-h-[120px] pr-12 resize-none rounded-2xl",
+            glass
+              ? "bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:border-saffron/60"
+              : "bg-white/80 backdrop-blur-sm border-border/60 focus:border-saffron/50",
+            inputError && "border-amber-400/50"
+          )}
+          rows={1}
+        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!inputValue.trim() || isLoading}
+          className="absolute right-2 bottom-2 h-8 w-8 rounded-full bg-saffron hover:bg-saffron/90"
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    </form>
+    {hasMessages && (
+      <div className="flex items-center justify-center">
+        <button
+          type="button"
+          onClick={onEndSession}
+          className={cn(
+            "text-xs transition-colors",
+            glass ? "text-white/50 hover:text-white/80" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          End session
+        </button>
+      </div>
+    )}
+  </div>
+);
+
 const CoachSplitView = ({
   messages,
   isLoading,
@@ -114,7 +212,6 @@ const CoachSplitView = ({
   inputError,
 }: CoachSplitViewProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -122,79 +219,18 @@ const CoachSplitView = ({
 
   const hasMessages = messages.length > 0;
 
-  // ── Shared input bar ──
-  const InputBar = ({ glass = false }: { glass?: boolean }) => (
-    <div className={cn(
-      "px-4 py-3 pb-5 space-y-2",
-      glass
-        ? "bg-black/40 backdrop-blur-xl border-t border-white/10"
-        : "bg-background border-t border-border/30"
-    )}>
-      {inputError && (
-        <div className="px-2 py-1.5 text-sm text-muted-foreground bg-muted/50 rounded-lg text-center">
-          {inputError}
-        </div>
-      )}
-      <form onSubmit={onSubmit} className="relative flex items-end gap-2">
-        {onVoiceToggle && (
-          <button
-            type="button"
-            onClick={onVoiceToggle}
-            className={cn(
-              "h-11 w-11 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
-              isVoiceMode
-                ? "bg-saffron border-saffron text-white"
-                : "border-saffron/40 bg-saffron/10 hover:bg-saffron/20 hover:border-saffron text-saffron"
-            )}
-          >
-            <Mic className="h-5 w-5" />
-          </button>
-        )}
-        <div className="flex-1 relative">
-          <Textarea
-            ref={textareaRef}
-            placeholder="Type your response..."
-            value={inputValue}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            className={cn(
-              "min-h-[52px] max-h-[120px] pr-12 resize-none rounded-2xl",
-              glass
-                ? "bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:border-saffron/60"
-                : "bg-white/80 backdrop-blur-sm border-border/60 focus:border-saffron/50",
-              inputError && "border-amber-400/50"
-            )}
-            rows={1}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!inputValue.trim() || isLoading}
-            className="absolute right-2 bottom-2 h-8 w-8 rounded-full bg-saffron hover:bg-saffron/90"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUp className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </form>
-      {hasMessages && (
-        <div className="flex items-center justify-center">
-          <button
-            onClick={onEndSession}
-            className={cn(
-              "text-xs transition-colors",
-              glass ? "text-white/50 hover:text-white/80" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            End session
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  const inputBarProps = {
+    inputError,
+    onSubmit,
+    onVoiceToggle,
+    isVoiceMode,
+    inputValue,
+    onInputChange,
+    onKeyDown,
+    isLoading,
+    hasMessages,
+    onEndSession,
+  };
 
   // ════════════════════════════════════════════
   //  EMPTY STATE — full-screen visual + prompts
@@ -209,7 +245,7 @@ const CoachSplitView = ({
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col">
-          {/* Title + avatar */}
+          {/* Title */}
           <div className="pt-8 pb-4 px-6 text-center space-y-3">
             <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
               Self Mastery Coach
@@ -222,21 +258,20 @@ const CoachSplitView = ({
             </p>
           </div>
 
-          {/* Centered greeting */}
+          {/* Centered greeting — no avatar, coach is in background */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <CoachAvatar size="md" />
-            <h2 className="text-xl font-headline text-white mt-4">
+            <h2 className="text-xl font-headline text-white">
               Hello, {firstName}
             </h2>
           </div>
 
-          {/* Prompt suggestions overlaid on visual */}
-          <div className="px-5 pb-2 space-y-2">
+          {/* Prompt suggestions — transparent, text-only */}
+          <div className="px-5 pb-2 space-y-1">
             {promptSuggestions.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => onPromptClick(prompt)}
-                className="w-full text-left px-4 py-3 rounded-xl bg-black/35 backdrop-blur-sm border border-white/15 hover:bg-black/50 transition-colors text-sm text-white/90"
+                className="w-full text-left px-4 py-2.5 bg-transparent hover:bg-white/10 transition-colors text-sm text-white/80 hover:text-white"
               >
                 {prompt}
               </button>
@@ -244,7 +279,7 @@ const CoachSplitView = ({
           </div>
 
           {/* Input bar */}
-          <InputBar glass />
+          <InputBar glass {...inputBarProps} />
         </div>
       </div>
     );
@@ -303,7 +338,7 @@ const CoachSplitView = ({
       </div>
 
       {/* Input bar */}
-      <InputBar />
+      <InputBar glass={false} {...inputBarProps} />
     </div>
   );
 };
