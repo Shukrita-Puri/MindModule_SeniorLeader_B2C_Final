@@ -221,7 +221,7 @@ export default function Stage8Results() {
 
       {/* AI Pattern Insight */}
       {insight && (
-        <div className="bg-gradient-to-br from-primary/10 to-saffron/10 border border-primary/20 rounded-xl p-6">
+        <div className="bg-muted/20 border border-border rounded-lg p-6">
           <p className="text-sm leading-relaxed text-foreground/90 italic">
             "{insight}"
           </p>
