@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getAllResponses, saveResponse, updateSession } from "@/utils/onboardingStorage";
 import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
-import { ArrowRight, Target, Lock } from "lucide-react";
+import { ArrowRight, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
@@ -279,8 +279,7 @@ export default function Stage8Results() {
         </div>
       </div>
 
-      <Button variant="critical" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0">
-        <Lock className="w-5 h-5 mr-2" />
+      <Button variant="critical" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg border-0">
         Unlock My Practice
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
