@@ -151,6 +151,16 @@ serve(async (req) => {
     if (body.answers) {
       // v2 payload: raw answers → server-side scoring
       const { q1, q2, q3, q4 } = body.answers;
+      console.log('[Onboarding] Received answers:', { q1, q2, q3, q4 });
+      
+      if (!q1 || !q2 || !q3 || !q4) {
+        console.error('Missing answers:', { q1, q2, q3, q4 });
+        return new Response(
+          JSON.stringify({ error: 'Incomplete answers. Please complete all questions.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       const result = calculateScores(q1, q2, q3, q4);
       baselineScore = result.baseline;
       componentScores = result.scores;

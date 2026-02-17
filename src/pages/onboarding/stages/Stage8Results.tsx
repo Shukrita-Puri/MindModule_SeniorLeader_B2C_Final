@@ -27,6 +27,14 @@ export default function Stage8Results() {
     async function computeResults() {
       try {
         const responses = getAllResponses();
+        console.log('[Results] Raw responses:', JSON.stringify(responses));
+
+        if (!responses.emotional_awareness_response || !responses.stress_response_response || 
+            !responses.recovery_patterns_response || !responses.mental_clarity_response) {
+          setError('Your answers were not saved correctly. Please go back and complete the assessment.');
+          setLoading(false);
+          return;
+        }
         
         const { data, error: fnError } = await supabase.functions.invoke('generate-onboarding-insight', {
           body: {
@@ -219,7 +227,7 @@ export default function Stage8Results() {
           <span className="text-primary">•</span> Your daily check-in feeds a personalised Inner Readiness Score.
         </p>
         <p className="text-xs text-muted-foreground">
-          <span className="text-primary">•</span> Your archetype shapes the strengths and watch-fors in your daily Compass.
+          <span className="text-primary">•</span> Your archetype shapes the strengths and watch-outs in your daily Compass.
         </p>
         <p className="text-xs text-muted-foreground">
           <span className="text-primary">•</span> Your practice is selected based on what your state and day actually need.
