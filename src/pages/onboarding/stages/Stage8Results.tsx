@@ -102,7 +102,7 @@ export default function Stage8Results() {
     return (
       <div className="space-y-6 py-12 text-center animate-fade-in">
         <p className="text-destructive">{error || 'Something went wrong.'}</p>
-        <Button onClick={() => window.location.reload()}>Try Again</Button>
+        <Button onClick={() => navigate('/onboarding/emotional-awareness')}>Retake Assessment</Button>
       </div>
     );
   }
