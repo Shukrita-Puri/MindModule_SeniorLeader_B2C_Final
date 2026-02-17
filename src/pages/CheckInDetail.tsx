@@ -150,7 +150,7 @@ const CheckInDetail = () => {
                 disabled={saving}
                 className="w-full h-12 text-base font-semibold bg-[#1DB954] text-black hover:bg-[#1DB954]/90 rounded-xl"
               >
-                {saving ? 'Saving...' : 'Save & Continue'}
+                {saving ? 'Saving...' : 'Continue to My Mastery Homepage'}
               </Button>
             </div>
           </div>
