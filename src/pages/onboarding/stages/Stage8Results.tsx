@@ -174,7 +174,7 @@ export default function Stage8Results() {
       </div>
 
       {/* Your Self-Mastery Map — Unified */}
-      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-3 shadow-lg space-y-5">
+      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-5">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-center">Your Self-Mastery Map</h3>
         <svg viewBox="0 0 300 270" className="w-full max-w-sm mx-auto">
           <defs>
@@ -247,7 +247,7 @@ export default function Stage8Results() {
 
       {/* AI Pattern Insight */}
       {insight && (
-        <div className="bg-muted/20 border border-border rounded-lg p-6">
+        <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-6">
           <p className="text-sm leading-relaxed text-foreground/90 italic">
             "{insight}"
           </p>
@@ -255,7 +255,7 @@ export default function Stage8Results() {
       )}
 
       {/* Development Path */}
-      <div className="bg-muted/20 border border-border rounded-lg p-4 text-center">
+      <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-4 text-center">
         <p className="text-sm text-muted-foreground">
           Your practice will prioritise <span className="font-semibold" style={{ color: '#08d780' }}>{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
         </p>

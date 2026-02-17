@@ -164,12 +164,12 @@ export default function Stage7ContextConnection() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-10">
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-headline tracking-tight">
             Connect Context
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -181,7 +181,7 @@ export default function Stage7ContextConnection() {
         <div className="space-y-3">
           
           {/* Google Calendar */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
               <Calendar className="w-5 h-5 text-muted-foreground" />
               <div className="flex flex-col">
@@ -199,7 +199,7 @@ export default function Stage7ContextConnection() {
           </div>
           
           {/* Apple Watch */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-card border">
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
               <Watch className="w-5 h-5 text-muted-foreground" />
               <div className="flex flex-col">
