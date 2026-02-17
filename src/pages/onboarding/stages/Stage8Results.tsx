@@ -13,11 +13,7 @@ const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRenewal: ['Adaptive Capacity', 'Influence', 'Presence'],
 };
 
-const DIMENSION_DESCRIPTORS: Record<keyof ComponentScoresV2, string> = {
-  energyRegulation: 'Pause, composure, self-regulation',
-  focusRecovery: 'Cognitive energy, thinking under load',
-  energyRenewal: 'Sustained energy, recovery capacity',
-};
+// Dimension descriptors removed — pills communicate the detail now
 
 interface ResultsData {
   baselineScore: number;
@@ -151,8 +147,9 @@ export default function Stage8Results() {
         </p>
       </div>
 
-      {/* Radar Chart */}
-      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-6 shadow-lg">
+      {/* Your Self-Mastery Map — Unified */}
+      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-6 shadow-lg space-y-5">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-center">Your Self-Mastery Map</h3>
         <svg viewBox="0 0 300 270" className="w-full max-w-xs mx-auto">
           <defs>
             <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
@@ -167,7 +164,6 @@ export default function Stage8Results() {
               </feMerge>
             </filter>
           </defs>
-          {/* Grid */}
           {gridLevels.map((level) => (
             <polygon
               key={level}
@@ -181,12 +177,10 @@ export default function Stage8Results() {
               opacity={0.7}
             />
           ))}
-          {/* Axes */}
           {radarPoints.map((_, i) => {
             const pt = getPoint(i, 100);
             return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.8" opacity={0.4} />;
           })}
-          {/* Data polygon */}
           <polygon
             points={radarPoints.map((p, i) => {
               const pt = getPoint(i, p.value);
@@ -197,32 +191,38 @@ export default function Stage8Results() {
             strokeWidth="2"
             filter="url(#glow)"
           />
-          {/* Data points */}
           {radarPoints.map((p, i) => {
             const pt = getPoint(i, p.value);
-            return (
-              <g key={i}>
-                <circle cx={pt.x} cy={pt.y} r="5" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="2" />
-              </g>
-            );
+            return <circle key={i} cx={pt.x} cy={pt.y} r="5" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="2" />;
           })}
-          {/* Labels */}
           {radarPoints.map((p, i) => {
             const labelPt = getPoint(i, 125);
             return (
-              <text
-                key={i}
-                x={labelPt.x}
-                y={labelPt.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="text-[10px] fill-foreground font-medium"
-              >
+              <text key={i} x={labelPt.x} y={labelPt.y} textAnchor="middle" dominantBaseline="middle" className="text-[10px] fill-foreground font-medium">
                 {p.label} ({p.value})
               </text>
             );
           })}
         </svg>
+
+        {/* Dimension breakdown with meta-skill pills */}
+        <div className="space-y-3 pt-4 border-t border-border">
+          {radarPoints.map((point) => (
+            <div key={point.key} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-foreground">{point.label}</span>
+                <span className="text-sm font-bold text-primary">{point.value}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                  <span key={skill} className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* AI Pattern Insight */}
@@ -234,31 +234,10 @@ export default function Stage8Results() {
         </div>
       )}
 
-      {/* Self-Mastery Map */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Your Self-Mastery Map</h3>
-        {radarPoints.map((point) => (
-          <div key={point.key} className="bg-card border border-border rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-semibold text-sm text-foreground">{point.label}</span>
-                <p className="text-xs text-muted-foreground">{DIMENSION_DESCRIPTORS[point.key]}</p>
-              </div>
-              <span className="text-lg font-bold text-primary">{point.value}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {DIMENSION_META_SKILLS[point.key].map((skill) => (
-                <span
-                  key={skill}
-                  className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Development Path */}
+      <p className="text-sm text-center text-muted-foreground">
+        Your practice will prioritise <span className="font-semibold text-foreground">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+      </p>
 
       {/* Value Proposition */}
       <div className="bg-muted/30 rounded-xl p-6 border border-border space-y-4">
@@ -278,7 +257,7 @@ export default function Stage8Results() {
         </div>
       </div>
 
-      <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg">
+      <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0" style={{ backgroundColor: '#08d780' }}>
         <Lock className="w-5 h-5 mr-2" />
         Unlock My Practice
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
