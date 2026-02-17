@@ -15,6 +15,7 @@ import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { fetchOuterReadiness } from '@/hooks/useOuterReadiness';
 import { getActiveCoachInsights } from '@/utils/coachInsightsExtractor';
+import { getContentById } from '@/data/practicesAndSoundscapes';
 
 // Background images for Coach cards
 import coachVisual from '@/assets/coach-visual-calm.jpeg';
@@ -615,7 +616,7 @@ const DailyRitual = () => {
                       </div>
                     ) : (
                       <img
-                        src={module.thumbnailUrl || ''}
+                        src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
                         alt={module.title}
                         className="w-32 h-full object-cover flex-shrink-0"
                       />
