@@ -164,18 +164,18 @@ export default function Stage8Results() {
     <div className="space-y-6 py-8 animate-fade-in">
       {/* Archetype Reveal */}
       <div className="text-center space-y-3">
-        <p className="text-sm text-muted-foreground uppercase tracking-widest">Your Leadership Pattern</p>
-        <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground">
+        <p className="text-xs text-muted-foreground uppercase tracking-widest font-body">Your Leadership Pattern</p>
+        <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground tracking-tight">
           You are {archetypeTitle}.
         </h2>
-        <p className="text-base max-w-md mx-auto" style={{ color: '#08d780' }}>
+        <p className="text-base max-w-md mx-auto font-subheadline italic" style={{ color: '#08d780' }}>
           {archetypeDescription}
         </p>
       </div>
 
       {/* Your Self-Mastery Map — Unified */}
       <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-5">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-center">Your Self-Mastery Map</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center font-body">Your Self-Mastery Map</h3>
         <svg viewBox="0 0 300 270" className="w-full max-w-sm mx-auto">
           <defs>
             <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
