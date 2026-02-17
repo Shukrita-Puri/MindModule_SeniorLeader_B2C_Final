@@ -26,7 +26,7 @@ export interface InnerWorldProfile {
 
 // Component display labels
 export const COMPONENT_LABELS: Record<keyof ComponentScoresV2, string> = {
-  energyRegulation: 'Energy Regulation',
-  focusRecovery: 'Focus Recovery',
-  energyRenewal: 'Energy Renewal',
+  energyRegulation: 'Recalibration',
+  focusRecovery: 'Clarity',
+  energyRenewal: 'Renewal',
 };

@@ -2,10 +2,22 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { getAllResponses, saveResponse, updateSession } from "@/utils/onboardingStorage";
-import { ARCHETYPES, PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
+import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
-import { ArrowRight, Target, Sparkles } from "lucide-react";
+import { ArrowRight, Target, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
+  energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
+  focusRecovery: ['Thinking Clarity', 'Emotional Intelligence'],
+  energyRenewal: ['Adaptive Capacity', 'Influence', 'Presence'],
+};
+
+const DIMENSION_DESCRIPTORS: Record<keyof ComponentScoresV2, string> = {
+  energyRegulation: 'Pause, composure, self-regulation',
+  focusRecovery: 'Cognitive energy, thinking under load',
+  energyRenewal: 'Sustained energy, recovery capacity',
+};
 
 interface ResultsData {
   baselineScore: number;
@@ -53,7 +65,6 @@ export default function Stage8Results() {
 
         const { baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight } = data;
         
-        // Save results to localStorage session
         saveResponse('mental_fitness_baseline', baselineScore);
         saveResponse('baseline_established_date', new Date().toISOString());
         saveResponse('inner_world_archetype', { id: archetype, title: archetypeTitle });
@@ -107,16 +118,14 @@ export default function Stage8Results() {
     );
   }
 
-  const { baselineScore, scores, archetypeTitle, archetypeDescription, insight, practiceGoalLabel } = results;
+  const { scores, archetypeTitle, archetypeDescription, insight } = results;
 
-  // Radar chart data
   const radarPoints = [
-    { label: COMPONENT_LABELS.energyRegulation, value: scores.energyRegulation },
-    { label: COMPONENT_LABELS.focusRecovery, value: scores.focusRecovery },
-    { label: COMPONENT_LABELS.energyRenewal, value: scores.energyRenewal },
+    { key: 'energyRegulation' as keyof ComponentScoresV2, label: COMPONENT_LABELS.energyRegulation, value: scores.energyRegulation },
+    { key: 'focusRecovery' as keyof ComponentScoresV2, label: COMPONENT_LABELS.focusRecovery, value: scores.focusRecovery },
+    { key: 'energyRenewal' as keyof ComponentScoresV2, label: COMPONENT_LABELS.energyRenewal, value: scores.energyRenewal },
   ];
 
-  // SVG radar chart helpers
   const cx = 150, cy = 130, radius = 90;
   const angleStep = (2 * Math.PI) / 3;
   const startAngle = -Math.PI / 2;
@@ -126,13 +135,6 @@ export default function Stage8Results() {
     const r = (value / 100) * radius;
     return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
   };
-
-  const radarPath = radarPoints
-    .map((p, i) => {
-      const pt = getPoint(i, p.value);
-      return `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`;
-    })
-    .join(' ') + ' Z';
 
   const gridLevels = [25, 50, 75, 100];
 
@@ -150,8 +152,21 @@ export default function Stage8Results() {
       </div>
 
       {/* Radar Chart */}
-      <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-6 shadow-lg">
         <svg viewBox="0 0 300 270" className="w-full max-w-xs mx-auto">
+          <defs>
+            <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+            </radialGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
           {/* Grid */}
           {gridLevels.map((level) => (
             <polygon
@@ -162,14 +177,14 @@ export default function Stage8Results() {
               }).join(' ')}
               fill="none"
               stroke="hsl(var(--border))"
-              strokeWidth="0.5"
-              opacity={0.5}
+              strokeWidth="0.8"
+              opacity={0.7}
             />
           ))}
           {/* Axes */}
           {radarPoints.map((_, i) => {
             const pt = getPoint(i, 100);
-            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.5" opacity={0.3} />;
+            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.8" opacity={0.4} />;
           })}
           {/* Data polygon */}
           <polygon
@@ -177,18 +192,23 @@ export default function Stage8Results() {
               const pt = getPoint(i, p.value);
               return `${pt.x},${pt.y}`;
             }).join(' ')}
-            fill="hsl(var(--primary) / 0.15)"
+            fill="url(#radarFill)"
             stroke="hsl(var(--primary))"
             strokeWidth="2"
+            filter="url(#glow)"
           />
           {/* Data points */}
           {radarPoints.map((p, i) => {
             const pt = getPoint(i, p.value);
-            return <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="hsl(var(--primary))" />;
+            return (
+              <g key={i}>
+                <circle cx={pt.x} cy={pt.y} r="5" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="2" />
+              </g>
+            );
           })}
           {/* Labels */}
           {radarPoints.map((p, i) => {
-            const labelPt = getPoint(i, 120);
+            const labelPt = getPoint(i, 125);
             return (
               <text
                 key={i}
@@ -196,7 +216,7 @@ export default function Stage8Results() {
                 y={labelPt.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="text-[10px] fill-muted-foreground"
+                className="text-[10px] fill-foreground font-medium"
               >
                 {p.label} ({p.value})
               </text>
@@ -214,29 +234,53 @@ export default function Stage8Results() {
         </div>
       )}
 
-      {/* Development Path */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <p className="text-sm text-foreground leading-relaxed">
-          Your practice will prioritise <span className="font-semibold text-primary">{practiceGoalLabel}</span> — the highest-leverage area given your pattern.
-        </p>
+      {/* Self-Mastery Map */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Your Self-Mastery Map</h3>
+        {radarPoints.map((point) => (
+          <div key={point.key} className="bg-card border border-border rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-semibold text-sm text-foreground">{point.label}</span>
+                <p className="text-xs text-muted-foreground">{DIMENSION_DESCRIPTORS[point.key]}</p>
+              </div>
+              <span className="text-lg font-bold text-primary">{point.value}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                <span
+                  key={skill}
+                  className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* What the app does */}
-      <div className="bg-muted/30 rounded-xl p-5 border border-border space-y-2.5">
-        <p className="text-xs text-muted-foreground">
-          <span className="text-primary">•</span> Your daily check-in feeds a personalised Inner Readiness Score.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          <span className="text-primary">•</span> Your archetype shapes the strengths and watch-outs in your daily Compass.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          <span className="text-primary">•</span> Your practice is selected based on what your state and day actually need.
-        </p>
+      {/* Value Proposition */}
+      <div className="bg-muted/30 rounded-xl p-6 border border-border space-y-4">
+        <h3 className="text-lg font-headline font-bold text-foreground">
+          Perform at your highest level. Consistently.
+        </h3>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your baseline tells the system who you are — how you regulate under pressure, where you recover, where you lead from strength.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            As your day shifts — the calendar, the stakes, the load — your practice moves with it. What you need at 7am is not what you need at 9pm.
+          </p>
+          <p className="text-sm text-foreground font-medium leading-relaxed">
+            The result is not a programme you follow. It is a system that works around you.
+          </p>
+        </div>
       </div>
 
       <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg">
-        <Sparkles className="w-5 h-5 mr-2" />
-        Connect &amp; Continue
+        <Lock className="w-5 h-5 mr-2" />
+        Unlock My Practice
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
       </Button>
     </div>
