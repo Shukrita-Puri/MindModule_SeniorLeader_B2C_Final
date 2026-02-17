@@ -59,7 +59,7 @@ const Stage8SignupStep = () => {
   if (inIframe) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-sm mx-auto p-6 space-y-4">
+        <div className="text-center max-w-sm mx-auto p-6 space-y-4 bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
           <p className="text-lg font-semibold text-foreground">Sign up requires a full browser window</p>
           <p className="text-sm text-muted-foreground">
             Auth0 cannot load inside an iframe. Please open the app in a new tab to create your account.
