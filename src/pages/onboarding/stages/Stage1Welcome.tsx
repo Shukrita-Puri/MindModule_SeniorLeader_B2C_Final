@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, ArrowRight, Shield, Lock } from "lucide-react";
+import { ArrowRight, Shield, Lock } from "lucide-react";
+import mmLogo from "@/assets/mm-logo-circle.png";
 
 export default function Stage1Welcome() {
   const navigate = useNavigate();
@@ -8,8 +9,8 @@ export default function Stage1Welcome() {
   return (
     <div className="space-y-8 py-12 animate-fade-in">
       <div className="flex justify-center animate-fade-in">
-        <div className="w-40 h-40 md:w-48 md:h-48 rounded-full bg-gradient-to-br from-primary/20 via-primary/10 to-primary/20 flex items-center justify-center animate-pulse">
-          <Brain size={80} className="text-primary md:w-24 md:h-24" />
+        <div className="w-40 h-40 md:w-48 md:h-48 rounded-full flex items-center justify-center">
+          <img src={mmLogo} alt="Mind Module" className="w-full h-full object-contain rounded-full" />
         </div>
       </div>
 
