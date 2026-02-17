@@ -1,59 +1,80 @@
 
 
-## Fix: Archetype Always Returns "Resilient Performer"
+## Fix Onboarding Results: Scoring, Design, and Data Persistence
 
-### Root Cause
+### Problem 1: All Scores Showing 50/50/50 (Critical)
 
-The Energy Renewal (EN) component weights in the scoring engine sum to **2.0** instead of **1.0**:
+The edge function has a DEFAULT fallback (`{ er: 50, fr: 50, en: 50 }`) that fires when answer keys don't match the lookup tables. The user's screenshot confirms all three components at exactly 50 — meaning `getAllResponses()` returned empty/undefined answers.
 
-```text
-ER weights: 0.40 + 0.35 + 0.10 + 0.15 = 1.00 (correct)
-FR weights: 0.25 + 0.20 + 0.30 + 0.25 = 1.00 (correct)
-EN weights: 0.35 + 0.45 + 0.60 + 0.60 = 2.00 (BUG)
+**Root cause**: The Auth0 signup redirect (Stage 8) navigates away from the app entirely. When the callback returns to `/onboarding/results`, the `OnboardingFlow` component calls `initializeSession()` which should preserve existing data. However, if the session was somehow cleared or if the user tests by navigating directly to `/onboarding/results`, all answers are undefined.
+
+**Fix**:
+- Add console logging in `Stage8Results.tsx` to output the raw answers before calling the edge function
+- Add a guard: if any answer is missing, show an error instead of computing with defaults
+- This ensures the user gets a clear message rather than silently wrong scores
+
+### Problem 2: Results Page Design (v2 Spec Compliance)
+
+Current state vs v2 spec requirements:
+
+| Element | Current | Required |
+|---------|---------|----------|
+| Background | Plain white | Radial gradient / geometric pattern consistent with other onboarding stages |
+| CTA button text | "Connect & Continue" | "Connect & Continue" (navigates to payment as next step in flow) |
+| "watch-fors" text | "watch-fors" | "watch-outs" |
+| Archetype title format | "You are The Adaptive Navigator." | Correct -- matches spec |
+| Radar chart | Own pattern only, no benchmark | Correct -- matches spec |
+| AI insight | 2-3 sentences, Gemini | Correct -- matches spec |
+| Development path line | Present | Correct -- matches spec |
+| 3 bullet points | Present | Correct -- matches spec |
+
+### Problem 3: EN Weights (Already Fixed)
+
+The EN weights were normalized from 2.0 to 1.0 in the previous edit. Verified working:
+- Worst answers (push_through, power_through, always_tired, overwhelmed) now produce ER=40, FR=41, EN=31 and correctly assign "Adaptive Navigator"
+- This is the correct default for low scores per the architecture spec
+
+### Files to Change
+
+1. **`src/pages/onboarding/stages/Stage8Results.tsx`**
+   - Add console logging for raw answers before edge function call
+   - Add guard: if any of the 4 answers is missing, show retry message instead of proceeding with defaults
+   - Fix "watch-fors" to "watch-outs" in the bullet points
+   - Keep CTA navigating to `/onboarding/payment` (payment is Stage 10, before context-connection Stage 11)
+
+2. **`supabase/functions/generate-onboarding-insight/index.ts`**
+   - Add server-side logging of received answers for debugging
+   - When answers are undefined/null, return a clear error response instead of silently using defaults
+
+### Technical Details
+
+**Answer validation in edge function** (lines ~120-130):
+```typescript
+// Before computing, validate all 4 answers exist
+const { q1, q2, q3, q4 } = body.answers;
+if (!q1 || !q2 || !q3 || !q4) {
+  console.error('Missing answers:', { q1, q2, q3, q4 });
+  return new Response(
+    JSON.stringify({ error: 'Incomplete answers. Please complete all questions.' }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
 ```
 
-This inflates EN so high that it nearly always exceeds 65, triggering the "Resilient Performer" condition (`EN >= 65 && ER >= 50`) regardless of what answers the user selects.
+**Client-side guard in Stage8Results** (before calling edge function):
+```typescript
+const responses = getAllResponses();
+console.log('[Results] Raw responses:', JSON.stringify(responses));
 
-Example with worst possible answers (push_through, power_through, always_tired, overwhelmed):
-- EN = 30 x 0.35 + 35 x 0.45 + 25 x 0.60 + 35 x 0.60 = 62
-- Even the absolute worst combination scores 62 -- just barely under the 65 threshold
-- Any single moderate answer pushes it over, locking in "Resilient Performer" every time
-
-### Fix
-
-Normalize the EN weights to sum to 1.0 while preserving their relative importance (35:45:60:60 ratio):
-
-```text
-Before: Q1=0.35, Q2=0.45, Q3=0.60, Q4=0.60 (sum = 2.00)
-After:  Q1=0.175, Q2=0.225, Q3=0.30, Q4=0.30 (sum = 1.00)
+if (!responses.emotional_awareness_response || !responses.stress_response_response || 
+    !responses.recovery_patterns_response || !responses.mental_clarity_response) {
+  setError('Your answers were not saved correctly. Please go back and complete the assessment.');
+  setLoading(false);
+  return;
+}
 ```
-
-### Verification (post-fix scores for polar opposite selections)
-
-**Best answers** (notice_early, stay_grounded, bounce_back, crystal_clear):
-- ER = 85x0.40 + 90x0.35 + 80x0.10 + 80x0.15 = 34 + 31.5 + 8 + 12 = 86
-- FR = 75x0.25 + 80x0.20 + 85x0.30 + 90x0.25 = 18.75 + 16 + 25.5 + 22.5 = 83
-- EN = 70x0.175 + 80x0.225 + 90x0.30 + 75x0.30 = 12.25 + 18 + 27 + 22.5 = 80
-- Result: ER=86, EN=80 --> **Grounded Leader** (correct -- strongest profile)
-
-**Worst answers** (push_through, power_through, always_tired, overwhelmed):
-- ER = 35x0.40 + 50x0.35 + 35x0.10 + 35x0.15 = 14 + 17.5 + 3.5 + 5.25 = 40
-- FR = 55x0.25 + 60x0.20 + 30x0.30 + 25x0.25 = 13.75 + 12 + 9 + 6.25 = 41
-- EN = 30x0.175 + 35x0.225 + 25x0.30 + 35x0.30 = 5.25 + 7.875 + 7.5 + 10.5 = 31
-- Result: No thresholds met --> **Adaptive Navigator** (correct -- default for low scores)
-
-**Mixed answers** (notice_early, freeze_overthink, accumulating_fatigue, mostly_clear):
-- ER = 85x0.40 + 55x0.35 + 45x0.10 + 65x0.15 = 34 + 19.25 + 4.5 + 9.75 = 68
-- FR = 75x0.25 + 35x0.20 + 40x0.30 + 70x0.25 = 18.75 + 7 + 12 + 17.5 = 55
-- EN = 70x0.175 + 50x0.225 + 35x0.30 + 60x0.30 = 12.25 + 11.25 + 10.5 + 18 = 52
-- Result: ER=68, EN=52 (not >= 55) --> Falls through to ER >= 60, FR < 50? No (FR=55). Adaptive Navigator? No... ER=68, EN=52 doesn't hit grounded-leader (needs EN >= 55). Falls to **Intensity Driver** (ER >= 60, FR < 50? FR=55, no). Falls to **Adaptive Navigator**.
-
-All five archetypes are now reachable with different answer combinations.
-
-### File Changed
-
-1. `supabase/functions/generate-onboarding-insight/index.ts` -- lines 68-70: fix EN weights from 0.35/0.45/0.60/0.60 to 0.175/0.225/0.30/0.30
 
 ### Deployment
 
-- Re-deploy `generate-onboarding-insight` edge function
+- Re-deploy `generate-onboarding-insight` edge function after adding validation
+
