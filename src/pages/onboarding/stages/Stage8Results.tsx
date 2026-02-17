@@ -253,7 +253,7 @@ export default function Stage8Results() {
         </div>
       </div>
 
-      <Button variant="forest" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0" style={{ backgroundColor: '#08d780' }}>
+      <Button variant="critical" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0">
         <Lock className="w-5 h-5 mr-2" />
         Unlock My Practice
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
