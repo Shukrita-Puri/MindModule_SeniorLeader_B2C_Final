@@ -148,7 +148,7 @@ const CheckInDetail = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full h-12 text-base font-semibold bg-saffron text-white hover:bg-saffron/90 rounded-xl"
+                className="w-full h-12 text-base font-semibold bg-[#1DB954] text-black hover:bg-[#1DB954]/90 rounded-xl"
               >
                 {saving ? 'Saving...' : 'Save & Continue'}
               </Button>
