@@ -86,10 +86,10 @@ export default function Stage2Identity() {
               <button
                 key={option.value}
                 onClick={() => handleIdentitySelect(option.value)}
-                className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
+                className={`w-full text-left p-4 border rounded-xl transition-all ${
                   identityType === option.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-black/[0.08] hover:border-primary/30 bg-white/40"
                 }`}
               >
                 <span className="font-medium text-sm">{option.label}</span>
@@ -133,10 +133,10 @@ export default function Stage2Identity() {
               <button
                 key={option.value}
                 onClick={() => handlePressureSelect(option.value)}
-                className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
+                className={`w-full text-left p-4 border rounded-xl transition-all ${
                   biggestPressure === option.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-black/[0.08] hover:border-primary/30 bg-white/40"
                 }`}
               >
                 <span className="text-sm">{option.label}</span>

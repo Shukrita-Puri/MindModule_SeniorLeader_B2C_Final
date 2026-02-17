@@ -48,10 +48,10 @@ export default function Stage7GrowthIntention() {
             <button
               key={option.value}
               onClick={() => setGoal(option.value)}
-              className={`w-full text-left p-3.5 border-2 rounded-lg transition-all ${
+              className={`w-full text-left p-3.5 border rounded-xl transition-all ${
                 goal === option.value
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : "border-black/[0.08] hover:border-primary/30 bg-white/40"
               }`}
             >
               <div className="font-medium text-sm">{option.label}</div>

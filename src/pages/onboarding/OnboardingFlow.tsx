@@ -98,8 +98,7 @@ export default function OnboardingFlow() {
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
-      {/* Radial gradient overlay for visual consistency */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-gold/5 via-transparent to-transparent pointer-events-none" />
+
       
       {/* Fixed Top Bar with Back Arrow */}
       {showBackButton && (
