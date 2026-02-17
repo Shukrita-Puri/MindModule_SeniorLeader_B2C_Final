@@ -55,8 +55,8 @@ export default function Stage6MentalClarity() {
               onClick={() => handleSelectAnswer(option.value)}
               className={`w-full text-left p-4 border rounded-xl transition-all ${
                 answer === option.value
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-black/[0.08] hover:border-primary/30 bg-white/40"
+                  ? "border-saffron bg-saffron/5 shadow-sm"
+                  : "border-black/[0.08] hover:border-saffron/30 bg-white/40"
               }`}
             >
               <div className="flex-1">
