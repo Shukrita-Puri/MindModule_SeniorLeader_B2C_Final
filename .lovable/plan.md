@@ -1,46 +1,72 @@
 
+# Seed sanctuary_content Table for Mastery Plan Regulate Module
 
-## Visual Refinements to Results Page
+## Problem
 
-**File:** `src/pages/onboarding/stages/Stage8Results.tsx`
+The `generate-mastery-plan` edge function correctly implements the full Mastery Practice architecture (Regulate / Align / Prepare / Integrate modules, theme-to-module mapping, time-of-day logic, evening close). However, it queries the `sanctuary_content` database table for content -- and that table has **zero rows**.
 
-### Changes
+The content displayed on `/recalibrate` pages comes from a **client-side** file (`src/data/practicesAndSoundscapes.ts`, 1831 lines, ~35+ items). The edge function cannot see this client-side data. This is why the Evening Close shows no Regulate practice -- there is nothing for `selectContent()` to select from.
 
-1. **Triangle line colour** -- Change the data polygon stroke from `hsl(var(--primary))` to `#08d780`. Same for the data point dots and the radial gradient fill stops.
+## Design Intent Confirmation
 
-2. **Grid lines more visible** -- Increase grid line stroke width to `1.2` and opacity to `0.9`. Increase spoke line opacity to `0.6`.
+The edge function **does** contain the full design intent:
+- Module ordering: Regulate -> Align -> Prepare -> Integrate
+- Evening sessions: Regulate + Integrate (coach card), with Align/Prepare suppressed unless high-priority next-day event
+- Time-of-day session labels (Morning Practice / Afternoon Reset / Evening Close)
+- Duration ceilings by calendar load
+- Content scoring with favourites, coach insights, effectiveness, intensity matching, and date-seeded deterministic selection
+- Theme-to-module mapping for all 40 theme phrases across 4 tiers
 
-3. **Bigger triangle** -- Reduce card padding from `p-6` to `p-3`, and increase the SVG max-width from `max-w-xs` to `max-w-sm` so the chart fills more space.
+The architecture is complete. The only gap is **empty content in the database**.
 
-4. **Archetype description colour** -- Change the archetype description text (e.g. "composure under pressure") to `#08d780` via inline style.
+## Solution
 
-5. **Meta-skills: bold dimension names, compact pills, single line** -- Make dimension labels bold (`font-semibold text-foreground`), reduce pill font to `text-[9px]` with tighter padding (`px-1.5 py-0.5`), and reduce the min-width on labels so everything fits on one line per dimension.
+Seed the `sanctuary_content` table with all content from the client-side `practicesAndSoundscapes.ts` file. This includes:
 
-6. **Development path in a box** -- Wrap the "Your practice will prioritise..." line in a styled container: `bg-muted/20 border border-border rounded-lg p-4 text-center`.
+- **~10 soundbaths** (pause/power-up/presence categories)
+- **~6 guided practices** (breathing, somatic, grounding)
+- **~25 micro-practices** (mindset and tool sub-types)
 
-7. **CTA button** -- Already has `style={{ backgroundColor: '#08d780' }}` but the Tailwind `bg-primary` class may override it. Will add explicit class removal to ensure the inline style wins.
+Each row will include: `id`, `title`, `content_type`, `category`, `tags`, `duration`, `sub_type`, `difficulty`, `protocol_type`, `thumbnail_url`, `is_active = true`.
 
-### Technical Details
+## Steps
 
-**Lines 151:** Card padding `p-6` to `p-3`
+1. **Insert all content into `sanctuary_content`** using the data insert tool -- mapping fields from the client-side TypeScript objects to the DB columns (`contentType` -> `content_type`, `storyHook` -> `story_hook`, etc.)
 
-**Lines 153:** SVG `max-w-xs` to `max-w-sm`
+2. **Insert structured tags into `sanctuary_content_metadata`** for content items that have `structuredTags` defined, so the edge function's metadata merge logic works correctly.
 
-**Lines 155-157:** Gradient stops change `hsl(var(--primary))` to `#08d780`
+3. **Verify** the edge function can now select Regulate content for evening sessions by testing the function.
 
-**Lines 174-177:** Grid lines: `strokeWidth="1.2"` and `opacity={0.9}`
+## Technical Details
 
-**Line 182:** Spoke lines: `opacity={0.6}`
+Column mapping from `practicesAndSoundscapes.ts` to `sanctuary_content` table:
 
-**Lines 190, 196:** Polygon stroke and dot fill: `#08d780`
+```text
+Client Field        -> DB Column
+id                  -> id
+title               -> title
+contentType         -> content_type
+category            -> category
+tags                -> tags (text array)
+duration            -> duration (numeric, in minutes)
+difficulty          -> difficulty
+subType             -> sub_type
+voice               -> voice
+thumbnail (URL)     -> thumbnail_url
+audioSrc            -> audio_url
+steps count         -> steps_count
+creator             -> creator
+origin              -> origin
+storyHook           -> story_hook
+usedBy              -> used_by
+is_active           -> true (all active)
+```
 
-**Lines 145-147:** Archetype description: add `style={{ color: '#08d780' }}`
+For `sanctuary_content_metadata`:
+```text
+content_id          -> id from sanctuary_content
+structured_tags     -> structuredTags as JSONB
+mastery_category    -> derived from structuredTags.pillar
+```
 
-**Lines 210-211:** Dimension label: `text-xs font-semibold text-foreground min-w-[70px]`
-
-**Lines 213:** Pills: `text-[9px] px-1.5 py-0.5`
-
-**Lines 231-234:** Wrap development path in a bordered box
-
-**Line 254:** CTA: remove any bg class conflict, keep inline style
-
+No schema changes required -- both tables already exist with the correct columns.
