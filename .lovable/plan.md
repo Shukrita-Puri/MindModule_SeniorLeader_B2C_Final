@@ -1,57 +1,46 @@
 
 
-## Refine Results Page: Lighter Meta-Skills, Accent Left-Border on Value Prop
+## Visual Refinements to Results Page
 
-### 1. Simplify Meta-Skills Display Inside the Chart Card
+**File:** `src/pages/onboarding/stages/Stage8Results.tsx`
 
-Remove the heavy dimension breakdown (lines 208-225) that repeats dimension names and scores. Replace with a single lightweight row of all 8 meta-skill pills grouped under each dimension label -- no scores, no bold headers, just a compact visual hint of what sits beneath each axis.
+### Changes
 
-Structure below the chart SVG (inside the same card):
+1. **Triangle line colour** -- Change the data polygon stroke from `hsl(var(--primary))` to `#08d780`. Same for the data point dots and the radial gradient fill stops.
 
-```text
-Recalibration: [Self-Regulation] [Resilience] [Confidence]
-Clarity:       [Thinking Clarity] [Emotional Intelligence]
-Renewal:       [Adaptive Capacity] [Influence] [Presence]
-```
+2. **Grid lines more visible** -- Increase grid line stroke width to `1.2` and opacity to `0.9`. Increase spoke line opacity to `0.6`.
 
-Each row is a single inline line: dimension name in small muted text, followed by pill tags. No score numbers (the triangle already shows them). No border-top separator. Compact vertical spacing.
+3. **Bigger triangle** -- Reduce card padding from `p-6` to `p-3`, and increase the SVG max-width from `max-w-xs` to `max-w-sm` so the chart fills more space.
 
-### 2. Restyle Value Proposition Box
+4. **Archetype description colour** -- Change the archetype description text (e.g. "composure under pressure") to `#08d780` via inline style.
 
-Change the value prop section (lines 242-258) from the current `bg-muted/30 rounded-xl border border-border` to:
-- **No background fill** (transparent / `bg-transparent`)
-- **Taupe left border only**: `border-l-4` with a warm taupe colour (`border-[#8B7D6B]`)
-- Remove `rounded-xl` (just a clean left-accent block)
-- Keep padding on the left (`pl-5`) for breathing room
+5. **Meta-skills: bold dimension names, compact pills, single line** -- Make dimension labels bold (`font-semibold text-foreground`), reduce pill font to `text-[9px]` with tighter padding (`px-1.5 py-0.5`), and reduce the min-width on labels so everything fits on one line per dimension.
 
-### 3. Files Changed
+6. **Development path in a box** -- Wrap the "Your practice will prioritise..." line in a styled container: `bg-muted/20 border border-border rounded-lg p-4 text-center`.
 
-Only `src/pages/onboarding/stages/Stage8Results.tsx`.
+7. **CTA button** -- Already has `style={{ backgroundColor: '#08d780' }}` but the Tailwind `bg-primary` class may override it. Will add explicit class removal to ensure the inline style wins.
 
 ### Technical Details
 
-**Replace lines 208-225** (heavy breakdown) with a lighter version:
+**Lines 151:** Card padding `p-6` to `p-3`
 
-```typescript
-<div className="space-y-2 pt-3">
-  {radarPoints.map((point) => (
-    <div key={point.key} className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-muted-foreground font-medium min-w-[90px]">{point.label}</span>
-      {DIMENSION_META_SKILLS[point.key].map((skill) => (
-        <span key={skill} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
-          {skill}
-        </span>
-      ))}
-    </div>
-  ))}
-</div>
-```
+**Lines 153:** SVG `max-w-xs` to `max-w-sm`
 
-**Replace lines 243-244** (value prop container) with:
+**Lines 155-157:** Gradient stops change `hsl(var(--primary))` to `#08d780`
 
-```typescript
-<div className="bg-transparent border-l-4 border-[#8B7D6B] pl-5 py-2 space-y-3">
-```
+**Lines 174-177:** Grid lines: `strokeWidth="1.2"` and `opacity={0.9}`
 
-Remove `rounded-xl` and the full border. The taupe left accent visually separates this block without a heavy card treatment.
+**Line 182:** Spoke lines: `opacity={0.6}`
+
+**Lines 190, 196:** Polygon stroke and dot fill: `#08d780`
+
+**Lines 145-147:** Archetype description: add `style={{ color: '#08d780' }}`
+
+**Lines 210-211:** Dimension label: `text-xs font-semibold text-foreground min-w-[70px]`
+
+**Lines 213:** Pills: `text-[9px] px-1.5 py-0.5`
+
+**Lines 231-234:** Wrap development path in a bordered box
+
+**Line 254:** CTA: remove any bg class conflict, keep inline style
 
