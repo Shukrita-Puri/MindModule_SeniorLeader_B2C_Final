@@ -11,7 +11,7 @@ const corsHeaders = {
 // Component weights per question:
 //   ER: Q1=40%, Q2=35%, Q3=10%, Q4=15%
 //   FR: Q1=25%, Q2=20%, Q3=30%, Q4=25%
-//   EN: Q1=35%, Q2=45%, Q3=60%, Q4=60%
+//   EN: Q1=17.5%, Q2=22.5%, Q3=30%, Q4=30%
 
 interface ComponentScores {
   energyRegulation: number;
@@ -66,7 +66,7 @@ function calculateScores(q1: string, q2: string, q3: string, q4: string): { scor
     s1.fr * 0.25 + s2.fr * 0.20 + s3.fr * 0.30 + s4.fr * 0.25
   ));
   const energyRenewal = Math.min(100, Math.round(
-    s1.en * 0.35 + s2.en * 0.45 + s3.en * 0.60 + s4.en * 0.60
+    s1.en * 0.175 + s2.en * 0.225 + s3.en * 0.30 + s4.en * 0.30
   ));
 
   // Baseline: ER 35% + FR 35% + EN 30%
