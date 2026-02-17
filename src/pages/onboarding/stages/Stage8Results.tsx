@@ -205,21 +205,15 @@ export default function Stage8Results() {
           })}
         </svg>
 
-        {/* Dimension breakdown with meta-skill pills */}
-        <div className="space-y-3 pt-4 border-t border-border">
+        <div className="space-y-2 pt-3">
           {radarPoints.map((point) => (
-            <div key={point.key} className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-foreground">{point.label}</span>
-                <span className="text-sm font-bold text-primary">{point.value}</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {DIMENSION_META_SKILLS[point.key].map((skill) => (
-                  <span key={skill} className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                    {skill}
-                  </span>
-                ))}
-              </div>
+            <div key={point.key} className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium min-w-[90px]">{point.label}</span>
+              {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                <span key={skill} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
+                  {skill}
+                </span>
+              ))}
             </div>
           ))}
         </div>
@@ -240,7 +234,7 @@ export default function Stage8Results() {
       </p>
 
       {/* Value Proposition */}
-      <div className="bg-muted/30 rounded-xl p-6 border border-border space-y-4">
+      <div className="bg-transparent border-l-4 border-[#8B7D6B] pl-5 py-2 space-y-3">
         <h3 className="text-lg font-headline font-bold text-foreground">
           Perform at your highest level. Consistently.
         </h3>
