@@ -142,19 +142,19 @@ export default function Stage8Results() {
         <h2 className="text-3xl md:text-4xl font-headline font-bold text-foreground">
           You are {archetypeTitle}.
         </h2>
-        <p className="text-base text-muted-foreground max-w-md mx-auto">
+        <p className="text-base max-w-md mx-auto" style={{ color: '#08d780' }}>
           {archetypeDescription}
         </p>
       </div>
 
       {/* Your Self-Mastery Map — Unified */}
-      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-6 shadow-lg space-y-5">
+      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-3 shadow-lg space-y-5">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest text-center">Your Self-Mastery Map</h3>
-        <svg viewBox="0 0 300 270" className="w-full max-w-xs mx-auto">
+        <svg viewBox="0 0 300 270" className="w-full max-w-sm mx-auto">
           <defs>
             <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+              <stop offset="0%" stopColor="#08d780" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#08d780" stopOpacity="0.05" />
             </radialGradient>
             <filter id="glow">
               <feGaussianBlur stdDeviation="3" result="blur" />
@@ -173,13 +173,13 @@ export default function Stage8Results() {
               }).join(' ')}
               fill="none"
               stroke="hsl(var(--border))"
-              strokeWidth="0.8"
-              opacity={0.7}
+              strokeWidth="1.2"
+              opacity={0.9}
             />
           ))}
           {radarPoints.map((_, i) => {
             const pt = getPoint(i, 100);
-            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.8" opacity={0.4} />;
+            return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="hsl(var(--border))" strokeWidth="0.8" opacity={0.6} />;
           })}
           <polygon
             points={radarPoints.map((p, i) => {
@@ -187,13 +187,13 @@ export default function Stage8Results() {
               return `${pt.x},${pt.y}`;
             }).join(' ')}
             fill="url(#radarFill)"
-            stroke="hsl(var(--primary))"
+            stroke="#08d780"
             strokeWidth="2"
             filter="url(#glow)"
           />
           {radarPoints.map((p, i) => {
             const pt = getPoint(i, p.value);
-            return <circle key={i} cx={pt.x} cy={pt.y} r="5" fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="2" />;
+            return <circle key={i} cx={pt.x} cy={pt.y} r="5" fill="#08d780" stroke="hsl(var(--background))" strokeWidth="2" />;
           })}
           {radarPoints.map((p, i) => {
             const labelPt = getPoint(i, 125);
@@ -208,9 +208,9 @@ export default function Stage8Results() {
         <div className="space-y-2 pt-3">
           {radarPoints.map((point) => (
             <div key={point.key} className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground font-medium min-w-[90px]">{point.label}</span>
+              <span className="text-xs font-semibold text-foreground min-w-[70px]">{point.label}</span>
               {DIMENSION_META_SKILLS[point.key].map((skill) => (
-                <span key={skill} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
+                <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
                   {skill}
                 </span>
               ))}
@@ -229,9 +229,11 @@ export default function Stage8Results() {
       )}
 
       {/* Development Path */}
-      <p className="text-sm text-center text-muted-foreground">
-        Your practice will prioritise <span className="font-semibold text-foreground">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
-      </p>
+      <div className="bg-muted/20 border border-border rounded-lg p-4 text-center">
+        <p className="text-sm text-muted-foreground">
+          Your practice will prioritise <span className="font-semibold text-foreground">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+        </p>
+      </div>
 
       {/* Value Proposition */}
       <div className="bg-transparent border-l-4 border-[#8B7D6B] pl-5 py-2 space-y-3">
