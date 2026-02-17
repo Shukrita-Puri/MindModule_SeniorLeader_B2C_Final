@@ -1,80 +1,111 @@
 
 
-## Fix Onboarding Results: Scoring, Design, and Data Persistence
+## Redesign Stage 7 and Results Page
 
-### Problem 1: All Scores Showing 50/50/50 (Critical)
+### 1. Stage 7: Remove Redundant Pressure Question
 
-The edge function has a DEFAULT fallback (`{ er: 50, fr: 50, en: 50 }`) that fires when answer keys don't match the lookup tables. The user's screenshot confirms all three components at exactly 50 — meaning `getAllResponses()` returned empty/undefined answers.
+Remove "What's your biggest pressure point right now?" -- already covered earlier. Keep only "What would make the biggest difference in how you show up?"
 
-**Root cause**: The Auth0 signup redirect (Stage 8) navigates away from the app entirely. When the callback returns to `/onboarding/results`, the `OnboardingFlow` component calls `initializeSession()` which should preserve existing data. However, if the session was somehow cleared or if the user tests by navigating directly to `/onboarding/results`, all answers are undefined.
+Auto-derive `pressure_context_tag` from the selected goal:
+- `regulation_composure` / `regulation_early` / `energy_endurance` / `mindset_reframe` -> `self_regulation`
+- `recovery_resilience` / `focus_clarity` -> `cognitive_load`
 
-**Fix**:
-- Add console logging in `Stage8Results.tsx` to output the raw answers before calling the edge function
-- Add a guard: if any answer is missing, show an error instead of computing with defaults
-- This ensures the user gets a clear message rather than silently wrong scores
+**File:** `src/pages/onboarding/stages/Stage7GrowthIntention.tsx`
 
-### Problem 2: Results Page Design (v2 Spec Compliance)
+---
 
-Current state vs v2 spec requirements:
+### 2. Results Page Redesign
 
-| Element | Current | Required |
-|---------|---------|----------|
-| Background | Plain white | Radial gradient / geometric pattern consistent with other onboarding stages |
-| CTA button text | "Connect & Continue" | "Connect & Continue" (navigates to payment as next step in flow) |
-| "watch-fors" text | "watch-fors" | "watch-outs" |
-| Archetype title format | "You are The Adaptive Navigator." | Correct -- matches spec |
-| Radar chart | Own pattern only, no benchmark | Correct -- matches spec |
-| AI insight | 2-3 sentences, Gemini | Correct -- matches spec |
-| Development path line | Present | Correct -- matches spec |
-| 3 bullet points | Present | Correct -- matches spec |
+**File:** `src/pages/onboarding/stages/Stage8Results.tsx`
 
-### Problem 3: EN Weights (Already Fixed)
+#### 2a. Radar Chart: Relabel and Visual Depth
 
-The EN weights were normalized from 2.0 to 1.0 in the previous edit. Verified working:
-- Worst answers (push_through, power_through, always_tired, overwhelmed) now produce ER=40, FR=41, EN=31 and correctly assign "Adaptive Navigator"
-- This is the correct default for low scores per the architecture spec
+Rename axes:
+- "Energy Regulation" -> **"Recalibration"**
+- "Focus Recovery" -> **"Clarity"**
+- "Energy Renewal" -> **"Renewal"**
 
-### Files to Change
+Visual upgrades:
+- Radial gradient fill on data polygon (rich centre, fading outward)
+- SVG glow filter behind the polygon
+- Thicker grid lines (0.8 stroke, 0.7 opacity)
+- Larger data points (r=5) with white stroke ring
+- Gradient card background
 
-1. **`src/pages/onboarding/stages/Stage8Results.tsx`**
-   - Add console logging for raw answers before edge function call
-   - Add guard: if any of the 4 answers is missing, show retry message instead of proceeding with defaults
-   - Fix "watch-fors" to "watch-outs" in the bullet points
-   - Keep CTA navigating to `/onboarding/payment` (payment is Stage 10, before context-connection Stage 11)
+#### 2b. Meta-Skills Map Section
 
-2. **`supabase/functions/generate-onboarding-insight/index.ts`**
-   - Add server-side logging of received answers for debugging
-   - When answers are undefined/null, return a clear error response instead of silently using defaults
+Below the chart, a "Your Self-Mastery Map" section connecting each dimension to the meta-skills:
+
+| Dimension | Meta-Skills |
+|-----------|-------------|
+| Recalibration | Self-Regulation, Resilience, Confidence |
+| Clarity | Thinking Clarity, Emotional Intelligence |
+| Renewal | Adaptive Capacity, Influence, Presence |
+
+Each meta-skill shown as subtle pill tags with scores visible.
+
+#### 2c. Value Proposition -- New Copy
+
+Replace the current 3 weak bullets with the user's specified copy:
+
+**Title:** "Perform at your highest level. Consistently."
+
+**Three lines:**
+1. "Your baseline tells the system who you are -- how you regulate under pressure, where you recover, where you lead from strength."
+2. "As your day shifts -- the calendar, the stakes, the load -- your practice moves with it. What you need at 7am is not what you need at 9pm."
+3. "The result is not a programme you follow. It is a system that works around you."
+
+#### 2d. CTA Button
+
+Change to: **"Unlock My Practice"** (keeps navigation to `/onboarding/payment`).
+
+---
+
+### 3. Component Labels Update
+
+**File:** `src/utils/innerWorldScoring.ts`
+
+Update `COMPONENT_LABELS` to: Recalibration, Clarity, Renewal.
+
+---
 
 ### Technical Details
 
-**Answer validation in edge function** (lines ~120-130):
-```typescript
-// Before computing, validate all 4 answers exist
-const { q1, q2, q3, q4 } = body.answers;
-if (!q1 || !q2 || !q3 || !q4) {
-  console.error('Missing answers:', { q1, q2, q3, q4 });
-  return new Response(
-    JSON.stringify({ error: 'Incomplete answers. Please complete all questions.' }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+**Stage 7 pressure derivation:**
+```text
+const GOAL_TO_PRESSURE = {
+  regulation_composure: 'self_regulation',
+  regulation_early: 'self_regulation',
+  recovery_resilience: 'cognitive_load',
+  energy_endurance: 'self_regulation',
+  focus_clarity: 'cognitive_load',
+  mindset_reframe: 'self_regulation',
+};
 ```
 
-**Client-side guard in Stage8Results** (before calling edge function):
-```typescript
-const responses = getAllResponses();
-console.log('[Results] Raw responses:', JSON.stringify(responses));
-
-if (!responses.emotional_awareness_response || !responses.stress_response_response || 
-    !responses.recovery_patterns_response || !responses.mental_clarity_response) {
-  setError('Your answers were not saved correctly. Please go back and complete the assessment.');
-  setLoading(false);
-  return;
-}
+**Meta-skills mapping:**
+```text
+const DIMENSION_META_SKILLS = {
+  energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
+  focusRecovery: ['Thinking Clarity', 'Emotional Intelligence'],
+  energyRenewal: ['Adaptive Capacity', 'Influence', 'Presence'],
+};
 ```
 
-### Deployment
-
-- Re-deploy `generate-onboarding-insight` edge function after adding validation
+**SVG enhancements (inside the svg element):**
+```text
+<defs>
+  <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
+    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+  </radialGradient>
+  <filter id="glow">
+    <feGaussianBlur stdDeviation="3" result="blur" />
+    <feMerge>
+      <feMergeNode in="blur" />
+      <feMergeNode in="SourceGraphic" />
+    </feMerge>
+  </filter>
+</defs>
+```
 
