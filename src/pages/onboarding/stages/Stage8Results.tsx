@@ -231,7 +231,7 @@ export default function Stage8Results() {
       {/* Development Path */}
       <div className="bg-muted/20 border border-border rounded-lg p-4 text-center">
         <p className="text-sm text-muted-foreground">
-          Your practice will prioritise <span className="font-semibold text-foreground">{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
+          Your practice will prioritise <span className="font-semibold" style={{ color: '#08d780' }}>{results.practiceGoalLabel}</span> — the highest-leverage area given your pattern.
         </p>
       </div>
 
@@ -253,7 +253,7 @@ export default function Stage8Results() {
         </div>
       </div>
 
-      <Button size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0" style={{ backgroundColor: '#08d780' }}>
+      <Button variant="forest" size="lg" onClick={() => navigate("/onboarding/payment")} className="w-full group shadow-lg text-white border-0" style={{ backgroundColor: '#08d780' }}>
         <Lock className="w-5 h-5 mr-2" />
         Unlock My Practice
         <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
