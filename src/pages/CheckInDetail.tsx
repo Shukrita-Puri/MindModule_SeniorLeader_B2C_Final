@@ -92,14 +92,9 @@ const CheckInDetail = () => {
         <div className="w-full max-w-md animate-fade-in">
           {/* Luxury glass card wrapper */}
           <div className="relative overflow-hidden rounded-2xl p-6 space-y-10
-            bg-gradient-to-br from-card via-card to-card/95
-            border border-white/10 dark:border-white/5
-            shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]
-            backdrop-blur-sm">
-            {/* Top glass highlight */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            {/* Inner glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,140,66,0.03)_0%,transparent_50%)] pointer-events-none" />
+            bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
+            border border-black/[0.08]
+            shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
 
             {/* Clarity Slider */}
             <div className="relative space-y-4">

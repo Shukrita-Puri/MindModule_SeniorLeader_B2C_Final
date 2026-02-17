@@ -58,22 +58,22 @@ export default function Stage6Payment() {
 
       <div className="grid md:grid-cols-3 gap-4">
         {plans.map((plan, idx) => (
-          <Card key={idx} className={`p-6 relative ${idx === 1 ? 'border-gold border-2' : ''}`}>
+          <Card key={idx} className={`p-6 relative ${idx === 1 ? 'border-primary border-2' : 'border-black/[0.08]'} bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]`}>
             {plan.badge && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gold text-primary-foreground px-3 py-1 rounded-full text-xs font-bold">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold">
                 {plan.badge}
               </div>
             )}
-            <h3 className="font-heading font-bold text-xl mb-2">{plan.name}</h3>
+            <h3 className="font-headline font-bold text-xl mb-2">{plan.name}</h3>
             <div className="mb-4">
               <span className="text-3xl font-bold">{plan.price}</span>
               <span className="text-muted-foreground">{plan.period}</span>
-              {plan.subtitle && <div className="text-sm text-gold font-semibold mt-1">{plan.subtitle}</div>}
+              {plan.subtitle && <div className="text-sm text-primary font-semibold mt-1">{plan.subtitle}</div>}
             </div>
             <ul className="space-y-2 mb-6">
               {plan.features.map((feature, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <Check size={16} className="text-gold flex-shrink-0 mt-0.5" />
+                  <Check size={16} className="text-primary flex-shrink-0 mt-0.5" />
                   <span>{feature}</span>
                 </li>
               ))}
