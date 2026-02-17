@@ -21,7 +21,7 @@ const sliderRangeVariants = cva("absolute h-full", {
   variants: {
     variant: {
       default: "bg-primary",
-      luxury: "bg-gradient-to-r from-primary to-saffron",
+      luxury: "bg-gradient-to-r from-[#9ca3af] to-[#374151]",
     },
   },
   defaultVariants: { variant: "default" },
