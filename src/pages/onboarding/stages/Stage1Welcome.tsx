@@ -17,7 +17,7 @@ export default function Stage1Welcome() {
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline text-foreground tracking-tight">
           Welcome to<br/>MIND MODULE
         </h1>
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-subheadline text-primary font-medium tracking-wide">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-subheadline italic text-primary font-medium tracking-wide">
           Proactive Self Mastery for Peak Performers
         </h2>
       </div>
