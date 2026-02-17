@@ -1,38 +1,57 @@
 
 
-## Merge Triangle and Self-Mastery Map into One Unified Section
+## Refine Results Page: Lighter Meta-Skills, Accent Left-Border on Value Prop
 
-### Recommendation: Keep the Triangle, Integrate the Details
+### 1. Simplify Meta-Skills Display Inside the Chart Card
 
-The triangle chart is the stronger visual -- it gives C-suite leaders an immediate read on their pattern shape. The separate card list below it duplicates the same three dimensions with the same scores. The fix: merge the meta-skill pills and descriptors directly into the chart section, eliminating the separate "Self-Mastery Map" cards entirely.
+Remove the heavy dimension breakdown (lines 208-225) that repeats dimension names and scores. Replace with a single lightweight row of all 8 meta-skill pills grouped under each dimension label -- no scores, no bold headers, just a compact visual hint of what sits beneath each axis.
 
-**What the unified section looks like:**
+Structure below the chart SVG (inside the same card):
 
-1. Section title: **"Your Self-Mastery Map"** (moves up to wrap the chart)
-2. The triangle chart with scores on the axis labels (as now)
-3. Directly below the chart (inside the same card), three compact rows -- one per dimension -- showing:
-   - Dimension name + score (bold)
-   - Meta-skill pills inline (Self-Regulation, Resilience, Confidence, etc.)
-   - No descriptor text (the pills themselves communicate what's underneath)
+```text
+Recalibration: [Self-Regulation] [Resilience] [Confidence]
+Clarity:       [Thinking Clarity] [Emotional Intelligence]
+Renewal:       [Adaptive Capacity] [Influence] [Presence]
+```
 
-This gives leaders the visual shape (triangle) plus the drill-down (what each axis actually develops) in one cohesive block, without repeating the data.
+Each row is a single inline line: dimension name in small muted text, followed by pill tags. No score numbers (the triangle already shows them). No border-top separator. Compact vertical spacing.
 
-### Additional Changes
+### 2. Restyle Value Proposition Box
 
-**Development path line** -- added between the AI insight and the value proposition:
-> "Your practice will prioritise [practice_priority_label] -- the highest-leverage area given your pattern."
+Change the value prop section (lines 242-258) from the current `bg-muted/30 rounded-xl border border-border` to:
+- **No background fill** (transparent / `bg-transparent`)
+- **Taupe left border only**: `border-l-4` with a warm taupe colour (`border-[#8B7D6B]`)
+- Remove `rounded-xl` (just a clean left-accent block)
+- Keep padding on the left (`pl-5`) for breathing room
 
-**CTA button colour** -- changed to `#08d780` using inline style.
+### 3. Files Changed
 
-### File Changed
-
-`src/pages/onboarding/stages/Stage8Results.tsx`
+Only `src/pages/onboarding/stages/Stage8Results.tsx`.
 
 ### Technical Details
 
-- Remove the standalone "Self-Mastery Map" section (lines 237-261)
-- Move the section title "Your Self-Mastery Map" to wrap the chart card
-- Add a compact meta-skills breakdown below the SVG inside the same card: three rows, each with dimension name, score, and pill tags
-- Add a development path line after the AI insight block
-- Change the CTA Button to use `style={{ backgroundColor: '#08d780' }}` and remove the default primary class colouring
+**Replace lines 208-225** (heavy breakdown) with a lighter version:
+
+```typescript
+<div className="space-y-2 pt-3">
+  {radarPoints.map((point) => (
+    <div key={point.key} className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-muted-foreground font-medium min-w-[90px]">{point.label}</span>
+      {DIMENSION_META_SKILLS[point.key].map((skill) => (
+        <span key={skill} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
+          {skill}
+        </span>
+      ))}
+    </div>
+  ))}
+</div>
+```
+
+**Replace lines 243-244** (value prop container) with:
+
+```typescript
+<div className="bg-transparent border-l-4 border-[#8B7D6B] pl-5 py-2 space-y-3">
+```
+
+Remove `rounded-xl` and the full border. The taupe left accent visually separates this block without a heavy card treatment.
 
