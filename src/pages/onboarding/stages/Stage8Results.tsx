@@ -33,6 +33,7 @@ export default function Stage8Results() {
 
   useEffect(() => {
     async function computeResults() {
+      const startTime = Date.now();
       try {
         const responses = getAllResponses();
         console.log('[Results] Raw responses:', JSON.stringify(responses));
@@ -73,6 +74,10 @@ export default function Stage8Results() {
 
         const goalLabel = PRACTICE_PRIORITY_LABELS[responses.practice_priority_tag] || 'your highest-leverage area';
 
+        // Ensure minimum 1s loading so user feels real computation
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 1000) await new Promise(r => setTimeout(r, 1000 - elapsed));
+
         setResults({
           baselineScore,
           scores: componentScores,
@@ -95,11 +100,32 @@ export default function Stage8Results() {
 
   if (loading) {
     return (
-      <div className="space-y-8 py-12 text-center animate-fade-in">
-        <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-          <Target size={40} className="text-primary" />
+      <div className="space-y-8 py-16 text-center animate-fade-in flex flex-col items-center">
+        {/* Animated analysing orb */}
+        <div className="relative w-32 h-32">
+          <div className="absolute inset-0 rounded-full animate-spin" style={{
+            background: 'conic-gradient(from 0deg, #08d780, #3b82f6, #8b5cf6, #ec4899, #08d780)',
+            filter: 'blur(12px)',
+            opacity: 0.6,
+            animationDuration: '3s',
+          }} />
+          <div className="absolute inset-1 rounded-full animate-spin" style={{
+            background: 'conic-gradient(from 180deg, #06b6d4, #10b981, #6366f1, #f43f5e, #06b6d4)',
+            filter: 'blur(8px)',
+            opacity: 0.5,
+            animationDuration: '2s',
+            animationDirection: 'reverse',
+          }} />
+          <div className="absolute inset-3 rounded-full" style={{
+            background: 'radial-gradient(circle at 35% 35%, rgba(8,215,128,0.4), rgba(99,102,241,0.3), rgba(236,72,153,0.2), transparent 70%)',
+            boxShadow: '0 0 40px rgba(8,215,128,0.3), inset 0 0 30px rgba(99,102,241,0.2)',
+          }} />
+          <div className="absolute inset-3 rounded-full animate-pulse" style={{
+            background: 'radial-gradient(circle at 65% 65%, rgba(6,182,212,0.3), rgba(16,185,129,0.2), transparent 60%)',
+            animationDuration: '1.5s',
+          }} />
         </div>
-        <h2 className="text-2xl font-headline font-bold">Analyzing Your Pattern...</h2>
+        <h2 className="text-2xl font-headline font-bold text-foreground">Analysing Your Pattern...</h2>
         <p className="text-sm text-muted-foreground">Mapping your self-mastery profile</p>
       </div>
     );
