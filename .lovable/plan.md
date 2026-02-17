@@ -1,79 +1,59 @@
 
 
-## Coach Page Redesign + Fix 3 Completion
+## Fix: Archetype Always Returns "Resilient Performer"
 
-### Issue Summary
+### Root Cause
 
-Six issues identified from the screenshots and feedback:
+The Energy Renewal (EN) component weights in the scoring engine sum to **2.0** instead of **1.0**:
 
-1. **Coach response appearing in user section** -- "Take your time..." text shows in the bottom user area because the split-view layout (70/30) is fundamentally broken for conversation flow
-2. **Submit button blocked** -- the 30% user area overflows, preventing interaction
-3. **Coach photo placement** -- currently used as full background; should be a small circle avatar next to "Self Mastery Coach" header
-4. **Layout ratio** -- 70/30 split is unworkable; user requests a single-page chat layout (WhatsApp/ChatGPT style)
-5. **Fix 3 incomplete** -- "Evening Flow" still appears in `performancePlanEngine.ts`, `planReconstruction.ts`, and one path in the edge function (pre-event integrate cards)
-6. **Landing page prompts** -- should be white text overlaid on the coach visual background, not in a separate white panel
+```text
+ER weights: 0.40 + 0.35 + 0.10 + 0.15 = 1.00 (correct)
+FR weights: 0.25 + 0.20 + 0.30 + 0.25 = 1.00 (correct)
+EN weights: 0.35 + 0.45 + 0.60 + 0.60 = 2.00 (BUG)
+```
 
----
+This inflates EN so high that it nearly always exceeds 65, triggering the "Resilient Performer" condition (`EN >= 65 && ER >= 50`) regardless of what answers the user selects.
 
-### Change 1: Rewrite CoachSplitView to Single-Page Chat Layout
+Example with worst possible answers (push_through, power_through, always_tired, overwhelmed):
+- EN = 30 x 0.35 + 35 x 0.45 + 25 x 0.60 + 35 x 0.60 = 62
+- Even the absolute worst combination scores 62 -- just barely under the 65 threshold
+- Any single moderate answer pushes it over, locking in "Resilient Performer" every time
 
-Replace the broken 70/30 split with a standard messaging layout:
+### Fix
 
-**Empty state (no messages):**
-- Full-screen coach visual background (keep existing)
-- "Self Mastery Coach" title, tagline, and description in white text overlaid on the visual
-- Coach avatar as a small circle (using the coach-visual-calm.jpeg cropped into a round avatar) with "Hello, [Name]" below
-- Prompt suggestion buttons styled with semi-transparent dark backgrounds and white text, overlaid on the visual (not in a separate white panel)
-- Input bar pinned at the bottom with a subtle frosted glass background
+Normalize the EN weights to sum to 1.0 while preserving their relative importance (35:45:60:60 ratio):
 
-**Active conversation (has messages):**
-- Standard vertical chat flow (like WhatsApp/ChatGPT)
-- Top bar: small circle coach avatar + "Self Mastery Coach" label + session context subtitle
-- Messages scroll vertically in a single column:
-  - User messages: right-aligned bubbles with primary background
-  - Coach messages: left-aligned, preceded by small coach avatar, white/light background bubbles
-  - Protocol cards and wisdom cards render inline within coach messages
-- Input bar pinned at bottom with voice toggle and send button
-- "End session" link below input
-- No split, no 70/30, no separate sections for coach vs user
+```text
+Before: Q1=0.35, Q2=0.45, Q3=0.60, Q4=0.60 (sum = 2.00)
+After:  Q1=0.175, Q2=0.225, Q3=0.30, Q4=0.30 (sum = 1.00)
+```
 
-**Technical approach:**
-- Remove the `h-[70%]` / `h-[30%]` split entirely
-- Remove the full-bleed background image from the active conversation state
-- Messages rendered in a single scrollable container
-- Coach avatar: a 36px circle with the coach-visual-calm.jpeg as `object-cover` background
-- Auto-scroll to bottom on new messages (existing logic preserved)
+### Verification (post-fix scores for polar opposite selections)
 
----
+**Best answers** (notice_early, stay_grounded, bounce_back, crystal_clear):
+- ER = 85x0.40 + 90x0.35 + 80x0.10 + 80x0.15 = 34 + 31.5 + 8 + 12 = 86
+- FR = 75x0.25 + 80x0.20 + 85x0.30 + 90x0.25 = 18.75 + 16 + 25.5 + 22.5 = 83
+- EN = 70x0.175 + 80x0.225 + 90x0.30 + 75x0.30 = 12.25 + 18 + 27 + 22.5 = 80
+- Result: ER=86, EN=80 --> **Grounded Leader** (correct -- strongest profile)
 
-### Change 2: Fix "Evening Flow" References (Fix 3 Completion)
+**Worst answers** (push_through, power_through, always_tired, overwhelmed):
+- ER = 35x0.40 + 50x0.35 + 35x0.10 + 35x0.15 = 14 + 17.5 + 3.5 + 5.25 = 40
+- FR = 55x0.25 + 60x0.20 + 30x0.30 + 25x0.25 = 13.75 + 12 + 9 + 6.25 = 41
+- EN = 30x0.175 + 35x0.225 + 25x0.30 + 35x0.30 = 5.25 + 7.875 + 7.5 + 10.5 = 31
+- Result: No thresholds met --> **Adaptive Navigator** (correct -- default for low scores)
 
-Three files still contain "Evening Flow" instead of "Tiny Win and Reflection":
+**Mixed answers** (notice_early, freeze_overthink, accumulating_fatigue, mostly_clear):
+- ER = 85x0.40 + 55x0.35 + 45x0.10 + 65x0.15 = 34 + 19.25 + 4.5 + 9.75 = 68
+- FR = 75x0.25 + 35x0.20 + 40x0.30 + 70x0.25 = 18.75 + 7 + 12 + 17.5 = 55
+- EN = 70x0.175 + 50x0.225 + 35x0.30 + 60x0.30 = 12.25 + 11.25 + 10.5 + 18 = 52
+- Result: ER=68, EN=52 (not >= 55) --> Falls through to ER >= 60, FR < 50? No (FR=55). Adaptive Navigator? No... ER=68, EN=52 doesn't hit grounded-leader (needs EN >= 55). Falls to **Intensity Driver** (ER >= 60, FR < 50? FR=55, no). Falls to **Adaptive Navigator**.
 
-**A. `src/utils/performancePlanEngine.ts` (line 906):**
-- Change `title: 'Evening Flow'` to `title: 'Tiny Win and Reflection'`
+All five archetypes are now reachable with different answer combinations.
 
-**B. `src/utils/planReconstruction.ts` (line 37):**
-- Change `title: 'Evening Flow'` to `title: 'Tiny Win and Reflection'`
+### File Changed
 
-**C. `supabase/functions/generate-mastery-plan/index.ts` (line 950):**
-- The pre-event integrate card still falls back to `'Evening Flow'`. Change to `'Tiny Win and Reflection'`
+1. `supabase/functions/generate-onboarding-insight/index.ts` -- lines 68-70: fix EN weights from 0.35/0.45/0.60/0.60 to 0.175/0.225/0.30/0.30
 
----
+### Deployment
 
-### Change 3: DailyRitual Badge Logic Fix
-
-The badge logic on line 613 of `DailyRitual.tsx` checks `module.title === 'Tiny Win and Reflection'` which is correct, but the client-side fallback engines were still producing "Evening Flow" titles. Once Change 2 is applied, the badge will render correctly as "Tiny Win and Reflection" for all evening coach cards.
-
----
-
-### Files Modified
-
-1. `src/components/coach/CoachSplitView.tsx` -- Complete rewrite from split-view to single-page chat layout
-2. `src/utils/performancePlanEngine.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 906)
-3. `src/utils/planReconstruction.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 37)
-4. `supabase/functions/generate-mastery-plan/index.ts` -- "Evening Flow" to "Tiny Win and Reflection" (line 950)
-
-### Edge Function Deployed
-
-- `generate-mastery-plan`
+- Re-deploy `generate-onboarding-insight` edge function
