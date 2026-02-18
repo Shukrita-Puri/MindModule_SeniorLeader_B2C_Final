@@ -742,23 +742,72 @@ const Insights = () => {
         {/* Your Self Mastery Patterns — unified card */}
         <LeadershipPatternsCard userId={user?.id} />
 
-        {/* What Works For You (Practice Effectiveness) */}
+        {/* Card 2 — Your Momentum (moved up from Card 6) */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">What Works For You</span>
+              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
-                title="What Works For You"
-                explanation="The practices that actually move the needle for you — not in general, but based on your own data. Drawn from your Recalibration sessions across Pause, Flow, and Renergise, correlated with your state the following day."
+                title="Your Momentum"
+                explanation="The wins you've logged over the past two weeks — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
           <CardContent>
-            <PracticeEffectiveness userId={user?.id} />
+            {winsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
+              <div className="space-y-4">
+                {tinyWinsInsights.observation && (
+                  <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {tinyWinsInsights.observation}
+                    </p>
+                  </div>
+                )}
+                {winsProgressMessage && (
+                  <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
+                )}
+                {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
+                  <PsychologicalDimensionBubbles
+                    data={tinyWinsInsights.dimensions.map(d => ({
+                      dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
+                      value: d.value,
+                      count: d.count,
+                      displayLabel: d.displayLabel,
+                      insight: d.insight,
+                    }))}
+                    relatedWins={tinyWinsContent}
+                    emptyMessage="Complete evening Integrate flow to capture wins"
+                  />
+                ) : (
+                  <InnerWorldBubbles
+                    items={tinyWinsBubbleData}
+                    emptyMessage="Complete evening Integrate flow to capture wins"
+                  />
+                )}
+                {tinyWinsInsights.patternLine && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {tinyWinsInsights.patternLine}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground/60">
+                  Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
+                </p>
+              </div>
+            ) : (
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  {winsProgressMessage || 'Complete your evening Integrate flow with the Coach to capture wins.'}
+                </p>
+              </div>
+            )}
           </CardContent>
         </LuxuryInsightCard>
 
-        {/* Card 4 — Your Performance Rhythm */}
+        {/* Card 3 — Your Performance Rhythm */}
         <PerformanceRhythmCard userId={user?.id} />
 
         {/* Card 5 — Your Mind Map */}
@@ -802,77 +851,6 @@ const Insights = () => {
                   onNodeSummary={fetchNodeSummary}
                 />
               </>
-            )}
-          </CardContent>
-        </LuxuryInsightCard>
-
-        {/* Card 6 — Your Momentum */}
-        <LuxuryInsightCard>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
-              <InsightInfoModal
-                title="Your Momentum"
-                explanation="The wins you've logged over the past two weeks — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {winsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
-              <div className="space-y-4">
-                {/* AI observation headline */}
-                {tinyWinsInsights.observation && (
-                  <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {tinyWinsInsights.observation}
-                    </p>
-                  </div>
-                )}
-                
-                {winsProgressMessage && (
-                  <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
-                )}
-                
-                {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
-                  <PsychologicalDimensionBubbles
-                    data={tinyWinsInsights.dimensions.map(d => ({
-                      dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
-                      value: d.value,
-                      count: d.count,
-                      displayLabel: d.displayLabel,
-                      insight: d.insight,
-                    }))}
-                    relatedWins={tinyWinsContent}
-                    emptyMessage="Complete evening Integrate flow to capture wins"
-                  />
-                ) : (
-                  <InnerWorldBubbles
-                    items={tinyWinsBubbleData}
-                    emptyMessage="Complete evening Integrate flow to capture wins"
-                  />
-                )}
-                
-                {/* Pattern line */}
-                {tinyWinsInsights.patternLine && (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {tinyWinsInsights.patternLine}
-                  </p>
-                )}
-                
-                <p className="text-xs text-muted-foreground/60">
-                  Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
-                </p>
-              </div>
-            ) : (
-              <div className="py-4">
-                <p className="text-sm text-muted-foreground">
-                  {winsProgressMessage || 'Complete your evening Integrate flow with the Coach to capture wins.'}
-                </p>
-              </div>
             )}
           </CardContent>
         </LuxuryInsightCard>
