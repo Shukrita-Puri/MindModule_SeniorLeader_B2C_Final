@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -194,6 +194,19 @@ const router = createBrowserRouter([
 const queryClient = new QueryClient();
 
 function App() {
+  useEffect(() => {
+    const initHealthKit = async () => {
+      try {
+        const { requestHRVPermission } = await import('./services/healthkit');
+        await requestHRVPermission();
+        console.log('HealthKit permission granted ✅');
+      } catch (err) {
+        console.error('HealthKit permission denied ❌', err);
+      }
+    };
+    initHealthKit();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
