@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isNativeApp } from "@/utils/healthKitCapacitor";
-import { requestHRVPermission } from "@/services/healthkit";
+import { requestHRVPermission, getHRV } from "@/services/healthkit";
 
 
 /**
@@ -131,6 +131,13 @@ export default function Stage7ContextConnection() {
       try {
         await requestHRVPermission();
         toast.success('Apple Watch connected via HealthKit');
+        // Fetch HRV data after permission granted
+        try {
+          const hrvData = await getHRV();
+          console.log('HRV samples:', hrvData);
+        } catch (hrvErr) {
+          console.error('Failed to fetch HRV:', hrvErr);
+        }
       } catch (err) {
         console.error('HealthKit permission denied ❌', err);
         toast.error('HealthKit permissions are required for Apple Watch integration');
