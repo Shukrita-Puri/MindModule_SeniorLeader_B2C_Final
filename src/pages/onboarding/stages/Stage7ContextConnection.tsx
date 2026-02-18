@@ -7,7 +7,8 @@ import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
+import { isNativeApp } from "@/utils/healthKitCapacitor";
+import { requestHRVPermission } from "@/services/healthkit";
 
 
 /**
@@ -127,12 +128,14 @@ export default function Stage7ContextConnection() {
   // Handle Apple Watch toggle — native HealthKit or preference-only
   const handleWatchToggle = async (checked: boolean) => {
     if (checked && isNativeApp()) {
-      const granted = await requestHealthKitPermissions();
-      if (!granted) {
+      try {
+        await requestHRVPermission();
+        toast.success('Apple Watch connected via HealthKit');
+      } catch (err) {
+        console.error('HealthKit permission denied ❌', err);
         toast.error('HealthKit permissions are required for Apple Watch integration');
-        return; // don't toggle on
+        return;
       }
-      toast.success('Apple Watch connected via HealthKit');
     } else if (checked) {
       toast.info('Apple Watch will connect when you install the mobile app');
     }
