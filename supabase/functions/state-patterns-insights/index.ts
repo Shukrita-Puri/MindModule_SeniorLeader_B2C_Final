@@ -51,7 +51,7 @@ serve(async (req) => {
         .single(),
       supabase
         .from("daily_checkins")
-        .select("checkin_date, outcome, energy_balance, created_at")
+        .select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at")
         .eq("user_id", userId)
         .gte("checkin_date", thirtyDaysStr)
         .order("checkin_date", { ascending: true }),
@@ -235,6 +235,56 @@ serve(async (req) => {
       aiObservation = generateSimpleObservation(trendDirection, frictionLabel, frictionPct, typicalState, totalCheckins);
     }
 
+    // --- Baseline scores (from onboarding component_scores) ---
+    const componentScores = profile?.component_scores as any;
+    let baselineScores: { recalibration: number; clarity: number; renewal: number } | null = null;
+    let baselineArchetypeTitle: string | null = null;
+
+    if (componentScores) {
+      const bER = componentScores.energyRegulation ?? componentScores.q2_energy_regulation ?? null;
+      const bFR = componentScores.focusRecovery ?? componentScores.q3_focus_recovery ?? null;
+      const bEN = componentScores.energyRenewal ?? componentScores.q4_energy_renewal ?? null;
+      if (bER !== null && bFR !== null && bEN !== null) {
+        baselineScores = { recalibration: Math.round(bER), clarity: Math.round(bFR), renewal: Math.round(bEN) };
+        baselineArchetypeTitle = resolveArchetypeFromScores(bER, bFR, bEN).title;
+      }
+    }
+
+    // --- Current scores (last 7 days of check-ins) ---
+    const sevenDaysAgoDate = new Date(now);
+    sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgoDate.toISOString().split("T")[0];
+
+    const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgoStr);
+    const recentEB = recentCheckins.filter((c) => c.energy_balance != null).map((c) => c.energy_balance as number);
+    const recentCL = recentCheckins.filter((c) => c.clarity_level != null).map((c) => c.clarity_level as number);
+    const recentCF = recentCheckins.filter((c) => c.confidence_level != null).map((c) => c.confidence_level as number);
+
+    let currentScores: { recalibration: number; clarity: number; renewal: number } | null = null;
+    let currentArchetypeTitle: string | null = null;
+    let archetypeEvolved = false;
+    let scoreDeltas: { recalibration: number; clarity: number; renewal: number } | null = null;
+
+    const hasEnoughForCurrent = totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0;
+
+    if (hasEnoughForCurrent) {
+      const avgER = Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length);
+      const avgFR = Math.round(recentCL.reduce((s, v) => s + v, 0) / recentCL.length);
+      const avgEN = Math.round(recentCF.reduce((s, v) => s + v, 0) / recentCF.length);
+      currentScores = { recalibration: avgER, clarity: avgFR, renewal: avgEN };
+      const currentArch = resolveArchetypeFromScores(avgER, avgFR, avgEN);
+      currentArchetypeTitle = currentArch.title;
+
+      if (baselineScores) {
+        scoreDeltas = {
+          recalibration: currentScores.recalibration - baselineScores.recalibration,
+          clarity: currentScores.clarity - baselineScores.clarity,
+          renewal: currentScores.renewal - baselineScores.renewal,
+        };
+        archetypeEvolved = baselineArchetypeTitle !== currentArchetypeTitle;
+      }
+    }
+
     // --- Build response ---
     const response = {
       data: {
@@ -253,6 +303,12 @@ serve(async (req) => {
         coachFriction,
         aiObservation,
         checkInCount: totalCheckins,
+        baselineScores,
+        currentScores,
+        baselineArchetypeTitle,
+        currentArchetypeTitle,
+        archetypeEvolved,
+        scoreDeltas,
       },
     };
 
@@ -268,34 +324,48 @@ serve(async (req) => {
   }
 });
 
+// Shared cascade: scores -> archetype
+function resolveArchetypeFromScores(
+  er: number, fr: number, en: number
+): { title: string; strengthArea: string; growthArea: string } {
+  if (er >= 65 && en >= 55) return { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" };
+  if (en >= 65 && er >= 50) return { title: "The Resilient Performer", strengthArea: "Renewal", growthArea: "Clarity under load" };
+  if (fr >= 65 && er >= 45) return { title: "The Clear Thinker", strengthArea: "Clarity", growthArea: "Recalibration speed" };
+  if (er >= 60 && fr < 50) return { title: "The Intensity Driver", strengthArea: "Recalibration", growthArea: "Clarity balance" };
+  return { title: "The Adaptive Navigator", strengthArea: "Flexibility", growthArea: "Recalibration depth" };
+}
+
 function resolveArchetypeDetails(
   archetypeId: string | null,
   componentScores: any
 ): { title: string; strengthArea: string; growthArea: string } {
   // If we have component scores, determine archetype from scores
   if (componentScores) {
-    const q2 = componentScores.q2_energy_regulation ?? 50;
-    const q3 = componentScores.q3_focus_recovery ?? 50;
-    const q4 = componentScores.q4_energy_renewal ?? 50;
-    const q5 = componentScores.q5_growth_priority ?? 50;
-    const avg = (q2 + q3 + q4) / 3;
-
-    if (avg >= 80) return { title: "The Natural Regulator", strengthArea: "Comprehensive Self-Regulation", growthArea: "Advanced Integration" };
-    if (q3 >= 75 && q5 >= 75) return { title: "The Strategic Pauser", strengthArea: "Focus Recovery & Composure", growthArea: "Energy Downshift" };
-    if (q2 <= 50 && q4 >= 70) return { title: "The High-Octane Performer", strengthArea: "Energy Renewal", growthArea: "Proactive Regulation" };
-    return { title: "The Awareness Builder", strengthArea: "Growth Awareness", growthArea: "Foundational Tools" };
+    const er = componentScores.energyRegulation ?? componentScores.q2_energy_regulation ?? 50;
+    const fr = componentScores.focusRecovery ?? componentScores.q3_focus_recovery ?? 50;
+    const en = componentScores.energyRenewal ?? componentScores.q4_energy_renewal ?? 50;
+    return resolveArchetypeFromScores(er, fr, en);
   }
 
-  // Fallback: resolve from archetype ID string
+  // Fallback: resolve from archetype ID string (v2 + legacy)
   const map: Record<string, { title: string; strengthArea: string; growthArea: string }> = {
-    natural_regulator: { title: "The Natural Regulator", strengthArea: "Comprehensive Self-Regulation", growthArea: "Advanced Integration" },
-    strategic_pauser: { title: "The Strategic Pauser", strengthArea: "Focus Recovery & Composure", growthArea: "Energy Downshift" },
-    high_octane_performer: { title: "The High-Octane Performer", strengthArea: "Energy Renewal", growthArea: "Proactive Regulation" },
-    awareness_builder: { title: "The Awareness Builder", strengthArea: "Growth Awareness", growthArea: "Foundational Tools" },
+    // v2 IDs
+    "grounded-leader": { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" },
+    "resilient-performer": { title: "The Resilient Performer", strengthArea: "Renewal", growthArea: "Clarity under load" },
+    "clear-thinker": { title: "The Clear Thinker", strengthArea: "Clarity", growthArea: "Recalibration speed" },
+    "intensity-driver": { title: "The Intensity Driver", strengthArea: "Recalibration", growthArea: "Clarity balance" },
+    "adaptive-navigator": { title: "The Adaptive Navigator", strengthArea: "Flexibility", growthArea: "Recalibration depth" },
+    // Legacy IDs
+    natural_regulator: { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" },
+    strategic_pauser: { title: "The Clear Thinker", strengthArea: "Clarity", growthArea: "Recalibration speed" },
+    high_octane_performer: { title: "The Resilient Performer", strengthArea: "Renewal", growthArea: "Clarity under load" },
+    awareness_builder: { title: "The Intensity Driver", strengthArea: "Recalibration", growthArea: "Clarity balance" },
+    grounded_master: { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" },
+    balanced_navigator: { title: "The Adaptive Navigator", strengthArea: "Flexibility", growthArea: "Recalibration depth" },
   };
   if (archetypeId && map[archetypeId]) return map[archetypeId];
-  if (archetypeId) return { title: archetypeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), strengthArea: "Self-Regulation", growthArea: "Energy Management" };
-  return { title: "", strengthArea: "Self-Regulation", growthArea: "Energy Management" };
+  if (archetypeId) return { title: archetypeId.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), strengthArea: "Flexibility", growthArea: "Recalibration depth" };
+  return { title: "", strengthArea: "Flexibility", growthArea: "Recalibration depth" };
 }
 
 function generateSimpleObservation(

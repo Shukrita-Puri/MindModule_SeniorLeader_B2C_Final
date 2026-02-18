@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, MessageSquare, Sparkles } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, MessageSquare, Sparkles, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -7,6 +7,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
+
+interface DimensionScores {
+  recalibration: number;
+  clarity: number;
+  renewal: number;
+}
 
 interface LeadershipPatternsData {
   userArchetype: string | null;
@@ -24,6 +30,12 @@ interface LeadershipPatternsData {
   coachFriction: string | null;
   aiObservation: string | null;
   checkInCount: number;
+  baselineScores: DimensionScores | null;
+  currentScores: DimensionScores | null;
+  baselineArchetypeTitle: string | null;
+  currentArchetypeTitle: string | null;
+  archetypeEvolved: boolean;
+  scoreDeltas: DimensionScores | null;
 }
 
 interface LeadershipPatternsCardProps {
@@ -50,6 +62,15 @@ const trendColors = {
   stable: 'text-muted-foreground',
 };
 
+// DEV_MODE archetype resolution matching edge function cascade
+function devResolveArchetype(er: number, fr: number, en: number) {
+  if (er >= 65 && en >= 55) return { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" };
+  if (en >= 65 && er >= 50) return { title: "The Resilient Performer", strengthArea: "Renewal", growthArea: "Clarity under load" };
+  if (fr >= 65 && er >= 45) return { title: "The Clear Thinker", strengthArea: "Clarity", growthArea: "Recalibration speed" };
+  if (er >= 60 && fr < 50) return { title: "The Intensity Driver", strengthArea: "Recalibration", growthArea: "Clarity balance" };
+  return { title: "The Adaptive Navigator", strengthArea: "Flexibility", growthArea: "Recalibration depth" };
+}
+
 const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +89,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
         const [checkInsRes, themesRes, coachRes, profileRes] = await Promise.all([
           supabase
             .from('daily_checkins')
-            .select('checkin_date, outcome, energy_balance, created_at')
+            .select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at')
             .eq('user_id', effectiveUserId)
             .gte('checkin_date', thirtyDaysAgo)
             .order('checkin_date', { ascending: true }),
@@ -148,15 +169,46 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           if (coachStrength && coachFriction) break;
         }
 
-        // Resolve archetype details from profile data (mirrors edge function logic)
-        const arch = profileRes.data?.user_archetype;
-        const archetypeTitle = arch ? arch.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
+        // Resolve archetype from component_scores (v2 keys with legacy fallback)
+        const cs = profileRes.data?.component_scores as any;
+        const bER = cs?.energyRegulation ?? cs?.q2_energy_regulation ?? 50;
+        const bFR = cs?.focusRecovery ?? cs?.q3_focus_recovery ?? 50;
+        const bEN = cs?.energyRenewal ?? cs?.q4_energy_renewal ?? 50;
+        const baselineArch = devResolveArchetype(bER, bFR, bEN);
+        const baselineScores: DimensionScores = { recalibration: Math.round(bER), clarity: Math.round(bFR), renewal: Math.round(bEN) };
+
+        // Current scores from last 7 days
+        const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenStr);
+        const recentEB = recentCheckins.filter((c) => c.energy_balance != null).map((c) => c.energy_balance as number);
+        const recentCL = recentCheckins.filter((c) => c.clarity_level != null).map((c) => c.clarity_level as number);
+        const recentCF = recentCheckins.filter((c) => c.confidence_level != null).map((c) => c.confidence_level as number);
+
+        let currentScores: DimensionScores | null = null;
+        let currentArchetypeTitle: string | null = null;
+        let archetypeEvolved = false;
+        let scoreDeltas: DimensionScores | null = null;
+
+        const hasEnoughForCurrent = totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0;
+        if (hasEnoughForCurrent) {
+          const avgER = Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length);
+          const avgFR = Math.round(recentCL.reduce((s, v) => s + v, 0) / recentCL.length);
+          const avgEN = Math.round(recentCF.reduce((s, v) => s + v, 0) / recentCF.length);
+          currentScores = { recalibration: avgER, clarity: avgFR, renewal: avgEN };
+          const currentArch = devResolveArchetype(avgER, avgFR, avgEN);
+          currentArchetypeTitle = currentArch.title;
+          scoreDeltas = {
+            recalibration: currentScores.recalibration - baselineScores.recalibration,
+            clarity: currentScores.clarity - baselineScores.clarity,
+            renewal: currentScores.renewal - baselineScores.renewal,
+          };
+          archetypeEvolved = baselineArch.title !== currentArchetypeTitle;
+        }
 
         setData({
-          userArchetype: arch || null,
-          archetypeTitle,
-          strengthArea: 'Self-Regulation',
-          growthArea: 'Energy Management',
+          userArchetype: profileRes.data?.user_archetype || null,
+          archetypeTitle: baselineArch.title,
+          strengthArea: baselineArch.strengthArea,
+          growthArea: baselineArch.growthArea,
           typicalState,
           distribution,
           compositeAvg30,
@@ -168,6 +220,12 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           coachFriction,
           aiObservation: totalCheckins >= 3 ? `Your readiness has been ${trendDirection} this period, with ${frictionLabel.toLowerCase()} across your check-ins.` : null,
           checkInCount: totalCheckins,
+          baselineScores,
+          currentScores,
+          baselineArchetypeTitle: baselineArch.title,
+          currentArchetypeTitle,
+          archetypeEvolved,
+          scoreDeltas,
         });
         setLoading(false);
         return;
@@ -191,6 +249,29 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
   };
 
   const TrendIcon = data ? trendIcons[data.trendDirection] : Minus;
+
+  const renderDimensionRow = (label: string, baseline: number, current: number | undefined, delta: number | undefined) => (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-xs text-muted-foreground w-28">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground/70 tabular-nums">{baseline}</span>
+        {current !== undefined && (
+          <>
+            <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
+            <span className="font-semibold text-foreground tabular-nums">{current}</span>
+            {delta !== undefined && (
+              <span className={cn(
+                'text-xs tabular-nums',
+                delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
+              )}>
+                ({delta > 0 ? '+' : ''}{delta})
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <LuxuryInsightCard>
@@ -226,13 +307,43 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
               </div>
             )}
 
-            {/* Archetype line */}
-            {data.archetypeTitle && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Archetype</span>
-                <span className="text-sm font-semibold text-foreground">
-                  {data.archetypeTitle}
-                </span>
+            {/* Archetype line — with evolution if applicable */}
+            {(data.archetypeTitle || data.currentArchetypeTitle) && (
+              <div>
+                {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Archetype Evolution</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-muted-foreground/70">{data.baselineArchetypeTitle}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-primary/60" />
+                      <span className="text-sm font-semibold text-foreground">{data.currentArchetypeTitle}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Archetype</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {data.archetypeTitle}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Three-Dimension Progress */}
+            {data.baselineScores && (
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
+                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-2">
+                  {data.currentScores ? 'Dimension Progress' : 'Your Starting Point'}
+                </p>
+                {renderDimensionRow('Recalibration', data.baselineScores.recalibration, data.currentScores?.recalibration, data.scoreDeltas?.recalibration)}
+                {renderDimensionRow('Clarity', data.baselineScores.clarity, data.currentScores?.clarity, data.scoreDeltas?.clarity)}
+                {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal)}
+                {!data.currentScores && (
+                  <p className="text-[10px] text-muted-foreground/60 pt-1">
+                    Current scores build after 7 check-ins
+                  </p>
+                )}
               </div>
             )}
 
