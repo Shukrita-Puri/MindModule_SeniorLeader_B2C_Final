@@ -278,10 +278,10 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Leadership Patterns
+            Your Self Mastery Patterns
           </span>
           <InsightInfoModal
-            title="Your Leadership Patterns"
+            title="Your Self Mastery Patterns"
             explanation="What is consistently true about how you lead. This card draws from your coach sessions, your recurring Compass themes, and your Inner Readiness history over 30 days — surfacing the strengths your coach keeps returning to, the friction patterns that keep showing up, and the overall direction of your inner state over time."
           />
         </div>
@@ -292,7 +292,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !data ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Unable to load leadership patterns.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Unable to load self mastery patterns.</p>
         ) : (
           <div className="space-y-5">
             {/* AI Observation — headline insight */}
