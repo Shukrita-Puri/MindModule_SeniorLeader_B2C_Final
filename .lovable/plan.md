@@ -1,72 +1,104 @@
 
-# Seed sanctuary_content Table for Mastery Plan Regulate Module
 
-## Problem
+# Evolve Leadership Patterns: Archetype Progress + Three-Dimension Scores
 
-The `generate-mastery-plan` edge function correctly implements the full Mastery Practice architecture (Regulate / Align / Prepare / Integrate modules, theme-to-module mapping, time-of-day logic, evening close). However, it queries the `sanctuary_content` database table for content -- and that table has **zero rows**.
+## What You Will See
 
-The content displayed on `/recalibrate` pages comes from a **client-side** file (`src/data/practicesAndSoundscapes.ts`, 1831 lines, ~35+ items). The edge function cannot see this client-side data. This is why the Evening Close shows no Regulate practice -- there is nothing for `selectContent()` to select from.
+The "Your Leadership Patterns" card on `/insights` will gain two new sections **while keeping everything that already exists** (AI observation, archetype, 30-day avg, typical state, friction frequency, Lean On / Watch For, recurring themes, progressive messages):
 
-## Design Intent Confirmation
+1. **Archetype Evolution** -- If your current operating archetype has shifted from your onboarding baseline, you will see something like: "Started as The Adaptive Navigator -- Now operating as The Grounded Master". If unchanged, just your current archetype title as today.
 
-The edge function **does** contain the full design intent:
-- Module ordering: Regulate -> Align -> Prepare -> Integrate
-- Evening sessions: Regulate + Integrate (coach card), with Align/Prepare suppressed unless high-priority next-day event
-- Time-of-day session labels (Morning Practice / Afternoon Reset / Evening Close)
-- Duration ceilings by calendar load
-- Content scoring with favourites, coach insights, effectiveness, intensity matching, and date-seeded deterministic selection
-- Theme-to-module mapping for all 40 theme phrases across 4 tiers
+2. **Three-Dimension Progress** -- Below the archetype line, a compact block showing your baseline (onboarding) scores versus your current (last 7 days) scores for Recalibration, Clarity, and Renewal, with delta indicators. Only appears once you have 7+ check-ins. Fewer than 7 shows baseline only with "Building your pattern..." note.
 
-The architecture is complete. The only gap is **empty content in the database**.
+3. **Fixed Archetype Resolution** -- The archetype title and Lean On / Watch For labels will finally show the correct v2 archetype names (Grounded Master, Resilient Performer, Clear Thinker, Intensity Driver, Adaptive Navigator) instead of legacy fallbacks.
 
-## Solution
+---
 
-Seed the `sanctuary_content` table with all content from the client-side `practicesAndSoundscapes.ts` file. This includes:
+## Technical Plan
 
-- **~10 soundbaths** (pause/power-up/presence categories)
-- **~6 guided practices** (breathing, somatic, grounding)
-- **~25 micro-practices** (mindset and tool sub-types)
+### File 1: `supabase/functions/state-patterns-insights/index.ts`
 
-Each row will include: `id`, `title`, `content_type`, `category`, `tags`, `duration`, `sub_type`, `difficulty`, `protocol_type`, `thumbnail_url`, `is_active = true`.
+**A. Fix `resolveArchetypeDetails()` (lines 271-299)**
 
-## Steps
+Replace the entire function to:
+- Read v2 keys first (`energyRegulation`, `focusRecovery`, `energyRenewal`), fall back to legacy keys (`q2_energy_regulation`, etc.)
+- Use the correct 5-archetype priority cascade:
+  - Grounded Master: ER >= 65 AND EN >= 55 (Lean on: Recalibration, Watch for: Renewal depth)
+  - Resilient Performer: EN >= 65 AND ER >= 50 (Lean on: Renewal, Watch for: Clarity under load)
+  - Clear Thinker: FR >= 65 AND ER >= 45 (Lean on: Clarity, Watch for: Recalibration speed)
+  - Intensity Driver: ER >= 60 AND FR < 50 (Lean on: Recalibration, Watch for: Clarity balance)
+  - Adaptive Navigator: default (Lean on: Flexibility, Watch for: Recalibration depth)
+- Add v2 IDs (`grounded-leader`, `resilient-performer`, etc.) to the string fallback map alongside legacy IDs
 
-1. **Insert all content into `sanctuary_content`** using the data insert tool -- mapping fields from the client-side TypeScript objects to the DB columns (`contentType` -> `content_type`, `storyHook` -> `story_hook`, etc.)
+**B. Add baseline vs current score computation (new logic block)**
 
-2. **Insert structured tags into `sanctuary_content_metadata`** for content items that have `structuredTags` defined, so the edge function's metadata merge logic works correctly.
+After the existing parallel queries, add:
+- Extract `baselineScores` from `profiles.component_scores` (the onboarding scores, reading v2 keys with legacy fallback)
+- Query `daily_checkins` for last 7 days including `clarity_level` and `confidence_level` (already in the table but not currently selected)
+- Compute `currentScores`:
+  - Recalibration = avg of `energy_balance` over last 7 days
+  - Clarity = avg of `clarity_level` over last 7 days
+  - Renewal = avg of `confidence_level` over last 7 days
+- Re-evaluate `currentArchetype` using the same cascade on current scores
+- Compute deltas (current - baseline) for each dimension
+- Set `archetypeEvolved = true` if current archetype differs from baseline archetype
 
-3. **Verify** the edge function can now select Regulate content for evening sessions by testing the function.
+**C. Extend the response payload**
 
-## Technical Details
-
-Column mapping from `practicesAndSoundscapes.ts` to `sanctuary_content` table:
-
-```text
-Client Field        -> DB Column
-id                  -> id
-title               -> title
-contentType         -> content_type
-category            -> category
-tags                -> tags (text array)
-duration            -> duration (numeric, in minutes)
-difficulty          -> difficulty
-subType             -> sub_type
-voice               -> voice
-thumbnail (URL)     -> thumbnail_url
-audioSrc            -> audio_url
-steps count         -> steps_count
-creator             -> creator
-origin              -> origin
-storyHook           -> story_hook
-usedBy              -> used_by
-is_active           -> true (all active)
+Add to the existing response (nothing removed):
+```
+baselineScores: { recalibration, clarity, renewal } | null
+currentScores: { recalibration, clarity, renewal } | null
+baselineArchetypeTitle: string | null
+currentArchetypeTitle: string | null
+archetypeEvolved: boolean
+scoreDeltas: { recalibration, clarity, renewal } | null
 ```
 
-For `sanctuary_content_metadata`:
-```text
-content_id          -> id from sanctuary_content
-structured_tags     -> structuredTags as JSONB
-mastery_category    -> derived from structuredTags.pillar
-```
+### File 2: `src/components/insights/LeadershipPatternsCard.tsx`
 
-No schema changes required -- both tables already exist with the correct columns.
+**A. Extend the `LeadershipPatternsData` interface**
+
+Add the new fields from the edge function response.
+
+**B. Add Archetype Evolution display (after existing archetype line, ~line 237)**
+
+If `archetypeEvolved` is true:
+- Show: baseline archetype title with a right arrow to current archetype title
+- Subtle styling: baseline in muted text, arrow, current in bold
+
+If false: keep existing single archetype line as-is.
+
+**C. Add Three-Dimension Progress block (after archetype, before composite score)**
+
+When `baselineScores` and `currentScores` both exist:
+- Three rows: Recalibration, Clarity, Renewal
+- Each row: dimension label, baseline score, arrow, current score, delta in parentheses
+- Delta color: green for positive, red for negative, neutral for zero/small
+- Compact layout using the existing card design language
+
+When only `baselineScores` exist (fewer than 7 check-ins):
+- Show baseline scores with "Your starting point" label
+- Small note: "Current scores build after 7 check-ins"
+
+**D. Update DEV_MODE fallback (lines 64-173)**
+
+Mirror the new fields in the DEV_MODE path so development testing works. Read `component_scores` from the profile query that already runs, and compute current scores from the check-in data already fetched.
+
+### What stays unchanged
+
+- AI observation headline
+- 30-day Inner Readiness avg + trend direction
+- Most frequent state (30 days)
+- Friction frequency with qualitative label
+- Lean On (strength) with coach quote
+- Watch For (friction) with coach quote
+- Recurring Compass themes with occurrence counts
+- Progressive check-in messages
+- Data source note
+- All other Insights cards
+
+### No database changes required
+
+The `daily_checkins` table already has `clarity_level` and `confidence_level` columns. The `profiles` table already has `component_scores` (JSONB). No migration needed.
+
