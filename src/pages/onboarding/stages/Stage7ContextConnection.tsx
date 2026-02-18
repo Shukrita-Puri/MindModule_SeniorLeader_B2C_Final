@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Watch } from "lucide-react";
+import { } from "lucide-react";
 import { getSession } from "@/utils/onboardingStorage";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,7 +186,6 @@ export default function Stage7ContextConnection() {
           {/* Google Calendar */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-muted-foreground" />
               <div className="flex flex-col">
                 <span className="font-medium">Google Calendar</span>
                 <span className="text-xs text-muted-foreground">
@@ -204,7 +203,6 @@ export default function Stage7ContextConnection() {
           {/* Apple Watch */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
-              <Watch className="w-5 h-5 text-muted-foreground" />
               <div className="flex flex-col">
                 <span className="font-medium">Apple Watch</span>
                 <span className="text-xs text-muted-foreground">
