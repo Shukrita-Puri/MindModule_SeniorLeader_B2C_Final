@@ -739,7 +739,7 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Your Leadership Patterns — unified card */}
+        {/* Your Self Mastery Patterns — unified card */}
         <LeadershipPatternsCard userId={user?.id} />
 
         {/* What Works For You (Practice Effectiveness) */}
