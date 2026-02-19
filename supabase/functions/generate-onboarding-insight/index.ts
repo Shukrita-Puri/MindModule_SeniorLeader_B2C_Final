@@ -187,28 +187,50 @@ Results:
 
 Write 2-3 sentences that name this leader's specific pattern — what their scores reveal about how they lead under pressure, and what their practice will build. Speak directly to the leader. No generic language. No research citations. No timeline promises. No percentile comparisons.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-        temperature: 0.7,
-      }),
-    });
+    const models = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash-lite', 'openai/gpt-5-nano'];
+    let response: Response | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway Error:', response.status, errorText);
-      throw new Error(`AI Gateway failed: ${response.status}`);
+    for (const model of models) {
+      console.log(`[Onboarding] Trying model: ${model}`);
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 200,
+          temperature: 0.7,
+        }),
+      });
+
+      if (res.ok) {
+        response = res;
+        break;
+      }
+
+      const errorText = await res.text();
+      console.error(`AI Gateway Error (${model}):`, res.status, errorText);
+
+      if (res.status === 429 || res.status === 402) {
+        throw new Error(res.status === 429 ? 'Rate limit exceeded. Please try again shortly.' : 'AI credits exhausted. Please add credits.');
+      }
+      // Try next model on 5xx
     }
 
-    const data = await response.json();
-    const insight = data.choices?.[0]?.message?.content?.trim() || "";
+    let insight = '';
+    if (!response) {
+      // Graceful fallback: generate a deterministic insight when AI is unavailable
+      console.warn('[Onboarding] All AI models unavailable, using fallback insight');
+      const lowest = Object.entries(componentScores).sort((a, b) => (a[1] as number) - (b[1] as number))[0];
+      const lowestLabel = lowest[0] === 'energyRegulation' ? 'energy regulation' : lowest[0] === 'focusRecovery' ? 'focus recovery' : 'energy renewal';
+      insight = `Your pattern shows strong capacity across your leadership dimensions. Your practice will focus on strengthening ${lowestLabel} — the area with the most room for growth given your current profile.`;
+    } else {
+      const data = await response.json();
+      insight = data.choices?.[0]?.message?.content?.trim() || '';
+    }
 
     return new Response(
       JSON.stringify({
