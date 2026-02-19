@@ -3,53 +3,75 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN")!;
+const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
 
 async function verifyAuth0Token(authHeader: string): Promise<string> {
+  if (!AUTH0_DOMAIN) throw new Error("Auth0 domain not configured");
   const token = authHeader.replace("Bearer ", "");
   const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Auth0 userinfo failed: ${response.status} ${txt}`);
-  }
+  if (!response.ok) throw new Error(`Auth0 userinfo failed: ${response.status}`);
   const data = await response.json();
   if (!data?.sub) throw new Error("Auth0 userinfo missing sub");
   return data.sub as string;
 }
 
-// Time window classification
-function getTimeWindow(hour: number): "morning" | "afternoon" | "evening" {
-  if (hour >= 5 && hour <= 11) return "morning";
-  if (hour >= 12 && hour <= 17) return "afternoon";
-  return "evening"; // 18-4
-}
-
-function getDayLabel(date: Date): string {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return days[date.getDay()];
-}
-
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const TIME_WINDOWS = ["morning", "afternoon", "evening"] as const;
+const TIME_LABELS = ["Morning", "Afternoon", "Evening"];
+
+function getTimeWindow(hour: number): number {
+  if (hour >= 5 && hour < 12) return 0;
+  if (hour >= 12 && hour < 17) return 1;
+  return 2;
+}
+
+function getDayIndex(dayOfWeek: number): number {
+  return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+}
+
+function isSameDay(a: string, b: string): boolean {
+  return a.split("T")[0] === b.split("T")[0];
+}
 
 const HIGH_STAKES_KEYWORDS = [
-  "board", "quarterly", "investor", "pitch", "review",
-  "presentation", "interview", "deadline", "client", "all-hands",
-  "performance", "budget", "strategy", "executive", "stakeholder",
+  "board", "board meeting", "board of directors",
+  "investor", "vc", "funding", "pitch",
+  "crisis", "urgent", "emergency",
+  "negotiation", "deal", "contract",
+  "all hands", "town hall", "company meeting",
+  "interview", "media", "press",
+  "performance review", "annual review",
+  "termination", "layoff", "difficult conversation",
+  "quarterly", "qbr", "earnings",
+  "product launch", "go live",
+  "keynote", "conference", "speaking", "presentation",
 ];
+
+const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
+  board: ["board", "board meeting", "board of directors", "board deck"],
+  investor: ["investor", "vc", "funding", "pitch", "fundraise"],
+  quarterly: ["quarterly", "qbr", "q1", "q2", "q3", "q4", "quarterly review"],
+  strategic: ["strategy", "strategic planning", "offsite", "vision", "roadmap"],
+  client: ["client", "customer", "demo", "proposal"],
+  performance_review: ["performance review", "annual review", "mid-year", "360"],
+  all_hands: ["all hands", "town hall", "company meeting"],
+  media: ["interview", "podcast", "media", "press"],
+  deadline: ["deadline", "urgent", "due", "eod", "cob"],
+  presentation: ["presentation", "speaking", "conference", "webinar"],
+};
 
 interface HeatmapCell {
   outcome: string | null;
-  avgScore: number | null;
+  compositeScore: number | null;
   divergence: boolean;
 }
 
@@ -61,344 +83,261 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization" }), {
-        status: 401, headers: corsHeaders,
-      });
+      return new Response(JSON.stringify({ error: "Missing Authorization" }), { status: 401, headers: corsHeaders });
     }
 
     const userId = await verifyAuth0Token(authHeader);
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-    });
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+    const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
     // Fetch all data in parallel
-    const [checkInsRes, calendarConnRes, calendarEventsRes, behaviorLogsRes] = await Promise.all([
-      supabaseAdmin
-        .from("daily_checkins")
-        .select("outcome, energy_balance, checkin_date, created_at")
-        .eq("user_id", userId)
-        .gte("checkin_date", thirtyDaysAgoStr)
-        .order("created_at", { ascending: false }),
-      supabaseAdmin
-        .from("calendar_connections")
-        .select("is_active")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("calendar_events")
-        .select("title, start_time")
-        .eq("user_id", userId)
-        .gte("start_time", thirtyDaysAgo.toISOString()),
-      supabaseAdmin
-        .from("behavior_logs")
-        .select("behavior_type, created_at")
-        .eq("user_id", userId)
-        .gte("created_at", thirtyDaysAgo.toISOString()),
-    ]);
+    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] =
+      await Promise.all([
+        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at")
+          .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
+        sb.from("calendar_connections").select("is_active")
+          .eq("user_id", userId).eq("is_active", true).maybeSingle(),
+        sb.from("calendar_events").select("title, start_time")
+          .eq("user_id", userId).gte("start_time", thirtyDaysAgoIso),
+        sb.from("behavior_logs").select("behavior_type, created_at")
+          .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
+        sb.from("inner_readiness_scores").select("composite_score, energy_tier, score_date, time_of_day")
+          .eq("user_id", userId).gte("score_date", thirtyDaysAgoStr),
+        sb.from("daily_ritual_completions").select("ritual_date, completion_status, session_period")
+          .eq("user_id", userId).gte("ritual_date", thirtyDaysAgoStr),
+        sb.from("dialogue_messages").select("content, sender_type, session_id")
+          .limit(300),
+      ]);
 
     const checkIns = checkInsRes.data || [];
-    const hasCalendar = !!calendarConnRes.data?.is_active;
-    const calendarEvents = calendarEventsRes.data || [];
-    const behaviorLogs = behaviorLogsRes.data || [];
+    const hasCalendar = !!calConnRes.data?.is_active;
+    const calendarEvents = calEventsRes.data || [];
+    const behaviorLogs = behaviorRes.data || [];
+    const readinessScores = readinessRes.data || [];
+    const rituals = ritualsRes.data || [];
+    const dialogueMessages = dialogueRes.data || [];
 
-    console.log(`[performance-rhythm-insights] User ${userId}: ${checkIns.length} checkins, ${calendarEvents.length} events, ${behaviorLogs.length} behaviors, calendar=${hasCalendar}`);
+    console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs`);
 
-    // ── 1. Build Heatmap Grid (3x7) ──
-    // Track most recent outcome per cell and all scores for averaging
-    const cellOutcomes: Record<string, Record<string, { outcome: string | null; latestTime: number }>> = {};
-    const cellScores: Record<string, Record<string, number[]>> = {};
-
-    for (const tw of TIME_WINDOWS) {
-      cellOutcomes[tw] = {};
-      cellScores[tw] = {};
-      for (const day of DAYS) {
-        cellOutcomes[tw][day] = { outcome: null, latestTime: 0 };
-        cellScores[tw][day] = [];
-      }
-    }
+    // ── BUILD 3×7 GRID ──
+    const grid: HeatmapCell[][] = Array(3).fill(null).map(() =>
+      Array(7).fill(null).map(() => ({ outcome: null, compositeScore: null, divergence: false }))
+    );
+    const cellLatest: number[][] = Array(3).fill(null).map(() => Array(7).fill(0));
 
     for (const ci of checkIns) {
-      if (!ci.created_at) continue;
-      const date = new Date(ci.created_at);
-      const hour = date.getHours();
-      const tw = getTimeWindow(hour);
-      const day = getDayLabel(date);
-      const time = date.getTime();
-
-      // Most recent outcome per cell
-      if (ci.outcome && time > cellOutcomes[tw][day].latestTime) {
-        cellOutcomes[tw][day] = { outcome: ci.outcome, latestTime: time };
-      }
-
-      // Accumulate scores for averaging
-      if (ci.energy_balance != null) {
-        cellScores[tw][day].push(ci.energy_balance);
+      if (!ci.created_at || !ci.outcome) continue;
+      const d = new Date(ci.created_at);
+      const tw = getTimeWindow(d.getHours());
+      const di = getDayIndex(d.getDay());
+      const t = d.getTime();
+      if (t > cellLatest[tw][di]) {
+        cellLatest[tw][di] = t;
+        grid[tw][di].outcome = ci.outcome;
       }
     }
 
-    // Build heatmap response + find best window
-    const heatmap: Record<string, Record<string, HeatmapCell>> = {};
-    let bestWindowScore = -1;
-    let bestWindowLabel = "";
-
-    for (const tw of TIME_WINDOWS) {
-      heatmap[tw] = {};
-      for (const day of DAYS) {
-        const outcome = cellOutcomes[tw][day].outcome;
-        const scores = cellScores[tw][day];
-        const avgScore = scores.length > 0
-          ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-          : null;
-
-        // Divergence: felt "focused" but composite score < 50 (Managing tier)
-        const divergence = outcome === "focused" && avgScore !== null && avgScore < 50;
-
-        heatmap[tw][day] = { outcome, avgScore, divergence };
-
-        if (avgScore !== null && avgScore > bestWindowScore) {
-          bestWindowScore = avgScore;
-          bestWindowLabel = `${day} ${tw === "morning" ? "mornings" : tw === "afternoon" ? "afternoons" : "evenings"}`;
+    // Composite score overlay
+    const cellComposites: number[][][] = Array(3).fill(null).map(() =>
+      Array(7).fill(null).map(() => [] as number[])
+    );
+    for (const s of readinessScores) {
+      const d = new Date(s.score_date);
+      const tw = getTimeWindow(d.getHours());
+      const di = getDayIndex(d.getDay());
+      cellComposites[tw][di].push(s.composite_score);
+    }
+    for (let t = 0; t < 3; t++) {
+      for (let d = 0; d < 7; d++) {
+        const sc = cellComposites[t][d];
+        if (sc.length > 0) {
+          grid[t][d].compositeScore = Math.round(sc.reduce((a, b) => a + b, 0) / sc.length);
         }
       }
     }
 
-    // ── 2. Best Performance Window ──
-    const bestWindow = bestWindowScore > 0
-      ? `Your sharpest window this month has been ${bestWindowLabel}.`
-      : null;
-
-    // ── 3. Calendar Pattern Observations (max 2) ──
-    const observations: string[] = [];
-
-    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 5) {
-      // Build a map of checkin_date → energy_balance values
-      const dateScores: Record<string, number[]> = {};
-      const dateOutcomes: Record<string, string[]> = {};
-      for (const ci of checkIns) {
-        const d = ci.checkin_date;
-        if (ci.energy_balance != null) {
-          if (!dateScores[d]) dateScores[d] = [];
-          dateScores[d].push(ci.energy_balance);
-        }
-        if (ci.outcome) {
-          if (!dateOutcomes[d]) dateOutcomes[d] = [];
-          dateOutcomes[d].push(ci.outcome);
-        }
-      }
-
-      // Overall 30-day average energy_balance
-      const allScores = Object.values(dateScores).flat();
-      const overallAvg = allScores.length > 0
-        ? allScores.reduce((a, b) => a + b, 0) / allScores.length
-        : null;
-
-      // Map calendar event dates to keywords
-      const keywordDays: Record<string, Set<string>> = {};
-      for (const event of calendarEvents) {
-        if (!event.title) continue;
-        const titleLower = event.title.toLowerCase();
-        const eventDate = new Date(event.start_time).toISOString().split("T")[0];
-
-        for (const kw of HIGH_STAKES_KEYWORDS) {
-          if (titleLower.includes(kw)) {
-            if (!keywordDays[kw]) keywordDays[kw] = new Set();
-            keywordDays[kw].add(eventDate);
-          }
-        }
-      }
-
-      // For each keyword, compute average energy_balance on those days vs overall
-      const hasEnergyData = overallAvg !== null;
-
-      interface KeywordInsight {
-        keyword: string;
-        delta: number;
-        count: number;
-        absDelta: number;
-      }
-      const keywordInsights: KeywordInsight[] = [];
-
-      for (const [keyword, dates] of Object.entries(keywordDays)) {
-        const datesArr = Array.from(dates);
-
-        if (hasEnergyData) {
-          // Energy-balance approach
-          const kwScores: number[] = [];
-          for (const d of datesArr) {
-            if (dateScores[d]) kwScores.push(...dateScores[d]);
-          }
-          if (kwScores.length >= 3) {
-            const kwAvg = kwScores.reduce((a, b) => a + b, 0) / kwScores.length;
-            const delta = Math.round(kwAvg - overallAvg!);
-            if (Math.abs(delta) >= 10) {
-              keywordInsights.push({ keyword, delta, count: datesArr.length, absDelta: Math.abs(delta) });
-            }
-          }
-        } else {
-          // Fallback: outcome-correlation approach
-          const outcomeCounts: Record<string, number> = {};
-          let total = 0;
-          for (const d of datesArr) {
-            if (dateOutcomes[d]) {
-              dateOutcomes[d].forEach(o => {
-                outcomeCounts[o] = (outcomeCounts[o] || 0) + 1;
-                total++;
-              });
-            }
-          }
-          if (total >= 3) {
-            const sorted = Object.entries(outcomeCounts).sort((a, b) => b[1] - a[1]);
-            const [topOutcome, topCount] = sorted[0];
-            const confidence = topCount / total;
-            if (confidence >= 0.5) {
-              observations.push(
-                `On days with ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} events, you tend to check in ${topOutcome} ${Math.round(confidence * 100)}% of the time — observed across ${total} occurrences.`
-              );
-            }
-          }
-        }
-      }
-
-      // Sort by absolute delta and take top 2
-      if (keywordInsights.length > 0) {
-        keywordInsights.sort((a, b) => b.absDelta - a.absDelta);
-        for (const insight of keywordInsights.slice(0, 2)) {
-          const direction = insight.delta > 0 ? "higher" : "lower";
-          observations.push(
-            `On days with ${insight.keyword.charAt(0).toUpperCase() + insight.keyword.slice(1)} events, your Inner Readiness tends to be ${Math.abs(insight.delta)} points ${direction} than your average — observed across ${insight.count} days.`
-          );
+    // Divergence
+    const outcomeExpected: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
+    for (let t = 0; t < 3; t++) {
+      for (let d = 0; d < 7; d++) {
+        const c = grid[t][d];
+        if (c.outcome && c.compositeScore !== null) {
+          if (Math.abs(c.compositeScore - (outcomeExpected[c.outcome] || 50)) >= 20) c.divergence = true;
         }
       }
     }
 
-    // ── 4. Behavior-State Observation (max 1) ──
-    if (behaviorLogs.length > 0 && checkIns.length > 0) {
-      const behaviorOutcomes = new Map<string, Map<string, number>>();
-
-      for (const b of behaviorLogs) {
-        const bDate = new Date(b.created_at).toISOString().split("T")[0];
-        const type = b.behavior_type?.toLowerCase();
-        if (!type) continue;
-
-        // Same-day or next-day check-in
-        for (const ci of checkIns) {
-          const ciDate = ci.checkin_date;
-          const diffMs = new Date(ciDate).getTime() - new Date(bDate).getTime();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          if (diffDays >= 0 && diffDays <= 1 && ci.outcome) {
-            const outcome = ci.outcome.toLowerCase();
-            if (!behaviorOutcomes.has(type)) behaviorOutcomes.set(type, new Map());
-            const m = behaviorOutcomes.get(type)!;
-            m.set(outcome, (m.get(outcome) || 0) + 1);
+    // ── BEST READINESS WINDOW ──
+    let bestReadinessWindow: { timeWindow: number; day: number; avgScore: number; label: string } | null = null;
+    for (let t = 0; t < 3; t++) {
+      for (let d = 0; d < 7; d++) {
+        const sc = cellComposites[t][d];
+        if (sc.length >= 2) {
+          const avg = Math.round(sc.reduce((a, b) => a + b, 0) / sc.length);
+          if (!bestReadinessWindow || avg > bestReadinessWindow.avgScore) {
+            bestReadinessWindow = { timeWindow: t, day: d, avgScore: avg, label: `${TIME_LABELS[t]} on ${DAYS[d]} (avg readiness: ${avg})` };
           }
         }
       }
+    }
 
-      // Find top pattern
-      let topPattern: { trigger: string; outcome: string; confidence: number; total: number } | null = null;
-
-      behaviorOutcomes.forEach((outcomes, behaviorType) => {
-        let total = 0, maxState = "", maxCount = 0;
-        outcomes.forEach((count, state) => {
-          total += count;
-          if (count > maxCount) { maxCount = count; maxState = state; }
-        });
-        const confidence = total > 0 ? maxCount / total : 0;
-        if (total >= 2 && confidence >= 0.5) {
-          if (!topPattern || confidence > topPattern.confidence || (confidence === topPattern.confidence && total > topPattern.total)) {
-            topPattern = { trigger: behaviorType, outcome: maxState, confidence, total };
-          }
-        }
-      });
-
-      if (topPattern && observations.length < 2) {
-        const p = topPattern as { trigger: string; outcome: string; confidence: number; total: number };
-        const label = p.trigger.charAt(0).toUpperCase() + p.trigger.slice(1);
-        observations.push(
-          `On days following ${label} behaviors, you tend to check in ${p.outcome} ${Math.round(p.confidence * 100)}% of the time.`
+    // ── CALENDAR PATTERN (1B) ──
+    let calendarInsight: string | null = null;
+    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 10) {
+      const etCorr = new Map<string, { scores: number[]; count: number }>();
+      for (const ev of calendarEvents) {
+        if (!ev.title) continue;
+        const tl = ev.title.toLowerCase();
+        const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+          EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
+        if (!et) continue;
+        const dayScore = readinessScores.find(s => isSameDay(s.score_date, evDate));
+        if (!dayScore) continue;
+        if (!etCorr.has(et)) etCorr.set(et, { scores: [], count: 0 });
+        const x = etCorr.get(et)!;
+        x.scores.push(dayScore.composite_score);
+        x.count++;
+      }
+      const corrs: { et: string; avg: number; count: number }[] = [];
+      etCorr.forEach((v, et) => {
+        if (v.count >= 3) corrs.push({ et, avg: v.scores.reduce((a, b) => a + b, 0) / v.count, count: v.count });
+      });
+      corrs.sort((a, b) => a.avg - b.avg);
+      const drain = corrs[0];
+      const lift = corrs[corrs.length - 1];
+      if (drain && drain.avg < 50) {
+        calendarInsight = `On days with ${drain.et.replace("_", " ")} events, your readiness averages ${Math.round(drain.avg)} — observed across ${drain.count} occurrences.`;
+      } else if (lift && lift.avg > 65) {
+        const lbl = lift.et.replace("_", " ");
+        calendarInsight = `${lbl.charAt(0).toUpperCase() + lbl.slice(1)} events consistently lift your readiness — avg ${Math.round(lift.avg)} across ${lift.count} occurrences.`;
       }
     }
 
-    // ── 5. Time-of-day & day-of-week pattern observations (no calendar needed) ──
-    if (checkIns.length >= 3 && observations.length < 2) {
-      const twOutcomes: Record<string, Record<string, number>> = { morning: {}, afternoon: {}, evening: {} };
-      const twTotals: Record<string, number> = { morning: 0, afternoon: 0, evening: 0 };
-      for (const ci of checkIns) {
-        if (!ci.created_at || !ci.outcome) continue;
-        const h = new Date(ci.created_at).getHours();
-        const tw = h >= 5 && h <= 11 ? "morning" : h >= 12 && h <= 17 ? "afternoon" : "evening";
-        twOutcomes[tw][ci.outcome] = (twOutcomes[tw][ci.outcome] || 0) + 1;
-        twTotals[tw]++;
-      }
-      let bestTw: { window: string; state: string; pct: number } | null = null;
-      for (const [tw, outs] of Object.entries(twOutcomes)) {
-        if (twTotals[tw] < 2) continue;
-        const sorted = Object.entries(outs).sort((a, b) => b[1] - a[1]);
-        if (sorted.length > 0) {
-          const pct = sorted[0][1] / twTotals[tw];
-          if (pct >= 0.6 && (!bestTw || pct > bestTw.pct)) {
-            bestTw = { window: tw, state: sorted[0][0], pct };
+    // ── CAUSE-EFFECT (1C) ──
+    let causeEffectInsight: string | null = null;
+    if (behaviorLogs.length >= 5 && checkIns.length > 0) {
+      const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
+      for (const log of behaviorLogs) {
+        const bd = new Date(log.created_at).toISOString().split("T")[0];
+        const type = log.behavior_type?.toLowerCase();
+        if (!type) continue;
+        for (const ci of checkIns) {
+          const diff = (new Date(ci.checkin_date).getTime() - new Date(bd).getTime()) / 86400000;
+          if (diff >= 0 && diff <= 1 && ci.outcome) {
+            const key = `${type}→${ci.outcome}`;
+            if (!bp.has(key)) bp.set(key, { behavior: type, outcome: ci.outcome, count: 0 });
+            bp.get(key)!.count++;
           }
         }
       }
-      if (bestTw && observations.length < 2) {
-        const label = bestTw.window === "morning" ? "mornings" : bestTw.window === "afternoon" ? "afternoons" : "evenings";
-        observations.push(`You tend to check in ${bestTw.state} during ${label} — ${Math.round(bestTw.pct * 100)}% of the time.`);
-      }
-
-      if (observations.length < 2) {
-        const dayLabelsArr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const dayScores: Record<string, number[]> = {};
-        for (const ci of checkIns) {
-          if (ci.energy_balance == null) continue;
-          const d = dayLabelsArr[new Date(ci.checkin_date).getDay()];
-          if (!dayScores[d]) dayScores[d] = [];
-          dayScores[d].push(ci.energy_balance as number);
-        }
-        let bestDay: { day: string; avg: number } | null = null;
-        let worstDay: { day: string; avg: number } | null = null;
-        for (const [day, scores] of Object.entries(dayScores)) {
-          if (scores.length < 2) continue;
-          const avg = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
-          if (!bestDay || avg > bestDay.avg) bestDay = { day, avg: Math.round(avg) };
-          if (!worstDay || avg < worstDay.avg) worstDay = { day, avg: Math.round(avg) };
-        }
-        if (bestDay && worstDay && bestDay.day !== worstDay.day) {
-          observations.push(`Your readiness tends to peak on ${bestDay.day}s (avg ${bestDay.avg}) and dip on ${worstDay.day}s (avg ${worstDay.avg}).`);
-        }
+      const totals = new Map<string, number>();
+      bp.forEach(p => totals.set(p.behavior, (totals.get(p.behavior) || 0) + p.count));
+      const patterns: { behavior: string; outcome: string; conf: number }[] = [];
+      bp.forEach(p => {
+        const t = totals.get(p.behavior) || 1;
+        const conf = p.count / t;
+        if (p.count >= 2 && conf >= 0.5) patterns.push({ behavior: p.behavior, outcome: p.outcome, conf });
+      });
+      patterns.sort((a, b) => b.conf - a.conf);
+      if (patterns[0]) {
+        const p = patterns[0];
+        causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
       }
     }
 
-    // Cap at 2 observations
-    const finalObservations = observations.slice(0, 2);
+    // ── HOW YOU SHOW UP (1A) ──
+    let presenceScore: number | null = null;
+    let presenceLabel: string | null = null;
+    let presenceInsight: string | null = null;
+
+    const highStakesEvents = calendarEvents.filter(e =>
+      e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
+    );
+    const coachSessionCount = new Set(
+      dialogueMessages.filter(m => m.sender_type === "coach").map(m => m.session_id)
+    ).size;
+
+    if (checkIns.length >= 10 && (highStakesEvents.length >= 2 || coachSessionCount >= 3)) {
+      const preEventDone = rituals.filter(r =>
+        r.session_period === "pre-event" && r.completion_status === "full" &&
+        highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))
+      ).length;
+      const preEventPts = Math.min(30, preEventDone * 10);
+
+      const depletedHighStakes = highStakesEvents.filter(e => {
+        const ds = readinessScores.find(s => isSameDay(s.score_date, new Date(e.start_time).toISOString().split("T")[0]));
+        return ds && ds.energy_tier === "depleted";
+      }).length;
+      const depletedPts = Math.min(20, depletedHighStakes * 5);
+
+      const posKw = /showed up well|brought full presence|held the room|commanded the space|fully there|present and sharp|brought your best/i;
+      const negKw = /wasn't fully there|didn't bring it|phoned it in|checked out|not fully present|energy wasn't there/i;
+      const posCount = dialogueMessages.filter(m => posKw.test(m.content)).length;
+      const negCount = dialogueMessages.filter(m => negKw.test(m.content)).length;
+      const coachPts = Math.max(-30, Math.min(30, (posCount * 15) - (negCount * 15)));
+
+      const energizedCount = highStakesEvents.filter(e => {
+        const evDateStr = new Date(e.start_time).toISOString().split("T")[0];
+        const nextDate = new Date(new Date(e.start_time).getTime() + 86400000).toISOString().split("T")[0];
+        const evScore = readinessScores.find(s => s.score_date === evDateStr);
+        const nextScore = readinessScores.find(s => s.score_date === nextDate);
+        return evScore && nextScore && (nextScore.composite_score > evScore.composite_score + 10);
+      }).length;
+      const energizedPts = Math.min(15, energizedCount * 5);
+
+      presenceScore = Math.max(0, Math.min(100, preEventPts + depletedPts + coachPts + energizedPts));
+
+      if (presenceScore >= 70) presenceLabel = "You show up when it matters";
+      else if (presenceScore >= 50) presenceLabel = "Your presence holds under pressure";
+      else if (presenceScore >= 30) presenceLabel = "Your presence varies with your state";
+      else presenceLabel = "State is affecting your presence";
+
+      const signals = [
+        { s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments — your presence held even when readiness was low.` },
+        { s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high — preparation matters but doesn't always close the gap." },
+        { s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted — your presence held despite your state.` },
+        { s: energizedPts, t: "High-stakes moments energize you — your readiness often rises the day after, not before." },
+      ];
+      signals.sort((a, b) => b.s - a.s);
+      presenceInsight = signals[0].s > 0 ? signals[0].t : "Building pattern data — presence insights strengthen after more high-stakes moments.";
+    }
+
+    // ── DATA SOURCE NOTE ──
+    const daySpan = checkIns.length > 0
+      ? Math.ceil((now.getTime() - new Date(checkIns[checkIns.length - 1].checkin_date).getTime()) / 86400000)
+      : 0;
+    let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? "s" : ""}`;
+    if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? "s" : ""}`;
+    if (hasCalendar) dataSourceNote += ", calendar data";
+    dataSourceNote += ` over ${daySpan} days`;
 
     const result = {
-      heatmap,
-      bestWindow,
-      observations: finalObservations,
-      hasCalendar,
+      presenceScore,
+      presenceLabel,
+      presenceInsight,
+      calendarInsight,
+      causeEffectInsight,
+      grid,
+      bestReadinessWindow,
       checkInCount: checkIns.length,
+      behaviorLogCount: behaviorLogs.length,
+      hasCalendar,
+      dataSourceNote,
     };
 
-    console.log(`[performance-rhythm-insights] Returning: ${finalObservations.length} observations, bestWindow=${!!bestWindow}`);
+    console.log(`[perf-rhythm] Done: ci=${checkIns.length} presence=${presenceScore} calIns=${!!calendarInsight} ceIns=${!!causeEffectInsight}`);
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[performance-rhythm-insights] Error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    console.error("[perf-rhythm] Error:", msg);
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: corsHeaders });
   }
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Calendar } from 'lucide-react';
+import { Loader2, Calendar, AlertTriangle, Sparkles } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
@@ -10,16 +10,34 @@ import { format, subDays } from 'date-fns';
 
 interface HeatmapCell {
   outcome: string | null;
-  avgScore: number | null;
+  compositeScore: number | null;
   divergence: boolean;
 }
 
+interface BestReadinessWindow {
+  timeWindow: number;
+  day: number;
+  avgScore: number;
+  label: string;
+}
+
 interface PerformanceRhythmData {
-  heatmap: Record<string, Record<string, HeatmapCell>>;
-  bestWindow: string | null;
-  observations: string[];
-  hasCalendar: boolean;
+  // New v2.0 fields
+  presenceScore: number | null;
+  presenceLabel: string | null;
+  presenceInsight: string | null;
+  calendarInsight: string | null;
+  causeEffectInsight: string | null;
+  grid: HeatmapCell[][];
+  bestReadinessWindow: BestReadinessWindow | null;
   checkInCount: number;
+  behaviorLogCount: number;
+  hasCalendar: boolean;
+  dataSourceNote: string;
+  // Backward compat
+  heatmap?: Record<string, Record<string, HeatmapCell>>;
+  bestWindow?: string | null;
+  observations?: string[];
 }
 
 interface PerformanceRhythmCardProps {
@@ -27,32 +45,28 @@ interface PerformanceRhythmCardProps {
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const TIME_WINDOWS = [
-  { key: 'morning', label: 'Morning' },
-  { key: 'afternoon', label: 'Afternoon' },
-  { key: 'evening', label: 'Evening' },
-];
+const TIME_LABELS = ['Morning', 'Afternoon', 'Evening'];
 
 const stateColors: Record<string, { gradient: string; glow: string }> = {
   focused: {
-    gradient: 'from-green-400 via-green-500 to-green-600',
-    glow: 'rgba(34, 197, 94, 0.4)',
+    gradient: 'from-green-800 to-yellow-500',
+    glow: 'rgba(22, 101, 52, 0.4)',
   },
   steady: {
-    gradient: 'from-blue-400 via-blue-500 to-blue-600',
-    glow: 'rgba(59, 130, 246, 0.4)',
+    gradient: 'from-amber-700 to-yellow-200',
+    glow: 'rgba(180, 83, 9, 0.4)',
   },
   scattered: {
-    gradient: 'from-amber-400 via-amber-500 to-amber-600',
-    glow: 'rgba(245, 158, 11, 0.4)',
+    gradient: 'from-teal-700 to-emerald-300',
+    glow: 'rgba(15, 118, 110, 0.4)',
   },
   drained: {
-    gradient: 'from-slate-300 via-slate-400 to-slate-500',
-    glow: 'rgba(148, 163, 184, 0.4)',
+    gradient: 'from-slate-700 to-gray-400',
+    glow: 'rgba(51, 65, 85, 0.4)',
   },
   overwhelmed: {
-    gradient: 'from-red-400 via-red-500 to-red-600',
-    glow: 'rgba(239, 68, 68, 0.4)',
+    gradient: 'from-red-800 to-amber-600',
+    glow: 'rgba(153, 27, 27, 0.4)',
   },
 };
 
@@ -69,11 +83,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
     try {
       if (DEV_MODE) {
-        // DEV_MODE: compute locally from direct DB queries
         const effectiveUserId = DEV_USER.id;
         const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
 
-        const [checkInsRes, calConnRes, calEventsRes, behaviorRes] = await Promise.all([
+        const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] = await Promise.all([
           supabase
             .from('daily_checkins')
             .select('outcome, energy_balance, checkin_date, created_at')
@@ -96,179 +109,276 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .select('behavior_type, created_at')
             .eq('user_id', effectiveUserId)
             .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
+          supabase
+            .from('inner_readiness_scores')
+            .select('composite_score, energy_tier, score_date, time_of_day')
+            .eq('user_id', effectiveUserId)
+            .gte('score_date', thirtyDaysAgo),
+          supabase
+            .from('daily_ritual_completions')
+            .select('ritual_date, completion_status, session_period')
+            .eq('user_id', effectiveUserId)
+            .gte('ritual_date', thirtyDaysAgo),
+          supabase
+            .from('dialogue_messages')
+            .select('content, sender_type, session_id')
+            .limit(200),
         ]);
 
         const checkIns = checkInsRes.data || [];
         const hasCalendar = !!calConnRes.data?.is_active;
         const calendarEvents = calEventsRes.data || [];
         const behaviorLogs = behaviorRes.data || [];
+        const readinessScores = readinessRes.data || [];
+        const rituals = ritualsRes.data || [];
+        const dialogueMessages = dialogueRes.data || [];
 
-        // Build heatmap
-        const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const getTimeWindow = (h: number) => h >= 5 && h <= 11 ? 'morning' : h >= 12 && h <= 17 ? 'afternoon' : 'evening';
+        // Helper
+        const isSameDay = (a: string, b: string) => a.split('T')[0] === b.split('T')[0];
+        const getTimeWindow = (h: number) => h >= 5 && h < 12 ? 0 : h >= 12 && h < 17 ? 1 : 2;
+        const getDayIndex = (d: number) => d === 0 ? 6 : d - 1; // Sun=6, Mon=0
 
-        const cellOutcomes: Record<string, Record<string, { outcome: string | null; t: number }>> = {};
-        const cellScores: Record<string, Record<string, number[]>> = {};
-        for (const tw of ['morning', 'afternoon', 'evening']) {
-          cellOutcomes[tw] = {};
-          cellScores[tw] = {};
-          for (const d of DAYS) {
-            cellOutcomes[tw][d] = { outcome: null, t: 0 };
-            cellScores[tw][d] = [];
-          }
-        }
+        // ── Build 3x7 grid ──
+        const grid: HeatmapCell[][] = Array(3).fill(null).map(() => 
+          Array(7).fill(null).map(() => ({ outcome: null, compositeScore: null, divergence: false }))
+        );
+        const cellLatest: number[][] = Array(3).fill(null).map(() => Array(7).fill(0));
 
         for (const ci of checkIns) {
-          if (!ci.created_at) continue;
+          if (!ci.created_at || !ci.outcome) continue;
           const date = new Date(ci.created_at);
           const tw = getTimeWindow(date.getHours());
-          const day = dayLabels[date.getDay()];
+          const di = getDayIndex(date.getDay());
           const t = date.getTime();
-          if (ci.outcome && t > cellOutcomes[tw][day].t) {
-            cellOutcomes[tw][day] = { outcome: ci.outcome, t };
+          if (t > cellLatest[tw][di]) {
+            cellLatest[tw][di] = t;
+            grid[tw][di].outcome = ci.outcome;
           }
-          if (ci.energy_balance != null) cellScores[tw][day].push(ci.energy_balance);
         }
 
-        const heatmap: Record<string, Record<string, HeatmapCell>> = {};
-        let bestScore = -1, bestLabel = '';
-        for (const tw of ['morning', 'afternoon', 'evening']) {
-          heatmap[tw] = {};
-          for (const d of DAYS) {
-            const outcome = cellOutcomes[tw][d].outcome;
-            const scores = cellScores[tw][d];
-            const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-            const divergence = outcome === 'focused' && avgScore !== null && avgScore < 50;
-            heatmap[tw][d] = { outcome, avgScore, divergence };
-            if (avgScore !== null && avgScore > bestScore) {
-              bestScore = avgScore;
-              bestLabel = `${d} ${tw === 'morning' ? 'mornings' : tw === 'afternoon' ? 'afternoons' : 'evenings'}`;
+        // Overlay composite scores (30-day avg per cell)
+        const cellComposites: number[][][] = Array(3).fill(null).map(() => 
+          Array(7).fill(null).map(() => [] as number[])
+        );
+        for (const s of readinessScores) {
+          const date = new Date(s.score_date);
+          const tw = getTimeWindow(date.getHours());
+          const di = getDayIndex(date.getDay());
+          cellComposites[tw][di].push(s.composite_score);
+        }
+        for (let t = 0; t < 3; t++) {
+          for (let d = 0; d < 7; d++) {
+            const scores = cellComposites[t][d];
+            if (scores.length > 0) {
+              grid[t][d].compositeScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
             }
           }
         }
 
-        // Simple observations for dev
-        const observations: string[] = [];
-        // Calendar observation (simplified)
-        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 5) {
-          const keywords = ['board', 'quarterly', 'investor', 'pitch', 'review', 'presentation', 'interview', 'deadline', 'client', 'all-hands', 'performance', 'budget', 'strategy', 'executive', 'stakeholder'];
-          const dateOutcomes: Record<string, string[]> = {};
-          checkIns.forEach(ci => {
-            if (ci.outcome) {
-              if (!dateOutcomes[ci.checkin_date]) dateOutcomes[ci.checkin_date] = [];
-              dateOutcomes[ci.checkin_date].push(ci.outcome);
-            }
-          });
-          const kwDays: Record<string, Set<string>> = {};
-          calendarEvents.forEach(e => {
-            if (!e.title) return;
-            const tl = e.title.toLowerCase();
-            const ed = new Date(e.start_time).toISOString().split('T')[0];
-            keywords.forEach(kw => { if (tl.includes(kw)) { if (!kwDays[kw]) kwDays[kw] = new Set(); kwDays[kw].add(ed); } });
-          });
-          for (const [kw, dates] of Object.entries(kwDays)) {
-            const oc: Record<string, number> = {};
-            let total = 0;
-            Array.from(dates).forEach(d => {
-              (dateOutcomes[d] || []).forEach(o => { oc[o] = (oc[o] || 0) + 1; total++; });
-            });
-            if (total >= 3) {
-              const sorted = Object.entries(oc).sort((a, b) => b[1] - a[1]);
-              if (sorted[0][1] / total >= 0.5) {
-                observations.push(`On days with ${kw.charAt(0).toUpperCase() + kw.slice(1)} events, you tend to check in ${sorted[0][0]} ${Math.round(sorted[0][1] / total * 100)}% of the time — observed across ${total} occurrences.`);
+        // Divergence flags
+        const outcomeExpected: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
+        for (let t = 0; t < 3; t++) {
+          for (let d = 0; d < 7; d++) {
+            const cell = grid[t][d];
+            if (cell.outcome && cell.compositeScore !== null) {
+              const expected = outcomeExpected[cell.outcome] || 50;
+              if (Math.abs(cell.compositeScore - expected) >= 20) {
+                cell.divergence = true;
               }
             }
-            if (observations.length >= 2) break;
           }
         }
-        // Behavior observation
-        if (behaviorLogs.length > 0 && checkIns.length > 0 && observations.length < 2) {
-          const bo = new Map<string, Map<string, number>>();
-          behaviorLogs.forEach(b => {
-            const bd = new Date(b.created_at).toISOString().split('T')[0];
-            const type = b.behavior_type?.toLowerCase();
-            if (!type) return;
-            checkIns.forEach(ci => {
+
+        // ── Best Readiness Window ──
+        let bestReadinessWindow: BestReadinessWindow | null = null;
+        for (let t = 0; t < 3; t++) {
+          for (let d = 0; d < 7; d++) {
+            const scores = cellComposites[t][d];
+            if (scores.length >= 2) {
+              const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+              if (!bestReadinessWindow || avg > bestReadinessWindow.avgScore) {
+                bestReadinessWindow = {
+                  timeWindow: t,
+                  day: d,
+                  avgScore: avg,
+                  label: `${TIME_LABELS[t]} on ${DAYS[d]} (avg readiness: ${avg})`,
+                };
+              }
+            }
+          }
+        }
+
+        // ── Calendar Pattern (1B) ──
+        let calendarInsight: string | null = null;
+        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 10) {
+          const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
+            board: ['board', 'board meeting', 'board of directors'],
+            investor: ['investor', 'vc', 'funding', 'pitch'],
+            quarterly: ['quarterly', 'qbr', 'q1', 'q2', 'q3', 'q4'],
+            strategic: ['strategy', 'strategic planning', 'offsite', 'roadmap'],
+            client: ['client', 'customer', 'demo', 'proposal'],
+            performance_review: ['performance review', 'annual review', 'mid-year'],
+            all_hands: ['all hands', 'town hall', 'company meeting'],
+            media: ['interview', 'podcast', 'media', 'press'],
+            deadline: ['deadline', 'urgent', 'due', 'eod'],
+            presentation: ['presentation', 'speaking', 'conference', 'webinar'],
+          };
+          const eventTypeCorrelations = new Map<string, { scores: number[]; count: number }>();
+          for (const event of calendarEvents) {
+            if (!event.title) continue;
+            const tl = event.title.toLowerCase();
+            const eventDate = new Date(event.start_time).toISOString().split('T')[0];
+            const eventType = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+              EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
+            );
+            if (!eventType) continue;
+            const dayScore = readinessScores.find(s => isSameDay(s.score_date, eventDate));
+            if (!dayScore) continue;
+            if (!eventTypeCorrelations.has(eventType)) eventTypeCorrelations.set(eventType, { scores: [], count: 0 });
+            const d = eventTypeCorrelations.get(eventType)!;
+            d.scores.push(dayScore.composite_score);
+            d.count++;
+          }
+          const correlations: { eventType: string; avgScore: number; count: number }[] = [];
+          eventTypeCorrelations.forEach((d, eventType) => {
+            if (d.count >= 3) {
+              correlations.push({ eventType, avgScore: d.scores.reduce((a, b) => a + b, 0) / d.count, count: d.count });
+            }
+          });
+          correlations.sort((a, b) => a.avgScore - b.avgScore);
+          const mostDraining = correlations[0];
+          const mostEnergizing = correlations[correlations.length - 1];
+          if (mostDraining && mostDraining.avgScore < 50) {
+            calendarInsight = `On days with ${mostDraining.eventType.replace('_', ' ')} events, your readiness averages ${Math.round(mostDraining.avgScore)} — observed across ${mostDraining.count} occurrences.`;
+          } else if (mostEnergizing && mostEnergizing.avgScore > 65) {
+            calendarInsight = `${mostEnergizing.eventType.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())} events consistently lift your readiness — avg ${Math.round(mostEnergizing.avgScore)} across ${mostEnergizing.count} occurrences.`;
+          }
+        }
+
+        // ── Cause-Effect (1C) ──
+        let causeEffectInsight: string | null = null;
+        if (behaviorLogs.length >= 5) {
+          const behaviorPatterns = new Map<string, { behavior: string; outcome: string; count: number }>();
+          for (const log of behaviorLogs) {
+            const bd = new Date(log.created_at).toISOString().split('T')[0];
+            const type = log.behavior_type?.toLowerCase();
+            if (!type) continue;
+            for (const ci of checkIns) {
               const diff = (new Date(ci.checkin_date).getTime() - new Date(bd).getTime()) / 86400000;
               if (diff >= 0 && diff <= 1 && ci.outcome) {
-                if (!bo.has(type)) bo.set(type, new Map());
-                const m = bo.get(type)!;
-                m.set(ci.outcome, (m.get(ci.outcome) || 0) + 1);
-              }
-            });
-          });
-          let top: { t: string; o: string; c: number } | null = null;
-          bo.forEach((outs, bt) => {
-            let total = 0, ms = '', mc = 0;
-            outs.forEach((c, s) => { total += c; if (c > mc) { mc = c; ms = s; } });
-            const conf = total > 0 ? mc / total : 0;
-            if (total >= 2 && conf >= 0.5 && (!top || conf > top.c)) top = { t: bt, o: ms, c: conf };
-          });
-          if (top) {
-            const p = top as { t: string; o: string; c: number };
-            observations.push(`On days following ${p.t.charAt(0).toUpperCase() + p.t.slice(1)} behaviors, you tend to check in ${p.o} ${Math.round(p.c * 100)}% of the time.`);
-          }
-        }
-
-        // Time-of-day & day-of-week pattern observations (no calendar needed)
-        if (checkIns.length >= 3 && observations.length < 2) {
-          // Time-of-day pattern
-          const twOutcomes: Record<string, Record<string, number>> = { morning: {}, afternoon: {}, evening: {} };
-          const twTotals: Record<string, number> = { morning: 0, afternoon: 0, evening: 0 };
-          for (const ci of checkIns) {
-            if (!ci.created_at || !ci.outcome) continue;
-            const h = new Date(ci.created_at).getHours();
-            const tw = h >= 5 && h <= 11 ? 'morning' : h >= 12 && h <= 17 ? 'afternoon' : 'evening';
-            twOutcomes[tw][ci.outcome] = (twOutcomes[tw][ci.outcome] || 0) + 1;
-            twTotals[tw]++;
-          }
-          // Find time window with strongest dominant state
-          let bestTw: { window: string; state: string; pct: number } | null = null;
-          for (const [tw, outs] of Object.entries(twOutcomes)) {
-            if (twTotals[tw] < 2) continue;
-            const sorted = Object.entries(outs).sort((a, b) => b[1] - a[1]);
-            if (sorted.length > 0) {
-              const pct = sorted[0][1] / twTotals[tw];
-              if (pct >= 0.6 && (!bestTw || pct > bestTw.pct)) {
-                bestTw = { window: tw, state: sorted[0][0], pct };
+                const key = `${type}→${ci.outcome}`;
+                if (!behaviorPatterns.has(key)) behaviorPatterns.set(key, { behavior: type, outcome: ci.outcome, count: 0 });
+                behaviorPatterns.get(key)!.count++;
               }
             }
           }
-          if (bestTw && observations.length < 2) {
-            const label = bestTw.window === 'morning' ? 'mornings' : bestTw.window === 'afternoon' ? 'afternoons' : 'evenings';
-            observations.push(`You tend to check in ${bestTw.state} during ${label} — ${Math.round(bestTw.pct * 100)}% of the time.`);
-          }
-
-          // Day-of-week pattern
-          if (observations.length < 2) {
-            const dayLabelsArr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const dayScores: Record<string, number[]> = {};
-            for (const ci of checkIns) {
-              if (ci.energy_balance == null) continue;
-              const d = dayLabelsArr[new Date(ci.checkin_date).getDay()];
-              if (!dayScores[d]) dayScores[d] = [];
-              dayScores[d].push(ci.energy_balance);
-            }
-            let bestDay: { day: string; avg: number } | null = null;
-            let worstDay: { day: string; avg: number } | null = null;
-            for (const [day, scores] of Object.entries(dayScores)) {
-              if (scores.length < 2) continue;
-              const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-              if (!bestDay || avg > bestDay.avg) bestDay = { day, avg: Math.round(avg) };
-              if (!worstDay || avg < worstDay.avg) worstDay = { day, avg: Math.round(avg) };
-            }
-            if (bestDay && worstDay && bestDay.day !== worstDay.day) {
-              observations.push(`Your readiness tends to peak on ${bestDay.day}s (avg ${bestDay.avg}) and dip on ${worstDay.day}s (avg ${worstDay.avg}).`);
-            }
+          const patterns: { behavior: string; outcome: string; count: number; confidence: number }[] = [];
+          const behaviorTotals = new Map<string, number>();
+          behaviorPatterns.forEach(p => {
+            behaviorTotals.set(p.behavior, (behaviorTotals.get(p.behavior) || 0) + p.count);
+          });
+          behaviorPatterns.forEach(p => {
+            const total = behaviorTotals.get(p.behavior) || 1;
+            const conf = p.count / total;
+            if (p.count >= 2 && conf >= 0.5) patterns.push({ ...p, confidence: conf });
+          });
+          patterns.sort((a, b) => b.confidence - a.confidence);
+          if (patterns[0]) {
+            const p = patterns[0];
+            causeEffectInsight = `On days following ${p.behavior.replace(/^\w/, c => c.toUpperCase())}, you tend to check in ${p.outcome} ${Math.round(p.confidence * 100)}% of the time.`;
           }
         }
+
+        // ── How You Show Up (1A) ──
+        let presenceScore: number | null = null;
+        let presenceLabel: string | null = null;
+        let presenceInsight: string | null = null;
+
+        const HIGH_STAKES_KEYWORDS = [
+          'board', 'board meeting', 'board of directors', 'investor', 'vc', 'funding', 'pitch',
+          'crisis', 'urgent', 'emergency', 'negotiation', 'deal', 'contract',
+          'all hands', 'town hall', 'company meeting', 'interview', 'media', 'press',
+          'performance review', 'annual review', 'termination', 'layoff', 'difficult conversation',
+          'quarterly', 'qbr', 'earnings', 'product launch', 'go live',
+          'keynote', 'conference', 'speaking', 'presentation',
+        ];
+        const highStakesEvents = calendarEvents.filter(e =>
+          e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
+        );
+        const coachSessionCount = dialogueMessages.filter(m => m.sender_type === 'coach').length > 0 ? 
+          new Set(dialogueMessages.filter(m => m.sender_type === 'coach').map(m => m.session_id)).size : 0;
+
+        if (checkIns.length >= 10 && (highStakesEvents.length >= 2 || coachSessionCount >= 3)) {
+          // Pre-event sessions
+          const preEventSessionsCompleted = rituals.filter(r =>
+            r.session_period === 'pre-event' && r.completion_status === 'full' &&
+            highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))
+          ).length;
+          const preEventScore = Math.min(30, preEventSessionsCompleted * 10);
+
+          // High-stakes on depleted days
+          const lowReadinessHighStakes = highStakesEvents.filter(e => {
+            const dayScore = readinessScores.find(s => isSameDay(s.score_date, new Date(e.start_time).toISOString().split('T')[0]));
+            return dayScore && dayScore.energy_tier === 'depleted';
+          }).length;
+          const lowReadinessScore = Math.min(20, lowReadinessHighStakes * 5);
+
+          // Coach presence keywords
+          const positiveKw = /showed up well|brought full presence|held the room|commanded the space|fully there|present and sharp|brought your best/i;
+          const negativeKw = /wasn't fully there|didn't bring it|phoned it in|checked out|not fully present|energy wasn't there/i;
+          const positivePresence = dialogueMessages.filter(m => positiveKw.test(m.content)).length;
+          const negativePresence = dialogueMessages.filter(m => negativeKw.test(m.content)).length;
+          const coachPresenceScore = Math.max(-30, Math.min(30, (positivePresence * 15) - (negativePresence * 15)));
+
+          // Energized after high-stakes
+          const energizedAfterHighStakes = highStakesEvents.filter(e => {
+            const eventDateStr = new Date(e.start_time).toISOString().split('T')[0];
+            const nextDateStr = format(new Date(new Date(e.start_time).getTime() + 86400000), 'yyyy-MM-dd');
+            const eventDayScore = readinessScores.find(s => s.score_date === eventDateStr);
+            const nextDayScore = readinessScores.find(s => s.score_date === nextDateStr);
+            return eventDayScore && nextDayScore && (nextDayScore.composite_score > eventDayScore.composite_score + 10);
+          }).length;
+          const energizedScore = Math.min(15, energizedAfterHighStakes * 5);
+
+          presenceScore = Math.max(0, Math.min(100, preEventScore + lowReadinessScore + coachPresenceScore + energizedScore));
+
+          if (presenceScore >= 70) presenceLabel = 'You show up when it matters';
+          else if (presenceScore >= 50) presenceLabel = 'Your presence holds under pressure';
+          else if (presenceScore >= 30) presenceLabel = 'Your presence varies with your state';
+          else presenceLabel = 'State is affecting your presence';
+
+          // Dominant signal insight
+          const signals = [
+            { score: preEventScore, text: `You prepared for ${preEventSessionsCompleted} of ${highStakesEvents.length} high-stakes moments — your presence held even when readiness was low.` },
+            { score: Math.abs(coachPresenceScore), text: coachPresenceScore > 0 ? 'Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength.' : 'Your coach has flagged uneven presence when stakes are high — preparation matters but doesn\'t always close the gap.' },
+            { score: lowReadinessScore, text: `You showed up to ${lowReadinessHighStakes} high-stakes moments while depleted — your presence held despite your state.` },
+            { score: energizedScore, text: 'High-stakes moments energize you — your readiness often rises the day after, not before.' },
+          ];
+          signals.sort((a, b) => b.score - a.score);
+          presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
+        }
+
+        // ── Data Source Note ──
+        const daySpan = checkIns.length > 0
+          ? Math.ceil((new Date().getTime() - new Date(checkIns[checkIns.length - 1].checkin_date).getTime()) / 86400000)
+          : 0;
+        let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? 's' : ''}`;
+        if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? 's' : ''}`;
+        if (hasCalendar) dataSourceNote += ', calendar data';
+        dataSourceNote += ` over ${daySpan} days`;
 
         setData({
-          heatmap,
-          bestWindow: bestScore > 0 ? `Your sharpest window this month has been ${bestLabel}.` : null,
-          observations: observations.slice(0, 2),
-          hasCalendar,
+          presenceScore,
+          presenceLabel,
+          presenceInsight,
+          calendarInsight,
+          causeEffectInsight,
+          grid,
+          bestReadinessWindow: bestReadinessWindow,
           checkInCount: checkIns.length,
+          behaviorLogCount: behaviorLogs.length,
+          hasCalendar,
+          dataSourceNote,
         });
         setLoading(false);
         return;
@@ -295,11 +405,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
     }
   };
 
-  // Progressive messages
   const getProgressiveMessage = () => {
     if (!data) return null;
     if (data.checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm.';
-    if (data.checkInCount < 5) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged. Your rhythm becomes clearer with each one.`;
+    if (data.checkInCount < 7) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — complete 7 to see your readiness rhythm.`;
     return null;
   };
 
@@ -308,11 +417,11 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Performance Rhythm
+            Your Readiness Rhythm
           </span>
           <InsightInfoModal
-            title="Your Performance Rhythm"
-            explanation="When you perform, when you don't, and what your outer world is doing to your inner state. Your cognitive and emotional rhythm across the week — paired with a read on which calendar conditions consistently lift or drain your readiness."
+            title="Your Readiness Rhythm"
+            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your inner readiness with outer circumstances — calendar events, time of day, behaviors — to surface patterns you can't see without the aggregation."
           />
         </div>
       </CardHeader>
@@ -325,32 +434,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           <p className="text-sm text-muted-foreground text-center py-6">Unable to load rhythm data.</p>
         ) : (
           <div className="space-y-5">
-            {/* Dedicated Calendar Insights Box */}
-            {data.observations.length > 0 ? (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary/70" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Pattern Insights
-                  </span>
-                </div>
-                <div className="space-y-2.5 pl-6">
-                  {data.observations.map((obs, i) => (
-                    <p key={i} className="text-sm text-foreground/85 leading-relaxed">
-                      {obs}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ) : data.checkInCount >= 5 && !data.hasCalendar ? (
-              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">
-                  Connect your calendar to see how your outer world affects your inner state.
-                </p>
-              </div>
-            ) : null}
-
             {/* Progressive message */}
             {getProgressiveMessage() && (
               <p className="text-xs text-muted-foreground/70 text-center">
@@ -358,86 +441,141 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 3x7 Heatmap Grid */}
-            <div className="overflow-x-auto">
-              <div className="min-w-[400px]">
-                {/* Header row */}
-                <div className="flex items-center mb-2">
-                  <div className="w-20" />
-                  {DAYS.map(day => (
-                    <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
-                      {day}
+            {/* 1A — How You Show Up (15+ check-ins) */}
+            {data.checkInCount >= 15 && data.presenceLabel && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary/70" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    How You Show Up
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-foreground pl-6">{data.presenceLabel}</p>
+                {data.presenceInsight && (
+                  <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
+                )}
+              </div>
+            )}
+
+            {/* 1B — Calendar Pattern (10+ check-ins) */}
+            {data.checkInCount >= 10 && data.calendarInsight && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary/70" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Calendar Pattern
+                  </span>
+                </div>
+                <p className="text-sm text-foreground/85 leading-relaxed pl-6">{data.calendarInsight}</p>
+              </div>
+            )}
+
+            {/* 1C — Cause-Effect (10+ check-ins) */}
+            {data.checkInCount >= 10 && data.causeEffectInsight && (
+              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 space-y-2">
+                <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
+              </div>
+            )}
+
+            {/* Calendar connect prompt */}
+            {data.checkInCount >= 10 && !data.hasCalendar && !data.calendarInsight && (
+              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Connect your calendar to see how your outer world affects your inner state.
+                </p>
+              </div>
+            )}
+
+            {/* 2 — Heatmap (7+ check-ins) */}
+            {data.checkInCount >= 7 && data.grid && (
+              <>
+                <div>
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body mb-3 block">
+                    Your Week at a Glance
+                  </span>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[400px]">
+                      {/* Header row */}
+                      <div className="flex items-center mb-2">
+                        <div className="w-20" />
+                        {DAYS.map(day => (
+                          <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Time rows */}
+                      {TIME_LABELS.map((label, twIdx) => (
+                        <div key={label} className="flex items-center mb-2">
+                          <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
+                            {label}
+                          </div>
+                          {DAYS.map((day, dayIdx) => {
+                            const cell = data.grid[twIdx]?.[dayIdx];
+                            const hasOutcome = cell && cell.outcome;
+                            const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
+
+                            return (
+                              <div key={`${twIdx}-${dayIdx}`} className="flex-1 px-0.5">
+                                <div
+                                  className={cn(
+                                    'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                    hasOutcome
+                                      ? 'shadow-lg'
+                                      : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
+                                    cell?.divergence && 'ring-2 ring-amber-400/60'
+                                  )}
+                                  style={hasOutcome && style ? {
+                                    boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
+                                  } : undefined}
+                                >
+                                  {hasOutcome && style && (
+                                    <>
+                                      <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                      <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                                      {cell.compositeScore !== null && (
+                                        <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
+                                          {cell.compositeScore}
+                                          {cell.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-1">
+                  {Object.entries(stateColors).map(([state, style]) => (
+                    <div key={state} className="flex items-center gap-1.5">
+                      <div className={cn('w-3 h-3 rounded shadow-sm bg-gradient-to-br', style.gradient)} />
+                      <span className="capitalize">{state}</span>
                     </div>
                   ))}
                 </div>
+              </>
+            )}
 
-                {/* Time rows */}
-                {TIME_WINDOWS.map(tw => (
-                  <div key={tw.key} className="flex items-center mb-2">
-                    <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
-                      {tw.label}
-                    </div>
-                    {DAYS.map(day => {
-                      const cell = data.heatmap[tw.key]?.[day];
-                      const hasOutcome = cell && cell.outcome;
-                      const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
-
-                      return (
-                        <div key={`${tw.key}-${day}`} className="flex-1 px-0.5">
-                          <div
-                            className={cn(
-                              'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
-                              hasOutcome
-                                ? 'shadow-lg'
-                                : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
-                              cell?.divergence && 'ring-2 ring-amber-400/60 animate-pulse'
-                            )}
-                            style={hasOutcome && style ? {
-                              boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
-                            } : undefined}
-                          >
-                            {hasOutcome && style && (
-                              <>
-                                <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
-                                <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
-                                {/* Composite score overlay */}
-                                {cell.avgScore !== null && (
-                                  <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm">
-                                    {cell.avgScore}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-1">
-              {Object.entries(stateColors).map(([state, style]) => (
-                <div key={state} className="flex items-center gap-1.5">
-                  <div className={cn('w-3 h-3 rounded shadow-sm bg-gradient-to-br', style.gradient)} />
-                  <span className="capitalize">{state}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Best Performance Window */}
-            {data.bestWindow && (
+            {/* 3 — Best Readiness Window */}
+            {data.bestReadinessWindow && (
               <p className="text-xs text-muted-foreground text-center font-medium">
-                {data.bestWindow}
+                Your sharpest window: {data.bestReadinessWindow.label}
               </p>
             )}
 
-            {/* Data source note */}
+            {/* 4 — Data Source Note */}
             {data.checkInCount > 0 && (
               <p className="text-[10px] text-muted-foreground/60 text-center">
-                Based on {data.checkInCount} check-in{data.checkInCount !== 1 ? 's' : ''} over the last 30 days
+                {data.dataSourceNote}
               </p>
             )}
           </div>
