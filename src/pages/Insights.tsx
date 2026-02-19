@@ -700,9 +700,10 @@ const Insights = () => {
   // Get progressive message for wins
   const getWinsProgressMessage = () => {
     const count = tinyWinsInsights?.winsCount || 0;
-    if (count === 0) return 'Capture your first win during evening integration';
-    if (count === 1) return 'First win captured! Each one reveals what you do naturally well.';
-    if (count < 5) return `${count} wins logged. Patterns emerge around 5+ wins.`;
+    if (count === 0) return 'Capture your first win during evening integration to start building your momentum map';
+    if (count === 1) return 'First win captured! Log 2 more to start seeing what patterns emerge';
+    if (count < 5) return `${count} wins so far — log ${5 - count} more and your momentum map will start to take shape`;
+    if (count < 10) return 'Your momentum map is building. At 10 wins, deeper patterns and an AI observation will appear';
     return null;
   };
 
@@ -760,7 +761,8 @@ const Insights = () => {
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
-                {tinyWinsInsights.observation && (
+                {/* AI observation — only show at 10+ wins */}
+                {tinyWinsInsights.winsCount >= 10 && tinyWinsInsights.observation && (
                   <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                     <p className="text-sm text-foreground leading-relaxed">
                       {tinyWinsInsights.observation}
@@ -771,30 +773,57 @@ const Insights = () => {
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
                 {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
-                  <PsychologicalDimensionBubbles
-                    data={tinyWinsInsights.dimensions.map(d => ({
-                      dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
-                      value: d.value,
-                      count: d.count,
-                      displayLabel: d.displayLabel,
-                      insight: d.insight,
-                    }))}
-                    relatedWins={tinyWinsContent}
-                    emptyMessage="Complete evening Integrate flow to capture wins"
-                  />
+                  tinyWinsInsights.winsCount >= 5 ? (
+                    /* 5+ wins with dimensions: show full bubble chart */
+                    <PsychologicalDimensionBubbles
+                      data={tinyWinsInsights.dimensions.map(d => ({
+                        dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
+                        value: d.value,
+                        count: d.count,
+                        displayLabel: d.displayLabel,
+                        insight: d.insight,
+                      }))}
+                      relatedWins={tinyWinsContent}
+                      emptyMessage="Complete evening Integrate flow to capture wins"
+                    />
+                  ) : (
+                    /* 1-4 wins with dimensions: show text summary of top dimensions */
+                    <div className="p-3 bg-muted/20 border border-border/30 rounded-lg">
+                      <p className="text-sm text-foreground leading-relaxed">
+                        Your recent wins reflect{' '}
+                        <span className="font-medium">
+                          {tinyWinsInsights.dimensions
+                            .slice(0, 3)
+                            .map(d => d.value)
+                            .join(', ')
+                            .replace(/, ([^,]*)$/, ' and $1')}
+                        </span>.
+                      </p>
+                    </div>
+                  )
+                ) : tinyWinsContent.length > 0 ? (
+                  /* Wins exist but no dimensions extracted yet — show recent win texts */
+                  <div className="space-y-2">
+                    {tinyWinsContent.slice(0, 3).map((win, i) => (
+                      <div key={i} className="p-2.5 bg-muted/30 rounded-lg border border-border/20">
+                        <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{win.date}</p>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <InnerWorldBubbles
                     items={tinyWinsBubbleData}
                     emptyMessage="Complete evening Integrate flow to capture wins"
                   />
                 )}
-                {tinyWinsInsights.patternLine && (
+                {tinyWinsInsights.patternLine && tinyWinsInsights.winsCount >= 5 && (
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tinyWinsInsights.patternLine}
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground/60">
-                  Based on {tinyWinsInsights.winsCount} wins captured in the past 2 weeks
+                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 2 weeks
                 </p>
               </div>
             ) : (
