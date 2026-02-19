@@ -60,41 +60,37 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
   // Try to fetch from Supabase first
   if (userId) {
     try {
-      const { data: ouraData, error } = await supabase
-        .from('oura_daily_data')
+      const { data: wearable, error } = await supabase
+        .from('wearable_data')
         .select('*')
         .eq('user_id', userId)
         .order('summary_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (ouraData && !error) {
-        // Parse raw_data as object
-        const rawData = ouraData.raw_data as any;
-        const sleepData = rawData?.sleep || {};
-        const activityData = rawData?.activity || {};
-        const readinessData = rawData?.readiness || {};
+      if (wearable && !error) {
+        const rawData = wearable.raw_data as any;
         
         context = {
-          readinessScore: ouraData.readiness_score,
-          sleepScore: ouraData.sleep_score,
-          activityScore: ouraData.activity_score,
-          hrv: ouraData.hrv,
-          restingHeartRate: ouraData.resting_heart_rate,
-          totalSleepMinutes: sleepData.total_sleep_duration ? Math.floor(sleepData.total_sleep_duration / 60) : null,
-          deepSleepMinutes: sleepData.deep_sleep_duration ? Math.floor(sleepData.deep_sleep_duration / 60) : null,
-          remSleepMinutes: sleepData.rem_sleep_duration ? Math.floor(sleepData.rem_sleep_duration / 60) : null,
-          steps: activityData.steps || null,
-          activeCalories: activityData.active_calories || null,
-          temperatureDeviation: readinessData.temperature_deviation || null,
-          sleepQuality: classifySleepQuality(ouraData.sleep_score),
-          energyLevel: calculateEnergyLevel(ouraData.readiness_score, ouraData.sleep_score),
-          hrvStatus: await classifyHRVStatus(ouraData.hrv, userId),
-          recoveryStatus: classifyRecoveryStatus(ouraData.readiness_score),
-          activityReadiness: classifyActivityReadiness(ouraData.readiness_score, activityData.met_min_high),
+          readinessScore: null, // No readiness score in HealthKit
+          sleepScore: wearable.sleep_score,
+          activityScore: null,
+          hrv: wearable.hrv ? Number(wearable.hrv) : null,
+          restingHeartRate: wearable.resting_heart_rate,
+          totalSleepMinutes: wearable.total_sleep_minutes,
+          deepSleepMinutes: wearable.deep_sleep_minutes,
+          remSleepMinutes: wearable.rem_sleep_minutes,
+          steps: wearable.steps,
+          activeCalories: wearable.active_calories,
+          temperatureDeviation: null,
+          sleepQuality: classifySleepQuality(wearable.sleep_score),
+          energyLevel: calculateEnergyLevel(null, wearable.sleep_score),
+          hrvStatus: await classifyHRVStatus(wearable.hrv ? Number(wearable.hrv) : null, userId),
+          recoveryStatus: wearable.recovery_status as any || 'unknown',
+          activityReadiness: 'unknown',
           hasData: true,
-          dataSource: 'oura',
-          lastUpdated: new Date(ouraData.created_at)
+          dataSource: 'apple-watch',
+          lastUpdated: new Date(wearable.created_at)
         };
         return context;
       }
@@ -103,33 +99,10 @@ export async function getWearableContext(userId?: string): Promise<WearableConte
     }
   }
 
-  // Fallback to localStorage
-  const ouraLocalData = JSON.parse(localStorage.getItem('ouraData') || '{}');
-  const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || '{}');
+  // Fallback to localStorage (Apple Watch / HealthKit data)
+  const appleWatchData = JSON.parse(localStorage.getItem('appleWatchData') || localStorage.getItem('wearableData') || '{}');
 
-  if (ouraLocalData.readiness || ouraLocalData.hrv) {
-    context = {
-      readinessScore: ouraLocalData.readiness || null,
-      sleepScore: ouraLocalData.sleep || null,
-      activityScore: ouraLocalData.activity || null,
-      hrv: ouraLocalData.hrv || null,
-      restingHeartRate: ouraLocalData.restingHR || null,
-      totalSleepMinutes: ouraLocalData.totalSleepMinutes || null,
-      deepSleepMinutes: ouraLocalData.deepSleepMinutes || null,
-      remSleepMinutes: ouraLocalData.remSleepMinutes || null,
-      steps: ouraLocalData.steps || null,
-      activeCalories: ouraLocalData.activeCalories || null,
-      temperatureDeviation: ouraLocalData.temperatureDeviation || null,
-      sleepQuality: classifySleepQuality(ouraLocalData.sleep),
-      energyLevel: calculateEnergyLevel(ouraLocalData.readiness, ouraLocalData.sleep),
-      hrvStatus: await classifyHRVStatus(ouraLocalData.hrv, userId || ''),
-      recoveryStatus: classifyRecoveryStatus(ouraLocalData.readiness),
-      activityReadiness: classifyActivityReadiness(ouraLocalData.readiness, ouraLocalData.metMinHigh),
-      hasData: true,
-      dataSource: 'oura',
-      lastUpdated: null
-    };
-  } else if (appleWatchData.hrv) {
+  if (appleWatchData.hrv) {
     context = {
       readinessScore: null,
       sleepScore: appleWatchData.sleepScore || null,
@@ -251,7 +224,7 @@ export async function getUserHRVBaseline(userId: string): Promise<number | null>
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
     const { data, error } = await supabase
-      .from('oura_daily_data')
+      .from('wearable_data')
       .select('hrv')
       .eq('user_id', userId)
       .gte('summary_date', sevenDaysAgo.toISOString().split('T')[0])
@@ -259,7 +232,7 @@ export async function getUserHRVBaseline(userId: string): Promise<number | null>
     
     if (error || !data || data.length === 0) return null;
     
-    const sum = data.reduce((acc, d) => acc + (d.hrv || 0), 0);
+    const sum = data.reduce((acc, d) => acc + (Number(d.hrv) || 0), 0);
     return Math.round(sum / data.length);
   } catch (error) {
     console.log('Could not calculate HRV baseline:', error);
@@ -281,7 +254,7 @@ export async function detectPhysiologicalTrends(userId: string, days: number = 7
     daysAgo.setDate(daysAgo.getDate() - days);
     
     const { data, error } = await supabase
-      .from('oura_daily_data')
+      .from('wearable_data')
       .select('*')
       .eq('user_id', userId)
       .gte('summary_date', daysAgo.toISOString().split('T')[0])
@@ -303,14 +276,17 @@ export async function detectPhysiologicalTrends(userId: string, days: number = 7
     const sleepAvg1 = average(firstHalf.map(d => d.sleep_score).filter(s => s !== null));
     const sleepAvg2 = average(secondHalf.map(d => d.sleep_score).filter(s => s !== null));
     
-    const readinessAvg1 = average(firstHalf.map(d => d.readiness_score).filter(r => r !== null));
-    const readinessAvg2 = average(secondHalf.map(d => d.readiness_score).filter(r => r !== null));
+    // wearable_data doesn't have readiness_score or activity_score
+    // Use sleep_score as a proxy for readiness trend
+    const readinessAvg1 = sleepAvg1;
+    const readinessAvg2 = sleepAvg2;
     
     const hrvAvg1 = average(firstHalf.map(d => d.hrv).filter(h => h !== null));
     const hrvAvg2 = average(secondHalf.map(d => d.hrv).filter(h => h !== null));
     
-    const activityAvg1 = average(firstHalf.map(d => d.activity_score).filter(a => a !== null));
-    const activityAvg2 = average(secondHalf.map(d => d.activity_score).filter(a => a !== null));
+    // Use steps as activity proxy
+    const activityAvg1 = average(firstHalf.map(d => d.steps).filter(a => a !== null));
+    const activityAvg2 = average(secondHalf.map(d => d.steps).filter(a => a !== null));
     
     return {
       sleepTrend: calculateTrend(sleepAvg1, sleepAvg2, 5),

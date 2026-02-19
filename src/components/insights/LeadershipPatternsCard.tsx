@@ -229,11 +229,11 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           {current !== undefined && (
             <>
               <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
-              <span className="font-semibold text-foreground tabular-nums">{current}</span>
+              <span className="font-semibold text-amber-700 dark:text-amber-500 tabular-nums">{current}</span>
               {delta !== undefined && (
                 <span className={cn(
                   'text-xs tabular-nums',
-                  delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
+                  delta > 0 ? 'text-amber-600 dark:text-amber-400' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
                 )}>
                   ({delta > 0 ? '+' : ''}{delta})
                 </span>
@@ -295,12 +295,12 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-muted-foreground/70">{data.baselineArchetypeTitle}</span>
                     <ArrowRight className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="text-sm font-semibold text-foreground">{data.currentArchetypeTitle}</span>
+                    <span className="text-sm font-semibold text-amber-700 dark:text-amber-500">{data.currentArchetypeTitle}</span>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-500">
                     {data.currentArchetypeTitle || data.baselineArchetypeTitle}
                   </span>
                 </div>
@@ -366,6 +366,11 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                 </div>
               )}
 
+              {/* Recurring Themes heading for Lean On / Watch For */}
+              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground pt-1">
+                Recurring Themes
+              </p>
+
               {/* Lean On */}
               <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
                 <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -377,7 +382,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                       <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
                     </div>
                   ) : (
-                    <p className="text-sm text-foreground/90">{data.archetypeLeanOn}</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-500">{data.archetypeLeanOn}</p>
                   )}
                 </div>
               </div>
@@ -395,7 +400,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                   ) : data.coachSessionCount < 3 ? (
                     <p className="text-xs text-muted-foreground">Complete 3 coach sessions to surface personalized observations</p>
                   ) : (
-                    <p className="text-sm text-foreground/90">{data.archetypeWatchFor}</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-500">{data.archetypeWatchFor}</p>
                   )}
                 </div>
               </div>
