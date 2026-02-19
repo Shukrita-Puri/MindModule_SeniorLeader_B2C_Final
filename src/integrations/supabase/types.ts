@@ -1039,6 +1039,75 @@ export type Database = {
         }
         Relationships: []
       }
+      inner_readiness_scores: {
+        Row: {
+          base_statement: string | null
+          check_in_outcome: string | null
+          clarity_level: number | null
+          composite_score: number
+          confidence: string | null
+          confidence_level: number | null
+          created_at: string
+          data_sources: string[] | null
+          divergence_flag: string | null
+          divergence_overlay: string | null
+          energy_tier: string
+          full_context_statement: string | null
+          hrv_deviation: number | null
+          id: string
+          layers_active: string[] | null
+          modifier_statement: string | null
+          score_date: string
+          time_of_day: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_statement?: string | null
+          check_in_outcome?: string | null
+          clarity_level?: number | null
+          composite_score: number
+          confidence?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          data_sources?: string[] | null
+          divergence_flag?: string | null
+          divergence_overlay?: string | null
+          energy_tier?: string
+          full_context_statement?: string | null
+          hrv_deviation?: number | null
+          id?: string
+          layers_active?: string[] | null
+          modifier_statement?: string | null
+          score_date: string
+          time_of_day?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_statement?: string | null
+          check_in_outcome?: string | null
+          clarity_level?: number | null
+          composite_score?: number
+          confidence?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          data_sources?: string[] | null
+          divergence_flag?: string | null
+          divergence_overlay?: string | null
+          energy_tier?: string
+          full_context_statement?: string | null
+          hrv_deviation?: number | null
+          id?: string
+          layers_active?: string[] | null
+          modifier_statement?: string | null
+          score_date?: string
+          time_of_day?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       jit_preferences: {
         Row: {
           action: string
@@ -1253,81 +1322,6 @@ export type Database = {
           trigger_event_id?: string | null
           trigger_reason?: string | null
           urgency_level?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      oura_connections: {
-        Row: {
-          created_at: string
-          encrypted_access_token_id: string | null
-          encrypted_refresh_token_id: string | null
-          id: string
-          is_active: boolean | null
-          last_sync: string | null
-          token_expires_at: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          encrypted_access_token_id?: string | null
-          encrypted_refresh_token_id?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_sync?: string | null
-          token_expires_at?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          encrypted_access_token_id?: string | null
-          encrypted_refresh_token_id?: string | null
-          id?: string
-          is_active?: boolean | null
-          last_sync?: string | null
-          token_expires_at?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      oura_daily_data: {
-        Row: {
-          activity_score: number | null
-          created_at: string
-          hrv: number | null
-          id: string
-          raw_data: Json | null
-          readiness_score: number | null
-          resting_heart_rate: number | null
-          sleep_score: number | null
-          summary_date: string
-          user_id: string
-        }
-        Insert: {
-          activity_score?: number | null
-          created_at?: string
-          hrv?: number | null
-          id?: string
-          raw_data?: Json | null
-          readiness_score?: number | null
-          resting_heart_rate?: number | null
-          sleep_score?: number | null
-          summary_date: string
-          user_id: string
-        }
-        Update: {
-          activity_score?: number | null
-          created_at?: string
-          hrv?: number | null
-          id?: string
-          raw_data?: Json | null
-          readiness_score?: number | null
-          resting_heart_rate?: number | null
-          sleep_score?: number | null
-          summary_date?: string
           user_id?: string
         }
         Relationships: []
@@ -2271,6 +2265,75 @@ export type Database = {
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wearable_data: {
+        Row: {
+          active_calories: number | null
+          created_at: string
+          deep_sleep_minutes: number | null
+          energy_level: string | null
+          hrv: number | null
+          hrv_samples: Json | null
+          hrv_status: string | null
+          id: string
+          raw_data: Json | null
+          recovery_status: string | null
+          rem_sleep_minutes: number | null
+          resting_heart_rate: number | null
+          sleep_quality: string | null
+          sleep_score: number | null
+          source: string
+          steps: number | null
+          summary_date: string
+          total_sleep_minutes: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_calories?: number | null
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          energy_level?: string | null
+          hrv?: number | null
+          hrv_samples?: Json | null
+          hrv_status?: string | null
+          id?: string
+          raw_data?: Json | null
+          recovery_status?: string | null
+          rem_sleep_minutes?: number | null
+          resting_heart_rate?: number | null
+          sleep_quality?: string | null
+          sleep_score?: number | null
+          source?: string
+          steps?: number | null
+          summary_date: string
+          total_sleep_minutes?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_calories?: number | null
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          energy_level?: string | null
+          hrv?: number | null
+          hrv_samples?: Json | null
+          hrv_status?: string | null
+          id?: string
+          raw_data?: Json | null
+          recovery_status?: string | null
+          rem_sleep_minutes?: number | null
+          resting_heart_rate?: number | null
+          sleep_quality?: string | null
+          sleep_score?: number | null
+          source?: string
+          steps?: number | null
+          summary_date?: string
+          total_sleep_minutes?: number | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

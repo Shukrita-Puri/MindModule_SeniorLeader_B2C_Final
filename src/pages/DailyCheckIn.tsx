@@ -75,12 +75,12 @@ const DailyCheckIn = () => {
     queryKey: ['connections', user?.id],
     queryFn: async () => {
       if (!user?.id) return { hasWearable: false, hasCalendar: false };
-      const [oura, calendar] = await Promise.all([
-        supabase.from('oura_connections').select('id').eq('user_id', user.id).single(),
+      const [wearable, calendar] = await Promise.all([
+        supabase.from('wearable_data').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
         supabase.from('calendar_connections').select('id').eq('user_id', user.id).single()
       ]);
       return {
-        hasWearable: !!oura.data,
+        hasWearable: !!wearable.data,
         hasCalendar: !!calendar.data
       };
     },

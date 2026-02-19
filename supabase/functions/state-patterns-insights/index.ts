@@ -135,22 +135,21 @@ Deno.serve(async (req) => {
     // ── Parallel queries ──
     const [
       profileRes, checkInsRes, themesRes, coachInsightsRes,
-      sanctuaryRes, ritualRes, tinyWinsRes, ouraRes,
-      dialogueSessionsRes, ouraConnRes, calConnRes, behaviorRes,
+      sanctuaryRes, ritualRes, tinyWinsRes, wearableRes,
+      dialogueSessionsRes, calConnRes, behaviorRes, innerReadinessRes,
     ] = await Promise.all([
       supabase.from("profiles").select("user_archetype, component_scores").eq("id", userId).single(),
       supabase.from("daily_checkins").select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at").eq("user_id", userId).gte("checkin_date", thirtyStr).order("checkin_date", { ascending: true }),
       supabase.from("daily_themes").select("theme_phrase, theme_driver").eq("user_id", userId).gte("theme_date", thirtyStr),
       supabase.from("user_coach_insights").select("insight_content, created_at, insight_type").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
-      // New queries
       supabase.from("sanctuary_events").select("category, event_type, timestamp, context_data").eq("user_id", userId).gte("timestamp", thirtyDaysAgo.toISOString()),
       supabase.from("daily_ritual_completions").select("session_period, completion_status, ritual_date").eq("user_id", userId).gte("ritual_date", thirtyStr),
       supabase.from("tiny_wins").select("win_date").eq("user_id", userId).gte("win_date", thirtyStr),
-      supabase.from("oura_daily_data").select("hrv, summary_date").eq("user_id", userId).gte("summary_date", thirtyStr).order("summary_date", { ascending: true }),
+      supabase.from("wearable_data").select("hrv, summary_date").eq("user_id", userId).gte("summary_date", thirtyStr).order("summary_date", { ascending: true }),
       supabase.from("dialogue_sessions").select("id").eq("user_id", userId).gte("created_at", thirtyDaysAgo.toISOString()),
-      supabase.from("oura_connections").select("id").eq("user_id", userId).eq("is_active", true).limit(1),
       supabase.from("calendar_connections").select("id").eq("user_id", userId).eq("is_active", true).limit(1),
       supabase.from("behavior_logs").select("behavior_type, created_at").eq("user_id", userId).gte("created_at", thirtyDaysAgo.toISOString()),
+      supabase.from("inner_readiness_scores").select("composite_score, energy_tier, full_context_statement, divergence_flag, layers_active, score_date").eq("user_id", userId).gte("score_date", thirtyStr).order("score_date", { ascending: true }),
     ]);
 
     const profile = profileRes.data;
@@ -160,11 +159,12 @@ Deno.serve(async (req) => {
     const sanctuaryEvents = sanctuaryRes.data || [];
     const ritualCompletions = ritualRes.data || [];
     const tinyWins = tinyWinsRes.data || [];
-    const ouraData = ouraRes.data || [];
+    const wearableData = wearableRes.data || [];
     const dialogueSessions = dialogueSessionsRes.data || [];
-    const hasWearable = (ouraConnRes.data || []).length > 0;
+    const hasWearable = wearableData.length > 0;
     const hasCalendar = (calConnRes.data || []).length > 0;
     const behaviorLogs = behaviorRes.data || [];
+    const innerReadinessScores = innerReadinessRes.data || [];
 
     const totalCheckins = checkIns.length;
     const coachSessionCount = dialogueSessions.length;
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
 
     // HRV trend
     let hrvTrendScore = 50; // neutral
-    const hrvData = ouraData.filter((d: any) => d.hrv != null);
+    const hrvData = wearableData.filter((d: any) => d.hrv != null);
     if (hrvData.length >= 14) {
       const hrvRecent = hrvData.filter((d: any) => d.summary_date >= sevenStr);
       const hrvPrior = hrvData.filter((d: any) => d.summary_date >= fourteenStr && d.summary_date < sevenStr);

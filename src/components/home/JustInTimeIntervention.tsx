@@ -147,16 +147,16 @@ const JustInTimeIntervention = () => {
     
     try {
       const { data } = await supabase
-        .from('oura_daily_data')
-        .select('readiness_score, hrv')
+        .from('wearable_data')
+        .select('sleep_score, hrv')
         .eq('user_id', user.id)
         .order('summary_date', { ascending: false })
         .limit(1)
         .maybeSingle();
       
       if (data) {
-        // Low readiness or low HRV indicates stress
-        if (data.readiness_score && data.readiness_score < 60) {
+        // Low sleep score or low HRV indicates stress
+        if (data.sleep_score && data.sleep_score < 60) {
           return 'elevated';
         }
         if (data.hrv && data.hrv < 30) {
