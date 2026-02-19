@@ -233,24 +233,28 @@ export default function Stage8Results() {
         </svg>
 
         <TooltipProvider delayDuration={200}>
-          <div className="space-y-2 pt-3">
-            {radarPoints.map((point) => (
-              <Tooltip key={point.key}>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-help">
-                    <span className="text-xs font-semibold text-foreground">{point.label}</span>
-                    <span className="text-[9px] text-muted-foreground/50">ⓘ</span>
+          <div className="flex justify-center pt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="text-[10px] text-muted-foreground/60 underline underline-offset-2 cursor-help">
+                  What do these dimensions measure?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[260px] space-y-2 p-3">
+                {radarPoints.map((point) => (
+                  <div key={point.key} className="space-y-0.5">
+                    <span className="text-[11px] font-semibold">{point.label}</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                        <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="flex gap-1.5 flex-wrap max-w-[220px]">
-                  {DIMENSION_META_SKILLS[point.key].map((skill) => (
-                    <span key={skill} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary-foreground/80">
-                      {skill}
-                    </span>
-                  ))}
-                </TooltipContent>
-              </Tooltip>
-            ))}
+                ))}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </div>
@@ -273,17 +277,17 @@ export default function Stage8Results() {
 
       {/* Value Proposition */}
       <div className="bg-transparent border-l-2 border-[#8B7D6B] pl-5 py-2 space-y-3">
-        <h3 className="text-lg font-headline font-bold text-saffron">
+        <h3 className="text-lg font-headline font-bold text-[#8B7D6B] italic">
           Perform at your highest level. Consistently.
         </h3>
         <div className="space-y-3">
-          <p className="text-sm text-saffron/80 leading-relaxed">
+          <p className="text-sm text-[#8B7D6B]/80 italic leading-relaxed">
             Your baseline tells the system who you are. How you regulate under pressure, where you recover, where you lead from strength.
           </p>
-          <p className="text-sm text-saffron/80 leading-relaxed">
+          <p className="text-sm text-[#8B7D6B]/80 italic leading-relaxed">
             As your day shifts, the calendar, the stakes, the load, your practice moves with it. What you need at 7am is not what you need at 9pm.
           </p>
-          <p className="text-sm text-saffron font-medium leading-relaxed">
+          <p className="text-sm text-[#8B7D6B] font-medium italic leading-relaxed">
             The result is not a programme you follow. It is a system that works around you.
           </p>
         </div>
