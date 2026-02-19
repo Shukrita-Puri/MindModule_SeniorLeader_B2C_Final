@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getAllResponses, saveResponse, updateSession } from "@/utils/onboardingStorage";
 import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
-import { ArrowRight, Target } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
@@ -231,24 +232,33 @@ export default function Stage8Results() {
           })}
         </svg>
 
-        <div className="space-y-2 pt-3">
-          {radarPoints.map((point) => (
-            <div key={point.key} className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-foreground min-w-[70px]">{point.label}</span>
-              {DIMENSION_META_SKILLS[point.key].map((skill) => (
-                <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/8 text-muted-foreground">
-                  {skill}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
+        <TooltipProvider delayDuration={200}>
+          <div className="space-y-2 pt-3">
+            {radarPoints.map((point) => (
+              <Tooltip key={point.key}>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-help">
+                    <span className="text-xs font-semibold text-foreground">{point.label}</span>
+                    <span className="text-[9px] text-muted-foreground/50">ⓘ</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="flex gap-1.5 flex-wrap max-w-[220px]">
+                  {DIMENSION_META_SKILLS[point.key].map((skill) => (
+                    <span key={skill} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary-foreground/80">
+                      {skill}
+                    </span>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* AI Pattern Insight */}
       {insight && (
         <div className="bg-white/65 backdrop-blur-[30px] border border-black/[0.08] rounded-2xl p-6">
-          <p className="text-sm leading-relaxed text-foreground/90 italic">
+          <p className="text-sm leading-relaxed text-foreground/90">
             "{insight}"
           </p>
         </div>
@@ -262,18 +272,18 @@ export default function Stage8Results() {
       </div>
 
       {/* Value Proposition */}
-      <div className="bg-transparent border-l-4 border-[#8B7D6B] pl-5 py-2 space-y-3">
-        <h3 className="text-lg font-headline font-bold text-foreground">
+      <div className="bg-transparent border-l-2 border-[#8B7D6B] pl-5 py-2 space-y-3">
+        <h3 className="text-lg font-headline font-bold text-saffron">
           Perform at your highest level. Consistently.
         </h3>
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Your baseline tells the system who you are — how you regulate under pressure, where you recover, where you lead from strength.
+          <p className="text-sm text-saffron/80 leading-relaxed">
+            Your baseline tells the system who you are. How you regulate under pressure, where you recover, where you lead from strength.
           </p>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            As your day shifts — the calendar, the stakes, the load — your practice moves with it. What you need at 7am is not what you need at 9pm.
+          <p className="text-sm text-saffron/80 leading-relaxed">
+            As your day shifts, the calendar, the stakes, the load, your practice moves with it. What you need at 7am is not what you need at 9pm.
           </p>
-          <p className="text-sm text-foreground font-medium leading-relaxed">
+          <p className="text-sm text-saffron font-medium leading-relaxed">
             The result is not a programme you follow. It is a system that works around you.
           </p>
         </div>
