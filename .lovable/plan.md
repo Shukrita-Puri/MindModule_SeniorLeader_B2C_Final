@@ -1,154 +1,50 @@
 
 
-# Your Readiness Rhythm -- Full Rebuild
+# Progressive Unlock for Your Momentum Card
 
-This plan covers three major workstreams: (1) styling the Mind Map chart circles/lines to taupe, (2) renaming and fully rebuilding the Performance Rhythm card into "Your Readiness Rhythm" with the complete spec, and (3) rewriting the edge function to pull from all correct tables.
+## Problem
+Currently the Momentum card shows an empty state until a user has enough wins with extracted dimensions over a 14-day window. With only 1 win and no dimension data, the card feels hollow. Waiting 14 days for insights feels too long.
 
----
+## Solution: Two Changes
 
-## 1. Mind Map Bubble Chart -- Taupe Circles and Lines
+### 1. Better Incentive Messaging (Insights.tsx)
 
-**File:** `src/components/insights/InnerWorldBubbles.tsx`
+Update `getWinsProgressMessage()` to be more specific about what unlocks at each threshold:
 
-- Change node circle `fill` from `hsl(var(--muted-foreground))` to taupe (`#8B7D6B`)
-- Change connection line `stroke` from `hsl(var(--muted-foreground))` to taupe (`#8B7D6B`)
-
----
-
-## 2. Rename Card: "Your Performance Rhythm" to "Your Readiness Rhythm"
-
-**File:** `src/components/insights/PerformanceRhythmCard.tsx`
-
-- Update all title/heading text from "Your Performance Rhythm" to "Your Readiness Rhythm"
-- Update the `InsightInfoModal` explanation text to match the new purpose statement
-
----
-
-## 3. Heatmap Cell Colors -- Match Daily Check-In Carousel
-
-The current heatmap uses generic green/blue/amber/slate/red gradients. The spec requires matching the carousel card gradients from `/dailycheckin`:
-
-| Outcome | Carousel Gradient | New Heatmap Gradient |
+| Wins | Current Message | New Message |
 |---|---|---|
-| Focused | `from-green-800/90 to-yellow-500/90` | `from-green-800 to-yellow-500` |
-| Steady | `from-amber-700/90 to-yellow-200/90` | `from-amber-700 to-yellow-200` |
-| Scattered | `from-teal-700/90 to-emerald-300/90` | `from-teal-700 to-emerald-300` |
-| Drained | `from-slate-700/90 to-gray-400/90` | `from-slate-700 to-gray-400` |
-| Overwhelmed | `from-red-800/90 to-amber-600/90` | `from-red-800 to-amber-600` |
+| 0 | "Capture your first win..." | "Capture your first win during evening integration to start building your momentum map" |
+| 1 | "First win captured!" | "First win captured! Log 2 more to start seeing what patterns emerge" |
+| 2-4 | "X wins logged. Patterns emerge around 5+" | "X wins so far -- log {5-X} more and your momentum map will start to take shape" |
+| 5-9 | (nothing) | "Your momentum map is building. At 10 wins, deeper patterns and an AI observation will appear" |
+| 10+ | (nothing) | null (fully unlocked) |
 
-**File:** `src/components/insights/PerformanceRhythmCard.tsx` -- update the `stateColors` object
+### 2. Progressive Unlock: Show Partial Insights Earlier (Insights.tsx)
 
----
+Instead of showing nothing until there are enough dimensions for a full bubble chart, progressively reveal content:
 
-## 4. Edge Function -- Full Rewrite to Match Spec v2.0
+**3+ wins with dimensions:** Show a simple text summary of top dimensions (no bubbles yet). Example: "Your recent wins reflect pride and learning."
 
-**File:** `supabase/functions/performance-rhythm-insights/index.ts`
+**5+ wins with dimensions:** Show the bubble chart (currently requires dimensions to exist, which is correct, but lower the "feels empty" threshold).
 
-The current edge function only queries `daily_checkins`, `calendar_connections`, `calendar_events`, and `behavior_logs`. The spec requires it to also query:
+**10+ wins:** Show the full AI-generated observation headline.
 
-- `inner_readiness_scores` -- for composite scores and energy tiers (used in heatmap overlay, "How You Show Up", calendar correlations, and best window)
-- `daily_ritual_completions` -- for pre-event session completion counting ("How You Show Up")
-- `dialogue_messages` -- for coach presence keyword mining ("How You Show Up")
+This is achieved by adjusting the rendering logic in the Momentum card section (lines 761-806) to have intermediate states between "empty" and "full bubbles."
 
-### New Response Payload Structure
+### 3. Show Partial Data Even With Few Wins
 
-```text
-{
-  presenceScore, presenceLabel, presenceInsight,   // "How You Show Up"
-  calendarInsight,                                  // Calendar Pattern
-  causeEffectInsight,                               // Cause-Effect
-  grid (3x7 with outcome, compositeScore, divergence),
-  bestReadinessWindow,
-  checkInCount, behaviorLogCount, hasCalendar, dataSourceNote
-}
-```
+When `winsCount >= 1` but dimensions are empty (wins haven't been analyzed yet), show the win content itself as a simple list rather than an empty card. This gives the user something to see immediately.
 
-### Calculation Logic Added
+Add a small win list display when dimensions are empty but wins exist:
+- Show up to 3 recent win texts in a compact format
+- Below them, the incentive message about logging more
 
-**Element 1A -- How You Show Up (new)**
-- Identify high-stakes events via expanded keyword list (30 keywords vs current 15)
-- Score pre-event session completions from `daily_ritual_completions`
-- Score high-stakes events on depleted days from `inner_readiness_scores`
-- Mine `dialogue_messages` for positive/negative presence keywords
-- Check if high-stakes events energize (next-day composite score boost)
-- Calculate composite presence score (0-100) and assign qualitative label
-- Generate supporting insight from dominant signal
-- Minimum threshold: 10 or more check-ins AND (2+ high-stakes events OR 3+ coach sessions)
-
-**Element 1B -- Calendar Pattern (upgraded)**
-- Use `inner_readiness_scores.composite_score` instead of just `energy_balance`
-- Categorize events by type keywords (10 categories vs current flat list)
-- Calculate avg composite score per event type, sort by draining/energizing
-
-**Element 1C -- Cause-Effect (existing, minor refinement)**
-- Keep current behavior-to-outcome logic
-- Add behavior log count to response metadata
-
-**Element 2 -- Heatmap (upgraded)**
-- Use `inner_readiness_scores` for composite score overlay (30-day avg per cell)
-- Flag divergence when felt-state vs composite delta is 20 or more points (expanded from just "focused < 50")
-
-**Element 3 -- Best Readiness Window (upgraded)**
-- Use `inner_readiness_scores` composite scores instead of `energy_balance`
-- Require 2 or more data points per cell
-
-**Element 4 -- Data Source Note (new)**
-- Generate string: "Based on N check-ins, M behavior logs, calendar data over X days"
-
-### Progressive Unlock Thresholds
-- 0-6 check-ins: empty heatmap + prompt
-- 7-9: heatmap + best window
-- 10-14: + calendar pattern + cause-effect
-- 15+: + "How You Show Up" + composite overlay
-
----
-
-## 5. Frontend Card -- Full Rebuild
-
-**File:** `src/components/insights/PerformanceRhythmCard.tsx`
-
-### Updated Data Interface
-
-```text
-PerformanceRhythmData {
-  presenceScore, presenceLabel, presenceInsight,
-  calendarInsight, causeEffectInsight,
-  grid: 3x7 array with outcome/compositeScore/divergence,
-  bestReadinessWindow: { timeWindow, day, avgScore, label },
-  checkInCount, behaviorLogCount, hasCalendar, dataSourceNote,
-  // Backward compat fields kept for DEV_MODE
-  heatmap, bestWindow, observations
-}
-```
-
-### New Card Layout Sections (top to bottom)
-
-1. **"How You Show Up" box** -- presence label + insight text (only when presenceScore exists)
-2. **Calendar Pattern Observation** -- calendarInsight text
-3. **Cause-Effect Observation** -- causeEffectInsight text
-4. **"Your Week at a Glance" heatmap** -- 3x7 grid with carousel-matching colors
-5. **Best Readiness Window** -- one-line sharpest window insight
-6. **Data Source Note** -- transparent accounting line
-
-### Progressive Unlock in UI
-- Show prompt if checkInCount < 7
-- Show heatmap from 7+
-- Show insights from 10+
-- Show "How You Show Up" from 15+
-
----
-
-## 6. DEV_MODE Parity
-
-The DEV_MODE local computation in PerformanceRhythmCard will be updated to match the new data shape, querying `inner_readiness_scores`, `daily_ritual_completions`, and approximating `dialogue_messages` keyword mining locally.
-
----
-
-## Summary of Files Changed
+## Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/insights/InnerWorldBubbles.tsx` | Taupe circles and lines |
-| `src/components/insights/PerformanceRhythmCard.tsx` | Full rebuild: rename, new layout, carousel colors, new data interface |
-| `supabase/functions/performance-rhythm-insights/index.ts` | Full rewrite: "How You Show Up", expanded calendar patterns, composite score overlay, data source note |
+| `src/pages/Insights.tsx` | Updated `getWinsProgressMessage()` with tiered incentive text; added intermediate rendering states showing win content when dimensions are empty; progressive bubble chart unlock at 5+ wins |
+
+## No Edge Function Changes
+The `tiny-wins-insights` edge function and `PsychologicalDimensionBubbles` component remain unchanged. This is purely a frontend display improvement.
 
