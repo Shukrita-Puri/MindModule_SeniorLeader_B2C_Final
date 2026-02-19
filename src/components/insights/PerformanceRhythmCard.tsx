@@ -408,8 +408,41 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const getProgressiveMessage = () => {
     if (!data) return null;
     if (data.checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm.';
-    if (data.checkInCount < 7) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — complete 7 to see your readiness rhythm.`;
+    if (data.checkInCount < 7) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — ${7 - data.checkInCount} more to see your readiness rhythm.`;
     return null;
+  };
+
+  const getInsightUnlockMessages = () => {
+    if (!data || data.checkInCount < 7) return [];
+    const messages: { icon: 'sparkles' | 'calendar' | 'target'; text: string }[] = [];
+
+    if (data.checkInCount < 10) {
+      messages.push({
+        icon: 'target',
+        text: `${10 - data.checkInCount} more check-in${10 - data.checkInCount > 1 ? 's' : ''} to unlock calendar & cause-effect insights`,
+      });
+    } else if (data.checkInCount < 15) {
+      if (!data.calendarInsight && !data.causeEffectInsight) {
+        // They have enough check-ins but no data — encourage connecting calendar / logging behaviors
+        if (!data.hasCalendar) {
+          messages.push({ icon: 'calendar', text: 'Connect your calendar to reveal how events affect your readiness' });
+        }
+        if (data.behaviorLogCount < 5) {
+          messages.push({ icon: 'target', text: `Log ${5 - data.behaviorLogCount} more behavior${5 - data.behaviorLogCount > 1 ? 's' : ''} to see cause-effect patterns` });
+        }
+      }
+      messages.push({
+        icon: 'sparkles',
+        text: `${15 - data.checkInCount} more check-in${15 - data.checkInCount > 1 ? 's' : ''} to unlock "How You Show Up" — your presence under pressure`,
+      });
+    } else {
+      // 15+ but no presence data yet
+      if (!data.presenceLabel) {
+        messages.push({ icon: 'sparkles', text: 'Keep checking in — presence insights appear after more high-stakes moments or coach sessions' });
+      }
+    }
+
+    return messages;
   };
 
   return (
@@ -477,7 +510,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* Calendar connect prompt */}
+            {/* Insight unlock incentives */}
+            {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (
+              <div className="space-y-2">
+                {getInsightUnlockMessages().map((msg, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 flex items-center gap-3">
+                    {msg.icon === 'sparkles' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    {msg.icon === 'calendar' && <Calendar className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    {msg.icon === 'target' && <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />}
+                    <p className="text-xs text-muted-foreground leading-relaxed">{msg.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             {data.checkInCount >= 10 && !data.hasCalendar && !data.calendarInsight && (
               <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
