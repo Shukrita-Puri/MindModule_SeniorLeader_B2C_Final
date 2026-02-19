@@ -15,40 +15,34 @@ interface DimensionScores {
 }
 
 interface LeadershipPatternsData {
-  userArchetype: string | null;
-  archetypeTitle: string | null;
-  strengthArea: string | null;
-  growthArea: string | null;
-  typicalState: string | null;
-  distribution: Record<string, number>;
-  compositeAvg30: number;
-  trendDirection: 'improving' | 'stable' | 'declining';
+  aiObservation: string | null;
+  baselineArchetypeId: string;
+  baselineArchetypeTitle: string;
+  currentArchetypeId: string | null;
+  currentArchetypeTitle: string | null;
+  archetypeEvolved: boolean;
+  archetypeLeanOn: string;
+  archetypeWatchFor: string;
+  baselineScores: DimensionScores | null;
+  currentScores: DimensionScores | null;
+  scoreDeltas: DimensionScores | null;
   frictionPct: number;
   frictionLabel: string;
+  trendDirection: 'improving' | 'stable' | 'declining';
+  typicalState: string | null;
   recurringThemes: { phrase: string; count: number }[];
   coachStrength: string | null;
   coachFriction: string | null;
-  aiObservation: string | null;
   checkInCount: number;
-  baselineScores: DimensionScores | null;
-  currentScores: DimensionScores | null;
-  baselineArchetypeTitle: string | null;
-  currentArchetypeTitle: string | null;
-  archetypeEvolved: boolean;
-  scoreDeltas: DimensionScores | null;
+  coachSessionCount: number;
+  hasWearable: boolean;
+  hasCalendar: boolean;
+  dataSourceNote: string;
 }
 
 interface LeadershipPatternsCardProps {
   userId?: string;
 }
-
-const stateLabels: Record<string, string> = {
-  focused: 'Focused',
-  steady: 'Steady',
-  scattered: 'Scattered',
-  drained: 'Drained',
-  overwhelmed: 'Overwhelmed',
-};
 
 const trendIcons = {
   improving: TrendingUp,
@@ -62,13 +56,13 @@ const trendColors = {
   stable: 'text-muted-foreground',
 };
 
-// DEV_MODE archetype resolution matching edge function cascade
+// DEV_MODE archetype resolution
 function devResolveArchetype(er: number, fr: number, en: number) {
-  if (er >= 65 && en >= 55) return { title: "The Grounded Master", strengthArea: "Recalibration", growthArea: "Renewal depth" };
-  if (en >= 65 && er >= 50) return { title: "The Resilient Performer", strengthArea: "Renewal", growthArea: "Clarity under load" };
-  if (fr >= 65 && er >= 45) return { title: "The Clear Thinker", strengthArea: "Clarity", growthArea: "Recalibration speed" };
-  if (er >= 60 && fr < 50) return { title: "The Intensity Driver", strengthArea: "Recalibration", growthArea: "Clarity balance" };
-  return { title: "The Adaptive Navigator", strengthArea: "Flexibility", growthArea: "Recalibration depth" };
+  if (er >= 65 && en >= 55) return { id: "grounded-leader", title: "The Grounded Master", leanOn: "Stability and presence — you lead from a centered place.", watchFor: "Over-reliance on composure when renewal is needed." };
+  if (en >= 65 && er >= 50) return { id: "resilient-performer", title: "The Resilient Performer", leanOn: "Recovery capacity — you absorb impact and bounce back.", watchFor: "Pushing through when regulation would serve you better." };
+  if (fr >= 65 && er >= 45) return { id: "clear-thinker", title: "The Clear Thinker", leanOn: "Mental clarity — you cut through complexity with precision.", watchFor: "Over-thinking when action or rest is what's needed." };
+  if (er >= 60 && fr < 50) return { id: "intensity-driver", title: "The Intensity Driver", leanOn: "Directed force — you channel intensity into focused action.", watchFor: "Intensity without clarity can fragment your focus." };
+  return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
 const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
@@ -85,71 +79,36 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
       if (DEV_MODE) {
         const effectiveUserId = DEV_USER.id;
         const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+        const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
+        const fourteenDaysAgo = format(subDays(new Date(), 14), 'yyyy-MM-dd');
 
         const [checkInsRes, themesRes, coachRes, profileRes] = await Promise.all([
-          supabase
-            .from('daily_checkins')
-            .select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at')
-            .eq('user_id', effectiveUserId)
-            .gte('checkin_date', thirtyDaysAgo)
-            .order('checkin_date', { ascending: true }),
-          supabase
-            .from('daily_themes')
-            .select('theme_phrase, theme_driver')
-            .eq('user_id', effectiveUserId)
-            .gte('theme_date', thirtyDaysAgo),
-          supabase
-            .from('user_coach_insights')
-            .select('insight_content, created_at, insight_type')
-            .eq('user_id', effectiveUserId)
-            .order('created_at', { ascending: false })
-            .limit(10),
-          supabase
-            .from('profiles')
-            .select('user_archetype, component_scores')
-            .eq('id', effectiveUserId)
-            .single(),
+          supabase.from('daily_checkins').select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at').eq('user_id', effectiveUserId).gte('checkin_date', thirtyDaysAgo).order('checkin_date', { ascending: true }),
+          supabase.from('daily_themes').select('theme_phrase, theme_driver').eq('user_id', effectiveUserId).gte('theme_date', thirtyDaysAgo),
+          supabase.from('user_coach_insights').select('insight_content, created_at, insight_type').eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(10),
+          supabase.from('profiles').select('user_archetype, component_scores').eq('id', effectiveUserId).single(),
         ]);
 
         const checkIns = checkInsRes.data || [];
         const themes = themesRes.data || [];
         const coachInsights = coachRes.data || [];
-
-        // Distribution
-        const distribution: Record<string, number> = {
-          focused: 0, steady: 0, scattered: 0, drained: 0, overwhelmed: 0,
-        };
-        checkIns.forEach((c) => {
-          const o = c.outcome?.toLowerCase();
-          if (o && o in distribution) distribution[o]++;
-        });
-
-        const sortedStates = Object.entries(distribution).sort((a, b) => b[1] - a[1]);
-        const typicalState = sortedStates[0]?.[1] > 0 ? sortedStates[0][0] : null;
+        const totalCheckins = checkIns.length;
 
         // Friction
-        const totalCheckins = checkIns.length;
-        const lowStates = checkIns.filter((c) =>
-          ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')
-        ).length;
+        const lowStates = checkIns.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length;
         const frictionPct = totalCheckins > 0 ? Math.round((lowStates / totalCheckins) * 100) : 0;
-        const frictionLabel =
-          frictionPct <= 25 ? 'Low friction' : frictionPct <= 50 ? 'Moderate friction' : 'High friction pattern';
+        const frictionLabel = frictionPct <= 25 ? 'Low friction' : frictionPct <= 50 ? 'Moderate friction' : frictionPct <= 75 ? 'High friction pattern' : 'Sustained friction';
 
-        // Composite trend
-        const scores = checkIns.filter((c) => c.energy_balance != null).map((c) => ({ date: c.checkin_date, score: c.energy_balance as number }));
-        const compositeAvg30 = scores.length > 0 ? Math.round(scores.reduce((s, c) => s + c.score, 0) / scores.length) : 0;
-
-        const now = new Date();
-        const sevenStr = format(subDays(now, 7), 'yyyy-MM-dd');
-        const fourteenStr = format(subDays(now, 14), 'yyyy-MM-dd');
-        const recent = scores.filter((s) => s.date >= sevenStr);
-        const prior = scores.filter((s) => s.date >= fourteenStr && s.date < sevenStr);
+        // Trend
+        const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenDaysAgo);
+        const priorCheckins = checkIns.filter((c) => c.checkin_date >= fourteenDaysAgo && c.checkin_date < sevenDaysAgo);
         let trendDirection: 'improving' | 'stable' | 'declining' = 'stable';
-        if (recent.length > 0 && prior.length > 0) {
-          const delta = recent.reduce((s, c) => s + c.score, 0) / recent.length - prior.reduce((s, c) => s + c.score, 0) / prior.length;
-          if (delta > 5) trendDirection = 'improving';
-          else if (delta < -5) trendDirection = 'declining';
+        if (recentCheckins.length > 0 && priorCheckins.length > 0) {
+          const rFriction = recentCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / recentCheckins.length * 100;
+          const pFriction = priorCheckins.filter((c) => ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')).length / priorCheckins.length * 100;
+          const diff = pFriction - rFriction;
+          if (diff >= 10) trendDirection = 'improving';
+          else if (diff <= -10) trendDirection = 'declining';
         }
 
         // Recurring themes
@@ -158,18 +117,18 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
         const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
 
         // Coach insights
-        const strengthKw = ['strength', 'strong', 'excel', 'composure', 'resilient', 'clarity', 'conviction', 'grounded'];
-        const frictionKw = ['struggle', 'challenge', 'pattern', 'watch for', 'friction', 'tendency', 'recurring', 'avoidance'];
+        const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
+        const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
         let coachStrength: string | null = null;
         let coachFriction: string | null = null;
         for (const ins of coachInsights) {
-          const lc = (ins.insight_content || '').toLowerCase();
-          if (!coachStrength && strengthKw.some((k) => lc.includes(k))) coachStrength = ins.insight_content;
-          if (!coachFriction && frictionKw.some((k) => lc.includes(k))) coachFriction = ins.insight_content;
+          const ic = ins.insight_content || '';
+          if (!coachStrength && strengthKw.test(ic)) coachStrength = ic.substring(0, 120);
+          if (!coachFriction && frictionKw.test(ic)) coachFriction = ic.substring(0, 120);
           if (coachStrength && coachFriction) break;
         }
 
-        // Resolve archetype from component_scores (v2 keys with legacy fallback)
+        // Archetype
         const cs = profileRes.data?.component_scores as any;
         const bER = cs?.energyRegulation ?? cs?.q2_energy_regulation ?? 50;
         const bFR = cs?.focusRecovery ?? cs?.q3_focus_recovery ?? 50;
@@ -177,55 +136,67 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
         const baselineArch = devResolveArchetype(bER, bFR, bEN);
         const baselineScores: DimensionScores = { recalibration: Math.round(bER), clarity: Math.round(bFR), renewal: Math.round(bEN) };
 
-        // Current scores from last 7 days
-        const recentCheckins = checkIns.filter((c) => c.checkin_date >= sevenStr);
+        // Current scores (simplified DEV_MODE: use felt states as proxy)
         const recentEB = recentCheckins.filter((c) => c.energy_balance != null).map((c) => c.energy_balance as number);
         const recentCL = recentCheckins.filter((c) => c.clarity_level != null).map((c) => c.clarity_level as number);
         const recentCF = recentCheckins.filter((c) => c.confidence_level != null).map((c) => c.confidence_level as number);
 
         let currentScores: DimensionScores | null = null;
+        let currentArchetypeId: string | null = null;
         let currentArchetypeTitle: string | null = null;
         let archetypeEvolved = false;
         let scoreDeltas: DimensionScores | null = null;
+        let currentLeanOn = baselineArch.leanOn;
+        let currentWatchFor = baselineArch.watchFor;
 
-        const hasEnoughForCurrent = totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0;
-        if (hasEnoughForCurrent) {
+        if (totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0) {
           const avgER = Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length);
           const avgFR = Math.round(recentCL.reduce((s, v) => s + v, 0) / recentCL.length);
           const avgEN = Math.round(recentCF.reduce((s, v) => s + v, 0) / recentCF.length);
           currentScores = { recalibration: avgER, clarity: avgFR, renewal: avgEN };
-          const currentArch = devResolveArchetype(avgER, avgFR, avgEN);
-          currentArchetypeTitle = currentArch.title;
+          const curArch = devResolveArchetype(avgER, avgFR, avgEN);
+          currentArchetypeId = curArch.id;
+          currentArchetypeTitle = curArch.title;
+          currentLeanOn = curArch.leanOn;
+          currentWatchFor = curArch.watchFor;
           scoreDeltas = {
-            recalibration: currentScores.recalibration - baselineScores.recalibration,
-            clarity: currentScores.clarity - baselineScores.clarity,
-            renewal: currentScores.renewal - baselineScores.renewal,
+            recalibration: avgER - baselineScores.recalibration,
+            clarity: avgFR - baselineScores.clarity,
+            renewal: avgEN - baselineScores.renewal,
           };
-          archetypeEvolved = baselineArch.title !== currentArchetypeTitle;
+          archetypeEvolved = baselineArch.id !== curArch.id;
         }
 
+        // Typical state
+        const distribution: Record<string, number> = { focused: 0, steady: 0, scattered: 0, drained: 0, overwhelmed: 0 };
+        checkIns.forEach((c) => { const o = c.outcome?.toLowerCase(); if (o && o in distribution) distribution[o]++; });
+        const sortedStates = Object.entries(distribution).sort((a, b) => b[1] - a[1]);
+        const typicalState = sortedStates[0]?.[1] > 0 ? sortedStates[0][0] : null;
+
         setData({
-          userArchetype: profileRes.data?.user_archetype || null,
-          archetypeTitle: baselineArch.title,
-          strengthArea: baselineArch.strengthArea,
-          growthArea: baselineArch.growthArea,
-          typicalState,
-          distribution,
-          compositeAvg30,
-          trendDirection,
+          aiObservation: totalCheckins >= 3 ? `Your readiness has been ${trendDirection} this period, with ${frictionLabel.toLowerCase()} across your check-ins.` : null,
+          baselineArchetypeId: baselineArch.id,
+          baselineArchetypeTitle: baselineArch.title,
+          currentArchetypeId,
+          currentArchetypeTitle,
+          archetypeEvolved,
+          archetypeLeanOn: currentLeanOn,
+          archetypeWatchFor: currentWatchFor,
+          baselineScores,
+          currentScores,
+          scoreDeltas,
           frictionPct,
           frictionLabel,
+          trendDirection,
+          typicalState,
           recurringThemes,
           coachStrength,
           coachFriction,
-          aiObservation: totalCheckins >= 3 ? `Your readiness has been ${trendDirection} this period, with ${frictionLabel.toLowerCase()} across your check-ins.` : null,
           checkInCount: totalCheckins,
-          baselineScores,
-          currentScores,
-          baselineArchetypeTitle: baselineArch.title,
-          currentArchetypeTitle,
-          archetypeEvolved,
-          scoreDeltas,
+          coachSessionCount: 0,
+          hasWearable: false,
+          hasCalendar: false,
+          dataSourceNote: `Based on ${totalCheckins} check-in${totalCheckins !== 1 ? 's' : ''} over 30 days`,
         });
         setLoading(false);
         return;
@@ -248,30 +219,34 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
     }
   };
 
-  const TrendIcon = data ? trendIcons[data.trendDirection] : Minus;
-
-  const renderDimensionRow = (label: string, baseline: number, current: number | undefined, delta: number | undefined) => (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-xs text-muted-foreground w-28">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground/70 tabular-nums">{baseline}</span>
-        {current !== undefined && (
-          <>
-            <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
-            <span className="font-semibold text-foreground tabular-nums">{current}</span>
-            {delta !== undefined && (
-              <span className={cn(
-                'text-xs tabular-nums',
-                delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
-              )}>
-                ({delta > 0 ? '+' : ''}{delta})
-              </span>
-            )}
-          </>
-        )}
+  const renderDimensionRow = (label: string, baseline: number, current: number | undefined, delta: number | undefined, trend?: 'improving' | 'stable' | 'declining') => {
+    const TrendIcon = trend ? trendIcons[trend] : null;
+    return (
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-xs text-muted-foreground w-28">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground/70 tabular-nums">{baseline}</span>
+          {current !== undefined && (
+            <>
+              <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
+              <span className="font-semibold text-foreground tabular-nums">{current}</span>
+              {delta !== undefined && (
+                <span className={cn(
+                  'text-xs tabular-nums',
+                  delta > 0 ? 'text-emerald-500' : delta < 0 ? 'text-red-400' : 'text-muted-foreground'
+                )}>
+                  ({delta > 0 ? '+' : ''}{delta})
+                </span>
+              )}
+              {TrendIcon && trend && (
+                <TrendIcon className={cn('h-3 w-3', trendColors[trend])} />
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <LuxuryInsightCard>
@@ -282,7 +257,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           </span>
           <InsightInfoModal
             title="Your Self Mastery Patterns"
-            explanation="What is consistently true about how you lead. This card draws from your coach sessions, your recurring Compass themes, and your Inner Readiness history over 30 days — surfacing the strengths your coach keeps returning to, the friction patterns that keep showing up, and the overall direction of your inner state over time."
+            explanation="What is consistently true about how you operate — not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring Compass themes, practices, and wearable data over 30 days."
           />
         </div>
       </CardHeader>
@@ -295,7 +270,8 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           <p className="text-sm text-muted-foreground text-center py-6">Unable to load self mastery patterns.</p>
         ) : (
           <div className="space-y-5">
-            {/* AI Observation — headline insight */}
+
+            {/* ── SECTION 1: AI OBSERVATION ── */}
             {data.aiObservation && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10">
                 <div className="flex items-start gap-2.5">
@@ -307,145 +283,123 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
               </div>
             )}
 
-            {/* Archetype line — with evolution if applicable */}
-            {(data.archetypeTitle || data.currentArchetypeTitle) && (
-              <div>
-                {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Archetype Evolution</span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-muted-foreground/70">{data.baselineArchetypeTitle}</span>
-                      <ArrowRight className="h-3.5 w-3.5 text-primary/60" />
-                      <span className="text-sm font-semibold text-foreground">{data.currentArchetypeTitle}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Archetype</span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {data.archetypeTitle}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* ── SECTION 2: YOUR DIMENSIONS ── */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                Your Dimensions
+              </p>
 
-            {/* Three-Dimension Progress */}
-            {data.baselineScores && (
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
-                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-2">
-                  {data.currentScores ? 'Dimension Progress' : 'Your Starting Point'}
-                </p>
-                {renderDimensionRow('Recalibration', data.baselineScores.recalibration, data.currentScores?.recalibration, data.scoreDeltas?.recalibration)}
-                {renderDimensionRow('Clarity', data.baselineScores.clarity, data.currentScores?.clarity, data.scoreDeltas?.clarity)}
-                {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal)}
-                {!data.currentScores && (
-                  <p className="text-[10px] text-muted-foreground/60 pt-1">
-                    Current scores build after 7 check-ins
-                  </p>
-                )}
-              </div>
-            )}
+              {/* Archetype */}
+              {data.archetypeEvolved && data.baselineArchetypeTitle && data.currentArchetypeTitle ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-muted-foreground/70">{data.baselineArchetypeTitle}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-primary/60" />
+                    <span className="text-sm font-semibold text-foreground">{data.currentArchetypeTitle}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {data.currentArchetypeTitle || data.baselineArchetypeTitle}
+                  </span>
+                </div>
+              )}
 
-            {/* Composite score + trend */}
-            {data.compositeAvg30 > 0 && (
+              {/* Three dimensions */}
+              {data.baselineScores && (
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
+                  {renderDimensionRow('Recalibration', data.baselineScores.recalibration, data.currentScores?.recalibration, data.scoreDeltas?.recalibration, data.currentScores ? data.trendDirection : undefined)}
+                  {renderDimensionRow('Clarity', data.baselineScores.clarity, data.currentScores?.clarity, data.scoreDeltas?.clarity, data.currentScores ? data.trendDirection : undefined)}
+                  {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal, data.currentScores ? data.trendDirection : undefined)}
+                  {!data.currentScores && (
+                    <p className="text-[10px] text-muted-foreground/60 pt-1">
+                      Your current scores build after 7 check-ins
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── SECTION 3: WHAT YOUR PATTERNS REVEAL ── */}
+            <div className="space-y-3 pt-3 border-t border-border/30">
+              <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
+                What Your Patterns Reveal
+              </p>
+
+              {/* Friction frequency with trend */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">30-day Inner Readiness avg</span>
+                <span className="text-xs text-muted-foreground">Friction</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{data.compositeAvg30}</span>
-                  <div className={cn('flex items-center gap-1', trendColors[data.trendDirection])}>
-                    <TrendIcon className="h-3.5 w-3.5" />
-                    <span className="text-xs capitalize">{data.trendDirection}</span>
-                  </div>
+                  <span className={cn(
+                    'text-sm font-semibold',
+                    data.frictionPct <= 25 ? 'text-emerald-500' : data.frictionPct <= 50 ? 'text-amber-500' : 'text-red-400'
+                  )}>
+                    {data.frictionPct}% ({data.frictionLabel})
+                  </span>
+                  {(() => {
+                    const TIcon = trendIcons[data.trendDirection];
+                    return <TIcon className={cn('h-3.5 w-3.5', trendColors[data.trendDirection])} />;
+                  })()}
                 </div>
               </div>
-            )}
 
-            {/* Typical state — supporting line */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Most frequent state (30 days)</span>
-              <span className="text-sm font-semibold text-foreground capitalize">
-                {data.typicalState ? stateLabels[data.typicalState] || data.typicalState : '—'}
-              </span>
+              {/* Recurring themes */}
+              {data.recurringThemes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-2">
+                    Recurring Themes
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {data.recurringThemes.map((theme, i) => (
+                      <span
+                        key={i}
+                        className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                      >
+                        "{theme.phrase}"
+                        {theme.count > 1 && (
+                          <span className="ml-1 opacity-60">({theme.count}×)</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Lean On */}
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
+                <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                  {data.coachStrength ? (
+                    <div className="flex items-start gap-1.5">
+                      <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground/90">{data.archetypeLeanOn}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Watch For */}
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                  {data.coachFriction ? (
+                    <div className="flex items-start gap-1.5">
+                      <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
+                    </div>
+                  ) : data.coachSessionCount < 3 ? (
+                    <p className="text-xs text-muted-foreground">Complete 3 coach sessions to surface personalized observations</p>
+                  ) : (
+                    <p className="text-sm text-foreground/90">{data.archetypeWatchFor}</p>
+                  )}
+                </div>
+              </div>
             </div>
-
-            {/* Friction frequency */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Friction frequency</span>
-              <span className={cn(
-                'text-sm font-semibold',
-                data.frictionPct <= 25 ? 'text-emerald-500' : data.frictionPct <= 50 ? 'text-amber-500' : 'text-red-400'
-              )}>
-                {data.frictionLabel} ({data.frictionPct}%)
-              </span>
-            </div>
-
-            {/* Strength & Friction from coach */}
-            {(data.strengthArea || data.coachStrength || data.coachFriction) && (
-              <div className="pt-3 border-t border-border/30 space-y-3">
-                {/* Strength */}
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
-                  <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Lean on: {data.strengthArea || 'Self-Regulation'}
-                    </p>
-                    {data.coachStrength ? (
-                      <div className="flex items-start gap-1.5">
-                        <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
-                      </div>
-                    ) : data.archetypeTitle ? (
-                      <p className="text-xs text-muted-foreground">Based on your {data.archetypeTitle} profile</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Friction */}
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Watch for: {data.growthArea || 'Energy Management'}
-                    </p>
-                    {data.coachFriction ? (
-                      <div className="flex items-start gap-1.5">
-                        <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
-                      </div>
-                    ) : data.checkInCount > 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Low-state patterns appeared in {data.frictionPct}% of check-ins over 30 days
-                      </p>
-                    ) : data.archetypeTitle ? (
-                      <p className="text-xs text-muted-foreground">Based on your {data.archetypeTitle} profile</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Recurring Compass themes */}
-            {data.recurringThemes.length > 0 && (
-              <div className="pt-3 border-t border-border/30">
-                <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground mb-3">
-                  Recurring Themes
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {data.recurringThemes.map((theme, i) => (
-                    <span
-                      key={i}
-                      className="px-4 py-2 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary rounded-full text-sm font-medium border border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                    >
-                      "{theme.phrase}"
-                      {theme.count > 1 && (
-                        <span className="ml-1 opacity-60">({theme.count}×)</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Progressive messages */}
             {data.checkInCount === 0 && (
@@ -459,10 +413,10 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
               </p>
             )}
 
-            {/* Data source note */}
+            {/* ── SECTION 4: DATA SOURCE NOTE ── */}
             {data.checkInCount > 0 && (
               <p className="text-[10px] text-muted-foreground/60 text-center">
-                Based on {data.checkInCount} check-in{data.checkInCount !== 1 ? 's' : ''} over the last 30 days
+                {data.dataSourceNote}
               </p>
             )}
           </div>
