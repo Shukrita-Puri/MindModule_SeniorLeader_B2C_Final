@@ -1,134 +1,154 @@
 
 
-# Implement Self-Mastery Patterns v4.0: Multi-Signal Evolved Scoring
+# Your Readiness Rhythm -- Full Rebuild
 
-## Summary
+This plan covers three major workstreams: (1) styling the Mind Map chart circles/lines to taupe, (2) renaming and fully rebuilding the Performance Rhythm card into "Your Readiness Rhythm" with the complete spec, and (3) rewriting the edge function to pull from all correct tables.
 
-This is a major upgrade to the `state-patterns-insights` edge function and `LeadershipPatternsCard` frontend. The evolved dimension scores will now draw from multiple behavioral signals (practices, coach dialogue, wearable data, ritual completions, tiny wins) with dynamic weight redistribution when data sources are missing. The card structure changes to four sections: AI Observation, Your Dimensions, What Your Patterns Reveal, and Data Source Note.
+---
 
-## Data Source Validation
+## 1. Mind Map Bubble Chart -- Taupe Circles and Lines
 
-After checking the database, here is the mapping between spec references and actual tables/columns:
+**File:** `src/components/insights/InnerWorldBubbles.tsx`
 
-| Spec Reference | Actual Table | Actual Column(s) | Status |
-|---|---|---|---|
-| `profiles.component_scores` | `profiles` | `component_scores` (JSONB) | Exists |
-| `daily_checkins` | `daily_checkins` | `outcome, energy_balance, clarity_level, confidence_level, checkin_date` | Exists |
-| `inner_readiness_scores` | Does NOT exist | N/A | Will use `daily_checkins` outcome as tier proxy |
-| `daily_themes` | `daily_themes` | `theme_phrase, theme_driver, theme_date` | Exists |
-| `user_coach_insights` | `user_coach_insights` | `insight_content, insight_type, created_at` | Exists |
-| `dialogue_messages` | `dialogue_messages` | `content` (not `message_content`), `sender_type`, `session_id`, `timestamp` | Exists - column name differs from spec |
-| `dialogue_sessions` | `dialogue_sessions` | `user_id, context_type, started_at` | Exists |
-| `sanctuary_events` | `sanctuary_events` | `category, event_type, content_id, timestamp, context_data` | Exists |
-| `daily_ritual_completions` | `daily_ritual_completions` | `session_period, completion_status, ritual_date` | Exists |
-| `tiny_wins` | `tiny_wins` | `win_date, created_at` | Exists |
-| `wearable_data` | Does NOT exist | N/A | Use `oura_daily_data.hrv` instead |
-| `calendar_events` | `calendar_events` | `start_time, end_time, attendees_count` | Exists |
-| `behavior_logs` | `behavior_logs` | `behavior_type, created_at` | Exists |
-| `oura_connections` | `oura_connections` | `user_id, is_active` | Exists (for `hasWearable` check) |
-| `calendar_connections` | `calendar_connections` | `user_id, is_active` | Exists (for `hasCalendar` check) |
+- Change node circle `fill` from `hsl(var(--muted-foreground))` to taupe (`#8B7D6B`)
+- Change connection line `stroke` from `hsl(var(--muted-foreground))` to taupe (`#8B7D6B`)
 
-Key corrections to the spec:
-- `dialogue_messages.content` not `message_content`
-- `oura_daily_data` not `wearable_data` for HRV
-- No `inner_readiness_scores` table -- tier will be derived from `daily_checkins.outcome` mapping (focused/steady = "strong"/"peak", scattered = "managing", drained/overwhelmed = "depleted")
-- `sanctuary_events` does not have an `innerReadinessTier` column -- will cross-reference with same-day `daily_checkins.outcome` to determine if practice was done in a low state
-- Coach session count derived from `dialogue_sessions` where `context_type = 'scenario'` or by counting distinct sessions in `dialogue_messages`
+---
 
-## Changes
+## 2. Rename Card: "Your Performance Rhythm" to "Your Readiness Rhythm"
 
-### File 1: Edge Function (`supabase/functions/state-patterns-insights/index.ts`)
+**File:** `src/components/insights/PerformanceRhythmCard.tsx`
 
-Complete rewrite of the scoring logic. The function will:
+- Update all title/heading text from "Your Performance Rhythm" to "Your Readiness Rhythm"
+- Update the `InsightInfoModal` explanation text to match the new purpose statement
 
-**New parallel queries (added to existing ones):**
-- `sanctuary_events` (last 30 days): category, event_type, timestamp, context_data
-- `daily_ritual_completions` (last 30 days): session_period, completion_status, ritual_date
-- `tiny_wins` (last 30 days): win_date
-- `oura_daily_data` (last 30 days): hrv, summary_date
-- `dialogue_sessions` + `dialogue_messages` (last 30 days): for coach dialogue mining
-- `calendar_connections` and `oura_connections`: for hasWearable/hasCalendar flags
-- `behavior_logs` (last 30 days): for scattered penalty detection
+---
 
-**New evolved score calculation for each dimension:**
+## 3. Heatmap Cell Colors -- Match Daily Check-In Carousel
 
-Each dimension uses a multi-signal model with dynamic weight redistribution:
-- Baseline weight: 30% (always present from `profiles.component_scores`)
-- Behavioral signals: variable weights, only included when minimum data thresholds are met
-- Weights of unavailable signals redistribute proportionally to available signals
+The current heatmap uses generic green/blue/amber/slate/red gradients. The spec requires matching the carousel card gradients from `/dailycheckin`:
 
-Recalibration signals: baseline (30%), pause practices in low state (15%), pre-event sessions (10%), HRV trend (10%), coach regulation observations from `dialogue_messages` (15%), felt state from `energy_balance` (20%). Consecutive low penalty: -10 if 3+ consecutive depleted/managing days.
+| Outcome | Carousel Gradient | New Heatmap Gradient |
+|---|---|---|
+| Focused | `from-green-800/90 to-yellow-500/90` | `from-green-800 to-yellow-500` |
+| Steady | `from-amber-700/90 to-yellow-200/90` | `from-amber-700 to-yellow-200` |
+| Scattered | `from-teal-700/90 to-emerald-300/90` | `from-teal-700 to-emerald-300` |
+| Drained | `from-slate-700/90 to-gray-400/90` | `from-slate-700 to-gray-400` |
+| Overwhelmed | `from-red-800/90 to-amber-600/90` | `from-red-800 to-amber-600` |
 
-Clarity signals: baseline (30%), flow practices under load (15%), coach clarity observations (15%), clarity theme recurrence penalty (10%), scattered cause-effect penalty (-10), felt state from `clarity_level` (30%).
+**File:** `src/components/insights/PerformanceRhythmCard.tsx` -- update the `stateColors` object
 
-Renewal signals: baseline (30%), renergise practices in depleted state (15%), evening session completion rate (15%), tiny wins frequency (10%), HRV recovery rate (10%), coach renewal observations (10%), felt state from `confidence_level` (10%).
+---
 
-**Coach dialogue mining:**
-- Query `dialogue_sessions` for the user's sessions in last 30 days
-- Query `dialogue_messages` for those sessions
-- Scan message `content` for regulation/clarity/renewal keywords (both positive and negative)
-- Score: (positive count x 5) - (negative count x 5), capped at +/-15
+## 4. Edge Function -- Full Rewrite to Match Spec v2.0
 
-**Updated AI observation prompt:**
-- Now includes dimension deltas and archetype evolution in the prompt
-- Updated tone: "self-mastery work -- regulation, clarity, and renewal matter in leadership and in life"
-- Fallback uses largest dimension delta instead of generic trend
+**File:** `supabase/functions/performance-rhythm-insights/index.ts`
 
-**Updated response payload:**
-- Remove: `compositeAvg30`, `distribution`, `strengthArea`, `growthArea`
-- Add: `baselineArchetypeId`, `currentArchetypeId`, `archetypeLeanOn`, `archetypeWatchFor`, `coachSessionCount`, `hasWearable`, `hasCalendar`, `dataSourceNote`
-- Lean On / Watch For now come as full sentences from the archetype cascade (not just dimension labels)
+The current edge function only queries `daily_checkins`, `calendar_connections`, `calendar_events`, and `behavior_logs`. The spec requires it to also query:
 
-**Updated archetype cascade:**
-- Same 5 archetypes, same priority order
-- Each now returns `leanOn` and `watchFor` as full human-readable sentences per the spec
+- `inner_readiness_scores` -- for composite scores and energy tiers (used in heatmap overlay, "How You Show Up", calendar correlations, and best window)
+- `daily_ritual_completions` -- for pre-event session completion counting ("How You Show Up")
+- `dialogue_messages` -- for coach presence keyword mining ("How You Show Up")
 
-**Friction frequency:**
-- Add trend direction: compare friction % last 7 days vs days 8-14, +/-10% threshold
-- Add 76-100% "Sustained friction" label
+### New Response Payload Structure
 
-### File 2: Frontend (`src/components/insights/LeadershipPatternsCard.tsx`)
+```text
+{
+  presenceScore, presenceLabel, presenceInsight,   // "How You Show Up"
+  calendarInsight,                                  // Calendar Pattern
+  causeEffectInsight,                               // Cause-Effect
+  grid (3x7 with outcome, compositeScore, divergence),
+  bestReadinessWindow,
+  checkInCount, behaviorLogCount, hasCalendar, dataSourceNote
+}
+```
 
-**Updated interface:**
-- Replace `strengthArea`/`growthArea` with `archetypeLeanOn`/`archetypeWatchFor`
-- Add `coachSessionCount`, `hasWearable`, `hasCalendar`, `dataSourceNote`
-- Remove `compositeAvg30`, `distribution`
+### Calculation Logic Added
 
-**Layout restructured to four sections:**
+**Element 1A -- How You Show Up (new)**
+- Identify high-stakes events via expanded keyword list (30 keywords vs current 15)
+- Score pre-event session completions from `daily_ritual_completions`
+- Score high-stakes events on depleted days from `inner_readiness_scores`
+- Mine `dialogue_messages` for positive/negative presence keywords
+- Check if high-stakes events energize (next-day composite score boost)
+- Calculate composite presence score (0-100) and assign qualitative label
+- Generate supporting insight from dominant signal
+- Minimum threshold: 10 or more check-ins AND (2+ high-stakes events OR 3+ coach sessions)
 
-1. AI Observation (unchanged styling)
-2. YOUR DIMENSIONS section:
-   - Archetype with evolution display (kept as-is)
-   - Three dimension rows with trend icons added (up/stable/down arrows based on 7-day comparison)
-3. WHAT YOUR PATTERNS REVEAL section:
-   - Friction frequency with trend direction indicator
-   - Recurring compass themes (unchanged)
-   - Lean On / Watch For (updated to use `archetypeLeanOn`/`archetypeWatchFor` full sentences)
-4. Data source note (updated to include coach sessions, wearable, calendar)
+**Element 1B -- Calendar Pattern (upgraded)**
+- Use `inner_readiness_scores.composite_score` instead of just `energy_balance`
+- Categorize events by type keywords (10 categories vs current flat list)
+- Calculate avg composite score per event type, sort by draining/energizing
 
-**Removed from this card:**
-- 30-day Inner Readiness avg + trend (moved to Performance Rhythm)
-- Most frequent state / "How You Show Up" (moved to Performance Rhythm)
+**Element 1C -- Cause-Effect (existing, minor refinement)**
+- Keep current behavior-to-outcome logic
+- Add behavior log count to response metadata
 
-**DEV_MODE path:**
-- Updated to match new interface, computing simplified evolved scores from available local data
+**Element 2 -- Heatmap (upgraded)**
+- Use `inner_readiness_scores` for composite score overlay (30-day avg per cell)
+- Flag divergence when felt-state vs composite delta is 20 or more points (expanded from just "focused < 50")
 
-### File 3: Documentation (`docs/self-mastery-patterns-card.md`)
+**Element 3 -- Best Readiness Window (upgraded)**
+- Use `inner_readiness_scores` composite scores instead of `energy_balance`
+- Require 2 or more data points per cell
 
-Full rewrite with:
-- All signal definitions, weights, minimum data thresholds
-- Weight redistribution formula
-- Keyword lists for coach dialogue mining
-- Archetype cascade with full Lean On / Watch For sentences
-- Progressive unlock thresholds
-- Response payload schema
-- Data source mapping table
+**Element 4 -- Data Source Note (new)**
+- Generate string: "Based on N check-ins, M behavior logs, calendar data over X days"
 
-## Implementation Sequence
+### Progressive Unlock Thresholds
+- 0-6 check-ins: empty heatmap + prompt
+- 7-9: heatmap + best window
+- 10-14: + calendar pattern + cause-effect
+- 15+: + "How You Show Up" + composite overlay
 
-1. Update edge function with all new queries and multi-signal scoring
-2. Update frontend interface and layout
-3. Update DEV_MODE fallback
-4. Update documentation
-5. Deploy edge function
+---
+
+## 5. Frontend Card -- Full Rebuild
+
+**File:** `src/components/insights/PerformanceRhythmCard.tsx`
+
+### Updated Data Interface
+
+```text
+PerformanceRhythmData {
+  presenceScore, presenceLabel, presenceInsight,
+  calendarInsight, causeEffectInsight,
+  grid: 3x7 array with outcome/compositeScore/divergence,
+  bestReadinessWindow: { timeWindow, day, avgScore, label },
+  checkInCount, behaviorLogCount, hasCalendar, dataSourceNote,
+  // Backward compat fields kept for DEV_MODE
+  heatmap, bestWindow, observations
+}
+```
+
+### New Card Layout Sections (top to bottom)
+
+1. **"How You Show Up" box** -- presence label + insight text (only when presenceScore exists)
+2. **Calendar Pattern Observation** -- calendarInsight text
+3. **Cause-Effect Observation** -- causeEffectInsight text
+4. **"Your Week at a Glance" heatmap** -- 3x7 grid with carousel-matching colors
+5. **Best Readiness Window** -- one-line sharpest window insight
+6. **Data Source Note** -- transparent accounting line
+
+### Progressive Unlock in UI
+- Show prompt if checkInCount < 7
+- Show heatmap from 7+
+- Show insights from 10+
+- Show "How You Show Up" from 15+
+
+---
+
+## 6. DEV_MODE Parity
+
+The DEV_MODE local computation in PerformanceRhythmCard will be updated to match the new data shape, querying `inner_readiness_scores`, `daily_ritual_completions`, and approximating `dialogue_messages` keyword mining locally.
+
+---
+
+## Summary of Files Changed
+
+| File | Change |
+|---|---|
+| `src/components/insights/InnerWorldBubbles.tsx` | Taupe circles and lines |
+| `src/components/insights/PerformanceRhythmCard.tsx` | Full rebuild: rename, new layout, carousel colors, new data interface |
+| `supabase/functions/performance-rhythm-insights/index.ts` | Full rewrite: "How You Show Up", expanded calendar patterns, composite score overlay, data source note |
 
