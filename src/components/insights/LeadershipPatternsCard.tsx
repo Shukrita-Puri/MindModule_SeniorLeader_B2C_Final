@@ -322,7 +322,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
             </div>
 
             {/* ── SECTION 3: WHAT YOUR PATTERNS REVEAL ── */}
-            <div className="space-y-3 pt-3 border-t border-border/30">
+            <div className="space-y-3 pt-3">
               <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
                 What Your Patterns Reveal
               </p>
