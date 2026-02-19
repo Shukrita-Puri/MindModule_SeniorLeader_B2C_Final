@@ -366,9 +366,9 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                 </div>
               )}
 
-              {/* Recurring Themes heading for Lean On / Watch For */}
+              {/* Heading for Lean On / Watch For */}
               <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground pt-1">
-                Your Leadership Edge
+                Your Inner Edge
               </p>
 
               {/* Lean On */}

@@ -149,7 +149,7 @@ export default function Stage8Results() {
     { key: 'energyRenewal' as keyof ComponentScoresV2, label: COMPONENT_LABELS.energyRenewal, value: scores.energyRenewal },
   ];
 
-  const cx = 150, cy = 130, radius = 90;
+  const cx = 150, cy = 120, radius = 105;
   const angleStep = (2 * Math.PI) / 3;
   const startAngle = -Math.PI / 2;
   
@@ -175,9 +175,9 @@ export default function Stage8Results() {
       </div>
 
       {/* Your Self-Mastery Map — Unified */}
-      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-5">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center font-body">Your Self-Mastery Map</h3>
-        <svg viewBox="0 0 300 270" className="w-full max-w-sm mx-auto">
+      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] space-y-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center font-body pt-1">Your Self-Mastery Map</h3>
+        <svg viewBox="0 0 300 250" className="w-full max-w-xs mx-auto">
           <defs>
             <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#08d780" stopOpacity="0.3" />
