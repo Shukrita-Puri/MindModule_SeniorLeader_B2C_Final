@@ -10,7 +10,7 @@ const Front = () => {
   const navigate = useNavigate();
   const { loginWithRedirect } = useAuth0();
   const [isTransitioning, setIsTransitioning] = useState(false);
-  
+
   const handleGetStarted = () => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -24,8 +24,8 @@ const Front = () => {
       appState: { returnTo: '/executive-home' },
       authorizationParams: {
         redirect_uri: `${window.location.origin}/callback`,
-        scope: 'openid profile email',
-      },
+        scope: 'openid profile email'
+      }
     });
   };
 
@@ -60,12 +60,12 @@ const Front = () => {
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-6" />
         
         {/* Description */}
-        <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
-          World's First Context- Based Self Mastery Partner. 
-Because being able to recalibrate your mind is a superpower. 
-         
- 
-        </p>
+        <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">World's First Context- Based Self Mastery Partner. 
+Because being able to recalibrate your mind is a superpower.
+
+
+
+      </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mt-8">
