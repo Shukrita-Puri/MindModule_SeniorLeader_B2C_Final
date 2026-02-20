@@ -89,6 +89,49 @@ function getEveningVariants(ctx: {
   ];
 }
 
+// ── PHASE 2: Pattern Alert copy variants ──
+// These activate naturally as users accumulate sufficient history data.
+// Trigger thresholds (3 consecutive low days, 5+ practice completions, 7-day streaks, etc.)
+// inherently require user history before they can fire — no artificial gates needed.
+
+function getPatternAlertVariants(ctx: {
+  patternType: string;
+  tier?: string;
+  consecutiveCount?: number;
+  practiceName?: string;
+  effectivenessRate?: number;
+  streakDays?: number;
+  eventType?: string;
+  hrvDays?: number;
+}): Variant[] {
+  return [
+    { id: 'PA-1', title: 'Pattern Noticed', body: `Day ${ctx.consecutiveCount || 3} at ${ctx.tier || 'low'}. Your system is showing a pattern worth noticing.` },
+    { id: 'PA-2', title: 'What Works for You', body: `${ctx.practiceName || 'This practice'} works for you — ${ctx.effectivenessRate || 80}% followed by stronger days.` },
+    { id: 'PA-3', title: 'Rhythm Forming', body: `${ctx.streakDays || 7} days. Your practice is becoming a rhythm.` },
+    { id: 'PA-4', title: 'Pattern Worth Naming', body: `${ctx.eventType || 'These meetings'} consistently drain you. That pattern is worth naming.` },
+    { id: 'PA-5', title: 'Recovery Priority', body: `Your HRV has been low for ${ctx.hrvDays || 3} days. Recovery is the priority.` },
+  ];
+}
+
+// ── PHASE 2: State-Aware Nudge copy variants ──
+// Midday precision intervention: only fires when inner state (depleted/managing)
+// misaligns with outer demands (high afternoon calendar pressure).
+// Requires completed morning check-in + calendar data to evaluate.
+
+function getStateAwareVariants(ctx: {
+  highStakesCount: number;
+  nextEventTitle?: string;
+  minutesUntilNextEvent?: number;
+  practiceName?: string;
+}): Variant[] {
+  return [
+    { id: 'SN-1', title: 'Reset Available', body: `${ctx.highStakesCount} high-stakes events ahead. 5-min reset available now.` },
+    { id: 'SN-2', title: 'Recalibrate', body: 'You started low. The afternoon is heavy. Recalibrate first.' },
+    { id: 'SN-3', title: 'Afternoon Reset', body: `Afternoon Reset: ${ctx.practiceName || 'Quick reset'}. 3 min.` },
+    { id: 'SN-4', title: 'Reset or Push Through', body: `${ctx.nextEventTitle || 'Next event'} in ${ctx.minutesUntilNextEvent || 90} min. Reset now or push through?` },
+  ];
+}
+
 function ordinalSuffix(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -128,6 +171,8 @@ function isQuietDay(dayOfWeek: number, quietDays: number[] | null): boolean {
   if (!quietDays || quietDays.length === 0) return false;
   return quietDays.includes(dayOfWeek);
 }
+
+const LOW_TIERS = ['depleted', 'managing'];
 
 // ── Main handler ──
 
@@ -169,16 +214,33 @@ serve(async (req) => {
     console.log(`[smart-nudges] Evaluating ${userIds.length} users`);
 
     // 2. Batch-fetch all needed data
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+
     const [
       { data: profiles },
       { data: preferences },
+      { data: recentEngagements },
     ] = await Promise.all([
       supabase.from('profiles').select('id, current_streak, timezone_offset').in('id', userIds),
       supabase.from('notification_preferences').select('*').in('user_id', userIds),
+      // Batch-fetch recent app_open events for Phase 2 suppression checks
+      supabase.from('user_engagements')
+        .select('user_id, event_type, timestamp')
+        .in('user_id', userIds)
+        .eq('event_type', 'app_open')
+        .gte('timestamp', fourHoursAgo),
     ]);
 
     const profileMap = new Map((profiles || []).map(p => [p.id, p]));
     const prefMap = new Map((preferences || []).map(p => [p.user_id, p]));
+
+    // Build map of last app_open per user
+    const lastAppOpenMap = new Map<string, Date>();
+    for (const eng of (recentEngagements || [])) {
+      const ts = new Date(eng.timestamp);
+      const existing = lastAppOpenMap.get(eng.user_id);
+      if (!existing || ts > existing) lastAppOpenMap.set(eng.user_id, ts);
+    }
 
     const allNotifications: Array<{
       userId: string;
@@ -302,6 +364,218 @@ serve(async (req) => {
               tokens: userTokens.get(userId)!,
             });
             break; // one pre-event at a time
+          }
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // PHASE 2: Pattern Alert (Type 4)
+      // High-value, low-frequency insights. Activates naturally as users
+      // accumulate sufficient history. Max 1 per day, suppressed if same
+      // pattern type sent in last 7 days or app opened in last 4 hours.
+      // ══════════════════════════════════════════════════════════════════
+      if (
+        (prefs?.pattern_alert_enabled ?? true) &&
+        !suppressed &&
+        !(logsByType.get('pattern_alert')?.length) // max 1 per day
+      ) {
+        // Suppression: skip if user opened app in last 4 hours
+        const lastAppOpen = lastAppOpenMap.get(userId);
+        const appOpenedRecently = lastAppOpen && lastAppOpen > new Date(Date.now() - 4 * 60 * 60 * 1000);
+
+        if (!appOpenedRecently) {
+          // Fetch pattern alerts from last 7 days for per-pattern suppression
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: recentPatternLogs } = await supabase
+            .from('notification_log')
+            .select('variant_id, payload')
+            .eq('user_id', userId)
+            .eq('notification_type', 'pattern_alert')
+            .gte('sent_at', sevenDaysAgo);
+
+          const recentPatternTypes = new Set(
+            (recentPatternLogs || []).map(l => {
+              const p = l.payload as Record<string, unknown>;
+              return (p?.pattern_type as string) || l.variant_id;
+            })
+          );
+
+          let patternVariant: Variant | null = null;
+          let patternType: string | null = null;
+
+          // --- Pattern 1: Consecutive low state (3 days) ---
+          if (!patternVariant && !recentPatternTypes.has('consecutive_low')) {
+            const { data: recentCheckins } = await supabase
+              .from('daily_checkins')
+              .select('outcome, checkin_date')
+              .eq('user_id', userId)
+              .order('checkin_date', { ascending: false })
+              .limit(3);
+
+            if (
+              recentCheckins && recentCheckins.length >= 3 &&
+              recentCheckins.every(c => LOW_TIERS.includes(c.outcome))
+            ) {
+              const tier = recentCheckins[0].outcome;
+              const variants = getPatternAlertVariants({
+                patternType: 'consecutive_low',
+                tier,
+                consecutiveCount: 3,
+              });
+              patternVariant = variants[0]; // PA-1
+              patternType = 'consecutive_low';
+            }
+          }
+
+          // --- Pattern 2: Effectiveness milestone (5+ completions, 80%+ avg rating) ---
+          if (!patternVariant && !recentPatternTypes.has('effectiveness_milestone')) {
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: practiceSessions } = await supabase
+              .from('practice_sessions')
+              .select('content_id, effectiveness_rating')
+              .eq('user_id', userId)
+              .eq('completed', true)
+              .not('effectiveness_rating', 'is', null)
+              .gte('created_at', thirtyDaysAgo);
+
+            if (practiceSessions && practiceSessions.length > 0) {
+              // Group by content_id and find milestone candidates
+              const byContent = new Map<string, number[]>();
+              for (const ps of practiceSessions) {
+                if (!byContent.has(ps.content_id)) byContent.set(ps.content_id, []);
+                byContent.get(ps.content_id)!.push(ps.effectiveness_rating);
+              }
+
+              for (const [contentId, ratings] of byContent) {
+                if (ratings.length >= 5) {
+                  const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+                  // effectiveness_rating is 1-5 scale; 80% = 4.0
+                  if (avg >= 4.0) {
+                    // Look up practice name from sanctuary_content
+                    const { data: content } = await supabase
+                      .from('sanctuary_content')
+                      .select('title')
+                      .eq('id', contentId)
+                      .limit(1)
+                      .single();
+
+                    const variants = getPatternAlertVariants({
+                      patternType: 'effectiveness_milestone',
+                      practiceName: content?.title || 'This practice',
+                      effectivenessRate: Math.round(avg / 5 * 100),
+                    });
+                    patternVariant = variants[1]; // PA-2
+                    patternType = 'effectiveness_milestone';
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          // --- Pattern 3: Streak milestone (7, 14, 30 days) ---
+          if (!patternVariant && !recentPatternTypes.has('streak_milestone')) {
+            const streak = profile?.current_streak || 0;
+            const milestones = [30, 14, 7]; // check highest first
+            for (const milestone of milestones) {
+              if (streak === milestone) {
+                const variants = getPatternAlertVariants({
+                  patternType: 'streak_milestone',
+                  streakDays: milestone,
+                });
+                patternVariant = variants[2]; // PA-3
+                patternType = 'streak_milestone';
+                break;
+              }
+            }
+          }
+
+          // --- Pattern 4: Calendar correlation (event type correlates with low readiness 5+ times) ---
+          if (!patternVariant && !recentPatternTypes.has('calendar_correlation')) {
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+            // Get event classifications for this user
+            const { data: classifications } = await supabase
+              .from('calendar_event_classifications')
+              .select('event_type, calendar_event_id, created_at')
+              .eq('user_id', userId)
+              .gte('created_at', thirtyDaysAgo);
+
+            if (classifications && classifications.length > 0) {
+              // Get checkins for the same period
+              const { data: checkins } = await supabase
+                .from('daily_checkins')
+                .select('checkin_date, outcome')
+                .eq('user_id', userId)
+                .gte('checkin_date', thirtyDaysAgo.split('T')[0]);
+
+              if (checkins && checkins.length > 0) {
+                const lowDays = new Set(
+                  checkins.filter(c => LOW_TIERS.includes(c.outcome)).map(c => c.checkin_date)
+                );
+
+                // Count how many times each event_type appears on low-readiness days
+                const eventTypeCounts = new Map<string, number>();
+                for (const cls of classifications) {
+                  const eventDate = cls.created_at.split('T')[0];
+                  if (lowDays.has(eventDate)) {
+                    eventTypeCounts.set(cls.event_type, (eventTypeCounts.get(cls.event_type) || 0) + 1);
+                  }
+                }
+
+                for (const [eventType, count] of eventTypeCounts) {
+                  if (count >= 5) {
+                    const variants = getPatternAlertVariants({
+                      patternType: 'calendar_correlation',
+                      eventType: eventType.charAt(0).toUpperCase() + eventType.slice(1) + ' meetings',
+                    });
+                    patternVariant = variants[3]; // PA-4
+                    patternType = 'calendar_correlation';
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          // --- Pattern 5: Recovery deficit (HRV ≥20% below baseline for 3+ consecutive days) ---
+          if (!patternVariant && !recentPatternTypes.has('recovery_deficit')) {
+            const { data: recentSnapshots } = await supabase
+              .from('energy_snapshots')
+              .select('snapshot_date, oura_readiness, computed_data')
+              .eq('user_id', userId)
+              .order('snapshot_date', { ascending: false })
+              .limit(3);
+
+            if (recentSnapshots && recentSnapshots.length >= 3) {
+              const allLowHrv = recentSnapshots.every(snap => {
+                const computed = snap.computed_data as Record<string, unknown> | null;
+                const hrvDelta = computed?.hrv_delta_pct as number | undefined;
+                // HRV delta is negative when below baseline; ≥20% below = ≤ -20
+                return hrvDelta !== undefined && hrvDelta <= -20;
+              });
+
+              if (allLowHrv) {
+                const variants = getPatternAlertVariants({
+                  patternType: 'recovery_deficit',
+                  hrvDays: 3,
+                });
+                patternVariant = variants[4]; // PA-5
+                patternType = 'recovery_deficit';
+              }
+            }
+          }
+
+          // If any pattern matched, queue the notification
+          if (patternVariant && patternType) {
+            userNotifications.push({
+              userId,
+              type: 'pattern_alert',
+              variant: patternVariant,
+              tokens: userTokens.get(userId)!,
+            });
+            // Store pattern_type in event_reference for 7-day suppression tracking
+            userNotifications[userNotifications.length - 1].eventReference = patternType;
           }
         }
       }
@@ -432,13 +706,111 @@ serve(async (req) => {
         }
       }
 
+      // ══════════════════════════════════════════════════════════════════
+      // PHASE 2: State-Aware Nudge (Type 5) — Lowest priority
+      // Midday precision intervention when inner state misaligns with
+      // outer demands. Requires morning check-in + calendar data.
+      // Stricter suppression: 3 hours since last notification.
+      // ══════════════════════════════════════════════════════════════════
+      if (
+        (prefs?.state_aware_nudge_enabled ?? true) &&
+        localTime >= 12 && localTime < 15 &&
+        !(logsByType.get('state_aware_nudge')?.length) // max 1 per day
+      ) {
+        // Stricter suppression: no notification in last 3 hours
+        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const strictSuppressed = lastSentAt && lastSentAt > threeHoursAgo;
+
+        if (!strictSuppressed && userNotifications.length === 0) {
+          // Check: user has NOT opened app in last 3 hours
+          const lastAppOpen = lastAppOpenMap.get(userId);
+          const appOpenedIn3h = lastAppOpen && lastAppOpen > threeHoursAgo;
+
+          if (!appOpenedIn3h) {
+            // Check: morning check-in exists with depleted/managing outcome
+            const { data: morningCheckin } = await supabase
+              .from('daily_checkins')
+              .select('outcome')
+              .eq('user_id', userId)
+              .eq('checkin_date', todayStr)
+              .limit(1)
+              .single();
+
+            if (morningCheckin && LOW_TIERS.includes(morningCheckin.outcome)) {
+              // Check: no afternoon reset completed today
+              const { data: afternoonReset } = await supabase
+                .from('daily_ritual_completions')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('ritual_date', todayStr)
+                .eq('session_period', 'afternoon')
+                .limit(1);
+
+              if (!afternoonReset || afternoonReset.length === 0) {
+                // Check: afternoon calendar pressure is high (3+ high-stakes events in next 4 hours)
+                const now = new Date();
+                const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+                const { data: afternoonEvents } = await supabase
+                  .from('calendar_events')
+                  .select('id, title, start_time')
+                  .eq('user_id', userId)
+                  .gte('start_time', now.toISOString())
+                  .lte('start_time', fourHoursLater.toISOString())
+                  .order('start_time', { ascending: true });
+
+                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 50);
+
+                if (highStakesEvents.length >= 3) {
+                  // Determine variant
+                  let selectedVariant: Variant;
+
+                  // Check for a specific high-priority event 60-120 min away for SN-4
+                  const min60 = new Date(now.getTime() + 60 * 60000);
+                  const min120 = new Date(now.getTime() + 120 * 60000);
+                  const nearEvent = highStakesEvents.find(e => {
+                    const start = new Date(e.start_time);
+                    return start >= min60 && start <= min120;
+                  });
+
+                  const variants = getStateAwareVariants({
+                    highStakesCount: highStakesEvents.length,
+                    nextEventTitle: nearEvent?.title || undefined,
+                    minutesUntilNextEvent: nearEvent
+                      ? Math.round((new Date(nearEvent.start_time).getTime() - now.getTime()) / 60000)
+                      : undefined,
+                  });
+
+                  if (nearEvent) {
+                    selectedVariant = variants[3]; // SN-4
+                  } else if (highStakesEvents.length >= 3) {
+                    selectedVariant = variants[0]; // SN-1
+                  } else {
+                    selectedVariant = variants[1]; // SN-2 (default)
+                  }
+
+                  userNotifications.push({
+                    userId,
+                    type: 'state_aware_nudge',
+                    variant: selectedVariant,
+                    tokens: userTokens.get(userId)!,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Apply final suppression: only keep highest-priority notification if multiple
       if (userNotifications.length > 1 && suppressed) {
-        // Priority: pre_event_prep > morning_anchor > evening_close
-        const priority = ['pre_event_prep', 'morning_anchor', 'evening_close'];
+        // Priority: pre_event_prep > pattern_alert > morning_anchor > evening_close > state_aware_nudge
+        const priority = ['pre_event_prep', 'pattern_alert', 'morning_anchor', 'evening_close', 'state_aware_nudge'];
         userNotifications.sort((a, b) => priority.indexOf(a.type) - priority.indexOf(b.type));
         allNotifications.push(userNotifications[0]);
       } else {
+        // Special exception: Morning Anchor and Pre-Event Prep can both send
+        // if the event is ≥4 hours after the morning send
         allNotifications.push(...userNotifications);
       }
     }
@@ -450,13 +822,18 @@ serve(async (req) => {
     const isDryRun = !fcmKey;
 
     for (const notif of allNotifications) {
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: notif.variant.title,
         body: notif.variant.body,
         notification_type: notif.type,
         variant_id: notif.variant.id,
         dry_run: isDryRun,
       };
+
+      // For pattern alerts, store the pattern_type for 7-day suppression tracking
+      if (notif.type === 'pattern_alert' && notif.eventReference) {
+        payload.pattern_type = notif.eventReference;
+      }
 
       // Log to notification_log
       await supabase.from('notification_log').insert({
