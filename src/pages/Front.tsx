@@ -34,8 +34,6 @@ const Front = () => {
       {/* Subtle background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
       
-      {/* Top decorative gold line */}
-      <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-24 h-px bg-gold/40" />
       
       {/* Main Hero Content */}
       <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-8">
@@ -52,9 +50,10 @@ const Front = () => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">Master your Inner World,  
-Lead from your best self - consistently. 
-      </h2>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
+          Master your Inner World,<br />
+          Lead from your best self – consistently.
+        </h2>
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-6" />
@@ -93,8 +92,6 @@ Understands your day, evolves with your patterns, to build your inner state- so 
         </div>
       </div>
       
-      {/* Bottom decorative gold line */}
-      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-24 h-px bg-gold/40" />
       
       {/* Enhanced Privacy Footer */}
       <div className="absolute bottom-8 left-0 right-0 text-center">
