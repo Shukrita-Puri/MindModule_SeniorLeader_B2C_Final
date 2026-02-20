@@ -29,72 +29,67 @@ const Front = () => {
     });
   };
 
-  return <div className={`relative min-h-screen min-h-[100dvh] bg-background flex flex-col items-center justify-center px-6 py-16 overflow-y-auto transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center justify-center px-5 py-4 sm:py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Subtle background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
       
-      
       {/* Main Hero Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-8">
+      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-3 sm:space-y-6 lg:space-y-8">
         
         {/* Logo */}
-        <img src={mmLogoCircle} alt="Mind Module logo" className="w-24 h-24 rounded-full shadow-lg" />
+        <img src={mmLogoCircle} alt="Mind Module logo" className="w-16 h-16 sm:w-24 sm:h-24 rounded-full shadow-lg" />
         
         {/* LOGO - THE HERO */}
-        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
+        <h1 className="text-4xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
-        <p className="text-sm sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-4">
+        <p className="text-xs sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-1 sm:-mt-4">
           Executive Edition
         </p>
         
         {/* Tagline */}
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
+        <h2 className="text-lg sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
           Master your Inner World,<br />
           Lead from your best self – consistently.
         </h2>
         
         {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-6" />
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
         
         {/* Description */}
-        <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">The World's first context-intelligent Self Mastery Partner.  
-Understands your day, evolves with your patterns, to build your inner state- so you show up at your highest level -before high stakes arrive.
-
-
-
-      </p>
+        <p className="text-sm sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
+          The World's first context-intelligent Self Mastery Partner. Understands your day, evolves with your patterns, to build your inner state– so you show up at your highest level –before high stakes arrive.
+        </p>
         
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mt-8">
-          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-10 py-5 sm:px-12 sm:py-6 text-base sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             Begin Your Journey
             <ArrowRight className="w-5 h-5 ml-3" />
           </Button>
           
-          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-12 py-6 text-lg font-medium tracking-wide">
+          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-10 py-5 sm:px-12 sm:py-6 text-base sm:text-lg font-medium tracking-wide">
             Sign In
           </Button>
         </div>
         
         {/* Privacy Trust Badge */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-muted-foreground mt-8 pt-8 border-t border-gold/10 w-full">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-gold" />
+        <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-8 border-t border-gold/10 w-full">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Privacy by Design</span>
           </div>
-          <span className="hidden sm:inline text-gold/40">•</span>
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-gold" />
+          <span className="text-gold/40">•</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
             <span className="font-body tracking-wide">Local-First Architecture</span>
           </div>
         </div>
       </div>
       
-      
       {/* Enhanced Privacy Footer */}
-      <div className="absolute bottom-8 left-0 right-0 text-center">
+      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 text-center pb-[env(safe-area-inset-bottom)]">
         <a href="/privacy" className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide">
           Privacy Policy →
         </a>
