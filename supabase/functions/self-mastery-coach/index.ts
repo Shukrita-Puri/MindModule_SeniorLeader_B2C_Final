@@ -510,49 +510,128 @@ CRITICAL RULES:
   return prompt;
 };
 
-// Patterns to detect Tiny Wins and reflections in user messages
-const WIN_PATTERNS = [
-  // Achievement patterns
-  /(?:my win|my small win|tiny win|today's win|i'm proud|proud of|accomplished|achieved|managed to|successfully|did (?:well|right|good)|good at|nailed|crushed|won|victory|success(?:fully)?)/i,
-  /(?:i did|today i|this morning i|this afternoon i|this evening i).{5,100}(?:well|right|good|successfully|proud)/i,
-  /(?:one thing.{0,20}did right|thing.{0,20}proud of|win.{0,20}today|success.{0,20}today)/i,
-  // Leadership behaviors
-  /(?:i stood my ground|i said no|i delegated|i took a break|i paused|i listened)/i,
-  // Reflection patterns (for practice reflections and integrate flow)
-  /(?:i noticed|i realized|what worked|i learned|helped me|i felt more|i appreciated|i discovered|gave me clarity|i understood|shifted my perspective|i was present|i stayed calm|i chose to)/i,
-  /(?:the practice|this exercise|this helped).{5,60}(?:me|my|realize|understand|feel|clarity|perspective)/i,
+// Blocklist of coach prompt phrases that should never be stored as wins
+const WIN_BLOCKLIST = [
+  "one thing i did right today",
+  "one thing you did right today",
+  "what's one thing",
+  "what is one thing",
+  "here's one thing",
+  "share one thing",
+  "name one thing",
+  "before we wind down",
 ];
 
-// Detect if a message contains a Tiny Win
-const detectTinyWin = (content: string): boolean => {
-  return WIN_PATTERNS.some(pattern => pattern.test(content));
-};
-
-// Store a Tiny Win in the database
-const storeTinyWin = async (
+// AI-driven tiny win extraction using tool calling
+const extractAndStoreTinyWin = async (
   supabaseUrl: string,
-  supabaseKey: string,
+  supabaseServiceKey: string,
+  lovableApiKey: string,
   userId: string,
   sessionId: string | null,
-  winContent: string
+  messages: Array<{ role: string; content: string }>
 ) => {
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { error } = await supabase.from('tiny_wins').insert({
-      user_id: userId,
-      session_id: sessionId,
-      win_content: winContent,
-      win_date: new Date().toISOString().split('T')[0],
-      source: 'coach', // Track that this came from coach conversation
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You analyze coaching conversations to detect genuine tiny wins shared by the user. 
+A tiny win is a real personal achievement, accomplishment, positive behavior, or moment of growth the user describes from their day.
+
+DO NOT treat the following as wins:
+- The coach's suggested prompts or questions (e.g., "Here's one thing I did right today")
+- Generic greetings or small talk
+- Questions the user asks
+- Vague or unspecific statements
+
+DO treat these as wins:
+- Specific actions the user took (e.g., "I stayed calm during the board meeting")
+- Behaviors they're proud of (e.g., "I delegated instead of doing it myself")
+- Realizations or growth moments (e.g., "I noticed I was getting reactive and paused")
+- Reflections on what went well
+
+If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
+Only call store_tiny_win if there is a REAL win. When in doubt, do NOT store.`
+          },
+          ...messages,
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "store_tiny_win",
+            description: "Store a tiny win when the user shares a genuine personal achievement, accomplishment, or positive reflection. Extract the core win statement in their own words.",
+            parameters: {
+              type: "object",
+              properties: {
+                win_content: {
+                  type: "string",
+                  description: "The actual win or achievement the user described, consolidated from the conversation. Use their own words where possible."
+                }
+              },
+              required: ["win_content"]
+            }
+          }
+        }],
+        stream: false,
+      }),
     });
+
+    if (!response.ok) {
+      console.error("Win extraction AI call failed:", response.status);
+      return;
+    }
+
+    const data = await response.json();
+    const toolCalls = data.choices?.[0]?.message?.tool_calls;
     
-    if (error) {
-      console.error('Error storing tiny win:', error);
-    } else {
-      console.log('✅ Tiny win stored successfully');
+    if (!toolCalls || toolCalls.length === 0) {
+      console.log("No tiny win detected by AI");
+      return;
+    }
+
+    for (const toolCall of toolCalls) {
+      if (toolCall.function?.name === "store_tiny_win") {
+        const args = JSON.parse(toolCall.function.arguments);
+        const winContent = args.win_content?.trim();
+        
+        if (!winContent || winContent.length < 10) {
+          console.log("Win content too short, skipping");
+          continue;
+        }
+
+        // Safety net: check against blocklist
+        const lowerWin = winContent.toLowerCase();
+        if (WIN_BLOCKLIST.some(phrase => lowerWin.includes(phrase))) {
+          console.log("Win matched blocklist, skipping:", winContent.substring(0, 50));
+          continue;
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { error } = await supabase.from('tiny_wins').insert({
+          user_id: userId,
+          session_id: sessionId,
+          win_content: winContent,
+          win_date: new Date().toISOString().split('T')[0],
+          source: 'coach',
+        });
+
+        if (error) {
+          console.error('Error storing tiny win:', error);
+        } else {
+          console.log('✅ Tiny win stored via AI extraction:', winContent.substring(0, 80));
+        }
+      }
     }
   } catch (err) {
-    console.error('Error in storeTinyWin:', err);
+    console.error('Error in extractAndStoreTinyWin:', err);
   }
 };
 
@@ -569,18 +648,15 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // If this is an integrate flow, check for Tiny Wins in the latest user message
-    if ((flowType === 'integrate' || flowType === 'guided-reflection') && userId && messages.length > 0) {
+    // Fire AI-driven tiny win extraction in parallel (non-blocking)
+    if ((flowType === 'integrate' || flowType === 'guided-reflection') && userId && messages.length > 1) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       
       if (supabaseUrl && supabaseServiceKey) {
-        // Check the latest user message for a win
-        const latestUserMessage = [...messages].reverse().find((m: { role: string; content: string }) => m.role === 'user');
-        if (latestUserMessage && detectTinyWin(latestUserMessage.content)) {
-          console.log('🏆 Detected Tiny Win in message:', latestUserMessage.content.substring(0, 100));
-          await storeTinyWin(supabaseUrl, supabaseServiceKey, userId, sessionId, latestUserMessage.content);
-        }
+        // Don't await - runs in parallel with the streaming response
+        extractAndStoreTinyWin(supabaseUrl, supabaseServiceKey, LOVABLE_API_KEY, userId, sessionId, messages)
+          .catch(err => console.error("Win extraction background error:", err));
       }
     }
 
