@@ -52,16 +52,16 @@ const Front = () => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">Master your Inner World
-Lead from your best self - consistently 
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide">Master your Inner World,
+ Lead from your best self - consistently. 
       </h2>
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent my-6" />
         
         {/* Description */}
-        <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">World's First Context- Based Self Mastery Partner. Built around your day, your patterns and your inner state
-Because being able to recalibrate your mind is a superpower.
+        <p className="text-lg lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl sm:text-xl">The World's first context based- Self Mastery Partner. 
+Built around your day, your patterns and your inner state- so you show up at your highest level -before high stakes arrive.
 
 
 
