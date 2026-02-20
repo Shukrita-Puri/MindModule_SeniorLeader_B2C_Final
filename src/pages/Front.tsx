@@ -38,7 +38,7 @@ const Front = () => {
       <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-4 sm:space-y-6 lg:space-y-8">
         
         {/* Logo */}
-        <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+        <img src={mmLogoCircle} alt="Mind Module logo" className="w-24 h-24 sm:w-28 sm:h-28 rounded-full shadow-lg" />
         
         {/* LOGO - THE HERO */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
@@ -55,15 +55,15 @@ const Front = () => {
         </h2>
         
         {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* Description */}
-        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
+        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
           The World's first context-intelligent Self Mastery Partner. Understands your day, evolves with your patterns, to build your inner state – so you show up at your highest level – before high stakes arrive.
         </p>
         
         {/* CTA Buttons */}
-        <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center">
+        <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center mt-2">
           <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             Begin Your Journey
             <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 sm:ml-3" />
