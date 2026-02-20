@@ -1326,6 +1326,138 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_device_tokens: {
+        Row: {
+          created_at: string
+          device_token: string
+          id: string
+          is_active: boolean
+          platform: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_token: string
+          id?: string
+          is_active?: boolean
+          platform: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_token?: string
+          id?: string
+          is_active?: boolean
+          platform?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_log: {
+        Row: {
+          app_opened: boolean
+          dismissed: boolean
+          event_reference: string | null
+          id: string
+          notification_type: string
+          payload: Json
+          sent_at: string
+          tapped: boolean
+          target_action_completed: boolean
+          time_to_engagement_seconds: number | null
+          user_id: string
+          variant_id: string
+        }
+        Insert: {
+          app_opened?: boolean
+          dismissed?: boolean
+          event_reference?: string | null
+          id?: string
+          notification_type: string
+          payload?: Json
+          sent_at?: string
+          tapped?: boolean
+          target_action_completed?: boolean
+          time_to_engagement_seconds?: number | null
+          user_id: string
+          variant_id: string
+        }
+        Update: {
+          app_opened?: boolean
+          dismissed?: boolean
+          event_reference?: string | null
+          id?: string
+          notification_type?: string
+          payload?: Json
+          sent_at?: string
+          tapped?: boolean
+          target_action_completed?: boolean
+          time_to_engagement_seconds?: number | null
+          user_id?: string
+          variant_id?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          dnd_end: number | null
+          dnd_start: number | null
+          evening_close_enabled: boolean
+          evening_window_end: number
+          evening_window_start: number
+          id: string
+          morning_anchor_enabled: boolean
+          morning_window_end: number
+          morning_window_start: number
+          pattern_alert_enabled: boolean
+          pre_event_prep_enabled: boolean
+          quiet_days: number[] | null
+          state_aware_nudge_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dnd_end?: number | null
+          dnd_start?: number | null
+          evening_close_enabled?: boolean
+          evening_window_end?: number
+          evening_window_start?: number
+          id?: string
+          morning_anchor_enabled?: boolean
+          morning_window_end?: number
+          morning_window_start?: number
+          pattern_alert_enabled?: boolean
+          pre_event_prep_enabled?: boolean
+          quiet_days?: number[] | null
+          state_aware_nudge_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dnd_end?: number | null
+          dnd_start?: number | null
+          evening_close_enabled?: boolean
+          evening_window_end?: number
+          evening_window_start?: number
+          id?: string
+          morning_anchor_enabled?: boolean
+          morning_window_end?: number
+          morning_window_start?: number
+          pattern_alert_enabled?: boolean
+          pre_event_prep_enabled?: boolean
+          quiet_days?: number[] | null
+          state_aware_nudge_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       persona_definitions: {
         Row: {
           background_context: string | null
@@ -1445,6 +1577,7 @@ export type Database = {
           q4_self_assessed_strength: string | null
           subscription_plan: string | null
           subscription_status: string | null
+          timezone_offset: number | null
           total_self_mastery_points: number | null
           total_social_mastery_points: number | null
           updated_at: string | null
@@ -1481,6 +1614,7 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
           updated_at?: string | null
@@ -1517,6 +1651,7 @@ export type Database = {
           q4_self_assessed_strength?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
           updated_at?: string | null
