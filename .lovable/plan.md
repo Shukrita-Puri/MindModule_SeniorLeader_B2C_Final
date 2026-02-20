@@ -1,50 +1,86 @@
 
-
-# Progressive Unlock for Your Momentum Card
+# Fix Tiny Win Detection: Store Real Wins, Not Prompts
 
 ## Problem
-Currently the Momentum card shows an empty state until a user has enough wins with extracted dimensions over a 14-day window. With only 1 win and no dimension data, the card feels hollow. Waiting 14 days for insights feels too long.
 
-## Solution: Two Changes
+The `self-mastery-coach` edge function stores the wrong content as tiny wins:
 
-### 1. Better Incentive Messaging (Insights.tsx)
+- **"Here's one thing I did right today"** is being stored as a win -- this is the coach's prompt, not a real win
+- The detection logic (`detectTinyWin`) matches generic phrases like "did right" which catches the prompt text itself
+- Only the single triggering message is stored -- follow-up messages that elaborate on the win are missed
 
-Update `getWinsProgressMessage()` to be more specific about what unlocks at each threshold:
+Current DB evidence:
+- 2 of 4 stored wins are just the prompt phrase "Here's one thing I did right today"
+- Only 2 are genuine user reflections
 
-| Wins | Current Message | New Message |
-|---|---|---|
-| 0 | "Capture your first win..." | "Capture your first win during evening integration to start building your momentum map" |
-| 1 | "First win captured!" | "First win captured! Log 2 more to start seeing what patterns emerge" |
-| 2-4 | "X wins logged. Patterns emerge around 5+" | "X wins so far -- log {5-X} more and your momentum map will start to take shape" |
-| 5-9 | (nothing) | "Your momentum map is building. At 10 wins, deeper patterns and an AI observation will appear" |
-| 10+ | (nothing) | null (fully unlocked) |
+## Solution
 
-### 2. Progressive Unlock: Show Partial Insights Earlier (Insights.tsx)
+### Change 1: Smarter win extraction in `self-mastery-coach/index.ts`
 
-Instead of showing nothing until there are enough dimensions for a full bubble chart, progressively reveal content:
+**Problem:** The coach currently detects wins via regex on the latest user message, then stores that raw message. This catches prompt phrases.
 
-**3+ wins with dimensions:** Show a simple text summary of top dimensions (no bubbles yet). Example: "Your recent wins reflect pride and learning."
+**Fix:** Instead of storing the raw user message, use AI to extract the actual win content. The coach AI is already in the loop -- we add a tool call for `store_tiny_win` so the AI itself decides what qualifies as a win and extracts the core content.
 
-**5+ wins with dimensions:** Show the bubble chart (currently requires dimensions to exist, which is correct, but lower the "feels empty" threshold).
+Approach:
+- Add a `store_tiny_win` function tool to the coach's AI call (similar to how `tiny-wins-insights` uses tool calling)
+- The AI extracts the actual win statement from the conversation context, filtering out prompt echoes
+- The AI can also consolidate multi-message wins (e.g., initial mention + follow-up elaboration)
+- Remove the regex-based `detectTinyWin` + `storeTinyWin` post-hoc logic
+- The AI tool call triggers the DB insert with the cleaned win content
 
-**10+ wins:** Show the full AI-generated observation headline.
+This means the coach AI -- which understands conversation context -- decides:
+1. Whether a real win was shared (not just a prompt echo)
+2. What the actual win content is (consolidated from multiple messages if needed)
 
-This is achieved by adjusting the rendering logic in the Momentum card section (lines 761-806) to have intermediate states between "empty" and "full bubbles."
+### Change 2: Add exclusion filter for prompt phrases
 
-### 3. Show Partial Data Even With Few Wins
+As a safety net, add a blocklist of known coach prompt phrases that should never be stored as wins:
+- "Here's one thing I did right today"
+- "What's one thing you did right today"
+- Other generic prompt starters
 
-When `winsCount >= 1` but dimensions are empty (wins haven't been analyzed yet), show the win content itself as a simple list rather than an empty card. This gives the user something to see immediately.
+### Change 3: Clean existing bad data
 
-Add a small win list display when dimensions are empty but wins exist:
-- Show up to 3 recent win texts in a compact format
-- Below them, the incentive message about logging more
+Delete the 2 bad records from `tiny_wins` where `win_content` is just the prompt text.
 
-## Files Changed
+## Technical Details
 
-| File | Change |
-|---|---|
-| `src/pages/Insights.tsx` | Updated `getWinsProgressMessage()` with tiered incentive text; added intermediate rendering states showing win content when dimensions are empty; progressive bubble chart unlock at 5+ wins |
+### File: `supabase/functions/self-mastery-coach/index.ts`
 
-## No Edge Function Changes
-The `tiny-wins-insights` edge function and `PsychologicalDimensionBubbles` component remain unchanged. This is purely a frontend display improvement.
+1. Remove `WIN_PATTERNS`, `detectTinyWin()`, and `storeTinyWin()` functions (lines 513-557)
+2. Remove the post-response win detection block (lines 572-585)
+3. Add a `store_tiny_win` tool definition to the AI chat completion call:
 
+```typescript
+tools: [{
+  type: "function",
+  function: {
+    name: "store_tiny_win",
+    description: "Store a tiny win when the user shares a genuine personal achievement, accomplishment, or positive reflection. Do NOT call this for generic prompts, greetings, or the coach's own suggested phrases. Extract the core win statement.",
+    parameters: {
+      type: "object",
+      properties: {
+        win_content: {
+          type: "string",
+          description: "The actual win or achievement the user described, in their own words. Consolidate if spread across multiple messages."
+        }
+      },
+      required: ["win_content"]
+    }
+  }
+}]
+```
+
+4. After AI response, check for tool calls and execute `store_tiny_win` if present -- insert to DB via service role
+5. Still return the AI's text response to the user as normal
+
+### Data cleanup
+
+Delete the 2 records where `win_content = 'Here''s one thing I did right today'` from `tiny_wins`.
+
+## What This Achieves
+
+- The AI understands conversational context, so it won't store prompt echoes
+- Multi-message wins get consolidated into one meaningful statement
+- The win content stored is the user's actual achievement, not filler text
+- Fallback: if AI tool calling fails, no win is stored (safe default -- better than storing garbage)
