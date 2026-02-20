@@ -6,7 +6,7 @@ export const DEV_USER = {
   id: 'dev-user-123',
   email: 'dev@example.com',
   name: 'Dev User',
-  picture: undefined,;
+  picture: undefined,
   subscription_status: 'active' as const,
   subscription_plan: 'monthly' as const,
 };
