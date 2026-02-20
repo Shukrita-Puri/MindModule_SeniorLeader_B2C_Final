@@ -35,21 +35,21 @@ const Front = () => {
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
       
       {/* Main Hero Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-5 sm:space-y-6 lg:space-y-8">
+      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-4 sm:space-y-6 lg:space-y-8">
         
         {/* Logo */}
-        <img src={mmLogoCircle} alt="Mind Module logo" className="w-14 h-14 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+        <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
         
         {/* LOGO - THE HERO */}
-        <h1 className="text-4xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
+        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
-        <p className="text-xs sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-1 sm:-mt-4">
+        <p className="text-sm sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-2 sm:-mt-4">
           Executive Edition
         </p>
         
         {/* Tagline */}
-        <h2 className="text-lg sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
           Master your Inner World,<br />
           Lead from your best self – consistently.
         </h2>
