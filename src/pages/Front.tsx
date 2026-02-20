@@ -5,10 +5,33 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
+import { DEV_MODE } from "@/config/devMode";
 
 const Front = () => {
-  const navigate = useNavigate();
+  if (DEV_MODE) {
+    return <FrontContent onSignIn={() => {}} />;
+  }
+  return <Auth0Front />;
+};
+
+const Auth0Front = () => {
   const { loginWithRedirect } = useAuth0();
+
+  const handleSignIn = () => {
+    loginWithRedirect({
+      appState: { returnTo: '/executive-home' },
+      authorizationParams: {
+        redirect_uri: `${window.location.origin}/callback`,
+        scope: 'openid profile email'
+      }
+    });
+  };
+
+  return <FrontContent onSignIn={handleSignIn} />;
+};
+
+const FrontContent = ({ onSignIn }: { onSignIn: () => void }) => {
+  const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleGetStarted = () => {
@@ -20,13 +43,11 @@ const Front = () => {
   };
 
   const handleSignIn = () => {
-    loginWithRedirect({
-      appState: { returnTo: '/executive-home' },
-      authorizationParams: {
-        redirect_uri: `${window.location.origin}/callback`,
-        scope: 'openid profile email'
-      }
-    });
+    if (DEV_MODE) {
+      navigate('/executive-home');
+      return;
+    }
+    onSignIn();
   };
 
   return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center justify-center px-5 py-4 sm:py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
@@ -97,4 +118,5 @@ const Front = () => {
       
     </div>;
 };
+
 export default Front;
