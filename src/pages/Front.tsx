@@ -35,10 +35,10 @@ const Front = () => {
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
       
       {/* Main Hero Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-3 sm:space-y-6 lg:space-y-8">
+      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-5 sm:space-y-6 lg:space-y-8">
         
         {/* Logo */}
-        <img src={mmLogoCircle} alt="Mind Module logo" className="w-16 h-16 sm:w-24 sm:h-24 rounded-full shadow-lg" />
+        <img src={mmLogoCircle} alt="Mind Module logo" className="w-14 h-14 sm:w-24 sm:h-24 rounded-full shadow-lg" />
         
         {/* LOGO - THE HERO */}
         <h1 className="text-4xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
@@ -58,18 +58,18 @@ const Front = () => {
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
         
         {/* Description */}
-        <p className="text-sm sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
-          The World's first context-intelligent Self Mastery Partner. Understands your day, evolves with your patterns, to build your inner state– so you show up at your highest level –before high stakes arrive.
+        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl">
+          The World's first context-intelligent Self Mastery Partner. Understands your day, evolves with your patterns, to build your inner state – so you show up at your highest level – before high stakes arrive.
         </p>
         
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
-          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-10 py-5 sm:px-12 sm:py-6 text-base sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center">
+          <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             Begin Your Journey
-            <ArrowRight className="w-5 h-5 ml-3" />
+            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 sm:ml-3" />
           </Button>
           
-          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-10 py-5 sm:px-12 sm:py-6 text-base sm:text-lg font-medium tracking-wide">
+          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide">
             Sign In
           </Button>
         </div>
