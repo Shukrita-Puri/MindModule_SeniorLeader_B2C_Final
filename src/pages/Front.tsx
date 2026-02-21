@@ -70,19 +70,19 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">The World's First Proactive Performance System For  Your Inner Game
-Built by Leaders. For Leaders.
-        <br />
-          Lead from your best self – consistently.
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
+          The World's First Proactive Performance System For Your Inner Game.
+          <br />
+          Built by Leaders. For Leaders.
         </h2>
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* Description */}
-        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">It understands your day, learns your patterns, to build your inner infrastructure – so you show up at your highest level before high stakes arrive. Not after they've already cost you.  
-Calibrate. Clarify. Renew. 
-      </p>
+        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
+          It understands your day, learns your patterns, to build your inner infrastructure. So you show up at your highest level before high stakes arrive– not after they've already cost you. Calibrate. Clarify. Renew.
+        </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center mt-2">
