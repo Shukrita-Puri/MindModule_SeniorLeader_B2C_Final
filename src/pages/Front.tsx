@@ -80,8 +80,8 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* Description */}
-        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">World's first proactive performance system for a leader's inner game.  Understands your day, learns your patterns, to build your inner infrastructure – so you show up at your highest level before high stakes arrive. Not after they've already cost you. 
-Calibrate. Clarify. Renew.
+        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">It understands your day, learns your patterns, to build your inner infrastructure – so you show up at your highest level before high stakes arrive. Not after they've already cost you.  
+Calibrate. Clarify. Renew. 
       </p>
         
         {/* CTA Buttons */}
