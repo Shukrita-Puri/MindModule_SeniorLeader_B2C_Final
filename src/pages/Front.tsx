@@ -70,7 +70,7 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">Master your Inner Game, Lead from your best self – consistently.
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">The World's First Proactive Performance System For  Leader's Inner Game
 
         <br />
           Lead from your best self – consistently.
