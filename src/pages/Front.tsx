@@ -80,8 +80,8 @@ Lead from your best self – consistently.<br />
         
         {/* Description */}
         <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">World's first proactive performance system for a leader's inner game.  Understands your day, learns your patterns, to build your inner infrastructure – so you show up at your highest level before high stakes arrive. Not after they've already cost you. 
-
-Calibrate your state. Access your clarity. Renew your edge.</p>
+Calibrate. Clarify. Renew.
+      </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center mt-2">
