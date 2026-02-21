@@ -30,7 +30,7 @@ const Auth0Front = () => {
   return <FrontContent onSignIn={handleSignIn} />;
 };
 
-const FrontContent = ({ onSignIn }: { onSignIn: () => void }) => {
+const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
   const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -70,8 +70,8 @@ const FrontContent = ({ onSignIn }: { onSignIn: () => void }) => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
-          Master your Inner World,<br />
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">Master your Inner Game,
+Lead from your best self – consistently.<br />
           Lead from your best self – consistently.
         </h2>
         
@@ -79,9 +79,9 @@ const FrontContent = ({ onSignIn }: { onSignIn: () => void }) => {
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* Description */}
-        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
-          The World's first context-intelligent Self Mastery Partner. Understands your day, evolves with your patterns, to build your inner state – so you show up at your highest level – before high stakes arrive.
-        </p>
+        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">World's first proactive performance system for a leader's inner game.  Understands your day, learns your patterns, to build your inner infrastructure – so you show up at your highest level before high stakes arrive. Not after they've already cost you. 
+
+Calibrate your state. Access your clarity. Renew your edge.</p>
         
         {/* CTA Buttons */}
         <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center mt-2">
