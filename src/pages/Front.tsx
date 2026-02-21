@@ -70,8 +70,9 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         </p>
         
         {/* Tagline */}
-        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">Master your Inner Game,
-Lead from your best self – consistently.<br />
+        <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">Master your Inner Game, Lead from your best self – consistently.
+
+        <br />
           Lead from your best self – consistently.
         </h2>
         
@@ -116,7 +117,6 @@ Calibrate. Clarify. Renew.
         </a>
       </div>
       
-    </div>;
-};
+    </div>;};
 
 export default Front;
