@@ -308,6 +308,61 @@ async function getUserInsights(userId: string): Promise<CoachContext['insights']
   }
 }
 
+// Fetch probing effectiveness and breakthrough data for coach context
+async function getProbingAndBreakthroughData(userId: string): Promise<{
+  effectiveProbes: Array<{ probe_type: string; avg_score: number; example_question: string; times_used: number }>;
+  pastBreakthroughs: Array<{ breakthrough_content: string; breakthrough_type: string; was_acted_on: boolean; created_at: string }>;
+} | undefined> {
+  try {
+    const [probesResult, breakthroughsResult] = await Promise.all([
+      supabase
+        .from('coach_probing_effectiveness')
+        .select('probe_type, effectiveness_score, probe_question, led_to_insight')
+        .eq('user_id', userId)
+        .eq('led_to_insight', true)
+        .gte('effectiveness_score', 7)
+        .order('effectiveness_score', { ascending: false })
+        .limit(20),
+      supabase
+        .from('coach_breakthrough_moments')
+        .select('breakthrough_content, breakthrough_type, was_acted_on, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+    ]);
+
+    // Aggregate probes by type
+    const probesByType: Record<string, { scores: number[]; questions: string[]; count: number }> = {};
+    for (const p of probesResult.data || []) {
+      if (!probesByType[p.probe_type]) {
+        probesByType[p.probe_type] = { scores: [], questions: [], count: 0 };
+      }
+      probesByType[p.probe_type].scores.push(p.effectiveness_score || 0);
+      probesByType[p.probe_type].questions.push(p.probe_question || '');
+      probesByType[p.probe_type].count++;
+    }
+
+    const effectiveProbes = Object.entries(probesByType).map(([probe_type, data]) => ({
+      probe_type,
+      avg_score: Math.round((data.scores.reduce((a, b) => a + b, 0) / data.scores.length) * 10) / 10,
+      example_question: data.questions[0] || '',
+      times_used: data.count
+    })).sort((a, b) => b.avg_score - a.avg_score).slice(0, 5);
+
+    const pastBreakthroughs = (breakthroughsResult.data || []).map(b => ({
+      breakthrough_content: b.breakthrough_content || '',
+      breakthrough_type: b.breakthrough_type || '',
+      was_acted_on: b.was_acted_on || false,
+      created_at: b.created_at || ''
+    }));
+
+    return { effectiveProbes, pastBreakthroughs };
+  } catch (error) {
+    console.error('[coachContextBuilder] Error fetching probing data:', error);
+    return undefined;
+  }
+}
+
 // Get time of day label
 function getTimeOfDayLabel(): 'morning' | 'afternoon' | 'evening' {
   const hour = new Date().getHours();
