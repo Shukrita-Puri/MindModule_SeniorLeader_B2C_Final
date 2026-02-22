@@ -101,6 +101,34 @@ export interface CoachContext {
     was_acted_on: boolean;
     created_at: string;
   }>;
+
+  // Coach Memory context (longitudinal)
+  lastSessionSummary?: {
+    summary_text: string;
+    key_topics: string[];
+    dominant_pattern: string | null;
+    commitments_made: string[];
+    breakthrough_moment: string | null;
+    created_at: string;
+  };
+  pendingCommitments?: Array<{
+    commitment_text: string;
+    committed_at: string;
+    days_ago: number;
+    pattern_area: string | null;
+  }>;
+  patternsToName?: Array<{
+    pattern_description: string;
+    pattern_type: string;
+    observation_count: number;
+    pattern_area: string | null;
+  }>;
+  recentMemories?: Array<{
+    memory_type: string;
+    memory_content: string;
+    memory_context: string | null;
+    key_themes: string[];
+  }>;
 }
 
 // Get JIT intervention data from localStorage
@@ -412,13 +440,17 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   
   // Add user-specific data if userId provided
   if (userId) {
-    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns, probingData] = await Promise.all([
+    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns, probingData, lastSummary, commitments, patternsReady, memories] = await Promise.all([
       getUserProfile(userId),
       getRecentPractices(userId),
       detectConsecutivePattern(userId, energyState.checkInOutcome),
       getUserInsights(userId),
       detectCalendarStateCorrelations(userId),
-      getProbingAndBreakthroughData(userId)
+      getProbingAndBreakthroughData(userId),
+      getLastSessionSummary(userId),
+      getPendingCommitments(userId),
+      getPatternsToName(userId),
+      getRecentMemories(userId),
     ]);
     
     if (profile) {
@@ -449,6 +481,20 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
       if (probingData.pastBreakthroughs.length > 0) {
         context.pastBreakthroughs = probingData.pastBreakthroughs;
       }
+    }
+
+    // Inject coach memory context
+    if (lastSummary) {
+      context.lastSessionSummary = lastSummary;
+    }
+    if (commitments.length > 0) {
+      context.pendingCommitments = commitments;
+    }
+    if (patternsReady.length > 0) {
+      context.patternsToName = patternsReady;
+    }
+    if (memories.length > 0) {
+      context.recentMemories = memories;
     }
   }
   
@@ -578,64 +624,6 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         if (todayPrediction) break;
       }
 }
-
-/**
- * Fetch probing effectiveness and breakthrough data for context injection
- */
-async function getProbingAndBreakthroughData(userId: string) {
-  try {
-    const [probesResult, breakthroughsResult] = await Promise.all([
-      supabase
-        .from('coach_probing_effectiveness' as any)
-        .select('probe_type, effectiveness_score, probe_question, led_to_insight')
-        .eq('user_id', userId)
-        .eq('led_to_insight', true)
-        .order('created_at', { ascending: false })
-        .limit(50),
-      supabase
-        .from('coach_breakthrough_moments' as any)
-        .select('breakthrough_content, breakthrough_type, was_acted_on, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10)
-    ]);
-
-    // Aggregate probes by type
-    const probesByType: Record<string, { scores: number[]; example: string; count: number }> = {};
-    if (probesResult.data) {
-      for (const p of probesResult.data as any[]) {
-        if (!probesByType[p.probe_type]) {
-          probesByType[p.probe_type] = { scores: [], example: p.probe_question, count: 0 };
-        }
-        probesByType[p.probe_type].scores.push(p.effectiveness_score || 5);
-        probesByType[p.probe_type].count++;
-      }
-    }
-
-    const effectiveProbes = Object.entries(probesByType)
-      .map(([type, data]) => ({
-        probe_type: type,
-        avg_score: Math.round((data.scores.reduce((a, b) => a + b, 0) / data.scores.length) * 10) / 10,
-        example_question: data.example,
-        times_used: data.count,
-      }))
-      .filter(p => p.avg_score >= 7)
-      .sort((a, b) => b.avg_score - a.avg_score)
-      .slice(0, 5);
-
-    const pastBreakthroughs = ((breakthroughsResult.data || []) as any[]).map((b: any) => ({
-      breakthrough_content: b.breakthrough_content,
-      breakthrough_type: b.breakthrough_type || 'self_awareness',
-      was_acted_on: b.was_acted_on || false,
-      created_at: b.created_at,
-    }));
-
-    return { effectiveProbes, pastBreakthroughs };
-  } catch (error) {
-    console.error('[coachContextBuilder] Error fetching probing data:', error);
-    return { effectiveProbes: [], pastBreakthroughs: [] };
-  }
-}
     
     return {
       todayPrediction,
@@ -644,6 +632,114 @@ async function getProbingAndBreakthroughData(userId: string) {
   } catch (error) {
     console.error('[coachContextBuilder] Error detecting calendar correlations:', error);
     return undefined;
+  }
+}
+
+// Fetch last session summary for continuity
+async function getLastSessionSummary(userId: string): Promise<{
+  summary_text: string;
+  key_topics: string[];
+  dominant_pattern: string | null;
+  commitments_made: string[];
+  breakthrough_moment: string | null;
+  created_at: string;
+} | undefined> {
+  try {
+    const { data } = await supabase
+      .from('coach_session_summaries' as any)
+      .select('summary_text, key_topics, dominant_pattern, commitments_made, breakthrough_moment, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (!data || data.length === 0) return undefined;
+    return data[0] as any;
+  } catch {
+    return undefined;
+  }
+}
+
+// Fetch pending commitments due for check-in
+async function getPendingCommitments(userId: string): Promise<Array<{
+  commitment_text: string;
+  committed_at: string;
+  days_ago: number;
+  pattern_area: string | null;
+}>> {
+  try {
+    const { data } = await supabase
+      .from('coach_accountability_tracker' as any)
+      .select('commitment_text, committed_at, pattern_area')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .lte('check_in_due_date', new Date().toISOString())
+      .order('check_in_due_date', { ascending: true })
+      .limit(5);
+    
+    return (data || []).map((c: any) => ({
+      commitment_text: c.commitment_text,
+      committed_at: c.committed_at,
+      days_ago: Math.floor((Date.now() - new Date(c.committed_at).getTime()) / 86400000),
+      pattern_area: c.pattern_area,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Fetch patterns ready to be named (3+ observations, not yet named)
+async function getPatternsToName(userId: string): Promise<Array<{
+  pattern_description: string;
+  pattern_type: string;
+  observation_count: number;
+  pattern_area: string | null;
+}>> {
+  try {
+    const { data } = await supabase
+      .from('coach_pattern_observations' as any)
+      .select('pattern_description, pattern_type, observation_count, pattern_area')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .eq('was_named_to_user', false)
+      .gte('observation_count', 3)
+      .order('observation_count', { ascending: false })
+      .limit(3);
+    
+    return (data || []).map((p: any) => ({
+      pattern_description: p.pattern_description,
+      pattern_type: p.pattern_type,
+      observation_count: p.observation_count,
+      pattern_area: p.pattern_area,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Fetch recent memories for context
+async function getRecentMemories(userId: string): Promise<Array<{
+  memory_type: string;
+  memory_content: string;
+  memory_context: string | null;
+  key_themes: string[];
+}>> {
+  try {
+    const { data } = await supabase
+      .from('coach_memory_index' as any)
+      .select('memory_type, memory_content, memory_context, key_themes')
+      .eq('user_id', userId)
+      .order('importance_score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    return (data || []).map((m: any) => ({
+      memory_type: m.memory_type,
+      memory_content: m.memory_content,
+      memory_context: m.memory_context,
+      key_themes: m.key_themes || [],
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -704,6 +800,47 @@ export function formatContextForPrompt(context: CoachContext): string {
     }
   }
   
+  // === COACH MEMORY CONTEXT ===
+  
+  // Pending commitments (accountability)
+  if (context.pendingCommitments && context.pendingCommitments.length > 0) {
+    lines.push('');
+    lines.push('=== PENDING COMMITMENTS (CHECK ON THESE) ===');
+    for (const c of context.pendingCommitments) {
+      lines.push(`- "${c.commitment_text}" (${c.days_ago} days ago)`);
+    }
+    lines.push('⚠️ Start by checking in on these commitments. Ask how they went.');
+  }
+
+  // Patterns ready to name
+  if (context.patternsToName && context.patternsToName.length > 0) {
+    lines.push('');
+    lines.push('=== PATTERNS TO NAME (3+ observations) ===');
+    for (const p of context.patternsToName) {
+      lines.push(`- [${p.pattern_type}] "${p.pattern_description}" (observed ${p.observation_count}x)`);
+    }
+    lines.push('Consider naming these patterns when contextually appropriate.');
+  }
+
+  // Last session summary (continuity)
+  if (context.lastSessionSummary) {
+    lines.push('');
+    lines.push('=== LAST SESSION SUMMARY ===');
+    lines.push(context.lastSessionSummary.summary_text);
+    if (context.lastSessionSummary.breakthrough_moment) {
+      lines.push(`Breakthrough: ${context.lastSessionSummary.breakthrough_moment}`);
+    }
+  }
+
+  // Recent memories
+  if (context.recentMemories && context.recentMemories.length > 0) {
+    lines.push('');
+    lines.push('=== RELEVANT MEMORIES ===');
+    for (const m of context.recentMemories.slice(0, 5)) {
+      lines.push(`- [${m.memory_type}] ${m.memory_content}`);
+    }
+  }
+  
   // Guidance
   lines.push('');
   lines.push('Use this context to personalize your responses:');
@@ -711,6 +848,8 @@ export function formatContextForPrompt(context: CoachContext): string {
   lines.push('- If they have an upcoming event, help them prepare specifically for it');
   lines.push("- If they've been in a low state for multiple days, acknowledge this pattern gently");
   lines.push('- If they have already completed protocols today, skip recommending the same ones');
+  lines.push('- If there are pending commitments, check on them before moving to new topics');
+  lines.push('- If patterns are ready to name, bring them up when the moment is right');
   
   return lines.join('\n');
 }

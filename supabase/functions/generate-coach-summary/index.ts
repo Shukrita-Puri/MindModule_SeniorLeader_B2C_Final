@@ -1,0 +1,195 @@
+/**
+ * Generate Coach Summary Edge Function
+ * 
+ * Post-session: generates AI summary, extracts key topics, identifies
+ * recurring vs new themes by comparing to past 5 summaries.
+ */
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const { sessionId, userId } = await req.json();
+
+    if (verifiedUserId !== userId) {
+      return new Response(JSON.stringify({ error: 'User mismatch' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Fetch session messages
+    const { data: messages, error: msgError } = await supabase
+      .from('dialogue_messages')
+      .select('sender_type, content, message_index')
+      .eq('session_id', sessionId)
+      .order('message_index', { ascending: true });
+
+    if (msgError || !messages || messages.length < 3) {
+      return new Response(JSON.stringify({ success: true, message: 'Too few messages for summary' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Fetch last 5 summaries for theme comparison
+    const { data: pastSummaries } = await supabase
+      .from('coach_session_summaries')
+      .select('key_topics')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const pastTopics = new Set(
+      (pastSummaries || []).flatMap(s => s.key_topics || [])
+    );
+
+    // Build conversation transcript
+    const transcript = messages
+      .map(m => `${m.sender_type === 'user' ? 'USER' : 'COACH'}: ${m.content}`)
+      .join('\n\n');
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You analyze coaching sessions and generate structured summaries. Return only valid JSON.'
+          },
+          {
+            role: 'user',
+            content: `Analyze this coaching session and generate a summary.
+
+CONVERSATION:
+${transcript}
+
+GENERATE a JSON object with:
+- summary_text: 2-3 sentence summary of what happened
+- key_topics: array of 3-5 topic strings (e.g., "board pressure", "emotional regulation")
+- dominant_pattern: one of "recalibration" | "clarity" | "renewal"
+- emotional_arc: brief phrase describing state shift (e.g., "escalated → grounded")
+- commitments_made: array of specific actions the user committed to (empty if none)
+- practices_recommended: array of practice IDs recommended (empty if none)
+- wisdom_referenced: array of wisdom references used (empty if none)
+- breakthrough_moment: string describing significant insight, or null
+- session_quality_score: 1-10 overall quality
+
+Return ONLY the JSON object.`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1500
+      })
+    });
+
+    if (!aiResponse.ok) {
+      console.error('[generate-coach-summary] AI error:', aiResponse.status);
+      throw new Error('AI summary generation failed');
+    }
+
+    const aiData = await aiResponse.json();
+    const content = aiData.choices?.[0]?.message?.content || '{}';
+    
+    let summary;
+    try {
+      const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      summary = JSON.parse(cleaned);
+    } catch {
+      console.error('[generate-coach-summary] Failed to parse:', content);
+      throw new Error('Failed to parse summary');
+    }
+
+    // Determine recurring vs new themes
+    const keyTopics: string[] = summary.key_topics || [];
+    const recurringThemes = keyTopics.filter(t => pastTopics.has(t));
+    const newThemes = keyTopics.filter(t => !pastTopics.has(t));
+
+    // Store summary
+    const { error: insertError } = await supabase
+      .from('coach_session_summaries')
+      .upsert({
+        user_id: userId,
+        session_id: sessionId,
+        summary_text: summary.summary_text || 'Session completed',
+        key_topics: keyTopics,
+        dominant_pattern: summary.dominant_pattern || null,
+        emotional_arc: summary.emotional_arc || null,
+        commitments_made: summary.commitments_made || [],
+        practices_recommended: summary.practices_recommended || [],
+        wisdom_referenced: summary.wisdom_referenced || [],
+        breakthrough_moment: summary.breakthrough_moment || null,
+        recurring_themes: recurringThemes,
+        new_themes: newThemes,
+        session_quality_score: summary.session_quality_score || null,
+      }, { onConflict: 'session_id' });
+
+    if (insertError) {
+      console.error('[generate-coach-summary] Insert error:', insertError);
+    }
+
+    // Also store commitments in accountability tracker
+    const commitments: string[] = summary.commitments_made || [];
+    if (commitments.length > 0) {
+      const commitmentRows = commitments.map(c => ({
+        user_id: userId,
+        session_id: sessionId,
+        commitment_text: c,
+        commitment_type: c.toLowerCase().includes('breathing') || c.toLowerCase().includes('practice') ? 'practice' : 'behavior_change',
+        check_in_due_date: new Date(Date.now() + (c.toLowerCase().includes('daily') ? 3 : 7) * 86400000).toISOString(),
+        status: 'pending',
+        pattern_area: summary.dominant_pattern || null,
+      }));
+
+      const { error: commitError } = await supabase
+        .from('coach_accountability_tracker')
+        .insert(commitmentRows);
+
+      if (commitError) {
+        console.error('[generate-coach-summary] Commitment insert error:', commitError);
+      }
+    }
+
+    console.log(`[generate-coach-summary] Summary stored for session ${sessionId}`);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      summary: summary.summary_text,
+      commitments: commitments.length,
+      recurringThemes,
+      newThemes
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error: unknown) {
+    console.error('[generate-coach-summary] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

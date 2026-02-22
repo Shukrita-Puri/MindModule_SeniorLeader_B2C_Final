@@ -373,6 +373,80 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_accountability_tracker: {
+        Row: {
+          check_in_due_date: string | null
+          commitment_text: string
+          commitment_type: string | null
+          committed_at: string | null
+          completion_evidence: string | null
+          created_at: string | null
+          id: string
+          last_checked_at: string | null
+          meta_skill: string | null
+          outcome_note: string | null
+          pattern_area: string | null
+          session_id: string
+          status: string | null
+          target_duration_days: number | null
+          target_frequency: string | null
+          target_practice_id: string | null
+          times_checked: number | null
+          user_id: string
+          was_helpful: boolean | null
+        }
+        Insert: {
+          check_in_due_date?: string | null
+          commitment_text: string
+          commitment_type?: string | null
+          committed_at?: string | null
+          completion_evidence?: string | null
+          created_at?: string | null
+          id?: string
+          last_checked_at?: string | null
+          meta_skill?: string | null
+          outcome_note?: string | null
+          pattern_area?: string | null
+          session_id: string
+          status?: string | null
+          target_duration_days?: number | null
+          target_frequency?: string | null
+          target_practice_id?: string | null
+          times_checked?: number | null
+          user_id: string
+          was_helpful?: boolean | null
+        }
+        Update: {
+          check_in_due_date?: string | null
+          commitment_text?: string
+          commitment_type?: string | null
+          committed_at?: string | null
+          completion_evidence?: string | null
+          created_at?: string | null
+          id?: string
+          last_checked_at?: string | null
+          meta_skill?: string | null
+          outcome_note?: string | null
+          pattern_area?: string | null
+          session_id?: string
+          status?: string | null
+          target_duration_days?: number | null
+          target_frequency?: string | null
+          target_practice_id?: string | null
+          times_checked?: number | null
+          user_id?: string
+          was_helpful?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_accountability_tracker_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_breakthrough_moments: {
         Row: {
           action_taken: string | null
@@ -504,6 +578,149 @@ export type Database = {
           },
         ]
       }
+      coach_memory_index: {
+        Row: {
+          access_count: number | null
+          created_at: string | null
+          id: string
+          importance_score: number | null
+          key_themes: string[] | null
+          last_accessed_at: string | null
+          memory_content: string
+          memory_context: string | null
+          memory_type: string
+          message_id: string | null
+          meta_skill: string | null
+          pattern_area: string | null
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          key_themes?: string[] | null
+          last_accessed_at?: string | null
+          memory_content: string
+          memory_context?: string | null
+          memory_type: string
+          message_id?: string | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          key_themes?: string[] | null
+          last_accessed_at?: string | null
+          memory_content?: string
+          memory_context?: string | null
+          memory_type?: string
+          message_id?: string | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_memory_index_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_memory_index_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_pattern_observations: {
+        Row: {
+          created_at: string | null
+          first_observed_at: string | null
+          id: string
+          improvement_evidence: string | null
+          is_active: boolean | null
+          is_improving: boolean | null
+          last_observed_at: string | null
+          meta_skill: string | null
+          named_at: string | null
+          observation_count: number | null
+          pattern_area: string | null
+          pattern_context: string | null
+          pattern_description: string
+          pattern_type: string
+          related_themes: string[] | null
+          resolved_at: string | null
+          session_id: string | null
+          user_acknowledged: boolean | null
+          user_id: string
+          was_named_to_user: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_observed_at?: string | null
+          id?: string
+          improvement_evidence?: string | null
+          is_active?: boolean | null
+          is_improving?: boolean | null
+          last_observed_at?: string | null
+          meta_skill?: string | null
+          named_at?: string | null
+          observation_count?: number | null
+          pattern_area?: string | null
+          pattern_context?: string | null
+          pattern_description: string
+          pattern_type: string
+          related_themes?: string[] | null
+          resolved_at?: string | null
+          session_id?: string | null
+          user_acknowledged?: boolean | null
+          user_id: string
+          was_named_to_user?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          first_observed_at?: string | null
+          id?: string
+          improvement_evidence?: string | null
+          is_active?: boolean | null
+          is_improving?: boolean | null
+          last_observed_at?: string | null
+          meta_skill?: string | null
+          named_at?: string | null
+          observation_count?: number | null
+          pattern_area?: string | null
+          pattern_context?: string | null
+          pattern_description?: string
+          pattern_type?: string
+          related_themes?: string[] | null
+          resolved_at?: string | null
+          session_id?: string | null
+          user_acknowledged?: boolean | null
+          user_id?: string
+          was_named_to_user?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_pattern_observations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_probing_effectiveness: {
         Row: {
           created_at: string | null
@@ -568,6 +785,68 @@ export type Database = {
             foreignKeyName: "coach_probing_effectiveness_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_session_summaries: {
+        Row: {
+          breakthrough_moment: string | null
+          commitments_made: string[] | null
+          created_at: string | null
+          dominant_pattern: string | null
+          emotional_arc: string | null
+          id: string
+          key_topics: string[] | null
+          new_themes: string[] | null
+          practices_recommended: string[] | null
+          recurring_themes: string[] | null
+          session_id: string
+          session_quality_score: number | null
+          summary_text: string
+          user_id: string
+          wisdom_referenced: string[] | null
+        }
+        Insert: {
+          breakthrough_moment?: string | null
+          commitments_made?: string[] | null
+          created_at?: string | null
+          dominant_pattern?: string | null
+          emotional_arc?: string | null
+          id?: string
+          key_topics?: string[] | null
+          new_themes?: string[] | null
+          practices_recommended?: string[] | null
+          recurring_themes?: string[] | null
+          session_id: string
+          session_quality_score?: number | null
+          summary_text: string
+          user_id: string
+          wisdom_referenced?: string[] | null
+        }
+        Update: {
+          breakthrough_moment?: string | null
+          commitments_made?: string[] | null
+          created_at?: string | null
+          dominant_pattern?: string | null
+          emotional_arc?: string | null
+          id?: string
+          key_topics?: string[] | null
+          new_themes?: string[] | null
+          practices_recommended?: string[] | null
+          recurring_themes?: string[] | null
+          session_id?: string
+          session_quality_score?: number | null
+          summary_text?: string
+          user_id?: string
+          wisdom_referenced?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_session_summaries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
             referencedRelation: "dialogue_sessions"
             referencedColumns: ["id"]
           },
@@ -965,9 +1244,13 @@ export type Database = {
           content: string
           emotion_displayed: string | null
           id: string
+          key_themes: string[] | null
           message_index: number
+          message_type: string | null
           meta_data: Json | null
+          referenced_practice_id: string | null
           sender_type: string
+          sentiment_score: number | null
           session_id: string
           timestamp: string | null
         }
@@ -976,9 +1259,13 @@ export type Database = {
           content: string
           emotion_displayed?: string | null
           id?: string
+          key_themes?: string[] | null
           message_index: number
+          message_type?: string | null
           meta_data?: Json | null
+          referenced_practice_id?: string | null
           sender_type: string
+          sentiment_score?: number | null
           session_id: string
           timestamp?: string | null
         }
@@ -987,9 +1274,13 @@ export type Database = {
           content?: string
           emotion_displayed?: string | null
           id?: string
+          key_themes?: string[] | null
           message_index?: number
+          message_type?: string | null
           meta_data?: Json | null
+          referenced_practice_id?: string | null
           sender_type?: string
+          sentiment_score?: number | null
           session_id?: string
           timestamp?: string | null
         }
@@ -1006,16 +1297,24 @@ export type Database = {
       dialogue_sessions: {
         Row: {
           coach_personality: string | null
+          commitments_made: string[] | null
           context_type: string
           created_at: string | null
+          dominant_pattern: string | null
           duration_seconds: number | null
           ended_at: string | null
+          flow_type: string | null
           id: string
+          inner_readiness_score: number | null
+          inner_readiness_tier: string | null
           meta_data: Json | null
           persona_id: string | null
+          practices_completed: string[] | null
+          practices_recommended: string[] | null
           scenario_context: Json | null
           scenario_id: string | null
           session_status: string | null
+          session_title: string | null
           started_at: string | null
           total_interventions: number | null
           total_messages: number | null
@@ -1023,16 +1322,24 @@ export type Database = {
         }
         Insert: {
           coach_personality?: string | null
+          commitments_made?: string[] | null
           context_type?: string
           created_at?: string | null
+          dominant_pattern?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
+          flow_type?: string | null
           id?: string
+          inner_readiness_score?: number | null
+          inner_readiness_tier?: string | null
           meta_data?: Json | null
           persona_id?: string | null
+          practices_completed?: string[] | null
+          practices_recommended?: string[] | null
           scenario_context?: Json | null
           scenario_id?: string | null
           session_status?: string | null
+          session_title?: string | null
           started_at?: string | null
           total_interventions?: number | null
           total_messages?: number | null
@@ -1040,16 +1347,24 @@ export type Database = {
         }
         Update: {
           coach_personality?: string | null
+          commitments_made?: string[] | null
           context_type?: string
           created_at?: string | null
+          dominant_pattern?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
+          flow_type?: string | null
           id?: string
+          inner_readiness_score?: number | null
+          inner_readiness_tier?: string | null
           meta_data?: Json | null
           persona_id?: string | null
+          practices_completed?: string[] | null
+          practices_recommended?: string[] | null
           scenario_context?: Json | null
           scenario_id?: string | null
           session_status?: string | null
+          session_title?: string | null
           started_at?: string | null
           total_interventions?: number | null
           total_messages?: number | null
@@ -2246,10 +2561,13 @@ export type Database = {
         Row: {
           agency_type: string | null
           analyzed_at: string | null
+          coach_acknowledgment: string | null
           created_at: string
           detected_at: string
           growth_signal: string | null
           id: string
+          meta_skill_demonstrated: string | null
+          pattern_area: string | null
           practice_id: string | null
           practice_type: string | null
           primary_emotion: string | null
@@ -2265,10 +2583,13 @@ export type Database = {
         Insert: {
           agency_type?: string | null
           analyzed_at?: string | null
+          coach_acknowledgment?: string | null
           created_at?: string
           detected_at?: string
           growth_signal?: string | null
           id?: string
+          meta_skill_demonstrated?: string | null
+          pattern_area?: string | null
           practice_id?: string | null
           practice_type?: string | null
           primary_emotion?: string | null
@@ -2284,10 +2605,13 @@ export type Database = {
         Update: {
           agency_type?: string | null
           analyzed_at?: string | null
+          coach_acknowledgment?: string | null
           created_at?: string
           detected_at?: string
           growth_signal?: string | null
           id?: string
+          meta_skill_demonstrated?: string | null
+          pattern_area?: string | null
           practice_id?: string | null
           practice_type?: string | null
           primary_emotion?: string | null
@@ -2377,6 +2701,7 @@ export type Database = {
       }
       user_coach_insights: {
         Row: {
+          check_in_date: string | null
           confidence_score: number | null
           content_reference: string | null
           created_at: string | null
@@ -2385,11 +2710,16 @@ export type Database = {
           insight_content: string
           insight_type: string
           is_active: boolean | null
+          meta_skill: string | null
+          pattern_area: string | null
+          resolution_note: string | null
+          resolution_status: string | null
           source_session_id: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          check_in_date?: string | null
           confidence_score?: number | null
           content_reference?: string | null
           created_at?: string | null
@@ -2398,11 +2728,16 @@ export type Database = {
           insight_content: string
           insight_type: string
           is_active?: boolean | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          resolution_note?: string | null
+          resolution_status?: string | null
           source_session_id?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          check_in_date?: string | null
           confidence_score?: number | null
           content_reference?: string | null
           created_at?: string | null
@@ -2411,6 +2746,10 @@ export type Database = {
           insight_content?: string
           insight_type?: string
           is_active?: boolean | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          resolution_note?: string | null
+          resolution_status?: string | null
           source_session_id?: string | null
           updated_at?: string | null
           user_id?: string
