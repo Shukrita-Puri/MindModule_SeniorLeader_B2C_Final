@@ -27,33 +27,66 @@ interface ExtractedInsight {
 }
 
 function buildExtractionPrompt(messages: string[]): string {
-  return `Analyze the following user messages from a coaching conversation and extract insights.
+  return `Analyze the following user messages from a coaching conversation and extract insights for the user's profile.
 
 USER MESSAGES:
 ${messages.map((m, i) => `${i + 1}. "${m}"`).join('\n')}
 
 Extract insights in these categories:
-1. PREFERENCE - Things that work well for the user
-2. GOAL - What the user wants to work on or achieve
-3. FEEDBACK - Reactions to practices or advice
-4. CHALLENGE - Things the user struggles with
-5. COMMITMENT - Specific actions the user said they would take (include check_in_days: 3 for practice, 7 for behavior)
-6. PATTERN_OBSERVED - Recurring behaviors or responses noticed
-7. BREAKTHROUGH - Moments of significant insight or shift
-8. RESISTANCE - What they avoid or deflect from
-9. TRIGGER - Specific situations that activate them emotionally
-10. STRENGTH - Demonstrated capability
-11. GROWTH_AREA - Identified development need
+
+## 1. STRENGTH (for "Lean On" in Outer Readiness Brief)
+What to look for: Behavioral strengths the COACH observed (not self-reported by user).
+Format: One sentence, second person ("You..."), under 20 words, behaviorally specific.
+Examples:
+- "Your composure in high-stakes moments is your most reliable resource."
+- "You regulate yourself mid-conversation — that's real strength."
+Criteria: Must be behavioral (what they DO), not aspirational. Must be specific.
+Return as: { "type": "strength", "content": "...", "confidence": 0.7-1.0, "pattern_area": "recalibration|clarity|renewal", "meta_skill": "..." }
+
+## 2. GROWTH_AREA (for "Watch For" in Outer Readiness Brief)
+What to look for: Recurring patterns or friction points the COACH observed.
+Format: One sentence, second person ("You..."), under 20 words, specific and non-judgmental.
+Examples:
+- "You tend to over-function when others struggle — that costs you."
+- "You deflect when questioned — that creates distance."
+Criteria: Must be behavioral and correctable. Framed as "pattern to notice" not "flaw to fix".
+Return as: { "type": "growth_area", "content": "...", "confidence": 0.7-1.0, "pattern_area": "recalibration|clarity|renewal", "meta_skill": "..." }
+
+## 3. COMMITMENT — Specific actions the user said they would take.
+Include check_in_days: 3 for practice-based, 7 for behavior change.
+
+## 4. PATTERN_OBSERVED — Recurring behaviors the coach noticed.
+
+## 5. PREFERENCE — Practices or approaches the user found helpful.
+
+## 6. GOAL — Stated objectives or development areas.
+
+## 7. CHALLENGE — Self-reported difficulties.
+
+## 8. BREAKTHROUGH — Significant moments of insight or shift.
+
+## 9. TRIGGER — Specific situations that activate them emotionally.
+
+## 10. RESISTANCE — What they avoid or deflect from.
+
+## 11. FEEDBACK — Reactions to practices or advice.
 
 For each insight, provide:
 - type: one of the above types
 - content: A concise 1-sentence summary
-- confidence: 0.0 to 1.0
+- confidence: 0.0 to 1.0 (strength/growth_area require >= 0.7)
 - pattern_area: "recalibration" | "clarity" | "renewal" (if applicable)
 - meta_skill: relevant meta-skill (if applicable)
 - check_in_days: number of days for follow-up (only for commitments)
 
-Only extract genuine, meaningful insights. Skip generic statements.
+EXTRACTION RULES:
+1. Only extract genuine, meaningful insights (skip generic statements)
+2. Confidence must be >= 0.6 to store (>= 0.7 for strength/growth_area)
+3. strength and growth_area insights MUST be in second person ("You...")
+4. strength and growth_area insights MUST be under 20 words
+5. If multiple strength or growth_area candidates exist, return the most specific and behavioral one
+6. If no clear strength or growth_area is observed, do not force one
+
 Return ONLY a JSON array of insights. Empty array [] if none found.`;
 }
 
@@ -171,35 +204,75 @@ serve(async (req) => {
     const validTypes = ['preference', 'goal', 'feedback', 'challenge', 'commitment', 
       'pattern_observed', 'breakthrough', 'resistance', 'trigger', 'strength', 'growth_area'];
 
-    const validInsights = extractedInsights.filter(i => 
-      i.type && i.content && i.confidence >= 0.6 && validTypes.includes(i.type)
-    );
+    const validInsights = extractedInsights.filter(i => {
+      if (!i.type || !i.content || !validTypes.includes(i.type)) return false;
+      // Stricter confidence threshold for strength/growth_area
+      if (i.type === 'strength' || i.type === 'growth_area') return i.confidence >= 0.7;
+      return i.confidence >= 0.6;
+    });
 
     if (validInsights.length > 0) {
-      const insightRows = validInsights.map(insight => ({
-        user_id: userId,
-        insight_type: insight.type,
-        insight_content: insight.content,
-        content_reference: insight.contentReference || null,
-        source_session_id: sessionId,
-        confidence_score: insight.confidence,
-        is_active: true,
-        pattern_area: insight.pattern_area || null,
-        meta_skill: insight.meta_skill || null,
-        check_in_date: insight.check_in_days 
-          ? new Date(Date.now() + insight.check_in_days * 86400000).toISOString().split('T')[0]
-          : null,
-        resolution_status: insight.type === 'commitment' ? 'pending' : null,
-      }));
+      // Handle strength/growth_area with replacement logic (one active each)
+      for (const singletonType of ['strength', 'growth_area'] as const) {
+        const newInsight = validInsights.find(i => i.type === singletonType);
+        if (!newInsight) continue;
 
-      const { error: insertError } = await supabase
-        .from('user_coach_insights')
-        .insert(insightRows);
+        const { data: existing } = await supabase
+          .from('user_coach_insights')
+          .select('id, insight_content, confidence_score')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .eq('insight_type', singletonType)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (insertError) {
-        console.error('[extract-coach-insights] Error storing insights:', insertError);
-      } else {
-        console.log(`[extract-coach-insights] Stored ${validInsights.length} insights`);
+        if (existing) {
+          // Only replace if different AND higher confidence
+          if (newInsight.content !== existing.insight_content && newInsight.confidence > (existing.confidence_score || 0)) {
+            await supabase.from('user_coach_insights').update({ is_active: false }).eq('id', existing.id);
+            await supabase.from('user_coach_insights').insert({
+              user_id: userId, insight_type: singletonType, insight_content: newInsight.content,
+              source_session_id: sessionId, confidence_score: newInsight.confidence, is_active: true,
+              pattern_area: newInsight.pattern_area || null, meta_skill: newInsight.meta_skill || null,
+            });
+            console.log(`[extract-coach-insights] Replaced ${singletonType} insight`);
+          }
+        } else {
+          await supabase.from('user_coach_insights').insert({
+            user_id: userId, insight_type: singletonType, insight_content: newInsight.content,
+            source_session_id: sessionId, confidence_score: newInsight.confidence, is_active: true,
+            pattern_area: newInsight.pattern_area || null, meta_skill: newInsight.meta_skill || null,
+          });
+          console.log(`[extract-coach-insights] Inserted new ${singletonType} insight`);
+        }
+      }
+
+      // Store all other insight types (accumulate, no replacement)
+      const otherInsights = validInsights.filter(i => i.type !== 'strength' && i.type !== 'growth_area');
+      if (otherInsights.length > 0) {
+        const insightRows = otherInsights.map(insight => ({
+          user_id: userId,
+          insight_type: insight.type,
+          insight_content: insight.content,
+          content_reference: insight.contentReference || null,
+          source_session_id: sessionId,
+          confidence_score: insight.confidence,
+          is_active: true,
+          pattern_area: insight.pattern_area || null,
+          meta_skill: insight.meta_skill || null,
+          check_in_date: insight.check_in_days 
+            ? new Date(Date.now() + insight.check_in_days * 86400000).toISOString().split('T')[0]
+            : null,
+          resolution_status: insight.type === 'commitment' ? 'pending' : null,
+        }));
+
+        const { error: insertError } = await supabase.from('user_coach_insights').insert(insightRows);
+        if (insertError) {
+          console.error('[extract-coach-insights] Error storing insights:', insertError);
+        } else {
+          console.log(`[extract-coach-insights] Stored ${otherInsights.length} other insights`);
+        }
       }
     }
 

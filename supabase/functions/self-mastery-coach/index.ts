@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1477,7 +1478,10 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, flowType, sessionId, userId, context } = await req.json();
+    // Verify Auth0 JWT — userId comes from token, not body
+    const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const { messages, flowType, sessionId, context } = await req.json();
+    const userId = verifiedUserId;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {

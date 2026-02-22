@@ -1,41 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-// ==================== AUTH0 VERIFICATION ====================
-// Auth0 issues opaque tokens (not JWTs) so we must use /userinfo.
-// Uses exponential backoff to handle rate limiting gracefully.
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
-  
-  for (let attempt = 0; attempt < 4; attempt++) {
-    if (attempt > 0) {
-      const delay = Math.min(1000 * Math.pow(2, attempt), 8000); // 2s, 4s, 8s
-      await new Promise(r => setTimeout(r, delay));
-    }
-    const response = await fetch(`https://${auth0Domain}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (response.ok) {
-      const userInfo = await response.json();
-      return userInfo.sub;
-    }
-    if (response.status === 429) {
-      console.warn(`[compute-outer-readiness] Auth0 rate limited, attempt ${attempt + 1}/4`);
-      continue;
-    }
-    const errorBody = await response.text();
-    console.error(`[compute-outer-readiness] Auth0 failed: status=${response.status}, body=${errorBody}`);
-    throw new Error('Invalid token');
-  }
-  throw new Error('Auth0 rate limited after retries');
-}
 
 // ==================== TYPES ====================
 type EnergyTier = 'depleted' | 'managing' | 'strong' | 'peak';
@@ -538,7 +508,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-      userId = await verifyAuth0Token(authHeader);
+      userId = await verifyAuth0JWT(authHeader);
     }
     
     const {

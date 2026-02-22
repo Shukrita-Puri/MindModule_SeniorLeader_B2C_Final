@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +13,14 @@ serve(async (req) => {
   }
 
   try {
+    const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
     const { sessionId, userId } = await req.json();
 
-    if (!sessionId || !userId) {
-      return new Response(JSON.stringify({ error: 'sessionId and userId required' }), {
+    // Use verified user ID, but allow body userId for backward compat if it matches
+    const effectiveUserId = verifiedUserId;
+
+    if (!sessionId) {
+      return new Response(JSON.stringify({ error: 'sessionId required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -185,7 +190,7 @@ Only analyze exchanges where the coach is genuinely probing (asking questions to
         const { error: probeError } = await supabase
           .from('coach_probing_effectiveness')
           .insert({
-            user_id: userId,
+            user_id: effectiveUserId,
             session_id: sessionId,
             message_id: pair.coachMessageId,
             probe_question: pair.coachContent,
@@ -210,7 +215,7 @@ Only analyze exchanges where the coach is genuinely probing (asking questions to
         const { error: btError } = await supabase
           .from('coach_breakthrough_moments')
           .insert({
-            user_id: userId,
+            user_id: effectiveUserId,
             session_id: sessionId,
             message_id: pair.userMessageId,
             breakthrough_content: exchange.breakthrough_content,
