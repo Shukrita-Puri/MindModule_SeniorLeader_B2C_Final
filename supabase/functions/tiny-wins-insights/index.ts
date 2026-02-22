@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -161,31 +162,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify user via Auth0 userinfo
-    const token = authHeader.replace("Bearer ", "");
-    const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
-    
-    const userInfoRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    
-    if (!userInfoRes.ok) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    
-    const userInfo = await userInfoRes.json();
-    const userId = userInfo.sub;
+    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
 
     const { days = 14 } = await req.json().catch(() => ({}));
 

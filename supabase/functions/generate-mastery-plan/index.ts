@@ -666,7 +666,8 @@ function calculateContentScore(
   effectiveContent: string[],
   completedToday: string[],
   practicePriorityTag?: string,
-  pressureContextTag?: string
+  pressureContextTag?: string,
+  pendingCommitments?: any[]
 ): number {
   let score = 0;
   const hasFavorites = favorites.length > 0;
@@ -721,6 +722,25 @@ function calculateContentScore(
 
   // Recency - not completed in last 3 days (simplified: not completed today)
   if (!completedToday.includes(content.id)) score += 5;
+
+  // Coach commitment boost: if user committed to a practice, boost matching content
+  if (pendingCommitments && pendingCommitments.length > 0) {
+    for (const commitment of pendingCommitments) {
+      if (commitment.target_practice_id && commitment.target_practice_id === content.id) {
+        score += 15;
+        break;
+      }
+      // Also check if commitment text mentions content tags
+      if (commitment.commitment_text) {
+        const commitLower = (commitment.commitment_text as string).toLowerCase();
+        const contentTags = [...(content.tags || []), content.title || ''].map((t: string) => t.toLowerCase());
+        if (contentTags.some((t: string) => t.length > 3 && commitLower.includes(t))) {
+          score += 10;
+          break;
+        }
+      }
+    }
+  }
 
   return score;
 }
@@ -903,6 +923,17 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     }
   } catch { /* ignore */ }
 
+  // 1b. Fetch pending coach commitments for content boosting
+  let pendingCommitments: any[] = [];
+  try {
+    const { data: commitments } = await supabaseClient
+      .from('coach_accountability_tracker')
+      .select('commitment_text, target_practice_id, pattern_area')
+      .eq('user_id', req.userId)
+      .eq('status', 'pending');
+    pendingCommitments = commitments || [];
+  } catch { /* ignore */ }
+
   // 2. Fetch content library from DB
   const { data: contentLibrary } = await supabaseClient
     .from('sanctuary_content')
@@ -957,7 +988,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             reasoning: spec.type === 'prepare' ? 'Mental rehearsal for upcoming high-stakes moments' : 'Reflection and closure'
           });
         } else {
-          const selected = selectContent(enrichedContent, spec, req);
+          const selected = selectContent(enrichedContent, spec, req, pendingCommitments);
           if (selected) {
             preEventModules.push({
               type: spec.type,
@@ -1046,7 +1077,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         });
       }
     } else {
-      const selected = selectContent(enrichedContent, spec, req);
+      const selected = selectContent(enrichedContent, spec, req, pendingCommitments);
       if (selected) {
         todModules.push({
           type: moduleType,
@@ -1156,7 +1187,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
 // ==================== CONTENT SELECTION ====================
 
-function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest): any | null {
+function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest, pendingCommitments?: any[]): any | null {
   // Filter by module type
   let pool: any[];
   if (spec.type === 'regulate') {
@@ -1184,7 +1215,7 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
   // Score
   const scored = available.map(c => ({
     content: c,
-    score: calculateContentScore(c, spec, req.favorites, req.coachInsights || [], req.effectiveContent || [], req.completedToday, req.practicePriorityTag, req.pressureContextTag)
+    score: calculateContentScore(c, spec, req.favorites, req.coachInsights || [], req.effectiveContent || [], req.completedToday, req.practicePriorityTag, req.pressureContextTag, pendingCommitments)
   }));
   scored.sort((a, b) => b.score - a.score);
 

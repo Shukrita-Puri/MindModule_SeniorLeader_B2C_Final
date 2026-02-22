@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,17 +13,6 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  if (!AUTH0_DOMAIN) throw new Error("Auth0 domain not configured");
-  const token = authHeader.replace("Bearer ", "");
-  const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) throw new Error(`Auth0 userinfo failed: ${response.status}`);
-  const data = await response.json();
-  if (!data?.sub) throw new Error("Auth0 userinfo missing sub");
-  return data.sub as string;
-}
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TIME_LABELS = ["Morning", "Afternoon", "Evening"];
@@ -81,12 +70,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization" }), { status: 401, headers: corsHeaders });
-    }
-
-    const userId = await verifyAuth0Token(authHeader);
+    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     const now = new Date();

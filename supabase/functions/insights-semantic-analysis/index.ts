@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,24 +111,7 @@ serve(async (req) => {
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const AUTH0_DOMAIN = Deno.env.get('VITE_AUTH0_DOMAIN');
-    if (!AUTH0_DOMAIN) {
-      throw new Error('VITE_AUTH0_DOMAIN not configured');
-    }
-    const userInfoResponse = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!userInfoResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const auth0User = await userInfoResponse.json();
-    const userId = auth0User.sub;
+    const userId = await verifyAuth0JWT(authHeader);
 
     const requestBody = await req.json();
     const { days = 7, action = 'analyze', keyword } = requestBody;
@@ -355,6 +339,38 @@ ${allContent.slice(0, 3000)}`
         c.state_tags.forEach((tag: string) => mergeTheme(tag, 'checkins', 1));
       }
     });
+
+    // 6. Enrich with coach session summaries (pre-analyzed topics)
+    const { data: summaries } = await supabase
+      .from('coach_session_summaries')
+      .select('key_topics, recurring_themes')
+      .eq('user_id', userId)
+      .gte('created_at', startDate.toISOString());
+
+    for (const summary of summaries || []) {
+      for (const topic of (summary.key_topics as string[]) || []) {
+        mergeTheme(topic, 'coach', 1);
+      }
+      for (const theme of (summary.recurring_themes as string[]) || []) {
+        mergeTheme(theme, 'coach', 2); // Weight recurring themes higher
+      }
+    }
+
+    // 7. Enrich with active coach pattern observations
+    const { data: patterns } = await supabase
+      .from('coach_pattern_observations')
+      .select('pattern_description, observation_count, pattern_area')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .gte('observation_count', 2);
+
+    for (const pattern of patterns || []) {
+      const words = (pattern.pattern_description as string).split(' ')
+        .filter((w: string) => w.length > 3)
+        .slice(0, 3)
+        .join(' ');
+      if (words) mergeTheme(words, 'coach', pattern.observation_count as number);
+    }
 
     // Calculate unified themes — cap at 8
     const maxCount = Math.max(...Array.from(themeMap.values()).map(v => v.count), 1);
