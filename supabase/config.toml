@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.smart-nudges]
 verify_jwt = false
+
+[functions.analyze-probing-effectiveness]
+verify_jwt = false

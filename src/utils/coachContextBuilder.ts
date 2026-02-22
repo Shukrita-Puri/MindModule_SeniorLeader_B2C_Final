@@ -87,6 +87,20 @@ export interface CoachContext {
   
   // Predictive pattern intelligence
   predictivePatterns?: PredictivePatterns;
+
+  // Probing & Breakthrough context (injected for personalized coaching)
+  effectiveProbes?: Array<{
+    probe_type: string;
+    avg_score: number;
+    example_question: string;
+    times_used: number;
+  }>;
+  pastBreakthroughs?: Array<{
+    breakthrough_content: string;
+    breakthrough_type: string;
+    was_acted_on: boolean;
+    created_at: string;
+  }>;
 }
 
 // Get JIT intervention data from localStorage
@@ -343,12 +357,13 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   
   // Add user-specific data if userId provided
   if (userId) {
-    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns] = await Promise.all([
+    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns, probingData] = await Promise.all([
       getUserProfile(userId),
       getRecentPractices(userId),
       detectConsecutivePattern(userId, energyState.checkInOutcome),
       getUserInsights(userId),
-      detectCalendarStateCorrelations(userId)
+      detectCalendarStateCorrelations(userId),
+      getProbingAndBreakthroughData(userId)
     ]);
     
     if (profile) {
@@ -370,6 +385,15 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     
     if (predictivePatterns) {
       context.predictivePatterns = predictivePatterns;
+    }
+
+    if (probingData) {
+      if (probingData.effectiveProbes.length > 0) {
+        context.effectiveProbes = probingData.effectiveProbes;
+      }
+      if (probingData.pastBreakthroughs.length > 0) {
+        context.pastBreakthroughs = probingData.pastBreakthroughs;
+      }
     }
   }
   
@@ -498,7 +522,65 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
         }
         if (todayPrediction) break;
       }
+}
+
+/**
+ * Fetch probing effectiveness and breakthrough data for context injection
+ */
+async function getProbingAndBreakthroughData(userId: string) {
+  try {
+    const [probesResult, breakthroughsResult] = await Promise.all([
+      supabase
+        .from('coach_probing_effectiveness' as any)
+        .select('probe_type, effectiveness_score, probe_question, led_to_insight')
+        .eq('user_id', userId)
+        .eq('led_to_insight', true)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('coach_breakthrough_moments' as any)
+        .select('breakthrough_content, breakthrough_type, was_acted_on, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+    ]);
+
+    // Aggregate probes by type
+    const probesByType: Record<string, { scores: number[]; example: string; count: number }> = {};
+    if (probesResult.data) {
+      for (const p of probesResult.data as any[]) {
+        if (!probesByType[p.probe_type]) {
+          probesByType[p.probe_type] = { scores: [], example: p.probe_question, count: 0 };
+        }
+        probesByType[p.probe_type].scores.push(p.effectiveness_score || 5);
+        probesByType[p.probe_type].count++;
+      }
     }
+
+    const effectiveProbes = Object.entries(probesByType)
+      .map(([type, data]) => ({
+        probe_type: type,
+        avg_score: Math.round((data.scores.reduce((a, b) => a + b, 0) / data.scores.length) * 10) / 10,
+        example_question: data.example,
+        times_used: data.count,
+      }))
+      .filter(p => p.avg_score >= 7)
+      .sort((a, b) => b.avg_score - a.avg_score)
+      .slice(0, 5);
+
+    const pastBreakthroughs = ((breakthroughsResult.data || []) as any[]).map((b: any) => ({
+      breakthrough_content: b.breakthrough_content,
+      breakthrough_type: b.breakthrough_type || 'self_awareness',
+      was_acted_on: b.was_acted_on || false,
+      created_at: b.created_at,
+    }));
+
+    return { effectiveProbes, pastBreakthroughs };
+  } catch (error) {
+    console.error('[coachContextBuilder] Error fetching probing data:', error);
+    return { effectiveProbes: [], pastBreakthroughs: [] };
+  }
+}
     
     return {
       todayPrediction,
