@@ -1,81 +1,128 @@
 
-# Add Phase 2 Scaffolding to Smart Nudges Edge Function
 
-## What This Does
+# Self-Mastery Coach -- Prompt Architecture Upgrade
 
-Adds the complete logic for **Pattern Alert (Type 4)** and **State-Aware Nudge (Type 5)** into the existing `smart-nudges` edge function as documented, production-ready code -- but clearly marked as **Phase 2** with comments explaining these activate naturally as users accumulate data. No feature flags or artificial gates needed; the trigger conditions themselves (3 consecutive low days, 5+ practice completions with 80%+ effectiveness, 7-day streaks, etc.) inherently require sufficient user history before they can fire.
+## Overview
 
-## Changes to `supabase/functions/smart-nudges/index.ts`
+Replace the current system prompt in the `self-mastery-coach` edge function with the comprehensive new prompt architecture you've provided. No frontend or UI changes. The edge function structure (streaming, tiny win extraction, error handling) remains intact -- only the prompt content and context injection logic changes.
 
-### 1. New copy variant functions (added after existing variant functions, ~line 90)
+## What Changes
 
-**`getPatternAlertVariants(ctx)`** -- 5 variants:
-- PA-1: "Day 3 at [tier]. Your system is showing a pattern worth noticing."
-- PA-2: "[Practice name] works for you -- 80% followed by stronger days."
-- PA-3: "[N] days. Your practice is becoming a rhythm." (7/14/30 milestones)
-- PA-4: "[Event type] consistently drain you. That pattern is worth naming."
-- PA-5: "Your HRV has been low for 3 days. Recovery is the priority."
+### 1. Replace `BASE_SYSTEM_PROMPT` (lines 9-333)
 
-**`getStateAwareVariants(ctx)`** -- 4 variants:
-- SN-1: "[N] high-stakes events ahead. 5-min reset available now."
-- SN-2: "You started low. The afternoon is heavy. Recalibrate first."
-- SN-3: "Afternoon Reset: [practice name]. 3 min."
-- SN-4: "[Next event title] in 90 min. Reset now or push through?"
+The current ~330-line prompt gets replaced with the new **Global System Prompt** covering:
 
-### 2. Pattern Alert evaluation block (inserted after Pre-Event Prep, before Morning Anchor)
+- Identity and Role (context-intelligent coaching for senior executives)
+- STATE > STORY > STRATEGY principle (unchanged but expanded)
+- Three Levels of Intervention (unchanged)
+- Recalibrate Studio Integration (protocol IDs, recommendation rules, frequency rules)
+- Wisdom and Framework Library (expanded: High-Performer, Ancient, Practical categories)
+- Meta-Skills mapped to Pattern Areas (Recalibration, Clarity, Renewal) -- 8 skills, never named explicitly
+- **NEW: Generating Insights for Outer Readiness Brief** (LEAN ON / WATCH FOR generation rules)
+- State-Aware Coaching Modes (expanded with DEPLETED/MANAGING/STRONG/PEAK tiers + URGENT/OVERWHELMED)
+- **NEW: Wearable Data (HRV) Integration** with divergence detection logic
+- Conversation Style (tone, signature techniques, what you don't do)
+- **NEW: Tiny Wins Integration** (evening/integrate flow guidance)
+- **NEW: Accountability and Progress Tracking** (reference past commitments, name patterns)
+- Emotional Sentiment Analysis guidance
+- Safety Guardrails and Boundaries (expanded: mental health disclaimer, bias/cultural sensitivity, absolute blocks, content boundaries)
+- Input Quality Awareness (unchanged)
+- Response Length and Session Closure
+- Response Format and Markers (protocol/wisdom markers)
+- Final Principles
 
-Checks five independent pattern detectors in sequence. First match wins (max 1 per day):
+### 2. Expand `CoachContext` Interface (lines 336-393)
 
-| Pattern | Data Source | Query |
-|---|---|---|
-| Consecutive low state (3 days) | `daily_checkins` | Last 3 checkins by date desc, all outcome = depleted/managing |
-| Effectiveness milestone | `practice_sessions` | Group by content_id over 30 days, find any with 5+ completions and avg effectiveness_rating >= 4 |
-| Streak milestone (7/14/30) | `profiles.current_streak` | Already available in batch-fetched profile data |
-| Calendar correlation | `calendar_event_classifications` + `daily_checkins` | Join over 30 days, find event_type with 5+ low-readiness correlations |
-| Recovery deficit | `energy_snapshots` | Last 3 snapshots by date desc, all with HRV >= 20% below baseline |
+Add new fields to support the richer dynamic context injection:
 
-**Suppression rules:**
-- Skip if user opened app in last 4 hours (query `user_engagements` for recent `app_open` events)
-- Skip if same pattern type was sent in last 7 days (query `notification_log`)
-- Max 1 pattern alert per day
+- `userName`, `identityRole` (for personalisation)
+- `archetypeLeanOn`, `archetypeWatchFor`
+- `innerReadinessTier` (depleted/managing/strong/peak)
+- `contextStatement`
+- `themeDriver`
+- Calendar event details (event type, stakes)
+- Practice breakdown (pause/flow/renergise counts, most used)
+- Tiny wins (recent win content + dates)
+- Pattern data (friction %, recurring themes, coach observations)
+- Dimension evolution (recalibration/clarity/renewal baseline vs current + deltas)
+- Past conversation history (session count, last summary, commitments)
+- **HRV wearable data** (current HRV, baseline, delta, trend, divergence detection)
+- Current LEAN ON / WATCH FOR insights
+- Consecutive pattern data
+- Detected sentiment metadata
+- Practice effectiveness data
+- Pending commitments (accountability triggers)
 
-### 3. State-Aware Nudge evaluation block (inserted after Evening Close, lowest priority)
+### 3. Rewrite `buildSystemPrompt()` (lines 395-511)
 
-All conditions must be true:
-- Local time is 12:00--15:00
-- Morning check-in exists today with outcome = `depleted` or `managing`
-- Afternoon has high calendar pressure (3+ high-stakes events in next 4 hours)
-- No app open in last 3 hours (query `user_engagements`)
-- No `state_aware_nudge` already sent today
-- No afternoon reset practice completed today (query `daily_ritual_completions` for afternoon session)
+Replace the current simple context appending with the full dynamic context injection template:
 
-Variant selection: SN-1 if 3+ high-stakes events, SN-4 if a specific event 60-120 min away, SN-2 as default.
+- User Profile section (name, role, archetype with lean on/watch for)
+- Today's State section (inner readiness score, tier, check-in outcome, context statement)
+- Today's Compass section (theme, lean on, watch for, driver)
+- Calendar Context section (upcoming event details or "not connected")
+- Recent Activity section (practice counts by type, streak, tiny wins list)
+- Pattern Data section (friction %, typical state, recurring themes, coach observations)
+- Dimension Evolution section (baseline vs current for each dimension)
+- Past Conversations section (session count, last summary, commitments)
+- Wearable Data section (HRV current/baseline/delta/trend + divergence alert)
+- Current Insights section (active LEAN ON and WATCH FOR)
+- Consecutive Pattern alert
+- Detected Sentiment metadata
+- Practice Effectiveness data
+- Accountability triggers (pending commitments)
 
-### 4. Updated priority cascade (line ~438)
+### 4. Add Flow-Specific Prompt Additions
 
-Change from:
-```
-['pre_event_prep', 'morning_anchor', 'evening_close']
-```
-to:
-```
-['pre_event_prep', 'pattern_alert', 'morning_anchor', 'evening_close', 'state_aware_nudge']
-```
+Expand the existing flow handling:
 
-State-Aware Nudge gets stricter suppression: only sends if no other notification fired in last **3 hours** (vs 2-hour general rule).
+- **Prepare flow** (pre-event): Expanded with structured 4-step flow (somatic check-in, outcome clarity, rehearse key moment, anchor), 3-5 minute session limit
+- **Integrate flow** (evening): Expanded with structured 4-step flow (tiny win prompt, emotional scan, release, close), 5-10 minute session
+- **Guided Reflection flow**: Expanded with conversational guidance instructions, pause-between-steps logic
 
-## No Database Changes Needed
+### 5. Add Pattern-Area Conditional Prompts (NEW)
 
-The `notification_preferences` table already has `pattern_alert_enabled` and `state_aware_nudge_enabled` columns (both default `true`). The `notification_log` table accepts any `notification_type` string. All source tables (`daily_checkins`, `practice_sessions`, `energy_snapshots`, `calendar_event_classifications`, `user_engagements`, `profiles`) already exist.
+Three new conditional prompt blocks injected based on the user's dominant pattern:
 
-## Why No Artificial Gate Is Needed
+- **Recalibration Pattern** -- injected when tier is depleted/managing or regulation themes detected. Covers self-regulation, resilience, confidence development.
+- **Clarity Pattern** -- injected when clarity dimension is lowest or decision-making/uncertainty themes detected. Covers thinking clarity, emotional intelligence.
+- **Renewal Pattern** -- injected when renewal dimension is lowest or burnout/identity/legacy themes detected. Covers adaptive capacity, influence, presence.
 
-The trigger thresholds themselves are the gate:
-- A new user cannot have 3 consecutive low-state days until day 3+
-- Effectiveness milestones require 5+ practice completions with ratings
-- Streak milestones require 7+ days of usage
-- Calendar correlations require 5+ occurrences of the same pattern
-- Recovery deficit requires 3+ days of wearable data
-- State-Aware Nudge requires a completed morning check-in + calendar data
+Pattern detection logic: determine dominant pattern from the context (lowest dimension score, recurring theme keywords, explicit user state).
 
-These conditions will naturally return empty/false for new users, so the code runs but produces no notifications until sufficient data exists.
+### 6. Everything That Stays the Same
+
+- Edge function HTTP handler structure (lines 638-713)
+- Streaming response logic
+- Tiny win extraction logic (`extractAndStoreTinyWin`, lines 513-636)
+- Win blocklist
+- CORS headers
+- Error handling (429, 402, 500)
+- Model: `google/gemini-3-flash-preview`
+- Client-side code (`useCoachConversation.ts`, `coachContextBuilder.ts`) -- no changes
+- Frontend UI -- no changes
+
+## Technical Details
+
+### File Modified
+
+- `supabase/functions/self-mastery-coach/index.ts` -- full rewrite of prompt sections (lines 9-511), handler logic preserved
+
+### Data Flow (Unchanged)
+
+Client (`useCoachConversation`) builds context via `buildCoachContext()` and sends it with the first message. The edge function receives this context object and injects it into the system prompt. The client code continues to send whatever fields it currently builds -- the edge function will use what's available and gracefully handle missing fields with conditional blocks (`if` checks).
+
+### Pattern Detection Logic (New, Server-Side)
+
+A new helper function `detectDominantPattern()` will determine which pattern prompt to inject based on:
+1. Dimension scores (lowest of recalibration/clarity/renewal)
+2. Inner readiness tier
+3. Recurring theme keywords matching each pattern area
+
+### HRV Divergence Detection (New, Server-Side)
+
+A new helper function `detectHRVDivergence()` will compare felt state (check-in outcome) with HRV reading and flag mismatches for the prompt.
+
+### Backward Compatibility
+
+All new context fields are optional. If the client doesn't send them (e.g., HRV data, dimension evolution), those prompt sections are simply omitted. The existing `CoachContext` fields continue to work as before.
