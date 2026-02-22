@@ -467,6 +467,49 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           userId: user.id,
         }),
       }).catch(err => console.error('Probing analysis failed:', err));
+
+      // 4. Generate coach summary (fire-and-forget)
+      if (insightToken) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-coach-summary`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).then(() => {
+          // 6. Extract session memories (chained after summary)
+          if (insightToken) {
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-session-memories`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${insightToken}`,
+              },
+              body: JSON.stringify({
+                sessionId: currentSessionId,
+                userId: user.id,
+              }),
+            }).catch(err => console.error('Session memory extraction failed:', err));
+          }
+        }).catch(err => console.error('Coach summary generation failed:', err));
+
+        // 5. Detect recurring patterns (fire-and-forget, parallel with summary)
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-recurring-patterns`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).catch(err => console.error('Pattern detection failed:', err));
+      }
       
     } catch (error) {
       console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);

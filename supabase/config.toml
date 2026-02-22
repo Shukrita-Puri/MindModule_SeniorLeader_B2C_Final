@@ -20,3 +20,18 @@ verify_jwt = false
 
 [functions.analyze-probing-effectiveness]
 verify_jwt = false
+
+[functions.generate-coach-summary]
+verify_jwt = false
+
+[functions.detect-recurring-patterns]
+verify_jwt = false
+
+[functions.extract-session-memories]
+verify_jwt = false
+
+[functions.check-pending-commitments]
+verify_jwt = false
+
+[functions.update-commitment-status]
+verify_jwt = false

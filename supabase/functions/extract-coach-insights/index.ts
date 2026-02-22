@@ -1,18 +1,15 @@
 /**
- * Extract Coach Insights Edge Function
+ * Extract Coach Insights Edge Function (v2)
  * 
- * Analyzes user messages from coach sessions to extract:
- * - Preferences ("I find X helpful", "X works well for me")
- * - Goals ("I want to work on X", "My focus is X")
- * - Feedback ("That helped", "This didn't resonate")
- * - Challenges ("I struggle with X", "My biggest issue is X")
+ * Expanded insight types: preference, goal, feedback, challenge,
+ * commitment, pattern_observed, breakthrough, resistance, trigger, strength, growth_area
  * 
- * Uses Lovable AI (Gemini) for intelligent extraction
- * Triggered after coach sessions end
+ * Uses shared auth module for JWT verification.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,39 +17,15 @@ const corsHeaders = {
 };
 
 interface ExtractedInsight {
-  type: 'preference' | 'goal' | 'feedback' | 'challenge';
+  type: string;
   content: string;
   contentReference?: string;
   confidence: number;
+  pattern_area?: string;
+  meta_skill?: string;
+  check_in_days?: number;
 }
 
-interface RequestBody {
-  sessionId: string;
-  userId: string;
-}
-
-// Verify Auth0 token (matches existing pattern)
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  
-  if (!auth0Domain) {
-    throw new Error('VITE_AUTH0_DOMAIN not configured');
-  }
-  
-  const response = await fetch(`https://${auth0Domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  
-  if (!response.ok) {
-    throw new Error('Invalid token');
-  }
-  
-  const userInfo = await response.json();
-  return userInfo.sub;
-}
-
-// Build extraction prompt
 function buildExtractionPrompt(messages: string[]): string {
   return `Analyze the following user messages from a coaching conversation and extract insights.
 
@@ -60,20 +33,28 @@ USER MESSAGES:
 ${messages.map((m, i) => `${i + 1}. "${m}"`).join('\n')}
 
 Extract insights in these categories:
-1. PREFERENCES - Things that work well for the user (e.g., "I find breathing exercises helpful", "Box breathing works for me")
-2. GOALS - What the user wants to work on or achieve (e.g., "I want to stay calmer in meetings", "My focus is on emotional regulation")
-3. FEEDBACK - Reactions to practices or advice (e.g., "That exercise really helped", "The meditation was too long")
-4. CHALLENGES - Things the user struggles with (e.g., "I have trouble focusing", "I get overwhelmed easily")
+1. PREFERENCE - Things that work well for the user
+2. GOAL - What the user wants to work on or achieve
+3. FEEDBACK - Reactions to practices or advice
+4. CHALLENGE - Things the user struggles with
+5. COMMITMENT - Specific actions the user said they would take (include check_in_days: 3 for practice, 7 for behavior)
+6. PATTERN_OBSERVED - Recurring behaviors or responses noticed
+7. BREAKTHROUGH - Moments of significant insight or shift
+8. RESISTANCE - What they avoid or deflect from
+9. TRIGGER - Specific situations that activate them emotionally
+10. STRENGTH - Demonstrated capability
+11. GROWTH_AREA - Identified development need
 
 For each insight, provide:
-- type: preference | goal | feedback | challenge
-- content: A concise 1-sentence summary of the insight
-- confidence: 0.0 to 1.0 (how confident you are this is a genuine insight)
+- type: one of the above types
+- content: A concise 1-sentence summary
+- confidence: 0.0 to 1.0
+- pattern_area: "recalibration" | "clarity" | "renewal" (if applicable)
+- meta_skill: relevant meta-skill (if applicable)
+- check_in_days: number of days for follow-up (only for commitments)
 
 Only extract genuine, meaningful insights. Skip generic statements.
-If a message references a specific practice (like "box breathing", "grounding exercise"), include it in the content.
-
-Return ONLY a JSON array of insights. If no insights found, return an empty array [].`;
+Return ONLY a JSON array of insights. Empty array [] if none found.`;
 }
 
 serve(async (req) => {
@@ -82,35 +63,22 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
+    const { sessionId, userId } = await req.json();
 
-    const verifiedUserId = await verifyAuth0Token(authHeader);
-    const { sessionId, userId } = await req.json() as RequestBody;
-
-    // Verify user owns this session
     if (verifiedUserId !== userId) {
       return new Response(JSON.stringify({ error: 'User mismatch' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     console.log(`[extract-coach-insights] Processing session ${sessionId} for user ${userId}`);
 
-    // Initialize Supabase client with service role
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Fetch user messages from the session
     const { data: messages, error: messagesError } = await supabase
       .from('dialogue_messages')
       .select('content')
@@ -124,13 +92,11 @@ serve(async (req) => {
     }
 
     if (!messages || messages.length === 0) {
-      console.log('[extract-coach-insights] No user messages found in session');
       return new Response(JSON.stringify({ insights: [], message: 'No messages to analyze' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Filter to meaningful messages (> 10 chars)
     const meaningfulMessages = messages
       .map(m => m.content)
       .filter(c => c && c.length > 10);
@@ -141,11 +107,8 @@ serve(async (req) => {
       });
     }
 
-    // Call Lovable AI for extraction
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -166,7 +129,7 @@ serve(async (req) => {
           }
         ],
         temperature: 0.3,
-        max_tokens: 1000
+        max_tokens: 1500
       })
     });
 
@@ -175,15 +138,13 @@ serve(async (req) => {
       console.error('[extract-coach-insights] AI API error:', aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded, please try again later' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: 'AI credits exhausted' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       
@@ -193,36 +154,27 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     const responseContent = aiData.choices?.[0]?.message?.content || '[]';
     
-    // Parse AI response
     let extractedInsights: ExtractedInsight[] = [];
     try {
-      // Clean up response - remove markdown code blocks if present
       const cleanedContent = responseContent
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
       extractedInsights = JSON.parse(cleanedContent);
-      
-      if (!Array.isArray(extractedInsights)) {
-        extractedInsights = [];
-      }
-    } catch (parseError) {
-      console.error('[extract-coach-insights] Failed to parse AI response:', parseError, responseContent);
+      if (!Array.isArray(extractedInsights)) extractedInsights = [];
+    } catch {
+      console.error('[extract-coach-insights] Failed to parse AI response');
       extractedInsights = [];
     }
 
-    console.log(`[extract-coach-insights] Extracted ${extractedInsights.length} insights`);
+    const validTypes = ['preference', 'goal', 'feedback', 'challenge', 'commitment', 
+      'pattern_observed', 'breakthrough', 'resistance', 'trigger', 'strength', 'growth_area'];
 
-    // Filter to high-confidence insights only
     const validInsights = extractedInsights.filter(i => 
-      i.type && 
-      i.content && 
-      i.confidence >= 0.6 &&
-      ['preference', 'goal', 'feedback', 'challenge'].includes(i.type)
+      i.type && i.content && i.confidence >= 0.6 && validTypes.includes(i.type)
     );
 
-    // Store insights in database
     if (validInsights.length > 0) {
       const insightRows = validInsights.map(insight => ({
         user_id: userId,
@@ -231,7 +183,13 @@ serve(async (req) => {
         content_reference: insight.contentReference || null,
         source_session_id: sessionId,
         confidence_score: insight.confidence,
-        is_active: true
+        is_active: true,
+        pattern_area: insight.pattern_area || null,
+        meta_skill: insight.meta_skill || null,
+        check_in_date: insight.check_in_days 
+          ? new Date(Date.now() + insight.check_in_days * 86400000).toISOString().split('T')[0]
+          : null,
+        resolution_status: insight.type === 'commitment' ? 'pending' : null,
       }));
 
       const { error: insertError } = await supabase
@@ -240,7 +198,6 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('[extract-coach-insights] Error storing insights:', insertError);
-        // Don't fail the request - insights extraction succeeded
       } else {
         console.log(`[extract-coach-insights] Stored ${validInsights.length} insights`);
       }
@@ -257,8 +214,7 @@ serve(async (req) => {
     console.error('[extract-coach-insights] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
