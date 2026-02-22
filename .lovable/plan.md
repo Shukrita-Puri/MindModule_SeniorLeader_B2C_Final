@@ -1,129 +1,176 @@
 
 
-# Self-Mastery Coach -- Three Co-Equal Roles + Probing Infrastructure
+# Coach Memory & Database Architecture -- Gap Analysis and Implementation Plan
 
-## Overview
+## Current State vs. Required State
 
-Two-part upgrade: (1) restructure the LLM prompt to establish three co-equal roles instead of a single "primary role," and (2) add database tables and a post-session edge function to track probing effectiveness and breakthrough moments.
+### TABLES: What Exists vs. What's Missing
 
----
+| Table | Status | Notes |
+|-------|--------|-------|
+| `dialogue_sessions` | EXISTS | Missing: `session_title`, `dominant_pattern`, `flow_type`, `inner_readiness_score`, `inner_readiness_tier`, `calendar_event_id`, `practices_recommended`, `practices_completed`, `commitments_made` |
+| `dialogue_messages` | EXISTS | Missing: `message_type`, `referenced_practice_id`, `sentiment_score`, `key_themes`. **No `vector` extension** -- `message_embedding` cannot be added yet. |
+| `user_coach_insights` | EXISTS | Missing: `pattern_area`, `meta_skill`, `check_in_date`, `resolution_status`, `resolution_note`. Needs expanded `insight_type` values. |
+| `tiny_wins` | EXISTS | Missing: `coach_acknowledgment`, `meta_skill_demonstrated`, `pattern_area`. Already has `session_id`. |
+| `coach_probing_effectiveness` | EXISTS | Created in previous step. Functional. |
+| `coach_breakthrough_moments` | EXISTS | Created in previous step. Functional. |
+| `coach_intervention_outcomes` | EXISTS | Pre-existing. Tracks intervention effectiveness. |
+| `coach_session_summaries` | MISSING | Needs creation. |
+| `coach_memory_index` | MISSING | Needs creation. **pgvector extension NOT installed** -- must enable it first, or defer embedding column. |
+| `coach_accountability_tracker` | MISSING | Needs creation. |
+| `coach_pattern_observations` | MISSING | Needs creation. |
 
-## Part 1: LLM Prompt Restructure
+### EDGE FUNCTIONS: What Exists vs. What's Missing
 
-### File: `supabase/functions/self-mastery-coach/index.ts`
+| Function | Status | Notes |
+|----------|--------|-------|
+| `self-mastery-coach` | EXISTS | Streams responses. Currently receives context from client-side `buildCoachContext()`. Does NOT do server-side memory retrieval. No auth verification (accepts raw JSON). |
+| `extract-coach-insights` | EXISTS | Post-session. Uses Auth0 `/userinfo` for auth (old pattern). Extracts 4 insight types only. |
+| `analyze-probing-effectiveness` | EXISTS | Post-session. **No auth at all** -- accepts any request with sessionId/userId. |
+| `dialogue-session-manage` | EXISTS | Session CRUD. Uses Auth0 `/userinfo` for auth (old pattern with retry). |
+| `generate-coach-summary` | MISSING | Needs creation. |
+| `retrieve-coach-memories` | MISSING | Needs creation. Blocked by pgvector absence for semantic search. |
+| `check-pending-commitments` | MISSING | Needs creation. |
+| `update-commitment-status` | MISSING | Needs creation. |
+| `extract-session-memories` | MISSING | Needs creation. Blocked by pgvector for embeddings. |
+| `detect-recurring-patterns` | MISSING | Needs creation. |
 
-**What changes:** Replace lines 26-137 (the "YOUR PRIMARY ROLE: THOUGHT ORGANIZER" section) with the new "YOUR THREE ROLES (CO-EQUAL)" section containing:
+### AUTH PATTERN RISK: Duplicated, Inconsistent Auth Verification
 
-- **Introduction** framing all three roles as co-equal and interlocking
-- **Role 1: Organize Their Thinking** -- condensed version of the existing thought organizer content (extract signal, separate layers, surface real question, create cognitive space)
-- **Role 2: Probe to Surface Their Own Solutions** -- entirely new section covering why probing matters at C-suite level, the probe structure (name what you notice, ask for hypothesis, test knowing, reflect wisdom, trust silence), probe-before-you-solve protocol, key probing questions
-- **Role 3: Hold Them Accountable** -- expanded from the current 4-bullet accountability section into a full role with explicit behaviors (track commitments, name patterns, call out avoidance, reference past performance, hold the standard), memory usage guidance, and the accountability balance
-- **How the Three Roles Work Together** -- example showing all three roles in one exchange
-- **When Each Role Takes Priority** -- context-dependent prioritization table
-- **Critical Boundaries** -- updated "What You Don't Do" reflecting all three roles
+**Current problem**: Each edge function independently implements `verifyAuth0Token()` -- 22 functions each copy-paste their own version. Some use the old `/userinfo` endpoint pattern (rate-limit-prone), while `self-mastery-coach` and `analyze-probing-effectiveness` have **no auth at all**.
 
-**Also update:**
-- Lines 103-107 ("What You Are" list) to reflect all three roles
-- Lines 418-468 ("Conversation Style" subsection) to reference all three roles equally instead of just organizing
-- Lines 488-496 ("Accountability" section) -- removed since it's now covered in Role 3
-- Lines 595-644 ("Example Exchanges" and "When You've Done Your Job Well") -- add 2 new examples for probing and accountability
-- Lines 648-657 ("Final Principles") -- add principles for probing and accountability
-
-### Prompt size impact
-Net addition of approximately 200 lines. The thought organizer content is condensed (not duplicated). Well within model context limits.
-
----
-
-## Part 2: Database Additions
-
-### New Table: `coach_probing_effectiveness`
-
-Tracks which probing questions lead to user insight vs which fall flat.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (PK) | Auto-generated |
-| user_id | text (NOT NULL) | Matches existing pattern (profiles.id is TEXT) |
-| session_id | uuid (NOT NULL) | FK to dialogue_sessions |
-| probe_question | text | The question the coach asked |
-| probe_type | text | surface_question, test_knowing, reflect_wisdom, reframe_constraint, name_pattern |
-| user_response | text | What the user said next |
-| led_to_insight | boolean | Did this probe lead to clarity? |
-| insight_markers | text[] | Detected marker phrases |
-| effectiveness_score | integer | 1-10 |
-| why_effective | text | Analysis of what worked |
-| user_state_at_time | text | depleted/managing/strong/peak |
-| topic_area | text | What they were discussing |
-| pattern_area | text | recalibration/clarity/renewal |
-| created_at | timestamptz | Default now() |
-
-RLS: Service-role-only (matching existing coach tables pattern).
-
-### New Table: `coach_breakthrough_moments`
-
-Captures moments of genuine user insight.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (PK) | Auto-generated |
-| user_id | text (NOT NULL) | Matches existing pattern |
-| session_id | uuid (NOT NULL) | FK to dialogue_sessions |
-| breakthrough_content | text | What the user realized |
-| breakthrough_type | text | pattern_recognition, decision_clarity, reframe, self_awareness |
-| preceded_by_probe | boolean | Was this sparked by a coach question? |
-| probe_question | text | The question that sparked it |
-| was_acted_on | boolean | Did they follow through? |
-| action_taken | text | What they did with it |
-| checked_at | timestamptz | When coach checked back |
-| impact_score | integer | 1-10 |
-| pattern_area | text | recalibration/clarity/renewal |
-| meta_skill | text | Which meta-skill was activated |
-| created_at | timestamptz | Default now() |
-
-RLS: Service-role-only.
-
-### Important schema note
-
-The user's original proposal used `uuid` for `user_id` with foreign keys to `profiles(id)`. However, `profiles.id` is TEXT in this project (Auth0 sub strings, not UUIDs). All existing tables use `text` for `user_id` with no FK to profiles. The new tables will follow this established pattern -- `user_id text NOT NULL`, no FK to profiles, FK only to `dialogue_sessions(id)`.
-
-The original proposal also included FK to `dialogue_messages(id)` with a `message_id` column. This will be included as optional (nullable) since not every probing record will map to a single message.
+**Solution**: Create a shared auth utility file that all functions import from.
 
 ---
 
-## Part 3: New Edge Function
+## Implementation Plan
 
-### `analyze-probing-effectiveness`
+### Phase 1: Shared Auth Module
 
-Post-session analysis that:
-1. Takes a completed session's messages
-2. Uses Lovable AI (Gemini 2.5 Flash) to identify coach probing questions and evaluate user responses
-3. Detects breakthrough markers in user messages
-4. Stores results in `coach_probing_effectiveness` and `coach_breakthrough_moments`
+Create `supabase/functions/_shared/auth.ts` -- a shared Deno module that all edge functions import:
 
-Called after session ends (same pattern as existing post-session pipeline).
+- Local JWT verification using `jose` library and Auth0 JWKS (as documented in project memory)
+- Single implementation, imported by all functions
+- Eliminates `/userinfo` rate limiting
+- Eliminates copy-paste inconsistency
+- Update all new functions to use this shared module
 
-### Updated: `self-mastery-coach`
+**Note**: Existing functions will continue working with their current auth. The shared module will be adopted by all new functions first, then existing ones can be migrated incrementally.
 
-Add retrieval of past breakthroughs and effective probes to the `buildSystemPrompt()` context injection:
-- Query `coach_probing_effectiveness` for probe types that worked (avg score >= 7)
-- Query `coach_breakthrough_moments` for recent breakthroughs (especially un-acted-on ones)
-- Inject both into the system prompt as additional context sections
+### Phase 2: Database Migrations
+
+**Migration 1**: Enable pgvector extension
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
+```
+
+**Migration 2**: Add missing columns to existing tables
+
+- `dialogue_sessions`: Add `session_title`, `dominant_pattern`, `flow_type`, `inner_readiness_score`, `inner_readiness_tier`, `practices_recommended` (text[]), `practices_completed` (text[]), `commitments_made` (text[])
+- `dialogue_messages`: Add `message_type`, `referenced_practice_id`, `sentiment_score`, `key_themes` (text[])
+- `user_coach_insights`: Add `pattern_area`, `meta_skill`, `check_in_date`, `resolution_status`, `resolution_note`
+- `tiny_wins`: Add `coach_acknowledgment`, `meta_skill_demonstrated`, `pattern_area`
+
+Note: `message_embedding` will be added only after confirming pgvector is available. If pgvector cannot be enabled on this plan, semantic search will use keyword/theme-based retrieval instead.
+
+**Migration 3**: Create 4 new tables
+
+1. **`coach_session_summaries`**: `id`, `user_id` (text), `session_id` (uuid FK), `summary_text`, `key_topics` (text[]), `dominant_pattern`, `emotional_arc`, `commitments_made` (text[]), `practices_recommended` (text[]), `wisdom_referenced` (text[]), `breakthrough_moment`, `recurring_themes` (text[]), `new_themes` (text[]), `session_quality_score`, `created_at`. UNIQUE on `session_id`. Service-role-only RLS.
+
+2. **`coach_memory_index`**: `id`, `user_id` (text), `session_id` (uuid FK), `message_id` (uuid, nullable), `memory_type`, `memory_content`, `memory_context`, `importance_score` (default 5), `access_count` (default 0), `last_accessed_at`, `pattern_area`, `meta_skill`, `key_themes` (text[]), `created_at`. Service-role-only RLS. Embedding column deferred until pgvector confirmed.
+
+3. **`coach_accountability_tracker`**: `id`, `user_id` (text), `session_id` (uuid FK), `commitment_text`, `commitment_type`, `target_practice_id`, `target_frequency`, `target_duration_days`, `committed_at`, `check_in_due_date`, `status` (default 'pending'), `times_checked` (default 0), `last_checked_at`, `completion_evidence`, `was_helpful`, `outcome_note`, `pattern_area`, `meta_skill`, `created_at`. Service-role-only RLS.
+
+4. **`coach_pattern_observations`**: `id`, `user_id` (text), `session_id` (uuid FK for first_observed), `pattern_type`, `pattern_description`, `pattern_context`, `first_observed_at`, `last_observed_at`, `observation_count` (default 1), `is_improving`, `improvement_evidence`, `pattern_area`, `meta_skill`, `related_themes` (text[]), `was_named_to_user` (default false), `named_at`, `user_acknowledged`, `is_active` (default true), `resolved_at`, `created_at`. Service-role-only RLS.
+
+**Schema note**: All `user_id` columns are `text` (Auth0 sub strings). No FK to `profiles`. FKs only to `dialogue_sessions(id)`.
+
+### Phase 3: New Edge Functions (all use shared auth module)
+
+**1. `generate-coach-summary`**
+- Triggered post-session (after `extract-coach-insights`)
+- Uses Gemini 2.5 Flash to generate structured session summary
+- Stores in `coach_session_summaries`
+- Also compares key_topics against last 5 summaries to identify recurring vs new themes
+
+**2. `detect-recurring-patterns`**
+- Triggered post-session (parallel with summary)
+- Analyzes user messages for behavioral patterns (triggers, avoidance, strengths, friction)
+- Queries existing `coach_pattern_observations` for this user
+- Upserts: increment count if pattern exists, create new if not
+- Flags patterns at 3+ observations that haven't been named to user
+
+**3. `extract-session-memories`**
+- Triggered after `generate-coach-summary` completes (needs summary data)
+- Creates discrete memory entries in `coach_memory_index` from summary
+- One entry per commitment, breakthrough, pattern, practice feedback
+- Uses keyword themes for retrieval (vector embeddings deferred)
+
+**4. `check-pending-commitments`**
+- Called by `self-mastery-coach` (or client-side context builder) before each session
+- Queries `coach_accountability_tracker` for `status = 'pending'` and `check_in_due_date <= now()`
+- Returns commitments due for follow-up
+
+**5. `update-commitment-status`**
+- Called after coach checks on a commitment during conversation
+- Updates status, evidence, outcome in `coach_accountability_tracker`
+
+### Phase 4: Update Post-Session Pipeline
+
+Current pipeline in `useCoachConversation.ts` `endSession()`:
+1. `dialogue-session-manage` (end session)
+2. `extract-coach-insights` (fire-and-forget)
+3. `analyze-probing-effectiveness` (fire-and-forget)
+
+Updated pipeline:
+1. `dialogue-session-manage` (end session)
+2. `extract-coach-insights` (fire-and-forget -- expanded insight types)
+3. `analyze-probing-effectiveness` (fire-and-forget)
+4. `generate-coach-summary` (fire-and-forget) -- NEW
+5. `detect-recurring-patterns` (fire-and-forget) -- NEW
+6. `extract-session-memories` (fire-and-forget, chained after summary) -- NEW
+
+### Phase 5: Update Context Builder
+
+Update `src/utils/coachContextBuilder.ts` and/or `self-mastery-coach` to retrieve:
+- Last session summary from `coach_session_summaries`
+- Pending commitments from `coach_accountability_tracker`
+- Patterns flagged for naming from `coach_pattern_observations`
+- Relevant memories from `coach_memory_index` (keyword-based until pgvector)
+- Inject all into the system prompt context sections
+
+### Phase 6: Fix Auth on Existing Coach Functions
+
+- `self-mastery-coach`: Currently has NO auth verification. Add shared auth module import.
+- `analyze-probing-effectiveness`: Currently has NO auth. Add shared auth module import.
+- `extract-coach-insights`: Uses old `/userinfo` pattern. Migrate to shared JWT verification.
 
 ---
 
-## What Stays the Same
+## pgvector Decision Point
 
-- Edge function handler, streaming, tiny win extraction, error handling
-- Flow-specific prompts (prepare/integrate/guided-reflection)
-- Pattern-area conditional prompts (recalibration/clarity/renewal)
-- CoachContext interface structure (extended, not replaced)
-- All frontend code
-- Model: google/gemini-3-flash-preview
+The `vector` extension is **not currently enabled**. Two options:
+
+**Option A (Recommended)**: Enable pgvector and add embedding columns. This enables true semantic search ("find all times we discussed board pressure" even if exact phrase doesn't match). Requires the extension to be available on the database plan.
+
+**Option B (Fallback)**: Skip embeddings entirely. Use keyword/theme-based retrieval from `key_themes` arrays via GIN indexes and `@>` (array contains) queries. Less powerful but zero infrastructure dependency.
+
+The plan proceeds with Option B by default, with pgvector as an enhancement if the extension can be enabled.
+
+---
 
 ## Implementation Order
 
-1. Database migration (create 2 new tables with RLS)
-2. LLM prompt restructure in `self-mastery-coach/index.ts`
-3. Create `analyze-probing-effectiveness` edge function
-4. Update `buildSystemPrompt()` to retrieve and inject probing/breakthrough data
-5. Deploy both edge functions
+1. Create shared auth module (`_shared/auth.ts`)
+2. Database migration: add columns to existing tables + create 4 new tables
+3. Create `generate-coach-summary` edge function
+4. Create `detect-recurring-patterns` edge function
+5. Create `extract-session-memories` edge function
+6. Create `check-pending-commitments` + `update-commitment-status` edge functions
+7. Update `extract-coach-insights` to handle expanded insight types + commitments
+8. Update `endSession()` pipeline to trigger new functions
+9. Update `coachContextBuilder.ts` to retrieve summaries, commitments, patterns, memories
+10. Update `buildSystemPrompt()` in `self-mastery-coach` to inject new context sections
+11. Add auth to `self-mastery-coach` and `analyze-probing-effectiveness`
+
