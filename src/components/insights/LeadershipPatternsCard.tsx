@@ -149,8 +149,12 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
         let currentLeanOn = baselineArch.leanOn;
         let currentWatchFor = baselineArch.watchFor;
 
-        if (totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0) {
-          const avgER = Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length);
+        // Use available dimensions — fall back to clarity/confidence as proxy for energy if missing
+        const hasEnoughData = totalCheckins >= 7 && recentCL.length > 0 && recentCF.length > 0;
+        if (hasEnoughData) {
+          const avgER = recentEB.length > 0
+            ? Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length)
+            : Math.round((recentCL.reduce((s, v) => s + v, 0) / recentCL.length + recentCF.reduce((s, v) => s + v, 0) / recentCF.length) / 2);
           const avgFR = Math.round(recentCL.reduce((s, v) => s + v, 0) / recentCL.length);
           const avgEN = Math.round(recentCF.reduce((s, v) => s + v, 0) / recentCF.length);
           currentScores = { recalibration: avgER, clarity: avgFR, renewal: avgEN };
