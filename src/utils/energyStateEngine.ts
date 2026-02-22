@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 
 // Helper to get Auth0 access token via global client
@@ -27,6 +28,26 @@ let pendingScoreUpdate: { checkinDate: string; score: number; retries: number } 
 let retryTimerId: ReturnType<typeof setTimeout> | null = null;
 
 async function persistCompositeScore(checkinDate: string, score: number): Promise<void> {
+  // DEV_MODE: Write directly to DB without Auth0
+  if (DEV_MODE) {
+    try {
+      const { error } = await supabase
+        .from('daily_checkins')
+        .update({ energy_balance: score })
+        .eq('user_id', DEV_USER.id)
+        .eq('checkin_date', checkinDate);
+
+      if (error) {
+        console.error('[energyStateEngine] DEV_MODE persistCompositeScore error:', error);
+      } else {
+        console.log('[energyStateEngine] DEV_MODE composite score persisted:', score);
+      }
+    } catch (err) {
+      console.error('[energyStateEngine] DEV_MODE persistCompositeScore failed:', err);
+    }
+    return;
+  }
+
   // Clear any existing retry for a different date
   if (pendingScoreUpdate && pendingScoreUpdate.checkinDate !== checkinDate) {
     if (retryTimerId) clearTimeout(retryTimerId);
@@ -101,6 +122,28 @@ export interface CurrentEnergyState {
 
 // Fetch today's check-in from DB to get clarity/confidence
 async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null } | null> {
+  // DEV_MODE: Query DB directly
+  if (DEV_MODE) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('outcome, clarity_level, confidence_level, skipped')
+        .eq('user_id', DEV_USER.id)
+        .eq('checkin_date', today)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return {
+        outcome: data.skipped ? null : data.outcome,
+        clarity: data.clarity_level,
+        confidence: data.confidence_level,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   try {
     const token = await getAuth0Token();
     if (!token) return null;
