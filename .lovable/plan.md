@@ -1,167 +1,210 @@
 
 
-# Gap Analysis: Coach Memory, Insight Extraction, and Auth Consolidation
+# Coach-to-Features Integration: Gap Analysis and Implementation Plan
 
-## What Already Works
+## Current Connection Map
 
-| Component | Status | Detail |
-|-----------|--------|--------|
-| Database tables (4 new) | DONE | `coach_session_summaries`, `coach_memory_index`, `coach_accountability_tracker`, `coach_pattern_observations` all exist |
-| Shared auth module | DONE | `supabase/functions/_shared/auth.ts` exists with JWT verification + `/userinfo` fallback |
-| `generate-coach-summary` | DONE | Uses shared auth, stores summaries + commitments to accountability tracker |
-| `detect-recurring-patterns` | DONE | Uses shared auth, upserts pattern observations |
-| `extract-session-memories` | DONE | Uses shared auth, indexes memories |
-| `check-pending-commitments` | DONE | Uses shared auth |
-| `update-commitment-status` | DONE | Uses shared auth |
-| `extract-coach-insights` | DONE (partial) | Uses shared auth, extracts 11 insight types including `strength` and `growth_area` |
-| Context builder retrieval | DONE | Client-side fetches last summary, pending commitments, patterns to name, recent memories |
-| System prompt injection | DONE | `buildSystemPrompt()` injects memory, commitments, patterns, breakthroughs, HRV |
-| Post-session pipeline | DONE | `endSession()` chains summary -> patterns -> memories |
-| `compute-outer-readiness` Lean On/Watch For | DONE (partial) | Queries `insight_type IN ('strength', 'growth_area')` -- works with current data |
-| Columns added to existing tables | DONE | `pattern_area`, `meta_skill`, `check_in_date`, `resolution_status`, `resolution_note` on `user_coach_insights`; `coach_acknowledgment`, `meta_skill_demonstrated`, `pattern_area` on `tiny_wins` |
+The coach system generates data that feeds into four downstream features. Here is the current status of each connection:
 
-## Gaps Found
+### 1. Coach -> Outer Readiness Brief (`compute-outer-readiness`)
+**Status: CONNECTED -- working correctly**
+- Queries `user_coach_insights` for `insight_type = 'strength'` and `insight_type = 'growth_area'` with `is_active = true`
+- Uses coach-generated insights for "Lean On" and "Watch For" with proper cascade fallback (Coach -> C+C -> Archetype -> Tier)
+- Uses shared auth module (`verifyAuth0JWT`)
 
-### GAP 1: Auth -- 4 functions not using shared module
+### 2. Coach -> Proactive Mastery Plan (`generate-mastery-plan`)
+**Status: CONNECTED -- working correctly**
+- Receives `coachInsights` from client-side in request body
+- Uses coach insights in content scoring (+25 boost for matching content)
+- Coach cards (prepare/integrate) are generated based on tier, time-of-day, and pattern state
+- No auth on this function (receives userId in body) -- matches pattern since client passes pre-fetched data
 
-| Function | Current Auth | Risk |
-|----------|-------------|------|
-| `self-mastery-coach` | NONE -- accepts any request with userId in body | Anyone can impersonate any user |
-| `analyze-probing-effectiveness` | NONE -- accepts any request | Anyone can trigger analysis for any user |
-| `compute-outer-readiness` | Old `/userinfo` pattern (rate-limit-prone) | 429 errors under load |
-| `state-patterns-insights` | Old `/userinfo` pattern (no retry) | Fails silently under load |
+### 3. Coach -> Insights Cards
 
-### GAP 2: `extract-coach-insights` missing replacement logic
+**Card 1: Your Self Mastery Patterns (`state-patterns-insights`)**
+**Status: CONNECTED -- working correctly**
+- Prioritizes explicit `insight_type = 'strength'/'growth_area'` queries
+- Falls back to keyword regex matching for legacy data
+- Uses shared auth module
+- Scans `dialogue_messages` for behavioral keyword patterns (regulation, clarity, renewal)
 
-Current behavior: Inserts ALL insights every session, including multiple `strength` and `growth_area` entries. This means users accumulate duplicate strength/growth_area insights rather than maintaining exactly one active of each type.
+**Card 2: Your Momentum (`tiny-wins-insights`)**
+**Status: PARTIALLY CONNECTED -- auth gap**
+- Correctly reads from `tiny_wins` table (coach stores wins via `store_tiny_win` tool call)
+- AI-enriches wins with psychological dimensions (emotion, agency, regulation, growth)
+- GAP: Uses old `/userinfo` auth pattern instead of shared module
 
-Missing: The "one active strength, one active growth_area" replacement logic where new insights only replace old ones if different AND higher confidence.
+**Card 3: Your Readiness Rhythm (`performance-rhythm-insights`)**
+**Status: PARTIALLY CONNECTED -- auth gap**
+- Reads `daily_checkins`, `calendar_events`, `wearable_data` for heatmap generation
+- Does NOT directly query coach tables but indirectly benefits from coach-driven check-in behavior
+- GAP: Uses old `/userinfo` auth pattern instead of shared module
 
-### GAP 3: `extract-coach-insights` extraction prompt too basic
+**Card 4: Your Mind Map (`insights-semantic-analysis`)**
+**Status: PARTIALLY CONNECTED -- auth gap + missing coach memory data**
+- Fetches coach dialogue messages from `dialogue_sessions` + `dialogue_messages` for theme extraction
+- Uses AI to extract themes from coach conversations
+- GAP 1: Uses old `/userinfo` auth pattern
+- GAP 2: Does NOT query `coach_session_summaries` (key_topics, recurring_themes) which would provide richer, pre-analyzed theme data
+- GAP 3: Does NOT query `coach_pattern_observations` for named behavioral patterns
 
-Current prompt is generic (lines 29-57). Missing: the detailed format rules for `strength` and `growth_area` -- second person ("You..."), under 20 words, behaviorally specific, observed by coach not self-reported.
+---
 
-### GAP 4: `state-patterns-insights` uses keyword matching only
+## Identified Gaps
 
-Lines 233-243 use regex keyword matching to find coach strength/friction insights. This misses explicit `insight_type = 'strength'/'growth_area'` records. Should prioritize explicit types and fall back to keyword matching for legacy data.
+### GAP 1: Auth -- 20+ functions still using old `/userinfo` pattern
 
-### GAP 5: `insight_type_v2` column never written to
+The shared auth module (`_shared/auth.ts`) was created and adopted by coach-specific functions, but the broader function set still uses copy-pasted `/userinfo` calls. Functions with gaps relevant to this feature set:
 
-The column was added in migration but no code writes to it. All code uses `insight_type`. Two options: (A) start writing to both columns, or (B) drop `insight_type_v2` and keep using `insight_type` since it already has the expanded types. Option B is cleaner.
+| Function | Impact |
+|----------|--------|
+| `tiny-wins-insights` | Momentum card auth |
+| `performance-rhythm-insights` | Readiness Rhythm card auth |
+| `insights-semantic-analysis` | Mind Map card auth |
+| `daily-rituals` | Ritual tracking |
+| `user-favorites` | Content favoriting |
+| `saved-debriefs` | Saved debriefs |
+| `user-progress` | User progress |
+| `dialogue-data-persist` | Coach message persistence |
+| `dialogue-session-manage` | Session CRUD |
+| `calendar-auth` | Calendar connection |
+| `certificate-request-create` | Certificates |
+| + others | Various |
 
-### GAP 6: Missing database indexes for insight queries
+### GAP 2: Mind Map missing coach memory enrichment
 
-No indexes exist on `user_coach_insights` for `insight_type + is_active` queries, which are now used by `compute-outer-readiness` and should be used by `state-patterns-insights`.
+`insights-semantic-analysis` currently processes raw `dialogue_messages` content through AI to extract themes. It does NOT use:
+- `coach_session_summaries.key_topics` -- pre-extracted topics from each session
+- `coach_session_summaries.recurring_themes` -- cross-session recurring themes
+- `coach_pattern_observations.pattern_description` -- named behavioral patterns
+
+Adding these sources would make the Mind Map significantly richer without additional AI calls (the data is already structured).
+
+### GAP 3: Mastery Plan not querying coach accountability
+
+`generate-mastery-plan` receives `coachInsights` from the client but does NOT check:
+- Pending commitments from `coach_accountability_tracker` -- could influence content selection (e.g., if user committed to "try box breathing before meetings," prioritize breathing practices)
+- Active pattern observations from `coach_pattern_observations` -- could boost content matching specific pattern areas
+
+This is a minor enhancement since the plan already uses coach insights for content scoring.
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Database -- Add missing indexes
+### Phase 1: Auth migration for insights-related functions (3 functions)
 
-Add a migration with:
-- Composite index on `user_coach_insights(user_id, insight_type, is_active)` for fast Lean On/Watch For lookups
-- Index on `user_coach_insights(insight_type)` for type-based filtering
+Migrate these three insight card functions to use the shared auth module:
 
-### Phase 2: Auth Migration (4 functions)
+1. **`tiny-wins-insights`** -- Replace inline `/userinfo` call (lines 164-188) with `import { verifyAuth0JWT } from "../_shared/auth.ts"`
+2. **`performance-rhythm-insights`** -- Replace inline `verifyAuth0Token()` function (lines 16-26) with shared import
+3. **`insights-semantic-analysis`** -- Replace inline `/userinfo` call (lines 113-131) with shared import
 
-**2a. `self-mastery-coach`** -- Currently the trickiest because it's a streaming function called from the client with `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key) in the Authorization header, NOT an Auth0 token. The client sends `userId` in the body with no verification.
+Each change is mechanical: remove the local auth function/call, import and call `verifyAuth0JWT(req.headers.get('authorization'))` instead.
 
-Fix: The client (`useCoachConversation.ts`) already calls `getAccessToken()` for other functions. Update the `sendMessage` flow to pass the Auth0 token instead of the anon key. Then add shared auth verification in the edge function.
+### Phase 2: Enrich Mind Map with coach memory data
 
-**2b. `analyze-probing-effectiveness`** -- Same pattern. Called from `endSession()` with the anon key. Update to use Auth0 token + shared auth.
+Update `insights-semantic-analysis` to query two additional data sources when building the unified theme map:
 
-**2c. `compute-outer-readiness`** -- Replace inline `verifyAuth0Token()` (50 lines) with `import { verifyAuth0JWT } from "../_shared/auth.ts"`.
+**2a. Add `coach_session_summaries` query**
+- Fetch `key_topics` and `recurring_themes` arrays from the last 30 days of summaries
+- Merge each topic into the unified theme map with source = 'coach'
+- This replaces some of the raw message AI processing with pre-analyzed data
 
-**2d. `state-patterns-insights`** -- Replace inline `/userinfo` call with shared auth import.
+**2b. Add `coach_pattern_observations` query**
+- Fetch active patterns (`is_active = true`) with `observation_count >= 2`
+- Merge `pattern_description` keywords into the theme map with source = 'coach'
+- Named patterns become nodes in the mind map, giving users visibility into what the coach has observed
 
-### Phase 3: Enhanced `extract-coach-insights`
+This enrichment runs alongside the existing `dialogue_messages` AI extraction, not replacing it.
 
-**3a. Upgrade extraction prompt** -- Replace the generic prompt with the detailed one that specifies:
-- `strength`: second person, under 20 words, behaviorally specific, observed by coach
-- `growth_area`: second person, under 20 words, non-judgmental, correctable pattern
-- Include `pattern_area` and `meta_skill` in extraction format
-- Threshold: confidence >= 0.7 for strength/growth_area (stricter than other types)
+### Phase 3: (Optional) Mastery Plan commitment-aware content scoring
 
-**3b. Add replacement logic** -- After extraction:
-1. Check if an active `strength` insight exists for this user
-2. If new strength is different AND higher confidence, deactivate old, insert new
-3. Same for `growth_area`
-4. All other types (commitment, pattern_observed, etc.) accumulate normally
-
-### Phase 4: `state-patterns-insights` enhancement
-
-Update the coach insights section (lines 233-243) to:
-1. First query for explicit `insight_type IN ('strength', 'growth_area')` with `is_active = true`
-2. If found, use those directly (no keyword matching needed)
-3. Fall back to keyword matching only when no explicit types exist
-
-### Phase 5: `self-mastery-coach` server-side HRV retrieval (optional enhancement)
-
-The client already sends HRV data via the context object. For a server-side approach, the function would query `wearable_data` directly. This is an enhancement, not a gap fix -- the current client-side approach works but means HRV data traverses the network.
+Update `generate-mastery-plan` to query `coach_accountability_tracker` for pending commitments and use `target_practice_id` to boost matching content by +15 points. This is a small enhancement that makes the plan reflect coaching work.
 
 ---
 
 ## Technical Details
 
-### Auth change for `self-mastery-coach`
+### Phase 1: Auth migration pattern
 
-Current client code (useCoachConversation.ts line ~196):
-```
-Authorization: Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}
-```
+For each of the 3 functions, the change follows this pattern:
 
-Updated to:
-```
-Authorization: Bearer ${accessToken}
-```
-
-And the edge function handler changes from:
-```
-const { messages, flowType, sessionId, userId, context } = await req.json();
+Before:
+```typescript
+async function verifyAuth0Token(authHeader: string): Promise<string> {
+  const token = authHeader.replace('Bearer ', '');
+  const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, { ... });
+  // ... 15-20 lines
+}
+const userId = await verifyAuth0Token(authHeader);
 ```
 
-To:
-```
-const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
-const { messages, flowType, sessionId, context } = await req.json();
-// userId is now verifiedUserId, not from body
-```
-
-### Replacement logic for strength/growth_area insights
-
-After AI extraction, before bulk insert:
-```
-For each insight type in ['strength', 'growth_area']:
-  1. Query existing active insight of this type
-  2. If exists AND new insight is different AND confidence is higher:
-     - UPDATE old: set is_active = false
-     - INSERT new with is_active = true
-  3. If no existing: INSERT new
-  4. If exists but new is same or lower confidence: skip
+After:
+```typescript
+import { verifyAuth0JWT } from "../_shared/auth.ts";
+const userId = await verifyAuth0JWT(req.headers.get("authorization"));
 ```
 
-### `state-patterns-insights` query update
+### Phase 2: Mind Map enrichment queries
 
-Replace keyword regex scan with:
+Add to `insights-semantic-analysis` after existing data fetches:
+
+```typescript
+// Fetch pre-analyzed coach topics
+const { data: summaries } = await supabase
+  .from('coach_session_summaries')
+  .select('key_topics, recurring_themes')
+  .eq('user_id', userId)
+  .gte('created_at', startDate.toISOString());
+
+// Merge summary topics into theme map
+for (const summary of summaries || []) {
+  for (const topic of summary.key_topics || []) {
+    mergeTheme(topic, 'coach');
+  }
+  for (const theme of summary.recurring_themes || []) {
+    mergeTheme(theme, 'coach', 2); // Weight recurring themes higher
+  }
+}
+
+// Fetch active coach pattern observations
+const { data: patterns } = await supabase
+  .from('coach_pattern_observations')
+  .select('pattern_description, observation_count, pattern_area')
+  .eq('user_id', userId)
+  .eq('is_active', true)
+  .gte('observation_count', 2);
+
+for (const pattern of patterns || []) {
+  // Extract key phrases from pattern description
+  const words = pattern.pattern_description.split(' ')
+    .filter(w => w.length > 3)
+    .slice(0, 3)
+    .join(' ');
+  mergeTheme(words, 'coach', pattern.observation_count);
+}
 ```
-1. Query: SELECT insight_content FROM user_coach_insights
-   WHERE user_id = $1 AND insight_type = 'strength' AND is_active = true
-   ORDER BY created_at DESC LIMIT 1
 
-2. Query: SELECT insight_content FROM user_coach_insights
-   WHERE user_id = $1 AND insight_type = 'growth_area' AND is_active = true
-   ORDER BY created_at DESC LIMIT 1
+### Files Modified
 
-3. If either is null, fall back to keyword matching on all insights
-```
+| File | Change |
+|------|--------|
+| `supabase/functions/tiny-wins-insights/index.ts` | Replace `/userinfo` auth with shared module |
+| `supabase/functions/performance-rhythm-insights/index.ts` | Replace `verifyAuth0Token` with shared module |
+| `supabase/functions/insights-semantic-analysis/index.ts` | Replace `/userinfo` auth with shared module + add coach memory queries |
+| `supabase/functions/generate-mastery-plan/index.ts` | (Phase 3, optional) Add commitment-aware scoring |
 
-## Implementation Order
+### Deployment
 
-1. Database migration (indexes)
-2. Auth: `compute-outer-readiness` + `state-patterns-insights` (safe, just swapping auth implementation)
-3. Auth: `analyze-probing-effectiveness` (add shared auth, update client call)
-4. `extract-coach-insights` enhancement (prompt + replacement logic)
-5. `state-patterns-insights` enhancement (prioritize explicit types)
-6. Auth: `self-mastery-coach` + client update (most complex, do last)
+All 3-4 updated edge functions will be deployed after changes.
+
+### What stays the same
+
+- All database tables -- no schema changes needed
+- `compute-outer-readiness` -- already fully connected
+- `state-patterns-insights` -- already fully connected
+- `generate-mastery-plan` core logic -- coach card generation is already working
+- All client-side code -- no changes needed
+- Post-session pipeline -- already chains summary, patterns, memories correctly
 
