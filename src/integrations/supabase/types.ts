@@ -373,6 +373,75 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_breakthrough_moments: {
+        Row: {
+          action_taken: string | null
+          breakthrough_content: string | null
+          breakthrough_type: string | null
+          checked_at: string | null
+          created_at: string | null
+          id: string
+          impact_score: number | null
+          message_id: string | null
+          meta_skill: string | null
+          pattern_area: string | null
+          preceded_by_probe: boolean | null
+          probe_question: string | null
+          session_id: string
+          user_id: string
+          was_acted_on: boolean | null
+        }
+        Insert: {
+          action_taken?: string | null
+          breakthrough_content?: string | null
+          breakthrough_type?: string | null
+          checked_at?: string | null
+          created_at?: string | null
+          id?: string
+          impact_score?: number | null
+          message_id?: string | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          preceded_by_probe?: boolean | null
+          probe_question?: string | null
+          session_id: string
+          user_id: string
+          was_acted_on?: boolean | null
+        }
+        Update: {
+          action_taken?: string | null
+          breakthrough_content?: string | null
+          breakthrough_type?: string | null
+          checked_at?: string | null
+          created_at?: string | null
+          id?: string
+          impact_score?: number | null
+          message_id?: string | null
+          meta_skill?: string | null
+          pattern_area?: string | null
+          preceded_by_probe?: boolean | null
+          probe_question?: string | null
+          session_id?: string
+          user_id?: string
+          was_acted_on?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_breakthrough_moments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_breakthrough_moments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_intervention_outcomes: {
         Row: {
           content_id: string | null
@@ -428,6 +497,75 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "coach_intervention_outcomes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_probing_effectiveness: {
+        Row: {
+          created_at: string | null
+          effectiveness_score: number | null
+          id: string
+          insight_markers: string[] | null
+          led_to_insight: boolean | null
+          message_id: string | null
+          pattern_area: string | null
+          probe_question: string | null
+          probe_type: string | null
+          session_id: string
+          topic_area: string | null
+          user_id: string
+          user_response: string | null
+          user_state_at_time: string | null
+          why_effective: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          effectiveness_score?: number | null
+          id?: string
+          insight_markers?: string[] | null
+          led_to_insight?: boolean | null
+          message_id?: string | null
+          pattern_area?: string | null
+          probe_question?: string | null
+          probe_type?: string | null
+          session_id: string
+          topic_area?: string | null
+          user_id: string
+          user_response?: string | null
+          user_state_at_time?: string | null
+          why_effective?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          effectiveness_score?: number | null
+          id?: string
+          insight_markers?: string[] | null
+          led_to_insight?: boolean | null
+          message_id?: string | null
+          pattern_area?: string | null
+          probe_question?: string | null
+          probe_type?: string | null
+          session_id?: string
+          topic_area?: string | null
+          user_id?: string
+          user_response?: string | null
+          user_state_at_time?: string | null
+          why_effective?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_probing_effectiveness_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_probing_effectiveness_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "dialogue_sessions"

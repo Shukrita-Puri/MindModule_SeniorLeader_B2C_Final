@@ -454,6 +454,19 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           userId: user.id,
         }),
       }).catch(err => console.error('Insight extraction failed:', err));
+
+      // 3. Trigger probing effectiveness analysis (fire-and-forget)
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-probing-effectiveness`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          userId: user.id,
+        }),
+      }).catch(err => console.error('Probing analysis failed:', err));
       
     } catch (error) {
       console.error(`[useCoachConversation ${timestamp}] Failed to end session:`, error);
