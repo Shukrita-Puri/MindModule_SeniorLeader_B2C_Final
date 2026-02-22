@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { verifyAuth0JWT } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,28 +101,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const AUTH0_DOMAIN = Deno.env.get("VITE_AUTH0_DOMAIN");
-    if (!AUTH0_DOMAIN) throw new Error("VITE_AUTH0_DOMAIN not configured");
-
-    const userInfoRes = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!userInfoRes.ok) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const userInfo = await userInfoRes.json();
-    const userId = userInfo.sub;
+    // Auth — shared JWT verification
+    const userId = await verifyAuth0JWT(req.headers.get("authorization"));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -230,16 +211,40 @@ Deno.serve(async (req) => {
     themes.forEach((t: any) => { if (t.theme_phrase) themeCounts.set(t.theme_phrase, (themeCounts.get(t.theme_phrase) || 0) + 1); });
     const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
 
-    // ── Coach insights (lean on / watch for keyword match) ──
-    const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
-    const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
-    let coachStrength: string | null = null;
-    let coachFriction: string | null = null;
-    for (const ins of coachInsights) {
-      const ic = ins.insight_content || "";
-      if (!coachStrength && strengthKw.test(ic)) coachStrength = ic.substring(0, 120);
-      if (!coachFriction && frictionKw.test(ic)) coachFriction = ic.substring(0, 120);
-      if (coachStrength && coachFriction) break;
+    // ── Coach insights (prioritize explicit strength/growth_area types) ──
+    // First: explicit insight_type queries
+    const [explicitStrengthRes, explicitGrowthRes] = await Promise.all([
+      supabase.from("user_coach_insights")
+        .select("insight_content")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .eq("insight_type", "strength")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("user_coach_insights")
+        .select("insight_content")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .eq("insight_type", "growth_area")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    let coachStrength: string | null = explicitStrengthRes.data?.insight_content?.substring(0, 120) || null;
+    let coachFriction: string | null = explicitGrowthRes.data?.insight_content?.substring(0, 120) || null;
+
+    // Fallback: keyword extraction from all insights (legacy data)
+    if (!coachStrength || !coachFriction) {
+      const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
+      const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
+      for (const ins of coachInsights) {
+        const ic = ins.insight_content || "";
+        if (!coachStrength && strengthKw.test(ic)) coachStrength = ic.substring(0, 120);
+        if (!coachFriction && frictionKw.test(ic)) coachFriction = ic.substring(0, 120);
+        if (coachStrength && coachFriction) break;
+      }
     }
 
     // ── Build same-day checkin-outcome map for cross-referencing practices ──

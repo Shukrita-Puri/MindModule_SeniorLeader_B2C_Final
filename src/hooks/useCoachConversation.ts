@@ -238,11 +238,14 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         contextSentRef.current = true;
       }
 
+      // Get Auth0 token for self-mastery-coach
+      const coachToken = await getAccessToken();
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/self-mastery-coach`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${coachToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
           messages: [...messages, userMessage].map(m => ({
@@ -251,7 +254,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           })),
           flowType,
           sessionId: currentSessionId,
-          userId: user?.id,
           context, // Pass context to edge function
         }),
       });
@@ -455,18 +457,20 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         }),
       }).catch(err => console.error('Insight extraction failed:', err));
 
-      // 3. Trigger probing effectiveness analysis (fire-and-forget)
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-probing-effectiveness`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          sessionId: currentSessionId,
-          userId: user.id,
-        }),
-      }).catch(err => console.error('Probing analysis failed:', err));
+      // 3. Trigger probing effectiveness analysis (fire-and-forget) — use Auth0 token
+      if (insightToken) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-probing-effectiveness`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).catch(err => console.error('Probing analysis failed:', err));
+      }
 
       // 4. Generate coach summary (fire-and-forget)
       if (insightToken) {
