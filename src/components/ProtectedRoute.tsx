@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, isNativeLoginInProgress, isNativeAuthCompleted } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted } from "@/utils/nativeAuth";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (DEV_MODE) {
@@ -26,9 +26,9 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (isAuthenticated) return;
 
     if (!redirectInitiated.current) {
-      // Don't trigger login if native auth is in progress or completed (hydration pending)
-      if (isNativeLoginInProgress()) {
-        console.log('[ProtectedRoute] Native login in progress, waiting...');
+      // Don't trigger login if any native auth operation is active
+      if (isNativeAuthBusy()) {
+        console.log('[ProtectedRoute] Native auth busy, waiting...');
         return;
       }
       if (isNativeAuthCompleted()) {
