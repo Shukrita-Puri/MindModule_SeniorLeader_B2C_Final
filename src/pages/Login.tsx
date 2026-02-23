@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
+import { getRedirectUri } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -39,7 +40,7 @@ const Login = () => {
     loginWithRedirect({
       appState: { returnTo: finalDestination },
       authorizationParams: {
-        redirect_uri: `${window.location.origin}/callback`,
+        redirect_uri: getRedirectUri(),
         scope: 'openid profile email',
       },
     });

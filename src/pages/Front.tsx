@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
+import { getRedirectUri } from "@/utils/nativeAuth";
 
 const Front = () => {
   if (DEV_MODE) {
@@ -21,7 +22,7 @@ const Auth0Front = () => {
     loginWithRedirect({
       appState: { returnTo: '/executive-home' },
       authorizationParams: {
-        redirect_uri: `${window.location.origin}/callback`,
+        redirect_uri: getRedirectUri(),
         scope: 'openid profile email'
       }
     });

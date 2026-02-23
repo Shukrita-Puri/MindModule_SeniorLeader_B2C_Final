@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { getRedirectUri } from '@/utils/nativeAuth';
 
 const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -23,9 +24,10 @@ const Signup = () => {
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
 
+    const baseRedirect = getRedirectUri();
     const redirectUri = isOnboardingFlow 
-      ? `${window.location.origin}/callback?from=onboarding`
-      : `${window.location.origin}/callback`;
+      ? `${baseRedirect}?from=onboarding`
+      : baseRedirect;
 
     loginWithRedirect({
       appState: { returnTo: isOnboardingFlow ? '/onboarding/results' : '/executive-home' },
