@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
@@ -19,6 +19,8 @@ interface AppUser {
   picture?: string;
   subscription_status?: 'active' | 'inactive' | 'trial';
   subscription_plan?: 'monthly' | 'annual';
+  onboarding_completed?: boolean;
+  user_archetype?: string;
 }
 
 interface AuthContextType {
@@ -54,6 +56,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { user: auth0User, isLoading, logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const syncAttempted = useRef(false);
 
   // Expose Auth0 client globally for utility functions that can't use hooks
   useEffect(() => {
@@ -69,34 +72,94 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [getAccessTokenSilently]);
 
   useEffect(() => {
-    const syncUserToSupabase = async () => {
-      if (!auth0User || syncing) return;
+    const syncProfile = async () => {
+      if (!auth0User || !isAuthenticated || syncing) return;
+      // Only attempt sync once per auth session
+      if (syncAttempted.current) return;
+      syncAttempted.current = true;
       
       setSyncing(true);
       
       try {
-        // Map Auth0 user to app user format
-        const mappedUser: AppUser = {
+        // Get access token for server-side verification
+        const token = await getAccessTokenSilently();
+
+        // Call sync-profile edge function (server-side upsert)
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/sync-profile`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              // Client hints as fallback only — server verifies identity from JWT
+              email: auth0User.email,
+              name: auth0User.name,
+              picture: auth0User.picture,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const { profile } = await response.json();
+          console.log('[useAuth] ✅ Profile synced to Supabase:', profile.id);
+
+          // Use Supabase profile as source of truth for app user
+          const mappedUser: AppUser = {
+            id: profile.id,
+            email: profile.email,
+            name: profile.full_name || auth0User.name,
+            picture: auth0User.picture,
+            subscription_status: profile.subscription_status || 'trial',
+            subscription_plan: profile.subscription_plan || 'monthly',
+            onboarding_completed: !!profile.onboarding_completed_at,
+            user_archetype: profile.user_archetype,
+          };
+          setAppUser(mappedUser);
+        } else {
+          // Sync failed — still allow auth but log error clearly
+          const errorBody = await response.text();
+          console.error('[useAuth] ⚠️ Profile sync failed:', response.status, errorBody);
+          console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
+          syncAttempted.current = false; // Allow retry on next load
+
+          // Fallback: use Auth0 data directly
+          setAppUser({
+            id: auth0User.sub!,
+            email: auth0User.email!,
+            name: auth0User.name,
+            picture: auth0User.picture,
+            subscription_status: 'trial',
+            subscription_plan: 'monthly',
+          });
+        }
+      } catch (error) {
+        console.error('[useAuth] ⚠️ Profile sync error:', error);
+        console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
+        syncAttempted.current = false; // Allow retry on next load
+
+        // Fallback: use Auth0 data directly
+        setAppUser({
           id: auth0User.sub!,
           email: auth0User.email!,
           name: auth0User.name,
           picture: auth0User.picture,
-          subscription_status: auth0User['app_metadata']?.subscription_status || 'trial',
-          subscription_plan: auth0User['app_metadata']?.subscription_plan || 'monthly',
-        };
-        
-        setAppUser(mappedUser);
-      } catch (error) {
-        console.error('Error syncing user:', error);
+          subscription_status: 'trial',
+          subscription_plan: 'monthly',
+        });
       } finally {
         setSyncing(false);
       }
     };
     
-    syncUserToSupabase();
-  }, [auth0User, syncing]);
+    syncProfile();
+  }, [auth0User, isAuthenticated, getAccessTokenSilently]);
 
   const signOut = async () => {
+    syncAttempted.current = false;
     await logout({ 
       logoutParams: { 
         returnTo: window.location.origin 
