@@ -7,7 +7,7 @@ import { DEV_MODE } from './config/devMode'
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
 const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
-const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE || '';
+const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE || 'https://dev-knj26zrz4aopg3tg.us.auth0.com/api/v2/';
 
 // Dev mode: render without Auth0Provider to avoid initialization errors
 if (DEV_MODE) {
