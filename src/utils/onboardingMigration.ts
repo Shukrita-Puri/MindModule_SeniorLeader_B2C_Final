@@ -100,7 +100,7 @@ export async function loadOnboardingFromDatabase(userId: string): Promise<any> {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error loading onboarding data:', error);
@@ -123,7 +123,7 @@ export async function hasCompletedOnboarding(userId: string): Promise<boolean> {
       .from('profiles')
       .select('onboarding_completed_at, mental_fitness_baseline')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error || !data) return false;
     

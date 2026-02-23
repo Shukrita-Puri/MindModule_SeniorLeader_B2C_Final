@@ -50,7 +50,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     .from('profiles')
     .select('user_archetype')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   const res = await supabase.functions.invoke('compute-outer-readiness', {
     body: {

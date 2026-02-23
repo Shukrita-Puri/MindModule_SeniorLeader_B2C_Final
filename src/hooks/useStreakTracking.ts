@@ -33,7 +33,7 @@ export const useStreakTracking = () => {
         .from('profiles')
         .select('current_streak, longest_streak, last_streak_celebration')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       // Calculate current streak from ritual completions via edge function
       const allRituals = await getRituals(365);

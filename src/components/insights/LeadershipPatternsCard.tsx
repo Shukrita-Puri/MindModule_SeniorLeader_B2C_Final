@@ -86,7 +86,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
           supabase.from('daily_checkins').select('checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at').eq('user_id', effectiveUserId).gte('checkin_date', thirtyDaysAgo).order('checkin_date', { ascending: true }),
           supabase.from('daily_themes').select('theme_phrase, theme_driver').eq('user_id', effectiveUserId).gte('theme_date', thirtyDaysAgo),
           supabase.from('user_coach_insights').select('insight_content, created_at, insight_type').eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(10),
-          supabase.from('profiles').select('user_archetype, component_scores').eq('id', effectiveUserId).single(),
+          supabase.from('profiles').select('user_archetype, component_scores').eq('id', effectiveUserId).maybeSingle(),
         ]);
 
         const checkIns = checkInsRes.data || [];
