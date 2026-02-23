@@ -10,6 +10,28 @@ import { Capacitor } from '@capacitor/core';
 
 const APP_SCHEME = 'app.mindmodule.me';
 
+// Module-level guards to prevent duplicate operations
+let _nativeLoginInProgress = false;
+let _listenerRegistered = false;
+
+/** Key used in localStorage to signal that native auth just completed (survives reload) */
+export const NATIVE_AUTH_COMPLETED_KEY = 'native_auth_completed';
+
+/** Check if a native login flow is currently in progress */
+export function isNativeLoginInProgress(): boolean {
+  return _nativeLoginInProgress;
+}
+
+/** Check if native auth just completed (token exchange done, waiting for SDK pickup) */
+export function isNativeAuthCompleted(): boolean {
+  return localStorage.getItem(NATIVE_AUTH_COMPLETED_KEY) === 'true';
+}
+
+/** Clear the native auth completed flag (call after SDK confirms authenticated) */
+export function clearNativeAuthCompleted(): void {
+  localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
+}
+
 /** True when running inside Capacitor's native iOS shell */
 export function isNativeiOS(): boolean {
   try {
@@ -51,6 +73,16 @@ export async function nativeLogin(options?: {
   screenHint?: 'signup' | 'login';
 }): Promise<boolean> {
   if (!isNativeiOS()) return false;
+
+  // Guard: don't open browser if login is already in progress or just completed
+  if (_nativeLoginInProgress) {
+    console.log('[NativeAuth] Login already in progress, skipping');
+    return true; // return true so caller doesn't fall through to web flow
+  }
+  if (isNativeAuthCompleted()) {
+    console.log('[NativeAuth] Auth recently completed (pending SDK pickup), skipping');
+    return true;
+  }
 
   const domain = import.meta.env.VITE_AUTH0_DOMAIN;
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
@@ -94,14 +126,22 @@ export async function nativeLogin(options?: {
   const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
   console.log('[NativeAuth] Opening in-app browser:', authorizeUrl);
 
+  _nativeLoginInProgress = true;
+
   try {
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url: authorizeUrl, presentationStyle: 'popover' });
     return true;
   } catch (e) {
+    _nativeLoginInProgress = false;
     console.error('[NativeAuth] Failed to open in-app browser:', e);
     return false;
   }
+}
+
+/** Reset the in-progress flag (call after callback completes or fails) */
+export function clearNativeLoginInProgress(): void {
+  _nativeLoginInProgress = false;
 }
 
 function generateRandomString(length: number): string {
@@ -127,6 +167,13 @@ async function sha256Base64Url(plain: string): Promise<string> {
  */
 export async function initNativeAuthListener(): Promise<void> {
   if (!isNativeiOS()) return;
+
+  // Guard: register only once
+  if (_listenerRegistered) {
+    console.log('[NativeAuth] Deep-link listener already registered, skipping');
+    return;
+  }
+  _listenerRegistered = true;
 
   try {
     const { App } = await import('@capacitor/app');

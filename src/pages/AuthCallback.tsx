@@ -3,7 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isNativeiOS } from '@/utils/nativeAuth';
+import { isNativeiOS, clearNativeLoginInProgress, NATIVE_AUTH_COMPLETED_KEY } from '@/utils/nativeAuth';
 
 const AuthCallback = () => {
   const { isLoading, error, isAuthenticated, user, handleRedirectCallback } = useAuth0();
@@ -90,19 +90,27 @@ const AuthCallback = () => {
 
         localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
 
-        // Clean up
+        // Signal that native auth completed — survives the page reload
+        // ProtectedRoute will check this flag and skip re-triggering login
+        localStorage.setItem(NATIVE_AUTH_COMPLETED_KEY, 'true');
+
+        // Clean up PKCE artifacts
         sessionStorage.removeItem('native_auth_code_verifier');
         sessionStorage.removeItem('native_auth_state');
+        clearNativeLoginInProgress();
 
         const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
         sessionStorage.removeItem('auth0_return_to');
 
+        console.log('[AuthCallback] ✅ Native auth complete, navigating to:', returnTo);
         toast.success('Welcome!');
         
         // Force a full reload so Auth0Provider picks up the cached tokens
         window.location.href = returnTo;
       } catch (e) {
         console.error('[AuthCallback] Native auth error:', e);
+        clearNativeLoginInProgress();
+        localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
         toast.error('Authentication failed. Please try again.');
         navigate('/');
       }
