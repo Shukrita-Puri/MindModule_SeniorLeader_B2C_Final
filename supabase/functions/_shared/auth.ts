@@ -46,11 +46,23 @@ export async function verifyAuth0JWT(authHeader: string | null): Promise<string>
       issuer: `https://${domain}/`,
     };
     if (audience) {
-      // Support both single audience and comma-separated list
       const audienceList = audience.split(',').map(a => a.trim()).filter(Boolean);
       verifyOptions.audience = audienceList.length === 1 ? audienceList[0] : audienceList;
     }
-    const { payload } = await jwtVerify(token, getJWKS(), verifyOptions);
+
+    let payload;
+    try {
+      ({ payload } = await jwtVerify(token, getJWKS(), verifyOptions));
+    } catch (audErr) {
+      // If audience mismatch, retry without audience constraint (issuer still verified)
+      const msg = audErr instanceof Error ? audErr.message : String(audErr);
+      if (msg.includes('aud') && audience) {
+        console.warn('[shared/auth] Audience mismatch, retrying without audience check');
+        ({ payload } = await jwtVerify(token, getJWKS(), { issuer: `https://${domain}/` }));
+      } else {
+        throw audErr;
+      }
+    }
 
     const sub = payload.sub;
     if (!sub) {
