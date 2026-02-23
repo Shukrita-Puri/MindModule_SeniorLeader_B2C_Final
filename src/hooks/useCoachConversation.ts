@@ -1,25 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { buildCoachContext, type CoachContext } from '@/utils/coachContextBuilder';
-
-// Helper to get access token (returns null in DEV_MODE, which is handled by calling code)
-async function getAccessToken(): Promise<string | null> {
-  if (DEV_MODE) {
-    return null; // DEV_MODE uses direct DB access instead
-  }
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken } from '@/services/authTokenService';
 
 interface Message {
   id: string;
@@ -51,7 +35,6 @@ interface UseCoachConversationReturn {
 
 export const useCoachConversation = (): UseCoachConversationReturn => {
   const { user } = useAuth();
-  const auth0 = useAuth0();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +87,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     
     // Production: Use edge function with Auth0 token
     try {
-      const accessToken = await getAccessToken();
+      const accessToken = await getAuthToken();
       console.log(`[useCoachConversation ${timestamp}] createSession - token:`, accessToken ? 'present' : 'MISSING');
       
       if (!accessToken) {
@@ -166,7 +149,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     
     // Production: Use edge function
     try {
-      const accessToken = await getAccessToken();
+      const accessToken = await getAuthToken();
       if (!accessToken) {
         console.warn('[useCoachConversation] No access token for saveMessage');
         return;
@@ -239,7 +222,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       }
 
       // Get Auth0 token for self-mastery-coach
-      const coachToken = await getAccessToken();
+      const coachToken = await getAuthToken();
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/self-mastery-coach`, {
         method: 'POST',
@@ -412,7 +395,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       
       // Production: Use edge function with Auth0 token
       // 1. Mark session as completed via edge function (bypasses RLS)
-      const accessToken = await getAccessToken();
+      const accessToken = await getAuthToken();
       console.log(`[useCoachConversation ${timestamp}] endSession - token:`, accessToken ? 'present' : 'MISSING');
       
       if (accessToken) {
@@ -439,7 +422,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       // 2. Trigger insight extraction (fire-and-forget)
       let insightToken: string | undefined;
       try {
-        insightToken = await auth0.getAccessTokenSilently();
+        insightToken = await getAuthToken() || undefined;
       } catch (err) {
         console.error('Failed to get access token for insights:', err);
       }
@@ -521,7 +504,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       // 3. Clear local state
       clearConversation();
     }
-  }, [user?.id, messages.length, clearConversation, auth0]);
+  }, [user?.id, messages.length, clearConversation]);
 
   return {
     messages,

@@ -1,18 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-
-// Helper to get access token
-async function getAccessToken(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken } from '@/services/authTokenService';
 
 export interface CheckinData {
   id?: string;
@@ -51,7 +39,7 @@ export async function getCheckins(days: number = 30): Promise<CheckinData[]> {
   }
 
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       console.warn('[dailyCheckins] No access token available');
       return [];
@@ -92,7 +80,7 @@ export async function getTodayCheckin(): Promise<CheckinData | null> {
   }
 
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       console.warn('[dailyCheckins] No access token available');
       return null;
@@ -132,7 +120,7 @@ export async function getCheckinRange(startDate: string, endDate: string): Promi
   }
 
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       console.warn('[dailyCheckins] No access token available');
       return [];
@@ -193,7 +181,7 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
   }
 
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       console.warn('[dailyCheckins] No access token available');
       return null;

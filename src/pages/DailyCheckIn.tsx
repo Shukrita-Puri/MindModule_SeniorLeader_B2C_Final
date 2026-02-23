@@ -3,7 +3,7 @@ import { Zap, Waves, Target, Sparkles, Wind } from "lucide-react";
 import TouchOptimized from "@/components/TouchOptimized";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuth0 } from "@auth0/auth0-react";
+import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin } from "@/utils/dailyCheckins";
@@ -62,7 +62,6 @@ const outcomes = [
 const DailyCheckIn = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
@@ -161,7 +160,7 @@ const DailyCheckIn = () => {
   const handleSkipToHome = async () => {
     if (user?.id) {
       try {
-        const accessToken = await getAccessTokenSilently();
+        const accessToken = await getAuthToken();
         await supabase.functions.invoke('user-events', {
           headers: { Authorization: `Bearer ${accessToken}` },
           body: {

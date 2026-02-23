@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface Engagement {
   type: 'check_in' | 'daily_ritual_start' | 'daily_ritual_soundscape' | 'daily_ritual_practice' | 'daily_ritual_micro' | 'flow_session' | 'pause_session' | 'renew_session' | 'micro_intervention';
@@ -21,23 +22,9 @@ export interface HourBucket {
   smoothed: number;
 }
 
-// Helper to get access token - imported dynamically to avoid circular deps
-async function getAccessToken(): Promise<string | null> {
-  try {
-    // Try to get from Auth0 context via window object (set by Auth0Provider)
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function trackEngagement(type: Engagement['type'], timestamp?: string): Promise<void> {
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       console.warn('[engagementTracking] No access token available');
       return;
@@ -59,7 +46,7 @@ export async function trackEngagement(type: Engagement['type'], timestamp?: stri
 
 export async function getEngagementsByHour(): Promise<HourBucket[]> {
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) {
       return Array.from({ length: 24 }, (_, hour) => ({
         hour,

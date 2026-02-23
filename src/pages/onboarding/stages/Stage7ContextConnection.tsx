@@ -11,21 +11,7 @@ import { isNativeApp } from "@/utils/healthKitCapacitor";
 import { requestHRVPermission, getHRV } from "@/services/healthkit";
 
 
-/**
- * Gets Auth0 access token from the global client (set by AuthProvider in production).
- * Returns null in dev mode or when Auth0 is not available.
- */
-async function getAuth0Token(): Promise<string | null> {
-  try {
-    if (window.__auth0Client) {
-      return await window.__auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch (e) {
-    console.error('[Stage7] Failed to get Auth0 token:', e);
-    return null;
-  }
-}
+import { getAuthToken } from '@/services/authTokenService';
 
 /**
  * Opens a URL using Capacitor's in-app browser (SFSafariViewController / Chrome Custom Tabs)
@@ -95,7 +81,7 @@ export default function Stage7ContextConnection() {
     setLoading(true);
     try {
       // Build request: use Auth0 token if available, fall back to userId for dev mode
-      const token = await getAuth0Token();
+      const token = await getAuthToken();
       const headers: Record<string, string> = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;

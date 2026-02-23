@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface DialogueMessage {
   id: string;
@@ -97,7 +97,6 @@ export interface SessionDebrief {
 }
 
 export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
-  const { getAccessTokenSilently } = useAuth0();
   const [session, setSession] = useState<SessionData | null>(null);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [strengths, setStrengths] = useState<Strength[]>([]);
@@ -119,8 +118,8 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
         setError(null);
         console.log('[useSessionDebrief] Fetching data for sessionId:', sessionId);
 
-        // Get Auth0 access token
-        const accessToken = await getAccessTokenSilently();
+        // Get access token
+        const accessToken = await getAuthToken();
 
         // Fetch all data via edge function
         const { data: result, error: fnError } = await supabase.functions.invoke('dialogue-session-debrief', {
@@ -258,7 +257,7 @@ export const useSessionDebrief = (sessionId: string | null): SessionDebrief => {
     };
 
     fetchSessionData();
-  }, [sessionId, getAccessTokenSilently]);
+  }, [sessionId]);
 
   return {
     session,
