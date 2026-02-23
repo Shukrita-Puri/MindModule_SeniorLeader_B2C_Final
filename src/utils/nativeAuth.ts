@@ -17,6 +17,65 @@ let _listenerRegistered = false;
 /** Key used in localStorage to signal that native auth just completed (survives reload) */
 export const NATIVE_AUTH_COMPLETED_KEY = 'native_auth_completed';
 
+const NATIVE_TOKENS_KEY = 'native_auth_tokens';
+
+/** Store tokens obtained from native PKCE exchange */
+export function storeNativeTokens(tokens: {
+  access_token: string;
+  id_token: string;
+  refresh_token?: string;
+  expires_in: number;
+}): void {
+  const entry = {
+    access_token: tokens.access_token,
+    id_token: tokens.id_token,
+    refresh_token: tokens.refresh_token,
+    expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
+  };
+  localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
+  console.log('[NativeAuth] Tokens stored in native token store');
+}
+
+/** Read stored native tokens (returns null if missing or expired) */
+export function getNativeTokens(): {
+  access_token: string;
+  id_token: string;
+  refresh_token?: string;
+  expires_at: number;
+} | null {
+  const raw = localStorage.getItem(NATIVE_TOKENS_KEY);
+  if (!raw) return null;
+  try {
+    const tokens = JSON.parse(raw);
+    if (tokens.expires_at < Math.floor(Date.now() / 1000)) {
+      console.log('[NativeAuth] Stored tokens expired, clearing');
+      localStorage.removeItem(NATIVE_TOKENS_KEY);
+      return null;
+    }
+    return tokens;
+  } catch {
+    localStorage.removeItem(NATIVE_TOKENS_KEY);
+    return null;
+  }
+}
+
+/** Clear stored native tokens */
+export function clearNativeTokens(): void {
+  localStorage.removeItem(NATIVE_TOKENS_KEY);
+}
+
+/** Decode a JWT payload without verification (for extracting user claims) */
+export function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
 /** Check if a native login flow is currently in progress */
 export function isNativeLoginInProgress(): boolean {
   return _nativeLoginInProgress;

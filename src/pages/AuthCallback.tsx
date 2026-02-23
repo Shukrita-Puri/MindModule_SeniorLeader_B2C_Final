@@ -3,7 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isNativeiOS, clearNativeLoginInProgress, NATIVE_AUTH_COMPLETED_KEY } from '@/utils/nativeAuth';
+import { isNativeiOS, clearNativeLoginInProgress, NATIVE_AUTH_COMPLETED_KEY, storeNativeTokens } from '@/utils/nativeAuth';
 
 const AuthCallback = () => {
   const { isLoading, error, isAuthenticated, user, handleRedirectCallback } = useAuth0();
@@ -71,27 +71,11 @@ const AuthCallback = () => {
         const tokens = await tokenResponse.json();
         console.log('[AuthCallback] ✅ Native token exchange successful');
 
-        // Store tokens in localStorage so Auth0 SDK can pick them up
-        // Auth0 SPA SDK uses a specific cache key format
-        const audience = import.meta.env.VITE_AUTH0_AUDIENCE || `https://${domain}/api/v2/`;
-        const cacheKey = `@@auth0spajs@@::${clientId}::${audience}::openid profile email offline_access`;
-        
-        const cacheEntry = {
-          body: {
-            access_token: tokens.access_token,
-            id_token: tokens.id_token,
-            scope: tokens.scope || 'openid profile email offline_access',
-            expires_in: tokens.expires_in,
-            token_type: tokens.token_type,
-            ...(tokens.refresh_token && { refresh_token: tokens.refresh_token }),
-          },
-          expiresAt: Math.floor(Date.now() / 1000) + tokens.expires_in,
-        };
+        // Store tokens in our dedicated native token store
+        // (NOT the SDK cache — the SDK won't reliably pick those up)
+        storeNativeTokens(tokens);
 
-        localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
-
-        // Signal that native auth completed — survives the page reload
-        // ProtectedRoute will check this flag and skip re-triggering login
+        // Signal that native auth completed — useAuth will hydrate from native tokens
         localStorage.setItem(NATIVE_AUTH_COMPLETED_KEY, 'true');
 
         // Clean up PKCE artifacts
