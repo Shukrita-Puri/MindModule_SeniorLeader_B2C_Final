@@ -1,5 +1,6 @@
 /**
  * HealthKit integration via Capacitor for native iOS apps.
+ * Uses @capgo/capacitor-health (Capacitor 8 compatible).
  * Gracefully degrades on web — all functions are safe to call in any environment.
  */
 
@@ -24,21 +25,17 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!isNativeApp()) return false;
 
   try {
-    const { CapacitorHealthkit } = await import('@perfood/capacitor-healthkit');
+    const { Health } = await import('@capgo/capacitor-health');
 
-    const readPermissions = [
-      'heartRateVariabilitySDNN',
-      'restingHeartRate',
-      'sleepAnalysis',
-      'activeEnergyBurned',
-      'stepCount',
-    ];
-    const writePermissions = ['mindfulSession'];
-
-    await CapacitorHealthkit.requestAuthorization({
-      all: [],
-      read: readPermissions,
-      write: writePermissions,
+    await Health.requestAuthorization({
+      read: [
+        'heartRateVariability',
+        'restingHeartRate',
+        'sleep',
+        'calories',
+        'steps',
+      ],
+      write: [],
     });
 
     console.log('[HealthKit] Permissions granted');
@@ -65,22 +62,22 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
   if (!isNativeApp()) return empty;
 
   try {
-    const { CapacitorHealthkit } = await import('@perfood/capacitor-healthkit');
+    const { Health } = await import('@capgo/capacitor-health');
     const now = new Date();
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const opts = { startDate: dayAgo.toISOString(), endDate: now.toISOString() };
+    const opts = { startDate: dayAgo.toISOString(), endDate: now.toISOString(), bucket: 'day' as const };
 
     const [hrvRes, rhrRes, sleepRes, energyRes, stepsRes] = await Promise.allSettled([
-      CapacitorHealthkit.queryHKitSampleType({ ...opts, sampleName: 'heartRateVariabilitySDNN', limit: 1 }),
-      CapacitorHealthkit.queryHKitSampleType({ ...opts, sampleName: 'restingHeartRate', limit: 1 }),
-      CapacitorHealthkit.queryHKitSampleType({ ...opts, sampleName: 'sleepAnalysis', limit: 0 }),
-      CapacitorHealthkit.queryHKitSampleType({ ...opts, sampleName: 'activeEnergyBurned', limit: 0 }),
-      CapacitorHealthkit.queryHKitSampleType({ ...opts, sampleName: 'stepCount', limit: 0 }),
+      Health.queryAggregated({ ...opts, dataType: 'heartRateVariability' }),
+      Health.queryAggregated({ ...opts, dataType: 'restingHeartRate' }),
+      Health.queryAggregated({ ...opts, dataType: 'sleep' }),
+      Health.queryAggregated({ ...opts, dataType: 'calories' }),
+      Health.queryAggregated({ ...opts, dataType: 'steps' }),
     ]);
 
     const val = (r: PromiseSettledResult<any>) =>
-      r.status === 'fulfilled' && r.value?.resultData?.length
-        ? Number(r.value.resultData[0].value)
+      r.status === 'fulfilled' && r.value?.samples?.length
+        ? Number(r.value.samples[0].value)
         : null;
 
     return {
