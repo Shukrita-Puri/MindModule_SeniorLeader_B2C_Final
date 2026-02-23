@@ -180,28 +180,32 @@ export async function initNativeAuthListener(): Promise<void> {
     const { Browser } = await import('@capacitor/browser');
 
     App.addListener('appUrlOpen', async ({ url }) => {
-      console.log('[NativeAuth] appUrlOpen received:', url);
+      console.log('[NativeAuth] 📥 appUrlOpen fired. URL:', url);
 
       // Only handle our callback scheme
       if (!url.startsWith(`${APP_SCHEME}://callback`)) {
-        console.log('[NativeAuth] Ignoring non-callback URL');
+        console.log('[NativeAuth] Ignoring non-callback URL:', url);
         return;
       }
 
+      console.log('[NativeAuth] ✅ Callback URL matched, processing...');
+
       try {
-        // Close the in-app browser that was showing the Auth0 login
         await Browser.close();
-        console.log('[NativeAuth] Browser closed');
+        console.log('[NativeAuth] Browser closed successfully');
       } catch (e) {
         console.warn('[NativeAuth] Browser.close() failed (may already be closed):', e);
       }
 
-      // Extract the path + query from the deep-link and navigate the WebView
-      // e.g.  app.lovable…://callback?code=XYZ&state=ABC  →  /callback?code=XYZ&state=ABC
+      // Extract query and navigate WebView to /callback
       const callbackUrl = new URL(url);
       const webPath = `/callback${callbackUrl.search}`;
       console.log('[NativeAuth] Navigating WebView to:', webPath);
-      window.location.href = webPath;
+
+      // Use setTimeout to let Browser.close() settle before navigation
+      setTimeout(() => {
+        window.location.href = webPath;
+      }, 100);
     });
 
     console.log('[NativeAuth] ✅ Deep-link listener registered');
