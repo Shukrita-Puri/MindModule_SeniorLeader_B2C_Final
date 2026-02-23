@@ -2014,6 +2014,7 @@ export type Database = {
           growth_priority: string | null
           id: string
           identity_role: string | null
+          last_login_at: string | null
           last_streak_celebration: number | null
           longest_streak: number | null
           mental_fitness_baseline: number | null
@@ -2051,6 +2052,7 @@ export type Database = {
           growth_priority?: string | null
           id: string
           identity_role?: string | null
+          last_login_at?: string | null
           last_streak_celebration?: number | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
@@ -2088,6 +2090,7 @@ export type Database = {
           growth_priority?: string | null
           id?: string
           identity_role?: string | null
+          last_login_at?: string | null
           last_streak_celebration?: number | null
           longest_streak?: number | null
           mental_fitness_baseline?: number | null
