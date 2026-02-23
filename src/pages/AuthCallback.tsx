@@ -45,7 +45,7 @@ const AuthCallback = () => {
 
         const domain = import.meta.env.VITE_AUTH0_DOMAIN;
         const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-        const redirectUri = `app.lovable.eb63fb97dcc84fc58148517646438c6d://callback`;
+        const redirectUri = `app.mindmodule.me://callback`;
 
         // Exchange authorization code for tokens
         const tokenResponse = await fetch(`https://${domain}/oauth/token`, {
