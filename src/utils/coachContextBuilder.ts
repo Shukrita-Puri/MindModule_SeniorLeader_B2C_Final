@@ -245,7 +245,7 @@ async function getUserProfile(userId: string): Promise<{
       .from('profiles')
       .select('user_archetype, identity_role')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     
     return {
       archetype: data?.user_archetype || undefined,

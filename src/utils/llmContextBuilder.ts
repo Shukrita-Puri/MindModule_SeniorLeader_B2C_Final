@@ -47,7 +47,7 @@ export async function buildUserContext(
       .from('profiles')
       .select('user_archetype, identity_role, biggest_pressure, growth_priority')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     profile = data;
   }
   
