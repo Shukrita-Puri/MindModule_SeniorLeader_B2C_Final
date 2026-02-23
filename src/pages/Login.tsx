@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
-import { getRedirectUri } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -26,7 +26,7 @@ const Login = () => {
   const inIframe = isInIframe();
 
   useEffect(() => {
-    if (inIframe) return; // Don't attempt redirect inside iframe
+    if (inIframe) return;
     if (isLoading) return;
 
     if (isAuthenticated) {
@@ -37,13 +37,19 @@ const Login = () => {
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
 
-    loginWithRedirect({
-      appState: { returnTo: finalDestination },
-      authorizationParams: {
-        redirect_uri: getRedirectUri(),
-        scope: 'openid profile email',
-      },
-    });
+    // On iOS native, open in-app browser
+    (async () => {
+      const handled = await nativeLogin({ returnTo: finalDestination });
+      if (handled) return;
+
+      loginWithRedirect({
+        appState: { returnTo: finalDestination },
+        authorizationParams: {
+          redirect_uri: getRedirectUri(),
+          scope: 'openid profile email',
+        },
+      });
+    })();
   }, [isLoading, isAuthenticated, navigate, loginWithRedirect, finalDestination, inIframe]);
 
   if (inIframe) {

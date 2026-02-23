@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { getRedirectUri } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
 
 const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -24,19 +24,27 @@ const Signup = () => {
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
 
-    const baseRedirect = getRedirectUri();
-    const redirectUri = isOnboardingFlow 
-      ? `${baseRedirect}?from=onboarding`
-      : baseRedirect;
+    const returnTo = isOnboardingFlow ? '/onboarding/results' : '/executive-home';
 
-    loginWithRedirect({
-      appState: { returnTo: isOnboardingFlow ? '/onboarding/results' : '/executive-home' },
-      authorizationParams: {
-        redirect_uri: redirectUri,
-        screen_hint: 'signup',
-        scope: 'openid profile email',
-      },
-    });
+    // On iOS native, open in-app browser
+    (async () => {
+      const handled = await nativeLogin({ returnTo, screenHint: 'signup' });
+      if (handled) return;
+
+      const baseRedirect = getRedirectUri();
+      const redirectUri = isOnboardingFlow 
+        ? `${baseRedirect}?from=onboarding`
+        : baseRedirect;
+
+      loginWithRedirect({
+        appState: { returnTo },
+        authorizationParams: {
+          redirect_uri: redirectUri,
+          screen_hint: 'signup',
+          scope: 'openid profile email',
+        },
+      });
+    })();
   }, [isLoading, isAuthenticated, navigate, loginWithRedirect, isOnboardingFlow]);
 
   return (

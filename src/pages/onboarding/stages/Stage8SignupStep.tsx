@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
-import { getRedirectUri } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -36,14 +36,20 @@ const Stage8SignupStep = () => {
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
 
-    loginWithRedirect({
-      appState: { returnTo: '/onboarding/results' },
-      authorizationParams: {
-        redirect_uri: `${getRedirectUri()}?from=onboarding`,
-        screen_hint: 'signup',
-        scope: 'openid profile email',
-      },
-    });
+    // On iOS native, open in-app browser
+    (async () => {
+      const handled = await nativeLogin({ returnTo: '/onboarding/results', screenHint: 'signup' });
+      if (handled) return;
+
+      loginWithRedirect({
+        appState: { returnTo: '/onboarding/results' },
+        authorizationParams: {
+          redirect_uri: `${getRedirectUri()}?from=onboarding`,
+          screen_hint: 'signup',
+          scope: 'openid profile email',
+        },
+      });
+    })();
   }, [isLoading, isAuthenticated, navigate, loginWithRedirect, inIframe]);
 
   if (DEV_MODE) {
