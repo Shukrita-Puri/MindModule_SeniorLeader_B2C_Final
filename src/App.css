@@ -4,6 +4,7 @@
   min-height: 100dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
 }
 
 .logo {
