@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.eb63fb97dcc84fc58148517646438c6d',
+  appId: 'app.mindmodule.me',
   appName: 'wwwmindmoduleme',
   webDir: 'dist',
   server: {
-    url: 'https://eb63fb97-dcc8-4fc5-8148-517646438c6d.lovableproject.com?forceHideBadge=true',
+    url: 'https://mindmodule.me?forceHideBadge=true',
     cleartext: true,
   },
 };

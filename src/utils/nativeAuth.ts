@@ -6,7 +6,7 @@
  * it via `App.addListener('appUrlOpen', …)` and route the WebView to /callback.
  */
 
-const APP_SCHEME = 'app.lovable.eb63fb97dcc84fc58148517646438c6d';
+const APP_SCHEME = 'app.mindmodule.me';
 
 /** True when running inside Capacitor's native iOS shell */
 export function isNativeiOS(): boolean {
