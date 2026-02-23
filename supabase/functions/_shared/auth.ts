@@ -46,7 +46,9 @@ export async function verifyAuth0JWT(authHeader: string | null): Promise<string>
       issuer: `https://${domain}/`,
     };
     if (audience) {
-      verifyOptions.audience = audience;
+      // Support both single audience and comma-separated list
+      const audienceList = audience.split(',').map(a => a.trim()).filter(Boolean);
+      verifyOptions.audience = audienceList.length === 1 ? audienceList[0] : audienceList;
     }
     const { payload } = await jwtVerify(token, getJWKS(), verifyOptions);
 
