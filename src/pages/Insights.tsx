@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -129,7 +129,6 @@ type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
   const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
@@ -377,7 +376,7 @@ const Insights = () => {
       }
 
       // Production: Use edge function
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { days: 14 }
@@ -429,7 +428,7 @@ const Insights = () => {
       }
 
       // Production: Use edge function
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { days: 7 }
@@ -619,7 +618,7 @@ const Insights = () => {
       }
 
       // Production: Use edge function
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { days: 7, action: 'analyze' }
@@ -665,7 +664,7 @@ const Insights = () => {
         };
       }
 
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { 

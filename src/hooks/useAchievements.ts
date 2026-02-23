@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth } from '@/hooks/useAuth';
+import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
@@ -42,7 +43,7 @@ interface CertificateRequest {
 }
 
 export const useAchievements = () => {
-  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { user, isAuthenticated } = useAuth();
   const [definitions, setDefinitions] = useState<AchievementDefinition[]>([]);
   const [earnedAchievements, setEarnedAchievements] = useState<UserAchievement[]>([]);
   const [certificateRequests, setCertificateRequests] = useState<CertificateRequest[]>([]);
@@ -63,9 +64,9 @@ export const useAchievements = () => {
       setDefinitions((defs || []) as AchievementDefinition[]);
 
       // Fetch user's earned achievements and certificate requests via edge function
-      if (isAuthenticated && user?.sub) {
+      if (isAuthenticated && user?.id) {
         try {
-          const accessToken = await getAccessTokenSilently();
+          const accessToken = await getAuthToken();
           
           // Fetch achievements via edge function
           const { data: achievementsResult, error: achievementsError } = await supabase.functions.invoke('user-progress', {
@@ -106,7 +107,7 @@ export const useAchievements = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.sub, getAccessTokenSilently]);
+  }, [isAuthenticated, user?.id]);
 
   // Check and award achievements based on unified points
   const checkAndAwardAchievements = useCallback(async (
@@ -114,7 +115,7 @@ export const useAchievements = () => {
     unifiedPoints: number,
     skillProgress?: number
   ) => {
-    if (!isAuthenticated || !user?.sub) return;
+    if (!isAuthenticated || !user?.id) return;
 
     try {
       // Find eligible achievements for this cluster using threshold_points
@@ -132,7 +133,7 @@ export const useAchievements = () => {
       // Award new achievements via edge function
       if (newAchievements.length > 0) {
         try {
-          const accessToken = await getAccessTokenSilently();
+          const accessToken = await getAuthToken();
           const { data, error: syncError } = await supabase.functions.invoke('user-progress', {
             headers: { Authorization: `Bearer ${accessToken}` },
             body: {
@@ -172,7 +173,7 @@ export const useAchievements = () => {
     } catch (err) {
       console.error('Error checking achievements:', err);
     }
-  }, [isAuthenticated, user?.sub, definitions, earnedAchievements, fetchAchievements]);
+  }, [isAuthenticated, user?.id, definitions, earnedAchievements, fetchAchievements]);
 
   // Legacy method for backward compatibility
   const checkAndAwardAchievementsLegacy = useCallback(async (
@@ -187,10 +188,10 @@ export const useAchievements = () => {
 
   // Mark achievement as shared to LinkedIn via edge function
   const markAsShared = useCallback(async (achievementId: string) => {
-    if (!isAuthenticated || !user?.sub) return;
+    if (!isAuthenticated || !user?.id) return;
 
     try {
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('user-progress', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: {
@@ -214,7 +215,7 @@ export const useAchievements = () => {
     } catch (err) {
       console.error('Error marking as shared:', err);
     }
-  }, [isAuthenticated, user?.sub, getAccessTokenSilently]);
+  }, [isAuthenticated, user?.id]);
 
   // Request physical certificate (via secure edge function with encrypted storage)
   const requestCertificate = useCallback(async (params: {
@@ -226,15 +227,13 @@ export const useAchievements = () => {
     country?: string;
     postalCode?: string;
   }) => {
-    if (!isAuthenticated || !user?.sub) {
+    if (!isAuthenticated || !user?.id) {
       throw new Error('Must be authenticated to request certificate');
     }
 
     try {
-      // Get Auth0 access token for edge function authentication
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
 
-      // Call the secure edge function instead of direct database insert
       const { data, error } = await supabase.functions.invoke('certificate-request-create', {
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -263,7 +262,7 @@ export const useAchievements = () => {
       console.error('Error requesting certificate:', err);
       throw err;
     }
-  }, [isAuthenticated, user?.sub, getAccessTokenSilently, fetchAchievements]);
+  }, [isAuthenticated, user?.id, fetchAchievements]);
 
   // Get current archetype for a cluster
   const getCurrentArchetype = useCallback((cluster: 'self_mastery' | 'social_mastery') => {
@@ -298,7 +297,7 @@ export const useAchievements = () => {
     isLoading,
     error,
     checkAndAwardAchievements,
-    checkAndAwardAchievementsLegacy, // For backward compatibility
+    checkAndAwardAchievementsLegacy,
     markAsShared,
     requestCertificate,
     getCurrentArchetype,

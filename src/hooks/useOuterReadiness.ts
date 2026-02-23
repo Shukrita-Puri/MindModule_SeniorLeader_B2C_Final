@@ -10,6 +10,7 @@ import { computeEnergyState } from '@/utils/energyStateEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 
 export interface OuterReadinessData {
   phrase: string;
@@ -18,18 +19,6 @@ export interface OuterReadinessData {
   watchFor: string;
   driver: string;
   dataSources: string[];
-}
-
-async function getAuth0Token(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
@@ -46,7 +35,7 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
   if (!DEV_MODE) {
     let token: string | null = null;
     for (let attempt = 0; attempt < 5; attempt++) {
-      token = await getAuth0Token();
+      token = await getAuthToken();
       if (token) break;
       await new Promise(r => setTimeout(r, 500));
     }

@@ -2,19 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-
-// Helper to get access token
-async function getAccessToken(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken } from '@/services/authTokenService';
 
 interface Activity {
   id: string;
@@ -79,7 +67,7 @@ export const useRecentActivity = () => {
       // Production: fetch coach sessions via edge function
       if (!DEV_MODE) {
         try {
-          const accessToken = await getAccessToken();
+          const accessToken = await getAuthToken();
           if (accessToken) {
             const { data, error } = await supabase.functions.invoke('dialogue-session-manage', {
               headers: { Authorization: `Bearer ${accessToken}` },

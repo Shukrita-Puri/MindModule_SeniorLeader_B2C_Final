@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 import { getRituals } from '@/utils/dailyRituals';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
@@ -47,7 +47,6 @@ export const SOCIAL_MASTERY_PROGRESSION: ArchetypeInfo[] = [
 
 export const useUnifiedProgress = () => {
   const { user } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
 
   const { data: progress, isLoading, refetch } = useQuery({
     queryKey: ['unified-progress', user?.id],
@@ -105,7 +104,7 @@ export const useUnifiedProgress = () => {
           }
         } else {
           // Production: Use edge function with Auth0 token
-          const accessToken = await getAccessTokenSilently();
+          const accessToken = await getAuthToken();
           const { data: progressData, error: progressError } = await supabase.functions.invoke('dialogue-progress-data', {
             headers: { Authorization: `Bearer ${accessToken}` },
             body: {}
@@ -200,7 +199,7 @@ export const useUnifiedProgress = () => {
       if (allEarnedBadgeIds.length === 0) return;
       
       try {
-        const accessToken = await getAccessTokenSilently();
+        const accessToken = await getAuthToken();
         
         // Sync achievements via edge function
         const { data, error } = await supabase.functions.invoke('user-progress', {
@@ -228,7 +227,7 @@ export const useUnifiedProgress = () => {
     };
     
     syncEarnedBadges();
-  }, [user?.id, progress, getAccessTokenSilently]);
+  }, [user?.id, progress]);
 
   return {
     progress: progress || getDefaultProgress(),

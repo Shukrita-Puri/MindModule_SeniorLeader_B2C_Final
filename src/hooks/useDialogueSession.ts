@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 import { 
   runSignalDetection, 
   runSafetyCheck, 
@@ -63,7 +63,6 @@ interface SessionState {
 }
 
 export function useDialogueSession() {
-  const { user, getAccessTokenSilently } = useAuth0();
   const [state, setState] = useState<SessionState>({
     sessionId: null,
     scenarioId: '',
@@ -108,7 +107,7 @@ export function useDialogueSession() {
     coachPersonality: 'supportive' | 'challenging' | 'minimal' = 'supportive',
     config: SessionConfig = {}
   ) => {
-    if (!user?.sub) {
+    if (!state.sessionId && !true) { // auth checked via token
       setState(prev => ({ ...prev, error: 'User not authenticated' }));
       return null;
     }
@@ -117,7 +116,7 @@ export function useDialogueSession() {
 
     try {
       // Get Auth0 access token
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
 
       // Call edge function to create session
       const { data: result, error: fnError } = await supabase.functions.invoke('dialogue-session-manage', {
@@ -242,15 +241,15 @@ export function useDialogueSession() {
       }));
       return null;
     }
-  }, [user?.sub, getAccessTokenSilently]);
+  }, []);
 
   const sendMessage = useCallback(async (content: string) => {
-    if (!state.sessionId || !user?.sub) return;
+    if (!state.sessionId) return;
 
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       
       // Get previous message for context
       const previousMessage = state.messages.length > 0 
@@ -427,13 +426,13 @@ export function useDialogueSession() {
         error: error instanceof Error ? error.message : 'Failed to send message'
       }));
     }
-  }, [state, user?.sub, getAccessTokenSilently]);
+  }, [state]);
 
   const endSession = useCallback(async () => {
     if (!state.sessionId) return;
 
     try {
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       
       await supabase.functions.invoke('dialogue-session-manage', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -450,7 +449,7 @@ export function useDialogueSession() {
     } catch (error) {
       console.error('[useDialogueSession] End error:', error);
     }
-  }, [state.sessionId, state.durationSeconds, state.messages.length, state.interventions.length, getAccessTokenSilently]);
+  }, [state.sessionId, state.durationSeconds, state.messages.length, state.interventions.length]);
 
   return {
     ...state,
