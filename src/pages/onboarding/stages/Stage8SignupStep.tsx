@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
+import { getRedirectUri } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -38,7 +39,7 @@ const Stage8SignupStep = () => {
     loginWithRedirect({
       appState: { returnTo: '/onboarding/results' },
       authorizationParams: {
-        redirect_uri: `${window.location.origin}/callback?from=onboarding`,
+        redirect_uri: `${getRedirectUri()}?from=onboarding`,
         screen_hint: 'signup',
         scope: 'openid profile email',
       },
