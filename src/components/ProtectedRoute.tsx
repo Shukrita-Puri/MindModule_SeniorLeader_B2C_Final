@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin } from "@/utils/nativeAuth";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (DEV_MODE) {
@@ -24,13 +24,20 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!isAuthenticated && !redirectInitiated.current) {
       redirectInitiated.current = true;
-      loginWithRedirect({
-        appState: { returnTo: location.pathname },
-        authorizationParams: {
-          redirect_uri: getRedirectUri(),
-          scope: 'openid profile email',
-        },
-      });
+
+      // On iOS native, open in-app browser
+      (async () => {
+        const handled = await nativeLogin({ returnTo: location.pathname });
+        if (handled) return;
+
+        loginWithRedirect({
+          appState: { returnTo: location.pathname },
+          authorizationParams: {
+            redirect_uri: getRedirectUri(),
+            scope: 'openid profile email',
+          },
+        });
+      })();
     }
   }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect]);
 
