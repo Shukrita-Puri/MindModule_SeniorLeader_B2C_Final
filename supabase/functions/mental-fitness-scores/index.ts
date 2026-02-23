@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,38 +26,15 @@ interface RequestBody {
   };
 }
 
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
-  
-  const response = await fetch(`https://${auth0Domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  
-  if (!response.ok) {
-    throw new Error('Invalid token');
-  }
-  
-  const userInfo = await response.json();
-  return userInfo.sub;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const userId = await verifyAuth0Token(authHeader);
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) return auth.errorResponse;
+    const userId = auth.userId;
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

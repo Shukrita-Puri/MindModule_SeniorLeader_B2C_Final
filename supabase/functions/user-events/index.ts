@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,49 +9,22 @@ const corsHeaders = {
 
 interface RequestBody {
   action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN';
-  // For TRACK_ENGAGEMENT
   eventType?: string;
   category?: string;
   contentId?: string;
   contentType?: string;
   timestamp?: string;
   metadata?: Record<string, any>;
-  // For GET_ENGAGEMENTS
   days?: number;
-  // For LOG_CHECKIN_SKIP
   skipDate?: string;
   hasWearable?: boolean;
   hasCalendar?: boolean;
-  // For SAVE_CHECKIN
   checkinDate?: string;
   outcome?: string;
   skipped?: boolean;
   stateTags?: string[];
   energyBalance?: number;
   dataSources?: Record<string, any>;
-}
-
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  
-  if (!auth0Domain) {
-    throw new Error('VITE_AUTH0_DOMAIN not configured');
-  }
-
-  const response = await fetch(`https://${auth0Domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[user-events] Auth0 verification failed:', errorText);
-    throw new Error('Invalid or expired token');
-  }
-
-  const userInfo = await response.json();
-  console.log('[user-events] Auth0 user verified:', userInfo.sub);
-  return userInfo.sub;
 }
 
 serve(async (req) => {
@@ -60,16 +34,9 @@ serve(async (req) => {
   }
 
   try {
-    // Verify Auth0 token
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userId = await verifyAuth0Token(authHeader);
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) return auth.errorResponse;
+    const userId = auth.userId;
 
     // Parse request body
     const body: RequestBody = await req.json();
