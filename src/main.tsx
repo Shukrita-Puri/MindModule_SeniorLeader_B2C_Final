@@ -6,8 +6,10 @@ import { AuthProvider } from './hooks/useAuth'
 import { DEV_MODE } from './config/devMode'
 import { getRedirectUri, initNativeAuthListener } from './utils/nativeAuth'
 
-// Boot the deep-link listener for iOS Capacitor auth callbacks
-initNativeAuthListener();
+// Boot the deep-link listener for iOS Capacitor auth callbacks (safe no-op on web)
+initNativeAuthListener().catch((e) =>
+  console.warn('[Main] initNativeAuthListener skipped:', e)
+);
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
 const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
