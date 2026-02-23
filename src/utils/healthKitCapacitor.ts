@@ -12,9 +12,15 @@ export interface HealthKitWearableData {
   steps: number | null;
 }
 
+import { Capacitor } from '@capacitor/core';
+
 /** Returns true when running inside the Capacitor native shell */
 export function isNativeApp(): boolean {
-  return !!(window as any).Capacitor?.isNativePlatform;
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
 }
 
 /**

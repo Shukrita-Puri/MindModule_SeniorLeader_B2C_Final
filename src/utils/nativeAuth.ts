@@ -6,17 +6,26 @@
  * it via `App.addListener('appUrlOpen', …)` and route the WebView to /callback.
  */
 
+import { Capacitor } from '@capacitor/core';
+
 const APP_SCHEME = 'app.mindmodule.me';
 
 /** True when running inside Capacitor's native iOS shell */
 export function isNativeiOS(): boolean {
-  const cap = (window as any).Capacitor;
-  return !!cap?.isNativePlatform && cap.getPlatform?.() === 'ios';
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  } catch {
+    return false;
+  }
 }
 
 /** True when running inside any Capacitor native shell */
 export function isNativeApp(): boolean {
-  return !!(window as any).Capacitor?.isNativePlatform;
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
 }
 
 /**
