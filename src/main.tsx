@@ -7,6 +7,7 @@ import { DEV_MODE } from './config/devMode'
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
 const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
+const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE || '';
 
 // Dev mode: render without Auth0Provider to avoid initialization errors
 if (DEV_MODE) {
@@ -22,7 +23,8 @@ if (DEV_MODE) {
       domain={auth0Domain}
       clientId={auth0ClientId}
       authorizationParams={{
-        redirect_uri: `${window.location.origin}/callback`
+        redirect_uri: `${window.location.origin}/callback`,
+        audience: auth0Audience,
       }}
       useRefreshTokens={true}
       cacheLocation="localstorage"

@@ -41,10 +41,14 @@ export async function verifyAuth0JWT(authHeader: string | null): Promise<string>
   }
 
   try {
-    const { payload } = await jwtVerify(token, getJWKS(), {
+    const audience = Deno.env.get('VITE_AUTH0_AUDIENCE');
+    const verifyOptions: any = {
       issuer: `https://${domain}/`,
-      // audience is optional — some functions may not require it
-    });
+    };
+    if (audience) {
+      verifyOptions.audience = audience;
+    }
+    const { payload } = await jwtVerify(token, getJWKS(), verifyOptions);
 
     const sub = payload.sub;
     if (!sub) {
