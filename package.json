@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.9.0",
+    "@capacitor/android": "^8.1.0",
     "@capacitor/browser": "^8.0.1",
+    "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@capgo/capacitor-health": "^8.2.16",
     "@hookform/resolvers": "^3.9.0",
     "@nivo/radar": "^0.99.0",
