@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,54 +28,15 @@ interface RequestBody {
   };
 }
 
-async function verifyAuth0Token(authHeader: string): Promise<string> {
-  const token = authHeader.replace('Bearer ', '');
-  const auth0Domain = Deno.env.get('VITE_AUTH0_DOMAIN');
-  if (!auth0Domain) throw new Error('VITE_AUTH0_DOMAIN not configured');
-  
-  // Retry up to 3 times with backoff to handle Auth0 rate limiting
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      await new Promise(r => setTimeout(r, 300 * attempt));
-    }
-    const response = await fetch(`https://${auth0Domain}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const userInfo = await response.json();
-      return userInfo.sub;
-    }
-    
-    if (response.status === 429) {
-      console.warn(`[daily-checkins] Auth0 rate limited, attempt ${attempt + 1}/3`);
-      continue;
-    }
-    
-    // Non-retryable error
-    const errorBody = await response.text();
-    console.error(`[daily-checkins] Auth0 /userinfo failed: status=${response.status}, body=${errorBody}`);
-    throw new Error('Invalid token');
-  }
-  
-  throw new Error('Auth0 rate limited after retries');
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const userId = await verifyAuth0Token(authHeader);
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) return auth.errorResponse;
+    const userId = auth.userId;
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

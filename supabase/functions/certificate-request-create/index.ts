@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
+import { authenticateRequest } from "../_shared/auth.ts";
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,37 +48,6 @@ async function encryptJson(
   };
 }
 
-// Verify Auth0 token via /userinfo endpoint
-async function verifyAuth0Token(authHeader: string | null): Promise<string> {
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Missing or invalid Authorization header");
-  }
-  
-  const token = authHeader.replace("Bearer ", "");
-  const auth0Domain = Deno.env.get("VITE_AUTH0_DOMAIN");
-  
-  if (!auth0Domain) {
-    throw new Error("VITE_AUTH0_DOMAIN not configured");
-  }
-  
-  const response = await fetch(`https://${auth0Domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Auth0 userinfo failed:", response.status, errorText);
-    throw new Error("Invalid or expired token");
-  }
-  
-  const userInfo = await response.json();
-  if (!userInfo.sub) {
-    throw new Error("Token verification failed - no sub claim");
-  }
-  
-  return userInfo.sub;
-}
-
 // Write audit log entry
 // deno-lint-ignore no-explicit-any
 async function writeAuditLog(
@@ -99,7 +68,6 @@ async function writeAuditLog(
   
   if (error) {
     console.error("Failed to write audit log:", error);
-    // Don't throw - audit log failure shouldn't break the main operation
   }
 }
 
@@ -119,8 +87,9 @@ Deno.serve(async (req) => {
     }
 
     // Verify Auth0 token
-    const authHeader = req.headers.get("Authorization");
-    const userId = await verifyAuth0Token(authHeader);
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) return auth.errorResponse;
+    const userId = auth.userId;
     console.log("Verified Auth0 user:", userId);
 
     // Parse request body
