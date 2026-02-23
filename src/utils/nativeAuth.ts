@@ -1,25 +1,58 @@
 /**
- * Native (iOS Capacitor) authentication helpers.
+ * Native (iOS Capacitor) authentication helpers — Singleton manager.
  *
- * On iOS the Auth0 redirect flow bounces through Safari / SFSafariViewController.
- * The return deep-link uses the app's custom URL scheme so Capacitor can intercept
- * it via `App.addListener('appUrlOpen', …)` and route the WebView to /callback.
+ * Prevents duplicate Browser.open calls, duplicate listeners, and
+ * login loops during callback handling.
  */
 
 import { Capacitor } from '@capacitor/core';
 
 const APP_SCHEME = 'app.mindmodule.me';
 
-// Module-level guards to prevent duplicate operations
-let _nativeLoginInProgress = false;
+// ─── Singleton flags ────────────────────────────────────────────────
+let _loginInProgress = false;
+let _safariPresented = false;
+let _callbackInProgress = false;
 let _listenerRegistered = false;
 
 /** Key used in localStorage to signal that native auth just completed (survives reload) */
 export const NATIVE_AUTH_COMPLETED_KEY = 'native_auth_completed';
-
 const NATIVE_TOKENS_KEY = 'native_auth_tokens';
 
-/** Store tokens obtained from native PKCE exchange */
+// ─── Flag accessors ─────────────────────────────────────────────────
+
+export function isLoginInProgress(): boolean { return _loginInProgress; }
+export function isSafariPresented(): boolean { return _safariPresented; }
+export function isCallbackInProgress(): boolean { return _callbackInProgress; }
+
+export function setCallbackInProgress(v: boolean): void {
+  _callbackInProgress = v;
+  console.log('[NativeAuth] callbackInProgress =', v);
+}
+
+export function clearNativeLoginInProgress(): void {
+  _loginInProgress = false;
+  _safariPresented = false;
+  console.log('[NativeAuth] loginInProgress + safariPresented cleared');
+}
+
+/** True if ANY native auth operation is active (login, safari, or callback) */
+export function isNativeAuthBusy(): boolean {
+  return _loginInProgress || _safariPresented || _callbackInProgress;
+}
+
+// ─── Native auth completed flag (localStorage, survives reload) ─────
+
+export function isNativeAuthCompleted(): boolean {
+  return localStorage.getItem(NATIVE_AUTH_COMPLETED_KEY) === 'true';
+}
+
+export function clearNativeAuthCompleted(): void {
+  localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
+}
+
+// ─── Token store ────────────────────────────────────────────────────
+
 export function storeNativeTokens(tokens: {
   access_token: string;
   id_token: string;
@@ -33,10 +66,9 @@ export function storeNativeTokens(tokens: {
     expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
   };
   localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
-  console.log('[NativeAuth] Tokens stored in native token store');
+  console.log('[NativeAuth] Tokens stored');
 }
 
-/** Read stored native tokens (returns null if missing or expired) */
 export function getNativeTokens(): {
   access_token: string;
   id_token: string;
@@ -59,12 +91,12 @@ export function getNativeTokens(): {
   }
 }
 
-/** Clear stored native tokens */
 export function clearNativeTokens(): void {
   localStorage.removeItem(NATIVE_TOKENS_KEY);
 }
 
-/** Decode a JWT payload without verification (for extracting user claims) */
+// ─── JWT helpers ────────────────────────────────────────────────────
+
 export function decodeJwtPayload(token: string): Record<string, any> | null {
   try {
     const base64Url = token.split('.')[1];
@@ -76,22 +108,8 @@ export function decodeJwtPayload(token: string): Record<string, any> | null {
   }
 }
 
-/** Check if a native login flow is currently in progress */
-export function isNativeLoginInProgress(): boolean {
-  return _nativeLoginInProgress;
-}
+// ─── Platform checks ───────────────────────────────────────────────
 
-/** Check if native auth just completed (token exchange done, waiting for SDK pickup) */
-export function isNativeAuthCompleted(): boolean {
-  return localStorage.getItem(NATIVE_AUTH_COMPLETED_KEY) === 'true';
-}
-
-/** Clear the native auth completed flag (call after SDK confirms authenticated) */
-export function clearNativeAuthCompleted(): void {
-  localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
-}
-
-/** True when running inside Capacitor's native iOS shell */
 export function isNativeiOS(): boolean {
   try {
     return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -100,7 +118,6 @@ export function isNativeiOS(): boolean {
   }
 }
 
-/** True when running inside any Capacitor native shell */
 export function isNativeApp(): boolean {
   try {
     return Capacitor.isNativePlatform();
@@ -109,37 +126,28 @@ export function isNativeApp(): boolean {
   }
 }
 
-/**
- * Returns the correct Auth0 redirect_uri for the current platform.
- */
 export function getRedirectUri(): string {
-  if (isNativeiOS()) {
-    return `${APP_SCHEME}://callback`;
-  }
+  if (isNativeiOS()) return `${APP_SCHEME}://callback`;
   return `${window.location.origin}/callback`;
 }
 
-/**
- * On iOS native, opens the Auth0 authorize URL in Capacitor's in-app browser
- * (SFSafariViewController) instead of doing a full-page redirect which would
- * leave the WebView and open Safari.
- *
- * Returns `true` if the native path was taken (caller should skip loginWithRedirect).
- * Returns `false` if on web (caller should proceed normally).
- */
+// ─── Login (Browser.open) ───────────────────────────────────────────
+
 export async function nativeLogin(options?: {
   returnTo?: string;
   screenHint?: 'signup' | 'login';
 }): Promise<boolean> {
   if (!isNativeiOS()) return false;
 
-  // Guard: don't open browser if login is already in progress or just completed
-  if (_nativeLoginInProgress) {
-    console.log('[NativeAuth] Login already in progress, skipping');
-    return true; // return true so caller doesn't fall through to web flow
+  // Guard: only one login attempt at a time
+  if (_loginInProgress || _safariPresented || _callbackInProgress) {
+    console.log('[NativeAuth] Login blocked — loginInProgress:', _loginInProgress,
+      'safariPresented:', _safariPresented, 'callbackInProgress:', _callbackInProgress);
+    return true; // tell caller not to fall through to web flow
   }
+
   if (isNativeAuthCompleted()) {
-    console.log('[NativeAuth] Auth recently completed (pending SDK pickup), skipping');
+    console.log('[NativeAuth] Auth already completed (pending hydration), skipping login');
     return true;
   }
 
@@ -148,21 +156,17 @@ export async function nativeLogin(options?: {
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE || `https://${domain}/api/v2/`;
 
   if (!domain || !clientId) {
-    console.error('[NativeAuth] Missing Auth0 env vars, falling back to web flow');
+    console.error('[NativeAuth] Missing Auth0 env vars');
     return false;
   }
 
-  // Store return path for post-auth redirect
   const returnTo = options?.returnTo || '/executive-home';
   sessionStorage.setItem('auth0_return_to', returnTo);
 
-  // Generate PKCE code_verifier + code_challenge
+  // PKCE
   const codeVerifier = generateRandomString(64);
   const codeChallenge = await sha256Base64Url(codeVerifier);
   const state = generateRandomString(32);
-
-  // Store PKCE verifier + state so Auth0 SDK can complete the exchange
-  // Auth0 SPA SDK stores these, but since we're bypassing it we store manually
   sessionStorage.setItem('native_auth_code_verifier', codeVerifier);
   sessionStorage.setItem('native_auth_state', state);
 
@@ -177,31 +181,80 @@ export async function nativeLogin(options?: {
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
   });
-
-  if (options?.screenHint) {
-    params.set('screen_hint', options.screenHint);
-  }
+  if (options?.screenHint) params.set('screen_hint', options.screenHint);
 
   const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
-  console.log('[NativeAuth] Opening in-app browser:', authorizeUrl);
 
-  _nativeLoginInProgress = true;
+  // Set BOTH flags before opening
+  _loginInProgress = true;
+  _safariPresented = true;
+  console.log('[NativeAuth] 🔐 Opening Safari for login...');
 
   try {
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url: authorizeUrl, presentationStyle: 'popover' });
+    console.log('[NativeAuth] ✅ Browser.open succeeded');
     return true;
   } catch (e) {
-    _nativeLoginInProgress = false;
-    console.error('[NativeAuth] Failed to open in-app browser:', e);
+    _loginInProgress = false;
+    _safariPresented = false;
+    console.error('[NativeAuth] ❌ Browser.open failed:', e);
     return false;
   }
 }
 
-/** Reset the in-progress flag (call after callback completes or fails) */
-export function clearNativeLoginInProgress(): void {
-  _nativeLoginInProgress = false;
+// ─── Deep-link listener (register once) ─────────────────────────────
+
+export async function initNativeAuthListener(): Promise<void> {
+  if (!isNativeiOS()) return;
+  if (_listenerRegistered) {
+    console.log('[NativeAuth] Listener already registered, skipping');
+    return;
+  }
+  _listenerRegistered = true;
+
+  try {
+    const { App } = await import('@capacitor/app');
+    const { Browser } = await import('@capacitor/browser');
+
+    App.addListener('appUrlOpen', async ({ url }) => {
+      console.log('[NativeAuth] 📥 appUrlOpen:', url);
+
+      if (!url.startsWith(`${APP_SCHEME}://callback`)) {
+        console.log('[NativeAuth] Ignoring non-callback URL');
+        return;
+      }
+
+      // Mark callback in progress immediately — prevents ProtectedRoute from triggering login
+      _callbackInProgress = true;
+      console.log('[NativeAuth] ✅ Callback URL matched, callbackInProgress=true');
+
+      try {
+        await Browser.close();
+        _safariPresented = false;
+        console.log('[NativeAuth] Browser closed, safariPresented=false');
+      } catch (e) {
+        _safariPresented = false;
+        console.warn('[NativeAuth] Browser.close() failed (may already be closed):', e);
+      }
+
+      const callbackUrl = new URL(url);
+      const webPath = `/callback${callbackUrl.search}`;
+      console.log('[NativeAuth] Navigating WebView to:', webPath);
+
+      // Short delay to let Safari dismiss before navigation
+      setTimeout(() => {
+        window.location.href = webPath;
+      }, 150);
+    });
+
+    console.log('[NativeAuth] ✅ Deep-link listener registered (once)');
+  } catch (e) {
+    console.error('[NativeAuth] Failed to register listener:', e);
+  }
 }
+
+// ─── Helpers ────────────────────────────────────────────────────────
 
 function generateRandomString(length: number): string {
   const array = new Uint8Array(length);
@@ -215,60 +268,4 @@ async function sha256Base64Url(plain: string): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data);
   const base64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Initialise the Capacitor deep-link listener that captures the Auth0
- * callback on iOS and feeds it back into the WebView so the Auth0 SDK
- * can exchange the authorisation code.
- *
- * Call once at app startup (main.tsx).
- */
-export async function initNativeAuthListener(): Promise<void> {
-  if (!isNativeiOS()) return;
-
-  // Guard: register only once
-  if (_listenerRegistered) {
-    console.log('[NativeAuth] Deep-link listener already registered, skipping');
-    return;
-  }
-  _listenerRegistered = true;
-
-  try {
-    const { App } = await import('@capacitor/app');
-    const { Browser } = await import('@capacitor/browser');
-
-    App.addListener('appUrlOpen', async ({ url }) => {
-      console.log('[NativeAuth] 📥 appUrlOpen fired. URL:', url);
-
-      // Only handle our callback scheme
-      if (!url.startsWith(`${APP_SCHEME}://callback`)) {
-        console.log('[NativeAuth] Ignoring non-callback URL:', url);
-        return;
-      }
-
-      console.log('[NativeAuth] ✅ Callback URL matched, processing...');
-
-      try {
-        await Browser.close();
-        console.log('[NativeAuth] Browser closed successfully');
-      } catch (e) {
-        console.warn('[NativeAuth] Browser.close() failed (may already be closed):', e);
-      }
-
-      // Extract query and navigate WebView to /callback
-      const callbackUrl = new URL(url);
-      const webPath = `/callback${callbackUrl.search}`;
-      console.log('[NativeAuth] Navigating WebView to:', webPath);
-
-      // Use setTimeout to let Browser.close() settle before navigation
-      setTimeout(() => {
-        window.location.href = webPath;
-      }, 100);
-    });
-
-    console.log('[NativeAuth] ✅ Deep-link listener registered');
-  } catch (e) {
-    console.error('[NativeAuth] Failed to register deep-link listener:', e);
-  }
 }
