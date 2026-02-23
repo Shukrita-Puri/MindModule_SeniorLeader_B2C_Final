@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload } from '@/utils/nativeAuth';
 
 // Extend window type for global auth client
 declare global {
@@ -56,7 +57,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { user: auth0User, isLoading, logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [nativeAuthed, setNativeAuthed] = useState(false);
   const syncAttempted = useRef(false);
+  const nativeHydrationAttempted = useRef(false);
 
   // Expose Auth0 client globally for utility functions that can't use hooks
   useEffect(() => {
@@ -70,6 +73,102 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       delete window.__auth0Client;
     };
   }, [getAccessTokenSilently]);
+
+  // Native auth hydration: when SDK doesn't pick up tokens, use native token store
+  useEffect(() => {
+    if (isLoading) return;
+    if (isAuthenticated) {
+      // SDK caught up — clear native flags if present
+      if (isNativeAuthCompleted()) {
+        console.log('[useAuth] SDK is authenticated, clearing native auth flags');
+        clearNativeAuthCompleted();
+        clearNativeTokens();
+        setNativeAuthed(false);
+      }
+      return;
+    }
+    if (nativeHydrationAttempted.current) return;
+    if (!isNativeAuthCompleted()) return;
+
+    nativeHydrationAttempted.current = true;
+    const tokens = getNativeTokens();
+    if (!tokens) {
+      console.warn('[useAuth] Native auth flag set but no valid tokens found, clearing');
+      clearNativeAuthCompleted();
+      return;
+    }
+
+    console.log('[useAuth] 🔄 Hydrating auth from native tokens...');
+    const payload = decodeJwtPayload(tokens.id_token);
+    if (!payload) {
+      console.error('[useAuth] Failed to decode native id_token, clearing');
+      clearNativeAuthCompleted();
+      clearNativeTokens();
+      return;
+    }
+
+    // Expose native token via global auth client so API calls work
+    window.__auth0Client = {
+      getAccessTokenSilently: () => Promise.resolve(tokens.access_token),
+    };
+
+    // Create user from JWT claims
+    const nativeUser: AppUser = {
+      id: payload.sub,
+      email: payload.email,
+      name: payload.name || payload.nickname,
+      picture: payload.picture,
+      subscription_status: 'trial',
+      subscription_plan: 'monthly',
+    };
+    setAppUser(nativeUser);
+    setNativeAuthed(true);
+    console.log('[useAuth] ✅ Native auth hydration complete, user:', payload.sub);
+
+    // Now attempt profile sync with native token
+    (async () => {
+      try {
+        setSyncing(true);
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/sync-profile`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${tokens.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: payload.email,
+              name: payload.name || payload.nickname,
+              picture: payload.picture,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const { profile } = await response.json();
+          console.log('[useAuth] ✅ Native profile synced:', profile.id);
+          setAppUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.full_name || payload.name,
+            picture: payload.picture,
+            subscription_status: profile.subscription_status || 'trial',
+            subscription_plan: profile.subscription_plan || 'monthly',
+            onboarding_completed: !!profile.onboarding_completed_at,
+            user_archetype: profile.user_archetype,
+          });
+        } else {
+          console.warn('[useAuth] Native profile sync failed:', response.status);
+        }
+      } catch (err) {
+        console.warn('[useAuth] Native profile sync error:', err);
+      } finally {
+        setSyncing(false);
+      }
+    })();
+  }, [isLoading, isAuthenticated]);
 
   useEffect(() => {
     const syncProfile = async () => {
@@ -160,6 +259,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     syncAttempted.current = false;
+    nativeHydrationAttempted.current = false;
+    setNativeAuthed(false);
+    clearNativeTokens();
+    clearNativeAuthCompleted();
     await logout({ 
       logoutParams: { 
         returnTo: window.location.origin 
@@ -168,12 +271,14 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAppUser(null);
   };
 
+  const effectiveAuthenticated = isAuthenticated || nativeAuthed;
+
   return (
     <AuthContext.Provider value={{ 
       user: appUser, 
       loading: isLoading || syncing, 
       signOut,
-      isAuthenticated 
+      isAuthenticated: effectiveAuthenticated
     }}>
       {children}
     </AuthContext.Provider>
