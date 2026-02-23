@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
-import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin, isNativeLoginInProgress, isNativeAuthCompleted } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -34,6 +34,11 @@ const Stage8SignupStep = () => {
     }
 
     if (redirectInitiated.current) return;
+    // Don't trigger login if native auth flow is active
+    if (isNativeLoginInProgress() || isNativeAuthCompleted()) {
+      console.log('[Stage8] Native auth in progress or completed, waiting...');
+      return;
+    }
     redirectInitiated.current = true;
 
     // On iOS native, open in-app browser

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, isNativeLoginInProgress, isNativeAuthCompleted, clearNativeAuthCompleted } from "@/utils/nativeAuth";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (DEV_MODE) {
@@ -22,7 +22,24 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (loading || auth0Loading) return;
 
+    // If native auth just completed and SDK now confirms authenticated, clear the flag
+    if (isAuthenticated && isNativeAuthCompleted()) {
+      console.log('[ProtectedRoute] Native auth confirmed by SDK, clearing flag');
+      clearNativeAuthCompleted();
+      return;
+    }
+
     if (!isAuthenticated && !redirectInitiated.current) {
+      // Don't trigger login if native auth is in progress or just completed (pending SDK pickup)
+      if (isNativeLoginInProgress()) {
+        console.log('[ProtectedRoute] Native login in progress, waiting...');
+        return;
+      }
+      if (isNativeAuthCompleted()) {
+        console.log('[ProtectedRoute] Native auth completed, waiting for SDK to pick up tokens...');
+        return;
+      }
+
       redirectInitiated.current = true;
 
       // On iOS native, open in-app browser
