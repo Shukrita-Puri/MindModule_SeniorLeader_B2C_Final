@@ -18,7 +18,7 @@ const GlobalHeader = () => {
   };
 
   return (
-    <div className="fixed left-0 z-50 p-4" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="fixed left-0 z-50 p-4 top-0">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button 
