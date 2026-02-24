@@ -3,6 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
+import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
 
 const Signup = () => {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -21,8 +22,17 @@ const Signup = () => {
       return;
     }
 
+    // Don't auto-trigger auth if user just signed out
+    if (isLogoutGuardActive()) {
+      console.log('[Signup] Logout guard active, skipping auto-signup');
+      navigate('/', { replace: true });
+      return;
+    }
+
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
+
+    clearLogoutGuard();
 
     const returnTo = isOnboardingFlow ? '/onboarding/results' : '/executive-home';
 

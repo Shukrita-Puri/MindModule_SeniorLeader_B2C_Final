@@ -3,6 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
+import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
 
 function isInIframe(): boolean {
   try {
@@ -34,8 +35,18 @@ const Login = () => {
       return;
     }
 
+    // Don't auto-trigger auth if user just signed out
+    if (isLogoutGuardActive()) {
+      console.log('[Login] Logout guard active, skipping auto-login');
+      navigate('/', { replace: true });
+      return;
+    }
+
     if (redirectInitiated.current) return;
     redirectInitiated.current = true;
+
+    // Clear guard since user explicitly navigated to /login
+    clearLogoutGuard();
 
     // On iOS native, open in-app browser
     (async () => {

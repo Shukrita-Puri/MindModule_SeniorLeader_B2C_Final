@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted } from "@/utils/nativeAuth";
+import { isLogoutGuardActive } from "@/utils/logoutGuard";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (DEV_MODE) {
@@ -17,6 +18,7 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const { loginWithRedirect, isLoading: auth0Loading } = useAuth0();
   const location = useLocation();
+  const navigate = useNavigate();
   const redirectInitiated = useRef(false);
 
   useEffect(() => {
@@ -24,6 +26,13 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     // If authenticated (either SDK or native hydration), we're done
     if (isAuthenticated) return;
+
+    // If user just signed out, redirect to landing instead of re-authing
+    if (isLogoutGuardActive()) {
+      console.log('[ProtectedRoute] Logout guard active, redirecting to /');
+      navigate('/', { replace: true });
+      return;
+    }
 
     if (!redirectInitiated.current) {
       // Don't trigger login if any native auth operation is active
@@ -52,7 +61,7 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         });
       })();
     }
-  }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect]);
+  }, [loading, auth0Loading, isAuthenticated, location.pathname, loginWithRedirect, navigate]);
 
   if (loading || auth0Loading || !isAuthenticated) {
     return (

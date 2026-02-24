@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload } from '@/utils/nativeAuth';
+import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress } from '@/utils/nativeAuth';
+import { activateLogoutGuard } from '@/utils/logoutGuard';
 
 // Extend window type for global auth client
 declare global {
@@ -258,17 +259,38 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [auth0User, isAuthenticated, getAccessTokenSilently]);
 
   const signOut = async () => {
+    // 1. Activate logout guard BEFORE anything else — prevents auto-login race
+    activateLogoutGuard();
+
+    // 2. Clear all native auth state
     syncAttempted.current = false;
     nativeHydrationAttempted.current = false;
     setNativeAuthed(false);
     clearNativeTokens();
     clearNativeAuthCompleted();
+    clearNativeLoginInProgress();
+    setAppUser(null);
+    delete window.__auth0Client;
+
+    // 3. On native iOS, do a local-only logout (no external redirect to Auth0)
+    //    to avoid bouncing the user into Safari.
+    if (isNativeiOS()) {
+      // Clear Auth0 SDK cache locally without triggering a redirect
+      try {
+        await logout({ openUrl: false });
+      } catch (e) {
+        console.warn('[useAuth] Native logout cleanup error (non-fatal):', e);
+      }
+      // Navigation to "/" is handled by the caller (signOut consumer)
+      return;
+    }
+
+    // 4. Web: standard Auth0 redirect logout
     await logout({ 
       logoutParams: { 
         returnTo: window.location.origin 
       } 
     });
-    setAppUser(null);
   };
 
   const effectiveAuthenticated = isAuthenticated || nativeAuthed;
