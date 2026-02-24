@@ -73,7 +73,7 @@ const SmartNudgeNotification = ({
   const Icon = getIcon();
 
   return (
-    <div className={`fixed top-4 left-4 right-4 z-50 rounded-xl border-2 ${getUrgencyColor()} shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300`}>
+    <div className={`fixed left-4 right-4 z-50 rounded-xl border-2 ${getUrgencyColor()} shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300`} style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
       {/* Lock Screen Style Header */}
       <div className="flex items-center justify-between p-3 bg-white/90 backdrop-blur-sm">
         <div className="flex items-center gap-3">
