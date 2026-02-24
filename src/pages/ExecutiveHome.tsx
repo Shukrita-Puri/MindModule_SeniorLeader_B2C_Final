@@ -150,8 +150,8 @@ const ExecutiveHome = () => {
         <SidebarInset className="w-full overflow-x-hidden">
           {/* Immersive Hero Visual - flows behind header */}
           <div className="relative">
-            {/* Nature visual underlay - full bleed */}
-            <div className="absolute inset-0 z-0 overflow-hidden">
+            {/* Nature visual underlay - full bleed, pointer-events: none so touches pass through */}
+            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
               <video 
                 src={getHeroVideo()}
                 poster={getHeroVisual()}
@@ -162,11 +162,11 @@ const ExecutiveHome = () => {
                 className="w-full h-full object-cover video-warm-luxury opacity-40 transition-opacity duration-1000 ease-out"
               />
               {/* Warm luxury gradient - enhanced for text readability */}
-              <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background" />
+              <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
             </div>
             
-            {/* Header - now INSIDE the visual */}
-            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full">
+            {/* Header - now INSIDE the visual, safe-area aware */}
+            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
               <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
               <CoachAccessButton />
             </header>
