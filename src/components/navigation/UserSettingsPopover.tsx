@@ -43,8 +43,9 @@ const UserSettingsPopover = () => {
   };
 
   const handleNavigate = (path: string) => {
-    setOpen(false);
     navigate(path);
+    // Close after navigation to prevent unmount race on iOS WebView
+    requestAnimationFrame(() => setOpen(false));
   };
 
   return (
