@@ -1562,7 +1562,7 @@ const GuidedPracticePlayer = () => {
         <TopNavigation backPath={getCategoryPath()} />
         
         {/* Step Counter */}
-        <div className="fixed top-16 right-4 md:right-6 z-40">
+        <div className="fixed right-4 md:right-6 z-40" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
           <span className="text-xs md:text-sm text-muted-foreground bg-card/80 backdrop-blur-sm px-2 md:px-3 py-1 rounded-full border border-gold/20">
             Step {currentStep + 1} of {practice.steps.length}
           </span>

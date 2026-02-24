@@ -23,7 +23,7 @@ const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) =>
   };
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 ${transparent ? 'bg-gradient-to-b from-black/60 to-transparent backdrop-blur-md border-b border-white/10' : 'bg-background/80 backdrop-blur-sm border-b border-gold/20'} shadow-sm`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className={`fixed top-0 left-0 right-0 z-50 safe-area-top ${transparent ? 'bg-gradient-to-b from-black/60 to-transparent backdrop-blur-md border-b border-white/10' : 'bg-background/80 backdrop-blur-sm border-b border-gold/20'} shadow-sm`}>
       <div className="flex items-center justify-between px-5 md:px-8 py-2">
         {/* Left: Back Arrow */}
         <Button

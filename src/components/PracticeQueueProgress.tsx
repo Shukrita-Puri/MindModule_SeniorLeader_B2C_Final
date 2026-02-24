@@ -40,11 +40,14 @@ const PracticeQueueProgress = ({
   }
 
   return (
-    <div className={cn(
-      inline 
-        ? "relative w-full" // No background when inline - wrapper provides it
-        : "fixed top-16 left-0 right-0 z-40 bg-white/10 dark:bg-black/10 backdrop-blur-2xl border-b border-white/10"
-    )}>
+    <div 
+      className={cn(
+        inline 
+          ? "relative w-full"
+          : "fixed left-0 right-0 z-40 bg-white/10 dark:bg-black/10 backdrop-blur-2xl border-b border-white/10"
+      )}
+      style={!inline ? { top: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' } : undefined}
+    >
       <div className="max-w-4xl mx-auto px-4 py-3">
         {/* Minimal Progress Dots - top right aligned */}
         <div className="flex items-center justify-between mb-3">

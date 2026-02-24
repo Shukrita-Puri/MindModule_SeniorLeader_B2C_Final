@@ -22,7 +22,7 @@ const ClearBackButton = () => {
   };
 
   return (
-    <div className="fixed left-4 top-4 z-50">
+    <div className="fixed left-4 z-50 safe-area-top" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
       <Button
         variant="ghost"
         size="sm"

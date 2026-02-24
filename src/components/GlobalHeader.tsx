@@ -18,7 +18,7 @@ const GlobalHeader = () => {
   };
 
   return (
-    <div className="fixed left-0 z-50 p-4 top-0">
+    <div className="fixed left-0 z-50 p-4 top-0 safe-area-top">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button 
