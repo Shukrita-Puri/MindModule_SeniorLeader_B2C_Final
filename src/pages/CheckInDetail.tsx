@@ -10,19 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
-
-// Helper to get Auth0 access token
-async function getAccessToken(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();

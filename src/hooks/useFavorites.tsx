@@ -3,19 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { DEV_MODE, DEV_USER } from "@/config/devMode";
-
-// Helper to get access token
-async function getAccessToken(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 
 interface FavoriteItem {
   content_id: string;

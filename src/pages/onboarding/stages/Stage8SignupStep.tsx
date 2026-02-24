@@ -51,7 +51,7 @@ const Stage8SignupStep = () => {
         authorizationParams: {
           redirect_uri: `${getRedirectUri()}?from=onboarding`,
           screen_hint: 'signup',
-          scope: 'openid profile email',
+          scope: 'openid profile email offline_access',
         },
       });
     })();

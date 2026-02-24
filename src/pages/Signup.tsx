@@ -41,7 +41,7 @@ const Signup = () => {
         authorizationParams: {
           redirect_uri: redirectUri,
           screen_hint: 'signup',
-          scope: 'openid profile email',
+          scope: 'openid profile email offline_access',
         },
       });
     })();

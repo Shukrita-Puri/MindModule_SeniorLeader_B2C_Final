@@ -1,16 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
-
-// Get Auth0 access token for edge function calls
-async function getAccessToken(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (!auth0Client) return null;
-    return await auth0Client.getTokenSilently();
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken } from '@/services/authTokenService';
 
 // Patterns that indicate reflection-worthy content
 const REFLECTION_PATTERNS = [
@@ -40,7 +30,7 @@ async function storeFeedbackAsWin(
   contentType: string
 ): Promise<void> {
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAuthToken();
     if (!accessToken) return;
 
     await supabase.functions.invoke('store-tiny-win', {

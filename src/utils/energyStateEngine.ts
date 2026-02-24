@@ -7,19 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
-
-// Helper to get Auth0 access token via global client
-async function getAuth0Token(): Promise<string | null> {
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      return await auth0Client.getAccessTokenSilently();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
 
 // ==================== RETRY GUARDRAIL ====================
 const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
