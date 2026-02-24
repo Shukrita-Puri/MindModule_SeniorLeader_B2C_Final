@@ -31,6 +31,7 @@ if (DEV_MODE) {
       authorizationParams={{
         redirect_uri: getRedirectUri(),
         audience: auth0Audience,
+        scope: 'openid profile email offline_access',
       }}
       useRefreshTokens={true}
       cacheLocation="localstorage"

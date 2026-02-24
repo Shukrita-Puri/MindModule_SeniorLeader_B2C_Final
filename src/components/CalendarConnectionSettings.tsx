@@ -6,7 +6,7 @@ import { Calendar, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface CalendarConnectionSettingsProps {
   compact?: boolean;
@@ -21,7 +21,7 @@ const CalendarConnectionSettings = ({
   const [lastSync, setLastSync] = useState<string | null>(null);
   
   const { user } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
+  const getAccessTokenSilently = getAuthToken;
 
   // Helper function to check calendar status via edge function (bypasses RLS)
   const fetchCalendarStatus = async () => {

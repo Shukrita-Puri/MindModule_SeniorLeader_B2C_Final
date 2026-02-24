@@ -1,25 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 
-// Helper to get access token from globally exposed Auth0 client (returns null in DEV_MODE)
-async function getAccessToken(): Promise<string | null> {
-  if (DEV_MODE) {
-    return null; // DEV_MODE uses direct DB access instead
-  }
-  try {
-    const auth0Client = (window as any).__auth0Client;
-    if (auth0Client) {
-      const token = await auth0Client.getAccessTokenSilently();
-      console.log('[dailyRituals] Token obtained successfully');
-      return token;
-    }
-    console.warn('[dailyRituals] No auth0Client on window - Auth0 may not be initialized yet');
-    return null;
-  } catch (error) {
-    console.error('[dailyRituals] Failed to get access token:', error);
-    return null;
-  }
-}
+// Alias for backward compat within this file
+const getAccessToken = getAuthToken;
 
 export interface RitualData {
   id?: string;

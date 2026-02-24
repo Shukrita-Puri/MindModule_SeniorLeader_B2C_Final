@@ -47,7 +47,7 @@ const Auth0ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           appState: { returnTo: location.pathname },
           authorizationParams: {
             redirect_uri: getRedirectUri(),
-            scope: 'openid profile email',
+            scope: 'openid profile email offline_access',
           },
         });
       })();

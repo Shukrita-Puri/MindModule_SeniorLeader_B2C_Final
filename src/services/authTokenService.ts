@@ -35,11 +35,21 @@ export async function getAuthToken(): Promise<string | null> {
       }
       console.warn('[authTokenService] Auth0 client not available');
       return null;
-    } catch (err) {
+    } catch (err: any) {
+      // If refresh token is missing, try iframe-based silent auth as fallback
+      if (err?.error === 'missing_refresh_token') {
+        try {
+          const auth0Client = (window as any).__auth0Client;
+          if (auth0Client) {
+            return await auth0Client.getAccessTokenSilently({ cacheMode: 'off' });
+          }
+        } catch (fallbackErr) {
+          console.error('[authTokenService] Fallback token retrieval also failed:', fallbackErr);
+        }
+      }
       console.error('[authTokenService] Token retrieval failed:', err);
       return null;
     } finally {
-      // Clear the inflight promise so next call creates a fresh one
       inflightTokenPromise = null;
     }
   })();

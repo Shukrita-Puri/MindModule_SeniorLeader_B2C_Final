@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface EngagementEvent {
   event_type: 'ritual_start' | 'session_start' | 'checkin' | 'micro_response';
@@ -32,7 +32,7 @@ interface DailyCheckIn {
 
 export const useMentalFitnessTracking = () => {
   const { user } = useAuth();
-  const { getAccessTokenSilently } = useAuth0();
+  const getAccessTokenSilently = getAuthToken;
 
   // Track engagement event via edge function
   const trackEngagement = useCallback(async (event: EngagementEvent) => {
@@ -59,7 +59,7 @@ export const useMentalFitnessTracking = () => {
     } catch (error) {
       console.error('Error tracking engagement:', error);
     }
-  }, [user, getAccessTokenSilently]);
+  }, [user]);
 
   // Update or create daily ritual completion via edge function
   const updateRitualCompletion = useCallback(async (completion: RitualCompletion) => {
@@ -90,7 +90,7 @@ export const useMentalFitnessTracking = () => {
     } catch (error) {
       console.error('Error updating ritual completion:', error);
     }
-  }, [user, getAccessTokenSilently]);
+  }, [user]);
 
   // Save daily check-in via edge function
   const saveCheckIn = useCallback(async (checkIn: DailyCheckIn) => {
@@ -116,7 +116,7 @@ export const useMentalFitnessTracking = () => {
     } catch (error) {
       console.error('Error saving check-in:', error);
     }
-  }, [user, getAccessTokenSilently]);
+  }, [user]);
 
   // Get recent engagements via edge function
   const getRecentEngagements = useCallback(async (days: number = 30) => {
@@ -143,7 +143,7 @@ export const useMentalFitnessTracking = () => {
       console.error('Error fetching engagements:', error);
       return [];
     }
-  }, [user, getAccessTokenSilently]);
+  }, [user]);
 
   // Get ritual completions for date range - still uses direct query for now
   // TODO: Add to practice-data edge function if needed
@@ -161,7 +161,7 @@ export const useMentalFitnessTracking = () => {
       console.error('Error fetching ritual completions:', error);
       return [];
     }
-  }, [user, getAccessTokenSilently]);
+  }, [user]);
 
   return {
     trackEngagement,

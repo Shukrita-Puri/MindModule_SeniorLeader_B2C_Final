@@ -46,7 +46,7 @@ const Login = () => {
         appState: { returnTo: finalDestination },
         authorizationParams: {
           redirect_uri: getRedirectUri(),
-          scope: 'openid profile email',
+          scope: 'openid profile email offline_access',
         },
       });
     })();
