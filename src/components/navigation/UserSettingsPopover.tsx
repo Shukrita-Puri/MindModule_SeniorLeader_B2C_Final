@@ -39,7 +39,8 @@ const UserSettingsPopover = () => {
   const handleSignOut = async () => {
     setOpen(false);
     await signOut();
-    navigate('/login');
+    // Navigate to public landing — NOT /login (which auto-triggers auth)
+    navigate('/', { replace: true });
   };
 
   const handleNavigate = (path: string) => {

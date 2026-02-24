@@ -8,6 +8,7 @@ import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
+import { clearLogoutGuard } from "@/utils/logoutGuard";
 
 const Front = () => {
   if (DEV_MODE) {
@@ -28,6 +29,9 @@ const Auth0Front = () => {
   }, [loading, isAuthenticated, navigate]);
 
   const handleSignIn = async () => {
+    // User explicitly initiated login — clear any active logout guard
+    clearLogoutGuard();
+
     // On iOS native, open in-app browser instead of full redirect
     const handled = await nativeLogin({ returnTo: '/executive-home' });
     if (handled) return;
