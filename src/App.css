@@ -4,7 +4,7 @@
   min-height: 100dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+  /* Safe-area is handled per-page/per-header, not globally, to avoid double padding */
 }
 
 .logo {
