@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Lock, ArrowRight } from "lucide-react";
 import mmLogoCircle from "@/assets/mm-logo-circle.png";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin } from "@/utils/nativeAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 const Front = () => {
   if (DEV_MODE) {
@@ -17,6 +18,14 @@ const Front = () => {
 
 const Auth0Front = () => {
   const { loginWithRedirect } = useAuth0();
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/executive-home', { replace: true });
+    }
+  }, [loading, isAuthenticated, navigate]);
 
   const handleSignIn = async () => {
     // On iOS native, open in-app browser instead of full redirect
