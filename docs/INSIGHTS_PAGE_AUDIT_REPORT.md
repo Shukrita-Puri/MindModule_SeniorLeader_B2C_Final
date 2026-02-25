@@ -1,8 +1,10 @@
 # Insights Page — Full Technical Audit Report
 
-**Date**: February 13, 2026  
-**Scope**: `/insights` route — all cards, data sources, calculation logic, AI usage, redundancies  
-**File**: `src/pages/Insights.tsx` (993 lines) + 26 component files in `src/components/insights/`
+**Date**: February 25, 2026  
+**Scope**: `/insights` route — all cards, data sources, calculation logic, AI usage, edge functions, progressive unlock, upstream/downstream connections  
+**Primary File**: `src/pages/Insights.tsx` (890 lines)  
+**Component Directory**: `src/components/insights/` (18 files)  
+**Edge Functions**: 4 (`state-patterns-insights`, `tiny-wins-insights`, `insights-semantic-analysis`, `performance-rhythm-insights`)
 
 ---
 
@@ -12,16 +14,10 @@
 2. [Page Architecture Overview](#2-page-architecture-overview)
 3. [Progressive Unlock System](#3-progressive-unlock-system)
 4. [Card-by-Card Deep Dive](#4-card-by-card-deep-dive)
-   - 4.1 [Baseline Reference Card](#41-baseline-reference-card)
-   - 4.2 [Weekly Progress Streak](#42-weekly-progress-streak)
-   - 4.3 [Practice Effectiveness](#43-practice-effectiveness)
-   - 4.4 [Typical State](#44-typical-state)
-   - 4.5 [Strength & Friction](#45-strength--friction)
-   - 4.6 [Cause-Effect Patterns](#46-cause-effect-patterns)
-   - 4.7 [Theme Patterns](#47-theme-patterns)
-   - 4.8 [Mind Map (Your Inner World)](#48-mind-map-your-inner-world)
-   - 4.9 [Tiny Wins (Psychological Dimensions)](#49-tiny-wins-psychological-dimensions)
-   - 4.10 [Energy Rhythm + Calendar Correlations](#410-energy-rhythm--calendar-correlations)
+   - 4.1 [Your Self Mastery Patterns (LeadershipPatternsCard)](#41-your-self-mastery-patterns)
+   - 4.2 [Your Momentum (Tiny Wins)](#42-your-momentum)
+   - 4.3 [Your Readiness Rhythm (PerformanceRhythmCard)](#43-your-readiness-rhythm)
+   - 4.4 [Your Mind Map (InnerWorldBubbles)](#44-your-mind-map)
 5. [Unused/Orphaned Components](#5-unusedorphaned-components)
 6. [AI vs Pure Logic Matrix](#6-ai-vs-pure-logic-matrix)
 7. [Data Flow Architecture](#7-data-flow-architecture)
@@ -35,18 +31,42 @@
 
 ## 1. Executive Summary
 
-The Insights page renders **10 active cards** organized in a vertically-scrolled layout. Data flows from **6 database tables** through a mix of **3 edge functions** and **7 client-side direct queries**. AI is used in **3 pipelines** (State Patterns observation, Tiny Wins dimension extraction, Semantic Analysis theme extraction), with keyword-based fallbacks in all cases.
+The Insights page (`/insights`) renders **4 active cards** in a vertically-scrolled layout titled "Your Inner World." Data flows from **12+ database tables** through **4 edge functions** (production) or **direct Supabase queries** (DEV_MODE). AI is used in **3 pipelines**: Self Mastery Patterns observation, Tiny Wins dimension extraction, and Semantic Analysis theme/relationship extraction.
+
+### Current Card Inventory (Render Order)
+
+| # | Card Title | Component | Data Source |
+|---|-----------|-----------|-------------|
+| 1 | Your Self Mastery Patterns | `LeadershipPatternsCard.tsx` | `state-patterns-insights` edge fn (prod) / direct DB (dev) |
+| 2 | Your Momentum | Inline in `Insights.tsx` + `PsychologicalDimensionBubbles.tsx` | `tiny-wins-insights` edge fn (prod) / direct DB (dev) |
+| 3 | Your Readiness Rhythm | `PerformanceRhythmCard.tsx` | `performance-rhythm-insights` edge fn (prod) / direct DB (dev) |
+| 4 | Your Mind Map | `InnerWorldBubbles.tsx` | `insights-semantic-analysis` edge fn (prod) / direct DB (dev) |
+
+### Previously Removed Cards (No Longer Rendered)
+
+The following cards from the prior audit report are **no longer present** on the page:
+- ~~Baseline Reference Card~~ (archetype data merged into LeadershipPatternsCard)
+- ~~Weekly Progress Streak~~ (moved to homepage via InsightProgressCard)
+- ~~Practice Effectiveness~~ (component exists, **not rendered** on page)
+- ~~Typical State~~ (merged into LeadershipPatternsCard as `typicalState`)
+- ~~Strength & Friction~~ (merged into LeadershipPatternsCard as Lean On / Watch For)
+- ~~Cause-Effect Patterns~~ (merged into PerformanceRhythmCard as cause-effect insight)
+- ~~Theme Patterns~~ (merged into LeadershipPatternsCard as Recurring Themes)
+- ~~Energy Rhythm heatmap~~ (merged into PerformanceRhythmCard)
+- ~~Calendar Correlations~~ (merged into PerformanceRhythmCard as Calendar Pattern)
+- ~~Behavior-Outcome Correlations~~ (merged into PerformanceRhythmCard as cause-effect)
 
 ### Critical Findings
 
-| # | Finding | Severity |
-|---|---------|----------|
-| 1 | **Mental Fitness Score card uses localStorage, not database** — device-specific, easily lost | 🔴 Critical |
-| 2 | **Archetype ID mismatch** between `BaselineReferenceCard` and `userArchetypeEngine.ts` | 🔴 Critical |
-| 3 | **`insights-semantic-analysis` uses `GEMINI_API_KEY`** (not configured in secrets) — coach theme extraction fails silently in production | 🔴 Critical |
-| 4 | 7 of 10 cards run correlation/scoring logic client-side, exposing proprietary algorithms | 🟡 Medium |
-| 5 | `BehaviorOutcomeCorrelations` is imported but renders identical logic to `CauseEffectInsights` | 🟡 Medium |
-| 6 | 14 component files in `src/components/insights/` are orphaned (not rendered on page) | 🟢 Low |
+| # | Finding | Severity | Status |
+|---|---------|----------|--------|
+| 1 | `state-patterns-insights` queries `wearable_data` table — **table does not exist in schema** | 🔴 Critical | Query silently fails (returns empty) |
+| 2 | `PracticeEffectiveness.tsx` component exists but is **not rendered** on page — dead component | 🟡 Medium | No impact on user |
+| 3 | `PerformanceRhythmCard` DEV_MODE queries `dialogue_messages` without `user_id` filter — fetches **all users' messages** | 🔴 Critical | Data leak in dev mode; prod uses service role with user scoping |
+| 4 | Archetype IDs in `BaselineReferenceCard` mismatch engine IDs | 🟡 Medium | Component no longer rendered (legacy) |
+| 5 | `insights-semantic-analysis` now uses `LOVABLE_API_KEY` (fixed from prior audit) | ✅ Fixed | Was using `GEMINI_API_KEY` |
+| 6 | LeadershipPatternsCard DEV_MODE uses basic keyword matching for coach insights vs production's explicit `insight_type` query | 🟡 Medium | Dev/prod logic divergence |
+| 7 | 14+ component files in `src/components/insights/` are orphaned | 🟢 Low | Maintenance burden only |
 
 ---
 
@@ -55,98 +75,128 @@ The Insights page renders **10 active cards** organized in a vertically-scrolled
 ### File Structure
 
 ```
-src/pages/Insights.tsx                          — Page orchestrator (993 lines)
+src/pages/Insights.tsx                               — Page orchestrator (890 lines)
 src/components/insights/
-  ├── BaselineReferenceCard.tsx                  — Onboarding baseline display
-  ├── BehaviorOutcomeCorrelations.tsx            — Behavior→State correlations (IMPORTED BUT RENDERED)
-  ├── CalendarStateCorrelations.tsx              — Calendar→State correlations
-  ├── CauseEffectInsights.tsx                    — "When X, you tend to Y" patterns
-  ├── EnergyRhythm.tsx                           — Time-of-day × day-of-week heatmap
-  ├── FrictionAndStrengthDetail.tsx              — Archetype strength/growth areas
-  ├── InnerWorldBubbles.tsx                      — Mind Map bubble visualization
-  ├── InsightInfoModal.tsx                       — Info (?) modal for each card
-  ├── LuxuryInsightCard.tsx                      — Glass-morphism card wrapper
-  ├── MentalFitnessScoreCard.tsx                 — Score display (NOT currently rendered on /insights)
-  ├── PracticeEffectiveness.tsx                  — Top restorer practice
-  ├── ProgressiveUnlockMessage.tsx               — Lock/unlock progress indicator
-  ├── PsychologicalDimensionBubbles.tsx          — Tiny Wins dimension bubbles
-  └── [14 other orphaned files]
+  ├── LeadershipPatternsCard.tsx (438 lines)          — Card 1: Self Mastery Patterns
+  ├── PerformanceRhythmCard.tsx (633 lines)           — Card 3: Readiness Rhythm
+  ├── InnerWorldBubbles.tsx (404 lines)               — Card 4: Mind Map bubble viz
+  ├── PsychologicalDimensionBubbles.tsx (391 lines)   — Card 2: Tiny Wins dimensions
+  ├── InsightInfoModal.tsx                            — Info (?) modal for each card
+  ├── LuxuryInsightCard.tsx                           — Glass-morphism card wrapper
+  ├── ProgressiveUnlockMessage.tsx                    — Lock/unlock progress indicator
+  └── [11 orphaned files — see §5]
+
+supabase/functions/
+  ├── state-patterns-insights/index.ts (561 lines)    — Card 1 production backend
+  ├── tiny-wins-insights/index.ts (427 lines)         — Card 2 production backend
+  ├── performance-rhythm-insights/index.ts (327 lines)— Card 3 production backend
+  └── insights-semantic-analysis/index.ts (707 lines) — Card 4 production backend
 ```
 
-### Data Fetching Flow
+### Data Fetching Flow (Insights.tsx mounts)
 
 ```
-Insights.tsx mounts
-  ├── fetchInsightsData()          → direct Supabase: daily_checkins, sanctuary_events (7 days)
-  ├── fetchTinyWinsInsights()      → DEV: direct Supabase | PROD: tiny-wins-insights edge fn
-  ├── fetchStatePatterns()         → DEV: direct Supabase | PROD: state-patterns-insights edge fn
-  ├── fetchSemanticAnalysis()      → DEV: direct Supabase | PROD: insights-semantic-analysis edge fn
-  └── fetchProfileBaseline()       → direct Supabase: profiles table
+Insights.tsx mounts → user?.id triggers 5 parallel fetches:
+  ├── fetchInsightsData()         → direct Supabase: daily_checkins + sanctuary_events (7 days)
+  │                                  Sets: weekData, checkInsWithTimestamp, practiceData, checkInStreak
+  ├── fetchTinyWinsInsights()     → DEV: direct DB | PROD: tiny-wins-insights edge fn
+  │                                  Sets: tinyWinsInsights, tinyWinsContent
+  ├── fetchStatePatterns()        → DEV: direct DB | PROD: state-patterns-insights edge fn
+  │                                  Sets: statePatterns (distribution, observation, checkInCount)
+  ├── fetchSemanticAnalysis()     → DEV: direct DB | PROD: insights-semantic-analysis edge fn
+  │                                  Sets: semanticAnalysis (unifiedThemes, themeRelationships, aiObservation)
+  └── fetchProfileBaseline()     → direct Supabase: profiles table
+                                    Sets: profileBaseline
 ```
 
-All fetches trigger on `user?.id` change (line 168-176).
+**Note**: `LeadershipPatternsCard` and `PerformanceRhythmCard` are **self-fetching components** — they receive only `userId` as prop and run their own data queries internally.
 
 ### Component Data Passing
 
-The page fetches centralized data and distributes it:
-
-| Component | Data Passed | Fetched Internally |
-|-----------|------------|-------------------|
-| BaselineReferenceCard | `profileBaseline` prop | No |
-| WeeklyRitualStreak | None (self-fetching) | Yes — `daily-rituals` edge fn |
-| PracticeEffectiveness | `userId` prop | Yes — direct Supabase |
-| Typical State | Uses `mostCommonState` from parent state | No |
-| FrictionAndStrengthDetail | `userId`, `profileBaseline` props | Yes — direct Supabase |
-| CauseEffectInsights | `userId` prop | Yes — direct Supabase |
-| Theme Patterns | Uses `semanticAnalysis` from parent state | No |
-| InnerWorldBubbles | `items`, `relationships` from parent state | No (click details via prop callback) |
-| PsychologicalDimensionBubbles | `data`, `relatedWins` from parent state | No |
-| EnergyRhythm | `checkIns` prop from parent state | No |
-| CalendarStateCorrelations | `userId` prop | Yes — direct Supabase |
-| BehaviorOutcomeCorrelations | `userId` prop | Yes — direct Supabase |
+| Component | Props Received | Self-Fetching? |
+|-----------|---------------|----------------|
+| LeadershipPatternsCard | `userId` | ✅ Yes — runs own queries (DEV: direct DB, PROD: `state-patterns-insights`) |
+| Your Momentum (inline) | Uses parent state: `tinyWinsInsights`, `tinyWinsContent` | No |
+| PsychologicalDimensionBubbles | `data`, `relatedWins`, `emptyMessage` | No |
+| PerformanceRhythmCard | `userId` | ✅ Yes — runs 7 parallel queries (DEV) or `performance-rhythm-insights` (PROD) |
+| InnerWorldBubbles | `items`, `relationships`, `onNodeSummary` | No (but click handler calls back to parent) |
 
 ---
 
 ## 3. Progressive Unlock System
 
-The page implements a **tiered unlock system** based on total check-in count (line 132-138):
+### Page-Level Tier (Insights.tsx)
+
+Based on `statePatterns.checkInCount` (7-day count from `state-patterns-insights`):
 
 ```typescript
-const insightsTier: InsightsTier = useMemo(() => {
-  if (checkInCount >= 7) return 'full';
-  if (checkInCount >= 4) return 'deepening';
-  if (checkInCount >= 3) return 'summary';
-  if (checkInCount >= 1) return 'early';
-  return 'baseline';
-}, [checkInCount]);
+type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
+
+if (checkInCount >= 7) return 'full';
+if (checkInCount >= 4) return 'deepening';
+if (checkInCount >= 3) return 'summary';
+if (checkInCount >= 1) return 'early';
+return 'baseline';
 ```
 
-### Tier → Visible Cards Matrix
+**Current usage**: The `insightsTier` variable is **computed but not used for card visibility** in the current layout. All 4 cards render regardless of tier. The tier was used in the previous layout to gate Theme Patterns (required `deepening`).
 
-| Card | baseline (0) | early (1-2) | summary (3) | deepening (4-6) | full (7+) |
-|------|:---:|:---:|:---:|:---:|:---:|
-| Baseline Reference | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Weekly Progress | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Practice Effectiveness | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Typical State | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Strength & Friction | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Cause-Effect | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Theme Patterns** | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Mind Map | ✅* | ✅* | ✅* | ✅* | ✅* |
-| Tiny Wins | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Energy Rhythm | ✅ | ✅ | ✅ | ✅ | ✅ |
+### Card-Level Progressive Disclosure
 
-\* Mind Map has its own readiness gate: `mindMapReady` (line 162-166) — requires ≥3 coach sessions OR (≥5 check-ins AND ≥2 wins) OR total data points ≥5.
+Each card implements its **own internal progressive unlock**:
 
-### ProgressiveUnlockMessage Component
+#### Card 1: LeadershipPatternsCard (Self Mastery Patterns)
 
-Used when a card is locked. Shows:
-- Lock icon with saffron glow
-- Feature name + "Unlocks in X more days of check-ins"
-- Progress bar (0-100%) + dot indicators
-- Preview text
+| Element | Unlock Condition | Source |
+|---------|-----------------|--------|
+| AI Observation | `checkInCount >= 5` (prod: AI) or `checkInCount >= 3` (dev: template) | `state-patterns-insights` |
+| Current Scores + Deltas | `checkInCount >= 7` AND `clarity_level` + `confidence_level` data available | Computed from felt-state signals |
+| Archetype Evolution | Same as Current Scores + baseline archetype ≠ current archetype | Archetype cascade comparison |
+| Recurring Themes | Any themes in `daily_themes` table | Direct `daily_themes` query |
+| Coach Strength (Lean On) | `user_coach_insights` with `insight_type = 'strength'` exists | Edge fn: explicit query, then keyword fallback |
+| Coach Friction (Watch For) | `user_coach_insights` with `insight_type = 'growth_area'` exists; else `coachSessionCount >= 3` | Edge fn: explicit query, then keyword fallback |
+| Progressive message (bottom) | `checkInCount == 0`: "Complete your first check-in" | Always rendered conditionally |
+| Progressive message (bottom) | `checkInCount > 0 && < 5`: "X check-ins logged. Patterns become clearer with each one." | Always rendered conditionally |
 
-**Currently NOT used** on the actual Insights page — the component exists but no card on the page calls it. The Theme Patterns card simply doesn't render (conditional `{(insightsTier === 'deepening' || insightsTier === 'full') && ...}`).
+#### Card 2: Your Momentum (Tiny Wins)
+
+| Element | Unlock Condition | Source |
+|---------|-----------------|--------|
+| Win text list (1-4 wins) | `winsCount >= 1 && winsCount < 5` AND dimensions exist | `tiny-wins-insights` |
+| Dimension bubble chart | `winsCount >= 5` AND dimensions exist | `PsychologicalDimensionBubbles` component |
+| AI momentum observation | `winsCount >= 10` | `tiny-wins-insights` edge fn (AI-generated) |
+| Pattern line summary | `winsCount >= 5` | `tinyWinsInsights.patternLine` |
+| Progressive incentive | Dynamic: "Capture first win" → "Log X more" → "At 10 wins, deeper patterns appear" | `getWinsProgressMessage()` |
+
+#### Card 3: PerformanceRhythmCard (Readiness Rhythm)
+
+| Element | Unlock Condition | Source |
+|---------|-----------------|--------|
+| Progressive "complete X more" | `checkInCount < 7` | Internal |
+| 3×7 Heatmap grid | `checkInCount >= 7` | Grid built from check-ins + `inner_readiness_scores` |
+| Best Readiness Window | `checkInCount >= 7` + `inner_readiness_scores` with ≥2 per cell | Composite score average per cell |
+| Calendar Pattern insight | `checkInCount >= 10` + calendar connected + ≥3 occurrences of same event type | Calendar events × readiness scores correlation |
+| Cause-Effect insight | `checkInCount >= 10` + `behaviorLogCount >= 5` | Behavior → outcome correlation |
+| How You Show Up (Presence) | `checkInCount >= 15` + (≥2 high-stakes events OR ≥3 coach sessions) | Multi-signal presence score |
+| Unlock incentive messages | `checkInCount >= 7 && checkInCount < 15` + missing insights | Dynamic messaging |
+| "Connect calendar" prompt | `checkInCount >= 10` + no calendar connected | Static prompt |
+
+#### Card 4: Your Mind Map
+
+| Element | Unlock Condition | Source |
+|---------|-----------------|--------|
+| Full bubble visualization | `mindMapReady` = true | See formula below |
+| "Keep engaging" message | `mindMapReady` = false | Static |
+| AI observation above bubbles | `semanticAnalysis.aiObservation` exists | `insights-semantic-analysis` edge fn |
+| Node click → summary modal | Always (when visible) | `fetchNodeSummary()` → edge fn or DEV fallback |
+
+**Mind Map Readiness Formula**:
+```typescript
+const mindMapReady = coachSessions >= 3 
+  || (checkInCount >= 5 && winsCount >= 2) 
+  || totalPoints >= 5;
+// where totalPoints = checkInCount + winsCount + coachSessions
+```
 
 ---
 
@@ -154,649 +204,442 @@ Used when a card is locked. Shows:
 
 ---
 
-### 4.1 Baseline Reference Card
+### 4.1 Your Self Mastery Patterns
 
-**File**: `src/components/insights/BaselineReferenceCard.tsx` (117 lines)  
-**Position**: Top of page, always visible  
-**Data Location**: Client-side (receives prop)  
-**AI Usage**: None
+**File**: `src/components/insights/LeadershipPatternsCard.tsx` (438 lines)  
+**Edge Function**: `state-patterns-insights/index.ts` (561 lines)  
+**Position**: First card on page
+
+#### Data Sources (Production — Edge Function)
+
+The `state-patterns-insights` edge function runs **12 parallel queries**:
+
+| Query | Table | Columns | Filter |
+|-------|-------|---------|--------|
+| 1 | `profiles` | `user_archetype, component_scores` | `id = userId` |
+| 2 | `daily_checkins` | `checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at` | `user_id`, last 30 days |
+| 3 | `daily_themes` | `theme_phrase, theme_driver` | `user_id`, last 30 days |
+| 4 | `user_coach_insights` | `insight_content, created_at, insight_type` | `user_id`, last 10 |
+| 5 | `sanctuary_events` | `category, event_type, timestamp, context_data` | `user_id`, last 30 days |
+| 6 | `daily_ritual_completions` | `session_period, completion_status, ritual_date` | `user_id`, last 30 days |
+| 7 | `tiny_wins` | `win_date` | `user_id`, last 30 days |
+| 8 | `wearable_data` | `hrv, summary_date` | `user_id`, last 30 days |
+| 9 | `dialogue_sessions` | `id` | `user_id`, last 30 days |
+| 10 | `calendar_connections` | `id` | `user_id`, active |
+| 11 | `behavior_logs` | `behavior_type, created_at` | `user_id`, last 30 days |
+| 12 | `inner_readiness_scores` | `composite_score, energy_tier, full_context_statement, divergence_flag, layers_active, score_date` | `user_id`, last 30 days |
+
+Plus a conditional 13th query: `dialogue_messages.content` for coach sessions (if any exist).
+
+**🔴 BUG**: Query 8 references `wearable_data` table which **does not exist in the current schema** (`src/integrations/supabase/types.ts`). The query silently returns empty data, causing all HRV-based signals to use neutral defaults (50).
+
+#### Calculation: Multi-Signal Evolved Dimension Scores (Production)
+
+The edge function computes **3 evolved dimension scores** using a weighted signal model:
+
+**Recalibration Score** (replaces raw `energy_balance`):
+
+| Signal | Weight | Data Source | Availability Condition |
+|--------|--------|-------------|----------------------|
+| Baseline (onboarding) | 0.30 | `profiles.component_scores.energyRegulation` | Always |
+| Pause practices in low state | 0.15 | `sanctuary_events` (category=pause) × `daily_checkins` (low outcome) | ≥3 pause-in-low events |
+| Pre-event session completion | 0.10 | `daily_ritual_completions` (session_period=pre-event, status=full) | ≥2 pre-event sessions |
+| HRV trend | 0.10 | `wearable_data.hrv` | ≥14 HRV data points **(🔴 never available — table missing)** |
+| Coach regulation keywords | 0.15 | `dialogue_messages` scanned for positive/negative regulation patterns | ≥1 coach session |
+| Felt state (energy_balance avg) | 0.20 | `daily_checkins.energy_balance` last 7 days | ≥3 recent data points |
+
+*Penalty*: -10 if ≥3 consecutive depleted/managing states.
+
+**Clarity Score**:
+
+| Signal | Weight | Data Source | Availability |
+|--------|--------|-------------|--------------|
+| Baseline | 0.30 | `profiles.component_scores.focusRecovery` | Always |
+| Flow practices under load | 0.15 | `sanctuary_events` (category=flow) | ≥3 flow practices + calendar connected |
+| Coach clarity keywords | 0.15 | `dialogue_messages` scanned for clarity patterns | ≥1 coach session |
+| Clarity theme recurrence penalty | 0.10 | `daily_themes` matching clarity patterns | ≥10 check-ins total |
+| Felt state (clarity_level avg) | 0.30 | `daily_checkins.clarity_level` last 7 days | ≥3 recent data points |
+
+*Penalty*: -10 if scattered count ≥5 AND behavior logs ≥5.
+
+**Renewal Score**:
+
+| Signal | Weight | Data Source | Availability |
+|--------|--------|-------------|--------------|
+| Baseline | 0.30 | `profiles.component_scores.energyRenewal` | Always |
+| Renergise practices in depleted state | 0.15 | `sanctuary_events` (category=renergise) × `daily_checkins` (depleted outcome) | ≥3 renergise-in-depleted events |
+| Evening session completion rate | 0.15 | `daily_ritual_completions` (session_period=evening) | ≥10 evening sessions |
+| Tiny wins frequency | 0.10 | `tiny_wins` count | ≥5 wins |
+| HRV recovery rate | 0.10 | Same as HRV trend **(🔴 never available)** | ≥14 HRV data points |
+| Coach renewal keywords | 0.10 | `dialogue_messages` scanned for renewal patterns | ≥1 coach session |
+| Felt state (confidence_level avg) | 0.10 | `daily_checkins.confidence_level` last 7 days | ≥3 recent data points |
+
+**Weight Redistribution**: When a signal is unavailable, its weight is redistributed proportionally across available signals using `computeWeightedScore()`.
+
+#### Calculation: Archetype Resolution
+
+5-tier cascade based on dimension scores:
+
+```
+1. Grounded Master:      energyReg >= 65 AND energyRenewal >= 55
+2. Resilient Performer:   energyRenewal >= 65 AND energyReg >= 50
+3. Clear Thinker:         focusRecovery >= 65 AND energyReg >= 45
+4. Intensity Driver:      energyReg >= 60 AND focusRecovery < 50
+5. Adaptive Navigator:    (default fallback)
+```
+
+Each archetype has: `id`, `title`, `leanOn` (strength text), `watchFor` (growth area text).
+
+**Legacy Mapping**: The edge function includes a `LEGACY_MAP` translating old onboarding archetype IDs (`natural_regulator`, `strategic_pauser`, etc.) to new v2 IDs.
+
+#### Calculation: Coach Strength / Friction (Production)
+
+**Priority 1**: Explicit `user_coach_insights` with `insight_type = 'strength'` (for Lean On) or `insight_type = 'growth_area'` (for Watch For). Queries `is_active = true`, latest first.
+
+**Priority 2 (Fallback)**: Keyword regex scan across last 10 `user_coach_insights.insight_content`:
+- Strength: `/strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i`
+- Friction: `/struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i`
+
+**🟡 DEV_MODE Divergence**: DEV_MODE only uses the keyword fallback, skipping the explicit `insight_type` query. This means dev behavior doesn't match production behavior.
+
+#### Calculation: Friction & Trend
+
+**Friction**: `frictionPct = lowStates / totalCheckins × 100` where `lowStates` = outcomes in `{drained, overwhelmed, scattered}`.
+
+**Trend**: Compares friction% of last 7 days vs prior 7 days. If difference ≥10pp → `improving`; if ≤-10pp → `declining`; else `stable`. Falls back to `energy_balance` average comparison if friction data insufficient.
+
+#### AI Observation (Production)
+
+- **Trigger**: `LOVABLE_API_KEY` exists AND `totalCheckins >= 5`
+- **Model**: `google/gemini-2.5-flash-lite` via Lovable AI Gateway
+- **Prompt**: System prompt asks AI to "name the ONE pattern most worth their attention right now" based on archetype, dimension shifts, friction, themes, and coach feedback
+- **Tool use**: `emit_observation` structured output (single sentence)
+- **Fallback**: `generateFallbackObservation()` — template-based, uses dimension deltas and friction data
+
+#### Display Layout
+
+```
+┌───────────────────────────────────────────────┐
+│  YOUR SELF MASTERY PATTERNS                   │
+├───────────────────────────────────────────────┤
+│  [AI Observation — gradient box]               │
+│                                                │
+│  YOUR DIMENSIONS                               │
+│  The [Archetype Title] → [Evolved Title]       │
+│  ┌─────────────────────────────────────────┐  │
+│  │ Recalibration   50 → 62 (+12) ↗        │  │
+│  │ Clarity          45 → 48 (+3)  →        │  │
+│  │ Renewal          55 → 60 (+5)  ↗        │  │
+│  └─────────────────────────────────────────┘  │
+│                                                │
+│  WHAT YOUR PATTERNS REVEAL                     │
+│  Friction: 35% (Moderate friction) ↗           │
+│  Recurring Themes: "steady under pressure" (3×)│
+│                                                │
+│  YOUR INNER EDGE                               │
+│  🛡 Lean On: [coach strength or archetype text]│
+│  ⚠ Watch For: [coach friction or archetype]    │
+│                                                │
+│  Based on 15 check-ins, 3 coach sessions...    │
+└───────────────────────────────────────────────┘
+```
+
+#### Upstream Data Dependencies
+
+| Data Source | Created By | App Area | Working? |
+|------------|-----------|----------|----------|
+| `profiles.component_scores` | Onboarding flow | `/onboarding` | ✅ Yes |
+| `daily_checkins` | Daily Check-In | `/daily-checkin` → `daily-checkins` edge fn | ✅ Yes |
+| `daily_themes` | Check-in processing | `daily-checkins` edge fn (theme generation) | ✅ Yes |
+| `user_coach_insights` | Coach conversation analysis | `extract-coach-insights` edge fn | ✅ Yes |
+| `sanctuary_events` | Practice completion | Practice player components | ✅ Yes |
+| `daily_ritual_completions` | Ritual tracking | Practice players + `daily-rituals` edge fn | ✅ Yes |
+| `tiny_wins` | Coach Integrate flow | `store-tiny-win` edge fn | ✅ Yes |
+| `wearable_data` | Oura sync | `sync-oura` edge fn | 🔴 **Table doesn't exist in schema** |
+| `dialogue_sessions` / `dialogue_messages` | Coach conversations | `dialogue-session-manage` + `dialogue-engine` | ✅ Yes |
+| `calendar_connections` | Calendar setup | `calendar-auth` edge fn | ✅ Yes |
+| `behavior_logs` | Post-event reflection | Behavior logging UI | ✅ Yes |
+| `inner_readiness_scores` | Check-in processing | `compute-inner-readiness` edge fn | ✅ Yes |
+
+#### Downstream Consumers
+
+None — this card is display-only.
+
+---
+
+### 4.2 Your Momentum
+
+**File**: Inline in `Insights.tsx` (lines 746-836) + `PsychologicalDimensionBubbles.tsx` (391 lines)  
+**Edge Function**: `tiny-wins-insights/index.ts` (427 lines)  
+**Position**: Second card on page
 
 #### Data Source
 
 ```
-profiles table → mental_fitness_baseline, component_scores, user_archetype, 
-                  onboarding_completed_at, growth_priority
-```
-
-Fetched in `Insights.tsx` line 178-204 via `fetchProfileBaseline()` — direct Supabase query.
-
-#### Calculation
-
-No calculation. Pure display of stored onboarding values:
-- `baselineScore` = `profile.mental_fitness_baseline` (integer 0-100, set during onboarding)
-- `archetypeLabel` = lookup from hardcoded map (line 18-24)
-- `establishedDate` = formatted `onboarding_completed_at`
-
-#### Display Logic
-
-Renders a circular SVG progress ring:
-```typescript
-strokeDasharray = (baselineScore / 100) * 201  // 201 = circumference of r=32 circle
-```
-
-Returns `null` if `mentalFitnessBaseline` is falsy (line 27-29).
-
-#### 🔴 BUG: Archetype ID Mismatch
-
-The `archetypeLabels` map in this file uses these IDs:
-```
-'grounded-leader', 'resilient-performer', 'adaptive-navigator', 
-'mindful-strategist', 'balanced-achiever'
-```
-
-But `userArchetypeEngine.ts` generates these IDs:
-```
-'natural_regulator', 'strategic_pauser', 'high_octane_performer', 'awareness_builder'
-```
-
-**Result**: The archetype label always falls back to `'Your Profile'` (line 33) because no ID ever matches. The correct archetype name is never displayed.
-
-#### Qualitative AI Opportunity
-
-This card could use AI to generate a personalized "since onboarding" narrative: *"Since your baseline of 62 on Jan 15, you've completed 34 practices and checked in 28 times. Your energy regulation appears to be strengthening."*
-
----
-
-### 4.2 Weekly Progress Streak
-
-**File**: `src/components/home/WeeklyRitualStreak.tsx` (127 lines)  
-**Position**: Second card  
-**Data Location**: Edge function (`daily-rituals`)  
-**AI Usage**: None
-
-#### Data Source
-
-```
-daily_ritual_completions table → ritual_date, completion_status, 
-  soundscape_completed, guided_practice_completed, micro_exercise_completed,
-  completed_practice_ids, recommended_practices_count
-```
-
-Fetched via `getRitualRange(startDate, endDate)` utility which calls the `daily-rituals` edge function.
-
-#### Calculation
-
-For each day Monday-Sunday of the current week:
-
-```typescript
-// Boolean completion count
-const booleanCount = [
-  completion.soundscape_completed,
-  completion.guided_practice_completed,
-  completion.micro_exercise_completed
-].filter(Boolean).length;
-
-// Also count IDs (for coach sessions, other practices)
-const idsCount = (completion.completed_practice_ids || []).length;
-const effectiveCompleted = Math.max(booleanCount, idsCount);
-const totalRecommended = completion.recommended_practices_count || 3;
-
-// Status determination
-if (completion_status === 'full' && effectiveCompleted >= totalRecommended && effectiveCompleted > 0) {
-  status = 'full';    // Gold circle with checkmark
-} else if (effectiveCompleted > 0 || completion_status === 'partial') {
-  status = 'partial'; // Taupe circle with star
-} else {
-  status = 'skipped'; // Empty circle
-}
-```
-
-Future days get dashed border. Today gets a saffron ring + pulse animation.
-
-#### Refresh Rate
-
-- `staleTime`: 60 seconds
-- `refetchInterval`: 30 seconds (polls)
-
-#### Correctness Assessment
-
-✅ **Correct**. The logic properly handles edge cases:
-- Uses `Math.max(booleanCount, idsCount)` to account for different completion tracking methods
-- Strict check requires BOTH `completion_status === 'full'` AND actual completions > 0
-- Uses `toLocaleDateString('en-CA')` for consistent YYYY-MM-DD format regardless of timezone
-
----
-
-### 4.3 Practice Effectiveness
-
-**File**: `src/components/insights/PracticeEffectiveness.tsx` (183 lines)  
-**Position**: Left 2/3 of a 3-column grid  
-**Data Location**: Client-side (direct Supabase queries)  
-**AI Usage**: None
-
-#### Data Sources
-
-```
-sanctuary_events table → content_id, category, timestamp (event_type = 'completed')
-daily_checkins table   → checkin_date, outcome
-sanctuary_content table → id, title, category
-```
-
-All three queried in parallel within the component (lines 43-74), last 30 days.
-
-#### Calculation: Effectiveness Rate
-
-```typescript
-effectivenessRate = improvedAfter / timesUsed
-```
-
-Where "improved" is defined as:
-
-1. Practice completed on day X
-2. Check-in on day X+1 has outcome in `positiveStates = {'focused', 'steady'}`
-3. **OR** day X check-in was NOT positive but day X+1 IS positive
-
-```typescript
-// Lines 103-112
-if (nextDayCheckin) {
-  const nextOutcome = nextDayCheckin.outcome?.toLowerCase();
-  const sameOutcome = sameDayCheckin?.outcome?.toLowerCase();
-
-  if (nextOutcome && positiveStates.has(nextOutcome)) {
-    effect.improvedAfter++;  // Next day is positive = improvement
-  } else if (nextOutcome && sameOutcome &&
-             !positiveStates.has(sameOutcome) && positiveStates.has(nextOutcome)) {
-    effect.improvedAfter++;  // Transition from negative to positive
-  }
-}
-```
-
-**⚠️ Logic Issue**: The second condition (lines 109-111) can never be true because it requires `positiveStates.has(nextOutcome)` which was already checked in the first condition. If the first `if` already catches all positive next-day outcomes, the `else if` never fires. This second branch is **dead code**.
-
-#### Selection Criteria
-
-- Minimum 2 uses of a practice to qualify
-- If tie on effectiveness rate, higher usage count wins
-- Displays only the single top practice
-
-#### Display
-
-If top practice found:
-```
-[Practice Title]
-Used X× · Y% followed by improved state
-"Your top restorer"
-```
-
-If practices exist but none qualifies: shows total practice count.  
-If no practices: shows empty state icon.
-
-#### Qualitative AI Opportunity
-
-Could use AI to explain WHY this practice works: *"Box Breathing appears to activate your parasympathetic nervous system — 80% of the time you complete it, your next-day state improves to Focused or Steady."*
-
----
-
-### 4.4 Typical State
-
-**File**: Inline in `Insights.tsx` (lines 719-740)  
-**Position**: Right 1/3 of the 3-column grid  
-**Data Location**: Client-side (derived from fetched state)  
-**AI Usage**: None
-
-#### Calculation
-
-```typescript
-const mostCommonState = useMemo(() => {
-  const entries = Object.entries(statePatterns.distribution);
-  const sorted = entries.sort((a, b) => b[1] - a[1]);
-  return sorted[0][1] > 0 ? sorted[0][0] : null;
-}, [statePatterns]);
-```
-
-Simply picks the state with the highest count from the 7-day distribution. If all counts are 0, returns null (displays "—").
-
-#### Supplementary: Today vs Yesterday
-
-For `early` tier only (1-2 check-ins), shows today and yesterday states side by side:
-
-```typescript
-const todayAndYesterdayStates = useMemo(() => {
-  const sorted = [...checkInsWithTimestamp].sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-  return { today: sorted[0]?.outcome, yesterday: sorted[1]?.outcome };
-}, [checkInsWithTimestamp]);
-```
-
-#### Correctness Assessment
-
-✅ **Correct** but simplistic. A tie between two states arbitrarily picks whichever `sort` returns first (unstable sort behavior).
-
----
-
-### 4.5 Strength & Friction
-
-**File**: `src/components/insights/FrictionAndStrengthDetail.tsx` (183 lines)  
-**Position**: Full-width card  
-**Data Location**: Client-side (direct Supabase queries + archetype engine)  
-**AI Usage**: None (but uses coach insights from database)
-
-#### Data Sources
-
-```
-profiles table             → component_scores, user_archetype (via prop)
-daily_checkins table       → outcome (last 30 days)
-user_coach_insights table  → insight_content, insight_type (last 10)
-```
-
-#### Calculation
-
-**Archetype Determination** (line 46-61):
-
-If `profileBaseline.componentScores` exists, calls `determineArchetype(scores)` from `userArchetypeEngine.ts`:
-
-```typescript
-// userArchetypeEngine.ts logic:
-avgScore = (q2_energy_regulation + q3_focus_recovery + q4_energy_renewal) / 3
-
-if avgScore >= 80 → 'natural_regulator' (strengthArea: 'Comprehensive Self-Regulation')
-if q3 >= 75 && q5 >= 75 → 'strategic_pauser' (strengthArea: 'Focus Recovery & Composure')
-if q2 <= 50 && q4 >= 70 → 'high_octane_performer' (strengthArea: 'Energy Renewal')
-else → 'awareness_builder' (strengthArea: 'Growth Awareness')
-```
-
-**Friction Frequency** (lines 72-78):
-
-```typescript
-const lowStates = checkIns.filter(c => 
-  ['drained', 'overwhelmed', 'scattered'].includes(c.outcome?.toLowerCase() || '')
-);
-frictionPct = Math.round((lowStates.length / totalCheckins) * 100);
-```
-
-**Coach Insight Matching** (lines 80-101):
-
-Searches last 10 `user_coach_insights` records for keyword matches:
-- **Strength keywords**: 'strength', 'strong', 'excel', 'good at', 'natural', 'talent', 'composure', 'resilient'
-- **Friction keywords**: 'struggle', 'challenge', 'difficult', 'pattern', 'tends to', 'watch for', 'avoid', 'friction'
-
-First matching insight is displayed as a coach quote.
-
-#### Correctness Assessment
-
-⚠️ **Partially correct**. The archetype determination works but:
-- If `componentScores` doesn't exist but `userArchetype` does, the fallback (line 50-61) creates a minimal archetype with hardcoded `strengthArea: 'Self-Regulation'` and `growthArea: 'Energy Management'` regardless of actual archetype type
-- The keyword matching for coach insights is very basic — "I feel strong today" would match the "strength" keyword and show as a strength insight even if it's contextually about physical strength
-
-#### Qualitative AI Opportunity
-
-This is a prime candidate for AI-generated narrative: *"As a Strategic Pauser, your composure under pressure is your superpower. However, your check-ins show 35% low-state days this month, suggesting your energy regulation needs attention before high-stakes events."*
-
----
-
-### 4.6 Cause-Effect Patterns
-
-**File**: `src/components/insights/CauseEffectInsights.tsx` (227 lines)  
-**Position**: Full-width card  
-**Data Location**: Client-side (direct Supabase queries)  
-**AI Usage**: None
-
-#### Data Sources
-
-```
-behavior_logs table    → behavior_type, created_at (last 30 days)
-daily_checkins table   → checkin_date, outcome (last 30 days)
-sanctuary_events table → content_id, category, timestamp (completed, last 30 days)
-```
-
-All three fetched in parallel via `Promise.all` (lines 60-77).
-
-#### Calculation: Two Correlation Types
-
-**Type 1: Behavior → Outcome** (lines 83-123)
-
-```
-For each behavior_log:
-  1. Get behavior date
-  2. Find all check-ins where diff = 0 or 1 days (same day or next day)
-  3. Group by (behavior_type → outcome_state) and count occurrences
-  4. For each behavior_type:
-     - total = sum of all outcome counts
-     - confidence = maxCount / total
-     - Filter: total >= 2 AND confidence >= 0.5
-```
-
-**Type 2: Practice Category → Next-Day Outcome** (lines 126-162)
-
-```
-For each completed sanctuary_event:
-  1. Get practice date
-  2. Find check-in on NEXT DAY (exact match, not same day)
-  3. Group by (category → next_day_outcome) and count
-  4. Same filter: total >= 2 AND confidence >= 0.5
-```
-
-#### Output Format
-
-```
-"When you [Confronted] in events, you tend to check in [Focused] 85% of the time (4 occurrences)"
-"When you complete [Pause] practices, you tend to check in [Steady] 67% of the time (3 occurrences)"
-```
-
-Sorted by confidence descending, then occurrences. Max 6 patterns shown.
-
-#### Correctness Assessment
-
-✅ **Mostly correct**. However:
-- The temporal window for behaviors (0-1 days) means a behavior on Monday could correlate with BOTH Monday and Tuesday check-ins, potentially double-counting
-- Practice correlations only look at next-day (not same-day), which means an evening practice won't correlate with that day's morning check-in
-- No deduplication: if a user does 3 practices on the same day, each creates a separate correlation with the next day's check-in
-
-#### Qualitative AI Opportunity
-
-AI could explain the mechanism: *"Your pattern of checking in Focused after Confronting suggests healthy engagement. Confrontation activates your regulatory systems, and your post-event processing is effective."*
-
----
-
-### 4.7 Theme Patterns
-
-**File**: Inline in `Insights.tsx` (lines 776-833)  
-**Position**: Full-width card, **only visible at tier `deepening` (4+) or `full` (7+)**  
-**Data Location**: Edge function (`insights-semantic-analysis`)  
-**AI Usage**: **Yes** — Gemini AI for coach theme extraction (production); keyword-based fallback (dev)
-
-#### Data Source
-
-In **production**, the `insights-semantic-analysis` edge function aggregates from:
-```
-daily_themes table          → theme_phrase, theme_driver
-dialogue_messages table     → content (user messages from coach sessions)
-sanctuary_events table      → category, tags (completed practices)
-tiny_wins table            → win_content
-daily_checkins table       → outcome, state_tags
-```
-
-In **DEV_MODE** (lines 452-588 of Insights.tsx), themes are extracted client-side:
-- Coach messages: `extractThemesFromContent()` keyword matching
-- Wins: same keyword matching
-- Check-ins: outcome → theme mapping (`focused` → `focus`, `drained` → `energy`, etc.)
-
-#### Calculation
-
-**Theme Pattern Aggregation** (edge function lines 120-128):
-```
-For each daily_theme record:
-  Group by theme_phrase → count occurrences
-  Sort descending, take top 6
-```
-
-**Driver Summary**: Counts which driver (state, calendar+state, time+state) appears most.
-
-#### Display
-
-Renders theme phrases as pills: `"Steady under pressure" (3x)` with a "Most common driver" summary line.
-
-#### 🔴 BUG: GEMINI_API_KEY Not Configured
-
-The `insights-semantic-analysis` edge function (line 152) uses `GEMINI_API_KEY`:
-```typescript
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-```
-
-This secret is **NOT in the configured secrets list**. The function has `LOVABLE_API_KEY` available but the code checks for `GEMINI_API_KEY`. This means:
-- Coach theme extraction via AI **silently fails** in production
-- The function falls through to algorithmic theme generation only
-- No error is thrown — the code simply skips the AI block
-
-**Fix**: Either add `GEMINI_API_KEY` to secrets, or refactor to use `LOVABLE_API_KEY` with the Lovable AI gateway (which the other edge functions already use).
-
----
-
-### 4.8 Mind Map (Your Inner World)
-
-**File**: `src/components/insights/InnerWorldBubbles.tsx` (486 lines)  
-**Position**: Full-width card  
-**Data Location**: Parent state (from `fetchSemanticAnalysis()`)  
-**AI Usage**: **Indirect** — consumes AI-extracted themes from edge function
-
-#### Data Flow
-
-```
-Insights.tsx fetches semanticAnalysis → passes unifiedThemes + themeRelationships
-InnerWorldBubbles renders bubbles + SVG connection lines
-Click handler calls fetchBubbleDetails() → insights-semantic-analysis edge fn (action: 'getBubbleDetails')
-```
-
-#### Bubble Sizing
-
-```typescript
-const getBubbleSize = (weight: number) => {
-  const minSize = 64;   // px
-  const maxSize = 110;  // px
-  return minSize + (weight * (maxSize - minSize));
-};
-// weight is normalized: count / maxCount (0 to 1)
-```
-
-Max 12 bubbles displayed (line 119).
-
-#### Connection Lines (SVG)
-
-Connections are drawn between related themes using quadratic Bézier curves:
-```typescript
-// For each relationship pair:
-path = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`
-// Opacity = 0.25 + strength * 0.25 (range: 0.25 to 0.5)
-```
-
-Positions are tracked via `ResizeObserver` and `getBoundingClientRect()`.
-
-**Relationship sources**:
-- **AI-generated**: Gemini extracts semantic relationships from coach messages
-- **Algorithmic fallback**: Edge function matches against hardcoded semantic pairs (e.g., `stress↔grounding`, `overwhelm↔calm & regulate`)
-- **DEV_MODE**: Client-side generates relationships based on shared data sources + semantic pair lookup (lines 540-578)
-
-#### Bubble Click → Detail Modal
-
-When clicked, the modal shows:
-1. Theme name + mention count
-2. Source breakdown (e.g., "3 coach, 2 wins, 1 check-in")
-3. **Hardcoded insight** from `THEME_INSIGHTS` map (15 predefined themes, line 52-68)
-4. Recent mentions (fetched from edge function)
-5. "Explore with Coach" button → navigates to `/coach` with pre-filled prompt
-
-#### Readiness Gate
-
-```typescript
-const mindMapReady = useMemo(() => {
-  const coachSessions = semanticAnalysis?.unifiedThemes?.reduce(
-    (sum, t) => sum + t.sources.coach, 0) || 0;
-  const totalPoints = checkInCount + (tinyWinsInsights?.winsCount || 0) + coachSessions;
-  return coachSessions >= 3 || 
-         (checkInCount >= 5 && (tinyWinsInsights?.winsCount || 0) >= 2) ||
-         totalPoints >= 5;
-}, [semanticAnalysis, checkInCount, tinyWinsInsights]);
-```
-
-If not ready, shows: *"Your Mind Map builds from coach conversations, practices, and wins."*
-
-#### Qualitative AI Opportunity
-
-The current insights are hardcoded per theme keyword. AI could generate contextual insights: *"'Focus' and 'Energy' appear together in 4 of your coach conversations this week. This co-occurrence suggests you're working on sustaining attention through better energy management."*
-
----
-
-### 4.9 Tiny Wins (Psychological Dimensions)
-
-**File**: `src/components/insights/PsychologicalDimensionBubbles.tsx` (391 lines)  
-**Position**: Full-width card  
-**Data Location**: DEV: direct Supabase + client-side extraction | PROD: `tiny-wins-insights` edge fn  
-**AI Usage**: **Yes** — Gemini AI for dimension extraction in production
-
-#### Data Source
-
-```
-tiny_wins table → win_content, win_date, sentiment, primary_emotion, secondary_emotion, 
+tiny_wins table → win_content, win_date, sentiment, primary_emotion, secondary_emotion,
                    agency_type, regulation_level, growth_signal, analyzed_at
 ```
 
 Last 14 days.
 
-#### Dimension Extraction Pipeline
+#### Calculation: Dimension Extraction Pipeline
 
 **Production flow** (edge function `tiny-wins-insights`):
 
 ```
-1. Fetch wins where analyzed_at IS NULL
-2. For each unanalyzed win:
-   a. If LOVABLE_API_KEY exists → call Gemini AI with structured tool_choice:
-      Extract: sentiment, primary_emotion, secondary_emotion, agency_type, 
-               regulation_level, growth_signal
-   b. Else → keyword-based extraction (DIMENSION_PATTERNS)
-3. Update win record with extracted dimensions + analyzed_at timestamp
-4. Re-fetch all wins and aggregate dimension counts
-5. Return: { dimensions: [{dimension, value, count}], themes, summary, winsCount }
+1. Auth: verify Auth0 JWT
+2. Fetch all wins from last {days} days
+3. Separate: unanalyzed (analyzed_at IS NULL) vs already-analyzed
+4. For each unanalyzed win:
+   a. If LOVABLE_API_KEY exists → Gemini 2.5 Flash Lite via Lovable Gateway:
+      Tool call: extract_dimensions → {sentiment, primary_emotion, secondary_emotion, 
+                                        agency_type, regulation_level, growth_signal}
+   b. Else → keyword matching (DIMENSION_PATTERNS)
+5. UPDATE each win with extracted dimensions + analyzed_at = now()
+6. Aggregate dimension counts across ALL wins (analyzed + newly analyzed)
+7. Generate summary text, identify themes, create display labels
+8. Return: { dimensions, themes, summary, winsCount, observation, patternLine }
 ```
 
-**DEV_MODE flow** (Insights.tsx lines 310-377):
+**DEV_MODE flow** (Insights.tsx lines 308-376):
 
 ```
-1. Fetch wins with all dimension columns
-2. For each win:
-   a. If DB dimensions populated → use them directly
-   b. Else → extractDimensionsFromText() client-side keyword matching
-3. Aggregate dimension counts across all wins
+1. Direct Supabase query: tiny_wins with all dimension columns
+2. If DB dimensions populated → use directly (no re-extraction)
+3. Aggregate counts: emotion, agency, regulation, growth (sentiment excluded from display)
+4. Generate inline observation from top emotion + top growth signal
 ```
 
 #### Dimension Categories & Values
 
-| Dimension | Possible Values | Extraction Method |
-|-----------|----------------|-------------------|
-| sentiment | positive, negative, mixed, neutral | Keywords or AI |
-| emotion | joy, pride, relief, gratitude, confidence, hope, courage | Keywords or AI |
-| agency | proactive, responsive, collaborative, supported | Keywords or AI |
-| regulation | regulated, intentional, reactive | Keywords or AI |
-| growth | learning, breakthrough, mastery, resilience, boundary, letting-go | Keywords or AI |
+| Dimension | Display Label | Possible Values | Extraction |
+|-----------|--------------|-----------------|------------|
+| emotion | "What you felt" | joy, pride, relief, gratitude, confidence, hope, courage | AI or keywords |
+| agency | "How you showed up" | proactive, responsive, collaborative, supported | AI or keywords |
+| regulation | "How you led yourself" | regulated, intentional, reactive | AI or keywords |
+| growth | "What it built" | learning, breakthrough, mastery, resilience, boundary, letting-go | AI or keywords |
+| sentiment | *(excluded from display)* | positive, negative, mixed, neutral | AI or keywords |
+
+#### Edge Function: Dimension Insights (Server-Side)
+
+The `tiny-wins-insights` edge function includes a comprehensive `DIMENSION_INSIGHTS` map with psychological explanations for each dimension value (e.g., "Pride anchors accomplishment in your nervous system..."). These are returned per-dimension to the client and displayed in the bubble click modal.
 
 #### Bubble Visualization
 
 ```typescript
-const getBubbleSize = (count: number, maxCount: number) => {
-  const minSize = 48;
-  const maxSize = 88;
+const getBubbleSize = (count, maxCount) => {
+  const minSize = 48, maxSize = 88;
   const ratio = maxCount > 1 ? count / maxCount : 1;
   return minSize + (ratio * (maxSize - minSize));
 };
 ```
 
-Max 12 bubbles. Color-coded by dimension type (emerald=sentiment, rose=emotion, sky=agency, violet=regulation, gold=growth).
+Max 12 bubbles. Color-coded: emerald=emotion, rose=emotion(alt), sky=agency, violet=regulation, gold=growth.
 
 #### Click → Detail Modal
 
 Shows:
 1. Dimension label + value
-2. **Hardcoded psychological insight** from `DIMENSION_INSIGHTS` map (functions that generate text based on value and count)
-3. Related wins (filtered to exclude generic content < 20 chars or matching `GENERIC_PATTERNS`)
-4. "Explore with Coach" button
+2. Hardcoded psychological insight from `DIMENSION_INSIGHTS` 
+3. Related wins (filtered: exclude < 20 chars or matching generic patterns)
+4. "Explore with Coach" button → navigates to `/coach`
 
-#### Correctness Assessment
+#### Upstream Data Dependencies
 
-✅ **Correct**. The pipeline properly:
-- Avoids re-analyzing already-analyzed wins (`analyzed_at` check)
-- Falls back gracefully from AI to keyword matching
-- Stores dimensions back to DB so they don't need re-extraction
-- Handles both client-side and server-side extraction consistently
+| Data Source | Created By | Working? |
+|------------|-----------|----------|
+| `tiny_wins.win_content` | `store-tiny-win` edge fn (coach Integrate flow) | ✅ Yes |
+| `tiny_wins.{dimension columns}` | `tiny-wins-insights` edge fn (writes back) | ✅ Yes |
 
-#### Qualitative AI Enhancement
+#### Downstream Consumers
 
-The hardcoded `DIMENSION_INSIGHTS` functions are good but static. AI could provide dynamic cross-dimension insights: *"Your wins show a strong pattern of proactive agency combined with pride. This suggests you thrive when you initiate action rather than respond — consider seeking more opportunities to lead initiatives."*
+- `tiny_wins` table is also read by `insights-semantic-analysis` for Mind Map themes
+- Win counts feed into `state-patterns-insights` renewal signal
 
 ---
 
-### 4.10 Energy Rhythm + Calendar Correlations
+### 4.3 Your Readiness Rhythm
 
-**Files**: 
-- `src/components/insights/EnergyRhythm.tsx` (200 lines)
-- `src/components/insights/CalendarStateCorrelations.tsx` (270 lines)  
+**File**: `src/components/insights/PerformanceRhythmCard.tsx` (633 lines)  
+**Edge Function**: `performance-rhythm-insights/index.ts` (327 lines)  
+**Position**: Third card on page
 
-**Position**: Full-width card (merged into single card)  
-**Data Location**: Client-side  
-**AI Usage**: None
+#### Data Sources (DEV_MODE — 7 parallel queries)
 
-#### Energy Rhythm — Data Source
+| Query | Table | Purpose |
+|-------|-------|---------|
+| 1 | `daily_checkins` | Outcomes + energy balance for heatmap |
+| 2 | `calendar_connections` | Check if calendar is connected |
+| 3 | `calendar_events` | Event titles for calendar correlations |
+| 4 | `behavior_logs` | Behavior types for cause-effect |
+| 5 | `inner_readiness_scores` | Composite scores for heatmap overlay + divergence |
+| 6 | `daily_ritual_completions` | Pre-event session tracking for presence |
+| 7 | `dialogue_messages` | Coach presence keywords **(🔴 no user_id filter in DEV_MODE)** |
+
+**Production**: Single call to `performance-rhythm-insights` edge fn which runs equivalent server-side queries with proper user scoping.
+
+#### Calculation: 3×7 Heatmap Grid
 
 ```
-daily_checkins table → checkin_date, outcome, created_at (last 7 days)
+Time Windows:   Morning (5-11), Afternoon (12-16), Evening (17-4)
+Day Mapping:    Mon=0, Tue=1, ... Sun=6
+
+For each check-in:
+  1. Extract hour from created_at timestamp
+  2. Map to time window (0-2)
+  3. Map day-of-week to Mon-Sun index (0-6)
+  4. Place outcome in grid[timeWindow][dayIndex]
+  5. If multiple check-ins in same cell → keep most recent
 ```
 
-Passed as `checkInsWithTimestamp` prop from parent.
+**Composite Score Overlay**: `inner_readiness_scores` are averaged per cell (30-day window). Displayed as small number inside each filled cell.
 
-#### Energy Rhythm — Calculation
+**Divergence Flag**: If `|compositeScore - expectedScore(outcome)| >= 20`, the cell gets a `⚠️` badge. Expected scores: `focused=75, steady=60, scattered=45, drained=30, overwhelmed=25`.
 
-Builds a 3×7 heatmap grid (Morning/Afternoon/Evening × Mon-Sun):
+#### Calculation: Calendar Pattern (Element 1B)
 
 ```typescript
-const TIME_WINDOWS = [
-  { key: 'morning',   hours: [5,6,7,8,9,10,11] },
-  { key: 'afternoon', hours: [12,13,14,15,16,17] },
-  { key: 'evening',   hours: [18,19,20,21,22,23,0,1,2,3,4] }
-];
+// Only shown when: checkInCount >= 10 AND calendar connected
+EVENT_TYPE_KEYWORDS = {
+  board: ['board', 'board meeting', ...],
+  investor: ['investor', 'vc', 'funding', 'pitch'],
+  quarterly: ['quarterly', 'qbr', 'q1'...],
+  // ... 10 categories total
+};
 
-// For each check-in:
-1. Extract hour from timestamp
-2. Map to time window
-3. Map day-of-week (Sunday=6 for Mon-Sun ordering)
-4. Place outcome in grid cell
-// If multiple check-ins in same cell, keep most recent
+For each calendar event:
+  1. Match title against keyword categories
+  2. Find same-day inner_readiness_score
+  3. Group by event type: collect composite scores
+  4. Filter: ≥3 occurrences of same type
+  5. Find most draining (lowest avg < 50) or most energizing (highest avg > 65)
+  6. Generate insight sentence
 ```
 
-Each filled cell gets a gradient background + glow effect based on state color.
-
-#### Energy Rhythm — Correctness
-
-⚠️ **Partially correct**:
-- **Time zone issue**: Uses `new Date(checkIn.timestamp).getHours()` which depends on browser timezone. A user who checks in at 11pm EST will show as "Evening" but if their DB stores UTC, it might calculate as 4am next day ("Morning")
-- **Multiple check-ins**: "Keep most recent" means earlier check-ins are silently discarded. User won't know they had a different state earlier in the same window
-
-#### Calendar State Correlations — Data Source
-
-```
-calendar_connections table → id, is_active (checks if calendar connected)
-daily_checkins table       → checkin_date, outcome (last 30 days)
-calendar_events table      → title, start_time (last 30 days)
-```
-
-#### Calendar Correlations — Calculation
+#### Calculation: Cause-Effect (Element 1C)
 
 ```typescript
-// Hardcoded high-stakes keywords:
-const keywords = [
-  'board', 'quarterly', 'investor', 'pitch', 'review', 
-  'presentation', 'interview', 'deadline', 'client', 'all-hands',
-  'performance', 'budget', 'strategy', 'executive', 'stakeholder'
-];
-
-// For each check-in day:
-1. Find calendar events on that day
-2. For each event, check if title contains any keyword
-3. If match: increment correlationMap[keyword][outcome]
-
-// Filter: occurrences >= 3 AND confidence >= 0.5
-// Note: threshold is 3 (not 2 like other cards)
+// Only shown when: checkInCount >= 10 AND behaviorLogCount >= 5
+For each behavior_log:
+  1. Find check-ins within 0-1 day window
+  2. Group by behavior_type → outcome
+  3. Calculate confidence = count / total for that behavior
+  4. Filter: count >= 2 AND confidence >= 0.5
+  5. Show highest confidence pattern
 ```
 
-#### Calendar Correlations — Correctness
+#### Calculation: How You Show Up — Presence Score (Element 1A)
 
-⚠️ **Issues**:
-- The keyword list is hardcoded and English-only
-- Keywords match on substring: "deadline" would match "no deadline today"
-- Multiple keywords in one event title each create separate correlations (e.g., "Executive Board Review" matches 'executive', 'board', and 'review')
-- No normalization: "Board meeting" and "board prep" are both "board"
+**Only shown when**: `checkInCount >= 15` AND (≥2 high-stakes calendar events OR ≥3 coach sessions)
 
-#### Qualitative AI Opportunity
+Multi-signal composite (0-100):
 
-Both could benefit from AI narrative: *"You consistently check in Scattered on days with Board events (3 of 4 times). On Presentation days, however, you're Focused 80% of the time — suggesting you may prepare more effectively for presentations than board meetings."*
+| Signal | Max Points | Calculation |
+|--------|-----------|-------------|
+| Pre-event sessions | 30 | `min(30, preEventSessionsCompleted × 10)` |
+| Low readiness + high stakes | 20 | `min(20, lowReadinessHighStakes × 5)` |
+| Coach presence keywords | ±30 | Positive/negative keyword scan in dialogue messages |
+| Energized after high-stakes | 15 | `min(15, energizedAfterHighStakes × 5)` |
+
+**Presence Labels**:
+- ≥70: "You show up when it matters"
+- ≥50: "Your presence holds under pressure"
+- ≥30: "Your presence varies with your state"
+- <30: "State is affecting your presence"
+
+**Presence Insight**: The strongest signal generates a narrative sentence.
+
+#### Upstream Data Dependencies
+
+| Data Source | Created By | Working? |
+|------------|-----------|----------|
+| `daily_checkins` | Daily Check-In | ✅ Yes |
+| `calendar_connections` | Calendar auth | ✅ Yes |
+| `calendar_events` | `sync-calendar` edge fn | ✅ Yes (if connected) |
+| `behavior_logs` | Post-event reflection | ✅ Yes |
+| `inner_readiness_scores` | `compute-inner-readiness` edge fn | ✅ Yes |
+| `daily_ritual_completions` | Practice completion | ✅ Yes |
+| `dialogue_messages` | Coach conversations | ✅ Yes |
+
+---
+
+### 4.4 Your Mind Map
+
+**File**: `src/components/insights/InnerWorldBubbles.tsx` (404 lines)  
+**Edge Function**: `insights-semantic-analysis/index.ts` (707 lines)  
+**Position**: Fourth card on page
+
+#### Data Sources (Production — Edge Function)
+
+The `insights-semantic-analysis` edge function aggregates themes from **7 data sources**:
+
+| # | Source | Table | Theme Extraction Method |
+|---|--------|-------|------------------------|
+| 1 | Daily Themes | `daily_themes` | Direct `theme_phrase` count |
+| 2 | Coach Conversations | `dialogue_messages` (user messages) | **AI** (Gemini 2.5 Flash Lite) or keyword fallback |
+| 3 | Practice Events | `sanctuary_events` | Category → theme mapping (pause→"calm & regulate", flow→"focus & presence", power→"energy renewal") + tag extraction |
+| 4 | Tiny Wins | `tiny_wins` | Keyword scan (21 keywords: confidence, calm, focus, etc.) |
+| 5 | Check-in Outcomes | `daily_checkins` | Outcome → theme mapping (focused→"high focus", drained→"energy drain", etc.) + state_tags |
+| 6 | Coach Session Summaries | `coach_session_summaries` | `key_topics` (×1 weight) + `recurring_themes` (×2 weight) |
+| 7 | Coach Pattern Observations | `coach_pattern_observations` | `pattern_description` first 3 words (×observation_count), active only, ≥2 observations |
+
+#### Theme Aggregation
+
+All themes are merged into a single `themeMap<string, {count, sources}>`:
+- Normalized to lowercase
+- Minimum length: 2 characters
+- Capped at **8 unified themes** (sorted by total count)
+- Weight = count / maxCount (0 to 1)
+
+#### Relationship Extraction
+
+**AI Path** (if `LOVABLE_API_KEY` exists + coach messages > 50 chars):
+- Gemini extracts 2-4 relationships with types: "often co-occur", "tension between", "feeds into", "grounded by"
+- Prompt includes up to 3000 chars of coach conversation text
+
+**Algorithmic Fallback** (if AI fails or no coach data):
+- Matches themes against 14 hardcoded known pairs (e.g., `stress↔grounding`, `overwhelm↔calm & regulate`)
+- Uses `RELATIONSHIP_TYPE_MAP` for type assignment
+- Capped at 8 relationships
+
+#### AI Observation
+
+If ≥2 unified themes exist:
+1. **AI** (Gemini 2.5 Flash Lite): "What do [top 5 themes] collectively reveal about this leader's inner world? Two sentences max."
+2. **Fallback**: `generateAlgorithmicObservation()` — template: "Your inner world is currently shaped by [theme1] and [theme2], surfacing most in your [top source]."
+
+#### Node Click → Summary (V2)
+
+When user clicks a bubble:
+1. `fetchNodeSummary(keyword)` is called
+2. **DEV_MODE**: Generates algorithmic summary from parent `semanticAnalysis` state
+3. **Production**: Calls `insights-semantic-analysis` with `action: 'getNodeSummary'`
+   - Reuses `getBubbleDetails()` to gather source excerpts
+   - If `LOVABLE_API_KEY`: AI generates 3-5 sentence synthesis
+   - Fallback: Template-based summary
+
+#### Bubble Visualization
+
+```typescript
+const getBubbleSize = (weight: number) => {
+  const minSize = 64, maxSize = 110;
+  return minSize + (weight * (maxSize - minSize));
+};
+```
+
+Max 12 bubbles. Staggered cascade layout. Taupe color scheme. SVG Bézier curve connections between related themes.
+
+#### Upstream Data Dependencies
+
+| Data Source | Created By | Working? |
+|------------|-----------|----------|
+| `daily_themes` | `daily-checkins` edge fn | ✅ Yes |
+| `dialogue_sessions` / `dialogue_messages` | Coach conversation engine | ✅ Yes |
+| `sanctuary_events` | Practice players | ✅ Yes |
+| `tiny_wins` | `store-tiny-win` edge fn | ✅ Yes |
+| `daily_checkins` | Daily Check-In | ✅ Yes |
+| `coach_session_summaries` | `generate-coach-summary` edge fn | ✅ Yes |
+| `coach_pattern_observations` | `detect-recurring-patterns` edge fn | ✅ Yes |
 
 ---
 
@@ -804,175 +647,163 @@ Both could benefit from AI narrative: *"You consistently check in Scattered on d
 
 These files exist in `src/components/insights/` but are **NOT imported or rendered** on the Insights page:
 
-| File | Lines | Purpose | Status |
-|------|-------|---------|--------|
-| `AlignmentTimeline.tsx` | — | Timeline visualization | Orphaned |
-| `CircadianGraph.tsx` | — | Circadian rhythm chart | Orphaned |
-| `ContentTypeAnalysis.tsx` | — | Content engagement breakdown | Orphaned |
-| `DecisionQualityChart.tsx` | 162 | Weekly quality/consistency bars | Orphaned |
-| `ElementalMandala.tsx` | 115 | Fire/Earth/Water/Air balance | Orphaned (uses localStorage) |
-| `EnergyDistributionChart.tsx` | — | Energy distribution | Orphaned |
-| `EnergyGauge.tsx` | — | Gauge visualization | Orphaned |
-| `EnergyRhythmCurve.tsx` | — | Curve visualization | Orphaned |
-| `LuxuryProgressRing.tsx` | — | Animated ring | Orphaned |
-| `LuxuryStateBar.tsx` | — | State bar component | Orphaned |
-| `MentalFitnessScoreCard.tsx` | 348 | Score + archetype display | Imported but NOT rendered |
-| `PracticeFocusBar.tsx` | — | Practice focus breakdown | Orphaned |
-| `SemanticBubbles.tsx` | — | Older bubble implementation | Orphaned |
-| `WeeklyRhythmHeatmap.tsx` | — | Older heatmap implementation | Orphaned |
+| File | Lines | Original Purpose | Status |
+|------|-------|-----------------|--------|
+| `BaselineReferenceCard.tsx` | ~117 | Onboarding baseline display | **Orphaned** — logic merged into LeadershipPatternsCard |
+| `BehaviorOutcomeCorrelations.tsx` | ~200 | Behavior→State correlations | **Orphaned** — logic merged into PerformanceRhythmCard |
+| `CalendarStateCorrelations.tsx` | ~270 | Calendar→State correlations | **Orphaned** — logic merged into PerformanceRhythmCard |
+| `CauseEffectInsights.tsx` | ~227 | "When X, you tend to Y" patterns | **Orphaned** — logic merged into PerformanceRhythmCard |
+| `EnergyRhythm.tsx` | ~200 | Time-of-day × day-of-week heatmap | **Orphaned** — logic merged into PerformanceRhythmCard |
+| `EnergyRhythmCurve.tsx` | — | Curve visualization | **Orphaned** |
+| `FrictionAndStrengthDetail.tsx` | ~183 | Archetype strength/growth areas | **Orphaned** — logic merged into LeadershipPatternsCard |
+| `LuxuryProgressRing.tsx` | — | Animated ring | **Orphaned** |
+| `PracticeEffectiveness.tsx` | 183 | Top restorer practice | **Orphaned** — imported in file but NOT rendered in JSX |
+| `SemanticBubbles.tsx` | 47 | Older bubble implementation | **Orphaned** |
+| `WeeklyRhythmHeatmap.tsx` | — | Older heatmap implementation | **Orphaned** |
 
-**Note on MentalFitnessScoreCard**: While the component exists and is imported in some files, it is NOT rendered on the current `/insights` page layout. Its logic is entirely **localStorage-based** (see `mentalFitnessEngine.ts`) which makes it fundamentally broken for a multi-device, database-backed application.
+**Recommendation**: Delete all orphaned files to reduce maintenance burden. The `PracticeEffectiveness` logic could be valuable if re-integrated into a card.
 
 ---
 
 ## 6. AI vs Pure Logic Matrix
 
-| Card | AI Model | Fallback | Trigger Condition |
-|------|----------|----------|-------------------|
-| **State Patterns** (observation text) | Gemini 3 Flash Preview via Lovable Gateway | `generateSimpleObservation()` — template-based | Production + LOVABLE_API_KEY present |
-| **Tiny Wins** (dimension extraction) | Gemini 3 Flash Preview via Lovable Gateway | `extractDimensionsFromText()` — keyword matching | Production + LOVABLE_API_KEY + unanalyzed wins |
-| **Semantic Analysis** (coach themes) | Gemini 1.5 Flash via Google API directly | No coach themes extracted (skipped) | Production + GEMINI_API_KEY present (🔴 NOT CONFIGURED) |
-| **Semantic Analysis** (relationships) | Same as above | Algorithmic pair matching from hardcoded list | Same |
-| Baseline Reference | None | N/A | — |
-| Weekly Progress | None | N/A | — |
-| Practice Effectiveness | None | N/A | — |
-| Typical State | None | N/A | — |
-| Strength & Friction | None | N/A | — |
-| Cause-Effect | None | N/A | — |
-| Energy Rhythm | None | N/A | — |
-| Calendar Correlations | None | N/A | — |
+| Card | AI Model | Gateway | Fallback | Trigger Condition |
+|------|----------|---------|----------|-------------------|
+| **Self Mastery Patterns** (observation) | Gemini 2.5 Flash Lite | Lovable AI Gateway | Template from dimension deltas + friction | `LOVABLE_API_KEY` + ≥5 check-ins |
+| **Tiny Wins** (dimension extraction) | Gemini 2.5 Flash Lite | Lovable AI Gateway | Keyword matching (`DIMENSION_PATTERNS`) | `LOVABLE_API_KEY` + unanalyzed wins exist |
+| **Mind Map** (coach theme extraction) | Gemini 2.5 Flash Lite | Lovable AI Gateway | No coach themes extracted (skipped) | `LOVABLE_API_KEY` + coach messages > 50 chars |
+| **Mind Map** (theme relationships) | Same as above | Same | Algorithmic pair matching from `RELATIONSHIP_TYPE_MAP` | Same |
+| **Mind Map** (AI observation) | Gemini 2.5 Flash Lite | Lovable AI Gateway | `generateAlgorithmicObservation()` template | `LOVABLE_API_KEY` + ≥2 themes |
+| **Mind Map** (node summary) | Gemini 2.5 Flash Lite | Lovable AI Gateway | Template summary from data | `LOVABLE_API_KEY` + on click |
+| Readiness Rhythm | None | — | All algorithmic | — |
 
-### AI Model Usage Inconsistency
-
-⚠️ The `insights-semantic-analysis` edge function uses the **direct Google Gemini API** (`generativelanguage.googleapis.com`), while the other two edge functions use the **Lovable AI Gateway** (`ai.gateway.lovable.dev`). This creates:
-1. An extra API key dependency (`GEMINI_API_KEY`)
-2. Different billing/quota tracking
-3. Inconsistent error handling patterns
-
-**Recommendation**: Migrate `insights-semantic-analysis` to use Lovable AI Gateway with `LOVABLE_API_KEY` (already configured).
+**✅ Fixed from prior audit**: `insights-semantic-analysis` now uses `LOVABLE_API_KEY` via Lovable AI Gateway (previously used unconfigured `GEMINI_API_KEY` via direct Google API).
 
 ---
 
 ## 7. Data Flow Architecture
 
-### Database Tables Used by Insights
+### Database Tables Read by Insights
 
 | Table | Cards That Read It | Read Via |
 |-------|-------------------|----------|
-| `profiles` | Baseline Reference, Strength & Friction | Direct Supabase |
-| `daily_checkins` | State Patterns, Typical State, Cause-Effect, Energy Rhythm, Calendar Correlations, Practice Effectiveness, Strength & Friction, Semantic Analysis | Direct Supabase + Edge Fns |
-| `sanctuary_events` | Practice Effectiveness, Cause-Effect, Semantic Analysis | Direct Supabase + Edge Fn |
-| `sanctuary_content` | Practice Effectiveness | Direct Supabase |
-| `tiny_wins` | Tiny Wins, Semantic Analysis | Direct Supabase + Edge Fn |
-| `daily_ritual_completions` | Weekly Progress | Edge Fn |
-| `behavior_logs` | Cause-Effect, Behavior-Outcome | Direct Supabase |
-| `calendar_connections` | Calendar Correlations | Direct Supabase |
-| `calendar_events` | Calendar Correlations | Direct Supabase |
-| `user_coach_insights` | Strength & Friction | Direct Supabase |
-| `dialogue_sessions` | Semantic Analysis (Mind Map) | Direct Supabase + Edge Fn |
-| `dialogue_messages` | Semantic Analysis (Mind Map) | Direct Supabase + Edge Fn |
-| `daily_themes` | Theme Patterns | Edge Fn |
+| `profiles` | Card 1 (Self Mastery) | Edge fn (prod) / Direct (dev) |
+| `daily_checkins` | Cards 1, 2, 3, 4 | Edge fns + Direct |
+| `daily_themes` | Cards 1, 4 | Edge fns + Direct |
+| `user_coach_insights` | Card 1 | Edge fn (prod) / Direct (dev) |
+| `sanctuary_events` | Cards 1, 4 | Edge fn |
+| `daily_ritual_completions` | Cards 1, 3 | Edge fn + Direct |
+| `tiny_wins` | Cards 1, 2, 4 | Edge fn + Direct |
+| `dialogue_sessions` | Cards 1, 3, 4 | Edge fn + Direct |
+| `dialogue_messages` | Cards 1, 3, 4 | Edge fn + Direct |
+| `calendar_connections` | Cards 1, 3 | Edge fn + Direct |
+| `calendar_events` | Card 3 | Edge fn + Direct |
+| `behavior_logs` | Cards 1, 3 | Edge fn + Direct |
+| `inner_readiness_scores` | Cards 1, 3 | Edge fn + Direct |
+| `coach_session_summaries` | Card 4 | Edge fn |
+| `coach_pattern_observations` | Card 4 | Edge fn |
+| `wearable_data` | Card 1 | Edge fn **(🔴 table doesn't exist)** |
 
-### Tables Written To (by insights-related edge functions)
+### Tables Written To
 
 | Table | Edge Function | Write Operation |
 |-------|--------------|-----------------|
 | `tiny_wins` | `tiny-wins-insights` | UPDATE: sets dimension columns + `analyzed_at` |
 
-### Data That Feeds INTO Insights (from other app areas)
+### Data Pipeline Health Summary
 
-| Data Point | Created By | App Area |
-|-----------|-----------|----------|
-| Check-in outcomes | Daily Check-in flow | `/daily-checkin` |
-| Sanctuary events | Practice completion | Various practice players |
-| Behavior logs | Post-event reflection | Behavior logging UI |
-| Tiny wins | Coach Integrate flow | `/coach` (evening flow) |
-| Calendar events | Calendar sync | Background sync function |
-| Coach insights | Coach conversation analysis | `extract-coach-insights` edge fn |
-| Daily themes | Theme generation during check-in | `daily-checkins` edge fn |
-| Ritual completions | Practice tracking | Various practice players |
-| Profile baseline | Onboarding | `/onboarding` |
+| Pipeline | Source → Table | Used By Cards | Status |
+|----------|---------------|---------------|--------|
+| Daily check-ins | DailyCheckIn → `daily_checkins` | 1, 2, 3, 4 | ✅ Working |
+| Check-in themes | `daily-checkins` edge fn → `daily_themes` | 1, 4 | ✅ Working |
+| Inner readiness | `compute-inner-readiness` → `inner_readiness_scores` | 1, 3 | ✅ Working |
+| Ritual completions | Practice players → `daily_ritual_completions` | 1, 3 | ✅ Working |
+| Sanctuary events | Practice players → `sanctuary_events` | 1, 4 | ✅ Working |
+| Tiny wins | Coach Integrate → `tiny_wins` | 1, 2, 4 | ✅ Working |
+| Win dimensions | `tiny-wins-insights` → `tiny_wins` UPDATE | 2 | ✅ Working |
+| Coach sessions | Coach flow → `dialogue_sessions` + `dialogue_messages` | 1, 3, 4 | ✅ Working |
+| Coach summaries | `generate-coach-summary` → `coach_session_summaries` | 4 | ✅ Working |
+| Coach patterns | `detect-recurring-patterns` → `coach_pattern_observations` | 4 | ✅ Working |
+| Coach insights | `extract-coach-insights` → `user_coach_insights` | 1 | ✅ Working |
+| Behavior logs | Behavior logging UI → `behavior_logs` | 1, 3 | ✅ Working |
+| Calendar events | `sync-calendar` → `calendar_events` | 3 | ✅ Working (if connected) |
+| Wearable data | `sync-oura` → `wearable_data` | 1 | 🔴 **Table missing from schema** |
 
 ---
 
 ## 8. Security Audit
 
-### Client-Side Data Access
+### Production (Edge Functions)
 
-All 7 components that make direct Supabase queries use `user_id` filtering. Given the project's RLS architecture (deny-by-default with service role access via edge functions), these direct queries should theoretically be blocked by RLS in production.
+All 4 edge functions:
+- Verify Auth0 JWT via shared `verifyAuth0JWT()` module
+- Use `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS
+- Scope all queries to verified `userId`
 
-**However**: The components use `DEV_MODE` to bypass this:
-```typescript
-const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
-```
+**✅ Secure**: User can only access their own data.
 
-In production, these direct queries will use the authenticated user's ID. Whether they succeed depends on RLS policies for each table.
+### DEV_MODE
 
-### Edge Function Authentication
+- All direct Supabase queries use `DEV_USER.id` (`'dev-user-123'`)
+- RLS policies include `DEV_MODE` rules allowing `dev-user-123` access
+- **🔴 PerformanceRhythmCard DEV_MODE**: `dialogue_messages` query has NO `user_id` filter — fetches all users' messages (line 123-126)
 
-All three insight edge functions verify the Auth0 token via `/userinfo` endpoint before proceeding. They use `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS.
+### Exposed Client-Side Logic
 
-### Exposed Logic
+In DEV_MODE, these algorithms run client-side (visible in browser DevTools):
+1. Theme extraction keyword lists (`THEME_KEYWORDS`)
+2. Dimension extraction logic (DEV fallback)
+3. Semantic pair relationships
+4. Archetype cascade thresholds (DEV version)
 
-The following proprietary algorithms run client-side and are visible in browser DevTools:
-1. Archetype determination thresholds (`userArchetypeEngine.ts`)
-2. Mental Fitness Score formula (`mentalFitnessEngine.ts`)
-3. Cause-Effect correlation logic
-4. Keyword-based dimension extraction patterns
-5. Theme extraction keyword lists
-6. Calendar correlation keywords
-7. Behavior-outcome correlation algorithm
+In production, all proprietary logic is server-side in edge functions. ✅
 
 ---
 
 ## 9. Bug Report & Correctness Issues
 
-### 🔴 Critical Bugs
+### 🔴 Critical
 
-**BUG-1: Archetype ID Mismatch**
-- **Location**: `BaselineReferenceCard.tsx` line 18-24
-- **Issue**: Archetype IDs don't match `userArchetypeEngine.ts` output
-- **Impact**: Archetype label always shows "Your Profile" instead of actual archetype name
-- **Fix**: Update `archetypeLabels` map to use correct IDs: `natural_regulator`, `strategic_pauser`, `high_octane_performer`, `awareness_builder`
+**BUG-1: `wearable_data` Table Missing**
+- **Location**: `state-patterns-insights/index.ts` line 129
+- **Issue**: Queries `wearable_data` table which doesn't exist in database schema
+- **Impact**: HRV signals (weight 0.10 each for Recalibration and Renewal) always unavailable; weights redistributed to other signals. No error thrown — query returns empty.
+- **Fix**: Either create the table or remove the query and adjust signal weights
 
-**BUG-2: Mental Fitness Score Uses localStorage**
-- **Location**: `mentalFitnessEngine.ts`
-- **Issue**: Entire scoring engine reads from `localStorage` (`dailyRitualHistory`, `practiceHistory`, `recalibrateHistory`, `dailyCheckIn-*`)
-- **Impact**: Score is device-specific, lost on cache clear, inconsistent across devices, disconnected from database
-- **Fix**: Replace with `mental_fitness_scores` table or `mental-fitness-scores` edge function
+**BUG-2: PerformanceRhythmCard DEV_MODE Dialogue Leak**
+- **Location**: `PerformanceRhythmCard.tsx` line 123-126
+- **Issue**: `dialogue_messages` query has `.limit(200)` but no `.eq('user_id', ...)` filter
+- **Impact**: In DEV_MODE, fetches messages from ALL users. Could expose other users' coach conversations in presence calculation.
+- **Fix**: Add user_id filter via session join or direct filter
 
-**BUG-3: GEMINI_API_KEY Not Configured**
-- **Location**: `insights-semantic-analysis/index.ts` line 152
-- **Issue**: Uses `Deno.env.get('GEMINI_API_KEY')` but this secret doesn't exist
-- **Impact**: Coach theme extraction via AI silently fails; only algorithmic fallback works
-- **Fix**: Migrate to Lovable AI Gateway using `LOVABLE_API_KEY`
+### 🟡 Medium
 
-### 🟡 Medium Issues
+**BUG-3: DEV_MODE Coach Insight Logic Divergence**
+- **Location**: `LeadershipPatternsCard.tsx` lines 120-129 vs `state-patterns-insights/index.ts` lines 214-248
+- **Issue**: DEV uses keyword matching only; production prioritizes explicit `insight_type` queries
+- **Impact**: Dev testing doesn't reflect production behavior for Lean On / Watch For
 
-**BUG-4: Practice Effectiveness Dead Code**
-- **Location**: `PracticeEffectiveness.tsx` lines 109-111
-- **Issue**: Second `else if` branch can never execute because first `if` already catches all positive outcomes
-- **Impact**: No functional impact (dead code), but misleading to developers
+**BUG-4: Practice Effectiveness Dead Component**
+- **Location**: `src/components/insights/PracticeEffectiveness.tsx`
+- **Issue**: Component file exists and is imported (`line 17` of Insights.tsx) but never rendered in JSX
+- **Impact**: Dead import increases bundle size; component logic (Practice ROI) is not surfaced to users
 
-**BUG-5: Energy Rhythm Timezone Sensitivity**
-- **Location**: `EnergyRhythm.tsx` line 73
-- **Issue**: `new Date(checkIn.timestamp).getHours()` uses browser timezone, but DB timestamps may be UTC
+**BUG-5: Heatmap Timezone Sensitivity**
+- **Location**: `PerformanceRhythmCard.tsx` line 149-151
+- **Issue**: `new Date(ci.created_at).getHours()` uses browser timezone. If DB stores UTC, a 11pm EST check-in becomes 4am UTC ("Morning" instead of "Evening")
 - **Impact**: Check-ins near midnight may appear in wrong time window
 
-**BUG-6: Calendar Correlation Substring Matching**
-- **Location**: `CalendarStateCorrelations.tsx` line 123
-- **Issue**: `titleLower.includes(keyword)` can match partial words (e.g., "board" in "onboarding")
-- **Impact**: False positive correlations
+### 🟢 Low
 
-### 🟢 Low Issues
+**BUG-6: Flow Practice Score Not Calendar-Gated**
+- **Location**: `state-patterns-insights/index.ts` lines 317-321
+- **Issue**: `flowUnderLoad` counts ALL flow practices, not just those under calendar pressure (comment says "approximate"). The availability condition requires `hasCalendar` but the score itself doesn't.
+- **Impact**: Slight overcount of clarity signal
 
-**BUG-7: State Distribution Sort Instability**
-- **Location**: `Insights.tsx` line 145
-- **Issue**: `sort()` without stable comparison for equal values
-
-**BUG-8: Behavior-Outcome Temporal Double-Counting**
-- **Location**: `CauseEffectInsights.tsx` lines 93-96
-- **Issue**: 0-1 day window means same-day AND next-day check-ins both correlate
+**BUG-7: Pattern Description Truncation**
+- **Location**: `insights-semantic-analysis/index.ts` lines 368-372
+- **Issue**: `pattern_description` first 3 words used as theme; if description is "The user frequently" → theme becomes "The user frequently"
+- **Impact**: Low-quality themes from short pattern descriptions
 
 ---
 
@@ -980,34 +811,37 @@ The following proprietary algorithms run client-side and are visible in browser 
 
 ### Confirmed Redundancies
 
-**1. BehaviorOutcomeCorrelations ≡ CauseEffectInsights (behavior subset)**
+**1. 11 Orphaned Component Files**
 
-| Aspect | BehaviorOutcomeCorrelations | CauseEffectInsights |
-|--------|---------------------------|-------------------|
-| Data source | `behavior_logs` + `daily_checkins` | `behavior_logs` + `daily_checkins` + `sanctuary_events` |
-| Algorithm | Same-day/next-day correlation | Same-day/next-day correlation |
-| Threshold | ≥2 occurrences, ≥50% confidence | ≥2 occurrences, ≥50% confidence |
-| Output | "When you [Behavior] → [State]" | "When you [Behavior/Practice] → [State]" |
-| Difference | Only behavior→state | Adds practice→next-day-state |
+See §5. All original card logic has been consolidated into 4 mega-cards. The old files remain as dead code.
 
-**Verdict**: `BehaviorOutcomeCorrelations` is a strict subset of `CauseEffectInsights`. Both are imported and rendered on the page (lines 17 + 19, but only CauseEffectInsights is visually prominent). `BehaviorOutcomeCorrelations` is rendered but not visible in the current layout — checking the page rendering... Actually on closer inspection, `BehaviorOutcomeCorrelations` IS imported (line 17) but **never rendered** in the JSX. It's a dead import. **It should be removed.**
+**2. Duplicate Cause-Effect Logic**
 
-**2. ElementalMandala and DecisionQualityChart — Orphaned Legacy**
+Cause-Effect patterns are computed in TWO places:
+- `PerformanceRhythmCard.tsx` lines 258-289 (DEV_MODE)
+- `performance-rhythm-insights/index.ts` (production)
 
-Both use `localStorage` (`practiceHistory`) and are not rendered. They represent an older data model that's been superseded by database-backed analytics. **Safe to delete.**
+Both implement identical behavior→outcome correlation with same thresholds (≥2 count, ≥50% confidence). This is expected (dev mirrors prod) but the code is fully duplicated rather than shared.
 
-**3. Theme Patterns vs Mind Map**
+**3. Duplicate Archetype Resolution**
 
-Theme Patterns shows `daily_themes` phrases. Mind Map shows unified themes from ALL sources including daily themes. The Mind Map subsumes Theme Patterns content. However, Theme Patterns provides a specific view (exact phrases used by the system) that's distinct from the AI-extracted keywords in the Mind Map.
+Archetype cascade logic appears in:
+- `state-patterns-insights/index.ts` lines 19-29
+- `LeadershipPatternsCard.tsx` lines 60-66
+- `src/utils/userArchetypeEngine.ts` (LEGACY — different IDs)
 
-**Verdict**: Keep both — they serve different purposes. Theme Patterns = "What the system said", Mind Map = "What you talked about across all touchpoints".
+The first two are in sync. The third uses legacy IDs and is not consumed by the Insights page.
+
+**4. Theme Extraction in Multiple Places**
+
+Theme keyword extraction runs in:
+- `Insights.tsx` lines 22-49 (`THEME_KEYWORDS` — DEV_MODE Mind Map)
+- `insights-semantic-analysis/index.ts` lines 306-320 (win keyword scan)
+- Both use different keyword sets for different purposes — not truly redundant, but confusing.
 
 ### Cards That Could Be Merged
 
-| Merge Candidate | Reason |
-|----------------|--------|
-| Typical State + State Distribution bar | Both derive from the same `statePatterns.distribution` data |
-| Practice Effectiveness + Cause-Effect | Both answer "what works for me" — effectiveness is a specific case of cause-effect |
+All 10 original cards have already been consolidated into 4 mega-cards. No further merging recommended at this time.
 
 ---
 
@@ -1015,77 +849,90 @@ Theme Patterns shows `daily_themes` phrases. Mind Map shows unified themes from 
 
 ### Priority 1 — Fix Critical Bugs
 
-1. **Fix archetype ID mismatch** in `BaselineReferenceCard.tsx` — update label map to match engine IDs  
-2. **Migrate `insights-semantic-analysis`** to use Lovable AI Gateway instead of direct Gemini API  
-3. **Replace `mentalFitnessEngine.ts` localStorage usage** with database-backed `mental_fitness_scores` table (or remove the card until migrated)  
+1. **Fix `wearable_data` table reference** in `state-patterns-insights`: Either create the table (if Oura integration writes to it) or remove queries + adjust signal weights to properly redistribute
+2. **Add user_id filter** to `PerformanceRhythmCard.tsx` DEV_MODE `dialogue_messages` query
 
 ### Priority 2 — Data Integrity
 
-4. **Add word-boundary matching** for calendar correlation keywords: use regex `\b${keyword}\b` instead of `includes()`  
-5. **Fix timezone handling** in Energy Rhythm: normalize timestamps to user's timezone or use the `checkin_date` field (which is already date-only)  
-6. **Remove dead code** in PracticeEffectiveness (unreachable else-if branch)  
+3. **Align DEV_MODE coach insight logic** with production (add explicit `insight_type` query in `LeadershipPatternsCard.tsx`)
+4. **Fix timezone handling** in PerformanceRhythmCard heatmap — use `checkin_date` + `time_of_day` from `inner_readiness_scores` instead of parsing `created_at`
+5. **Remove `PracticeEffectiveness` import** from `Insights.tsx` (dead import)
 
-### Priority 3 — Architecture
+### Priority 3 — Cleanup
 
-7. **Remove `BehaviorOutcomeCorrelations` import** — dead import, logic already covered by CauseEffectInsights  
-8. **Delete 14 orphaned component files** to reduce maintenance burden  
-9. **Move correlation logic server-side** to protect proprietary algorithms (CauseEffectInsights, PracticeEffectiveness, CalendarStateCorrelations)  
+6. **Delete 11 orphaned component files** in `src/components/insights/`:
+   - `BaselineReferenceCard.tsx`, `BehaviorOutcomeCorrelations.tsx`, `CalendarStateCorrelations.tsx`, `CauseEffectInsights.tsx`, `EnergyRhythm.tsx`, `EnergyRhythmCurve.tsx`, `FrictionAndStrengthDetail.tsx`, `LuxuryProgressRing.tsx`, `PracticeEffectiveness.tsx`, `SemanticBubbles.tsx`, `WeeklyRhythmHeatmap.tsx`
+7. **Remove unused `insightsTier` computation** from Insights.tsx (or re-purpose for page-level progressive unlock)
 
-### Priority 4 — AI Enhancement Opportunities
+### Priority 4 — Architecture
 
-10. **Add AI narrative to Strength & Friction**: Generate contextual insight combining archetype + check-in patterns + coach feedback  
-11. **Add AI narrative to Cause-Effect**: Explain WHY certain patterns emerge, not just THAT they exist  
-12. **Add AI narrative to Energy Rhythm**: Identify peak performance windows and recovery patterns  
-13. **Replace hardcoded THEME_INSIGHTS** with dynamic AI generation in InnerWorldBubbles click modal  
-14. **Add cross-card AI synthesis**: A "Weekly Summary" insight that connects patterns across all cards  
+8. **Extract shared constants** (archetype cascade, state colors, time windows) into a shared config file
+9. **Add error toasts** — currently all fetch failures are silently logged to console
+10. **Consider Practice ROI re-integration** — the PracticeEffectiveness logic (which practice → improved next-day state) is valuable and not surfaced anywhere in the current layout
 
-### Priority 5 — Data Pipeline Ensuring
+### Priority 5 — AI Enhancement
 
-To ensure the Insights page tracks correctly, verify these data pipelines are working:
-
-| Pipeline | Check Method | Expected |
-|----------|-------------|----------|
-| Daily check-ins saving | Complete a check-in → query `daily_checkins` | New row with outcome, energy_balance |
-| Ritual completions tracking | Complete a practice → query `daily_ritual_completions` | Updated boolean fields |
-| Sanctuary events recording | Complete any practice → query `sanctuary_events` | New row with event_type='completed' |
-| Tiny wins capturing | Complete evening Integrate flow → query `tiny_wins` | New row with win_content |
-| Behavior logs saving | Log a behavior → query `behavior_logs` | New row with behavior_type |
-| Coach insights extraction | Complete coach conversation → query `user_coach_insights` | New insights extracted |
-| Calendar sync working | Connect calendar → query `calendar_events` | Synced events appearing |
-| Daily themes generating | Complete check-in → query `daily_themes` | Theme phrase generated |
+11. **Cross-card AI synthesis**: A "Weekly Summary" insight that connects patterns across all 4 cards
+12. **Dynamic dimension insights**: Replace hardcoded `DIMENSION_INSIGHTS` with contextual AI generation
+13. **Presence insight refinement**: Current presence keywords ("showed up well", "held the room") are simplistic; AI could score presence more nuancedly from coach transcripts
 
 ---
 
 ## 12. Appendix: Edge Function Reference
 
-### `state-patterns-insights`
+### `state-patterns-insights` (Card 1)
 
-- **Auth**: Auth0 token → `/userinfo` verification  
-- **Input**: `{ days: 7 }`  
-- **Output**: `{ distribution, observation, checkInCount, userArchetype }`  
-- **AI**: Gemini 3 Flash Preview via Lovable Gateway (observation text)  
-- **Fallback**: `generateSimpleObservation()` template  
-- **Tables**: `daily_checkins`, `profiles`  
+| Property | Value |
+|----------|-------|
+| **File** | `supabase/functions/state-patterns-insights/index.ts` (561 lines) |
+| **Auth** | Auth0 JWT via `verifyAuth0JWT()` |
+| **Input** | No body required |
+| **Tables Read** | `profiles`, `daily_checkins`, `daily_themes`, `user_coach_insights`, `sanctuary_events`, `daily_ritual_completions`, `tiny_wins`, `wearable_data` (🔴), `dialogue_sessions`, `dialogue_messages`, `calendar_connections`, `behavior_logs`, `inner_readiness_scores` |
+| **Tables Written** | None |
+| **AI** | Gemini 2.5 Flash Lite via Lovable Gateway (observation — tool_choice) |
+| **Fallback** | `generateFallbackObservation()` template |
+| **Output** | `{ data: LeadershipPatternsData }` — archetype, scores, deltas, friction, trend, themes, coach insights, observation |
 
-### `tiny-wins-insights`
+### `tiny-wins-insights` (Card 2)
 
-- **Auth**: Auth0 token → `/userinfo` verification  
-- **Input**: `{ days: 14 }`  
-- **Output**: `{ dimensions, themes, summary, winsCount, sourceBreakdown }`  
-- **AI**: Gemini 3 Flash Preview via Lovable Gateway (dimension extraction per win)  
-- **Fallback**: `extractDimensionsFromText()` keyword matching  
-- **Tables**: `tiny_wins` (READ + UPDATE)  
-- **Side effect**: Updates win records with extracted dimensions  
+| Property | Value |
+|----------|-------|
+| **File** | `supabase/functions/tiny-wins-insights/index.ts` (427 lines) |
+| **Auth** | Auth0 JWT via `verifyAuth0JWT()` |
+| **Input** | `{ days: 14 }` |
+| **Tables Read** | `tiny_wins` |
+| **Tables Written** | `tiny_wins` (UPDATE: dimension columns + `analyzed_at`) |
+| **AI** | Gemini 2.5 Flash Lite via Lovable Gateway (dimension extraction per win — tool_choice) |
+| **Fallback** | Keyword matching (`DIMENSION_PATTERNS`) |
+| **Output** | `{ data: { dimensions, themes, summary, winsCount, observation, patternLine } }` |
+| **Side Effect** | Updates each unanalyzed win with extracted dimensions |
 
-### `insights-semantic-analysis`
+### `performance-rhythm-insights` (Card 3)
 
-- **Auth**: Auth0 token → hardcoded Auth0 domain verification  
-- **Input**: `{ days: 7, action: 'analyze' | 'getBubbleDetails', keyword? }`  
-- **Output (analyze)**: `{ themePatterns, unifiedThemes, themeRelationships }`  
-- **Output (getBubbleDetails)**: `{ keyword, totalCount, recentMentions }`  
-- **AI**: Gemini 1.5 Flash via direct Google API (🔴 uses unconfigured GEMINI_API_KEY)  
-- **Fallback**: Only algorithmic theme aggregation; no AI themes extracted  
-- **Tables**: `daily_themes`, `dialogue_sessions`, `dialogue_messages`, `sanctuary_events`, `tiny_wins`, `daily_checkins`  
+| Property | Value |
+|----------|-------|
+| **File** | `supabase/functions/performance-rhythm-insights/index.ts` (327 lines) |
+| **Auth** | Auth0 JWT via `verifyAuth0JWT()` |
+| **Input** | No body required |
+| **Tables Read** | `daily_checkins`, `calendar_connections`, `calendar_events`, `behavior_logs`, `inner_readiness_scores`, `daily_ritual_completions`, `dialogue_sessions`, `dialogue_messages` |
+| **Tables Written** | None |
+| **AI** | None |
+| **Output** | `{ presenceScore, presenceLabel, presenceInsight, calendarInsight, causeEffectInsight, grid, bestReadinessWindow, checkInCount, behaviorLogCount, hasCalendar, dataSourceNote }` |
+
+### `insights-semantic-analysis` (Card 4)
+
+| Property | Value |
+|----------|-------|
+| **File** | `supabase/functions/insights-semantic-analysis/index.ts` (707 lines) |
+| **Auth** | Auth0 JWT via `verifyAuth0JWT()` |
+| **Input** | `{ days: 7, action: 'analyze' | 'getNodeSummary' | 'getBubbleDetails', keyword? }` |
+| **Tables Read** | `daily_themes`, `dialogue_sessions`, `dialogue_messages`, `sanctuary_events`, `tiny_wins`, `daily_checkins`, `coach_session_summaries`, `coach_pattern_observations` |
+| **Tables Written** | None |
+| **AI** | Gemini 2.5 Flash Lite via Lovable Gateway (theme extraction, relationships, observation, node summaries) |
+| **Fallback** | Algorithmic pair matching + `generateAlgorithmicObservation()` template |
+| **Output (analyze)** | `{ data: { themePatterns, unifiedThemes, themeRelationships, aiObservation } }` |
+| **Output (getNodeSummary)** | `{ data: { keyword, totalCount, sources, recentDate, aiSummary, connectedThemes } }` |
+| **Output (getBubbleDetails)** | `{ data: { keyword, totalCount, recentMentions } }` |
 
 ---
 
