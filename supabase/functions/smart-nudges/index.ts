@@ -1,6 +1,107 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ── APNs Helper Functions ──
+
+/**
+ * Create a JWT for APNs authentication using ES256 (ECDSA P-256 + SHA-256).
+ * The P8 key is an ECDSA private key in PEM/PKCS8 format.
+ */
+async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
+  // Clean and decode the P8 key
+  const pemBody = p8Key
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '');
+  const keyData = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+
+  // Import as ECDSA P-256 signing key
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyData.buffer,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  // Build JWT header and payload
+  const header = { alg: 'ES256', kid: keyId };
+  const now = Math.floor(Date.now() / 1000);
+  const claims = { iss: teamId, iat: now };
+
+  const encode = (obj: unknown) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const headerB64 = encode(header);
+  const claimsB64 = encode(claims);
+  const signingInput = `${headerB64}.${claimsB64}`;
+
+  // Sign with ECDSA P-256 SHA-256
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  // Convert ArrayBuffer to base64url
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  return `${signingInput}.${sigB64}`;
+}
+
+/**
+ * Send a push notification to a single iOS device via APNs HTTP/2.
+ * Returns true on success, false on failure.
+ */
+async function sendApnsPush(
+  deviceToken: string,
+  jwt: string,
+  bundleId: string,
+  title: string,
+  body: string,
+  customData: Record<string, string>
+): Promise<boolean> {
+  const apnsPayload = {
+    aps: {
+      alert: { title, body },
+      sound: 'default',
+      badge: 1,
+      'mutable-content': 1,
+    },
+    ...customData,
+  };
+
+  const url = `https://api.push.apple.com/3/device/${deviceToken}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `bearer ${jwt}`,
+      'apns-topic': bundleId,
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(apnsPayload),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    console.error(`[APNs] Failed (${response.status}): ${errBody} — token: ${deviceToken.substring(0, 12)}...`);
+
+    // Deactivate invalid tokens
+    if (response.status === 410 || response.status === 400) {
+      console.log(`[APNs] Deactivating invalid token: ${deviceToken.substring(0, 12)}...`);
+      // Token deactivation handled by caller if needed
+    }
+    return false;
+  }
+
+  await response.text(); // consume body
+  return true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -817,9 +918,25 @@ serve(async (req) => {
 
     console.log(`[smart-nudges] ${allNotifications.length} notifications qualified`);
 
-    // 4. Send notifications (dry run mode — log without sending via FCM)
-    const fcmKey = Deno.env.get('FCM_SERVICE_ACCOUNT_JSON');
-    const isDryRun = !fcmKey;
+    // 4. Send notifications via APNs (or dry-run if credentials not configured)
+    const apnsKey = Deno.env.get('APNS_P8_KEY');
+    const apnsKeyId = Deno.env.get('APNS_KEY_ID');
+    const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
+    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'app.mindmodule.me';
+    const isDryRun = !apnsKey || !apnsKeyId || !apnsTeamId;
+
+    let sendSuccess = 0;
+    let sendFailed = 0;
+
+    // Cache APNs JWT for the batch (valid for ~1 hour)
+    let apnsJwt: string | null = null;
+    if (!isDryRun) {
+      try {
+        apnsJwt = await createApnsJwt(apnsKey!, apnsKeyId!, apnsTeamId!);
+      } catch (e) {
+        console.error('[smart-nudges] Failed to create APNs JWT:', e);
+      }
+    }
 
     for (const notif of allNotifications) {
       const payload: Record<string, unknown> = {
@@ -835,18 +952,41 @@ serve(async (req) => {
         payload.pattern_type = notif.eventReference;
       }
 
-      // Log to notification_log
-      await supabase.from('notification_log').insert({
+      // Log to notification_log and get the ID for engagement tracking
+      const { data: logRow } = await supabase.from('notification_log').insert({
         user_id: notif.userId,
         notification_type: notif.type,
         variant_id: notif.variant.id,
         event_reference: notif.eventReference || null,
         payload,
-      });
+      }).select('id').single();
 
-      if (!isDryRun) {
-        // TODO: FCM HTTP v1 send — activated when Capacitor wrapper is ready
-        console.log(`[smart-nudges] Would send FCM to ${notif.tokens.length} tokens for ${notif.userId}`);
+      const notificationLogId = logRow?.id;
+
+      // Send via APNs if credentials are available
+      if (!isDryRun && apnsJwt) {
+        for (const tokenInfo of notif.tokens) {
+          if (tokenInfo.platform !== 'ios') continue;
+          try {
+            const sent = await sendApnsPush(
+              tokenInfo.token,
+              apnsJwt,
+              apnsBundleId,
+              notif.variant.title,
+              notif.variant.body,
+              {
+                notification_type: notif.type,
+                variant_id: notif.variant.id,
+                notification_log_id: notificationLogId || '',
+              }
+            );
+            if (sent) sendSuccess++;
+            else sendFailed++;
+          } catch (e) {
+            console.error(`[smart-nudges] APNs send error for ${notif.userId}:`, e);
+            sendFailed++;
+          }
+        }
       }
 
       console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.variant.id} → ${notif.userId}`);
@@ -856,6 +996,8 @@ serve(async (req) => {
       processed: userIds.length,
       notifications: allNotifications.length,
       dry_run: isDryRun,
+      apns_success: sendSuccess,
+      apns_failed: sendFailed,
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
