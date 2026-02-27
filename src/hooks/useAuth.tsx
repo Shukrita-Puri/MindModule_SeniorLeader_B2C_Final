@@ -31,6 +31,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -44,6 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: DEV_USER, 
         loading: false, 
         signOut: async () => console.log('[DEV MODE] Sign out called'),
+        refreshProfile: async () => console.log('[DEV MODE] Refresh profile called'),
         isAuthenticated: true 
       }}>
         {children}
@@ -311,6 +313,48 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     syncProfile();
   }, [auth0User, isAuthenticated, getAccessTokenSilently]);
 
+  const refreshProfile = async () => {
+    try {
+      console.log('[useAuth] 🔄 Refreshing profile...');
+      let token: string;
+      if (window.__auth0Client) {
+        token = await window.__auth0Client.getAccessTokenSilently();
+      } else {
+        token = await getAccessTokenSilently();
+      }
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/sync-profile`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      if (response.ok) {
+        const { profile } = await response.json();
+        console.log('[useAuth] ✅ Profile refreshed, onboarding_completed_at:', profile.onboarding_completed_at);
+        setAppUser(prev => prev ? {
+          ...prev,
+          subscription_status: profile.subscription_status || prev.subscription_status,
+          subscription_plan: profile.subscription_plan || prev.subscription_plan,
+          onboarding_completed: !!profile.onboarding_completed_at,
+          onboarding_completed_at: profile.onboarding_completed_at || null,
+          user_archetype: profile.user_archetype || prev.user_archetype,
+        } : prev);
+      } else {
+        console.warn('[useAuth] Profile refresh failed:', response.status);
+      }
+    } catch (err) {
+      console.warn('[useAuth] Profile refresh error:', err);
+    }
+  };
+
   const signOut = async () => {
     // 1. Activate logout guard BEFORE anything else — prevents auto-login race
     activateLogoutGuard();
@@ -354,6 +398,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user: appUser, 
       loading: isLoading || syncing, 
       signOut,
+      refreshProfile,
       isAuthenticated: effectiveAuthenticated
     }}>
       {children}

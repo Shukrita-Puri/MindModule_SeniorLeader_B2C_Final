@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getAllResponses, saveResponse, updateSession } from "@/utils/onboardingStorage";
+import { getAllResponses, saveResponse, updateSession, getSession } from "@/utils/onboardingStorage";
 import { PRACTICE_PRIORITY_LABELS } from "@/utils/innerWorldArchetypes";
 import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScoring";
 import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
@@ -28,9 +29,68 @@ interface ResultsData {
 
 export default function Stage8Results() {
   const navigate = useNavigate();
+  const { isAuthenticated, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const completionPersisted = useRef(false);
+
+  // Persist onboarding completion to DB (idempotent, fire-and-forget)
+  const persistCompletion = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string) => {
+    if (completionPersisted.current) return;
+    completionPersisted.current = true;
+
+    try {
+      // Get auth token
+      if (!window.__auth0Client) {
+        console.warn('[Results] No auth client available, skipping DB persistence');
+        return;
+      }
+      const token = await window.__auth0Client.getAccessTokenSilently();
+      const responses = getAllResponses();
+      const session = getSession();
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            mental_fitness_baseline: baselineScore,
+            component_scores: componentScores,
+            user_archetype: archetype,
+            practice_priority_tag: responses.practice_priority_tag,
+            pressure_context_tag: responses.pressure_context_tag,
+            onboarding_session_id: session?.sessionId,
+            identity_role: responses.identity_role,
+            biggest_pressure: responses.biggest_pressure,
+            emotional_awareness_response: responses.emotional_awareness_response,
+            stress_response_response: responses.stress_response_response,
+            recovery_patterns_response: responses.recovery_patterns_response,
+            mental_clarity_response: responses.mental_clarity_response,
+            growth_intention: responses.growth_intention,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        console.log('[Results] ✅ Onboarding completion persisted to DB');
+        // Refresh auth profile so guards pick up onboarding_completed_at
+        await refreshProfile();
+      } else {
+        const body = await res.text();
+        console.error('[Results] ⚠️ Completion persistence failed:', res.status, body);
+        completionPersisted.current = false; // Allow retry
+      }
+    } catch (err) {
+      console.error('[Results] ⚠️ Completion persistence error:', err);
+      completionPersisted.current = false; // Allow retry
+    }
+  };
 
   useEffect(() => {
     async function computeResults() {
@@ -88,6 +148,13 @@ export default function Stage8Results() {
           insight,
           practiceGoalLabel: goalLabel,
         });
+
+        // Persist to DB if authenticated (non-blocking)
+        if (isAuthenticated) {
+          persistCompletion(baselineScore, componentScores, archetype);
+        } else {
+          console.log('[Results] User not authenticated, skipping DB persistence');
+        }
       } catch (err) {
         console.error('Error computing results:', err);
         setError('Unable to generate your results. Please try again.');

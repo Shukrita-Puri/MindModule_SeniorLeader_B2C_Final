@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.sync-profile]
 verify_jwt = false
+
+[functions.complete-onboarding]
+verify_jwt = false
