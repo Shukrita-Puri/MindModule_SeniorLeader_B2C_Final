@@ -79,7 +79,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
     currentStage = 8;
   }
   
-  if (responses.metaSkillScores) {
+  if (responses.mental_fitness_baseline) {
     completedStages.push('results');
     currentStage = 9;
   }
@@ -182,7 +182,7 @@ function getResumeRouteFromLocal(): string {
   if (!responses.recovery_patterns_response) return '/onboarding/recovery-patterns';
   if (!responses.mental_clarity_response) return '/onboarding/mental-clarity';
   if (!responses.growth_intention) return '/onboarding/growth-intention';
-  if (!responses.metaSkillScores) return '/onboarding/signup-step';
+  if (!responses.mental_fitness_baseline) return '/onboarding/signup-step';
   if (!responses.resultsViewed) return '/onboarding/results';
 
   const hasSelectedPlan = localStorage.getItem('selectedPlan') !== null;
@@ -250,7 +250,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
         return await getResumeRoute();
       }
       // Gate: context-connection requires payment (or skip)
-      if (targetPath === '/onboarding/context-connection' && !data?.results_at) {
+      if (targetPath === '/onboarding/context-connection' && !data?.payment_at) {
         return await getResumeRoute();
       }
     } catch {
