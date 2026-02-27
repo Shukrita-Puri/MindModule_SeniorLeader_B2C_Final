@@ -1911,6 +1911,75 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_progress: {
+        Row: {
+          completed_at: string | null
+          context_calendar_enabled: boolean | null
+          context_connection_at: string | null
+          context_watch_enabled: boolean | null
+          current_step: string
+          emotional_awareness_at: string | null
+          growth_intention_at: string | null
+          id: string
+          identity_at: string | null
+          mental_clarity_at: string | null
+          payment_at: string | null
+          recovery_patterns_at: string | null
+          results_at: string | null
+          selected_plan: string | null
+          signup_step_at: string | null
+          started_at: string
+          stress_response_at: string | null
+          updated_at: string
+          user_id: string
+          welcome_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          context_calendar_enabled?: boolean | null
+          context_connection_at?: string | null
+          context_watch_enabled?: boolean | null
+          current_step?: string
+          emotional_awareness_at?: string | null
+          growth_intention_at?: string | null
+          id?: string
+          identity_at?: string | null
+          mental_clarity_at?: string | null
+          payment_at?: string | null
+          recovery_patterns_at?: string | null
+          results_at?: string | null
+          selected_plan?: string | null
+          signup_step_at?: string | null
+          started_at?: string
+          stress_response_at?: string | null
+          updated_at?: string
+          user_id: string
+          welcome_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          context_calendar_enabled?: boolean | null
+          context_connection_at?: string | null
+          context_watch_enabled?: boolean | null
+          current_step?: string
+          emotional_awareness_at?: string | null
+          growth_intention_at?: string | null
+          id?: string
+          identity_at?: string | null
+          mental_clarity_at?: string | null
+          payment_at?: string | null
+          recovery_patterns_at?: string | null
+          results_at?: string | null
+          selected_plan?: string | null
+          signup_step_at?: string | null
+          started_at?: string
+          stress_response_at?: string | null
+          updated_at?: string
+          user_id?: string
+          welcome_at?: string | null
+        }
+        Relationships: []
+      }
       persona_definitions: {
         Row: {
           background_context: string | null
