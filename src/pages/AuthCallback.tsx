@@ -9,6 +9,9 @@ import {
   setCallbackInProgress,
   NATIVE_AUTH_COMPLETED_KEY,
   storeNativeTokens,
+  parseCallbackParams,
+  getSanitisedAuth0Domain,
+  AUTH0_NATIVE_REDIRECT_URI,
 } from '@/utils/nativeAuth';
 
 const AuthCallback = () => {
@@ -25,12 +28,32 @@ const AuthCallback = () => {
     // Mark callback in progress so ProtectedRoute won't trigger login
     setCallbackInProgress(true);
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
+    // Parse params robustly from both query and hash
+    const fullUrl = window.location.href;
+    console.log('[AuthCallback] Native iOS callback, full URL:', fullUrl);
 
-    if (!code || !state) {
-      console.error('[AuthCallback] Native callback missing code/state');
+    const parsed = parseCallbackParams(fullUrl);
+    console.log('[AuthCallback] Parsed params:', JSON.stringify(parsed));
+
+    // Handle Auth0 error response
+    if (parsed.error) {
+      console.error('[AuthCallback] Auth0 error:', parsed.error, parsed.error_description);
+      toast.error(parsed.error_description || 'Authentication failed. Please try again.');
+      clearNativeLoginInProgress();
+      setCallbackInProgress(false);
+      navigate('/');
+      return;
+    }
+
+    if (!parsed.code || !parsed.state) {
+      console.error('[AuthCallback] Native callback missing code/state after robust parse');
+      console.error('[AuthCallback] Diagnostic:', {
+        href: window.location.href,
+        search: window.location.search,
+        hash: window.location.hash,
+        parsedCode: parsed.code,
+        parsedState: parsed.state,
+      });
       toast.error('Authentication failed. Please try again.');
       clearNativeLoginInProgress();
       setCallbackInProgress(false);
@@ -38,6 +61,7 @@ const AuthCallback = () => {
       return;
     }
 
+    const code = parsed.code;
     console.log('[AuthCallback] Native iOS callback, exchanging code...');
 
     (async () => {
@@ -52,9 +76,11 @@ const AuthCallback = () => {
           return;
         }
 
-        const domain = import.meta.env.VITE_AUTH0_DOMAIN;
+        const domain = getSanitisedAuth0Domain();
         const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-        const redirectUri = `app.mindmodule.me://callback`;
+        const redirectUri = AUTH0_NATIVE_REDIRECT_URI;
+
+        console.log('[AuthCallback] Token exchange with domain:', domain, 'redirectUri:', redirectUri);
 
         const tokenResponse = await fetch(`https://${domain}/oauth/token`, {
           method: 'POST',

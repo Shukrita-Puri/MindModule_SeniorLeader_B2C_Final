@@ -3,11 +3,57 @@
  *
  * Prevents duplicate Browser.open calls, duplicate listeners, and
  * login loops during callback handling.
+ *
+ * ── Callback Health Check Test Plan ─────────────────────────────────
+ * 1. Fresh install on iOS simulator + device:
+ *    - Login → confirm callback URL captured with code/state in logs
+ *    - Verify token exchange succeeds and user lands on /executive-home
+ * 2. Wrong domain scenario:
+ *    - Set VITE_AUTH0_DOMAIN to invalid value → clear error logged + toast
+ * 3. User cancels (closes Safari without completing):
+ *    - Verify no stuck flags; user can retry login
+ * 4. Repeated login attempts:
+ *    - Tap login multiple times quickly → only ONE Browser.open fires
+ *    - No duplicate deep-link listeners registered
+ * 5. Fragment vs query callback:
+ *    - If Auth0 returns #code=...&state=..., verify parsing works
+ * ────────────────────────────────────────────────────────────────────
  */
 
 import { Capacitor } from '@capacitor/core';
 
+// ─── Constants ──────────────────────────────────────────────────────
+
 const APP_SCHEME = 'app.mindmodule.me';
+
+/** Centralised redirect URI — used in authorize URL AND token exchange */
+export const AUTH0_NATIVE_REDIRECT_URI = `${APP_SCHEME}://callback`;
+
+// ─── Environment helpers ────────────────────────────────────────────
+
+/**
+ * Returns a sanitised Auth0 domain (hostname only).
+ * Strips protocol, trailing slashes, and whitespace from VITE_AUTH0_DOMAIN.
+ */
+export function getSanitisedAuth0Domain(): string {
+  let raw = import.meta.env.VITE_AUTH0_DOMAIN || '';
+  raw = raw.trim();
+  // Strip protocol if someone pasted a full URL
+  raw = raw.replace(/^https?:\/\//i, '');
+  // Strip trailing slashes
+  raw = raw.replace(/\/+$/, '');
+  return raw;
+}
+
+let _domainLogged = false;
+/** Log domain once at startup (no secrets) */
+export function logAuth0Domain(): void {
+  if (_domainLogged) return;
+  _domainLogged = true;
+  const domain = getSanitisedAuth0Domain();
+  console.log(`[NativeAuth] Auth0 domain resolved to: "${domain}"`);
+  if (!domain) console.error('[NativeAuth] ⚠️ VITE_AUTH0_DOMAIN is empty!');
+}
 
 // ─── Singleton flags ────────────────────────────────────────────────
 let _loginInProgress = false;
@@ -127,8 +173,61 @@ export function isNativeApp(): boolean {
 }
 
 export function getRedirectUri(): string {
-  if (isNativeiOS()) return `${APP_SCHEME}://callback`;
+  if (isNativeiOS()) return AUTH0_NATIVE_REDIRECT_URI;
   return `${window.location.origin}/callback`;
+}
+
+// ─── Robust callback URL parser ─────────────────────────────────────
+
+/**
+ * Extracts code, state, error, and error_description from a callback URL.
+ * Handles both query-string (?...) and hash-fragment (#...) formats,
+ * as well as custom-scheme URLs that may confuse the URL constructor.
+ */
+export function parseCallbackParams(url: string): {
+  code: string | null;
+  state: string | null;
+  error: string | null;
+  error_description: string | null;
+} {
+  // Try to extract the part after "callback" regardless of scheme
+  const callbackIdx = url.indexOf('callback');
+  const suffix = callbackIdx >= 0 ? url.slice(callbackIdx + 'callback'.length) : '';
+
+  const tryParse = (raw: string): URLSearchParams => {
+    // Strip leading ? or #
+    const cleaned = raw.replace(/^[?#]/, '');
+    return new URLSearchParams(cleaned);
+  };
+
+  // Check query string first, then hash fragment
+  let params: URLSearchParams;
+
+  const hashIdx = suffix.indexOf('#');
+  const queryIdx = suffix.indexOf('?');
+
+  if (queryIdx >= 0) {
+    const queryStr = hashIdx >= 0 && hashIdx > queryIdx
+      ? suffix.slice(queryIdx, hashIdx)
+      : suffix.slice(queryIdx);
+    params = tryParse(queryStr);
+    // If code not in query, check hash
+    if (!params.get('code') && hashIdx >= 0) {
+      const hashParams = tryParse(suffix.slice(hashIdx));
+      if (hashParams.get('code')) params = hashParams;
+    }
+  } else if (hashIdx >= 0) {
+    params = tryParse(suffix.slice(hashIdx));
+  } else {
+    params = new URLSearchParams();
+  }
+
+  return {
+    code: params.get('code'),
+    state: params.get('state'),
+    error: params.get('error'),
+    error_description: params.get('error_description'),
+  };
 }
 
 // ─── Login (Browser.open) ───────────────────────────────────────────
@@ -151,7 +250,7 @@ export async function nativeLogin(options?: {
     return true;
   }
 
-  const domain = import.meta.env.VITE_AUTH0_DOMAIN;
+  const domain = getSanitisedAuth0Domain();
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE || `https://${domain}/api/v2/`;
 
@@ -170,7 +269,7 @@ export async function nativeLogin(options?: {
   sessionStorage.setItem('native_auth_code_verifier', codeVerifier);
   sessionStorage.setItem('native_auth_state', state);
 
-  const redirectUri = getRedirectUri();
+  const redirectUri = AUTH0_NATIVE_REDIRECT_URI;
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
@@ -189,6 +288,7 @@ export async function nativeLogin(options?: {
   _loginInProgress = true;
   _safariPresented = true;
   console.log('[NativeAuth] 🔐 Opening Safari for login...');
+  console.log('[NativeAuth] redirect_uri:', redirectUri);
 
   try {
     const { Browser } = await import('@capacitor/browser');
@@ -213,22 +313,59 @@ export async function initNativeAuthListener(): Promise<void> {
   }
   _listenerRegistered = true;
 
+  // Log domain once at startup
+  logAuth0Domain();
+
   try {
     const { App } = await import('@capacitor/app');
     const { Browser } = await import('@capacitor/browser');
 
     App.addListener('appUrlOpen', async ({ url }) => {
-      console.log('[NativeAuth] 📥 appUrlOpen:', url);
+      console.log('[NativeAuth] 📥 appUrlOpen FULL URL:', url);
 
-      if (!url.startsWith(`${APP_SCHEME}://callback`)) {
+      if (!url.includes(`${APP_SCHEME}://callback`)) {
         console.log('[NativeAuth] Ignoring non-callback URL');
         return;
       }
 
-      // Mark callback in progress immediately — prevents ProtectedRoute from triggering login
-      _callbackInProgress = true;
-      console.log('[NativeAuth] ✅ Callback URL matched, callbackInProgress=true');
+      // Parse params robustly BEFORE doing anything else
+      const parsed = parseCallbackParams(url);
+      console.log('[NativeAuth] Parsed callback params:', JSON.stringify(parsed));
 
+      // Handle Auth0 errors
+      if (parsed.error) {
+        console.error('[NativeAuth] Auth0 returned error:', parsed.error, parsed.error_description);
+        _callbackInProgress = false;
+        clearNativeLoginInProgress();
+        // Close browser
+        try { await Browser.close(); } catch { /* ignore */ }
+        _safariPresented = false;
+        // Navigate to show error
+        window.location.href = `/callback?error=${encodeURIComponent(parsed.error)}&error_description=${encodeURIComponent(parsed.error_description || '')}`;
+        return;
+      }
+
+      if (!parsed.code || !parsed.state) {
+        console.error('[NativeAuth] ❌ Callback URL missing code/state!');
+        console.error('[NativeAuth] Diagnostic:', {
+          receivedUrl: url,
+          parsedCode: parsed.code,
+          parsedState: parsed.state,
+          expectedRedirectUri: AUTH0_NATIVE_REDIRECT_URI,
+        });
+        // Don't set callbackInProgress — let user retry
+        clearNativeLoginInProgress();
+        try { await Browser.close(); } catch { /* ignore */ }
+        _safariPresented = false;
+        window.location.href = '/callback?error=missing_params&error_description=Callback+URL+did+not+contain+code+or+state';
+        return;
+      }
+
+      // Mark callback in progress — prevents ProtectedRoute from triggering login
+      _callbackInProgress = true;
+      console.log('[NativeAuth] ✅ Callback URL matched with code+state, callbackInProgress=true');
+
+      // Close browser first
       try {
         await Browser.close();
         _safariPresented = false;
@@ -238,8 +375,8 @@ export async function initNativeAuthListener(): Promise<void> {
         console.warn('[NativeAuth] Browser.close() failed (may already be closed):', e);
       }
 
-      const callbackUrl = new URL(url);
-      const webPath = `/callback${callbackUrl.search}`;
+      // Build the internal navigation path with parsed params
+      const webPath = `/callback?code=${encodeURIComponent(parsed.code)}&state=${encodeURIComponent(parsed.state)}`;
       console.log('[NativeAuth] Navigating WebView to:', webPath);
 
       // Short delay to let Safari dismiss before navigation
