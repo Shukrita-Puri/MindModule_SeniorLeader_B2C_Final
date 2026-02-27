@@ -48,7 +48,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
         .select('id, provider, is_active, last_sync')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (connError && connError.code !== 'PGRST116') {
         console.error('[useCalendarSync] Error fetching connection:', connError);
@@ -162,7 +162,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
           .select('id, provider, is_active, last_sync')
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
         
         if (cancelled) return;
         

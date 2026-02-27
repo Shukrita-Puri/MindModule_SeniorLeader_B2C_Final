@@ -76,7 +76,7 @@ const DailyCheckIn = () => {
       if (!user?.id) return { hasWearable: false, hasCalendar: false };
       const [wearable, calendar] = await Promise.all([
         supabase.from('wearable_data').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
-        supabase.from('calendar_connections').select('id').eq('user_id', user.id).single()
+        supabase.from('calendar_connections').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle()
       ]);
       return {
         hasWearable: !!wearable.data,
