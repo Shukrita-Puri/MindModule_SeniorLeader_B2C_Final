@@ -4,7 +4,7 @@ import App from './App.tsx'
 import './index.css'
 import { AuthProvider } from './hooks/useAuth'
 import { DEV_MODE } from './config/devMode'
-import { getRedirectUri, initNativeAuthListener } from './utils/nativeAuth'
+import { getRedirectUri, initNativeAuthListener, getSanitisedAuth0Audience } from './utils/nativeAuth'
 
 // Boot the deep-link listener for iOS Capacitor auth callbacks (safe no-op on web)
 initNativeAuthListener().catch((e) =>
@@ -13,7 +13,7 @@ initNativeAuthListener().catch((e) =>
 
 const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN || '';
 const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
-const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+const auth0Audience = getSanitisedAuth0Audience();
 
 // Dev mode: render without Auth0Provider to avoid initialization errors
 if (DEV_MODE) {

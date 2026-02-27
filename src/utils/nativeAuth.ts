@@ -45,6 +45,20 @@ export function getSanitisedAuth0Domain(): string {
   return raw;
 }
 
+/**
+ * Returns the Auth0 audience with https:// prefix guaranteed.
+ * Handles env values that may or may not include the protocol.
+ */
+export function getSanitisedAuth0Audience(): string {
+  let raw = import.meta.env.VITE_AUTH0_AUDIENCE || '';
+  raw = raw.trim();
+  if (!raw) return '';
+  if (!/^https?:\/\//i.test(raw)) {
+    raw = `https://${raw}`;
+  }
+  return raw;
+}
+
 let _domainLogged = false;
 /** Log domain once at startup (no secrets) */
 export function logAuth0Domain(): void {
@@ -252,7 +266,7 @@ export async function nativeLogin(options?: {
 
   const domain = getSanitisedAuth0Domain();
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-  const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+  const audience = getSanitisedAuth0Audience();
 
   if (!domain || !clientId) {
     console.error('[NativeAuth] Missing Auth0 env vars');

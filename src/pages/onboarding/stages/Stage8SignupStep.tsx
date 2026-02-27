@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
-import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
 
 function isInIframe(): boolean {
   try {
@@ -51,7 +51,7 @@ const Stage8SignupStep = () => {
         authorizationParams: {
           redirect_uri: `${getRedirectUri()}?from=onboarding`,
           screen_hint: 'signup',
-          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          audience: getSanitisedAuth0Audience(),
           scope: 'openid profile email offline_access',
         },
       });
