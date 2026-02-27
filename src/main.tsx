@@ -32,6 +32,7 @@ if (DEV_MODE) {
         scope: 'openid profile email offline_access',
       }}
       useRefreshTokens={true}
+      useRefreshTokensFallback={true}
       cacheLocation="localstorage"
       onRedirectCallback={(appState) => {
         const returnTo = appState?.returnTo || '/executive-home';

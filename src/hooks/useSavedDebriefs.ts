@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth0 } from '@auth0/auth0-react';
+import { getAuthToken } from '@/services/authTokenService';
+import { useAuth } from '@/hooks/useAuth';
 import { Strength, DevelopmentArea, Framework, TranscriptMessage } from './useSessionDebrief';
 
 interface SavedDebrief {
@@ -20,7 +21,7 @@ interface SavedDebrief {
 }
 
 export const useSavedDebriefs = () => {
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated } = useAuth();
   const [savedDebriefs, setSavedDebriefs] = useState<SavedDebrief[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -31,7 +32,7 @@ export const useSavedDebriefs = () => {
 
     try {
       setIsLoading(true);
-      const token = await getAccessTokenSilently();
+      const token = await getAuthToken();
       
       const { data, error: fetchError } = await supabase.functions.invoke('saved-debriefs', {
         body: { action: 'GET_DEBRIEFS' },
@@ -61,7 +62,7 @@ export const useSavedDebriefs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated]);
 
   const saveDebrief = useCallback(async (params: {
     sessionId: string | null;
@@ -82,7 +83,7 @@ export const useSavedDebriefs = () => {
 
     try {
       setIsSaving(true);
-      const token = await getAccessTokenSilently();
+      const token = await getAuthToken();
       
       const { data, error: saveError } = await supabase.functions.invoke('saved-debriefs', {
         body: { 
@@ -113,13 +114,13 @@ export const useSavedDebriefs = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated]);
 
   const deleteDebrief = useCallback(async (debriefId: string) => {
     if (!isAuthenticated) return;
 
     try {
-      const token = await getAccessTokenSilently();
+      const token = await getAuthToken();
       
       const { error: deleteError } = await supabase.functions.invoke('saved-debriefs', {
         body: { action: 'DELETE_DEBRIEF', debriefId },
@@ -133,7 +134,7 @@ export const useSavedDebriefs = () => {
       console.error('Error deleting debrief:', err);
       throw err;
     }
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated]);
 
   return {
     savedDebriefs,

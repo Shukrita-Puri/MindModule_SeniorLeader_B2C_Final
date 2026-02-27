@@ -8,7 +8,7 @@ import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth0 } from "@auth0/auth0-react";
+import { getAuthToken } from "@/services/authTokenService";
 import { toast } from "sonner";
 import useScrollToTop from "@/hooks/useScrollToTop";
 
@@ -16,7 +16,7 @@ const MicroPracticePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { getAccessTokenSilently } = useAuth0();
+  
   const fromRitual = location.state?.fromRitual || false;
   useScrollToTop();
   const allContent = getAllContent();
@@ -60,7 +60,7 @@ const MicroPracticePlayer = () => {
     if (!practice) return;
 
     try {
-      const accessToken = await getAccessTokenSilently();
+      const accessToken = await getAuthToken();
       
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);

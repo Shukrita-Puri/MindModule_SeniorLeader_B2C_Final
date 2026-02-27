@@ -4,6 +4,7 @@ import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
 import { supabase } from '@/integrations/supabase/client';
+import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
@@ -385,13 +386,12 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
       }
 
       // Production: call edge function
-      const auth0Client = (window as any).__auth0Client;
-      if (!auth0Client) {
-        console.warn('[PerformanceRhythmCard] No auth0 client');
+      const accessToken = await getAuthToken();
+      if (!accessToken) {
+        console.warn('[PerformanceRhythmCard] No auth token available');
         setLoading(false);
         return;
       }
-      const accessToken = await auth0Client.getAccessTokenSilently();
       const { data: result, error } = await supabase.functions.invoke('performance-rhythm-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
