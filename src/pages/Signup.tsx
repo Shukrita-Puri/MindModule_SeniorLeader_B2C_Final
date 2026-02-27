@@ -18,7 +18,7 @@ const Signup = () => {
     if (isLoading) return;
 
     if (isAuthenticated) {
-      navigate(isOnboardingFlow ? '/onboarding/results' : '/executive-home');
+      navigate(isOnboardingFlow ? '/onboarding/results' : '/daily-check-in');
       return;
     }
 
@@ -34,7 +34,7 @@ const Signup = () => {
 
     clearLogoutGuard();
 
-    const returnTo = isOnboardingFlow ? '/onboarding/results' : '/executive-home';
+    const returnTo = isOnboardingFlow ? '/onboarding/results' : '/daily-check-in';
 
     // On iOS native, open in-app browser
     (async () => {

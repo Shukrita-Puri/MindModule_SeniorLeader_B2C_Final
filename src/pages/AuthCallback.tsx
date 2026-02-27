@@ -115,7 +115,7 @@ const AuthCallback = () => {
         sessionStorage.removeItem('native_auth_code_verifier');
         sessionStorage.removeItem('native_auth_state');
 
-        const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
+        const returnTo = sessionStorage.getItem('auth0_return_to') || '/daily-check-in';
         sessionStorage.removeItem('auth0_return_to');
 
         console.log('[AuthCallback] ✅ Native auth complete, reloading to:', returnTo);
@@ -150,7 +150,7 @@ const AuthCallback = () => {
     }
 
     if (isAuthenticated) {
-      const returnTo = sessionStorage.getItem('auth0_return_to') || '/executive-home';
+      const returnTo = sessionStorage.getItem('auth0_return_to') || '/daily-check-in';
       sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
       navigate(returnTo);

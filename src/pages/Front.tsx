@@ -24,7 +24,7 @@ const Auth0Front = () => {
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate('/executive-home', { replace: true });
+      navigate('/daily-check-in', { replace: true });
     }
   }, [loading, isAuthenticated, navigate]);
 
@@ -33,11 +33,11 @@ const Auth0Front = () => {
     clearLogoutGuard();
 
     // On iOS native, open in-app browser instead of full redirect
-    const handled = await nativeLogin({ returnTo: '/executive-home' });
+    const handled = await nativeLogin({ returnTo: '/daily-check-in' });
     if (handled) return;
 
     loginWithRedirect({
-      appState: { returnTo: '/executive-home' },
+      appState: { returnTo: '/daily-check-in' },
       authorizationParams: {
         redirect_uri: getRedirectUri(),
         audience: getSanitisedAuth0Audience(),
@@ -63,7 +63,7 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
 
   const handleSignIn = () => {
     if (DEV_MODE) {
-      navigate('/executive-home');
+      navigate('/daily-check-in');
       return;
     }
     onSignIn();
