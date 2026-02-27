@@ -51,7 +51,7 @@ const Stage8SignupStep = () => {
         authorizationParams: {
           redirect_uri: `${getRedirectUri()}?from=onboarding`,
           screen_hint: 'signup',
-          audience: import.meta.env.VITE_AUTH0_AUDIENCE || 'https://dev-knj26zrz4aopg3tg.us.auth0.com/api/v2/',
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
           scope: 'openid profile email offline_access',
         },
       });
