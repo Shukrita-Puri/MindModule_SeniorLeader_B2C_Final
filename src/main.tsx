@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { Auth0Provider } from '@auth0/auth0-react'
 import App from './App.tsx'
 import './index.css'
-import { AuthProvider } from './hooks/useAuth'
+// AuthProvider is now inside App.tsx Layout component
 import { DEV_MODE } from './config/devMode'
 import { getRedirectUri, initNativeAuthListener, getSanitisedAuth0Audience } from './utils/nativeAuth'
 
@@ -18,9 +18,7 @@ const auth0Audience = getSanitisedAuth0Audience();
 // Dev mode: render without Auth0Provider to avoid initialization errors
 if (DEV_MODE) {
   createRoot(document.getElementById("root")!).render(
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <App />
   );
 } else {
   // Production mode: use Auth0Provider
@@ -41,9 +39,7 @@ if (DEV_MODE) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }}
     >
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <App />
     </Auth0Provider>
   );
 }

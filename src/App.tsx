@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
+import { AuthProvider } from "./hooks/useAuth";
 // Lazy load pages for code splitting
 const Front = lazy(() => import("./pages/Front"));
 const Signup = lazy(() => import("./pages/Signup"));
@@ -65,10 +66,11 @@ const LoadingFallback = () => (
 // Simple layout wrapper with push notification handler
 const Layout = () => {
   return (
-    <>
+    <AuthProvider>
+      <PushNotificationProvider />
       <PushNotificationActionHandler />
       <Outlet />
-    </>
+    </AuthProvider>
   );
 };
 
@@ -206,7 +208,6 @@ function App() {
         <div className="App">
           <RouterProvider router={router} />
         </div>
-        <PushNotificationProvider />
       </TooltipProvider>
     </QueryClientProvider>
   );
