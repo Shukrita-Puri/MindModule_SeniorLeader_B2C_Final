@@ -252,7 +252,7 @@ export async function nativeLogin(options?: {
 
   const domain = getSanitisedAuth0Domain();
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-  const audience = import.meta.env.VITE_AUTH0_AUDIENCE || `https://${domain}/api/v2/`;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE || 'https://dev-knj26zrz4aopg3tg.us.auth0.com/api/v2/';
 
   if (!domain || !clientId) {
     console.error('[NativeAuth] Missing Auth0 env vars');
