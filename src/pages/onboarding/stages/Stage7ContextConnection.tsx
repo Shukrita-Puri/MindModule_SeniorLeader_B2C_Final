@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { isNativeApp } from "@/utils/healthKitCapacitor";
 import { requestHRVPermission, getHRV } from "@/services/healthkit";
 
-
 import { getAuthToken } from '@/services/authTokenService';
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
 
@@ -35,7 +34,7 @@ async function openOAuthUrl(url: string) {
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, refreshProfile } = useAuth();
   const { recordStep } = useOnboardingProgress();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -140,7 +139,7 @@ export default function Stage7ContextConnection() {
     localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const contextData = {
       onboardingCompletedAt: new Date().toISOString(),
       calendarEnabled,
@@ -162,6 +161,33 @@ export default function Stage7ContextConnection() {
       context_watch_enabled: watchEnabled,
       completed: true,
     });
+
+    // Mark onboarding as truly complete (sets onboarding_completed_at)
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          }
+        );
+        if (res.ok) {
+          console.log('[Stage7] ✅ Onboarding marked complete');
+          await refreshProfile();
+        } else {
+          console.warn('[Stage7] ⚠️ complete-onboarding failed:', res.status);
+        }
+      }
+    } catch (err) {
+      console.warn('[Stage7] ⚠️ complete-onboarding error:', err);
+    }
     
     console.log('[Stage7] Context preferences saved, navigating to daily check-in');
     navigate("/daily-check-in");

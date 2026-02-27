@@ -30,20 +30,19 @@ interface ResultsData {
 
 export default function Stage8Results() {
   const navigate = useNavigate();
-  const { isAuthenticated, refreshProfile } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { recordStep } = useOnboardingProgress();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const completionPersisted = useRef(false);
 
-  // Persist onboarding completion to DB (idempotent, fire-and-forget)
-  const persistCompletion = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string) => {
+  // Persist baseline data to DB (without marking onboarding complete)
+  const persistBaseline = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string) => {
     if (completionPersisted.current) return;
     completionPersisted.current = true;
 
     try {
-      // Get auth token
       if (!window.__auth0Client) {
         console.warn('[Results] No auth client available, skipping DB persistence');
         return;
@@ -62,6 +61,7 @@ export default function Stage8Results() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            skip_completion: true,
             mental_fitness_baseline: baselineScore,
             component_scores: componentScores,
             user_archetype: archetype,
@@ -80,17 +80,15 @@ export default function Stage8Results() {
       );
 
       if (res.ok) {
-        console.log('[Results] ✅ Onboarding completion persisted to DB');
-        // Refresh auth profile so guards pick up onboarding_completed_at
-        await refreshProfile();
+        console.log('[Results] ✅ Baseline data persisted to DB (onboarding NOT marked complete)');
       } else {
         const body = await res.text();
-        console.error('[Results] ⚠️ Completion persistence failed:', res.status, body);
-        completionPersisted.current = false; // Allow retry
+        console.error('[Results] ⚠️ Baseline persistence failed:', res.status, body);
+        completionPersisted.current = false;
       }
     } catch (err) {
-      console.error('[Results] ⚠️ Completion persistence error:', err);
-      completionPersisted.current = false; // Allow retry
+      console.error('[Results] ⚠️ Baseline persistence error:', err);
+      completionPersisted.current = false;
     }
   };
 
@@ -153,7 +151,7 @@ export default function Stage8Results() {
 
         // Persist to DB if authenticated (non-blocking)
         if (isAuthenticated) {
-          persistCompletion(baselineScore, componentScores, archetype);
+          persistBaseline(baselineScore, componentScores, archetype);
           recordStep('results');
         } else {
           console.log('[Results] User not authenticated, skipping DB persistence');
