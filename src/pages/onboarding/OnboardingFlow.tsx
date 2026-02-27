@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { initializeSession, getSession, updateSession } from "@/utils/onboardingStorage";
-import { getResumeRoute } from "@/utils/onboardingStatus";
+import { getResumeRoute, validateStageAccess } from "@/utils/onboardingStatus";
 
 const STAGE_ROUTES = [
   "/onboarding",
@@ -39,6 +39,7 @@ const calculateWeightedProgress = (stageIndex: number): number => {
 export default function OnboardingFlow() {
   const navigate = useNavigate();
   const location = useLocation();
+  const gateChecked = useRef<string | null>(null);
 
   useEffect(() => {
     const initOnboarding = async () => {
@@ -46,7 +47,6 @@ export default function OnboardingFlow() {
       console.log("Onboarding session initialized:", sessionId);
 
       // Only apply resume logic if user directly visits /onboarding root
-      // Don't interrupt if they're already in a specific stage
       if (location.pathname === '/onboarding') {
         const session = getSession();
         const resumeRoute = await getResumeRoute();
@@ -59,6 +59,21 @@ export default function OnboardingFlow() {
     
     initOnboarding();
   }, []);
+
+  // Stage gating: validate access on route change
+  useEffect(() => {
+    if (location.pathname === '/onboarding') return;
+    if (gateChecked.current === location.pathname) return;
+    gateChecked.current = location.pathname;
+
+    (async () => {
+      const redirect = await validateStageAccess(location.pathname);
+      if (redirect && redirect !== location.pathname) {
+        console.log('[OnboardingFlow] Stage gating redirect:', location.pathname, '->', redirect);
+        navigate(redirect, { replace: true });
+      }
+    })();
+  }, [location.pathname]);
 
   // Match routes from longest to shortest to avoid "/onboarding" matching before "/onboarding/behavioral"
   const currentStageIndex = [...STAGE_ROUTES]

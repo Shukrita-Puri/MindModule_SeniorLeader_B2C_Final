@@ -5,6 +5,7 @@ import { Loader2, ExternalLink } from 'lucide-react';
 import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
+import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
 
 function isInIframe(): boolean {
   try {
@@ -19,6 +20,7 @@ const Stage8SignupStep = () => {
   const navigate = useNavigate();
   const redirectInitiated = useRef(false);
   const inIframe = isInIframe();
+  const { recordStep } = useOnboardingProgress();
 
   useEffect(() => {
     if (DEV_MODE) {
@@ -29,6 +31,7 @@ const Stage8SignupStep = () => {
     if (isLoading) return;
 
     if (isAuthenticated) {
+      recordStep('signup_step');
       navigate('/onboarding/results');
       return;
     }
