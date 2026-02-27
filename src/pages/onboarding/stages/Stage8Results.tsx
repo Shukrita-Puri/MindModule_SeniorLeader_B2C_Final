@@ -126,6 +126,7 @@ export default function Stage8Results() {
         saveResponse('mental_fitness_baseline', baselineScore);
         saveResponse('baseline_established_date', new Date().toISOString());
         saveResponse('inner_world_archetype', { id: archetype, title: archetypeTitle });
+        saveResponse('resultsViewed', true);
         
         updateSession({
           mental_fitness_baseline: baselineScore,
