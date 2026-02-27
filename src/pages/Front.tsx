@@ -40,7 +40,7 @@ const Auth0Front = () => {
       appState: { returnTo: '/executive-home' },
       authorizationParams: {
         redirect_uri: getRedirectUri(),
-        audience: import.meta.env.VITE_AUTH0_AUDIENCE || 'https://dev-knj26zrz4aopg3tg.us.auth0.com/api/v2/',
+        audience: import.meta.env.VITE_AUTH0_AUDIENCE,
         scope: 'openid profile email offline_access',
       }
     });
