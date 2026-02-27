@@ -71,3 +71,22 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## iOS App Icon Generation
+
+To generate iOS app icons using `@capacitor/assets`:
+
+1. Place a **1024×1024 PNG** icon (no transparency, no alpha channel) at:
+   ```
+   resources/icon.png
+   ```
+2. Run the asset generator:
+   ```sh
+   npm run generate:assets
+   ```
+   This populates `ios/App/App/Assets.xcassets/AppIcon.appiconset/` with all required sizes.
+3. Sync the native project:
+   ```sh
+   npx cap sync ios
+   ```
+4. Open in Xcode and verify the icons appear under **Assets.xcassets → AppIcon**.
