@@ -23,6 +23,7 @@ interface AppUser {
   subscription_status?: 'active' | 'inactive' | 'trial';
   subscription_plan?: 'monthly' | 'annual';
   onboarding_completed?: boolean;
+  onboarding_completed_at?: string | null;
   user_archetype?: string;
 }
 
@@ -208,6 +209,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             subscription_status: profile.subscription_status || 'trial',
             subscription_plan: profile.subscription_plan || 'monthly',
             onboarding_completed: !!profile.onboarding_completed_at,
+            onboarding_completed_at: profile.onboarding_completed_at || null,
             user_archetype: profile.user_archetype,
           });
         } else {
@@ -266,6 +268,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             subscription_status: profile.subscription_status || 'trial',
             subscription_plan: profile.subscription_plan || 'monthly',
             onboarding_completed: !!profile.onboarding_completed_at,
+            onboarding_completed_at: profile.onboarding_completed_at || null,
             user_archetype: profile.user_archetype,
           };
           setAppUser(mappedUser);

@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
 // Lazy load pages for code splitting
@@ -98,39 +99,39 @@ const router = createBrowserRouter([
       },
       {
         path: "daily-check-in",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><DailyCheckIn /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><DailyCheckIn /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "executive-home",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ExecutiveHome /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><ExecutiveHome /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "coach",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SelfMasteryCoach /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SelfMasteryCoach /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "insights",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Insights /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Insights /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "profile",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Profile /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Profile /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "connected-data",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><ConnectedData /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><ConnectedData /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "check-in-detail",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><CheckInDetail /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><CheckInDetail /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "refer",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><Refer /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Refer /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><RecalibrateMode /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><RecalibrateMode /></OnboardingGuard></ProtectedRoute></Suspense>,
         children: [
           {
             path: "power-up",
@@ -148,27 +149,27 @@ const router = createBrowserRouter([
       },
       {
         path: "nudge-settings",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><NudgeSettings /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><NudgeSettings /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "nudge-simulator",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><NudgeSimulator /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><NudgeSimulator /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "soundscapes/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><SoundscapePlayer /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SoundscapePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><GuidedPracticePlayer /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><GuidedPracticePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayer /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><MicroPracticePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id/cards",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><MicroPracticePlayerCards /></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><MicroPracticePlayerCards /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
@@ -180,7 +181,7 @@ const router = createBrowserRouter([
       },
       {
         path: "onboarding",
-        element: <Suspense fallback={<LoadingFallback />}><OnboardingFlow /></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><OnboardingBlockGuard><OnboardingFlow /></OnboardingBlockGuard></Suspense>,
         children: [
           { index: true, element: <Suspense fallback={<LoadingFallback />}><Stage1Welcome /></Suspense> },
           { path: "identity", element: <Suspense fallback={<LoadingFallback />}><Stage2Identity /></Suspense> },
