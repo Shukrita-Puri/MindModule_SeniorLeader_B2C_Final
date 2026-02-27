@@ -8,6 +8,7 @@ import { COMPONENT_LABELS, type ComponentScoresV2 } from "@/utils/innerWorldScor
 import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 const DIMENSION_META_SKILLS: Record<keyof ComponentScoresV2, string[]> = {
   energyRegulation: ['Self-Regulation', 'Resilience', 'Confidence'],
@@ -30,6 +31,7 @@ interface ResultsData {
 export default function Stage8Results() {
   const navigate = useNavigate();
   const { isAuthenticated, refreshProfile } = useAuth();
+  const { recordStep } = useOnboardingProgress();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultsData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +154,7 @@ export default function Stage8Results() {
         // Persist to DB if authenticated (non-blocking)
         if (isAuthenticated) {
           persistCompletion(baselineScore, componentScores, archetype);
+          recordStep('results');
         } else {
           console.log('[Results] User not authenticated, skipping DB persistence');
         }

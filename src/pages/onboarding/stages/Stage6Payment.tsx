@@ -2,9 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
+  const { recordStep } = useOnboardingProgress();
 
   const plans = [
     {
@@ -84,6 +86,7 @@ export default function Stage6Payment() {
               onClick={() => {
                 // Save selected plan
                 localStorage.setItem('selectedPlan', plan.name);
+                recordStep('payment', { selected_plan: plan.name });
                 
                 // All plans go to context-connection for consistent onboarding flow
                 navigate("/onboarding/context-connection");

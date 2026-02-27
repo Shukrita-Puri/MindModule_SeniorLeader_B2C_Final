@@ -12,6 +12,7 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 
 
 import { getAuthToken } from '@/services/authTokenService';
+import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
 
 /**
  * Opens a URL using Capacitor's in-app browser (SFSafariViewController / Chrome Custom Tabs)
@@ -35,6 +36,7 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
+  const { recordStep } = useOnboardingProgress();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
@@ -154,6 +156,12 @@ export default function Stage7ContextConnection() {
       session.responses.completedAt = new Date().toISOString();
       localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
     }
+    
+    recordStep('context_connection', {
+      context_calendar_enabled: calendarEnabled,
+      context_watch_enabled: watchEnabled,
+      completed: true,
+    });
     
     console.log('[Stage7] Context preferences saved, navigating to daily check-in');
     navigate("/daily-check-in");
