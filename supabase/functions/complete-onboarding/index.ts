@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       recovery_patterns_response,
       mental_clarity_response,
       growth_intention,
+      skip_completion,
     } = body;
 
     const supabaseAdmin = createClient(
@@ -79,7 +80,10 @@ Deno.serve(async (req) => {
     if (mental_clarity_response !== undefined) updateData.growth_priority = mental_clarity_response;
 
     // Idempotent: only set onboarding_completed_at if not already set
-    if (!existing?.onboarding_completed_at) {
+    // skip_completion=true allows persisting baseline data without marking onboarding as done
+    if (skip_completion) {
+      console.log("[complete-onboarding] skip_completion=true, persisting data only for user:", userId);
+    } else if (!existing?.onboarding_completed_at) {
       updateData.onboarding_completed_at = new Date().toISOString();
       console.log("[complete-onboarding] Setting onboarding_completed_at for user:", userId);
     } else {
