@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress } from '@/utils/nativeAuth';
+import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
+import { clearTokenCache } from '@/services/authTokenService';
 
 // Extend window type for global auth client
 declare global {
@@ -109,8 +110,57 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     // Expose native token via global auth client so API calls work
+    // Includes refresh logic: if access token is near expiry and refresh_token exists,
+    // attempt to get a new one from Auth0's /oauth/token endpoint.
     window.__auth0Client = {
-      getAccessTokenSilently: () => Promise.resolve(tokens.access_token),
+      getAccessTokenSilently: async () => {
+        // Check if current token is still valid (with 60s buffer)
+        const now = Math.floor(Date.now() / 1000);
+        const currentTokens = getNativeTokens();
+        if (currentTokens && currentTokens.expires_at > now + 60) {
+          return currentTokens.access_token;
+        }
+        // Token expired or expiring — try refresh
+        const storedRaw = localStorage.getItem('native_auth_tokens');
+        if (storedRaw) {
+          try {
+            const stored = JSON.parse(storedRaw);
+            if (stored.refresh_token) {
+              console.log('[useAuth] 🔄 Native token expired, refreshing...');
+              const domain = getSanitisedAuth0Domain();
+              const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+              const resp = await fetch(`https://${domain}/oauth/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  grant_type: 'refresh_token',
+                  client_id: clientId,
+                  refresh_token: stored.refresh_token,
+                }),
+              });
+              if (resp.ok) {
+                const data = await resp.json();
+                // Update stored tokens
+                const entry = {
+                  access_token: data.access_token,
+                  id_token: data.id_token || stored.id_token,
+                  refresh_token: data.refresh_token || stored.refresh_token,
+                  expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
+                };
+                localStorage.setItem('native_auth_tokens', JSON.stringify(entry));
+                console.log('[useAuth] ✅ Native token refreshed');
+                return data.access_token;
+              } else {
+                console.warn('[useAuth] Native token refresh failed:', resp.status);
+              }
+            }
+          } catch (e) {
+            console.warn('[useAuth] Native token refresh error:', e);
+          }
+        }
+        // Fallback: return whatever we have (may be stale)
+        return tokens.access_token;
+      },
     };
 
     // Create user from JWT claims
@@ -261,6 +311,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     // 1. Activate logout guard BEFORE anything else — prevents auto-login race
     activateLogoutGuard();
+    clearTokenCache();
 
     // 2. Clear all native auth state
     syncAttempted.current = false;
