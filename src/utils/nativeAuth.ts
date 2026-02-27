@@ -273,7 +273,7 @@ export async function nativeLogin(options?: {
     return false;
   }
 
-  const returnTo = options?.returnTo || '/executive-home';
+  const returnTo = options?.returnTo || '/daily-check-in';
   sessionStorage.setItem('auth0_return_to', returnTo);
 
   // PKCE
