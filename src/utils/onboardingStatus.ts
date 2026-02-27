@@ -53,29 +53,34 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
     currentStage = 3;
   }
   
-  if (responses.energy_regulation_response) {
-    completedStages.push('energy-regulation');
+  if (responses.emotional_awareness_response) {
+    completedStages.push('emotional-awareness');
     currentStage = 4;
   }
   
-  if (responses.focus_recovery_response) {
-    completedStages.push('focus-recovery');
+  if (responses.stress_response_response) {
+    completedStages.push('stress-response');
     currentStage = 5;
   }
   
-  if (responses.energy_renewal_response) {
-    completedStages.push('energy-renewal');
+  if (responses.recovery_patterns_response) {
+    completedStages.push('recovery-patterns');
     currentStage = 6;
   }
   
-  if (responses.growth_priority) {
-    completedStages.push('growth-assessment');
+  if (responses.mental_clarity_response) {
+    completedStages.push('mental-clarity');
     currentStage = 7;
+  }
+  
+  if (responses.growth_intention) {
+    completedStages.push('growth-intention');
+    currentStage = 8;
   }
   
   if (responses.metaSkillScores) {
     completedStages.push('results');
-    currentStage = 8;
+    currentStage = 9;
   }
   
   if (hasSelectedPlan) {
@@ -110,29 +115,38 @@ export async function getResumeRoute(): Promise<string> {
     return '/onboarding';
   }
 
-  // Resume from where they left off based on actual stage responses
+  // Resume from where they left off — only valid current routes
   if (!responses.identity_type) {
     return '/onboarding/identity';
   }
   
-  if (!responses.energy_regulation_response) {
-    return '/onboarding/energy-regulation';
+  if (!responses.emotional_awareness_response) {
+    return '/onboarding/emotional-awareness';
   }
   
-  if (!responses.focus_recovery_response) {
-    return '/onboarding/focus-recovery';
+  if (!responses.stress_response_response) {
+    return '/onboarding/stress-response';
   }
   
-  if (!responses.energy_renewal_response) {
-    return '/onboarding/energy-renewal';
+  if (!responses.recovery_patterns_response) {
+    return '/onboarding/recovery-patterns';
   }
   
-  if (!responses.growth_priority) {
-    return '/onboarding/growth-assessment';
+  if (!responses.mental_clarity_response) {
+    return '/onboarding/mental-clarity';
+  }
+  
+  if (!responses.growth_intention) {
+    return '/onboarding/growth-intention';
   }
 
-  // No need to check Auth0 here - signup-step handles that internally
+  // signup-step handles Auth0 internally
   if (!responses.metaSkillScores) {
+    return '/onboarding/signup-step';
+  }
+
+  // No need to check Auth0 here - results page
+  if (!responses.resultsViewed) {
     return '/onboarding/results';
   }
 
