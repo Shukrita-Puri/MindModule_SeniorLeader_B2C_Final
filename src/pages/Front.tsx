@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { clearSession } from "@/utils/onboardingStorage";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
 
@@ -40,7 +40,7 @@ const Auth0Front = () => {
       appState: { returnTo: '/executive-home' },
       authorizationParams: {
         redirect_uri: getRedirectUri(),
-        audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+        audience: getSanitisedAuth0Audience(),
         scope: 'openid profile email offline_access',
       }
     });

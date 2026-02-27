@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, ExternalLink } from 'lucide-react';
-import { getRedirectUri, nativeLogin } from '@/utils/nativeAuth';
+import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
 import { isLogoutGuardActive, clearLogoutGuard } from '@/utils/logoutGuard';
 
 function isInIframe(): boolean {
@@ -57,7 +57,7 @@ const Login = () => {
         appState: { returnTo: finalDestination },
         authorizationParams: {
           redirect_uri: getRedirectUri(),
-          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          audience: getSanitisedAuth0Audience(),
           scope: 'openid profile email offline_access',
         },
       });
