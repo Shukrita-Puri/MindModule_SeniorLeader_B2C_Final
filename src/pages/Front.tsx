@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock, ArrowRight } from "lucide-react";
+import { Shield, Lock } from "lucide-react";
 import mmLogoCircle from "@/assets/mm-logo-circle.png";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -92,27 +92,29 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
           The World's First Proactive Performance System For Your Inner Game.
           <br />
-          Built by Leaders. For Leaders.
+          Built for Leaders, By Leaders.
         </h2>
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* Description */}
-        <p className="text-[13px] sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
-          It understands your day, learns your patterns, to build your inner infrastructure. So you show up at your highest level before high stakes arrive– not after they've already cost you. Calibrate. Clarify. Renew.
+        <p className="text-[11px] sm:text-base lg:text-lg text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
+          It understands your day, learns your patterns, to build your inner infrastructure. So you show up at your highest level before high stakes arrive– not after they've already cost you.
+        </p>
+        <p className="text-sm sm:text-xl lg:text-2xl font-bold text-muted-foreground font-body mt-1">
+          Calibrate. Clarify. Renew.
         </p>
         
         {/* CTA Buttons */}
-        <div className="flex flex-row gap-3 sm:gap-4 items-center justify-center mt-2">
+        <div className="flex flex-col items-center gap-3 mt-2">
           <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             Begin Your Journey
-            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 sm:ml-3" />
           </Button>
           
-          <Button onClick={handleSignIn} variant="outline" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide">
-            Sign In
-          </Button>
+          <button onClick={handleSignIn} className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-body">
+            Already have an account? <span className="underline underline-offset-2">Log in</span>
+          </button>
         </div>
         
         {/* Privacy Trust Badge */}
