@@ -46,15 +46,8 @@ export default function OnboardingFlow() {
       const sessionId = initializeSession();
       console.log("Onboarding session initialized:", sessionId);
 
-      // Only apply resume logic if user directly visits /onboarding root
-      if (location.pathname === '/onboarding') {
-        const session = getSession();
-        const resumeRoute = await getResumeRoute();
-        if (resumeRoute !== '/onboarding') {
-          console.log('[OnboardingFlow] Resuming to:', resumeRoute);
-          navigate(resumeRoute);
-        }
-      }
+      // Never auto-redirect from /onboarding root — always show Welcome.
+      // Resume logic only applies to deep-linked sub-routes (handled by stage gating).
     };
     
     initOnboarding();
