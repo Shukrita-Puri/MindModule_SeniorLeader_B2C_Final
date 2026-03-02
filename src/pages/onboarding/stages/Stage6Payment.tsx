@@ -76,7 +76,7 @@ export default function Stage6Payment() {
     { label: 'Weekly Pattern Summary Email', included: true },
     { label: 'Data Export (CSV)', included: true },
     { label: 'Unlimited History', included: true },
-    { label: 'Priority Support', included: true },
+    { label: 'Priority Support', included: false },
     { label: 'Quarterly Deep-Dive Report (PDF)', included: false },
     { label: 'Early Access to New Features', included: false },
   ];
@@ -138,7 +138,7 @@ export default function Stage6Payment() {
       }`}>
         {/* Plan name + badge */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-headline font-bold">
+          <h2 className={`text-xl font-headline font-bold ${selectedPlan === 'annual' ? 'text-saffron' : ''}`}>
             {selectedPlan === 'annual' ? 'Annual Pro' : 'Monthly Pro'}
           </h2>
           {selectedPlan === 'annual' && (
@@ -214,14 +214,14 @@ export default function Stage6Payment() {
       </Button>
 
       {/* ROI */}
-      <p className="text-lg font-subheadline italic leading-relaxed text-center mb-6" style={{ color: 'hsl(25, 15%, 55%)' }}>
-        Daily Check-in for Readiness + Unlimited Coaching + Your Performance Insight + Unlimited Recalibration = 30+ touchpoints/mo. That's less than {p.perSession} per session vs {p.coachRange}/per session for executive coaching.
+      <p className="font-subheadline italic leading-relaxed text-center mb-6 text-sm" style={{ color: 'hsl(25, 15%, 55%)' }}>
+        30+ touchpoints/month — <span className="text-lg font-bold not-italic">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
       {/* Trust */}
       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <Shield size={14} />
-        <span>Local First Privacy & End to End Encryption</span>
+        <span>Privacy by Design</span>
       </div>
     </div>
   );
