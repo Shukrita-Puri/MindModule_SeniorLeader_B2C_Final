@@ -107,8 +107,6 @@ Deno.serve(async (req) => {
       JSON.stringify({ sessionId: session.id, checkoutUrl: session.url }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
