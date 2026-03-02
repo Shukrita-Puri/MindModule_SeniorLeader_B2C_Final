@@ -248,6 +248,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cancellation_feedback: {
+        Row: {
+          canceled_at: string | null
+          id: string
+          reason: string
+          reason_details: string | null
+          retention_offer_accepted: boolean | null
+          retention_offer_shown: string | null
+          user_id: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          id?: string
+          reason: string
+          reason_details?: string | null
+          retention_offer_accepted?: boolean | null
+          retention_offer_shown?: string | null
+          user_id: string
+        }
+        Update: {
+          canceled_at?: string | null
+          id?: string
+          reason?: string
+          reason_details?: string | null
+          retention_offer_accepted?: boolean | null
+          retention_offer_shown?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       certificate_requests: {
         Row: {
           achievement_id: string
@@ -2098,11 +2128,20 @@ export type Database = {
           q2_pressure_response: string | null
           q3_communication_style: string | null
           q4_self_assessed_strength: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_cancel_at: string | null
+          subscription_canceled_at: string | null
+          subscription_currency: string | null
+          subscription_current_period_end: string | null
+          subscription_current_period_start: string | null
           subscription_plan: string | null
           subscription_status: string | null
+          subscription_tier: string | null
           timezone_offset: number | null
           total_self_mastery_points: number | null
           total_social_mastery_points: number | null
+          trial_ends_at: string | null
           updated_at: string | null
           user_archetype: string | null
         }
@@ -2136,11 +2175,20 @@ export type Database = {
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_cancel_at?: string | null
+          subscription_canceled_at?: string | null
+          subscription_currency?: string | null
+          subscription_current_period_end?: string | null
+          subscription_current_period_start?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          subscription_tier?: string | null
           timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
+          trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
         }
@@ -2174,11 +2222,20 @@ export type Database = {
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_cancel_at?: string | null
+          subscription_canceled_at?: string | null
+          subscription_currency?: string | null
+          subscription_current_period_end?: string | null
+          subscription_current_period_start?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          subscription_tier?: string | null
           timezone_offset?: number | null
           total_self_mastery_points?: number | null
           total_social_mastery_points?: number | null
+          trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
         }
@@ -2628,6 +2685,42 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          from_tier: string | null
+          id: string
+          metadata: Json | null
+          stripe_event_id: string | null
+          stripe_event_type: string | null
+          to_tier: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          from_tier?: string | null
+          id?: string
+          metadata?: Json | null
+          stripe_event_id?: string | null
+          stripe_event_type?: string | null
+          to_tier?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          from_tier?: string | null
+          id?: string
+          metadata?: Json | null
+          stripe_event_id?: string | null
+          stripe_event_type?: string | null
+          to_tier?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       tiny_wins: {
         Row: {
