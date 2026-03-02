@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Shield, Zap, TrendingUp } from "lucide-react";
+import { Check, X, Shield, Zap, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 
@@ -27,8 +27,8 @@ export default function Stage6Payment() {
   };
 
   const prices = {
-    USD: { monthly: '$29', annual: '$289', perMonth: '$24', savings: '$59' },
-    GBP: { monthly: '£29', annual: '£289', perMonth: '£24', savings: '£59' },
+    USD: { monthly: '$29', annual: '$19', annualBilled: '$228', savings: '35%', symbol: '$', perSession: '$1' },
+    GBP: { monthly: '£29', annual: '£19', annualBilled: '£228', savings: '35%', symbol: '£', perSession: '£1' },
   };
 
   const p = prices[currency];
@@ -48,8 +48,6 @@ export default function Stage6Payment() {
       );
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      // Redirect to Stripe Checkout URL
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
         return;
@@ -57,7 +55,6 @@ export default function Stage6Payment() {
       throw new Error('No checkout URL returned');
     } catch (err: any) {
       console.error('[Payment] Error:', err?.message || err);
-      // Fallback: record step and proceed without payment
       recordStep('payment', { selected_plan: selectedPlan });
       navigate('/onboarding/context-connection');
     } finally {
@@ -65,94 +62,127 @@ export default function Stage6Payment() {
     }
   };
 
-  const features = [
-    'Unlimited check-ins & practices',
-    '10 AI coach conversations',
-    'Full insights dashboard',
-    'Calendar & wearable sync',
+  const allFeatures = [
+    { label: 'Daily energy check-ins', monthly: true, annual: true },
+    { label: 'Self-regulation practices', monthly: true, annual: true },
+    { label: 'Inner Readiness Score', monthly: true, annual: true },
+    { label: '10 AI coaching sessions', monthly: true, annual: false },
+    { label: 'Unlimited AI coaching', monthly: false, annual: true },
+    { label: 'Full insights dashboard', monthly: true, annual: true },
+    { label: 'Calendar & wearable sync', monthly: true, annual: true },
+    { label: 'Micro-intervention nudges', monthly: true, annual: true },
+    { label: 'Priority support', monthly: false, annual: true },
   ];
 
+  const currentFeatures = allFeatures.map(f => ({
+    label: f.label,
+    included: selectedPlan === 'annual' ? f.annual : f.monthly,
+  }));
+
   return (
-    <div className="max-w-md mx-auto space-y-6 py-6 animate-fade-in">
-      {/* Header */}
-      <div className="text-center space-y-1">
-        <h2 className="text-2xl font-headline font-bold">Start Your Journey</h2>
-        <p className="text-sm text-muted-foreground">Choose your plan · Cancel anytime</p>
+    <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft size={16} />
+        </button>
+        <div className="bg-muted rounded-full p-1 flex">
+          <button
+            onClick={() => setSelectedPlan('annual')}
+            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+              selectedPlan === 'annual'
+                ? 'bg-foreground text-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Annual
+          </button>
+          <button
+            onClick={() => setSelectedPlan('monthly')}
+            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+              selectedPlan === 'monthly'
+                ? 'bg-foreground text-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Monthly
+          </button>
+        </div>
+        <div className="w-8" />
       </div>
 
-      {/* Free Trial Banner */}
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Sparkles size={20} className="text-primary" />
-          </div>
-          <div>
-            <p className="font-bold text-sm">7-Day Free Trial</p>
-            <p className="text-xs text-muted-foreground">Full access, no charge</p>
-          </div>
+      {/* Title */}
+      <h1 className="text-3xl font-headline font-bold mb-6">Pricing</h1>
+
+      {/* Plan Card */}
+      <div className={`rounded-2xl p-6 mb-5 transition-all ${
+        selectedPlan === 'annual'
+          ? 'bg-foreground text-background border-2 border-saffron'
+          : 'bg-card border border-border'
+      }`}>
+        {/* Plan name + badge */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-headline font-bold">
+            {selectedPlan === 'annual' ? 'Mind Module Pro' : 'Mind Module'}
+          </h2>
+          {selectedPlan === 'annual' && (
+            <span className="bg-saffron text-black text-xs font-bold px-3 py-1 rounded-full">
+              Save {p.savings}
+            </span>
+          )}
         </div>
 
-        <ul className="space-y-2">
-          {features.map((f, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm">
-              <Check size={14} className="text-primary flex-shrink-0" />
-              <span>{f}</span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="text-xs text-muted-foreground text-center">
-          Credit card required · Cancel before day 7 for no charge
-        </p>
-      </div>
-
-      {/* Plan Toggle */}
-      <div className="bg-muted rounded-xl p-1 flex">
-        <button
-          onClick={() => setSelectedPlan('monthly')}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-            selectedPlan === 'monthly'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Monthly
-        </button>
-        <button
-          onClick={() => setSelectedPlan('annual')}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all relative ${
-            selectedPlan === 'annual'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Annual
-          <span className="absolute -top-2 -right-1 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            Save 17%
+        {/* Price */}
+        <div className="flex items-baseline gap-2 mb-1">
+          {selectedPlan === 'annual' && (
+            <span className="text-2xl line-through opacity-40 font-bold">{p.monthly}</span>
+          )}
+          <span className="text-5xl font-bold">
+            {selectedPlan === 'annual' ? p.annual : p.monthly}
           </span>
-        </button>
-      </div>
-
-      {/* Price Display */}
-      <div className="text-center space-y-1 py-2">
-        <div className="flex items-baseline justify-center gap-1">
-          <span className="text-4xl font-bold">
-            {selectedPlan === 'monthly' ? p.monthly : p.annual}
-          </span>
-          <span className="text-muted-foreground text-sm">
-            /{selectedPlan === 'monthly' ? 'month' : 'year'}
+          <span className={`text-sm ${selectedPlan === 'annual' ? 'opacity-60' : 'text-muted-foreground'}`}>
+            / month ({currency})
           </span>
         </div>
         {selectedPlan === 'annual' && (
-          <p className="text-xs text-primary font-semibold">
-            {p.perMonth}/month · Save {p.savings}/year
+          <p className={`text-sm mb-4 ${selectedPlan === 'annual' ? 'opacity-60' : 'text-muted-foreground'}`}>
+            {p.annualBilled} billed yearly
           </p>
         )}
+        {selectedPlan === 'monthly' && <div className="mb-4" />}
+
+        {/* Separator */}
+        <div className={`border-t mb-4 ${selectedPlan === 'annual' ? 'border-background/20 border-dashed' : 'border-border border-dashed'}`} />
+
+        {/* Features */}
+        <ul className="space-y-3">
+          {currentFeatures.map((f, i) => (
+            <li key={i} className="flex items-center gap-3 text-sm">
+              {f.included ? (
+                <div className="w-5 h-5 rounded-full bg-saffron/20 flex items-center justify-center flex-shrink-0">
+                  <Check size={12} className="text-saffron" />
+                </div>
+              ) : (
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  selectedPlan === 'annual' ? 'bg-background/10' : 'bg-muted'
+                }`}>
+                  <X size={12} className="opacity-40" />
+                </div>
+              )}
+              <span className={!f.included ? 'opacity-40' : ''}>{f.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
+
+      {/* 7-day trial note */}
+      <p className="text-xs text-center text-muted-foreground mb-4">
+        Includes 7-day free trial · Cancel anytime before for no charge
+      </p>
 
       {/* CTA */}
       <Button
-        className="w-full h-12 text-base font-semibold"
+        className="w-full h-12 text-base font-semibold mb-6"
         variant="critical"
         onClick={handleStartTrial}
         disabled={loading}
@@ -167,28 +197,12 @@ export default function Stage6Payment() {
         )}
       </Button>
 
-      {/* ROI Section */}
-      <div className="rounded-xl bg-muted/50 p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <TrendingUp size={18} className="text-primary flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold">9.3x ROI</p>
-            <p className="text-xs text-muted-foreground">
-              Save 30 min/month in decision-making = {currency === 'GBP' ? '£125' : '$125'} value
-              for {p.monthly}.
-            </p>
-          </div>
-        </div>
-        <div className="text-xs text-muted-foreground space-y-0.5 pl-[30px]">
-          <p>Executive coach: {currency === 'GBP' ? '£200–500' : '$250–600'}/session</p>
-          <p>Therapist: {currency === 'GBP' ? '£80–150' : '$100–180'}/session</p>
-          <p className="font-medium text-foreground">
-            MIND MODULE: {p.monthly}/mo, unlimited access
-          </p>
-        </div>
-      </div>
+      {/* ROI */}
+      <p className="text-lg font-subheadline italic text-saffron leading-relaxed text-center mb-6">
+        Daily check-ins + unlimited coaching + micro insights = 30+ touchpoints/month. That's less than {p.perSession} per session vs {currency === 'GBP' ? '£500' : '$600'} for executive coaching.
+      </p>
 
-      {/* Trust Badges */}
+      {/* Trust */}
       <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <Shield size={14} /> Secure
