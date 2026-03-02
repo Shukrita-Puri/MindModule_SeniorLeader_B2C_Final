@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Shield, Zap, ArrowLeft } from "lucide-react";
+import { Check, X, Shield, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 
@@ -27,8 +27,8 @@ export default function Stage6Payment() {
   };
 
   const prices = {
-    USD: { monthly: '$29', annual: '$19', annualBilled: '$228', savings: '35%', symbol: '$', perSession: '$1' },
-    GBP: { monthly: '£29', annual: '£19', annualBilled: '£228', savings: '35%', symbol: '£', perSession: '£1' },
+    USD: { monthly: '$29', annual: '$24', annualTotal: '$289', crossed: '$29', savings: '17%', perSession: '$1', coachRange: '$300–$500' },
+    GBP: { monthly: '£29', annual: '£24', annualTotal: '£289', crossed: '£29', savings: '17%', perSession: '£1', coachRange: '£300–£500' },
   };
 
   const p = prices[currency];
@@ -62,22 +62,38 @@ export default function Stage6Payment() {
     }
   };
 
-  const allFeatures = [
-    { label: 'Daily energy check-ins', monthly: true, annual: true },
-    { label: 'Self-regulation practices', monthly: true, annual: true },
-    { label: 'Inner Readiness Score', monthly: true, annual: true },
-    { label: '10 AI coaching sessions', monthly: true, annual: false },
-    { label: 'Unlimited AI coaching', monthly: false, annual: true },
-    { label: 'Full insights dashboard', monthly: true, annual: true },
-    { label: 'Calendar & wearable sync', monthly: true, annual: true },
-    { label: 'Micro-intervention nudges', monthly: true, annual: true },
-    { label: 'Priority support', monthly: false, annual: true },
+  const monthlyFeatures = [
+    { label: 'Daily Check-Ins (unlimited)', included: true },
+    { label: 'Recalibrate Studio (all practices)', included: true },
+    { label: 'Daily Mastery Plan', included: true },
+    { label: 'Outer Readiness Brief', included: true },
+    { label: 'JIT Pre-Event Prep', included: true },
+    { label: 'Tiny Wins capture', included: true },
+    { label: 'Calendar & Wearable integration', included: true },
+    { label: 'Insights Page (all 4 cards)', included: true },
+    { label: 'Unlimited AI Coach conversations', included: true },
+    { label: 'Full AI Insights (all 4 cards with AI observations)', included: true },
+    { label: 'Weekly Pattern Summary Email', included: true },
+    { label: 'Data Export (CSV)', included: true },
+    { label: 'Unlimited History', included: true },
+    { label: 'Priority Support', included: true },
+    { label: 'Quarterly Deep-Dive Report (PDF)', included: false },
+    { label: 'Early Access to New Features', included: false },
   ];
 
-  const currentFeatures = allFeatures.map(f => ({
-    label: f.label,
-    included: selectedPlan === 'annual' ? f.annual : f.monthly,
-  }));
+  const annualFeatures = [
+    { label: 'Everything in Monthly Pro', included: true },
+    { label: 'Unlimited AI Coach conversations', included: true },
+    { label: 'Full AI Insights (all 4 cards with AI observations)', included: true },
+    { label: 'Weekly Pattern Summary Email', included: true },
+    { label: 'Data Export (CSV)', included: true },
+    { label: 'Unlimited History', included: true },
+    { label: 'Priority Support', included: true },
+    { label: 'Quarterly Deep-Dive Report (PDF)', included: true },
+    { label: 'Early Access to New Features', included: true },
+  ];
+
+  const features = selectedPlan === 'annual' ? annualFeatures : monthlyFeatures;
 
   return (
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
@@ -123,7 +139,7 @@ export default function Stage6Payment() {
         {/* Plan name + badge */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-headline font-bold">
-            {selectedPlan === 'annual' ? 'Mind Module Pro' : 'Mind Module'}
+            {selectedPlan === 'annual' ? 'Annual Pro' : 'Monthly Pro'}
           </h2>
           {selectedPlan === 'annual' && (
             <span className="bg-saffron text-black text-xs font-bold px-3 py-1 rounded-full">
@@ -135,7 +151,7 @@ export default function Stage6Payment() {
         {/* Price */}
         <div className="flex items-baseline gap-2 mb-1">
           {selectedPlan === 'annual' && (
-            <span className="text-2xl line-through opacity-40 font-bold">{p.monthly}</span>
+            <span className="text-2xl line-through opacity-40 font-bold">{p.crossed}</span>
           )}
           <span className="text-5xl font-bold">
             {selectedPlan === 'annual' ? p.annual : p.monthly}
@@ -145,8 +161,8 @@ export default function Stage6Payment() {
           </span>
         </div>
         {selectedPlan === 'annual' && (
-          <p className={`text-sm mb-4 ${selectedPlan === 'annual' ? 'opacity-60' : 'text-muted-foreground'}`}>
-            {p.annualBilled} billed yearly
+          <p className="text-sm mb-4 opacity-60">
+            {p.annualTotal} billed annually
           </p>
         )}
         {selectedPlan === 'monthly' && <div className="mb-4" />}
@@ -156,7 +172,7 @@ export default function Stage6Payment() {
 
         {/* Features */}
         <ul className="space-y-3">
-          {currentFeatures.map((f, i) => (
+          {features.map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-sm">
               {f.included ? (
                 <div className="w-5 h-5 rounded-full bg-saffron/20 flex items-center justify-center flex-shrink-0">
@@ -198,18 +214,14 @@ export default function Stage6Payment() {
       </Button>
 
       {/* ROI */}
-      <p className="text-lg font-subheadline italic text-saffron leading-relaxed text-center mb-6">
-        Daily check-ins + unlimited coaching + micro insights = 30+ touchpoints/month. That's less than {p.perSession} per session vs {currency === 'GBP' ? '£500' : '$600'} for executive coaching.
+      <p className="text-lg font-subheadline italic leading-relaxed text-center mb-6" style={{ color: 'hsl(25, 15%, 55%)' }}>
+        Daily Check-in for Readiness + Unlimited Coaching + Your Performance Insight + Unlimited Recalibration = 30+ touchpoints/mo. That's less than {p.perSession} per session vs {p.coachRange}/per session for executive coaching.
       </p>
 
       {/* Trust */}
-      <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Shield size={14} /> Secure
-        </span>
-        <span className="flex items-center gap-1">
-          <Zap size={14} /> Cancel anytime
-        </span>
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <Shield size={14} />
+        <span>Local First Privacy & End to End Encryption</span>
       </div>
     </div>
   );
