@@ -240,6 +240,7 @@ const COURAGE_FUTURE_SELF_CARDS = [
       '"Losing the security I have now"',
       '"Discovering I\'m not as capable as I think"',
       '"Being rejected publicly"',
+      '"Any other fear not mentioned here — name yours"',
     ],
     insight: {
       text: "Labeling emotions activates prefrontal cortex and dampens the amygdala. Precision reduces intensity by ~40%.",

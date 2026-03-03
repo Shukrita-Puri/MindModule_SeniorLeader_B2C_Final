@@ -528,7 +528,7 @@ const SoundscapePlayer = () => {
         console.error('Error parsing JIT data:', e);
       }
     }
-    setIsComplete(true);
+    navigate(getCategoryPath());
   };
 
   const handleRatingSkip = () => {
@@ -605,7 +605,7 @@ const SoundscapePlayer = () => {
         console.error('Error parsing JIT data:', e);
       }
     }
-    setIsComplete(true);
+    navigate(getCategoryPath());
   };
 
   if (showRatingModal && soundscape) {
@@ -622,48 +622,7 @@ const SoundscapePlayer = () => {
     );
   }
 
-  if (isComplete) {
-    return (
-      <>
-        <TopNavigation backPath={getCategoryPath()} />
-        <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6 pt-20">
-        <div className="max-w-2xl text-center space-y-4 md:space-y-6">
-          <CheckCircle2 className="h-16 w-16 md:h-20 md:w-20 text-gold mx-auto" />
-          <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
-            Journey Complete
-          </h1>
-          
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 md:p-8 border border-gold/20">
-            <p className="text-base md:text-xl italic text-muted-foreground mb-4 md:mb-6">
-              "{soundscape.completionQuote}"
-            </p>
-            
-            <div className="space-y-2 md:space-y-4 text-xs md:text-sm text-muted-foreground">
-              <p>Session: {soundscape.title}</p>
-              <p>Duration: {formatTime(displayDuration)}</p>
-            </div>
-          </div>
-
-          <div className="flex gap-3 md:gap-4 justify-center flex-wrap">
-            <Button onClick={() => {
-              setIsComplete(false);
-              setCurrentTime(0);
-              setIsPlaying(true);
-            }}>
-              Practice Again
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/soundscapes")}>
-              Explore More
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/executive-home")}>
-              Return Home
-            </Button>
-          </div>
-        </div>
-      </div>
-      </>
-    );
-  }
+  // Completion screen removed — post-practice navigates directly to category page
 
   return (
     <div className="relative min-h-screen overflow-hidden animate-page-enter">
@@ -721,9 +680,54 @@ const SoundscapePlayer = () => {
             <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
           </Button>
 
-          <p className="text-white/80 text-sm md:text-base font-hint tracking-wide">
+          <p className="text-white/80 text-sm md:text-base font-hint tracking-wide mb-8">
             Tap to begin
           </p>
+
+          {/* Pre-Practice Instructions Collapsible */}
+          {(soundscape.technique || (soundscape.benefits && soundscape.benefits.length > 0)) && (
+            <div className="w-full max-w-md">
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-gradient-to-r from-taupe/20 to-gold/10 backdrop-blur-md border border-gold/30 text-white hover:from-taupe/30 hover:to-gold/20 hover:border-gold/50"
+                  >
+                    <span className="flex items-center gap-2 text-xs font-hint">
+                      Technique & Instructions
+                      <ChevronDown className="w-3 h-3 transition-transform [&[data-state=open]]:rotate-180" />
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
+                    <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                      {soundscape.technique && (
+                        <div>
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                          <p className="text-white/80 text-xs leading-relaxed font-body">{soundscape.technique}</p>
+                        </div>
+                      )}
+                      {soundscape.benefits && soundscape.benefits.length > 0 && (
+                        <div>
+                          <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
+                          <ul className="space-y-1">
+                            {soundscape.benefits.map((benefit: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
+                                <span className="text-gold mt-0.5">•</span>
+                                <span>{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
         </div>
       ) : (
         /* Playing State - Title at top, controls at bottom */
@@ -733,7 +737,7 @@ const SoundscapePlayer = () => {
               {soundscape.title}
             </h1>
             <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
-              {formatTime(displayDuration)} min session
+              {soundscape.origin}
             </p>
           </div>
 
