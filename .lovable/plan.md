@@ -1,33 +1,30 @@
 
 
-## Fix Presence Page Green Filter
+## Fix Presence Green Filter and Clarify Persistence
 
-### Problem
-The current green filter is too heavy because it stacks three effects:
-1. `.img-green-overlay` CSS filter (`sepia + hue-rotate + brightness + contrast + mix-blend-mode: multiply`)
-2. An extra `<div className="bg-emerald-900/15 mix-blend-multiply" />` overlay
-3. Applied on top of images that may already have purple/cool tones from previous design
+### Problem 1: Green filter looks neon/muddy
+The source images for Presence practices have purple/cool tones baked in from previous design. Applying a light green hue-rotate on top of purple creates neon or muddy results. The reference images show natural, desaturated photography with organic green tones — not a color filter on purple images.
 
-The `mix-blend-mode: multiply` on the image itself darkens everything significantly, and the emerald overlay compounds it.
+**Fix**: The CSS filter needs to first aggressively desaturate to strip the purple, then apply the green shift. This creates a muted, natural green-gray tone rather than neon.
 
-### Reference
-The uploaded images show natural, airy photography with subtle cool-green color grading — not a heavy tint. The Pause page achieves its warm look with just a simple CSS filter on the `<img>` (no extra overlay div).
+```css
+.img-green-overlay {
+  filter: saturate(0.3) sepia(20%) hue-rotate(90deg) brightness(1.08) contrast(1.05);
+}
+```
 
-### Fix
+- `saturate(0.3)` — strips most of the original purple/color
+- `sepia(20%)` — adds warm base tone
+- `hue-rotate(90deg)` — shifts the sepia warmth into a subtle green
+- `brightness(1.08) contrast(1.05)` — keeps it airy and not dark
 
-**1. Rework `.img-green-overlay` in `src/index.css`** (line 180-182)
-- Remove `mix-blend-mode: multiply` (this is what makes it dark)
-- Use a lighter, more natural green tint: `filter: saturate(0.85) sepia(8%) hue-rotate(70deg) brightness(1.02) contrast(1.02);`
-- This gives a subtle green wash without darkening — similar to how the reference images feel natural but broadly green-toned
+This produces a look similar to the reference images: desaturated, broadly green-toned, natural.
 
-**2. Remove the extra emerald overlay divs in `PresenceOutcomePage.tsx`**
-- Line 212: Remove `<div className="absolute inset-0 bg-emerald-900/15 mix-blend-multiply" />`
-- Line 274: Remove same div
-- Replace with the same simple gradient pattern used on Pause/Power-Up: `<div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />`
+### Problem 2: "Server side vs client side"
+All visual and content changes (CSS filters, badge labels, duration formatting, image references) are in the source code files (`src/index.css`, `PresenceOutcomePage.tsx`, `practicesAndSoundscapes.ts`, etc.). These are deployed with the app — they are not stored in localStorage or any client-side temporary state. They are permanent and will persist across all users and sessions. No database migration is needed for these UI/visual changes.
 
 ### Files
 | File | Change |
 |------|--------|
-| `src/index.css` | Lighten `.img-green-overlay` filter, remove multiply blend |
-| `src/pages/recalibrate/PresenceOutcomePage.tsx` | Remove emerald overlay divs, use standard gradient pattern |
+| `src/index.css` | Update `.img-green-overlay` filter to desaturate-first approach |
 
