@@ -2076,65 +2076,68 @@ const MicroPracticePlayerCards = () => {
               <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
                 {/* Card container — minimal transparent for minimal steps, frosted glass for others */}
                 <div className={`w-full max-w-md rounded-3xl p-6 md:p-8 ${
-                  card.minimal 
+                  (card.minimal || (card.type === 'overview' && id === 'eye-of-storm'))
                     ? 'bg-white/15 backdrop-blur-md border border-white/40' 
                     : 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg'
                 }`}>
-                  {card.type === "overview" && (
+                  {card.type === "overview" && (() => {
+                    const isMinimal = id === 'eye-of-storm';
+                    return (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
                       <div className="space-y-2">
-                        <h1 className="text-2xl md:text-3xl font-serif text-foreground leading-tight">
+                        <h1 className={`text-2xl md:text-3xl font-serif leading-tight ${isMinimal ? 'text-white' : 'text-foreground'}`}>
                           {card.title}
                         </h1>
-                        <p className="text-muted-foreground text-sm md:text-base">
+                        <p className={`text-sm md:text-base ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
                           {card.subtitle}
                         </p>
                       </div>
 
                       {/* Source - in box */}
-                      <div className="w-full px-4 py-3 bg-primary/5 rounded-xl border border-primary/10">
-                        <p className="text-xs text-primary uppercase tracking-wide mb-1">
+                      <div className={`w-full px-4 py-3 rounded-xl border ${isMinimal ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'}`}>
+                        <p className={`text-xs uppercase tracking-wide mb-1 ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
                           Source
                         </p>
-                        <p className="text-sm text-foreground/90">
+                        <p className={`text-sm ${isMinimal ? 'text-white/90' : 'text-foreground/90'}`}>
                           {card.source}
                         </p>
                       </div>
 
                       {/* Duration & Steps */}
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className={`flex items-center gap-2 ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
                           <Clock className="w-4 h-4" />
                           <span className="text-sm">{card.duration}</span>
                         </div>
-                        <span className="text-muted-foreground/50">•</span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className={isMinimal ? 'text-white/30' : 'text-muted-foreground/50'}>•</span>
+                        <span className={`text-sm ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
                           {card.steps}
                         </span>
                       </div>
 
                       {/* Trigger */}
                       <div className="space-y-2 w-full">
-                        <p className="text-xs text-primary uppercase tracking-wide">
+                        <p className={`text-xs uppercase tracking-wide ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
                           Trigger
                         </p>
-                        <p className="text-sm text-foreground/80">
+                        <p className={`text-sm ${isMinimal ? 'text-white/80' : 'text-foreground/80'}`}>
                           {card.trigger}
                         </p>
                       </div>
 
                       {/* When to use */}
                       <div className="space-y-2 w-full">
-                        <p className="text-xs text-primary uppercase tracking-wide">
+                        <p className={`text-xs uppercase tracking-wide ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
                           When to Use
                         </p>
-                        <p className="text-sm text-foreground/80">
+                        <p className={`text-sm ${isMinimal ? 'text-white/80' : 'text-foreground/80'}`}>
                           {card.whenToUse}
                         </p>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {card.type === "step" && card.minimal && (
                     <div className="flex flex-col items-center text-center space-y-6 py-4">
