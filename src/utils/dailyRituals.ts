@@ -307,21 +307,17 @@ export async function updateRitualCompletion(
     console.log(`[dailyRituals ${timestamp}] Fetching fresh ritual for status calculation...`);
     const freshRitual = await getTodayRitual();
     if (freshRitual) {
-      const completed = [
-        freshRitual.soundscape_completed,
-        freshRitual.guided_practice_completed,
-        freshRitual.micro_exercise_completed
-      ].filter(Boolean).length;
-      
+      // Use completed_practice_ids as the authoritative count (not just booleans)
+      const completedIds = freshRitual.completed_practice_ids || [];
       const totalRecommended = freshRitual.recommended_practices_count || 3;
       
-      const newStatus = completed >= totalRecommended && completed > 0 
+      const newStatus = completedIds.length >= totalRecommended && completedIds.length > 0 
         ? 'full' 
-        : completed > 0 
+        : completedIds.length > 0 
           ? 'partial' 
           : 'skipped';
       
-      console.log(`[dailyRituals ${timestamp}] Calculated status:`, { completed, totalRecommended, newStatus });
+      console.log(`[dailyRituals ${timestamp}] Calculated status:`, { completedCount: completedIds.length, totalRecommended, newStatus });
       
       // Step 4: Update status
       const statusResult = await upsertRitual({
