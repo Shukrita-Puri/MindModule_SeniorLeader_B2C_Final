@@ -44,7 +44,7 @@ const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
   >
     <img
       src={coachVisual}
-      alt="Self Mastery Coach"
+      alt="Inner Mastery Coach"
       className="w-full h-full object-cover object-top"
     />
   </div>
@@ -238,31 +238,30 @@ const CoachSplitView = ({
   if (!hasMessages) {
     return (
       <div className="flex flex-col h-full relative overflow-hidden">
-        {/* Full-bleed background */}
-        <div className="absolute inset-0">
-          <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
-        </div>
+        {/* Dark gradient background — no full-bleed photo */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f0f1a]" />
 
         <div className="relative z-10 flex-1 flex flex-col">
-          {/* Title */}
-          <div className="pt-8 pb-4 px-6 text-center space-y-3">
-            <h1 className="text-4xl font-headline text-white tracking-tight drop-shadow-lg">
-              Self Mastery Coach
+          {/* Title + tagline + avatar + greeting — single centered block */}
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-5">
+            <h1 className="text-3xl font-headline text-white tracking-tight">
+              Inner Mastery Coach
             </h1>
-            <p className="text-base font-subheadline italic text-white/80">
+            <p className="text-sm font-subheadline italic text-white/60">
               Inner Awareness. Presence. Growth.
             </p>
-            <p className="text-sm text-white/70 max-w-sm mx-auto leading-relaxed">
-              I'm your self-mastery coach. Share what's on your mind, and let's explore it together.
-            </p>
-          </div>
 
-          {/* Centered greeting — no avatar, coach is in background */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <h2 className="text-xl font-headline text-white">
+            {/* Circular coach avatar */}
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-lg shadow-black/30">
+              <img src={coachVisual} alt="Inner Mastery Coach" className="w-full h-full object-cover object-top" />
+            </div>
+
+            <h2 className="text-lg font-headline text-white/90">
               Hello, {firstName}
             </h2>
+            <p className="text-sm text-white/50 max-w-xs leading-relaxed">
+              I'm your inner mastery coach. Share what's on your mind, and let's explore it together.
+            </p>
           </div>
 
           {/* Prompt suggestions — transparent, text-only */}
@@ -289,56 +288,64 @@ const CoachSplitView = ({
   //  ACTIVE CONVERSATION — single-column chat
   // ════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/30 bg-background/95 backdrop-blur-sm shrink-0">
-        <CoachAvatar size="sm" />
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground leading-tight">Self Mastery Coach</h2>
-          <p className="text-[11px] text-muted-foreground truncate">{contextualGreeting}</p>
-        </div>
+    <div className="flex flex-col h-full relative overflow-hidden">
+      {/* Full-bleed dimmed background */}
+      <div className="absolute inset-0">
+        <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-[0.35]" />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
 
-      {/* Scrollable message list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.map((message) => {
-          if (message.role === 'user') {
+      <div className="relative z-10 flex flex-col h-full">
+        {/* Top bar — glass */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-black/30 backdrop-blur-xl border-b border-white/10 shrink-0">
+          <CoachAvatar size="sm" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-white leading-tight">Inner Mastery Coach</h2>
+            <p className="text-[11px] text-white/50 truncate">{contextualGreeting}</p>
+          </div>
+        </div>
+
+        {/* Scrollable message list */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {messages.map((message) => {
+            if (message.role === 'user') {
+              return (
+                <div key={message.id} className="flex justify-end">
+                  <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm leading-relaxed">
+                    {message.content}
+                  </div>
+                </div>
+              );
+            }
+            // Coach message
             return (
-              <div key={message.id} className="flex justify-end">
-                <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-primary text-primary-foreground text-sm leading-relaxed">
-                  {message.content}
+              <div key={message.id} className="flex items-start gap-2.5">
+                <CoachAvatar size="sm" />
+                <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white/10 backdrop-blur-md border border-white/15">
+                  <CoachMessageContent content={message.content} variant="onDark" />
                 </div>
               </div>
             );
-          }
-          // Coach message
-          return (
-            <div key={message.id} className="flex items-start gap-2.5">
+          })}
+
+          {/* Typing indicator */}
+          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+            <div className="flex items-start gap-2.5">
               <CoachAvatar size="sm" />
-              <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-muted/50 border border-border/30">
-                <CoachMessageContent content={message.content} variant="default" />
+              <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/10 backdrop-blur-md border border-white/15 flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
-          );
-        })}
+          )}
 
-        {/* Typing indicator */}
-        {isLoading && messages[messages.length - 1]?.role === 'user' && (
-          <div className="flex items-start gap-2.5">
-            <CoachAvatar size="sm" />
-            <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-muted/50 border border-border/30 flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
-        )}
+          <div ref={messagesEndRef} />
+        </div>
 
-        <div ref={messagesEndRef} />
+        {/* Input bar */}
+        <InputBar glass {...inputBarProps} />
       </div>
-
-      {/* Input bar */}
-      <InputBar glass={false} {...inputBarProps} />
     </div>
   );
 };
