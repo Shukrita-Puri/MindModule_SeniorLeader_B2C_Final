@@ -2074,71 +2074,64 @@ const MicroPracticePlayerCards = () => {
         <CarouselContent className="-ml-0">
           {cards.map((card, index) => (
             <CarouselItem key={index} className="pl-0">
-              <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
-                {/* Card container — minimal transparent for minimal steps, frosted glass for others */}
-                <div className={`w-full max-w-md rounded-3xl p-6 md:p-8 ${
-                  (card.minimal || (card.type === 'overview' && id === 'eye-of-storm'))
-                    ? 'bg-white/15 backdrop-blur-md border border-white/40' 
-                    : 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg'
-                }`}>
-                  {card.type === "overview" && (() => {
-                    const isMinimal = id === 'eye-of-storm';
-                    return (
+              <div className="p-4 pt-20 pb-32 min-h-screen flex items-center justify-center">
+                {/* Card container — transparent glassmorphic for all cards */}
+                <div className="w-full max-w-md rounded-3xl p-6 md:p-8 bg-white/15 backdrop-blur-md border border-white/40">
+                  {card.type === "overview" && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
                       <div className="space-y-2">
-                        <h1 className={`text-2xl md:text-3xl font-serif leading-tight ${isMinimal ? 'text-white' : 'text-foreground'}`}>
+                        <h1 className="text-2xl md:text-3xl font-serif leading-tight text-white">
                           {card.title}
                         </h1>
-                        <p className={`text-sm md:text-base ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
+                        <p className="text-sm md:text-base text-white/60">
                           {card.subtitle}
                         </p>
                       </div>
 
                       {/* Source - in box */}
-                      <div className={`w-full px-4 py-3 rounded-xl border ${isMinimal ? 'bg-white/10 border-white/20' : 'bg-primary/5 border-primary/10'}`}>
-                        <p className={`text-xs uppercase tracking-wide mb-1 ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
+                      <div className="w-full px-4 py-3 rounded-xl border bg-white/10 border-white/20">
+                        <p className="text-xs uppercase tracking-wide mb-1 text-white/50">
                           Source
                         </p>
-                        <p className={`text-sm ${isMinimal ? 'text-white/90' : 'text-foreground/90'}`}>
+                        <p className="text-sm text-white/90">
                           {card.source}
                         </p>
                       </div>
 
                       {/* Duration & Steps */}
                       <div className="flex items-center gap-4">
-                        <div className={`flex items-center gap-2 ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
+                        <div className="flex items-center gap-2 text-white/60">
                           <Clock className="w-4 h-4" />
                           <span className="text-sm">{card.duration}</span>
                         </div>
-                        <span className={isMinimal ? 'text-white/30' : 'text-muted-foreground/50'}>•</span>
-                        <span className={`text-sm ${isMinimal ? 'text-white/60' : 'text-muted-foreground'}`}>
+                        <span className="text-white/30">•</span>
+                        <span className="text-sm text-white/60">
                           {card.steps}
                         </span>
                       </div>
 
                       {/* Trigger */}
                       <div className="space-y-2 w-full">
-                        <p className={`text-xs uppercase tracking-wide ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
+                        <p className="text-xs uppercase tracking-wide text-white/50">
                           Trigger
                         </p>
-                        <p className={`text-sm ${isMinimal ? 'text-white/80' : 'text-foreground/80'}`}>
+                        <p className="text-sm text-white/80">
                           {card.trigger}
                         </p>
                       </div>
 
                       {/* When to use */}
                       <div className="space-y-2 w-full">
-                        <p className={`text-xs uppercase tracking-wide ${isMinimal ? 'text-white/50' : 'text-primary'}`}>
+                        <p className="text-xs uppercase tracking-wide text-white/50">
                           When to Use
                         </p>
-                        <p className={`text-sm ${isMinimal ? 'text-white/80' : 'text-foreground/80'}`}>
+                        <p className="text-sm text-white/80">
                           {card.whenToUse}
                         </p>
                       </div>
                     </div>
-                    );
-                  })()}
+                  )}
 
                   {card.type === "step" && card.minimal && (
                     <div className="flex flex-col items-center text-center space-y-6 py-4">
@@ -2162,28 +2155,28 @@ const MicroPracticePlayerCards = () => {
                   {card.type === "step" && !card.minimal && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Step number badge */}
-                      <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                        <span className="text-primary font-semibold text-lg">
+                      <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                        <span className="text-amber-300 font-semibold text-lg">
                           {card.stepNumber}
                         </span>
                       </div>
 
                       {/* Title */}
                       <div className="space-y-1">
-                        <h2 className="text-xl md:text-2xl font-serif text-foreground">
+                        <h2 className="text-xl md:text-2xl font-serif text-white">
                           {card.title}
                         </h2>
                       </div>
 
                       {/* Instruction */}
-                      <p className="text-base text-foreground/90 leading-relaxed">
+                      <p className="text-base text-white/90 leading-relaxed">
                         {card.instruction}
                       </p>
 
                       {/* Question - NOT in box, with Q prefix */}
                       {card.question && (
-                        <p className="text-base font-medium text-foreground">
-                          <span className="text-primary font-bold mr-2">Q</span>
+                        <p className="text-base font-medium text-white">
+                          <span className="text-amber-300 font-bold mr-2">Q</span>
                           {card.question}
                         </p>
                       )}
@@ -2191,15 +2184,15 @@ const MicroPracticePlayerCards = () => {
                       {/* Reframing pattern - NO box, plain text */}
                       {card.reframing && (
                         <div className="w-full space-y-2">
-                          <p className="text-xs text-primary uppercase tracking-wide">Reframing the Pattern</p>
+                          <p className="text-xs text-amber-300 uppercase tracking-wide">Reframing the Pattern</p>
                           <div className="flex flex-col gap-1 text-sm">
                             <div className="flex items-center gap-2">
-                              <span className="text-muted-foreground">From:</span>
-                              <span className="text-foreground/80">{card.reframing.from}</span>
+                              <span className="text-white/60">From:</span>
+                              <span className="text-white/80">{card.reframing.from}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-primary font-medium">To:</span>
-                              <span className="text-foreground">{card.reframing.to}</span>
+                              <span className="text-amber-300 font-medium">To:</span>
+                              <span className="text-white">{card.reframing.to}</span>
                             </div>
                           </div>
                         </div>
@@ -2211,9 +2204,9 @@ const MicroPracticePlayerCards = () => {
                           {card.examples.map((example, i) => (
                             <div
                               key={i}
-                              className="flex items-start gap-2 text-sm text-foreground/80 text-left"
+                              className="flex items-start gap-2 text-sm text-white/80 text-left"
                             >
-                              <span className="text-primary mt-1">•</span>
+                              <span className="text-amber-300 mt-1">•</span>
                               <span>{example}</span>
                             </div>
                           ))}
@@ -2222,21 +2215,21 @@ const MicroPracticePlayerCards = () => {
 
                       {/* Guidance (if exists) */}
                       {card.guidance && (
-                        <p className="text-sm text-foreground/80 font-medium">
+                        <p className="text-sm text-white/80 font-medium">
                           {card.guidance}
                         </p>
                       )}
 
-                      {/* Reframing note - Big, Bold, Italic, Primary color */}
+                      {/* Reframing note - Big, Bold, Italic, Accent color */}
                       {card.reframingNote && (
-                        <p className="text-lg text-primary font-bold italic">
+                        <p className="text-lg text-amber-300 font-bold italic">
                           {card.reframingNote}
                         </p>
                       )}
 
-                      {/* Closing wisdom - Big, Bold, Italic, Primary color */}
+                      {/* Closing wisdom - Big, Bold, Italic, Accent color */}
                       {card.closingWisdom && (
-                        <p className="text-lg text-primary font-bold italic text-center pt-2">
+                        <p className="text-lg text-amber-300 font-bold italic text-center pt-2">
                           {card.closingWisdom}
                         </p>
                       )}
@@ -2244,38 +2237,38 @@ const MicroPracticePlayerCards = () => {
                       {/* Insight box - for research/wisdom only */}
                       {card.insight && (
                         <div className="w-full mt-auto pt-4">
-                          <div className="px-4 py-4 bg-primary/5 rounded-xl border border-primary/10 space-y-3 text-left">
+                          <div className="px-4 py-4 bg-white/10 rounded-xl border border-white/20 space-y-3 text-left">
                             <div className="flex items-start gap-2">
-                              <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                              <Sparkles className="w-4 h-4 text-amber-300 mt-0.5 flex-shrink-0" />
                               <div className="space-y-1">
                                 {card.insight.text && (
-                                  <p className="text-sm text-foreground/90">
+                                  <p className="text-sm text-white/90">
                                     {card.insight.text}
                                   </p>
                                 )}
                                 {card.insight.source && (
-                                  <p className="text-xs text-primary">
+                                  <p className="text-xs text-amber-300">
                                     — {card.insight.source}
                                   </p>
                                 )}
                                 {card.insight.wisdom && (
                                   <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground italic">
+                                    <p className="text-sm text-white/60 italic">
                                       {card.insight.wisdom}
                                     </p>
                                     {card.insight.wisdomSource && (
-                                      <p className="text-xs text-primary">
+                                      <p className="text-xs text-amber-300">
                                         — {card.insight.wisdomSource}
                                       </p>
                                     )}
                                   </div>
                                 )}
                                 {card.insight.quote && (
-                                  <div className="pt-2 border-t border-primary/10">
-                                    <p className="text-sm text-foreground/80 italic">
+                                  <div className="pt-2 border-t border-white/20">
+                                    <p className="text-sm text-white/80 italic">
                                       "{card.insight.quote.text}"
                                     </p>
-                                    <p className="text-xs text-primary mt-1">
+                                    <p className="text-xs text-amber-300 mt-1">
                                       — {card.insight.quote.author}
                                     </p>
                                   </div>
@@ -2290,7 +2283,7 @@ const MicroPracticePlayerCards = () => {
 
                   {card.type === "science" && (
                     <div className="flex flex-col items-center text-center space-y-6">
-                      <h2 className="text-2xl md:text-3xl font-serif text-foreground">
+                      <h2 className="text-2xl md:text-3xl font-serif text-white">
                         {card.title}
                       </h2>
 
@@ -2298,16 +2291,16 @@ const MicroPracticePlayerCards = () => {
                         {card.content.map((paragraph, i) => (
                           <p
                             key={i}
-                            className="text-base text-foreground/80 leading-relaxed"
+                            className="text-base text-white/80 leading-relaxed"
                           >
                             {paragraph}
                           </p>
                         ))}
                       </div>
 
-                      {/* Closing quote - Big, Bold, Italic, Primary color */}
-                      <div className="pt-4 border-t border-primary/10 w-full">
-                        <p className="text-lg text-primary font-bold italic">
+                      {/* Closing quote */}
+                      <div className="pt-4 border-t border-white/20 w-full">
+                        <p className="text-lg text-amber-300 font-bold italic">
                           {card.closing}
                         </p>
                       </div>

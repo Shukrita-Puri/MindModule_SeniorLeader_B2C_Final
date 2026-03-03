@@ -11,7 +11,7 @@ import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import PracticeQueueProgress from '@/components/PracticeQueueProgress';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
+import { getTodayRitual, upsertRitual, updateRitualCompletion } from '@/utils/dailyRituals';
 import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 
@@ -234,34 +234,8 @@ const SelfMasteryCoach = () => {
   // Mark coach practice as complete
   const markCoachComplete = async () => {
     try {
-      const ritualData = await getTodayRitual();
       const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
-      const existingIds = ritualData?.completed_practice_ids || [];
-      
-      if (!existingIds.includes(coachId)) {
-        const updateData: any = {
-          ritual_date: new Date().toISOString().split('T')[0],
-          completed_practice_ids: [...existingIds, coachId]
-        };
-        
-        if (!ritualData?.recommended_practices_count) {
-          updateData.recommended_practices_count = practiceQueue.length || 3;
-        }
-        
-        await upsertRitual(updateData);
-        
-        const freshRitual = await getTodayRitual();
-        if (freshRitual) {
-          const completedCount = (freshRitual.completed_practice_ids || []).length;
-          const totalRecommended = freshRitual.recommended_practices_count || 3;
-          const newStatus = completedCount >= totalRecommended ? 'full' : 'partial';
-          
-          await upsertRitual({
-            ritual_date: new Date().toISOString().split('T')[0],
-            completion_status: newStatus
-          });
-        }
-      }
+      await updateRitualCompletion('micro_exercise', coachId, practiceQueue.length > 0 ? practiceQueue : undefined);
     } catch (error) {
       console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
     }
