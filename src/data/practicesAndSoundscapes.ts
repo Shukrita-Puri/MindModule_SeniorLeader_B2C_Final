@@ -987,7 +987,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'low',
       energyDirection: 'stabilize'
     },
-    duration: 1,
+    duration: 1.5,
     difficulty: "beginner",
     creator: "不動心 (Fudōshin) — Samurai principle, Miyamoto Musashi's teachings",
     origin: "Fudōshin (不動心) — The Immovable Mind principle from Samurai warrior philosophy",
@@ -1043,7 +1043,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'low',
       energyDirection: 'stabilize'
     },
-    duration: 1,
+    duration: 2,
     difficulty: "beginner",
     creator: "Inspired from Sun Tzu, The Art of War",
     origin: "\"In the midst of chaos, there is also opportunity.\" — Sun Tzu, The Art of War",
@@ -1440,7 +1440,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'medium',
       energyDirection: 'stabilize'
     },
-    duration: 2,
+    duration: 3,
     difficulty: "intermediate",
     creator: "Thích Nhất Hạnh (Buddhist teaching)",
     origin: "\"No mud, no lotus.\" — Thích Nhất Hạnh (Buddhist teaching)",
