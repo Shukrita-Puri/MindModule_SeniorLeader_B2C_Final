@@ -44,6 +44,9 @@ import stillnessGap from "@/assets/stillness-gap.jpg";
 import detachmentObserver from "@/assets/detachment-observer.jpg";
 import softnessRelease from "@/assets/softness-release.jpg";
 import somaticTouchGrounding from "@/assets/somatic-touch-grounding.jpg";
+import warriorDrumsHero from "@/assets/warrior-drums-hero.jpg";
+import basqueTxalapartaHero from "@/assets/basque-txalaparta-hero.jpg";
+import monasticResonanceHero from "@/assets/monastic-resonance-hero.jpg";
 
 export type ContentType = 'soundbath' | 'guided-practice' | 'micro-practice';
 export type Category = 'pause' | 'power-up' | 'presence';
@@ -194,7 +197,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Ancient warrior drum traditions",
     origin: "The Warrior Drums Activation Ritual is a primal reset for high-stakes moments. Each thunderous strike of the drum is a call to rebuild energy, sharpen focus, and awaken resilience. This soundscape doesn't relax you—it recharges and mobilizes your mind and body, transforming fatigue, hesitation, or scattered attention into decisive, embodied readiness. Perfect for moments when stakes are high—before exams, performances, presentations, or critical decisions—Warrior Drums reinforce confidence, resilience, and momentum, so you step into any challenge fully prepared.",
     storyHook: "Primal drums from ancient battlefields—transform hesitation into decisive readiness.",
-    thumbnail: renewalColorful,
+    thumbnail: warriorDrumsHero,
     audioSrc: "/soundscapes/warrior-drums.mp3",
     fullStory: "Warrior drums were never background music—they were the heartbeat before action. Across continents—from African battlefields to Japanese dojos, Mongolian steppes, and Māori war parties—drums signaled readiness and courage. The silence before the first strike is where fear lives; the first beat breaks hesitation. The rising rhythm synchronises heartbeat, breath, and movement. This is not music to relax to—it is a ritual of activation. Each strike trains the body and mind, transforming apprehension into decisiveness and chaos into rhythm.",
     technique: "Find a private space. Stand or sit tall. Press play.\n\nPhase 1 — Silence & Opening: Notice the tension in the quiet. Observe it without resisting.\n\nPhase 2 — First Drums: Feel the initial strikes anchor in your chest. Breathe in sync with the rhythm.\n\nPhase 3 — Building Intensity: Allow micro-movements—shoulders, chest, hands—to synchronize with the tempo. You are actively engaging, not just listening.\n\nPhase 4 — Peak: At the climax, focus sharpens, confidence rises, and hesitation fades. When the rhythm ends, act immediately. Do not pause or second-guess.",
@@ -233,7 +236,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Traditional Basque Txalaparta percussion traditions",
     origin: "This soundscape channels the raw power of Basque wooden percussion. Each strike is organic, rhythmic, and unmistakably physical—designed to awaken your body, sharpen your mind, and build resilience. Perfect for high-pressure moments, overcoming mental lulls, or recharging when you need to keep going. The rhythm doesn't wait until you feel ready—it makes you ready.",
     storyHook: "Raw Basque wooden percussion—awakens the body and builds resilience for action.",
-    thumbnail: renewalColorful,
+    thumbnail: basqueTxalapartaHero,
     audioSrc: "/soundscapes/basque-txalaparta.mp3",
     fullStory: "The Txalaparta was born not in temples or armies, but in the fields and villages of the Basque mountains. After long harvest days, families crushed apples on wooden boards, which later became instruments. Two people struck wood against wood—not to perform, but to revive themselves after exhaustion. The sound is raw, rhythmic, and unmistakably physical. It doesn't promise calm—it offers readiness. Rhythm transforms tension into focus, repetition builds resilience, and every strike aligns body, breath, and mind. This is ancestral practicality: stress transformed into momentum.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
     technique: "Find a quiet space. Sit or stand with your spine tall. Press play.\n\nPhase 1 — Silence & Opening: Let the quiet sharpen your nerves. Notice where tension lives.\n\nPhase 2 — First Wooden Strikes: Feel the strikes in your chest, shoulders, and arms. Breathe with the rhythm.\n\nPhase 3 — Evolving Patterns: The rhythm grows. Micro-movements arise naturally. Sync your body with the pulse.\n\nPhase 4 — Peak Resonance: Your focus narrows. You are no longer preparing—you are ready. When the sound ends, act immediately. Do not hesitate.",
@@ -396,7 +399,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     creator: "Monastic chanting and harmonic rituals",
     origin: "Monastic chanting and harmonic rituals in Himalayan-style summit monasteries",
     storyHook: "Used to sharpen cognitive clarity, sustain deep focus, and expand awareness through layered chants, resonant gongs, and ethereal chimes.",
-    thumbnail: flowBlue,
+    thumbnail: monasticResonanceHero,
     audioSrc: "/soundscapes/monastic-resonance.mp3",
     fullStory: "High in the Himalayan mountains, Buddhist monks have practiced contemplative chanting for centuries as a method to sharpen awareness and sustain deep concentration. The resonant tones of their voices, combined with the deep reverberations of temple gongs and the crystalline clarity of meditation chimes, create an acoustic environment that naturally draws the mind into focused presence. These monasteries, often perched at altitudes where the air is thin and silence profound, became laboratories for understanding how sound can shape consciousness. The layered harmonics aren't merely beautiful—they're precisely calibrated to guide the mind from distraction into clear, sustained attention.",
     technique: "Sit with an upright but relaxed posture. As the chanting begins, let the low tones anchor your awareness like roots into the earth. Notice how the gongs add depth, and the chimes add clarity—three layers working together. Don't fight for focus; instead, let the sound environment create a container for your attention. When distractions arise, use the resonant chants as your anchor point. This is active listening: you're training your mind to sustain focus by riding the waves of harmonic sound. With practice, this becomes a gateway to hours of clear, effortless concentration.",
@@ -500,7 +503,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       intensityLevel: 'high',
       energyDirection: 'upshift'
     },
-    duration: 6,
+    duration: 6.5,
     difficulty: "intermediate",
     origin: "Ancient Yogic Energizing Breath",
     storyHook: "Ancient yogic 'skull shining' breath—instant vitality and mental clarity.",
