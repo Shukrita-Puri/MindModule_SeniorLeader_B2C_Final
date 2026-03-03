@@ -1,30 +1,55 @@
 
 
-## Fix Presence Green Filter and Clarify Persistence
+## Fix Presence Green Filter: Tiles Too Faded + Sub-Pages Missing Filter
 
-### Problem 1: Green filter looks neon/muddy
-The source images for Presence practices have purple/cool tones baked in from previous design. Applying a light green hue-rotate on top of purple creates neon or muddy results. The reference images show natural, desaturated photography with organic green tones — not a color filter on purple images.
+### Two Issues
 
-**Fix**: The CSS filter needs to first aggressively desaturate to strip the purple, then apply the green shift. This creates a muted, natural green-gray tone rather than neon.
+**1. Tiles on `/recalibrate/presence` look faded**
+The current `.img-green-overlay` uses `saturate(0.3)` which strips too much color, making images look washed out. The "Eternal Now" hourglass screenshot you shared shows the ideal: natural photography with a broadly green tone, not desaturated.
 
+**Fix**: Adjust the filter to keep more natural color while still shifting green:
 ```css
 .img-green-overlay {
-  filter: saturate(0.3) sepia(20%) hue-rotate(90deg) brightness(1.08) contrast(1.05);
+  filter: saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(1.05) contrast(1.05);
 }
 ```
+- `saturate(0.6)` instead of `0.3` — retains more natural color richness
+- `sepia(15%)` + `hue-rotate(85deg)` — subtle green shift without neon
+- Lighter brightness/contrast adjustments
 
-- `saturate(0.3)` — strips most of the original purple/color
-- `sepia(20%)` — adds warm base tone
-- `hue-rotate(90deg)` — shifts the sepia warmth into a subtle green
-- `brightness(1.08) contrast(1.05)` — keeps it airy and not dark
+**2. Sub-pages still show original purple/warm colors**
+The player pages (MicroPracticePlayer, MicroPracticePlayerCards, GuidedPracticePlayer, SoundscapePlayer) all use the same generic inline style:
+```js
+style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+```
+This is not category-aware — Presence practices get no green filter at all.
 
-This produces a look similar to the reference images: desaturated, broadly green-toned, natural.
+**Fix**: Make the inline filter category-aware. For Presence/Flow practices, apply the green filter values. For others, keep the current warm filter. The category is available via `practice.category` in all player pages.
 
-### Problem 2: "Server side vs client side"
-All visual and content changes (CSS filters, badge labels, duration formatting, image references) are in the source code files (`src/index.css`, `PresenceOutcomePage.tsx`, `practicesAndSoundscapes.ts`, etc.). These are deployed with the app — they are not stored in localStorage or any client-side temporary state. They are permanent and will persist across all users and sessions. No database migration is needed for these UI/visual changes.
+### Files to Change
 
-### Files
 | File | Change |
 |------|--------|
-| `src/index.css` | Update `.img-green-overlay` filter to desaturate-first approach |
+| `src/index.css` | Adjust `.img-green-overlay` — increase `saturate` from `0.3` to `0.6`, reduce `sepia` from `20%` to `15%` |
+| `src/pages/MicroPracticePlayer.tsx` (line 225) | Make inline filter category-aware: use green filter for `presence`/`flow` category |
+| `src/pages/MicroPracticePlayerCards.tsx` (line 2037) | Same: category-aware filter on background image |
+| `src/pages/GuidedPracticePlayer.tsx` (line 1410) | Same: category-aware filter on hero image |
+| `src/pages/SoundscapePlayer.tsx` (line 676) | Same: category-aware filter on background image |
+
+### Category-Aware Filter Logic (applied in all 4 player files)
+
+For Presence/Flow category practices:
+```js
+style={{ filter: 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' }}
+```
+
+For all other categories (Pause, Power-Up):
+```js
+style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+```
+
+The category is already available as `practice.category` in all player components. The condition is:
+```js
+const isPresence = practice.category === 'presence' || practice.category === 'flow';
+```
 
