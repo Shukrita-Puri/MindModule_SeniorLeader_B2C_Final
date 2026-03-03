@@ -1165,7 +1165,7 @@ const GuidedPracticePlayer = () => {
                 {practice?.title}
               </h1>
               <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
-                {Math.ceil(duration / 60)} min session
+                {formatTimeAudio(duration)} session
               </p>
             </div>
 

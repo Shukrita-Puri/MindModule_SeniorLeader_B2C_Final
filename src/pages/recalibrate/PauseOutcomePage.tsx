@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useAudioDurations, formatAudioDuration } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
 
 const PauseOutcomePage = () => {
@@ -47,6 +48,11 @@ const PauseOutcomePage = () => {
 
   // Combine soundscapes, practices, and somatic micro-practices for Somatic Protocol
   const somaticItems = [...soundscapes, ...practices, ...somaticMicroPractices];
+
+  // Load real audio durations for all items with audioSrc
+  const allItems = useMemo(() => [...mindsetItems, ...somaticItems], [mindsetItems.length, somaticItems.length]);
+  const audioItems = useMemo(() => allItems.filter(i => i.audioSrc).map(i => ({ id: i.id, audioSrc: i.audioSrc })), [allItems]);
+  const audioDurations = useAudioDurations(audioItems);
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
@@ -120,7 +126,13 @@ const PauseOutcomePage = () => {
     return `Drawn from ${origin || creator}`;
   };
 
-  const formatDuration = (minutes: number): string => {
+  const formatDuration = (item: SanctuaryContent): string => {
+    // If this item has real audio duration loaded, use it
+    if (item.audioSrc && audioDurations[item.id]) {
+      return formatAudioDuration(audioDurations[item.id]);
+    }
+    // Fallback to static duration for non-audio items
+    const minutes = item.duration;
     if (minutes < 1) {
       return `${minutes * 60} sec`;
     } else if (minutes >= 60) {
@@ -134,7 +146,7 @@ const PauseOutcomePage = () => {
 
   const getCompletionTracking = (item: SanctuaryContent): string => {
     const count = completionCounts[item.id] || 0;
-    const duration = formatDuration(item.duration);
+    const duration = formatDuration(item);
     
     if (count === 0) {
       return duration;
