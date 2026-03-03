@@ -41,7 +41,7 @@ const features = [
     description: 'Energy practices',
   },
   {
-    title: 'Self Mastery Coach',
+    title: 'Inner Mastery Coach',
     icon: ChatCircle,
     path: '/coach',
     description: 'AI-powered coaching',
