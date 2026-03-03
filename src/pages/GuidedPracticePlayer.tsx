@@ -1106,7 +1106,7 @@ const GuidedPracticePlayer = () => {
             src={contentData.thumbnail}
             alt={practice?.title}
             className="w-full h-full object-cover"
-            style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+            style={{ filter: (practice.category === 'presence' || practice.category === 'flow') ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
         </div>

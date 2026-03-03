@@ -221,8 +221,8 @@ const MicroPracticePlayer = () => {
             <img 
               src={practice.thumbnail} 
               alt={practice.title}
-              className="w-full h-full object-cover"
-              style={{ filter: 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
+           className="w-full h-full object-cover"
+           style={{ filter: (['presence', 'flow'].includes(practice.category || '')) ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(1.0) contrast(1.05) saturate(1.15)' }}
             />
           </div>
           

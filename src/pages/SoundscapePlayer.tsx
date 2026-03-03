@@ -673,7 +673,7 @@ const SoundscapePlayer = () => {
           src={soundscape.thumbnail || getContentById(id!)?.thumbnail}
           alt={soundscape.title}
           className="w-full h-full object-cover"
-          style={{ filter: 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
+          style={{ filter: (soundscape.category === 'presence' || soundscape.category === 'flow') ? 'saturate(0.6) sepia(15%) hue-rotate(85deg) brightness(0.9) contrast(1.1)' : 'brightness(0.85) contrast(1.1) saturate(1.2)' }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-taupe-rich/30 to-black/50" />
       </div>
