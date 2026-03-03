@@ -288,16 +288,12 @@ const CoachSplitView = ({
   //  ACTIVE CONVERSATION — single-column chat
   // ════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-stone-50">
-      <div className="relative z-10 flex flex-col h-full">
-        {/* Top bar — light glass */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border shrink-0">
-          <CoachAvatar size="sm" />
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-foreground leading-tight">Inner Mastery Coach</h2>
-          </div>
-        </div>
+    <div className="flex flex-col h-full relative overflow-hidden">
+      {/* Subtle warm atmospheric background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent" />
 
+      <div className="relative z-10 flex flex-col h-full">
         {/* Scrollable message list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {messages.map((message) => {

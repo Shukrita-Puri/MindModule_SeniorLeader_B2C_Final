@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
+import { ChatCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCoachConversation } from '@/hooks/useCoachConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -364,23 +366,25 @@ const SelfMasteryCoach = () => {
       {/* Header Navigation */}
       <FloatingNavigation 
         showCoachButton={false}
-        centerContent={
-          messages.length > 0 ? (
-            <span className="text-sm font-headline text-foreground">Inner Mastery Coach</span>
-          ) : null
-        }
         rightContent={
           messages.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNewChat}
-              className="text-muted-foreground hover:text-foreground text-xs bg-muted/50 backdrop-blur-sm border border-border rounded-full px-3"
-            >
-              New Chat
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleNewChat}
+                  className="h-10 w-10 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20"
+                >
+                  <ChatCircle size={20} weight="duotone" className="text-saffron" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>New conversation</p>
+              </TooltipContent>
+            </Tooltip>
           ) : (
-            <div className="w-16" />
+            <div className="w-10" />
           )
         }
       />
