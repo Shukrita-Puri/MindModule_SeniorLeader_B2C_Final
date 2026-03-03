@@ -38,7 +38,7 @@ interface CoachSplitViewProps {
 const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
   <div
     className={cn(
-      "rounded-full overflow-hidden shrink-0 border border-white/20",
+      "rounded-full overflow-hidden shrink-0 border border-stone-200",
       size === 'sm' ? "w-8 h-8" : "w-14 h-14"
     )}
   >
@@ -239,27 +239,27 @@ const CoachSplitView = ({
     return (
       <div className="flex flex-col h-full relative overflow-hidden">
         {/* Dark gradient background — no full-bleed photo */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f0f1a]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-stone-50 via-white to-stone-100" />
 
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Title + tagline + avatar + greeting — single centered block */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-5">
-            <h1 className="text-3xl font-headline text-white tracking-tight">
+            <h1 className="text-3xl font-headline text-foreground tracking-tight">
               Inner Mastery Coach
             </h1>
-            <p className="text-sm font-subheadline italic text-white/60">
+            <p className="text-sm font-subheadline italic text-muted-foreground">
               Inner Awareness. Presence. Growth.
             </p>
 
             {/* Circular coach avatar */}
-            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-lg shadow-black/30">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
               <img src={coachVisual} alt="Inner Mastery Coach" className="w-full h-full object-cover object-top" />
             </div>
 
-            <h2 className="text-lg font-headline text-white/90">
+            <h2 className="text-lg font-headline text-foreground/90">
               Hello, {firstName}
             </h2>
-            <p className="text-sm text-white/50 max-w-xs leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
               I'm your inner mastery coach. Share what's on your mind, and let's explore it together.
             </p>
           </div>
@@ -270,7 +270,7 @@ const CoachSplitView = ({
               <button
                 key={prompt}
                 onClick={() => onPromptClick(prompt)}
-                className="w-full text-left px-4 py-2.5 bg-transparent hover:bg-white/10 transition-colors text-sm text-white/80 hover:text-white"
+                className="w-full text-left px-4 py-2.5 bg-transparent hover:bg-black/5 transition-colors text-sm text-muted-foreground hover:text-foreground"
               >
                 {prompt}
               </button>
@@ -278,7 +278,7 @@ const CoachSplitView = ({
           </div>
 
           {/* Input bar */}
-          <InputBar glass {...inputBarProps} />
+          <InputBar glass={false} {...inputBarProps} />
         </div>
       </div>
     );
@@ -288,20 +288,13 @@ const CoachSplitView = ({
   //  ACTIVE CONVERSATION — single-column chat
   // ════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full relative overflow-hidden">
-      {/* Full-bleed dimmed background */}
-      <div className="absolute inset-0">
-        <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-[0.35]" />
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
-
+    <div className="flex flex-col h-full relative overflow-hidden bg-stone-50">
       <div className="relative z-10 flex flex-col h-full">
-        {/* Top bar — glass */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-black/30 backdrop-blur-xl border-b border-white/10 shrink-0">
+        {/* Top bar — light glass */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border shrink-0">
           <CoachAvatar size="sm" />
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-white leading-tight">Inner Mastery Coach</h2>
-            <p className="text-[11px] text-white/50 truncate">{contextualGreeting}</p>
+            <h2 className="text-sm font-semibold text-foreground leading-tight">Inner Mastery Coach</h2>
           </div>
         </div>
 
@@ -311,7 +304,7 @@ const CoachSplitView = ({
             if (message.role === 'user') {
               return (
                 <div key={message.id} className="flex justify-end">
-                  <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-white/15 backdrop-blur-md border border-white/20 text-white text-sm leading-relaxed">
+                  <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-stone-100 border border-stone-200 text-foreground text-sm leading-relaxed">
                     {message.content}
                   </div>
                 </div>
@@ -321,8 +314,8 @@ const CoachSplitView = ({
             return (
               <div key={message.id} className="flex items-start gap-2.5">
                 <CoachAvatar size="sm" />
-                <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white/10 backdrop-blur-md border border-white/15">
-                  <CoachMessageContent content={message.content} variant="onDark" />
+                <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white border border-stone-200">
+                  <CoachMessageContent content={message.content} variant="default" />
                 </div>
               </div>
             );
@@ -332,10 +325,10 @@ const CoachSplitView = ({
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex items-start gap-2.5">
               <CoachAvatar size="sm" />
-              <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white/10 backdrop-blur-md border border-white/15 flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full bg-white/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+              <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-stone-200 flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           )}
@@ -344,7 +337,7 @@ const CoachSplitView = ({
         </div>
 
         {/* Input bar */}
-        <InputBar glass {...inputBarProps} />
+        <InputBar glass={false} {...inputBarProps} />
       </div>
     </div>
   );

@@ -366,10 +366,7 @@ const SelfMasteryCoach = () => {
         showCoachButton={false}
         centerContent={
           messages.length > 0 ? (
-            <div className="flex flex-col items-center">
-              <span className="text-sm font-headline text-foreground">Inner Mastery Coach</span>
-              <span className="text-xs text-muted-foreground font-body">{getSubtitle()}</span>
-            </div>
+            <span className="text-sm font-headline text-foreground">Inner Mastery Coach</span>
           ) : null
         }
         rightContent={
