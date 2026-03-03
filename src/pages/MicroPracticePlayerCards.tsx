@@ -2143,7 +2143,7 @@ const MicroPracticePlayerCards = () => {
                     <div className="flex flex-col items-center text-center space-y-6 py-4">
                       {/* Step + duration line */}
                       <p className="text-white/60 text-sm tracking-widest uppercase">
-                        ① Step {card.stepNumber} · {card.duration}
+                        ① Step {card.stepNumber}
                       </p>
 
                       {/* Title as large action verb */}
@@ -2167,14 +2167,11 @@ const MicroPracticePlayerCards = () => {
                         </span>
                       </div>
 
-                      {/* Title & Duration */}
+                      {/* Title */}
                       <div className="space-y-1">
                         <h2 className="text-xl md:text-2xl font-serif text-foreground">
                           {card.title}
                         </h2>
-                        <p className="text-primary text-sm">
-                          {card.duration}
-                        </p>
                       </div>
 
                       {/* Instruction */}
