@@ -712,7 +712,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     voice: 'male',
     language: 'en',
     deliveryModality: ['headphones', 'speaker'],
-    duration: 12,
+    duration: 11,
     difficulty: "beginner",
     origin: "Ancient Vedic Meditation Sound",
     storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
