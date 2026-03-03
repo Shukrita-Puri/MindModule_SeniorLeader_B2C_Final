@@ -9,7 +9,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useAudioDurations, formatAudioDuration } from "@/hooks/useAudioDuration";
+import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
 
 const PresenceOutcomePage = () => {
@@ -109,7 +109,7 @@ const PresenceOutcomePage = () => {
 
   const formatDuration = (item: SanctuaryContent): string => {
     if (item.audioSrc && audioDurations[item.id]) {
-      return formatAudioDuration(audioDurations[item.id]);
+      return formatAudioDurationLabel(audioDurations[item.id]);
     }
     const minutes = item.duration;
     if (minutes < 1) {
@@ -160,7 +160,7 @@ const PresenceOutcomePage = () => {
     if (item.contentType === 'soundbath') {
       return 'Soundscape';
     }
-    return 'Practice';
+    return 'Guided Practice';
   };
 
   const getSubtitle = (item: SanctuaryContent): string => {
@@ -207,9 +207,9 @@ const PresenceOutcomePage = () => {
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-full object-cover img-card img-green-overlay transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-white/25" />
+                   <div className="absolute inset-0 bg-emerald-900/15 mix-blend-multiply" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
@@ -269,9 +269,9 @@ const PresenceOutcomePage = () => {
                   <img 
                     src={item.thumbnail}
                     alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                   className="w-full h-full object-cover img-card img-green-overlay transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-white/25" />
+                  <div className="absolute inset-0 bg-emerald-900/15 mix-blend-multiply" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">

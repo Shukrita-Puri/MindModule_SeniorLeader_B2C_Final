@@ -177,6 +177,11 @@ body {
     filter: contrast(1.02) saturate(0.6);
   }
 
+  .img-green-overlay {
+    filter: sepia(15%) hue-rotate(80deg) brightness(95%) contrast(105%);
+    mix-blend-mode: multiply;
+  }
+
   /* Warm Luxury Filter - rich, warm tones without washing out */
   .img-warm-luxury {
     filter: sepia(15%) saturate(120%) brightness(105%) contrast(95%);

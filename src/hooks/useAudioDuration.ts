@@ -18,8 +18,8 @@ export const formatAudioDuration = (totalSeconds: number): string => {
  * Formats seconds into a friendly label like "6:21 min" or "42:15 min"
  */
 export const formatAudioDurationLabel = (totalSeconds: number): string => {
-  if (!totalSeconds || totalSeconds <= 0) return "0:00";
-  return `${formatAudioDuration(totalSeconds)}`;
+  if (!totalSeconds || totalSeconds <= 0) return "0:00 min";
+  return `${formatAudioDuration(totalSeconds)} min`;
 };
 
 /**
