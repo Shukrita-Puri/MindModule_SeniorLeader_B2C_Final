@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useAudioDurations, formatAudioDuration } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
 
 const PowerUpOutcomePage = () => {
@@ -27,6 +28,11 @@ const PowerUpOutcomePage = () => {
 
   // Combined items for Somatic Protocol (soundscapes + somatic practices)
   const somaticItems = [...soundscapes, ...somaticPractices];
+
+  // Load real audio durations for all items with audioSrc
+  const allItems = useMemo(() => [...allMicroPractices, ...somaticItems], [allMicroPractices.length, somaticItems.length]);
+  const audioItems = useMemo(() => allItems.filter(i => i.audioSrc).map(i => ({ id: i.id, audioSrc: i.audioSrc })), [allItems]);
+  const audioDurations = useAudioDurations(audioItems);
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
@@ -115,7 +121,11 @@ const PowerUpOutcomePage = () => {
     return `Drawn from ${origin || creator}`;
   };
 
-  const formatDuration = (minutes: number): string => {
+  const formatDuration = (item: SanctuaryContent): string => {
+    if (item.audioSrc && audioDurations[item.id]) {
+      return formatAudioDuration(audioDurations[item.id]);
+    }
+    const minutes = item.duration;
     if (minutes < 1) {
       return `${minutes * 60} sec`;
     } else if (minutes >= 60) {
@@ -135,7 +145,7 @@ const PowerUpOutcomePage = () => {
 
   const getCompletionTracking = (item: SanctuaryContent): string => {
     const count = completionCounts[item.id] || 0;
-    const duration = formatDuration(item.duration);
+    const duration = formatDuration(item);
     
     if (count === 0) {
       return duration;

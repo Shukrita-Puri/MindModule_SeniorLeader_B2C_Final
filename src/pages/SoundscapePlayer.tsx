@@ -96,7 +96,7 @@ const SoundscapePlayer = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [hasStarted, setHasStarted] = useState(false);
-  const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
+  // actualDurationMinutes removed — now using formatTime(displayDuration) directly
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Practice Queue State
@@ -438,7 +438,6 @@ const SoundscapePlayer = () => {
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const duration = Math.floor(e.currentTarget.duration);
     setActualDuration(duration);
-    setActualDurationMinutes(Math.ceil(duration / 60));
   };
 
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -734,7 +733,7 @@ const SoundscapePlayer = () => {
               {soundscape.title}
             </h1>
             <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
-              {actualDurationMinutes || soundscape.duration} min session
+              {formatTime(displayDuration)} session
             </p>
           </div>
 
