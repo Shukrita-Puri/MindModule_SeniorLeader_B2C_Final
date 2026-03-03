@@ -178,8 +178,7 @@ body {
   }
 
   .img-green-overlay {
-    filter: sepia(15%) hue-rotate(80deg) brightness(95%) contrast(105%);
-    mix-blend-mode: multiply;
+    filter: saturate(0.85) sepia(8%) hue-rotate(70deg) brightness(1.02) contrast(1.02);
   }
 
   /* Warm Luxury Filter - rich, warm tones without washing out */

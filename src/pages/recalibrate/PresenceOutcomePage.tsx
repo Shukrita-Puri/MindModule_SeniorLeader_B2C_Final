@@ -209,8 +209,7 @@ const PresenceOutcomePage = () => {
                     alt={item.title}
                   className="w-full h-full object-cover img-card img-green-overlay transition-transform duration-300 group-hover:scale-105"
                   />
-                   <div className="absolute inset-0 bg-emerald-900/15 mix-blend-multiply" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
                       {getBadgeLabel(item)}
@@ -271,8 +270,7 @@ const PresenceOutcomePage = () => {
                     alt={item.title}
                    className="w-full h-full object-cover img-card img-green-overlay transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-emerald-900/15 mix-blend-multiply" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/60" />
                   <div className="absolute bottom-4 left-4">
                     <Badge className="bg-background/50 text-foreground border-border">
                       {getBadgeLabel(item)}
