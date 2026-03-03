@@ -9,7 +9,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentByCategory, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useAudioDurations, formatAudioDuration } from "@/hooks/useAudioDuration";
+import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
 
 const PowerUpOutcomePage = () => {
@@ -123,7 +123,7 @@ const PowerUpOutcomePage = () => {
 
   const formatDuration = (item: SanctuaryContent): string => {
     if (item.audioSrc && audioDurations[item.id]) {
-      return formatAudioDuration(audioDurations[item.id]);
+      return formatAudioDurationLabel(audioDurations[item.id]);
     }
     const minutes = item.duration;
     if (minutes < 1) {

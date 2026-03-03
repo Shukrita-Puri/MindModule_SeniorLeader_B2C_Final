@@ -9,7 +9,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import { getContentByCategory, getAllContent, SanctuaryContent } from "@/data/practicesAndSoundscapes";
 import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useAudioDurations, formatAudioDuration } from "@/hooks/useAudioDuration";
+import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
 
 const PauseOutcomePage = () => {
@@ -129,7 +129,7 @@ const PauseOutcomePage = () => {
   const formatDuration = (item: SanctuaryContent): string => {
     // If this item has real audio duration loaded, use it
     if (item.audioSrc && audioDurations[item.id]) {
-      return formatAudioDuration(audioDurations[item.id]);
+      return formatAudioDurationLabel(audioDurations[item.id]);
     }
     // Fallback to static duration for non-audio items
     const minutes = item.duration;
