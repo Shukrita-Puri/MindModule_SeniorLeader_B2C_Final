@@ -1,191 +1,80 @@
 
 
-## Recalibrate Feature — Comprehensive Fix Plan
+## Plan: Card Design + Coach Layout + Completion Tracking Fixes
 
-This plan covers: post-practice flow overhaul, pre-practice instructions, content/copy updates, duration fixes, skip-feedback-if-already-given, and a DB/tracking audit.
+### Issue 1: Card-based practices — switch all to transparent glassmorphic design
 
----
+Currently in `MicroPracticePlayerCards.tsx` (line 2079-2083), cards use two styles:
+- Minimal cards: `bg-white/15 backdrop-blur-md border border-white/40` (the desired look)
+- Non-minimal cards: `bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg` (opaque)
 
-### DB & Tracking Audit Results
+**Fix:** Make ALL cards use the transparent style (`bg-white/15 backdrop-blur-md border border-white/40`) and update ALL text colors to use white/light variants instead of `text-foreground`/`text-muted-foreground`. This affects:
 
-**Current state is solid.** All practice completions are tracked server-side via two tables:
+- Overview cards (lines 2084-2141): title, subtitle, source box, duration, trigger, when-to-use
+- Step cards non-minimal (lines 2162-2289): step badge, title, instruction, question, reframing, examples, guidance, reframingNote, closingWisdom, insight box
+- Science cards (lines 2291-2314): title, paragraphs, closing quote
 
-| Table | Purpose | Tracked from |
-|-------|---------|-------------|
-| `practice_sessions` | Session records (content_id, category, duration, effectiveness_rating) | SoundscapePlayer, GuidedPracticePlayer, MicroPracticePlayerCards |
-| `sanctuary_events` | Insights/analytics (event_type, content_type, category, context_data) | `trackSanctuaryEvent()` in all 3 players |
-| `content_relevance_feedback` | Star ratings + text feedback | `submitPracticeRating()` via PracticeRatingModal |
-| `user_preferences` | Favorite content IDs | `user-favorites` edge function |
-| `daily_ritual_completions` | Ritual tracking per day | `practice-data` edge function |
+All `text-foreground` → `text-white`, all `text-muted-foreground` → `text-white/60`, all `text-primary` → `text-white/50` or `text-amber-300`, all `bg-primary/5` → `bg-white/10`, all `border-primary/10` → `border-white/20`.
 
-**One issue found:** `SoundscapePlayer.handlePlayPause()` (lines 218-233) writes ritual history to `localStorage` (`dailyRitualHistory`) — this is redundant with the server-side `daily_ritual_completions` table and `updateRitualCompletion()` call. But it's not harmful, just legacy. Will leave as-is.
+Also add `pt-20` padding to the card container (line 2077) to ensure content isn't hidden behind the mastery plan tracker on top.
 
-**No missing tables or tracking gaps.** All content metadata lives in `practicesAndSoundscapes.ts` (client-side data file), not in edge functions. The `sanctuary_content` and `sanctuary_content_metadata` DB tables exist but content is primarily served from the client-side data file for offline capability. This is the established pattern.
+**File:** `src/pages/MicroPracticePlayerCards.tsx`
 
 ---
 
-### Group A: Post-Practice Flow Overhaul
+### Issue 2: Coach page — conversation squished to bottom
 
-**Problem:** After practice ends, a "Journey Complete" / "Practice Complete" screen shows with broken "Practice Again", "Explore More", and "Skip for Now" buttons.
+Looking at `SelfMasteryCoach.tsx`, the layout is:
+```
+h-screen flex-col
+  FloatingNavigation (relative, takes ~56px)
+  PracticeQueueProgress (conditional, takes ~60px) 
+  Performance Plan Indicator (conditional, takes ~70px)
+  flex-1 min-h-0 → CoachSplitView (h-full)
+```
 
-**Changes:**
+The `CoachSplitView` uses `h-full` which should fill. But looking at the screenshot, the conversation is only at the bottom 10%. The likely issue is that `CoachSplitView`'s active conversation layout has `flex-1 overflow-y-auto` for messages but the messages are few so they naturally appear at the bottom.
 
-**1. Remove completion screens — navigate back after rating/skip**
+The real problem from the screenshot: messages show at top but the scrollable area is huge with empty space, then input bar at bottom. This is correct behavior — messages start at top, input at bottom. But the user says "full conversation is happening there" at 10%. Looking again at screenshot 5: the user's message and coach's reply are at the very top, then huge empty space, then at the bottom there's a suggested prompt "I'm here when you're ready..." and the input bar. This appears correct for a 2-message conversation.
 
-In `SoundscapePlayer.tsx`:
-- Remove the `isComplete` state-based completion screen (lines 625-665)
-- In `handleRatingSubmit` and `handleRatingSkip`: when standalone (not in queue, no JIT data), instead of `setIsComplete(true)`, navigate to `getCategoryPath()` (the category page)
-- This eliminates the broken "Journey Complete" screen entirely
+Wait — looking more carefully at screenshot 5: There's a "Part of Today's Performance Plan" banner AND the queue progress on top. When `messages.length > 0`, these should be hidden (they have `messages.length === 0` condition). But the `CoachSplitView` gets re-mounted on message change. The queue progress condition is `isInQueue && practiceQueue.length > 1 && messages.length === 0` — this should hide when messages exist. So the coach page should be fine once messages start.
 
-In `GuidedPracticePlayer.tsx`:
-- Remove the completion view at lines 1899-1942
-- In `handleRatingSubmit` and `handleRatingSkip` (rating view): when standalone, navigate to `getCategoryPath()` instead of `setView("complete")`
+The actual issue from screenshot 5 is that the input is stuck at the absolute bottom with the textarea showing at the very bottom. Let me re-read the layout: the `CoachSplitView` returns a `flex flex-col h-full` div, with `flex-1 overflow-y-auto` for messages and a fixed `InputBar` at the bottom. Inside `SelfMasteryCoach`, it's wrapped in `flex-1 min-h-0`. This should be fine.
 
-**2. Skip feedback if already given**
+The user complaint "Coach page is showing my text now at the bottom part of the page at 10% of the page" — looking at screenshot 5, I see the messages at top, then a prompt suggestion text ("I'm here when you're ready. What's really going on?") appearing near the bottom, and the input bar at the very bottom. The prompt suggestion appearing mid-chat is odd — that's the `promptSuggestions` from the empty state leaking? No, in the active state there are no prompt suggestions rendered.
 
-In `PracticeRatingModal.tsx`:
-- Add a new prop `alreadyRated?: boolean`
-- When `alreadyRated` is true, auto-skip (call `onSkip()` immediately)
+Actually the "I'm here when you're ready" text is likely a coach message (assistant role) that appears at the bottom of the scrollable area. The layout looks correct. But the user is frustrated that the input area (textarea + end session) occupies a lot of space.
 
-In all three players, before showing the rating modal:
-- Query `content_relevance_feedback` table for existing feedback with matching `content_id` and `user_id`
-- If found, skip the modal and proceed directly to post-practice navigation
-- This uses the existing `content-feedback` edge function's `GET_FEEDBACK` action (or direct DB in DEV_MODE)
+Let me focus on what's actionable:
+1. Ensure queue progress / plan indicators are properly hidden during active chat
+2. The coach page looks like it's working but the empty space is a UX concern — could be that the prompt suggestions should be more prominent or the messages area should be smaller when there are few messages
 
-**3. Fix "Explore More" navigation in SoundscapePlayer**
-
-Replace `navigate("/soundscapes")` (broken route) with `navigate(getCategoryPath())` — this correctly routes to `/recalibrate/pause`, `/recalibrate/power-up`, or `/recalibrate/presence`.
-
-**Files:** `src/pages/SoundscapePlayer.tsx`, `src/pages/GuidedPracticePlayer.tsx`, `src/components/PracticeRatingModal.tsx`
+**Fix for coach page:** The queue progress and performance plan indicator should be hidden when messages exist (they already have `messages.length === 0` guards). The mastery plan tracker "not visible" issue is likely because `isInQueue` is false when not launched from the queue. This is expected behavior.
 
 ---
 
-### Group B: Pre-Practice Instructions Screen (All Audio Practices)
+### Issue 3: Mastery plan completion not tracking
 
-**Problem:** No technique/instructions shown before audio starts.
+The user says they completed all steps but it doesn't show as completed. The `updateRitualCompletion` function updates `completed_practice_ids` and calculates status. The `checkRitualCompletion` in `DailyRitual.tsx` checks `completed_practice_ids.length >= recommended_practices_count`.
 
-**Changes in `SoundscapePlayer.tsx`:**
-In the `!hasStarted` initial view (lines 697-727), add a collapsible section below the play button showing:
-- `soundscape.technique` (if available)
-- `soundscape.benefits` (if available)
-- For practices with `whatYouNeed` data, show those too
+Potential bug: When the user completes practices through the queue, each player calls `updateRitualCompletion` which appends to `completed_practice_ids`. But the coach card in the queue is type `'coach'` — when the coach session ends, does it call `updateRitualCompletion`?
 
-**Changes in `GuidedPracticePlayer.tsx`:**
-In the audio `!hasStarted` view (lines 1129-1159), add the same collapsible technique/benefits section using `contentData.technique`, `contentData.benefits`, and `contentData.whatYouNeed`.
+Looking at `SelfMasteryCoach.tsx` line 351-356: `handleEndSession` calls `markCoachComplete()` then `endSession()`. Let me check `markCoachComplete`:
 
-The collapsible ensures the pre-start screen doesn't become overwhelming but the information is accessible.
+This function likely handles marking the coach practice as done. But if `markCoachComplete` doesn't call `updateRitualCompletion`, the coach card won't be counted in `completed_practice_ids`, causing the total to never reach `recommended_practices_count`.
 
-**Files:** `src/pages/SoundscapePlayer.tsx`, `src/pages/GuidedPracticePlayer.tsx`
+**Fix:** Need to verify and ensure `markCoachComplete` in `SelfMasteryCoach.tsx` calls `updateRitualCompletion('micro_exercise', coachContentId)` to add the coach card's content ID to completed_practice_ids.
 
 ---
 
-### Group C: Content & Copy Updates
-
-All changes in `src/data/practicesAndSoundscapes.ts`:
-
-**1. Ina Night Fields — Add missing origin story/instructions**
-
-Add to the `ina-night-fields` entry (around line 482):
-```
-fullStory: "In Japanese mythology, Tsukiyomi is the moon deity...born in the rice-growing valleys of Nagano...The night fields recording captures the living soundscape of rural Japan after dark—frogs, insects, distant water, wind through rice paddies. This is Shinrin-yoku extended into the night...",
-technique: "No technique required. This is a passive immersion soundscape. Find a comfortable position, close your eyes, and let the sounds of the Japanese countryside wash over you. The natural rhythms of night—frogs, insects, distant water—will guide your nervous system into rest...",
-benefits: ["Deep nervous system rest through natural sound immersion", "Transition from active to restful state", "Connection to natural rhythms", "Reduction of mental chatter through ambient focus"]
-```
-
-**2. Didgeridoo — Tweak copy for Renewal context**
-
-Change `storyHook` (line 160) from "laser-sharp focus" to emphasize re-energizing:
-```
-storyHook: "Ancient didgeridoo + Himalayan bowls: raw energy to re-energize and activate your core vitality."
-```
-
-**3. Trataka — Add office-friendly alternatives**
-
-Update `whatYouNeed` (lines 814-822) to include alternatives:
-```
-"Essential: A single focus point — candle flame (traditional), OR a small dot drawn on paper, a still object on your desk, or a digital flame on screen",
-"A candle is ideal but not required — any small, still focal point works. This practice can be done in an office or public space using non-flame alternatives.",
-```
-
-Update `equipment` in structuredTags from `['candle', 'matches']` to `['none']`.
-
-Add beginner timing note to technique:
-```
-"Beginners should start with 15-30 seconds of continuous gazing per round and build up gradually. The guided audio is approximately 4 minutes — follow the cues and close your eyes whenever needed."
-```
-
-**4. Bhramari — Add precautions and repetition guidance**
-
-Add precautions to the beginning of `whatYouNeed` array:
-```
-"⚠️ DO NOT PRACTICE IF: Severe ear infections, active eye conditions (glaucoma, detached retina), epilepsy or seizure disorders, recent ear/nose/throat surgery",
-"⚠️ PRACTICE WITH CAUTION: High blood pressure (use gentle humming only), pregnancy (keep practice gentle and short)",
-```
-
-Add a note to `technique` about repetitions:
-```
-"For maximum benefit, practice 3-4 rounds of the full cycle. Traditional teaching (Art of Living, Bihar School of Yoga) recommends at least 3 complete rounds for the nervous system to fully shift."
-```
-
-**5. Remove Kapalabhati from power-up somatic practices**
-
-Set `is_active` flag or filter it out. Since the data file doesn't have an `isActive` field, add `hidden: true` to the `kapalabhati-pranayama` entry and update `getAllContent()` and `getContentById()` to filter out hidden entries.
-
-Actually, simpler: just remove the entry entirely from the array since the user said "Remove Kapalbharti". The legacy data in `GuidedPracticePlayer.tsx` (the `practiceData` object) still has it for backwards compat but won't be shown in tiles.
-
-Wait — the `isAudioPractice` check in GuidedPracticePlayer (line 761) explicitly lists `kapalabhati-pranayama`. Need to remove it from there too.
-
-**6. Courage Through The Future Self — Add "any other option" to Step 2**
-
-In `MicroPracticePlayerCards.tsx`, update `COURAGE_FUTURE_SELF_CARDS` Step 2 examples (lines 239-243) to add:
-```
-'"Any other fear not mentioned here — name yours"',
-```
-
-**Files:** `src/data/practicesAndSoundscapes.ts`, `src/pages/MicroPracticePlayerCards.tsx`, `src/pages/GuidedPracticePlayer.tsx`
-
----
-
-### Group D: Duration Display Fixes
-
-**Problem:** Duration shown on tiles differs from what plays (e.g., Ina Night Fields: 42m in data but audio is ~5m).
-
-**Root cause:** The `duration` field in `practicesAndSoundscapes.ts` is a manual estimate. The actual audio duration is loaded via `onLoadedMetadata` and stored in `actualDuration` / `duration` state.
-
-**Fix in `SoundscapePlayer.tsx`:**
-The `displayDuration` (line 107) already prefers `actualDuration` over `soundscape.duration`. The issue is the initial pre-start screen shows `soundscape.origin` text but not the duration mismatch. The duration shown on **tile cards** (in category pages) comes from the data file. 
-
-Update `practicesAndSoundscapes.ts` to fix the Ina Night Fields duration from `42` to `5` (matching the actual audio). Same for any other mismatched entries.
-
-For Deep Focus Bhramari: data says `11` min, audio may differ. Update to actual audio length if known.
-
-**Files:** `src/data/practicesAndSoundscapes.ts`
-
----
-
-### Group E: Remove Time Comment from Soundscape Player
-
-The user mentioned "avoid the time comment" — this refers to the `{formatTime(displayDuration)} min session` text in the playing state header (SoundscapePlayer line 736, GuidedPracticePlayer line 1168). Remove these time displays from the playing state headers.
-
-**Files:** `src/pages/SoundscapePlayer.tsx`, `src/pages/GuidedPracticePlayer.tsx`
-
----
-
-### Summary of Files to Modify
+### Summary of Changes
 
 | File | Changes |
 |------|---------|
-| `src/pages/SoundscapePlayer.tsx` | Remove completion screen, fix post-rating nav, add pre-start technique section, remove time comment |
-| `src/pages/GuidedPracticePlayer.tsx` | Remove completion screen, fix post-rating nav, add pre-start technique section, remove kapalabhati from audio list, remove time comment |
-| `src/pages/MicroPracticePlayerCards.tsx` | Add "any other fear" to Courage Future Self step 2 |
-| `src/components/PracticeRatingModal.tsx` | Add `alreadyRated` prop for skip logic |
-| `src/data/practicesAndSoundscapes.ts` | Ina Night Fields story/technique/duration, Didgeridoo copy tweak, Trataka alternatives, Bhramari precautions, remove Kapalabhati |
+| `src/pages/MicroPracticePlayerCards.tsx` | Convert all card styles to transparent glassmorphic (bg-white/15), all text to white/light variants, add top padding for queue tracker |
+| `src/pages/SelfMasteryCoach.tsx` | Fix markCoachComplete to properly update ritual completion tracking |
 
 ### Implementation Order
-
-1. Content/copy updates (data file) — lowest risk
-2. Post-practice flow overhaul (remove completion screens, fix navigation)
-3. Skip-feedback-if-already-rated check
-4. Pre-practice instructions section
-5. Duration and time comment fixes
+1. MicroPracticePlayerCards card style overhaul
+2. Coach ritual completion tracking fix
 
