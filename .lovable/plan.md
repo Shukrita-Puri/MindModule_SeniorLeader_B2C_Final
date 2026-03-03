@@ -1,34 +1,27 @@
 
 
-## Light Theme Coach Page + Remove Subtitle from Nav
+## Coach Page Fixes
 
-### Changes
+Three changes based on your feedback:
 
-**1. Switch to light theme (CoachSplitView.tsx)**
+### 1. Remove "Inner Mastery Coach" text from navigation bar
+In `SelfMasteryCoach.tsx`, remove the `centerContent` prop entirely — no text in the nav bar at all during active chat. The nav should just be back arrow (left) + coach icon (right), like every other page.
 
-**Empty state:**
-- Replace dark gradient `from-[#1a1a2e] via-[#16213e] to-[#0f0f1a]` with a soft light gradient (e.g., `from-stone-50 via-white to-stone-100`)
-- All text switches from `text-white` variants to dark text (`text-foreground`, `text-muted-foreground`)
-- Avatar border from `border-white/20` to `border-stone-200`
-- Prompt buttons: `hover:bg-black/5` instead of `hover:bg-white/10`, dark text
+### 2. Replace "New Chat" button with standard orange coach icon
+Instead of a custom "New Chat" text button on the right side, use the same orange `ChatCircle` icon button that every other page uses. When on the coach page, tapping it calls `handleNewChat` (resets conversation) instead of navigating to `/coach`.
 
-**Active chat:**
-- Remove the full-bleed dimmed coach photo background
-- Replace with clean light background (`bg-stone-50` or similar)
-- Top bar: light glass style (`bg-white/80 backdrop-blur-xl border-b border-border`)
-- Message bubbles: light glass — user bubbles `bg-stone-100 border border-stone-200`, coach bubbles `bg-white border border-stone-200`
-- All text becomes dark (`text-foreground`)
-- Input bar: use `glass={false}` (light variant already exists)
-- Typing indicator dots: `bg-muted-foreground/40`
+This makes the nav bar consistent: back arrow ← → orange chat icon, just like all other pages.
 
-**2. Remove "Your personal executive coach" subtitle (SelfMasteryCoach.tsx)**
-- Remove the `getSubtitle()` call and the subtitle `<span>` from the FloatingNavigation `centerContent`
-- Keep just "Inner Mastery Coach" title in the nav when chat is active
+### 3. Generate a subtle AI background for the chat page
+Use the AI image generation model to create a soft, light, atmospheric background (similar to the Allin reference — subtle clouds/sky in warm light tones) and use it as the chat conversation backdrop instead of the plain `bg-stone-50`.
 
-**3. Remove inner top bar subtitle (CoachSplitView.tsx)**
-- In the active chat top bar (line 304), remove the `<p>` showing truncated `contextualGreeting` — it's redundant
+- Generate via `google/gemini-2.5-flash-image` in an edge function
+- Save to storage, reference as background
+- Apply with low opacity behind the message thread so text remains readable
+
+**However** — generating and storing an AI image requires an edge function + storage bucket setup which adds complexity. A simpler alternative: use CSS gradients to create a subtle warm atmospheric effect that evokes the same feel without needing an actual image file.
 
 ### Files to modify
-- `src/components/coach/CoachSplitView.tsx` — theme flip + remove subtitle
-- `src/pages/SelfMasteryCoach.tsx` — remove subtitle from FloatingNavigation center content
+- `src/pages/SelfMasteryCoach.tsx` — remove centerContent text, replace rightContent with standard coach icon that triggers handleNewChat
+- `src/components/coach/CoachSplitView.tsx` — add subtle warm gradient/atmospheric background to active chat view instead of plain `bg-stone-50`
 
