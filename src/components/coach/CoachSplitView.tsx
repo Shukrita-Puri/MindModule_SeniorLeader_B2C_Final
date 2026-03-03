@@ -294,14 +294,23 @@ const CoachSplitView = ({
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent" />
 
       <div className="relative z-10 flex flex-col h-full">
+        {/* Top bar — coach identity */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border/30 shrink-0">
+          <CoachAvatar size="sm" />
+          <h2 className="text-sm font-semibold text-foreground leading-tight">Inner Mastery Coach</h2>
+        </div>
+
         {/* Scrollable message list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {messages.map((message) => {
             if (message.role === 'user') {
               return (
-                <div key={message.id} className="flex justify-end">
+                <div key={message.id} className="flex items-start justify-end gap-2.5">
                   <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-stone-100 border border-stone-200 text-foreground text-sm leading-relaxed">
                     {message.content}
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-semibold text-foreground/70">{firstName.slice(0, 2).toUpperCase()}</span>
                   </div>
                 </div>
               );
