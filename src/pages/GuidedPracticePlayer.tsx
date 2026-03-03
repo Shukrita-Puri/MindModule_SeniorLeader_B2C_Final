@@ -758,7 +758,6 @@ const GuidedPracticePlayer = () => {
 
   // Determine if this is an audio-based practice
   const isAudioPractice = contentData?.audioSrc && (
-    id === 'kapalabhati-pranayama' || 
     id === 'box-breathing' || 
     id === 'energy-forge' ||
     id === 'bhramari-pranayama' ||
@@ -1153,9 +1152,67 @@ const GuidedPracticePlayer = () => {
               <Play className="w-10 h-10 md:w-12 md:h-12 text-white ml-1 transition-transform duration-300" />
             </Button>
 
-            <p className="text-white/80 text-sm md:text-base font-hint tracking-wide">
+            <p className="text-white/80 text-sm md:text-base font-hint tracking-wide mb-8">
               Tap to begin
             </p>
+
+            {/* Pre-Practice Instructions Collapsible */}
+            {(contentData?.technique || (contentData?.benefits && contentData.benefits.length > 0) || (contentData?.whatYouNeed && contentData.whatYouNeed.length > 0)) && (
+              <div className="w-full max-w-md">
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full bg-gradient-to-r from-taupe/20 to-gold/10 backdrop-blur-md border border-gold/30 text-white hover:from-taupe/30 hover:to-gold/20 hover:border-gold/50"
+                    >
+                      <span className="flex items-center gap-2 text-xs font-hint">
+                        Technique & Instructions
+                        <ChevronDown className="w-3 h-3 transition-transform [&[data-state=open]]:rotate-180" />
+                      </span>
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
+                      <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                        {contentData?.technique && (
+                          <div>
+                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                            <p className="text-white/80 text-xs leading-relaxed font-body">{contentData.technique}</p>
+                          </div>
+                        )}
+                        {contentData?.benefits && contentData.benefits.length > 0 && (
+                          <div>
+                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
+                            <ul className="space-y-1">
+                              {contentData.benefits.map((benefit: string, i: number) => (
+                                <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
+                                  <span className="text-gold mt-0.5">•</span>
+                                  <span>{benefit}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {contentData?.whatYouNeed && contentData.whatYouNeed.length > 0 && (
+                          <div>
+                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">What You Need</h3>
+                            <ul className="space-y-1">
+                              {contentData.whatYouNeed.map((item: string, i: number) => (
+                                <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
+                                  <span className="text-gold mt-0.5">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
           </div>
         ) : (
           /* Playing State - Title at top, controls at bottom */
@@ -1165,7 +1222,7 @@ const GuidedPracticePlayer = () => {
                 {practice?.title}
               </h1>
               <p className="text-white/80 text-xs md:text-sm font-subheadline leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
-                {formatTimeAudio(duration)} min session
+                {contentData?.storyHook || practice?.origin}
               </p>
             </div>
 
@@ -1809,7 +1866,7 @@ const GuidedPracticePlayer = () => {
             console.error('Error parsing JIT data:', e);
           }
         }
-        setView("complete");
+        navigate(getCategoryPath());
       }
     };
 
@@ -1879,7 +1936,7 @@ const GuidedPracticePlayer = () => {
             console.error('Error parsing JIT data:', e);
           }
         }
-        setView("complete");
+        navigate(getCategoryPath());
       }
     };
 
@@ -1896,50 +1953,8 @@ const GuidedPracticePlayer = () => {
     );
   }
 
-  // Completion View
-  return (
-    <>
-      <TopNavigation backPath={getCategoryPath()} />
-      <div className="min-h-screen bg-gradient-to-b from-background via-mocha/5 to-background flex flex-col items-center justify-center px-4 md:px-6 pt-20">
-      <div className="max-w-2xl text-center space-y-4 md:space-y-6">
-        <CheckCircle2 className="h-16 w-16 md:h-20 md:w-20 text-gold mx-auto" />
-        <h1 className="text-2xl md:text-4xl font-serif bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent">
-          Practice Complete
-        </h1>
-        
-        <Card>
-          <CardContent className="pt-4 md:pt-6 space-y-3 md:space-y-4">
-            <p className="text-base md:text-xl italic text-muted-foreground">
-              {practice.completionMessage}
-            </p>
-            
-            <div className="pt-3 md:pt-4 border-t border-border text-xs md:text-sm text-muted-foreground space-y-1 md:space-y-2">
-              <p>Practice: {practice.title}</p>
-              <p>Duration: {Math.floor(practice.totalDuration / 60)} minutes</p>
-              <p>Steps completed: {practice.steps.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex gap-3 md:gap-4 justify-center flex-wrap">
-          <Button onClick={() => {
-            setView("practice");
-            setCurrentStep(0);
-            setStepTimeLeft(practice.steps[0].duration);
-          }}>
-            Practice Again
-          </Button>
-          <Button variant="outline" onClick={() => navigate(getCategoryPath())}>
-            Explore More
-          </Button>
-          <Button variant="outline" onClick={() => navigate("/executive-home")}>
-            Return Home
-          </Button>
-        </div>
-      </div>
-    </div>
-    </>
-  );
+  // Completion screen removed — post-practice navigates directly to category page
+  return null;
 };
 
 export default GuidedPracticePlayer;

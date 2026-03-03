@@ -15,7 +15,7 @@ import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
 import energyReframeHero from "@/assets/energy-reframe-hero.png";
 import energyCompletionHero from "@/assets/energy-completion-hero.png";
 import braveActionHero from "@/assets/brave-action-hero.png";
-import kapalabhatiHero from "@/assets/kapalabhati-hero.png";
+// kapalabhati removed from content
 import boxBreathingHero from "@/assets/box-breathing-hero.png";
 import energyForgeHero from "@/assets/energy-forge-hero.png";
 import singleThreadFocusHero from "@/assets/single-thread-focus-hero.png";
@@ -157,7 +157,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     duration: 2.47,
     creator: "Didgeridoo traditions and harmonic bowl practices",
     origin: "Feel the pulse of the crowd, the breath of the didgeridoo, and the shimmering bowls guiding your mind from raw energy to sharp clarity.",
-    storyHook: "Ancient didgeridoo + Himalayan bowls: raw energy refined into laser-sharp focus.",
+    storyHook: "Ancient didgeridoo + Himalayan bowls: raw energy to re-energize and activate your core vitality.",
     thumbnail: didgeridooHero,
     audioSrc: "/soundscapes/didgeridoo-bowls.mp3",
     fullStory: "On ancient Australian plains, the didgeridoo's deep drone stirred courage, balance, and healing. In Himalayan monasteries, bowls were forged to refine the mind with clear, rising tones. True preparation isn't stillness or adrenaline—it is energy with direction. The didgeridoo gives the power; the bowls give the aim. Together, they move you from the body's ancient rhythms to the mind's highest clarity—not to relax you, but to prepare you.\n\nRitual of Use\n\nBefore the challenge — press play.\nClose your eyes.\nLet the rhythm seize you until hesitation dissolves.\nWhen it ends: act.",
@@ -473,84 +473,25 @@ export const sanctuaryContent: SanctuaryContent[] = [
     voice: 'none',
     language: 'en',
     deliveryModality: ['headphones', 'speaker'],
-    duration: 42,
+    duration: 5,
     creator: "Natural field recording",
     origin: "Nagano Countryside, Japan",
     storyHook: "In the quiet heart of Nagano's countryside, where the land folds gently into mist and memory, night hums in perfect rhythm. Through the open window of a farmhouse in Ina, the living orchestra of the fields begins.",
     thumbnail: inaHero,
-    audioSrc: "/soundscapes/ina-night-fields.mp3"
+    audioSrc: "/soundscapes/ina-night-fields.mp3",
+    fullStory: "In Japanese mythology, Tsukiyomi is the moon deity—born from the right eye of Izanagi, ruler of the night sky. In the rice-growing valleys of Nagano, night is not silence but a living symphony. The Ina Night Fields recording captures the soundscape of rural Japan after dark—frogs calling across flooded paddies, insects weaving their rhythmic chorus, distant water flowing through ancient irrigation channels, wind whispering through rice stalks. This is Shinrin-yoku (forest bathing) extended into the night—an immersion in the sounds that have accompanied human sleep for millennia. The Japanese concept of 'Ma' (間)—the sacred pause between sounds—is everywhere in this recording. Each gap between frog calls, each breath between cricket songs, creates space for your nervous system to release the day's accumulated tension.",
+    technique: "No technique required. This is a passive immersion soundscape. Find a comfortable position—lying down is ideal. Close your eyes and let the sounds of the Japanese countryside wash over you. Don't try to identify individual sounds or analyze the recording. Simply rest in the sonic environment as if you were lying in a farmhouse with the window open to the night fields. The natural rhythms of night—frogs, insects, distant water—will guide your nervous system into rest without any effort on your part.",
+    benefits: [
+      "Deep nervous system rest through natural sound immersion",
+      "Transition from active to restful state",
+      "Connection to natural circadian rhythms",
+      "Reduction of mental chatter through ambient focus"
+    ]
   },
 
   // ============= GUIDED PRACTICES =============
 
   // POWER-UP Practices
-  {
-    id: "kapalabhati-pranayama",
-    title: "Energy Surge Through Kapalabhati Pranayama",
-    contentType: "guided-practice",
-    category: "power-up",
-    tags: ['fire', 'energy-boost', 'intense', 'morning', 'breathwork'],
-    structuredTags: {
-      pillar: 'flow',
-      masterySubtypes: ['activate', 'optimize'],
-      goalTags: ['energize', 'alertness', 'vitality', 'mental_clarity'],
-      physioTarget: ['alertness_increase', 'sympathetic_activation', 'lung_capacity'],
-      contextTags: ['morning_ritual', 'pre-workout', 'afternoon_slump', 'pre-presentation'],
-      environmentSuitability: ['private', 'home'],
-      equipment: ['none'],
-      cognitiveLoadHelp: ['creative_thinking', 'supports_decision'],
-      socialTag: 'solo',
-      intensityLevel: 'high',
-      energyDirection: 'upshift'
-    },
-    duration: 6.5,
-    difficulty: "intermediate",
-    origin: "Ancient Yogic Energizing Breath",
-    storyHook: "Ancient yogic 'skull shining' breath—instant vitality and mental clarity.",
-    usedBy: "Yogis, Warriors, High Performers",
-    thumbnail: kapalabhatiHero,
-    steps: 6,
-    creator: "Ancient Yogic Energizing Breath",
-    audioSrc: "/soundscapes/kapalabhati-pranayama.mp3",
-    fullStory: "Kapalabhati, meaning 'skull shining' in Sanskrit, is an ancient yogic cleansing technique from the Hatha Yoga Pradipika. Yogis discovered that rapid, forceful exhalations generate immediate vitality and mental clarity. The vigorous diaphragmatic pumping creates an internal organ massage, stimulates the sympathetic nervous system, and floods the body with oxygen and energy. Modern studies confirm it increases metabolic rate, improves lung capacity, and triggers endorphin release.",
-    technique: "Sharp, forceful exhales through the nose while the belly contracts. The inhale is passive and automatic. Start with 30 breaths, build to 100. End each round with a breath hold.",
-    benefits: [
-      "Immediate surge of energy and vitality",
-      "Complete mental clarity and alertness",
-      "Feeling of internal heat and activation",
-      "Increased lung capacity and respiratory health",
-      "Stronger core muscles",
-      "Enhanced metabolic rate"
-    ],
-    completionQuote: "Your skull is shining. Your fire is lit. You are fully activated.",
-    whatYouNeed: [
-      "⚠️ DO NOT PRACTICE IF: Pregnant, heart disease, high blood pressure, hernia, gastric ulcers, recent abdominal surgery, epilepsy/seizures, vertigo/migraine, severe asthma/COPD",
-      "⚠️ PRACTICE WITH SUPERVISION: Diabetes, mild back/neck problems",
-      "Essential: Empty stomach (at least 2 hours after eating)",
-      "Essential: Comfortable seated position with straight spine",
-      "Essential: Box of tissues nearby (practice clears sinuses)",
-      "Essential: Water to drink afterward",
-      "Best Practiced: First thing in the morning, before physical workouts, mid-afternoon energy slumps, before important presentations"
-    ],
-    expectedOutcomes: [
-      "Immediate: Surge of energy and vitality",
-      "Immediate: Complete mental clarity and alertness",
-      "Immediate: Feeling of internal heat and activation",
-      "Immediate: Tingling sensations throughout body",
-      "Regular Practice: Significantly increased energy levels",
-      "Regular Practice: Improved lung capacity and respiratory health",
-      "Regular Practice: Stronger core muscles",
-      "Regular Practice: Enhanced digestive fire and metabolism"
-    ],
-    practiceSteps: [
-      { title: "Preparation & Technique", instruction: "Sit with a straight spine. Place one hand on your belly. Practice the breath: Sharp, forceful exhale through nose (belly contracts), passive inhale (belly relaxes). The exhale is active, the inhale is automatic.", duration: 1, wisdomNote: "This is the opposite of normal breathing. The exhale is the power stroke." },
-      { title: "First Activation Round", instruction: "Begin 30 rapid breaths. Pump your belly—sharp exhale, passive inhale. Find your rhythm. At the end, inhale deeply, hold for 10 seconds, then exhale completely.", duration: 1, breathingPattern: "30 rapid breaths + hold" },
-      { title: "Second Power Round", instruction: "Now 50 rapid breaths. Go faster, deeper. Feel the heat building. Finish with deep inhale, hold for 15 seconds, then controlled exhale.", duration: 1.5, breathingPattern: "50 rapid breaths + hold" },
-      { title: "Peak Performance Round", instruction: "Final round: 70-100 rapid breaths. Maximum power. Your body is a furnace. Finish with deep inhale, hold as long as comfortable (20-30 seconds), then exhale slowly.", duration: 2, breathingPattern: "70-100 rapid breaths + extended hold", wisdomNote: "Warriors used this before battle. You've awakened your inner fire." },
-      { title: "Integration Breath", instruction: "Return to normal breathing. Notice the surge of energy, the clarity, the tingling. This is pranic activation—life force coursing through you.", duration: 0.5 },
-      { title: "Seal & Rise", instruction: "Take one final deep breath. Set your intention for the energized state you've created. Now rise and channel this power into your day.", duration: 0.5, wisdomNote: "Ancient yogis called this 'skull shining' because it illuminates the mind with vitality." }
-    ]
-  },
   {
     id: "spartan-battle-breath",
     title: "Warrior Courage Through Spartan Battle Breath",
@@ -712,7 +653,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
     voice: 'male',
     language: 'en',
     deliveryModality: ['headphones', 'speaker'],
-    duration: 11,
+    duration: 4,
     difficulty: "beginner",
     origin: "Ancient Vedic Meditation Sound",
     storyHook: "Ancient yogis discovered that humming like a bee creates profound mental stillness—modern science confirms it activates the vagus nerve for instant calm and focus.",
@@ -737,11 +678,14 @@ export const sanctuaryContent: SanctuaryContent[] = [
     ],
     completionQuote: "The mind follows sound. When sound becomes vibration, vibration becomes focus, and focus becomes flow. You've practiced a 5,000-year-old gateway to presence.",
     whatYouNeed: [
-      "Essential: Quiet space where you can sit comfortably for 12 minutes",
+      "⚠️ DO NOT PRACTICE IF: Severe ear infections, active eye conditions (glaucoma, detached retina), epilepsy or seizure disorders, recent ear/nose/throat surgery",
+      "⚠️ PRACTICE WITH CAUTION: High blood pressure (use gentle humming only), pregnancy (keep practice gentle and short)",
+      "Essential: Quiet space where you can sit comfortably",
       "Essential: Ability to hum without disturbing others",
       "Essential: Chair or cushion for upright seated position",
       "Optional: Earplugs or finger position to close ears (enhances internal sound)",
       "Optional: Aromatics—Sandalwood, lotus, or jasmine incense/oil",
+      "For maximum benefit, practice 3-4 rounds of the full cycle. Traditional teaching (Art of Living, Bihar School of Yoga) recommends at least 3 complete rounds for the nervous system to fully shift.",
       "Best Practiced: During mid-day energy dips, before creative work, when feeling mentally scattered, as transition rituals"
     ],
     expectedOutcomes: [
@@ -776,7 +720,7 @@ export const sanctuaryContent: SanctuaryContent[] = [
       physioTarget: ['focus_enhancement', 'gamma_waves', 'visual_processing'],
       contextTags: ['morning_ritual', 'pre-deep-work', 'meditation', 'before_important_task'],
       environmentSuitability: ['private', 'home'],
-      equipment: ['candle', 'matches'],
+      equipment: ['none'],
       cognitiveLoadHelp: ['deep_focus', 'creative_thinking', 'supports_decision'],
       socialTag: 'solo',
       intensityLevel: 'medium',
@@ -812,12 +756,12 @@ export const sanctuaryContent: SanctuaryContent[] = [
     ],
     completionQuote: "Where the gaze goes, the mind follows. Where the mind goes, energy flows. You've trained the ancient art of one-pointed awareness—the foundation of all mastery.",
     whatYouNeed: [
-      "Essential: One candle (any size, unscented works best)",
-      "Essential: Matches or lighter",
-      "Essential: Stable surface at eye level when seated",
-      "Essential: Comfortable seated position 3-4 feet from candle",
-      "Optional: Dim room with all other lights off",
+      "Essential: A single focus point — candle flame (traditional), OR a small dot drawn on paper, a still object on your desk, or a digital flame on screen",
+      "A candle is ideal but not required — any small, still focal point works. This practice can be done in an office or public space using non-flame alternatives.",
+      "Essential: Comfortable seated position 3-4 feet from focus point",
+      "Optional: Dim room with all other lights off (for candle practice)",
       "Optional: Eye drops if your eyes are sensitive",
+      "Beginners should start with 15-30 seconds of continuous gazing per round and build up gradually. The guided audio is approximately 4 minutes — follow the cues and close your eyes whenever needed.",
       "Best Practiced: Before deep work sessions, in the morning to set focused tone, before meditation, when feeling mentally scattered"
     ],
     expectedOutcomes: [

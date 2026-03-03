@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, Check } from "lucide-react";
@@ -9,6 +9,7 @@ interface PracticeRatingModalProps {
   contentTitle: string;
   category: string;
   sessionId?: string;
+  alreadyRated?: boolean;
   onSubmit: (rating: number, feedback?: string) => void;
   onSkip: () => void;
 }
@@ -19,6 +20,7 @@ const PracticeRatingModal = ({
   contentTitle,
   category,
   sessionId,
+  alreadyRated,
   onSubmit,
   onSkip
 }: PracticeRatingModalProps) => {
@@ -26,6 +28,13 @@ const PracticeRatingModal = ({
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [feedback, setFeedback] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Auto-skip if already rated
+  useEffect(() => {
+    if (alreadyRated) {
+      onSkip();
+    }
+  }, [alreadyRated]);
 
   const handleStarClick = (starRating: number) => {
     setRating(starRating);
