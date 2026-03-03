@@ -1316,48 +1316,32 @@ const CLARITY_EYE_STORM_CARDS = [
     stepNumber: 1,
     title: "Name what you see",
     duration: "30 sec",
-    instruction: "List the facts without interpretation. Not 'Everything's falling apart' but: 'Three deadlines. One angry email. Two people need answers.'",
-    guidance: "Write them if possible. Or speak them aloud. Strip away the drama. State only what's actually in front of you.",
-    insight: {
-      text: "If you know the enemy and know yourself, you need not fear the result of a hundred battles. Start by knowing what IS.",
-      source: "Sun Tzu",
-    },
+    instruction: "List the facts. No story, no drama. Just what's actually in front of you.",
+    minimal: true,
   },
   {
     type: "step" as const,
     stepNumber: 2,
     title: "Separate urgent from important",
     duration: "45 sec",
-    instruction: "For each item, ask: Does this demand immediate action? (Urgent) Does this create long-term value? (Important)",
-    guidance: "Sort into: Urgent + Important = Do now. Important, not urgent = Schedule. Urgent, not important = Minimize. Neither = Delete.",
-    insight: {
-      text: "What is important is seldom urgent, and what is urgent is seldom important. This matrix won World War II logistics decisions.",
-      source: "Eisenhower",
-    },
+    instruction: "Sort each item: Must act now? Or matters long-term? Do the overlap first.",
+    minimal: true,
   },
   {
     type: "step" as const,
     stepNumber: 3,
     title: "Choose the one critical action",
     duration: "30 sec",
-    instruction: "Of what remains (urgent AND important), ask: 'Which one action unblocks everything else?' Not 'What can I do?' but 'What MUST I do first?'",
-    guidance: "That's your clarity. Write it down.",
-    insight: {
-      text: "Jeff Bezos aims to make one high-quality decision per day. Not ten rushed ones. One clear one.",
-      source: "Modern Leadership",
-    },
+    instruction: "Which one action unblocks everything else? That's your move.",
+    minimal: true,
   },
   {
     type: "step" as const,
     stepNumber: 4,
     title: "State the first move",
     duration: "15 sec",
-    instruction: "Complete this sentence: 'The one thing I do next is [specific action].' Not 'work on project' but 'write the introduction' or 'call Sarah.'",
-    guidance: "Make it physical. Make it immediate. Make it singular. Clarity becomes direction. Direction becomes motion.",
-    insight: {
-      text: "A journey of a thousand miles begins with a single step. Not the plan for 1,000 miles. The first step.",
-      source: "Lao Tzu",
-    },
+    instruction: "Say it: 'The one thing I do next is ___.' Make it physical. Make it now.",
+    minimal: true,
   },
 ];
 
@@ -2090,8 +2074,12 @@ const MicroPracticePlayerCards = () => {
           {cards.map((card, index) => (
             <CarouselItem key={index} className="pl-0">
               <div className="p-4 pt-16 pb-32 min-h-screen flex items-center justify-center">
-                {/* Translucent frosted glass container */}
-                <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/60 shadow-lg">
+                {/* Card container — minimal transparent for minimal steps, frosted glass for others */}
+                <div className={`w-full max-w-md rounded-3xl p-6 md:p-8 ${
+                  card.minimal 
+                    ? 'bg-white/15 backdrop-blur-md border border-white/40' 
+                    : 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg'
+                }`}>
                   {card.type === "overview" && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Title */}
@@ -2148,7 +2136,26 @@ const MicroPracticePlayerCards = () => {
                     </div>
                   )}
 
-                  {card.type === "step" && (
+                  {card.type === "step" && card.minimal && (
+                    <div className="flex flex-col items-center text-center space-y-6 py-4">
+                      {/* Step + duration line */}
+                      <p className="text-white/60 text-sm tracking-widest uppercase">
+                        ① Step {card.stepNumber} · {card.duration}
+                      </p>
+
+                      {/* Title as large action verb */}
+                      <h2 className="text-3xl md:text-4xl font-serif font-bold text-white uppercase tracking-wide leading-tight">
+                        {card.title}
+                      </h2>
+
+                      {/* Core instruction — 1-2 sentences max */}
+                      <p className="text-base md:text-lg text-white/85 leading-relaxed max-w-xs">
+                        {card.instruction}
+                      </p>
+                    </div>
+                  )}
+
+                  {card.type === "step" && !card.minimal && (
                     <div className="flex flex-col items-center text-center space-y-5">
                       {/* Step number badge */}
                       <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
