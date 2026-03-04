@@ -5,6 +5,7 @@
  */
 
 import { computeEnergyState, type CurrentEnergyState } from './energyStateEngine';
+import { fetchOuterReadiness } from '@/hooks/useOuterReadiness';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CalendarStateCorrelation {
@@ -43,6 +44,14 @@ export interface CoachContext {
     phrase: string;
     context: string;
     driver?: string;
+  };
+  
+  // Outer Readiness Brief (strategic theme from compute-outer-readiness)
+  outerReadiness?: {
+    phrase: string;
+    context: string;
+    leanOn?: string;
+    watchFor?: string;
   };
   
   // JIT Intervention (if active)
@@ -440,7 +449,7 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
   
   // Add user-specific data if userId provided
   if (userId) {
-    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns, probingData, lastSummary, commitments, patternsReady, memories] = await Promise.all([
+    const [profile, recentPractices, consecutivePattern, insights, predictivePatterns, probingData, lastSummary, commitments, patternsReady, memories, outerBrief] = await Promise.all([
       getUserProfile(userId),
       getRecentPractices(userId),
       detectConsecutivePattern(userId, energyState.checkInOutcome),
@@ -451,6 +460,7 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
       getPendingCommitments(userId),
       getPatternsToName(userId),
       getRecentMemories(userId),
+      fetchOuterReadiness(userId).catch(() => null),
     ]);
     
     if (profile) {
@@ -495,6 +505,16 @@ export async function buildCoachContext(userId?: string): Promise<CoachContext> 
     }
     if (memories.length > 0) {
       context.recentMemories = memories;
+    }
+
+    // GAP FIX #5: Inject outer readiness brief (strategic theme)
+    if (outerBrief) {
+      context.outerReadiness = {
+        phrase: outerBrief.phrase,
+        context: outerBrief.context,
+        leanOn: outerBrief.leanOn,
+        watchFor: outerBrief.watchFor,
+      };
     }
   }
   
@@ -757,6 +777,18 @@ export function formatContextForPrompt(context: CoachContext): string {
   if (context.theme) {
      lines.push(`- Mastery Focus: "${context.theme.phrase}"`);
      lines.push(`- Mastery Context: ${context.theme.context}`);
+  }
+  
+  // Outer Readiness Brief (strategic theme)
+  if (context.outerReadiness) {
+    lines.push(`- Strategic Theme: "${context.outerReadiness.phrase}"`);
+    lines.push(`- Strategic Context: ${context.outerReadiness.context}`);
+    if (context.outerReadiness.leanOn) {
+      lines.push(`- LEAN ON: ${context.outerReadiness.leanOn}`);
+    }
+    if (context.outerReadiness.watchFor) {
+      lines.push(`- WATCH FOR: ${context.outerReadiness.watchFor}`);
+    }
   }
   
   // JIT intervention

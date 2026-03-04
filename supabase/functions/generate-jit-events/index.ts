@@ -132,8 +132,8 @@ serve(async (req) => {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Parallel queries
-    const [eventsRes, skipRes, scenariosRes] = await Promise.all([
+    // Parallel queries (includes coach_tools_offered for pending tool boost)
+    const [eventsRes, skipRes, scenariosRes, pendingToolsRes] = await Promise.all([
       supabase
         .from('calendar_events')
         .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
@@ -152,11 +152,20 @@ serve(async (req) => {
         .eq('user_id', userId)
         .eq('resolved', false)
         .gte('detected_at', sevenDaysAgo),
+      supabase
+        .from('coach_tools_offered')
+        .select('tool_name, tool_type, event_types')
+        .eq('user_id', userId)
+        .eq('was_used', false)
+        .gte('expires_at', now.toISOString())
+        .order('offered_at', { ascending: false })
+        .limit(10),
     ]);
 
     const events = eventsRes.data || [];
     const skipHistory = skipRes.data || [];
     const activeScenarios = scenariosRes.data || [];
+    const pendingTools = pendingToolsRes.data || [];
 
     if (events.length === 0) {
       console.log('[generate-jit-events] No upcoming events');
@@ -226,6 +235,15 @@ serve(async (req) => {
           coachContext.mentionContent = mentions.content;
           coachContext.expressedConcern = detectEmotionalConcern(mentions.content);
         }
+      }
+
+      // Check pending tools from coach (GAP FIX #1)
+      const matchingTool = pendingTools.find(t =>
+        t.event_types && t.event_types.includes(eventType)
+      );
+      if (matchingTool) {
+        coachContext.hasPendingTool = true;
+        coachContext.toolName = matchingTool.tool_name;
       }
 
       // Check goals

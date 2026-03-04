@@ -768,17 +768,17 @@ Session End (client calls all in parallel/sequential)
 | `dialogue_messages` | ✅ data-persist | ✅ summary, patterns, insights, probing, session-manage | **CONNECTED** |
 | `dialogue_interventions` | ✅ data-persist | ✅ debrief | **CONNECTED** |
 | `detected_signals` | ✅ data-persist | ✅ debrief, progress-data | **CONNECTED** |
-| `dialogue_skill_events` | ❌ NOT WRITTEN | ❌ NOT READ | **GAP — orphaned table** |
+| `dialogue_skill_events` | ❌ NOT WRITTEN | ❌ NOT READ | **KNOWN — orphaned table (kept for future use)** |
 | `coach_session_summaries` | ✅ generate-coach-summary | ✅ extract-session-memories, coachContextBuilder, semantic-analysis | **CONNECTED** |
 | `coach_memory_index` | ✅ extract-session-memories | ✅ coachContextBuilder | **CONNECTED** |
-| `coach_accountability_tracker` | ✅ generate-coach-summary, update-commitment-status | ✅ check-pending-commitments, coachContextBuilder | **CONNECTED** |
+| `coach_accountability_tracker` | ✅ generate-coach-summary (creates + updates), update-commitment-status | ✅ check-pending-commitments, coachContextBuilder | **CONNECTED** |
 | `coach_pattern_observations` | ✅ detect-recurring-patterns | ✅ coachContextBuilder | **CONNECTED** |
 | `coach_probing_effectiveness` | ✅ analyze-probing-effectiveness | ✅ coachContextBuilder | **CONNECTED** |
 | `coach_breakthrough_moments` | ✅ analyze-probing-effectiveness | ✅ coachContextBuilder | **CONNECTED** |
 | `user_coach_insights` | ✅ extract-coach-insights | ✅ compute-outer-readiness, generate-mastery-plan, generate-jit-events | **CONNECTED** |
-| `coach_scenarios_detected` | ❌ No coach EF writes | ✅ generate-jit-events reads | **GAP — always empty** |
+| `coach_scenarios_detected` | ✅ detect-recurring-patterns (writes trigger/friction/avoidance patterns) | ✅ generate-jit-events reads | **FIXED — now populated by post-session pipeline** |
 | `tiny_wins` | ✅ self-mastery-coach, store-tiny-win | ✅ coachContextBuilder, semantic-analysis, tiny-wins-insights | **CONNECTED** |
-| `coach_tools_offered` | ❌ TABLE DOES NOT EXIST | Referenced in generate-jit-events | **GAP — table never created** |
+| `coach_tools_offered` | ✅ generate-coach-summary (writes practices_recommended) | ✅ generate-jit-events (pending tool +12 boost) | **FIXED — table created + both read/write wired** |
 
 ### B. Upstream Input Audit
 
@@ -801,7 +801,7 @@ Session End (client calls all in parallel/sequential)
 | Past breakthroughs | ✅ via `coach_breakthrough_moments` | **CONNECTED** |
 | LEAN ON / WATCH FOR | ✅ via `user_coach_insights` | **CONNECTED** |
 | Dimension evolution | ✅ via `computeEnergyState()` | **CONNECTED** |
-| Outer Readiness theme | ⚠️ Uses mastery recommendation, not actual OR theme | **PARTIAL** |
+| Outer Readiness theme | ✅ via `fetchOuterReadiness()` in coachContextBuilder | **FIXED — phrase, context, leanOn, watchFor now injected** |
 
 ### C. Downstream Consumer Audit
 
@@ -812,19 +812,19 @@ Session End (client calls all in parallel/sequential)
 | `user_coach_insights` → JIT Events (+8 goal) | ✅ CONNECTED |
 | `coach_session_summaries` → Inner World Map | ✅ CONNECTED |
 | `coach_session_summaries` → coachContextBuilder | ✅ CONNECTED |
-| `coach_scenarios_detected` → JIT (+15) | ⚠️ GAP — never populated |
-| `coach_tools_offered` → JIT (+12) | ❌ GAP — table doesn't exist |
-| `update-commitment-status` → client | ⚠️ GAP — EF never called |
+| `coach_scenarios_detected` → JIT (+15) | ✅ FIXED — detect-recurring-patterns now writes scenarios |
+| `coach_tools_offered` → JIT (+12) | ✅ FIXED — table created, generate-coach-summary writes, generate-jit-events reads |
+| `update-commitment-status` → generate-coach-summary | ✅ FIXED — commitments auto-updated during summary generation |
 
-### D. Summary of Gaps (5 Issues)
+### D. Gaps Resolved (2026-03-04)
 
-| # | Issue | Severity | Detail |
-|---|---|---|---|
-| 1 | `coach_tools_offered` table does not exist | **HIGH** | `generate-jit-events` queries this table for pending tools (+12 boost). Table never created. JIT coach boost for pending tools is dead code. |
-| 2 | `coach_scenarios_detected` never populated by coach | **MEDIUM** | Table exists but no coach post-session EF writes to it. `detect-recurring-patterns` should write scenario detections with `event_types[]`. Currently only JIT reads it — always empty. |
-| 3 | `update-commitment-status` EF never called | **MEDIUM** | Edge function exists and works, but no client-side code invokes it. Commitments can never be marked completed/abandoned. |
-| 4 | `dialogue_skill_events` table is orphaned | **LOW** | Table exists in schema but no EF writes to it and no client reads it. Dead table. |
-| 5 | Outer Readiness theme not passed to coach | **LOW** | Coach receives mastery recommendation from `energyStateEngine` but not the actual outer readiness brief theme phrase from `compute-outer-readiness`. |
+| # | Issue | Resolution |
+|---|---|---|
+| 1 | `coach_tools_offered` table missing | **FIXED** — Created table with RLS. `generate-coach-summary` writes recommended practices. `generate-jit-events` queries for pending tools (+12 boost). |
+| 2 | `coach_scenarios_detected` never populated | **FIXED** — `detect-recurring-patterns` now maps trigger/friction/avoidance patterns to event types and writes to `coach_scenarios_detected`. |
+| 3 | `update-commitment-status` EF never called | **FIXED** — `generate-coach-summary` now fetches pending commitments, asks AI to detect status changes in conversation, and updates commitments directly. Standalone EF still available for manual use. |
+| 4 | `dialogue_skill_events` orphaned | **KNOWN** — Table kept for future Dialogue Room skill tracking. No action needed. |
+| 5 | Outer Readiness theme not passed to coach | **FIXED** — `coachContextBuilder` now fetches `fetchOuterReadiness()` and injects phrase, context, leanOn, watchFor into `formatContextForPrompt()`. |
 
 ---
 
