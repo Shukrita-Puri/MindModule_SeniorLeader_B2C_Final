@@ -186,19 +186,20 @@ export async function upsertRitual(ritualData: Omit<RitualData, 'id' | 'user_id'
 }
 
 // Helper to update ritual completion with status recalculation
+// Uses atomic COMPLETE_PRACTICE action (single server call) to avoid race conditions
 export async function updateRitualCompletion(
   practiceType: 'soundscape' | 'guided_practice' | 'micro_exercise',
   practiceId: string,
   practiceQueue?: { id: string }[]
 ): Promise<void> {
   const timestamp = new Date().toISOString();
-  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  const today = new Date().toLocaleDateString('en-CA');
   
   console.log(`[dailyRituals ${timestamp}] updateRitualCompletion called:`, { practiceType, practiceId, queueLength: practiceQueue?.length });
   
-  // DEV_MODE: Direct database operations (no token needed)
+  // DEV_MODE: Direct database — single atomic upsert
   if (DEV_MODE) {
-    console.log(`[dailyRituals ${timestamp}] DEV_MODE: Direct DB update`);
+    console.log(`[dailyRituals ${timestamp}] DEV_MODE: Atomic update`);
     
     try {
       // Get existing ritual
@@ -206,7 +207,6 @@ export async function updateRitualCompletion(
       const existingIds = existingRitual?.completed_practice_ids || [];
       const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
       
-      // Build ritual data based on practice type
       const ritualData: Omit<RitualData, 'id' | 'user_id'> = {
         ritual_date: today,
         completed_practice_ids: newCompletedIds,
@@ -215,10 +215,6 @@ export async function updateRitualCompletion(
       if (practiceType === 'soundscape') {
         ritualData.soundscape_completed = true;
         ritualData.soundscape_completed_at = new Date().toISOString();
-        if (practiceQueue) {
-          ritualData.recommended_practice_ids = practiceQueue.map(p => p.id);
-          ritualData.recommended_practices_count = practiceQueue.length;
-        }
       } else if (practiceType === 'guided_practice') {
         ritualData.guided_practice_completed = true;
         ritualData.guided_practice_completed_at = new Date().toISOString();
@@ -227,107 +223,53 @@ export async function updateRitualCompletion(
         ritualData.micro_exercise_completed_at = new Date().toISOString();
       }
 
-      // Upsert the ritual
-      const result = await upsertRitual(ritualData);
-      console.log(`[dailyRituals ${timestamp}] DEV_MODE upsert result:`, result ? 'SUCCESS' : 'FAILED');
-      
-      // Calculate and update status
-      const freshRitual = await getTodayRitual();
-      if (freshRitual) {
-        // Use completed_practice_ids as the authoritative count (not just booleans)
-        const completedIds = freshRitual.completed_practice_ids || [];
-        const totalRecommended = freshRitual.recommended_practices_count || 3;
-        const newStatus = completedIds.length >= totalRecommended && completedIds.length > 0 
-          ? 'full' 
-          : completedIds.length > 0 
-            ? 'partial' 
-            : 'skipped';
-        
-        console.log(`[dailyRituals ${timestamp}] DEV_MODE calculated status:`, { completedCount: completedIds.length, totalRecommended, newStatus });
-        
-        await upsertRitual({
-          ritual_date: today,
-          completion_status: newStatus
-        });
+      if (practiceQueue) {
+        ritualData.recommended_practice_ids = practiceQueue.map(p => p.id);
+        ritualData.recommended_practices_count = practiceQueue.length;
       }
+
+      // Calculate status in single pass
+      const totalRecommended = ritualData.recommended_practices_count || existingRitual?.recommended_practices_count || 3;
+      ritualData.completion_status = newCompletedIds.length >= totalRecommended && newCompletedIds.length > 0
+        ? 'full'
+        : newCompletedIds.length > 0
+          ? 'partial'
+          : 'skipped';
+
+      const result = await upsertRitual(ritualData);
+      console.log(`[dailyRituals ${timestamp}] DEV_MODE atomic result:`, result ? 'SUCCESS' : 'FAILED');
     } catch (error) {
       console.error(`[dailyRituals ${timestamp}] DEV_MODE update failed:`, error);
     }
     return;
   }
   
-  // Production: Use edge function with Auth0 token
+  // Production: Single atomic COMPLETE_PRACTICE call via edge function
   try {
     const accessToken = await getAccessToken();
     console.log(`[dailyRituals ${timestamp}] Access token:`, accessToken ? 'present' : 'MISSING');
     
     if (!accessToken) {
       console.warn(`[dailyRituals ${timestamp}] No access token available - ritual completion will NOT be saved!`);
-      console.warn(`[dailyRituals ${timestamp}] Check if window.__auth0Client is available:`, !!(window as any).__auth0Client);
       return;
     }
 
-    console.log(`[dailyRituals ${timestamp}] Using ritual_date:`, today);
-    
-    // Step 1: Get existing data
-    console.log(`[dailyRituals ${timestamp}] Fetching existing ritual...`);
-    const existingRitual = await getTodayRitual();
-    console.log(`[dailyRituals ${timestamp}] Existing ritual:`, existingRitual ? 'found' : 'none');
-    
-    const existingIds = existingRitual?.completed_practice_ids || [];
-    const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
-    
-    // Build ritual data based on practice type
-    const ritualData: Omit<RitualData, 'id' | 'user_id'> = {
-      ritual_date: today,
-      completed_practice_ids: newCompletedIds,
-    };
-
-    if (practiceType === 'soundscape') {
-      ritualData.soundscape_completed = true;
-      ritualData.soundscape_completed_at = new Date().toISOString();
-      if (practiceQueue) {
-        ritualData.recommended_practice_ids = practiceQueue.map(p => p.id);
-        ritualData.recommended_practices_count = practiceQueue.length;
+    const { data, error } = await supabase.functions.invoke('daily-rituals', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'COMPLETE_PRACTICE',
+        practiceType,
+        practiceId,
+        practiceQueue
       }
-    } else if (practiceType === 'guided_practice') {
-      ritualData.guided_practice_completed = true;
-      ritualData.guided_practice_completed_at = new Date().toISOString();
-    } else if (practiceType === 'micro_exercise') {
-      ritualData.micro_exercise_completed = true;
-      ritualData.micro_exercise_completed_at = new Date().toISOString();
+    });
+
+    if (error) {
+      console.error(`[dailyRituals ${timestamp}] COMPLETE_PRACTICE error:`, error);
+      return;
     }
 
-    // Step 2: Upsert the ritual
-    console.log(`[dailyRituals ${timestamp}] Upserting ritual data:`, ritualData);
-    const upsertResult = await upsertRitual(ritualData);
-    console.log(`[dailyRituals ${timestamp}] Upsert result:`, upsertResult ? 'SUCCESS' : 'FAILED');
-
-    // Step 3: Fetch fresh data and calculate status
-    console.log(`[dailyRituals ${timestamp}] Fetching fresh ritual for status calculation...`);
-    const freshRitual = await getTodayRitual();
-    if (freshRitual) {
-      // Use completed_practice_ids as the authoritative count (not just booleans)
-      const completedIds = freshRitual.completed_practice_ids || [];
-      const totalRecommended = freshRitual.recommended_practices_count || 3;
-      
-      const newStatus = completedIds.length >= totalRecommended && completedIds.length > 0 
-        ? 'full' 
-        : completedIds.length > 0 
-          ? 'partial' 
-          : 'skipped';
-      
-      console.log(`[dailyRituals ${timestamp}] Calculated status:`, { completedCount: completedIds.length, totalRecommended, newStatus });
-      
-      // Step 4: Update status
-      const statusResult = await upsertRitual({
-        ritual_date: today,
-        completion_status: newStatus
-      });
-      console.log(`[dailyRituals ${timestamp}] Status update result:`, statusResult ? 'SUCCESS' : 'FAILED');
-    } else {
-      console.warn(`[dailyRituals ${timestamp}] Could not fetch fresh ritual for status calculation`);
-    }
+    console.log(`[dailyRituals ${timestamp}] COMPLETE_PRACTICE success:`, data?.data?.completion_status);
   } catch (error) {
     console.error(`[dailyRituals ${timestamp}] Failed to update ritual completion:`, error);
   }

@@ -1,4 +1,4 @@
-# Proactive Mastery Plan — Full System Documentation
+# Proactive Mastery Plan — Full System Documentation (v3.0)
 
 ## Overview
 
@@ -127,8 +127,23 @@ Calendar events are matched to pre-defined executive scenarios (board meetings, 
 ### `daily-rituals` Edge Function
 **Path:** `supabase/functions/daily-rituals/index.ts`  
 **Auth:** JWT verified via `authenticateRequest()`  
-**Actions:** `GET_RITUALS`, `GET_TODAY_RITUAL`, `GET_RITUAL_RANGE`, `UPSERT_RITUAL`  
-**Purpose:** CRUD operations on `daily_ritual_completions` table.
+**Actions:** `GET_RITUALS`, `GET_TODAY_RITUAL`, `GET_RITUAL_RANGE`, `UPSERT_RITUAL`, `COMPLETE_PRACTICE`  
+**Purpose:** CRUD operations on `daily_ritual_completions` table. The `COMPLETE_PRACTICE` action atomically appends to `completed_practice_ids`, sets the practice type boolean/timestamp, and recalculates `completion_status` in a single server call — eliminating the previous 4-call race condition.
+
+### `generate-jit-events` Edge Function (NEW — v3.0)
+**Path:** `supabase/functions/generate-jit-events/index.ts`  
+**Auth:** JWT verified via `authenticateRequest()`  
+**Purpose:** JIT event detection and scoring pipeline. Scores upcoming calendar events (48h window) using 5-factor model + coach context boost + skip penalty. Returns top 2 scored events + time-of-day pill. Stores results in `jit_event_context`.
+
+### `generate-jit-carousel` Edge Function (NEW — v3.0)
+**Path:** `supabase/functions/generate-jit-carousel/index.ts`  
+**Auth:** JWT verified via `authenticateRequest()`  
+**Purpose:** Generates carousel cards for a specific JIT event. Selects practices from `sanctuary_content` based on scenario modules, determines coach card position, stores cards in `jit_carousel_cards`.
+
+### `track-jit-skip` Edge Function (NEW — v3.0)
+**Path:** `supabase/functions/track-jit-skip/index.ts`  
+**Auth:** JWT verified via `authenticateRequest()`  
+**Purpose:** Logs JIT event dismissals/skips. Updates `jit_event_context.dismissed_by_user` and inserts into `jit_preferences`.
 
 ---
 
@@ -206,7 +221,7 @@ Calendar events are matched to pre-defined executive scenarios (board meetings, 
 **Used for:** `favorite_content_ids` → sent as `favorites` array.  
 **Connection:** `useFavorites()` hook.
 
-#### `user_coach_insights` *(referenced but NOT in types.ts — potential issue)*
+#### `user_coach_insights` ✅ *(confirmed in types.ts at line 2867 — false positive from audit)*
 **Used for:** Coach insight content matching (+25 boost for direct reference, keyword matching).  
 **Connection:** `getActiveCoachInsights()` → sends as `coachInsights` array.
 
@@ -361,13 +376,13 @@ Calendar events are matched to pre-defined executive scenarios (board meetings, 
 
 | Issue | Severity | Detail |
 |-------|----------|--------|
-| **`effectiveContent` always empty** | 🟡 Medium | `DailyRitual.tsx` line 340 sends `effectiveContent: []`. The scoring engine supports +20 for effective content, but no data is ever passed. Should query `content_relevance_feedback` for practices with high `star_rating` (4-5). |
+| **`effectiveContent` always empty** | ✅ RESOLVED (v3.0) | Now queries `content_relevance_feedback` for practices with `star_rating >= 4`. The +20 scoring signal is active. |
 | **`clarityLevel` / `confidenceLevel` hardcoded 0** | 🟡 Medium | Lines 335-336 in `DailyRitual.tsx`. These values exist in `daily_checkins` and are fetched by `energyStateEngine.ts`, but not passed through to the plan request. The EF doesn't use them currently either, but they're in the interface. |
 | **`archetype` always empty** | 🟢 Low | Line 338. `profiles.user_archetype` exists but is never sent. The EF doesn't use it currently. |
-| **`user_coach_insights` table not in types.ts** | 🟡 Medium | `coachInsightsExtractor.ts` queries this table directly. It works because Supabase allows string-based table access, but it's not type-safe and won't appear in auto-generated types. Confirm table exists in DB. |
+| **`user_coach_insights` table not in types.ts** | ✅ RESOLVED (false positive) | Confirmed present in `types.ts` at line 2867. Type-safe and working. |
 | **Mental Fitness reads from localStorage only** | 🟡 Medium | `mentalFitnessEngine.ts` reads `dailyRitualHistory` from localStorage, not from the DB `daily_ritual_completions` table. This means mental fitness scores don't reflect actual cloud data and are lost on cache clear. |
 | **`wearableStress` in PlanRequest but never sent** | 🟢 Low | The interface includes `wearableStress` but `DailyRitual.tsx` doesn't send it. The EF doesn't use it either. Dead field. |
-| **Completion status race condition** | 🟡 Medium | `updateRitualCompletion()` does GET → append → UPSERT → GET → UPSERT (4 network calls). If two practices complete near-simultaneously, `completed_practice_ids` could lose an entry. Consider server-side array append. |
+| **Completion status race condition** | ✅ RESOLVED (v3.0) | `updateRitualCompletion()` now uses single atomic `COMPLETE_PRACTICE` action in the `daily-rituals` EF. Server-side append + status recalculation in one call. |
 | **No real-time refresh after completion** | 🟢 Low | `DailyRitual.tsx` polls every 15s (`checkRitualCompletion` interval). If user completes a practice and returns quickly, there may be a delay before the UI updates. |
 
 ### ✅ No Issues Found

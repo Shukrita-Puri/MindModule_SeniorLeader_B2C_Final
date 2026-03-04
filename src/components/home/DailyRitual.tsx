@@ -320,6 +320,17 @@ const DailyRitual = () => {
         pressureContextTag = profile?.pressure_context_tag || '';
       }
 
+      // Fetch effective content IDs (practices rated 4-5 stars)
+      let effectiveContentIds: string[] = [];
+      if (user?.id) {
+        const { data: effectiveFeedback } = await supabase
+          .from('content_relevance_feedback')
+          .select('content_id')
+          .eq('user_id', user.id)
+          .gte('star_rating', 4);
+        effectiveContentIds = effectiveFeedback?.map(f => f.content_id) || [];
+      }
+
       const requestBody = {
         userId: user?.id || '',
         innerReadinessTier: energyState.energyTier,
@@ -337,7 +348,7 @@ const DailyRitual = () => {
         checkInOutcome: energyState.checkInOutcome || 'steady',
         archetype: '',
         coachInsights: coachInsights.map(i => ({ id: i.id, type: i.type, content: i.content, contentReference: i.contentReference, confidence: i.confidence })),
-        effectiveContent: [],
+        effectiveContent: effectiveContentIds,
         patternInsight,
         practicePriorityTag,
         pressureContextTag
