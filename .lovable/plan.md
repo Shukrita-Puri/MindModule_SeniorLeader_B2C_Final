@@ -1,80 +1,205 @@
 
 
-## Plan: Card Design + Coach Layout + Completion Tracking Fixes
+## Plan: Proactive Mastery Plan v3.0 — Incremental Updates
 
-### Issue 1: Card-based practices — switch all to transparent glassmorphic design
-
-Currently in `MicroPracticePlayerCards.tsx` (line 2079-2083), cards use two styles:
-- Minimal cards: `bg-white/15 backdrop-blur-md border border-white/40` (the desired look)
-- Non-minimal cards: `bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg` (opaque)
-
-**Fix:** Make ALL cards use the transparent style (`bg-white/15 backdrop-blur-md border border-white/40`) and update ALL text colors to use white/light variants instead of `text-foreground`/`text-muted-foreground`. This affects:
-
-- Overview cards (lines 2084-2141): title, subtitle, source box, duration, trigger, when-to-use
-- Step cards non-minimal (lines 2162-2289): step badge, title, instruction, question, reframing, examples, guidance, reframingNote, closingWisdom, insight box
-- Science cards (lines 2291-2314): title, paragraphs, closing quote
-
-All `text-foreground` → `text-white`, all `text-muted-foreground` → `text-white/60`, all `text-primary` → `text-white/50` or `text-amber-300`, all `bg-primary/5` → `bg-white/10`, all `border-primary/10` → `border-white/20`.
-
-Also add `pt-20` padding to the card container (line 2077) to ensure content isn't hidden behind the mastery plan tracker on top.
-
-**File:** `src/pages/MicroPracticePlayerCards.tsx`
+This plan covers three categories: (A) fix three identified bugs, (B) create new DB tables and schema changes, (C) create new edge functions, (D) update documentation.
 
 ---
 
-### Issue 2: Coach page — conversation squished to bottom
+### A. Bug Fixes
 
-Looking at `SelfMasteryCoach.tsx`, the layout is:
-```
-h-screen flex-col
-  FloatingNavigation (relative, takes ~56px)
-  PracticeQueueProgress (conditional, takes ~60px) 
-  Performance Plan Indicator (conditional, takes ~70px)
-  flex-1 min-h-0 → CoachSplitView (h-full)
+#### A1. Fix dead `effectiveContent` signal (+20 scoring)
+
+**File: `src/components/home/DailyRitual.tsx`** (line ~340)
+
+Replace `effectiveContent: []` with a query to `content_relevance_feedback` for practices the user rated 4-5 stars. Add a query before the request body construction:
+
+```typescript
+// Fetch effective content IDs (practices rated 4-5 stars)
+const { data: effectiveFeedback } = await supabase
+  .from('content_relevance_feedback')
+  .select('content_id')
+  .eq('user_id', user.id)
+  .gte('star_rating', 4);
+
+const effectiveContentIds = effectiveFeedback?.map(f => f.content_id) || [];
 ```
 
-The `CoachSplitView` uses `h-full` which should fill. But looking at the screenshot, the conversation is only at the bottom 10%. The likely issue is that `CoachSplitView`'s active conversation layout has `flex-1 overflow-y-auto` for messages but the messages are few so they naturally appear at the bottom.
+Then pass `effectiveContent: effectiveContentIds` in the request body. No edge function changes needed — the EF already scores this signal at +20.
 
-The real problem from the screenshot: messages show at top but the scrollable area is huge with empty space, then input bar at bottom. This is correct behavior — messages start at top, input at bottom. But the user says "full conversation is happening there" at 10%. Looking again at screenshot 5: the user's message and coach's reply are at the very top, then huge empty space, then at the bottom there's a suggested prompt "I'm here when you're ready..." and the input bar. This appears correct for a 2-message conversation.
+#### A2. Race condition in `updateRitualCompletion` (4 sequential calls → 1 atomic call)
 
-Wait — looking more carefully at screenshot 5: There's a "Part of Today's Performance Plan" banner AND the queue progress on top. When `messages.length > 0`, these should be hidden (they have `messages.length === 0` condition). But the `CoachSplitView` gets re-mounted on message change. The queue progress condition is `isInQueue && practiceQueue.length > 1 && messages.length === 0` — this should hide when messages exist. So the coach page should be fine once messages start.
+**File: `supabase/functions/daily-rituals/index.ts`**
 
-The actual issue from screenshot 5 is that the input is stuck at the absolute bottom with the textarea showing at the very bottom. Let me re-read the layout: the `CoachSplitView` returns a `flex flex-col h-full` div, with `flex-1 overflow-y-auto` for messages and a fixed `InputBar` at the bottom. Inside `SelfMasteryCoach`, it's wrapped in `flex-1 min-h-0`. This should be fine.
+Add a new action `COMPLETE_PRACTICE` that atomically appends to `completed_practice_ids` and recalculates status server-side in a single operation:
 
-The user complaint "Coach page is showing my text now at the bottom part of the page at 10% of the page" — looking at screenshot 5, I see the messages at top, then a prompt suggestion text ("I'm here when you're ready. What's really going on?") appearing near the bottom, and the input bar at the very bottom. The prompt suggestion appearing mid-chat is odd — that's the `promptSuggestions` from the empty state leaking? No, in the active state there are no prompt suggestions rendered.
+```typescript
+case 'COMPLETE_PRACTICE': {
+  const { practiceType, practiceId } = body;
+  // 1. Get current ritual
+  // 2. Append practiceId if not already present
+  // 3. Set boolean flag + timestamp for practiceType
+  // 4. Recalculate completion_status
+  // 5. Upsert in ONE call
+  // Return updated ritual
+}
+```
 
-Actually the "I'm here when you're ready" text is likely a coach message (assistant role) that appears at the bottom of the scrollable area. The layout looks correct. But the user is frustrated that the input area (textarea + end session) occupies a lot of space.
+**File: `src/utils/dailyRituals.ts`**
 
-Let me focus on what's actionable:
-1. Ensure queue progress / plan indicators are properly hidden during active chat
-2. The coach page looks like it's working but the empty space is a UX concern — could be that the prompt suggestions should be more prominent or the messages area should be smaller when there are few messages
+Refactor `updateRitualCompletion()` to call the single `COMPLETE_PRACTICE` action instead of doing GET → UPSERT → GET → UPSERT (4 calls → 1 call). Both DEV_MODE and production paths updated.
 
-**Fix for coach page:** The queue progress and performance plan indicator should be hidden when messages exist (they already have `messages.length === 0` guards). The mastery plan tracker "not visible" issue is likely because `isInQueue` is false when not launched from the queue. This is expected behavior.
+#### A3. `user_coach_insights` type safety
 
----
-
-### Issue 3: Mastery plan completion not tracking
-
-The user says they completed all steps but it doesn't show as completed. The `updateRitualCompletion` function updates `completed_practice_ids` and calculates status. The `checkRitualCompletion` in `DailyRitual.tsx` checks `completed_practice_ids.length >= recommended_practices_count`.
-
-Potential bug: When the user completes practices through the queue, each player calls `updateRitualCompletion` which appends to `completed_practice_ids`. But the coach card in the queue is type `'coach'` — when the coach session ends, does it call `updateRitualCompletion`?
-
-Looking at `SelfMasteryCoach.tsx` line 351-356: `handleEndSession` calls `markCoachComplete()` then `endSession()`. Let me check `markCoachComplete`:
-
-This function likely handles marking the coach practice as done. But if `markCoachComplete` doesn't call `updateRitualCompletion`, the coach card won't be counted in `completed_practice_ids`, causing the total to never reach `recommended_practices_count`.
-
-**Fix:** Need to verify and ensure `markCoachComplete` in `SelfMasteryCoach.tsx` calls `updateRitualCompletion('micro_exercise', coachContentId)` to add the coach card's content ID to completed_practice_ids.
+The table IS already in `types.ts` (confirmed at line 2867). No action needed — this issue was a false positive from the audit. Will update documentation to mark as resolved.
 
 ---
 
-### Summary of Changes
+### B. Database Schema Changes (Migration)
 
-| File | Changes |
-|------|---------|
-| `src/pages/MicroPracticePlayerCards.tsx` | Convert all card styles to transparent glassmorphic (bg-white/15), all text to white/light variants, add top padding for queue tracker |
-| `src/pages/SelfMasteryCoach.tsx` | Fix markCoachComplete to properly update ritual completion tracking |
+#### B1. Add missing columns to `jit_preferences`
+
+```sql
+ALTER TABLE jit_preferences
+  ADD COLUMN IF NOT EXISTS skipped_at timestamptz,
+  ADD COLUMN IF NOT EXISTS event_start_time timestamptz,
+  ADD COLUMN IF NOT EXISTS minutes_before_event integer;
+```
+
+#### B2. Create `coach_scenarios_detected` table (new — does not exist)
+
+```sql
+CREATE TABLE public.coach_scenarios_detected (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  scenario text NOT NULL,
+  dimension text,
+  event_types text[],
+  detected_at timestamptz DEFAULT now(),
+  resolved boolean DEFAULT false,
+  resolved_at timestamptz,
+  resolved_reason text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.coach_scenarios_detected ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role can manage coach_scenarios_detected"
+  ON public.coach_scenarios_detected FOR ALL
+  USING (auth.role() = 'service_role');
+
+CREATE INDEX idx_scenarios_event_types 
+  ON public.coach_scenarios_detected USING gin(event_types);
+CREATE INDEX idx_scenarios_user 
+  ON public.coach_scenarios_detected(user_id);
+```
+
+#### B3. Create `jit_event_context` table
+
+Full schema as specified in the architecture doc. RLS: service_role only.
+
+#### B4. Create `jit_carousel_cards` table
+
+Full schema as specified. RLS: service_role only.
+
+#### B5. Create `jit_pill_display_log` table
+
+Full schema as specified. RLS: service_role only.
+
+#### B6. Create `get_event_type_skip_count` DB function
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_event_type_skip_count(
+  p_user_id text, p_event_type text, p_days_back integer
+) RETURNS integer
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT COUNT(*)::integer FROM jit_preferences
+  WHERE user_id = p_user_id
+    AND event_type = p_event_type
+    AND created_at >= (now() - (p_days_back || ' days')::interval);
+$$;
+```
+
+---
+
+### C. New Edge Functions
+
+#### C1. `generate-jit-events` (NEW)
+
+**Path:** `supabase/functions/generate-jit-events/index.ts`
+
+Full JIT event detection and scoring pipeline as specified:
+- Accepts `userId`, `timezoneOffset`
+- Queries `calendar_events` (next 48h), `jit_preferences` (skip history), `coach_scenarios_detected`, `dialogue_messages` (user mentions), `user_coach_insights` (goals)
+- Implements 5-factor scoring + coach context boost + skip penalty
+- Generates pill labels and context statements
+- Stores scored events in `jit_event_context`
+- Returns top 2 events + time-of-day pill
+
+Config: `verify_jwt = false` in `supabase/config.toml`
+
+#### C2. `generate-jit-carousel` (NEW)
+
+**Path:** `supabase/functions/generate-jit-carousel/index.ts`
+
+Carousel card generation for a specific JIT event:
+- Accepts `userId`, `eventId`
+- Reads `jit_event_context` for event details
+- Selects practices from `sanctuary_content` + `sanctuary_content_metadata` based on scenario modules
+- Determines coach card position (first if pending tool / expressed concern / score >= 90, else last)
+- Stores cards in `jit_carousel_cards`
+- Returns ordered card array
+
+Config: `verify_jwt = false`
+
+#### C3. `track-jit-skip` (NEW)
+
+**Path:** `supabase/functions/track-jit-skip/index.ts`
+
+Simple skip/dismiss logger:
+- Accepts `userId`, `eventId`, `eventType`, `eventTitle`, `action`
+- Updates `jit_event_context.dismissed_by_user = true`
+- Inserts into `jit_preferences` with skip details
+- Returns success
+
+Config: `verify_jwt = false`
+
+---
+
+### D. Documentation Update
+
+**File:** `.lovable/proactive-mastery-plan-documentation.md`
+
+Update the existing doc to v3.0:
+- Add JIT Coach Integration section (coach context boost scoring, context statement generation, pill label generation)
+- Add new tables (coach_scenarios_detected, jit_event_context, jit_carousel_cards, jit_pill_display_log)
+- Add new edge functions (generate-jit-events, generate-jit-carousel, track-jit-skip)
+- Mark `effectiveContent` gap as RESOLVED
+- Mark `user_coach_insights` type safety as RESOLVED (was false positive)
+- Mark race condition as RESOLVED
+- Update tooltip text
+- Add executive scenario → event type mapping table
+- Add coach prompts by context table
+- Add future features section (role play, mental models)
+
+---
 
 ### Implementation Order
-1. MicroPracticePlayerCards card style overhaul
-2. Coach ritual completion tracking fix
+
+1. Database migration (all tables + function + jit_preferences columns)
+2. Fix `daily-rituals` EF with `COMPLETE_PRACTICE` action
+3. Fix `updateRitualCompletion` client-side to use single call
+4. Fix `effectiveContent` in `DailyRitual.tsx`
+5. Create `generate-jit-events` edge function
+6. Create `generate-jit-carousel` edge function
+7. Create `track-jit-skip` edge function
+8. Update `supabase/config.toml` with new function entries
+9. Update documentation
+
+### What is NOT changed
+- No UI/design changes
+- No changes to `generate-mastery-plan` EF (existing scoring logic stays)
+- No changes to `types.ts` or `client.ts` (auto-generated)
+- No changes to player pages or coach page layout
 
