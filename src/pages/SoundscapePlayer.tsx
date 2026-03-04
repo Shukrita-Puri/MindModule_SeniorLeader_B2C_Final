@@ -213,24 +213,6 @@ const SoundscapePlayer = () => {
         
         if (isPartOfRitual) {
           trackEngagement('daily_ritual_soundscape');
-          
-          // Update daily ritual history
-          const today = new Date().toISOString().split('T')[0];
-          const history = JSON.parse(localStorage.getItem('dailyRitualHistory') || '[]');
-          
-          const todayRecord = history.find((r: any) => r.date === today);
-          if (todayRecord) {
-            todayRecord.componentsCompleted = Math.min(todayRecord.componentsCompleted + 1, 3);
-            todayRecord.timestamps.push(new Date().toISOString());
-            
-            if (todayRecord.componentsCompleted === 3) {
-              todayRecord.completionStatus = 'full';
-            } else if (todayRecord.componentsCompleted > 0) {
-              todayRecord.completionStatus = 'partial';
-            }
-            
-            localStorage.setItem('dailyRitualHistory', JSON.stringify(history));
-          }
         } else if (soundscape?.category === 'pause') {
           trackEngagement('pause_session');
         } else if (soundscape?.category === 'power-up') {
@@ -364,18 +346,6 @@ const SoundscapePlayer = () => {
   };
 
   const handleQueueComplete = () => {
-    // Store completion
-    const history = JSON.parse(localStorage.getItem("practiceHistory") || "[]");
-    history.push({
-      id: soundscape?.id,
-      title: soundscape?.title,
-      type: "soundbath",
-      outcome: soundscape?.category,
-      completedAt: new Date().toISOString(),
-      duration: Math.floor(displayDuration / 60)
-    });
-    localStorage.setItem("practiceHistory", JSON.stringify(history));
-
     // Navigate to next or complete ritual
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();

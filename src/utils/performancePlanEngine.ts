@@ -1,11 +1,11 @@
 /**
+ * @deprecated This file is dead code — superseded by the `generate-mastery-plan` edge function.
+ * Only imported by `planReconstruction.ts` (also dead code) for type definitions.
+ * All plan generation, scoring, and content selection now runs server-side.
+ * Do NOT add new consumers. Will be removed in a future cleanup.
+ *
+ * Original description:
  * Performance Plan Engine - Core logic for generating personalized daily rituals
- * 
- * This engine:
- * 1. Maps theme phrases to specific module requirements (Regulate, Align, Prepare, Integrate)
- * 2. Scores and selects content based on favorites, coach insights, and effectiveness history
- * 3. Enforces the Regulate → Align → Prepare → Integrate sequence
- * 4. Limits plans to 3-4 modules max
  */
 
 import { type SanctuaryContent, sanctuaryContent } from '@/data/practicesAndSoundscapes';

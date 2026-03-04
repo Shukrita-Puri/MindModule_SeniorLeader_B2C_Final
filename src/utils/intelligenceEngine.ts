@@ -1,3 +1,9 @@
+/**
+ * @deprecated This file reads exclusively from localStorage and is not connected
+ * to the Proactive Mastery Plan feature. Only consumed by `IntelligentPriorityCard.tsx`.
+ * Mental fitness scoring for the Mastery Plan uses the `generate-mastery-plan` edge function.
+ * Do NOT add new consumers. Will be removed in a future cleanup.
+ */
 // Intelligence Engine for Mental Elite Homepage
 // Calculates Mental Fitness Score, detects patterns, and generates intelligent priorities
 

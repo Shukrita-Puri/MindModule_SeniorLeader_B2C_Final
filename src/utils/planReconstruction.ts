@@ -1,8 +1,12 @@
 /**
- * Plan Reconstruction Utilities
- * 
- * Helpers to reconstruct a Performance Plan from stored practice IDs
- * to ensure plan stability across page refreshes.
+ * @deprecated This file is dead code — not imported anywhere in the project.
+ * Plan reconstruction is now handled server-side by the `generate-mastery-plan`
+ * edge function and cached in `daily_ritual_completions.recommended_practice_ids`.
+ * Do NOT add new consumers. Will be removed in a future cleanup.
+ *
+ * Original description:
+ * Plan Reconstruction Utilities — Helpers to reconstruct a Performance Plan
+ * from stored practice IDs to ensure plan stability across page refreshes.
  */
 
 import { sanctuaryContent, type SanctuaryContent } from '@/data/practicesAndSoundscapes';

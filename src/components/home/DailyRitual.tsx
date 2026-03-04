@@ -160,8 +160,21 @@ const DailyRitual = () => {
   useEffect(() => {
     loadPlan();
     checkRitualCompletion();
-    const interval = setInterval(() => checkRitualCompletion(), 15000);
-    return () => clearInterval(interval);
+    
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkRitualCompletion();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
+    // Relaxed polling as fallback (60s instead of 15s)
+    const interval = setInterval(() => checkRitualCompletion(), 60000);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user?.id]);
 
   // Detect newly completed practices
@@ -343,10 +356,9 @@ const DailyRitual = () => {
         favorites: favoriteIds,
         completedToday,
         timezoneOffset: new Date().getTimezoneOffset(),
-        clarityLevel: 0,
-        confidenceLevel: 0,
+        clarityLevel: todayCheckin?.clarity_level ?? 0,
+        confidenceLevel: todayCheckin?.confidence_level ?? 0,
         checkInOutcome: energyState.checkInOutcome || 'steady',
-        archetype: '',
         coachInsights: coachInsights.map(i => ({ id: i.id, type: i.type, content: i.content, contentReference: i.contentReference, confidence: i.confidence })),
         effectiveContent: effectiveContentIds,
         patternInsight,
