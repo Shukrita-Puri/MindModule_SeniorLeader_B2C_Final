@@ -1,3 +1,10 @@
+/**
+ * @deprecated This file is dead code — not imported anywhere in the project.
+ * Mental fitness scoring for the Mastery Plan is handled server-side by the
+ * `generate-mastery-plan` edge function and `profiles.mental_fitness_baseline`.
+ * Do NOT add new consumers. Will be removed in a future cleanup.
+ */
+
 interface MentalFitnessData {
   score: number; // 0-100 scale
   trend: 'up' | 'down' | 'stable';
