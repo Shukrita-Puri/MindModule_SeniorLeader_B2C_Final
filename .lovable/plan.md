@@ -1,205 +1,131 @@
 
 
-## Plan: Proactive Mastery Plan v3.0 — Incremental Updates
+## Plan: Proactive Mastery Plan — Remaining Fixes & Server-Side Migration
 
-This plan covers three categories: (A) fix three identified bugs, (B) create new DB tables and schema changes, (C) create new edge functions, (D) update documentation.
+### Current Status of the 7 Audit Gaps
 
----
+| Issue | Status | Action Needed |
+|-------|--------|---------------|
+| effectiveContent always [] | FIXED in prior commit | None — DailyRitual.tsx now queries content_relevance_feedback |
+| clarityLevel/confidenceLevel hardcoded to 0 | OPEN | Fix in DailyRitual.tsx |
+| user_coach_insights not in types.ts | FALSE POSITIVE | Already in types.ts |
+| Mental Fitness reads from localStorage | OPEN | Deprecate mentalFitnessEngine.ts localStorage reads |
+| Race condition in updateRitualCompletion | FIXED in prior commit | None — COMPLETE_PRACTICE atomic action exists |
+| archetype/wearableStress dead fields | OPEN | Clean up dead params |
+| 15s polling delay for UI refresh | OPEN | Fix with immediate refresh after completion |
 
-### A. Bug Fixes
+### Changes Required
 
-#### A1. Fix dead `effectiveContent` signal (+20 scoring)
+#### 1. Fix clarityLevel/confidenceLevel hardcoded to 0
 
-**File: `src/components/home/DailyRitual.tsx`** (line ~340)
+**File: `src/components/home/DailyRitual.tsx` (~line 346-347)**
 
-Replace `effectiveContent: []` with a query to `content_relevance_feedback` for practices the user rated 4-5 stars. Add a query before the request body construction:
+Currently hardcodes `clarityLevel: 0, confidenceLevel: 0`. The data is available — `energyStateEngine.ts` already fetches these from `daily_checkins` and passes them to `compute-inner-readiness`. But `DailyRitual.tsx` doesn't have access to the check-in record at this point.
 
-```typescript
-// Fetch effective content IDs (practices rated 4-5 stars)
-const { data: effectiveFeedback } = await supabase
-  .from('content_relevance_feedback')
-  .select('content_id')
-  .eq('user_id', user.id)
-  .gte('star_rating', 4);
-
-const effectiveContentIds = effectiveFeedback?.map(f => f.content_id) || [];
-```
-
-Then pass `effectiveContent: effectiveContentIds` in the request body. No edge function changes needed — the EF already scores this signal at +20.
-
-#### A2. Race condition in `updateRitualCompletion` (4 sequential calls → 1 atomic call)
-
-**File: `supabase/functions/daily-rituals/index.ts`**
-
-Add a new action `COMPLETE_PRACTICE` that atomically appends to `completed_practice_ids` and recalculates status server-side in a single operation:
+Fix: Query today's check-in clarity/confidence before building the request body (same pattern as `energyStateEngine.ts`):
 
 ```typescript
-case 'COMPLETE_PRACTICE': {
-  const { practiceType, practiceId } = body;
-  // 1. Get current ritual
-  // 2. Append practiceId if not already present
-  // 3. Set boolean flag + timestamp for practiceType
-  // 4. Recalculate completion_status
-  // 5. Upsert in ONE call
-  // Return updated ritual
+let clarityLevel = 0;
+let confidenceLevel = 0;
+if (user?.id) {
+  const todayCheckinData = await getTodayCheckin(); // already imported
+  if (todayCheckinData) {
+    clarityLevel = todayCheckinData.clarity_level ?? 0;
+    confidenceLevel = todayCheckinData.confidence_level ?? 0;
+  }
 }
 ```
 
-**File: `src/utils/dailyRituals.ts`**
+Note: `getTodayCheckin()` is already called on line ~211. Reuse that value by moving it earlier or storing it.
 
-Refactor `updateRitualCompletion()` to call the single `COMPLETE_PRACTICE` action instead of doing GET → UPSERT → GET → UPSERT (4 calls → 1 call). Both DEV_MODE and production paths updated.
+#### 2. Remove dead archetype and wearableStress fields
 
-#### A3. `user_coach_insights` type safety
+**File: `src/components/home/DailyRitual.tsx` (~line 349)**
 
-The table IS already in `types.ts` (confirmed at line 2867). No action needed — this issue was a false positive from the audit. Will update documentation to mark as resolved.
+Remove `archetype: ''` from the request body — the generate-mastery-plan EF already receives it but it's always empty. The EF handles the fallback internally. Keep the field in the EF interface for future use but stop sending empty strings.
 
----
+The `wearableStress` field is never sent from DailyRitual — it's only used by `JustInTimeIntervention.tsx` which queries wearable data directly. No change needed there.
 
-### B. Database Schema Changes (Migration)
+#### 3. Fix 15s polling delay — use event-driven refresh
 
-#### B1. Add missing columns to `jit_preferences`
+**File: `src/components/home/DailyRitual.tsx` (~line 163)**
 
-```sql
-ALTER TABLE jit_preferences
-  ADD COLUMN IF NOT EXISTS skipped_at timestamptz,
-  ADD COLUMN IF NOT EXISTS event_start_time timestamptz,
-  ADD COLUMN IF NOT EXISTS minutes_before_event integer;
+Currently polls every 15s via `setInterval`. When user completes a practice and returns, there's up to 15s delay before UI updates.
+
+Fix: Listen for `visibilitychange` event to trigger immediate check when user returns to the tab/app:
+
+```typescript
+useEffect(() => {
+  loadPlan();
+  checkRitualCompletion();
+  
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible') {
+      checkRitualCompletion();
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibility);
+  
+  // Keep a longer polling interval as fallback (60s instead of 15s)
+  const interval = setInterval(() => checkRitualCompletion(), 60000);
+  
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener('visibilitychange', handleVisibility);
+  };
+}, [user?.id]);
 ```
 
-#### B2. Create `coach_scenarios_detected` table (new — does not exist)
+#### 4. Mental Fitness — stop reading from localStorage, read from DB
 
-```sql
-CREATE TABLE public.coach_scenarios_detected (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL,
-  scenario text NOT NULL,
-  dimension text,
-  event_types text[],
-  detected_at timestamptz DEFAULT now(),
-  resolved boolean DEFAULT false,
-  resolved_at timestamptz,
-  resolved_reason text,
-  created_at timestamptz DEFAULT now()
-);
+**File: `src/utils/mentalFitnessEngine.ts`**
 
-ALTER TABLE public.coach_scenarios_detected ENABLE ROW LEVEL SECURITY;
+This entire file reads `dailyRitualHistory`, `practiceHistory`, `recalibrateHistory`, and `dailyCheckIn-*` from localStorage. The authoritative data is in `daily_ritual_completions` and `daily_checkins` tables.
 
-CREATE POLICY "Service role can manage coach_scenarios_detected"
-  ON public.coach_scenarios_detected FOR ALL
-  USING (auth.role() = 'service_role');
+Fix: Deprecate `mentalFitnessEngine.ts` by making `calculateMentalFitnessScore()` async and reading from the DB via the `daily-rituals` edge function instead of localStorage. Need to check all consumers first.
 
-CREATE INDEX idx_scenarios_event_types 
-  ON public.coach_scenarios_detected USING gin(event_types);
-CREATE INDEX idx_scenarios_user 
-  ON public.coach_scenarios_detected(user_id);
-```
+Consumers: Search shows `mentalFitnessEngine` is NOT imported anywhere — it's dead code. The active mental fitness scoring uses `intelligenceEngine.ts` which is imported by `IntelligentPriorityCard.tsx` only.
 
-#### B3. Create `jit_event_context` table
+`intelligenceEngine.ts` also reads from localStorage heavily — but it's only used by `IntelligentPriorityCard.tsx`. Both files are legacy local-only engines.
 
-Full schema as specified in the architecture doc. RLS: service_role only.
+Action: Since neither engine is connected to the Mastery Plan feature (the plan uses `generate-mastery-plan` EF for scoring), these are separate technical debt. For this task, we should:
+- Add a deprecation comment to `mentalFitnessEngine.ts` noting it's unused
+- The mental fitness baseline is already in `profiles.mental_fitness_baseline` (cloud)
+- No runtime behavior change needed — the engines are dead code for the Mastery Plan
 
-#### B4. Create `jit_carousel_cards` table
+#### 5. Client-side scoring engine is redundant
 
-Full schema as specified. RLS: service_role only.
+**File: `src/utils/performancePlanEngine.ts` (1074 lines)**
 
-#### B5. Create `jit_pill_display_log` table
+This is a full client-side duplicate of the server-side `generate-mastery-plan` EF. It imports `sanctuaryContent` data, has THEME_MODULE_MAP, content scoring, etc. However, it's only imported by `planReconstruction.ts` (for types only) and `planReconstruction.ts` itself is not imported anywhere.
 
-Full schema as specified. RLS: service_role only.
+Both `performancePlanEngine.ts` and `planReconstruction.ts` are dead code — the actual plan generation goes through the edge function.
 
-#### B6. Create `get_event_type_skip_count` DB function
+Action: Add deprecation comments. No runtime change needed.
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_event_type_skip_count(
-  p_user_id text, p_event_type text, p_days_back integer
-) RETURNS integer
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT COUNT(*)::integer FROM jit_preferences
-  WHERE user_id = p_user_id
-    AND event_type = p_event_type
-    AND created_at >= (now() - (p_days_back || ' days')::interval);
-$$;
-```
+#### 6. Remove localStorage writes in practice players
+
+**File: `src/pages/SoundscapePlayer.tsx` (~lines 217-233, 366-377)**
+
+Still writes to `localStorage.dailyRitualHistory` and `localStorage.practiceHistory` after completing practices. This is redundant since `updateRitualCompletion()` now writes to the cloud DB.
+
+Fix: Remove the localStorage writes. The DB is the source of truth.
 
 ---
 
-### C. New Edge Functions
+### Summary of Changes
 
-#### C1. `generate-jit-events` (NEW)
-
-**Path:** `supabase/functions/generate-jit-events/index.ts`
-
-Full JIT event detection and scoring pipeline as specified:
-- Accepts `userId`, `timezoneOffset`
-- Queries `calendar_events` (next 48h), `jit_preferences` (skip history), `coach_scenarios_detected`, `dialogue_messages` (user mentions), `user_coach_insights` (goals)
-- Implements 5-factor scoring + coach context boost + skip penalty
-- Generates pill labels and context statements
-- Stores scored events in `jit_event_context`
-- Returns top 2 events + time-of-day pill
-
-Config: `verify_jwt = false` in `supabase/config.toml`
-
-#### C2. `generate-jit-carousel` (NEW)
-
-**Path:** `supabase/functions/generate-jit-carousel/index.ts`
-
-Carousel card generation for a specific JIT event:
-- Accepts `userId`, `eventId`
-- Reads `jit_event_context` for event details
-- Selects practices from `sanctuary_content` + `sanctuary_content_metadata` based on scenario modules
-- Determines coach card position (first if pending tool / expressed concern / score >= 90, else last)
-- Stores cards in `jit_carousel_cards`
-- Returns ordered card array
-
-Config: `verify_jwt = false`
-
-#### C3. `track-jit-skip` (NEW)
-
-**Path:** `supabase/functions/track-jit-skip/index.ts`
-
-Simple skip/dismiss logger:
-- Accepts `userId`, `eventId`, `eventType`, `eventTitle`, `action`
-- Updates `jit_event_context.dismissed_by_user = true`
-- Inserts into `jit_preferences` with skip details
-- Returns success
-
-Config: `verify_jwt = false`
-
----
-
-### D. Documentation Update
-
-**File:** `.lovable/proactive-mastery-plan-documentation.md`
-
-Update the existing doc to v3.0:
-- Add JIT Coach Integration section (coach context boost scoring, context statement generation, pill label generation)
-- Add new tables (coach_scenarios_detected, jit_event_context, jit_carousel_cards, jit_pill_display_log)
-- Add new edge functions (generate-jit-events, generate-jit-carousel, track-jit-skip)
-- Mark `effectiveContent` gap as RESOLVED
-- Mark `user_coach_insights` type safety as RESOLVED (was false positive)
-- Mark race condition as RESOLVED
-- Update tooltip text
-- Add executive scenario → event type mapping table
-- Add coach prompts by context table
-- Add future features section (role play, mental models)
-
----
+| File | Change |
+|------|--------|
+| `src/components/home/DailyRitual.tsx` | Fix clarityLevel/confidenceLevel from check-in; remove `archetype: ''`; replace 15s poll with visibilitychange + 60s fallback |
+| `src/pages/SoundscapePlayer.tsx` | Remove localStorage writes for dailyRitualHistory and practiceHistory |
+| `src/utils/mentalFitnessEngine.ts` | Add deprecation header (dead code — not imported anywhere) |
+| `src/utils/performancePlanEngine.ts` | Add deprecation header (dead code — superseded by EF) |
+| `src/utils/planReconstruction.ts` | Add deprecation header (dead code) |
+| `src/utils/intelligenceEngine.ts` | Add deprecation header (localStorage-based, not used by Mastery Plan) |
 
 ### Implementation Order
-
-1. Database migration (all tables + function + jit_preferences columns)
-2. Fix `daily-rituals` EF with `COMPLETE_PRACTICE` action
-3. Fix `updateRitualCompletion` client-side to use single call
-4. Fix `effectiveContent` in `DailyRitual.tsx`
-5. Create `generate-jit-events` edge function
-6. Create `generate-jit-carousel` edge function
-7. Create `track-jit-skip` edge function
-8. Update `supabase/config.toml` with new function entries
-9. Update documentation
-
-### What is NOT changed
-- No UI/design changes
-- No changes to `generate-mastery-plan` EF (existing scoring logic stays)
-- No changes to `types.ts` or `client.ts` (auto-generated)
-- No changes to player pages or coach page layout
+1. DailyRitual.tsx fixes (clarity/confidence, archetype cleanup, polling)
+2. SoundscapePlayer.tsx localStorage removal
+3. Deprecation comments on dead files
 
