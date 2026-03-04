@@ -53,3 +53,15 @@ verify_jwt = false
 
 [functions.check-coach-access]
 verify_jwt = false
+
+[functions.generate-jit-events]
+verify_jwt = false
+
+[functions.generate-jit-carousel]
+verify_jwt = false
+
+[functions.track-jit-skip]
+verify_jwt = false
+
+[functions.daily-rituals]
+verify_jwt = false

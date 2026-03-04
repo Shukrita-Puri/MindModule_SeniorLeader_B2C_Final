@@ -820,6 +820,45 @@ export type Database = {
           },
         ]
       }
+      coach_scenarios_detected: {
+        Row: {
+          created_at: string | null
+          detected_at: string | null
+          dimension: string | null
+          event_types: string[] | null
+          id: string
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_reason: string | null
+          scenario: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          detected_at?: string | null
+          dimension?: string | null
+          event_types?: string[] | null
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_reason?: string | null
+          scenario: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          detected_at?: string | null
+          dimension?: string | null
+          event_types?: string[] | null
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_reason?: string | null
+          scenario?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coach_session_summaries: {
         Row: {
           breakthrough_moment: string | null
@@ -1591,32 +1630,249 @@ export type Database = {
         }
         Relationships: []
       }
+      jit_carousel_cards: {
+        Row: {
+          card_position: number | null
+          card_type: string
+          coach_context_statement: string | null
+          coach_tool_name: string | null
+          completed: boolean | null
+          completed_at: string | null
+          event_id: string | null
+          id: string
+          practice_category: string | null
+          practice_id: string | null
+          shown_at: string | null
+          tapped: boolean | null
+          tapped_at: string | null
+          user_id: string
+        }
+        Insert: {
+          card_position?: number | null
+          card_type: string
+          coach_context_statement?: string | null
+          coach_tool_name?: string | null
+          completed?: boolean | null
+          completed_at?: string | null
+          event_id?: string | null
+          id?: string
+          practice_category?: string | null
+          practice_id?: string | null
+          shown_at?: string | null
+          tapped?: boolean | null
+          tapped_at?: string | null
+          user_id: string
+        }
+        Update: {
+          card_position?: number | null
+          card_type?: string
+          coach_context_statement?: string | null
+          coach_tool_name?: string | null
+          completed?: boolean | null
+          completed_at?: string | null
+          event_id?: string | null
+          id?: string
+          practice_category?: string | null
+          practice_id?: string | null
+          shown_at?: string | null
+          tapped?: boolean | null
+          tapped_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jit_carousel_cards_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "jit_event_context"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jit_event_context: {
+        Row: {
+          accountability_score: number | null
+          attendee_count: number | null
+          calendar_event_id: string | null
+          coach_boost_score: number | null
+          coach_dimension: string | null
+          coach_scenario: string | null
+          completed: boolean | null
+          context_score: number | null
+          context_statement: string | null
+          created_at: string | null
+          dismissed_by_user: boolean | null
+          event_duration_minutes: number | null
+          event_start: string
+          event_title: string
+          event_type: string
+          expressed_concern: boolean | null
+          final_score: number | null
+          has_coach_context: boolean | null
+          has_pending_tool: boolean | null
+          has_prior_event_within_15min: boolean | null
+          id: string
+          is_during_prime_hours: boolean | null
+          is_recurring: boolean | null
+          scale_score: number | null
+          scenario_match_score: number | null
+          shown_in_jit: boolean | null
+          skip_penalty: number | null
+          updated_at: string | null
+          urgency_score: number | null
+          user_id: string
+          user_is_organizer: boolean | null
+        }
+        Insert: {
+          accountability_score?: number | null
+          attendee_count?: number | null
+          calendar_event_id?: string | null
+          coach_boost_score?: number | null
+          coach_dimension?: string | null
+          coach_scenario?: string | null
+          completed?: boolean | null
+          context_score?: number | null
+          context_statement?: string | null
+          created_at?: string | null
+          dismissed_by_user?: boolean | null
+          event_duration_minutes?: number | null
+          event_start: string
+          event_title: string
+          event_type: string
+          expressed_concern?: boolean | null
+          final_score?: number | null
+          has_coach_context?: boolean | null
+          has_pending_tool?: boolean | null
+          has_prior_event_within_15min?: boolean | null
+          id?: string
+          is_during_prime_hours?: boolean | null
+          is_recurring?: boolean | null
+          scale_score?: number | null
+          scenario_match_score?: number | null
+          shown_in_jit?: boolean | null
+          skip_penalty?: number | null
+          updated_at?: string | null
+          urgency_score?: number | null
+          user_id: string
+          user_is_organizer?: boolean | null
+        }
+        Update: {
+          accountability_score?: number | null
+          attendee_count?: number | null
+          calendar_event_id?: string | null
+          coach_boost_score?: number | null
+          coach_dimension?: string | null
+          coach_scenario?: string | null
+          completed?: boolean | null
+          context_score?: number | null
+          context_statement?: string | null
+          created_at?: string | null
+          dismissed_by_user?: boolean | null
+          event_duration_minutes?: number | null
+          event_start?: string
+          event_title?: string
+          event_type?: string
+          expressed_concern?: boolean | null
+          final_score?: number | null
+          has_coach_context?: boolean | null
+          has_pending_tool?: boolean | null
+          has_prior_event_within_15min?: boolean | null
+          id?: string
+          is_during_prime_hours?: boolean | null
+          is_recurring?: boolean | null
+          scale_score?: number | null
+          scenario_match_score?: number | null
+          shown_in_jit?: boolean | null
+          skip_penalty?: number | null
+          updated_at?: string | null
+          urgency_score?: number | null
+          user_id?: string
+          user_is_organizer?: boolean | null
+        }
+        Relationships: []
+      }
+      jit_pill_display_log: {
+        Row: {
+          clicked: boolean | null
+          clicked_at: string | null
+          displayed_at: string | null
+          event_id: string | null
+          id: string
+          inner_readiness_score: number | null
+          pill_label: string
+          pill_type: string
+          time_of_day: string | null
+          user_id: string
+        }
+        Insert: {
+          clicked?: boolean | null
+          clicked_at?: string | null
+          displayed_at?: string | null
+          event_id?: string | null
+          id?: string
+          inner_readiness_score?: number | null
+          pill_label: string
+          pill_type: string
+          time_of_day?: string | null
+          user_id: string
+        }
+        Update: {
+          clicked?: boolean | null
+          clicked_at?: string | null
+          displayed_at?: string | null
+          event_id?: string | null
+          id?: string
+          inner_readiness_score?: number | null
+          pill_label?: string
+          pill_type?: string
+          time_of_day?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jit_pill_display_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "jit_event_context"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jit_preferences: {
         Row: {
           action: string
           created_at: string
           dismissed: boolean | null
+          event_start_time: string | null
           event_title: string | null
           event_type: string | null
           id: string
+          minutes_before_event: number | null
+          skipped_at: string | null
           user_id: string
         }
         Insert: {
           action: string
           created_at?: string
           dismissed?: boolean | null
+          event_start_time?: string | null
           event_title?: string | null
           event_type?: string | null
           id?: string
+          minutes_before_event?: number | null
+          skipped_at?: string | null
           user_id: string
         }
         Update: {
           action?: string
           created_at?: string
           dismissed?: boolean | null
+          event_start_time?: string | null
           event_title?: string | null
           event_type?: string | null
           id?: string
+          minutes_before_event?: number | null
+          skipped_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -3134,6 +3390,10 @@ export type Database = {
       get_calendar_refresh_token: {
         Args: { _connection_id: string }
         Returns: string
+      }
+      get_event_type_skip_count: {
+        Args: { p_days_back: number; p_event_type: string; p_user_id: string }
+        Returns: number
       }
       get_oura_access_token: {
         Args: { _connection_id: string }

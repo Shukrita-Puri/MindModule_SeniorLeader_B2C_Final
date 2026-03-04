@@ -9,9 +9,12 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE';
+  action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE' | 'COMPLETE_PRACTICE';
   startDate?: string;
   endDate?: string;
+  practiceType?: 'soundscape' | 'guided_practice' | 'micro_exercise';
+  practiceId?: string;
+  practiceQueue?: { id: string }[];
   ritualData?: {
     ritual_date: string;
     soundscape_completed?: boolean;
@@ -42,7 +45,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, startDate, endDate, ritualData } = await req.json() as RequestBody;
+    const body = await req.json() as RequestBody;
+    const { action, startDate, endDate, ritualData } = body;
     console.log(`[daily-rituals] Action: ${action}, User: ${userId}`);
 
     switch (action) {
@@ -135,6 +139,87 @@ serve(async (req) => {
           console.error('[daily-rituals] UPSERT_RITUAL error:', error);
           throw error;
         }
+
+        return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'COMPLETE_PRACTICE': {
+        const { practiceType, practiceId, practiceQueue } = body;
+        if (!practiceType || !practiceId) {
+          return new Response(JSON.stringify({ error: 'Missing practiceType or practiceId' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
+
+        // 1. Get current ritual (if exists)
+        const { data: existing } = await supabase
+          .from('daily_ritual_completions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('ritual_date', today)
+          .maybeSingle();
+
+        // 2. Build updated fields atomically
+        const existingIds: string[] = existing?.completed_practice_ids || [];
+        const newCompletedIds = existingIds.includes(practiceId) 
+          ? existingIds 
+          : [...existingIds, practiceId];
+
+        const updateData: Record<string, any> = {
+          user_id: userId,
+          ritual_date: today,
+          completed_practice_ids: newCompletedIds,
+        };
+
+        // 3. Set boolean flag + timestamp for practiceType
+        if (practiceType === 'soundscape') {
+          updateData.soundscape_completed = true;
+          updateData.soundscape_completed_at = now;
+        } else if (practiceType === 'guided_practice') {
+          updateData.guided_practice_completed = true;
+          updateData.guided_practice_completed_at = now;
+        } else if (practiceType === 'micro_exercise') {
+          updateData.micro_exercise_completed = true;
+          updateData.micro_exercise_completed_at = now;
+        }
+
+        // Set recommended if provided via queue
+        if (practiceQueue && practiceQueue.length > 0) {
+          updateData.recommended_practice_ids = practiceQueue.map((p: any) => p.id);
+          updateData.recommended_practices_count = practiceQueue.length;
+        }
+
+        // 4. Recalculate completion_status
+        const totalRecommended = updateData.recommended_practices_count 
+          || existing?.recommended_practices_count 
+          || 3;
+        const completedCount = newCompletedIds.length;
+        
+        updateData.completion_status = completedCount >= totalRecommended && completedCount > 0
+          ? 'full'
+          : completedCount > 0
+            ? 'partial'
+            : 'skipped';
+
+        // 5. Upsert in ONE call
+        const { data, error } = await supabase
+          .from('daily_ritual_completions')
+          .upsert(updateData, { onConflict: 'user_id,ritual_date' })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[daily-rituals] COMPLETE_PRACTICE error:', error);
+          throw error;
+        }
+
+        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
 
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
