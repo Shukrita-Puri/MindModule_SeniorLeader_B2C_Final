@@ -3,6 +3,7 @@
  * 
  * Post-session: generates AI summary, extracts key topics, identifies
  * recurring vs new themes by comparing to past 5 summaries.
+ * Also: updates existing commitment statuses + writes tools offered.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -47,22 +48,37 @@ serve(async (req) => {
       });
     }
 
-    // Fetch last 5 summaries for theme comparison
-    const { data: pastSummaries } = await supabase
-      .from('coach_session_summaries')
-      .select('key_topics')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
+    // Parallel: Fetch past summaries + pending commitments for status update
+    const [pastSummariesRes, pendingCommitmentsRes] = await Promise.all([
+      supabase
+        .from('coach_session_summaries')
+        .select('key_topics')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5),
+      supabase
+        .from('coach_accountability_tracker')
+        .select('id, commitment_text, status')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .order('committed_at', { ascending: false })
+        .limit(10),
+    ]);
 
     const pastTopics = new Set(
-      (pastSummaries || []).flatMap(s => s.key_topics || [])
+      (pastSummariesRes.data || []).flatMap(s => s.key_topics || [])
     );
+    const pendingCommitments = pendingCommitmentsRes.data || [];
 
     // Build conversation transcript
     const transcript = messages
       .map(m => `${m.sender_type === 'user' ? 'USER' : 'COACH'}: ${m.content}`)
       .join('\n\n');
+
+    // Build commitment context for AI
+    const commitmentContext = pendingCommitments.length > 0
+      ? `\nPENDING COMMITMENTS (check if discussed/completed in conversation):\n${pendingCommitments.map(c => `- [${c.id}] "${c.commitment_text}"`).join('\n')}\n`
+      : '';
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
@@ -86,14 +102,15 @@ serve(async (req) => {
 
 CONVERSATION:
 ${transcript}
-
+${commitmentContext}
 GENERATE a JSON object with:
 - summary_text: 2-3 sentence summary of what happened
 - key_topics: array of 3-5 topic strings (e.g., "board pressure", "emotional regulation")
 - dominant_pattern: one of "recalibration" | "clarity" | "renewal"
 - emotional_arc: brief phrase describing state shift (e.g., "escalated → grounded")
-- commitments_made: array of specific actions the user committed to (empty if none)
-- practices_recommended: array of practice IDs recommended (empty if none)
+- commitments_made: array of specific NEW actions the user committed to (empty if none)
+- commitment_updates: array of objects { id: string, new_status: "progressed" | "completed" | "abandoned", evidence: string } for any EXISTING pending commitments that were discussed (empty array if none discussed)
+- practices_recommended: array of practice names/types recommended by the coach (empty if none)
 - wisdom_referenced: array of wisdom references used (empty if none)
 - breakthrough_moment: string describing significant insight, or null
 - session_quality_score: 1-10 overall quality
@@ -151,7 +168,7 @@ Return ONLY the JSON object.`
       console.error('[generate-coach-summary] Insert error:', insertError);
     }
 
-    // Also store commitments in accountability tracker
+    // Store NEW commitments in accountability tracker
     const commitments: string[] = summary.commitments_made || [];
     if (commitments.length > 0) {
       const commitmentRows = commitments.map(c => ({
@@ -173,12 +190,57 @@ Return ONLY the JSON object.`
       }
     }
 
-    console.log(`[generate-coach-summary] Summary stored for session ${sessionId}`);
+    // === GAP FIX #4: Update EXISTING commitment statuses ===
+    const commitmentUpdates: Array<{ id: string; new_status: string; evidence?: string }> = summary.commitment_updates || [];
+    let commitmentsUpdated = 0;
+    for (const update of commitmentUpdates) {
+      if (!update.id || !update.new_status) continue;
+      // Verify this commitment belongs to user (already fetched above)
+      const owned = pendingCommitments.find(c => c.id === update.id);
+      if (!owned) continue;
+
+      const { error: updateError } = await supabase
+        .from('coach_accountability_tracker')
+        .update({
+          status: update.new_status,
+          times_checked: 1,
+          last_checked_at: new Date().toISOString(),
+          completion_evidence: update.evidence || null,
+        })
+        .eq('id', update.id);
+
+      if (!updateError) commitmentsUpdated++;
+    }
+
+    // === GAP FIX #1: Write tools/practices offered to coach_tools_offered ===
+    const practicesRecommended: string[] = summary.practices_recommended || [];
+    if (practicesRecommended.length > 0) {
+      const toolRows = practicesRecommended.map(tool => ({
+        user_id: userId,
+        session_id: sessionId,
+        tool_name: tool,
+        tool_type: tool.toLowerCase().includes('breathing') || tool.toLowerCase().includes('box') ? 'protocol'
+          : tool.toLowerCase().includes('framework') || tool.toLowerCase().includes('model') ? 'framework'
+          : 'practice',
+      }));
+
+      const { error: toolError } = await supabase
+        .from('coach_tools_offered')
+        .insert(toolRows);
+
+      if (toolError) {
+        console.error('[generate-coach-summary] Tool insert error:', toolError);
+      }
+    }
+
+    console.log(`[generate-coach-summary] Summary stored for session ${sessionId}, ${commitmentsUpdated} commitments updated, ${practicesRecommended.length} tools recorded`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       summary: summary.summary_text,
       commitments: commitments.length,
+      commitmentsUpdated,
+      toolsRecorded: practicesRecommended.length,
       recurringThemes,
       newThemes
     }), {

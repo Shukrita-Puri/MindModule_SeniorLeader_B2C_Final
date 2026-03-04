@@ -921,6 +921,56 @@ export type Database = {
           },
         ]
       }
+      coach_tools_offered: {
+        Row: {
+          created_at: string | null
+          event_types: string[] | null
+          expires_at: string | null
+          id: string
+          offered_at: string | null
+          session_id: string | null
+          tool_name: string
+          tool_type: string | null
+          used_at: string | null
+          user_id: string
+          was_used: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_types?: string[] | null
+          expires_at?: string | null
+          id?: string
+          offered_at?: string | null
+          session_id?: string | null
+          tool_name: string
+          tool_type?: string | null
+          used_at?: string | null
+          user_id: string
+          was_used?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          event_types?: string[] | null
+          expires_at?: string | null
+          id?: string
+          offered_at?: string | null
+          session_id?: string | null
+          tool_name?: string
+          tool_type?: string | null
+          used_at?: string | null
+          user_id?: string
+          was_used?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_tools_offered_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "dialogue_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_relevance_feedback: {
         Row: {
           content_id: string

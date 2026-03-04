@@ -3,6 +3,7 @@
  * 
  * Post-session: analyzes user messages for behavioral patterns,
  * upserts coach_pattern_observations, flags patterns at 3+ observations.
+ * Also writes scenario detections to coach_scenarios_detected for JIT integration.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -13,6 +14,36 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Maps pattern descriptions to calendar event types for JIT scenario detection
+const PATTERN_TO_EVENT_TYPES: Record<string, string[]> = {
+  'board': ['board_meeting', 'board_presentation'],
+  'investor': ['investor_call', 'investor_pitch'],
+  'presentation': ['speaking_engagement', 'client_meeting', 'customer_presentation'],
+  'negotiation': ['negotiation', 'contract_discussion'],
+  'conflict': ['difficult_conversation', 'one_on_one'],
+  'feedback': ['performance_review', 'one_on_one', 'difficult_conversation'],
+  'team': ['all_hands', 'town_hall', 'leadership_meeting'],
+  'deadline': ['quarterly_review', 'qbr'],
+  'crisis': ['crisis_meeting', 'emergency'],
+  'client': ['client_meeting', 'customer_presentation'],
+  'hiring': ['hiring_committee', 'candidate_review'],
+  'layoff': ['layoff_announcement', 'restructuring'],
+  'media': ['media_interview', 'podcast', 'press_conference'],
+};
+
+function detectEventTypes(patternDescription: string, patternContext: string | null): string[] {
+  const text = `${patternDescription} ${patternContext || ''}`.toLowerCase();
+  const matchedTypes = new Set<string>();
+  
+  for (const [keyword, types] of Object.entries(PATTERN_TO_EVENT_TYPES)) {
+    if (text.includes(keyword)) {
+      types.forEach(t => matchedTypes.add(t));
+    }
+  }
+  
+  return Array.from(matchedTypes);
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -131,6 +162,7 @@ Return a JSON array. Empty array if no clear patterns.`
 
     let patternsUpdated = 0;
     let patternsCreated = 0;
+    let scenariosCreated = 0;
 
     for (const pattern of detectedPatterns) {
       if (!pattern.pattern_type || !pattern.pattern_description) continue;
@@ -169,6 +201,27 @@ Return a JSON array. Empty array if no clear patterns.`
 
         if (!error) patternsCreated++;
       }
+
+      // === GAP FIX #2: Write scenario detections to coach_scenarios_detected ===
+      // Map pattern to event types for JIT integration
+      if (pattern.pattern_type === 'trigger' || pattern.pattern_type === 'friction' || pattern.pattern_type === 'avoidance') {
+        const eventTypes = detectEventTypes(pattern.pattern_description, pattern.pattern_context);
+        if (eventTypes.length > 0) {
+          // Upsert scenario detection (avoid duplicates for same scenario)
+          const scenarioKey = `${pattern.pattern_type}:${pattern.pattern_description.slice(0, 50)}`;
+          const { error: scenarioError } = await supabase
+            .from('coach_scenarios_detected')
+            .insert({
+              user_id: userId,
+              scenario: scenarioKey,
+              dimension: pattern.pattern_area || null,
+              event_types: eventTypes,
+              detected_at: new Date().toISOString(),
+            });
+          
+          if (!scenarioError) scenariosCreated++;
+        }
+      }
     }
 
     // Check for patterns ready to be named (3+ observations, not yet named)
@@ -180,12 +233,13 @@ Return a JSON array. Empty array if no clear patterns.`
       .eq('was_named_to_user', false)
       .gte('observation_count', 3);
 
-    console.log(`[detect-recurring-patterns] Updated: ${patternsUpdated}, Created: ${patternsCreated}, Ready to name: ${readyToName?.length || 0}`);
+    console.log(`[detect-recurring-patterns] Updated: ${patternsUpdated}, Created: ${patternsCreated}, Scenarios: ${scenariosCreated}, Ready to name: ${readyToName?.length || 0}`);
 
     return new Response(JSON.stringify({ 
       success: true,
       patternsUpdated,
       patternsCreated,
+      scenariosCreated,
       patternsReadyToName: (readyToName || []).length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
