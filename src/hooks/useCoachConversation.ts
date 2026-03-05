@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import { buildCoachContext, type CoachContext } from '@/utils/coachContextBuilder';
+import { computeEnergyState } from '@/utils/energyStateEngine';
 import { getAuthToken } from '@/services/authTokenService';
 
 interface Message {
