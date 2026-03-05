@@ -151,13 +151,12 @@ serve(async (req) => {
         .select('scenario, dimension, event_types')
         .eq('user_id', userId)
         .eq('resolved', false)
-        .gte('detected_at', sevenDaysAgo),
+        .gte('detected_at', thirtyDaysAgo),
       supabase
         .from('coach_tools_offered')
-        .select('tool_name, tool_type, event_types')
+        .select('tool_name, tool_type, event_types, scenario')
         .eq('user_id', userId)
-        .eq('was_used', false)
-        .gte('expires_at', now.toISOString())
+        .eq('status', 'pending')
         .order('offered_at', { ascending: false })
         .limit(10),
     ]);

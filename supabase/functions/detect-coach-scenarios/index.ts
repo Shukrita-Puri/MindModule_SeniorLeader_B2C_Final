@@ -15,21 +15,32 @@ const corsHeaders = {
 };
 
 const SCENARIO_EVENT_MAPPING: Record<string, string[]> = {
-  // CLARITY SCENARIOS
-  stakeholder_management: ['board_meeting', 'investor_call', 'shareholder_meeting', 'all_hands'],
-  difficult_conversation: ['one_on_one', 'performance_review', 'termination', 'difficult_conversation'],
-  giving_feedback: ['performance_review', 'one_on_one'],
-  receiving_feedback: ['performance_review', 'board_feedback', '360_review'],
-  handling_difficult_questions: ['board_meeting', 'investor_call', 'media_interview', 'all_hands'],
-  // RECALIBRATION SCENARIOS
-  rumination: ['board_meeting', 'investor_call', 'performance_review', 'strategic_planning'],
-  conflict_avoidance: ['one_on_one', 'difficult_conversation', 'team_conflict'],
-  people_pleasing: ['board_meeting', 'stakeholder_meeting', 'all_hands'],
-  emotional_regulation: ['board_meeting', 'crisis_meeting', 'media_interview'],
-  confidence_building: ['board_meeting', 'investor_pitch', 'all_hands', 'speaking_engagement'],
-  // RENEWAL SCENARIOS
-  personal_brand: ['all_hands', 'media_interview', 'conference_keynote', 'panel'],
-  transition: ['first_day', 'onboarding', 'introduction_meeting'],
+  // ======== CLARITY SCENARIOS ========
+  stakeholder_management: ['board_meeting', 'investor_call', 'shareholder_meeting', 'all_hands', 'strategic_planning'],
+  difficult_conversation: ['one_on_one', 'performance_review', 'termination', 'difficult_conversation', 'team_conflict'],
+  giving_feedback: ['performance_review', 'one_on_one', 'skip_level_meeting'],
+  receiving_feedback: ['performance_review', 'board_feedback', '360_review', 'investor_feedback'],
+  handling_difficult_questions: ['board_meeting', 'investor_call', 'media_interview', 'all_hands', 'press_conference'],
+  decision_making: ['strategic_planning', 'board_meeting', 'leadership_team_meeting'],
+  time_management: ['strategic_planning', 'calendar_review'],
+  goal_setting: ['strategic_planning', 'okr_planning', 'quarterly_review'],
+  // ======== RECALIBRATION SCENARIOS ========
+  rumination: ['board_meeting', 'investor_call', 'performance_review', 'strategic_planning', 'crisis_meeting'],
+  conflict_avoidance: ['one_on_one', 'difficult_conversation', 'team_conflict', 'performance_review'],
+  people_pleasing: ['board_meeting', 'stakeholder_meeting', 'all_hands', 'investor_call'],
+  emotional_regulation: ['board_meeting', 'crisis_meeting', 'media_interview', 'investor_call', 'termination'],
+  boundary_management: ['one_on_one', 'all_hands', 'stakeholder_meeting'],
+  owning_rest: ['vacation', 'personal_time', 'weekend'],
+  confidence_building: ['board_meeting', 'investor_pitch', 'all_hands', 'speaking_engagement', 'media_interview'],
+  self_forgiveness: ['performance_review', 'board_feedback', 'post_mortem'],
+  // ======== RENEWAL SCENARIOS ========
+  personal_brand: ['all_hands', 'media_interview', 'conference_keynote', 'panel', 'speaking_engagement'],
+  identity_transition: ['first_day', 'onboarding', 'introduction_meeting', 'role_change_announcement'],
+  reinvention: ['strategic_planning', 'offsites', 'leadership_retreat'],
+  purpose_meaning: ['strategic_planning', 'leadership_retreat', 'personal_reflection'],
+  legacy_thinking: ['board_meeting', 'strategic_planning', 'succession_planning'],
+  career_planning: ['performance_review', 'career_discussion', 'mentoring_session'],
+  transition: ['first_day', 'last_day', 'announcement_meeting', 'handover_meeting'],
 };
 
 serve(async (req) => {
@@ -95,22 +106,33 @@ ${userMessages.map((m, i) => `${i + 1}. "${m}"`).join('\n')}
 
 Identify which of these scenarios are present:
 
+CLARITY SCENARIOS:
+- stakeholder_management (board, investors, team alignment)
+- difficult_conversation (firing, performance issues, conflict)
+- giving_feedback
+- receiving_feedback
+- handling_difficult_questions
+- decision_making (strategic choices, prioritization)
+- time_management (calendar overwhelm, priorities)
+- goal_setting (OKRs, quarterly planning)
+
 RECALIBRATION SCENARIOS:
 - rumination (cycling on decisions, unable to let go)
 - people_pleasing (difficulty disappointing others, saying no)
 - conflict_avoidance (dodging hard conversations)
 - emotional_regulation (staying composed under pressure)
+- boundary_management (protecting personal time/space)
+- owning_rest (guilt about rest, inability to disconnect)
 - confidence_building (imposter syndrome, self-doubt)
-
-CLARITY SCENARIOS:
-- stakeholder_management (board, investors, team)
-- difficult_conversation (firing, performance issues)
-- giving_feedback
-- receiving_feedback
-- handling_difficult_questions
+- self_forgiveness (harsh self-criticism, dwelling on mistakes)
 
 RENEWAL SCENARIOS:
 - personal_brand (reputation, how perceived)
+- identity_transition (stepping into new role identity)
+- reinvention (reimagining approach, pivoting strategy)
+- purpose_meaning (searching for deeper purpose)
+- legacy_thinking (long-term impact, what you leave behind)
+- career_planning (next career moves, growth path)
 - transition (role changes, company changes)
 
 For each scenario detected with confidence >= 0.7, return:
