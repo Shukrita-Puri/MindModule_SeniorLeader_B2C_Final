@@ -14,6 +14,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const SCENARIO_EVENT_MAPPING: Record<string, string[]> = {
+  stakeholder_management: ['board_meeting', 'investor_call', 'shareholder_meeting', 'all_hands', 'strategic_planning'],
+  difficult_conversation: ['one_on_one', 'performance_review', 'termination', 'difficult_conversation', 'team_conflict'],
+  giving_feedback: ['performance_review', 'one_on_one', 'skip_level_meeting'],
+  receiving_feedback: ['performance_review', 'board_feedback', '360_review', 'investor_feedback'],
+  handling_difficult_questions: ['board_meeting', 'investor_call', 'media_interview', 'all_hands', 'press_conference'],
+  decision_making: ['strategic_planning', 'board_meeting', 'leadership_team_meeting'],
+  time_management: ['strategic_planning', 'calendar_review'],
+  goal_setting: ['strategic_planning', 'okr_planning', 'quarterly_review'],
+  rumination: ['board_meeting', 'investor_call', 'performance_review', 'strategic_planning', 'crisis_meeting'],
+  conflict_avoidance: ['one_on_one', 'difficult_conversation', 'team_conflict', 'performance_review'],
+  people_pleasing: ['board_meeting', 'stakeholder_meeting', 'all_hands', 'investor_call'],
+  emotional_regulation: ['board_meeting', 'crisis_meeting', 'media_interview', 'investor_call', 'termination'],
+  boundary_management: ['one_on_one', 'all_hands', 'stakeholder_meeting'],
+  owning_rest: ['vacation', 'personal_time', 'weekend'],
+  confidence_building: ['board_meeting', 'investor_pitch', 'all_hands', 'speaking_engagement', 'media_interview'],
+  self_forgiveness: ['performance_review', 'board_feedback', 'post_mortem'],
+  personal_brand: ['all_hands', 'media_interview', 'conference_keynote', 'panel', 'speaking_engagement'],
+  identity_transition: ['first_day', 'onboarding', 'introduction_meeting', 'role_change_announcement'],
+  reinvention: ['strategic_planning', 'offsites', 'leadership_retreat'],
+  purpose_meaning: ['strategic_planning', 'leadership_retreat', 'personal_reflection'],
+  legacy_thinking: ['board_meeting', 'strategic_planning', 'succession_planning'],
+  career_planning: ['performance_review', 'career_discussion', 'mentoring_session'],
+  transition: ['first_day', 'last_day', 'announcement_meeting', 'handover_meeting'],
+};
+
 function inferToolType(description: string): string {
   if (/ask|question/i.test(description)) return 'question';
   if (/breathing|breath|somatic/i.test(description)) return 'protocol';
@@ -129,6 +155,9 @@ Only include clear, actionable tools with confidence. Return as JSON array. Empt
       const checkInAt = new Date();
       checkInAt.setDate(checkInAt.getDate() + checkInDays);
 
+      const scenarioKey = tool.scenario || '';
+      const eventTypes = SCENARIO_EVENT_MAPPING[scenarioKey] || [];
+
       const { error } = await supabase
         .from('coach_tools_offered')
         .insert({
@@ -139,6 +168,7 @@ Only include clear, actionable tools with confidence. Return as JSON array. Empt
           tool_type: inferToolType(tool.tool_description || tool.tool_name),
           commitment_timeframe: tool.commitment_timeframe || null,
           scenario: tool.scenario || null,
+          event_types: eventTypes,
           offered_at: new Date().toISOString(),
           check_in_at: checkInAt.toISOString(),
           status: 'pending',
