@@ -405,6 +405,12 @@ serve(async (req) => {
       patternLine = `Your wins over the past 14 days most reflect ${top.value}`;
     }
 
+    // BUG 2 fix: Include win content in response for Auth path
+    const winsContent = (updatedWins || []).map(w => ({
+      content: w.win_content,
+      date: new Date(w.win_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }));
+
     return new Response(JSON.stringify({ 
       data: { 
         dimensions,
@@ -412,6 +418,7 @@ serve(async (req) => {
         patternLine,
         summary: `You've captured ${wins.length} wins in the past ${days} days.`,
         winsCount: wins.length,
+        winsContent,
       } 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

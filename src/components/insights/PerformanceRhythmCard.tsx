@@ -121,9 +121,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .eq('user_id', effectiveUserId)
             .gte('ritual_date', thirtyDaysAgo),
           supabase
-            .from('dialogue_messages')
-            .select('content, sender_type, session_id')
-            .limit(200),
+            .from('dialogue_sessions')
+            .select('id')
+            .eq('user_id', effectiveUserId)
+            .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
         ]);
 
         const checkIns = checkInsRes.data || [];
@@ -132,7 +133,17 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const behaviorLogs = behaviorRes.data || [];
         const readinessScores = readinessRes.data || [];
         const rituals = ritualsRes.data || [];
-        const dialogueMessages = dialogueRes.data || [];
+
+        // BUG 5 fix: Scope dialogue_messages by user's session IDs
+        const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
+        let dialogueMessages: any[] = [];
+        if (userSessionIds.length > 0) {
+          const { data: msgs } = await supabase
+            .from('dialogue_messages')
+            .select('content, sender_type, session_id')
+            .in('session_id', userSessionIds);
+          dialogueMessages = msgs || [];
+        }
 
         // Helper
         const isSameDay = (a: string, b: string) => a.split('T')[0] === b.split('T')[0];
@@ -163,7 +174,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         );
         for (const s of readinessScores) {
           const date = new Date(s.score_date);
-          const tw = getTimeWindow(date.getHours());
+          // BUG 6 fix: Use time_of_day column instead of parsing hours from date-only score_date
+          const tw = s.time_of_day === 'morning' ? 0 : s.time_of_day === 'afternoon' ? 1 : 2;
           const di = getDayIndex(date.getDay());
           cellComposites[tw][di].push(s.composite_score);
         }

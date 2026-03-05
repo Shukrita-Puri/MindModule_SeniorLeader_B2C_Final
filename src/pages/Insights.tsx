@@ -383,6 +383,10 @@ const Insights = () => {
       });
       if (!error && data?.data) {
         setTinyWinsInsights(data.data);
+        // BUG 2 fix: Populate tinyWinsContent from EF response
+        if (data.data.winsContent) {
+          setTinyWinsContent(data.data.winsContent);
+        }
       }
     } catch (error) {
       console.error('Error fetching tiny wins insights:', error);
@@ -449,13 +453,26 @@ const Insights = () => {
     try {
       // DEV_MODE: Extract themes from actual data
       if (DEV_MODE) {
-        // Query dialogue_messages for coach conversation content
-        const { data: messages } = await supabase
-          .from('dialogue_messages')
-          .select('content, session_id')
-          .eq('sender_type', 'user')
-          .order('timestamp', { ascending: false })
-          .limit(50);
+        // BUG 5 fix: Scope dialogue_messages by user's session IDs
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const { data: userSessions } = await supabase
+          .from('dialogue_sessions')
+          .select('id')
+          .eq('user_id', DEV_USER.id)
+          .gte('created_at', thirtyDaysAgo.toISOString());
+        const sessionIds = (userSessions || []).map((s: any) => s.id);
+        let messages: any[] = [];
+        if (sessionIds.length > 0) {
+          const { data: msgs } = await supabase
+            .from('dialogue_messages')
+            .select('content, session_id')
+            .eq('sender_type', 'user')
+            .in('session_id', sessionIds)
+            .order('timestamp', { ascending: false })
+            .limit(50);
+          messages = msgs || [];
+        }
 
         // Query tiny_wins for win content
         const { data: recentWins } = await supabase
