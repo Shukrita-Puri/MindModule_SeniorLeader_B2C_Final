@@ -822,39 +822,48 @@ export type Database = {
       }
       coach_scenarios_detected: {
         Row: {
+          confidence_score: number | null
           created_at: string | null
           detected_at: string | null
           dimension: string | null
           event_types: string[] | null
+          evidence: string | null
           id: string
           resolved: boolean | null
           resolved_at: string | null
           resolved_reason: string | null
           scenario: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
+          confidence_score?: number | null
           created_at?: string | null
           detected_at?: string | null
           dimension?: string | null
           event_types?: string[] | null
+          evidence?: string | null
           id?: string
           resolved?: boolean | null
           resolved_at?: string | null
           resolved_reason?: string | null
           scenario: string
+          session_id?: string | null
           user_id: string
         }
         Update: {
+          confidence_score?: number | null
           created_at?: string | null
           detected_at?: string | null
           dimension?: string | null
           event_types?: string[] | null
+          evidence?: string | null
           id?: string
           resolved?: boolean | null
           resolved_at?: string | null
           resolved_reason?: string | null
           scenario?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -923,12 +932,17 @@ export type Database = {
       }
       coach_tools_offered: {
         Row: {
+          check_in_at: string | null
+          commitment_timeframe: string | null
           created_at: string | null
           event_types: string[] | null
           expires_at: string | null
           id: string
           offered_at: string | null
+          scenario: string | null
           session_id: string | null
+          status: string | null
+          tool_description: string | null
           tool_name: string
           tool_type: string | null
           used_at: string | null
@@ -936,12 +950,17 @@ export type Database = {
           was_used: boolean | null
         }
         Insert: {
+          check_in_at?: string | null
+          commitment_timeframe?: string | null
           created_at?: string | null
           event_types?: string[] | null
           expires_at?: string | null
           id?: string
           offered_at?: string | null
+          scenario?: string | null
           session_id?: string | null
+          status?: string | null
+          tool_description?: string | null
           tool_name: string
           tool_type?: string | null
           used_at?: string | null
@@ -949,12 +968,17 @@ export type Database = {
           was_used?: boolean | null
         }
         Update: {
+          check_in_at?: string | null
+          commitment_timeframe?: string | null
           created_at?: string | null
           event_types?: string[] | null
           expires_at?: string | null
           id?: string
           offered_at?: string | null
+          scenario?: string | null
           session_id?: string | null
+          status?: string | null
+          tool_description?: string | null
           tool_name?: string
           tool_type?: string | null
           used_at?: string | null

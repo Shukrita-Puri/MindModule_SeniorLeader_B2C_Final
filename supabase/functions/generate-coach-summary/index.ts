@@ -212,35 +212,15 @@ Return ONLY the JSON object.`
       if (!updateError) commitmentsUpdated++;
     }
 
-    // === GAP FIX #1: Write tools/practices offered to coach_tools_offered ===
-    const practicesRecommended: string[] = summary.practices_recommended || [];
-    if (practicesRecommended.length > 0) {
-      const toolRows = practicesRecommended.map(tool => ({
-        user_id: userId,
-        session_id: sessionId,
-        tool_name: tool,
-        tool_type: tool.toLowerCase().includes('breathing') || tool.toLowerCase().includes('box') ? 'protocol'
-          : tool.toLowerCase().includes('framework') || tool.toLowerCase().includes('model') ? 'framework'
-          : 'practice',
-      }));
+    // Tools/practices are now handled by dedicated extract-tool-commitments EF
 
-      const { error: toolError } = await supabase
-        .from('coach_tools_offered')
-        .insert(toolRows);
-
-      if (toolError) {
-        console.error('[generate-coach-summary] Tool insert error:', toolError);
-      }
-    }
-
-    console.log(`[generate-coach-summary] Summary stored for session ${sessionId}, ${commitmentsUpdated} commitments updated, ${practicesRecommended.length} tools recorded`);
+    console.log(`[generate-coach-summary] Summary stored for session ${sessionId}, ${commitmentsUpdated} commitments updated`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       summary: summary.summary_text,
       commitments: commitments.length,
       commitmentsUpdated,
-      toolsRecorded: practicesRecommended.length,
       recurringThemes,
       newThemes
     }), {
