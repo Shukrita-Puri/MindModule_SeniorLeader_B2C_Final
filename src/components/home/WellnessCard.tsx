@@ -1,32 +1,32 @@
 
-import { useRef, useEffect, useState } from "react";
+import { useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, ChevronLeft, ChevronRight, Sun, Activity, Zap, Heart, Moon, Target, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getTodayCheckin } from "@/utils/dailyCheckins";
 
 const WellnessCard = () => {
   const wellnessScrollRef = useRef<HTMLDivElement>(null);
-  const [checkInData, setCheckInData] = useState<any>(null);
 
-  useEffect(() => {
-    // Load daily check-in data from localStorage
-    const storedCheckIn = localStorage.getItem('dailyCheckIn');
-    if (storedCheckIn) {
-      const data = JSON.parse(storedCheckIn);
-      // Only show if it's from today
-      if (data.date === new Date().toDateString()) {
-        setCheckInData(data);
-      }
-    }
-  }, []);
+  const { data: checkInData } = useQuery({
+    queryKey: ['today-checkin'],
+    queryFn: getTodayCheckin,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    select: (data) => data ? {
+      energy: data.energy_balance,
+      mood: data.outcome,
+      focus: data.clarity_level ? ['Low', 'Below Avg', 'Average', 'Good', 'High'][data.clarity_level - 1] : null,
+    } : null,
+  });
 
   const wellnessData = [
     { label: "Sun Time", value: "2.5 hrs", icon: Sun, color: "text-yellow-600" },
     { label: "Movement", value: "8,247 steps", icon: Activity, color: "text-green-600" },
-    { label: "Energy", value: checkInData ? `${checkInData.energy}/10` : "Good", icon: Zap, color: "text-blue-600" },
-    { label: "Emotion", value: checkInData ? checkInData.mood.charAt(0).toUpperCase() + checkInData.mood.slice(1) : "Focused", icon: Heart, color: "text-red-600" },
+    { label: "Energy", value: checkInData?.energy ? `${checkInData.energy}/10` : "Good", icon: Zap, color: "text-blue-600" },
+    { label: "Emotion", value: checkInData?.mood ? checkInData.mood.charAt(0).toUpperCase() + checkInData.mood.slice(1) : "Focused", icon: Heart, color: "text-red-600" },
     { label: "Sleep", value: "7.2 hrs", icon: Moon, color: "text-purple-600" },
-    { label: "Focus", value: checkInData ? checkInData.focus : "Low", icon: Target, color: "text-forest" }
+    { label: "Focus", value: checkInData?.focus || "Low", icon: Target, color: "text-forest" }
   ];
 
   const scrollWellness = (direction: 'left' | 'right') => {

@@ -29,11 +29,13 @@ const CheckInDetail = () => {
     setSaving(true);
     try {
       if (DEV_MODE) {
+        const { getCurrentTimeWindow } = await import('@/utils/dailyCheckins');
         await supabase
           .from('daily_checkins')
           .update({ clarity_level: clarity, confidence_level: confidence })
           .eq('user_id', DEV_USER.id)
-          .eq('checkin_date', checkinDate);
+          .eq('checkin_date', checkinDate)
+          .eq('time_window', timeWindow || getCurrentTimeWindow());
       } else {
         const accessToken = await getAccessToken();
         if (!accessToken) {

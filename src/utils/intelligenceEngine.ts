@@ -324,10 +324,10 @@ function detectPracticePattern(practiceHistory: any[]) {
 }
 
 // Daily Ritual Recommendation
-export function getDailyRitualRecommendation(energyState: any) {
+// checkInData: pass already-fetched check-in from server. If omitted, assumes no check-in.
+export function getDailyRitualRecommendation(energyState: any, checkInData?: { outcome?: string; timestamp?: string } | null) {
   const hour = new Date().getHours();
-  const checkIn = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
-  const hasCheckIn = checkIn.timestamp && new Date(checkIn.timestamp).toDateString() === new Date().toDateString();
+  const hasCheckIn = !!(checkInData?.outcome && checkInData?.timestamp && new Date(checkInData.timestamp).toDateString() === new Date().toDateString());
   
   // If no check-in in morning, prompt for it
   if (hour < 12 && !hasCheckIn) {

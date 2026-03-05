@@ -282,6 +282,7 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
       }
 
       console.log('[dailyCheckins] DEV_MODE save SUCCESS:', data);
+      localStorage.setItem('hasEverCheckedIn', 'true');
       return data as CheckinData;
     } catch (error) {
       console.error('[dailyCheckins] DEV_MODE failed to save checkin:', error);
@@ -305,7 +306,11 @@ export async function saveCheckin(checkinData: Omit<CheckinData, 'id' | 'user_id
     });
 
     if (error) throw error;
-    return data?.data || null;
+    const result = data?.data || null;
+    if (result) {
+      localStorage.setItem('hasEverCheckedIn', 'true');
+    }
+    return result;
   } catch (error) {
     console.error('[dailyCheckins] Failed to save checkin:', error);
     return null;

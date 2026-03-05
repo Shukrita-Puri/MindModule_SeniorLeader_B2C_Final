@@ -150,7 +150,8 @@ export async function uploadOfflineEvents() {
   }
 }
 
-export function getEnrichedContextData(): {
+// checkInOutcome: pass already-fetched check-in outcome from server. Callers have this from energy state or React Query.
+export function getEnrichedContextData(checkInOutcome?: string): {
   timeOfDay: string;
   dayOfWeek: string;
   checkInOutcome?: string;
@@ -172,19 +173,12 @@ export function getEnrichedContextData(): {
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayOfWeek = daysOfWeek[now.getDay()];
   
-  // Get check-in data
-  const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
-  const checkInOutcome = checkInData.outcome;
-  
-  // Get Oura data (if connected)
+  // Get Oura data (ephemeral signal — acceptable in localStorage)
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
   const ouraReadiness = ouraData.readiness;
   
-  // Get calendar events
+  // Get calendar events (ephemeral signal — acceptable in localStorage)
   const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
-  
-  // Get energy state from check-in
-  const energyState = checkInData.displayOutcome || checkInOutcome;
   
   return {
     timeOfDay,
@@ -192,7 +186,7 @@ export function getEnrichedContextData(): {
     checkInOutcome,
     ouraReadiness,
     calendarEvents: calendarEvents.slice(0, 3), // Next 3 events
-    energyState
+    energyState: checkInOutcome
   };
 }
 
