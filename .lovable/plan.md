@@ -1,117 +1,97 @@
 
 
-## Full Audit: localStorage Sensitive Data, Tag Mapping, DEV_MODE RLS, and Auth User Login Flow
-
-### AUDIT RESULTS
+## Audit Results: Daily Check-In Feature + Calendar Data Flow
 
 ---
 
-### 1. Tag Mapping Mismatch — CONFIRMED BROKEN (Critical)
+### COMPUTE-OUTER-READINESS: Calendar Load/Pressure Flow — VERIFIED CLEAN
 
-**`checkInToTags.ts`** maps legacy keys: `pause`, `power-up`, `presence`, `calm`, `ready`
-**`DailyCheckIn.tsx`** sends modern outcomes: `overwhelmed`, `drained`, `steady`, `scattered`, `focused`
+The full chain is working correctly:
 
-**Result:** Only `scattered` partially maps (to `presence` fallback). All others fall through to default `pause` mapping:
-- `overwhelmed` → `pause` (accidentally OK)
-- `drained` → `pause` (wrong — should map like `power-up`)
-- `steady` → `pause` (wrong — should map like `ready`)
-- `focused` → `pause` (wrong — should map like `ready`)
+1. `energyStateEngine.ts` (lines 161-177) fetches calendar events from DB → computes `calendarLoad`/`calendarPressure` via `getCalendarMetrics()` (lines 227-230)
+2. `useOuterReadiness.ts` (lines 59-60) passes `energyState.calendarLoad` and `energyState.calendarPressure` to the EF
+3. `compute-outer-readiness` EF (lines 514-518) destructures `calendarLoad` and `calendarPressure` from the request body
+4. EF uses them in `getTheme()` (line 557) which has full 40-theme matrix covering all tier × load × pressure combinations
+5. EF persists them to `daily_themes` table (lines 589-590)
+6. EF builds `dataSources` array with 'calendar' when load/pressure are non-null (line 485)
 
-**Consumers affected:**
-- `recommendationEngine.ts` — uses `mapCheckInToTags()` and `getRecommendationReasoning()` (also uses legacy keys `pause`, `power-up`, etc.)
-- `energyStateEngine.ts` — uses `getEnergyStateFromCheckIn()` 
-- Downstream: mastery plan, coach context, JIT recommendations all receive wrong energy/state tags
+**No issues found.** The calendar → energy state → outer readiness pipeline is fully functional.
 
-**Fix:** Add modern outcome keys to both `mapCheckInToTags()` and `getEnergyStateFromCheckIn()`:
+---
 
-```text
-'overwhelmed' → same as 'pause' (EXCESS_FIRE, TENSE)
-'drained'     → same as 'power-up' (LOW_FIRE, FATIGUED)
-'scattered'   → same as 'presence' (EXCESS_AIR, SCATTERED)
-'steady'      → BALANCED, BALANCED (new — mid-range)
-'focused'     → same as 'ready' (BALANCED, BALANCED)
+### DAILY CHECK-IN BUGS FOUND
+
+#### BUG 1: `saveCheckin` Returns `null` Without Throwing — Silent Auth Failure (HIGH)
+
+**File:** `src/utils/dailyCheckins.ts` line 295
+**Issue:** When `getAuthToken()` returns null, `saveCheckin` returns `null` silently. `DailyCheckIn.tsx` catches thrown errors (line 154) but does NOT check for a `null` return value. The user sees no error and navigates to `/check-in-detail` with unsaved data.
+
+```typescript
+// dailyCheckins.ts line 294-295
+const accessToken = await getAuthToken();
+if (!accessToken) return null;  // Silent failure — no throw
 ```
 
-Also update `getRecommendationReasoning()` in `recommendationEngine.ts` to include new outcome keys.
+```typescript
+// DailyCheckIn.tsx line 137 — doesn't check return value
+await saveCheckin({...});  // null return = success path taken
+```
+
+**Fix:** In `DailyCheckIn.tsx`, check the return value of `saveCheckin`. If null, show error toast and don't navigate.
+
+#### BUG 2: UTC Date Gap — Evening Check-Ins Recorded as Next Day (MEDIUM)
+
+**File:** `DailyCheckIn.tsx` line 124
+**Issue:** `checkinDate` is computed as `new Date().toISOString().split('T')[0]` which is UTC. A user in UTC-8 checking in at 10 PM local time gets `checkin_date = next day`. This breaks the "one check-in per time window per day" uniqueness constraint from the user's perspective — they could submit two "evening" check-ins (one at 10 PM local = next day UTC, one at 8 PM local = current day UTC).
+
+The Edge Function (`daily-checkins`) also computes `today` in UTC (line 90, 112, 162), so the mismatch is consistent server-side too. But the user experience is wrong — their "today" history shows yesterday's evening check-in as missing.
+
+**Fix:** Compute `checkinDate` using local date instead of UTC:
+```typescript
+const now = new Date();
+const checkinDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+```
+And pass `timezoneOffset` to the Edge Function so it can compute the correct local date server-side.
+
+#### BUG 3: `canCheckInNow()` Is Never Called (LOW)
+
+**File:** `src/utils/dailyCheckins.ts` line 37
+**Issue:** `canCheckInNow()` exists but is not imported or called anywhere. `DailyCheckIn.tsx` always renders and allows submission regardless of whether the user already checked in for the current time window. The upsert prevents duplicates, but the user gets no feedback that they've already checked in — they just overwrite their previous check-in silently.
+
+**Fix:** Call `canCheckInNow()` in `DailyCheckIn.tsx` on mount. If `canCheckIn === false`, show the existing check-in outcome and offer to update or skip to home.
+
+#### BUG 4: `compute-inner-readiness` Called Without Auth Token (MEDIUM)
+
+**File:** `energyStateEngine.ts` line 203
+**Issue:** `supabase.functions.invoke('compute-inner-readiness', {...})` is called without an Authorization header. The EF config may have `verify_jwt = false`, but this means the EF has no way to identify the user. If it needs user context, it's broken. If it doesn't need user context (pure scoring), it's fine but exposes a public endpoint.
+
+**Fix:** Pass the Auth0 token in the headers, same as other EF calls.
 
 ---
 
-### 2. DEV_MODE RLS Policies in Production — CONFIRMED (Critical)
+### CALENDAR END-TO-END FLOW — VERIFIED
 
-**12+ RLS policies** allow anyone with the anon key to read/write as `dev-user-123` on these tables:
-- `daily_checkins` (SELECT, INSERT, UPDATE)
-- `profiles` (SELECT, INSERT, UPDATE)
-- `tiny_wins` (SELECT)
-- `dialogue_sessions` (SELECT, INSERT, UPDATE)
-- `dialogue_messages` (SELECT, INSERT via session join)
-- `detected_signals` (SELECT via session join)
-- `daily_ritual_completions` (SELECT, INSERT, UPDATE)
-- `user_favorites` (SELECT, INSERT, DELETE)
-- `practice_sessions` (INSERT, SELECT)
-- `coach_intervention_outcomes` (ALL)
-
-**Fix:** Create a migration to DROP all `dev-user-123` policies. DEV_MODE code paths already use direct Supabase client calls which will work via service role in EFs. For local development, developers should use the service role key directly.
+| Step | Status |
+|------|--------|
+| Google Calendar OAuth → `calendar-auth` EF | CLEAN |
+| `sync-calendar` EF → writes to `calendar_events` DB | CLEAN |
+| RLS: `Users can view own calendar events` SELECT policy | CONFIRMED |
+| `energyStateEngine.ts` → DB fetch (next 4h events) | CLEAN |
+| `getCalendarMetrics()` → load/pressure computation | CLEAN |
+| `useOuterReadiness` → passes load/pressure to EF | CLEAN |
+| `compute-outer-readiness` EF → uses in `getTheme()` | CLEAN |
+| Home page mastery plan receives load/pressure | CLEAN |
 
 ---
 
-### 3. Remaining localStorage Reads of Sensitive Data
+### IMPLEMENTATION PLAN
 
-#### Sensitive — Should Migrate to Server
+| # | Fix | Severity | File |
+|---|-----|----------|------|
+| 1 | Check `saveCheckin` return value — show error if null | HIGH | `DailyCheckIn.tsx` |
+| 2 | Use local date instead of UTC for `checkinDate` | MEDIUM | `DailyCheckIn.tsx` |
+| 3 | Call `canCheckInNow()` on mount — show already-checked-in state | LOW | `DailyCheckIn.tsx` |
+| 4 | Add Auth token to `compute-inner-readiness` call | MEDIUM | `energyStateEngine.ts` |
 
-| File | Key | Data Type | Status |
-|------|-----|-----------|--------|
-| `intelligenceEngine.ts` | `practiceHistory`, `recalibrateHistory`, `quickWins`, `mentalFitnessScore`, `checkInHistory` | Practice/scoring data | **Deprecated file** — not imported. No fix needed, remove file. |
-| `mentalFitnessEngine.ts` | `dailyRitualHistory`, `practiceHistory`, `recalibrateHistory`, `mentalFitnessBaseline` | Scoring data | **Deprecated file** (marked line 2) — not imported. No fix needed, remove file. |
-
-#### Non-Sensitive — Acceptable in localStorage
-
-| File | Key | Purpose | Verdict |
-|------|-----|---------|---------|
-| `onboardingStatus.ts` | `hasEverCheckedIn`, `selectedPlan`, `contextConnections`, `mind_module_onboarding` | Onboarding gate flags | **OK** — non-sensitive booleans/flow state |
-| `onboardingStorage.ts` | `mind_module_onboarding` | Pre-signup session data | **OK** — anonymous session, cleared on signup |
-| `energyStateEngine.ts` | `wearableData` | Ephemeral HRV signal | **OK** — per architecture standard |
-| `sanctuaryEventTracking.ts` | `ouraData`, `sanctuaryEvents` (offline queue) | Ephemeral signal + offline buffer | **OK** |
-| `practiceCompletionTracker.ts` | `todayRecommendedIds`, `practiceQueue` | UI queue state | **OK** — non-sensitive transient |
-| `GuidedPracticePlayer.tsx` | `practiceQueue`, `jitInterventionData`, `todayRecommendedIds` | UI navigation state | **OK** |
-| `MicroPracticePlayerCards.tsx` | `practiceQueue`, `jitInterventionData`, `todayRecommendedIds` | UI navigation state | **OK** |
-| `dailyCheckins.ts` | `hasEverCheckedIn` (write only) | Lightweight flag | **OK** |
-
-**Verdict:** No active files read sensitive data from localStorage. The two deprecated files (`intelligenceEngine.ts`, `mentalFitnessEngine.ts`) are dead code — not imported by any active component.
-
----
-
-### 4. Auth User Login Flow — Daily Check-In Routing
-
-**Current flow for signed-up users:**
-1. User logs in → `AuthCallback.tsx` → redirects to `/daily-check-in` (line 118, 153)
-2. `/daily-check-in` is wrapped in `<ProtectedRoute><OnboardingGuard>` (App.tsx line 102)
-3. `ProtectedRoute` verifies Auth0 authentication
-4. `OnboardingGuard` checks onboarding completion via `onboarding_progress` DB table
-5. If onboarding incomplete → redirects to resume point
-6. If complete → renders `DailyCheckIn.tsx`
-
-**Multi-window check-in:** The daily check-in uses `time_window` (`morning`, `afternoon`, `evening`) with a unique constraint on `(user_id, checkin_date, time_window)`. Users can check in up to 3 times per day. The routing doesn't force re-check-in if one window is already done — `DailyCheckIn.tsx` always renders and allows the user to check in for the current time window.
-
-**This is correct behavior** — users always land on check-in on login, can submit for current window, then proceed to home.
-
----
-
-### 5. Silent Failures (High)
-
-Both `DailyCheckIn.tsx` and `CheckInDetail.tsx` navigate away regardless of save success. No error toast is shown to the user. The `handleSave` in `CheckInDetail.tsx` catches errors but still calls `navigate('/executive-home')`.
-
-**Fix:** Add error toasts and only navigate on success.
-
----
-
-### Implementation Plan
-
-| # | Change | Severity | Files |
-|---|--------|----------|-------|
-| 1 | **Fix tag mapping** — add `overwhelmed`, `drained`, `steady`, `scattered`, `focused` keys | Critical | `checkInToTags.ts`, `recommendationEngine.ts` |
-| 2 | **Remove DEV_MODE RLS policies** — DROP all `dev-user-123` policies from production | Critical | New DB migration |
-| 3 | **Add error handling** — show toast on save failure, only navigate on success | High | `DailyCheckIn.tsx`, `CheckInDetail.tsx` |
-| 4 | **Delete deprecated files** — remove dead `mentalFitnessEngine.ts` and `intelligenceEngine.ts` | Low | Delete 2 files |
-
-Files changed: `checkInToTags.ts`, `recommendationEngine.ts`, `DailyCheckIn.tsx`, `CheckInDetail.tsx`, 1 DB migration, delete 2 deprecated files.
+**Files changed:** `src/pages/DailyCheckIn.tsx`, `src/utils/energyStateEngine.ts`
 
