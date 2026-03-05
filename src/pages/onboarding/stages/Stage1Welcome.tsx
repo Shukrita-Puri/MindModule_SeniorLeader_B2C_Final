@@ -31,7 +31,7 @@ export default function Stage1Welcome() {
           This system changes that.
         </p>
         <p className="text-base text-foreground/90 font-body leading-relaxed">
-          Three minutes. Five questions.
+          Three minutes. Six questions.
         </p>
         <p className="text-base text-foreground/90 font-body leading-relaxed">
           Your answers build your performance profile across three areas:
