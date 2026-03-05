@@ -200,7 +200,17 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
   // 3. Call backend scoring function
   try {
+    // Get auth token for the EF call
+    let authHeaders: Record<string, string> = {};
+    if (!DEV_MODE) {
+      const token = await getAuth0Token();
+      if (token) {
+        authHeaders = { Authorization: `Bearer ${token}` };
+      }
+    }
+
     const response = await supabase.functions.invoke('compute-inner-readiness', {
+      headers: authHeaders,
       body: {
         checkInOutcome: hasCheckIn ? checkInOutcome : null,
         clarityLevel,

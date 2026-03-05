@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
+import { saveCheckin, getCurrentTimeWindow, canCheckInNow } from "@/utils/dailyCheckins";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
@@ -66,9 +66,21 @@ const DailyCheckIn = () => {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(2); // Start on "Okay / Steady"
+  const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
+  const [checkedInMessage, setCheckedInMessage] = useState('');
 
   // Check if user has active subscription
   const hasActiveSubscription = user?.subscription_status === 'active';
+
+  // Check if user already checked in for this time window
+  useEffect(() => {
+    canCheckInNow().then(result => {
+      if (!result.canCheckIn) {
+        setAlreadyCheckedIn(true);
+        setCheckedInMessage(result.reason || 'Already checked in.');
+      }
+    });
+  }, []);
 
   // Fetch connection status
   const { data: connections } = useQuery({
@@ -120,13 +132,14 @@ const DailyCheckIn = () => {
     // Track check-in engagement
     trackEngagement('check_in');
 
-    const timestamp = new Date().toISOString();
-    const checkinDate = timestamp.split('T')[0];
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const checkinDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const checkInData: CheckInData = {
       outcome,
       timestamp,
-      date: new Date().toDateString(),
+      date: now.toDateString(),
       skipped: false,
       completedFull: true
     };
@@ -134,7 +147,7 @@ const DailyCheckIn = () => {
     // Save to database (no localStorage for sensitive check-in data)
     const timeWindow = getCurrentTimeWindow();
     try {
-      await saveCheckin({
+      const result = await saveCheckin({
         checkin_date: checkinDate,
         time_window: timeWindow,
         outcome,
@@ -142,6 +155,16 @@ const DailyCheckIn = () => {
         timestamp,
         data_sources: { check_in: true }
       });
+
+      if (!result) {
+        toast({
+          title: 'Check-in failed',
+          description: 'Unable to save your check-in. Please sign in and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       console.log('[Check-In] Saved to database');
 
       // Invalidate energy-state query to force refetch
@@ -164,12 +187,14 @@ const DailyCheckIn = () => {
   const handleSkipToHome = async () => {
     if (user?.id) {
       try {
+        const now = new Date();
+        const skipDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const accessToken = await getAuthToken();
         await supabase.functions.invoke('user-events', {
           headers: { Authorization: `Bearer ${accessToken}` },
           body: {
             action: 'LOG_CHECKIN_SKIP',
-            skipDate: new Date().toISOString().split('T')[0],
+            skipDate,
             hasWearable: connections?.hasWearable || false,
             hasCalendar: connections?.hasCalendar || false
           }
@@ -192,6 +217,26 @@ const DailyCheckIn = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <FloatingNavigation />
 
+      {/* Already checked in banner */}
+      {alreadyCheckedIn && (
+        <div className="mx-4 mt-4 p-4 rounded-xl bg-muted border border-border text-center space-y-3">
+          <p className="text-sm text-muted-foreground">{checkedInMessage}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => setAlreadyCheckedIn(false)}
+              className="text-sm font-medium text-primary underline"
+            >
+              Update anyway
+            </button>
+            <button
+              onClick={() => navigate('/executive-home')}
+              className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg"
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+      )}
       {/* Hero Banner */}
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
