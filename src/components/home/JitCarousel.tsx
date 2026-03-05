@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
 import { supabase } from '@/integrations/supabase/client';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
-import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 
 interface PreEventModule {
   type: string;
@@ -45,7 +45,6 @@ interface JitCarouselProps {
 const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const userId = DEV_MODE ? DEV_USER.id : user?.id;
   const { isFavorite } = useFavorites();
 
   const [dismissed, setDismissed] = useState(false);
@@ -53,30 +52,30 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
   if (!preEventPlan || dismissed || snoozed) return null;
 
-  const handleDismiss = async () => {
-    setDismissed(true);
-    if (!userId) return;
+  const trackJitAction = async (action: 'dismissed' | 'snoozed') => {
     try {
-      await supabase.from('jit_preferences').insert({
-        user_id: userId,
-        event_type: preEventPlan.eventType,
-        action: 'dismissed',
-        event_title: preEventPlan.eventTitle,
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await supabase.functions.invoke('track-jit-skip', {
+        headers,
+        body: {
+          action,
+          eventType: preEventPlan.eventType,
+          eventTitle: preEventPlan.eventTitle,
+        }
       });
     } catch { /* silent */ }
   };
 
+  const handleDismiss = async () => {
+    setDismissed(true);
+    await trackJitAction('dismissed');
+  };
+
   const handleSnooze = async () => {
     setSnoozed(true);
-    if (!userId) return;
-    try {
-      await supabase.from('jit_preferences').insert({
-        user_id: userId,
-        event_type: preEventPlan.eventType,
-        action: 'snoozed',
-        event_title: preEventPlan.eventTitle,
-      });
-    } catch { /* silent */ }
+    await trackJitAction('snoozed');
   };
 
   const handleStartPrep = () => {

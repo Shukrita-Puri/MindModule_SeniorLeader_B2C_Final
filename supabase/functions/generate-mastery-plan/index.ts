@@ -1,9 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authenticateRequest } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+// ==================== RATE LIMITING ====================
+const rateLimitMap = new Map<string, { lastCall: number; cachedResponse: any }>();
+const RATE_LIMIT_COOLDOWN_MS = 30_000; // 30s per user
 
 // ==================== TYPES ====================
 
@@ -50,25 +55,28 @@ interface CalendarEvent {
 }
 
 interface PlanRequest {
+  // Verified server-side — NOT from client
   userId: string;
+  // Client-supplied signals (pre-computed by other EFs — accepted trust gap)
   innerReadinessTier: string;
   innerReadinessScore: number;
   outerReadinessPhrase: string;
   outerReadinessDriver: string;
   calendarLoad: string;
   calendarPressure: string;
-  calendarEvents: CalendarEvent[];
   favorites: string[];
   completedToday: string[];
   timezoneOffset: number;
   clarityLevel: number;
   confidenceLevel: number;
   checkInOutcome: string;
-  archetype: string;
+  wearableStress?: string;
+  // Server-fetched — populated inside generateMasteryPlan
+  calendarEvents: CalendarEvent[];
   coachInsights?: any[];
   effectiveContent?: string[];
   patternInsight?: { count: number; state: string };
-  wearableStress?: string;
+  archetype: string;
   practicePriorityTag?: string;
   pressureContextTag?: string;
 }
@@ -903,6 +911,82 @@ function getCoachPromptForContext(
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
 
+  // 0. Server-side upstream queries (moved from client to fix Auth0 RLS + trust gap)
+  // Calendar events — next 48h
+  try {
+    const now = new Date();
+    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const { data: events } = await supabaseClient
+      .from('calendar_events')
+      .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+      .eq('user_id', req.userId)
+      .gte('start_time', now.toISOString())
+      .lte('start_time', in48h.toISOString());
+    req.calendarEvents = (events || []).map((e: any) => ({
+      id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
+      isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring
+    }));
+  } catch { req.calendarEvents = []; }
+
+  // Check-in pattern — last 7 outcomes for consecutive-low detection
+  try {
+    const { data: checkins } = await supabaseClient
+      .from('daily_checkins')
+      .select('outcome')
+      .eq('user_id', req.userId)
+      .order('checkin_date', { ascending: false })
+      .limit(7);
+    if (checkins?.length) {
+      const first = checkins[0].outcome;
+      const lowStates = ['overwhelmed', 'drained', 'scattered'];
+      if (lowStates.includes(first)) {
+        let count = 1;
+        for (let i = 1; i < checkins.length; i++) {
+          if (checkins[i].outcome === first) count++; else break;
+        }
+        if (count >= 3) req.patternInsight = { count, state: first };
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Profile tags
+  try {
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('practice_priority_tag, pressure_context_tag, archetype')
+      .eq('id', req.userId)
+      .maybeSingle();
+    req.practicePriorityTag = profile?.practice_priority_tag || '';
+    req.pressureContextTag = profile?.pressure_context_tag || '';
+    req.archetype = profile?.archetype || '';
+  } catch { /* ignore */ }
+
+  // Effective content (4-5 star ratings)
+  try {
+    const { data: feedback } = await supabaseClient
+      .from('content_relevance_feedback')
+      .select('content_id')
+      .eq('user_id', req.userId)
+      .gte('star_rating', 4);
+    req.effectiveContent = feedback?.map((f: any) => f.content_id) || [];
+  } catch { req.effectiveContent = []; }
+
+  // Coach insights (active, confidence >= 0.6)
+  try {
+    const { data: insights } = await supabaseClient
+      .from('user_coach_insights')
+      .select('id, insight_type, insight_content, content_reference, confidence_score')
+      .eq('user_id', req.userId)
+      .eq('is_active', true)
+      .gte('confidence_score', 0.6)
+      .order('extracted_at', { ascending: false })
+      .limit(50);
+    req.coachInsights = (insights || []).map((r: any) => ({
+      id: r.id, type: r.insight_type, content: r.insight_content,
+      contentReference: r.content_reference || undefined, confidence: r.confidence_score || 0.5
+    }));
+  } catch { req.coachInsights = []; }
+
   // 1. Get skip preferences
   let skippedTypes: string[] = [];
   let skippedTypes3Plus: string[] = [];
@@ -1248,13 +1332,67 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body: PlanRequest = await req.json();
+    // Authentication — verify JWT and extract userId
+    let userId: string;
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (auth.errorResponse) {
+      // DEV_MODE bypass: allow fallback when not in production
+      const env = Deno.env.get('ENVIRONMENT') || '';
+      if (env !== 'production') {
+        const devHeader = req.headers.get('x-dev-user-id');
+        if (devHeader) {
+          userId = devHeader;
+          console.log(`[generate-mastery-plan] DEV bypass: userId=${userId}`);
+        } else {
+          return auth.errorResponse;
+        }
+      } else {
+        return auth.errorResponse;
+      }
+    } else {
+      userId = auth.userId;
+    }
+
+    // Rate limiting — 30s cooldown per user
+    const now = Date.now();
+    const cached = rateLimitMap.get(userId);
+    if (cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
+      console.log(`[generate-mastery-plan] Rate limited: ${userId} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      return new Response(JSON.stringify(cached.cachedResponse), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
+    const body = await req.json();
+    // Use verified userId, ignore body.userId
+    const planReq: PlanRequest = {
+      ...body,
+      userId,
+      // Initialize server-fetched fields (populated inside generateMasteryPlan)
+      calendarEvents: [],
+      coachInsights: [],
+      effectiveContent: [],
+      patternInsight: undefined,
+      archetype: '',
+      practicePriorityTag: '',
+      pressureContextTag: '',
+    };
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    const plan = await generateMasteryPlan(body, supabaseClient);
+    const plan = await generateMasteryPlan(planReq, supabaseClient);
+
+    // Cache response for rate limiting
+    rateLimitMap.set(userId, { lastCall: now, cachedResponse: plan });
+    // Evict stale entries (prevent memory leak)
+    if (rateLimitMap.size > 500) {
+      for (const [key, val] of rateLimitMap) {
+        if (now - val.lastCall > RATE_LIMIT_COOLDOWN_MS * 2) rateLimitMap.delete(key);
+      }
+    }
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

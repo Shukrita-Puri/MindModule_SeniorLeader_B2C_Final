@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE' | 'COMPLETE_PRACTICE';
+  action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE' | 'COMPLETE_PRACTICE' | 'DELETE_TODAY_RITUAL';
   startDate?: string;
   endDate?: string;
   practiceType?: 'soundscape' | 'guided_practice' | 'micro_exercise';
@@ -222,6 +222,27 @@ serve(async (req) => {
         console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
 
         return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'DELETE_TODAY_RITUAL': {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { error } = await supabase
+          .from('daily_ritual_completions')
+          .delete()
+          .eq('user_id', userId)
+          .eq('ritual_date', today);
+
+        if (error) {
+          console.error('[daily-rituals] DELETE_TODAY_RITUAL error:', error);
+          throw error;
+        }
+
+        console.log(`[daily-rituals] DELETE_TODAY_RITUAL success for ${userId} on ${today}`);
+
+        return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
