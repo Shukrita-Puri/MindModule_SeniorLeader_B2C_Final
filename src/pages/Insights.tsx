@@ -160,7 +160,7 @@ const Insights = () => {
   const mindMapReady = useMemo(() => {
     const coachSessions = semanticAnalysis?.unifiedThemes?.reduce((sum, t) => sum + t.sources.coach, 0) || 0;
     const totalPoints = checkInCount + (tinyWinsInsights?.winsCount || 0) + coachSessions;
-    return coachSessions >= 3 || (checkInCount >= 5 && (tinyWinsInsights?.winsCount || 0) >= 2) || totalPoints >= 5;
+    return totalPoints >= 3;
   }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
 
   useEffect(() => {
@@ -700,9 +700,9 @@ const Insights = () => {
   const getWinsProgressMessage = () => {
     const count = tinyWinsInsights?.winsCount || 0;
     if (count === 0) return 'Capture your first win during evening integration to start building your momentum map';
-    if (count === 1) return 'First win captured! Log 2 more to start seeing what patterns emerge';
-    if (count < 5) return `${count} wins so far — log ${5 - count} more and your momentum map will start to take shape`;
-    if (count < 10) return 'Your momentum map is building. At 10 wins, deeper patterns and an AI observation will appear';
+    if (count === 1) return 'First win captured! Log 2 more to see your dimension map';
+    if (count < 3) return `${count} wins so far — log ${3 - count} more for your dimension map`;
+    if (count < 5) return 'Your momentum map is building. At 5 wins, an AI observation will appear';
     return null;
   };
 
@@ -761,7 +761,7 @@ const Insights = () => {
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
                 {/* AI observation — only show at 10+ wins */}
-                {tinyWinsInsights.winsCount >= 10 && tinyWinsInsights.observation && (
+                {tinyWinsInsights.winsCount >= 5 && tinyWinsInsights.observation && (
                   <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                     <p className="text-sm text-foreground leading-relaxed">
                       {tinyWinsInsights.observation}
@@ -772,7 +772,7 @@ const Insights = () => {
                   <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
                 )}
                 {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
-                  tinyWinsInsights.winsCount >= 5 ? (
+                  tinyWinsInsights.winsCount >= 3 ? (
                     /* 5+ wins with dimensions: show full bubble chart */
                     <PsychologicalDimensionBubbles
                       data={tinyWinsInsights.dimensions.map(d => ({
@@ -816,7 +816,7 @@ const Insights = () => {
                     emptyMessage="Complete evening Integrate flow to capture wins"
                   />
                 )}
-                {tinyWinsInsights.patternLine && tinyWinsInsights.winsCount >= 5 && (
+                {tinyWinsInsights.patternLine && tinyWinsInsights.winsCount >= 3 && (
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tinyWinsInsights.patternLine}
                   </p>

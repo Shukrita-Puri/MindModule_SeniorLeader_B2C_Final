@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
     evolvedEN = Math.max(0, Math.min(100, Math.round(evolvedEN)));
 
     // ── Current archetype + evolution ──
-    const hasEnoughForCurrent = totalCheckins >= 7 && recentEB.length > 0 && recentCL.length > 0 && recentCF.length > 0;
+    const hasEnoughForCurrent = totalCheckins >= 5 && (recentCL.length > 0 || recentCF.length > 0);
 
     let currentScores: { recalibration: number; clarity: number; renewal: number } | null = null;
     let currentArch: ArchetypeResult | null = null;
@@ -427,7 +427,7 @@ Deno.serve(async (req) => {
     let aiObservation: string | null = null;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (LOVABLE_API_KEY && totalCheckins >= 5) {
+    if (LOVABLE_API_KEY && totalCheckins >= 3) {
       try {
         const themesStr = recurringThemes.map((t) => `"${t.phrase}" (${t.count}×)`).join(", ");
         const coachExcerpts = [coachStrength, coachFriction].filter(Boolean).join(" | ");
@@ -505,6 +505,8 @@ Deno.serve(async (req) => {
         baselineScores,
         currentScores,
         scoreDeltas,
+        scoresSource: hasEnoughForCurrent ? (totalCheckins >= 7 ? "evolved" : "onboarding") : null,
+        scoresNote: hasEnoughForCurrent && totalCheckins < 7 ? "Preliminary — baseline from onboarding. Deltas will refine as you check in." : null,
         frictionPct,
         frictionLabel,
         trendDirection,

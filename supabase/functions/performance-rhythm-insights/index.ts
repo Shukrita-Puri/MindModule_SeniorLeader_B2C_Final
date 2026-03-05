@@ -161,7 +161,7 @@ serve(async (req) => {
     for (let t = 0; t < 3; t++) {
       for (let d = 0; d < 7; d++) {
         const sc = cellComposites[t][d];
-        if (sc.length >= 2) {
+        if (sc.length >= 1) {
           const avg = Math.round(sc.reduce((a, b) => a + b, 0) / sc.length);
           if (!bestReadinessWindow || avg > bestReadinessWindow.avgScore) {
             bestReadinessWindow = { timeWindow: t, day: d, avgScore: avg, label: `${TIME_LABELS[t]} on ${DAYS[d]} (avg readiness: ${avg})` };
@@ -172,7 +172,7 @@ serve(async (req) => {
 
     // ── CALENDAR PATTERN (1B) ──
     let calendarInsight: string | null = null;
-    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 10) {
+    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
       const etCorr = new Map<string, { scores: number[]; count: number }>();
       for (const ev of calendarEvents) {
         if (!ev.title) continue;
@@ -191,7 +191,7 @@ serve(async (req) => {
       }
       const corrs: { et: string; avg: number; count: number }[] = [];
       etCorr.forEach((v, et) => {
-        if (v.count >= 3) corrs.push({ et, avg: v.scores.reduce((a, b) => a + b, 0) / v.count, count: v.count });
+        if (v.count >= 2) corrs.push({ et, avg: v.scores.reduce((a, b) => a + b, 0) / v.count, count: v.count });
       });
       corrs.sort((a, b) => a.avg - b.avg);
       const drain = corrs[0];
@@ -206,7 +206,7 @@ serve(async (req) => {
 
     // ── CAUSE-EFFECT (1C) ──
     let causeEffectInsight: string | null = null;
-    if (behaviorLogs.length >= 5 && checkIns.length > 0) {
+    if (behaviorLogs.length >= 3 && checkIns.length > 0) {
       const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
       for (const log of behaviorLogs) {
         const bd = new Date(log.created_at).toISOString().split("T")[0];
@@ -248,7 +248,7 @@ serve(async (req) => {
       dialogueMessages.filter(m => m.sender_type === "coach").map(m => m.session_id)
     ).size;
 
-    if (checkIns.length >= 10 && (highStakesEvents.length >= 2 || coachSessionCount >= 3)) {
+    if (checkIns.length >= 7 && (highStakesEvents.length >= 1 || coachSessionCount >= 2)) {
       const preEventDone = rituals.filter(r =>
         r.session_period === "pre-event" && r.completion_status === "full" &&
         highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))

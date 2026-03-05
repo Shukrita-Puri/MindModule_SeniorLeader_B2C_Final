@@ -151,7 +151,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
         let currentWatchFor = baselineArch.watchFor;
 
         // Use available dimensions — fall back to clarity/confidence as proxy for energy if missing
-        const hasEnoughData = totalCheckins >= 7 && recentCL.length > 0 && recentCF.length > 0;
+        const hasEnoughData = totalCheckins >= 5 && (recentCL.length > 0 || recentCF.length > 0);
         if (hasEnoughData) {
           const avgER = recentEB.length > 0
             ? Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length)
@@ -318,7 +318,7 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                   {renderDimensionRow('Renewal', data.baselineScores.renewal, data.currentScores?.renewal, data.scoreDeltas?.renewal, data.currentScores ? data.trendDirection : undefined)}
                   {!data.currentScores && (
                     <p className="text-[10px] text-muted-foreground/60 pt-1">
-                      Your current scores build after 7 check-ins
+                      Your current scores build after 5 check-ins
                     </p>
                   )}
                 </div>
