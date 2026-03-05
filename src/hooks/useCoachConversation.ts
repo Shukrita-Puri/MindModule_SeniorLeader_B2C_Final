@@ -527,6 +527,19 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             userId: user.id,
           }),
         }).catch(err => console.error('Tool commitment extraction failed:', err));
+
+        // 9. Resolve session commitments — updates pending commitment statuses based on conversation
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-session-commitments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).catch(err => console.error('Commitment resolution failed:', err));
       }
       
     } catch (error) {
