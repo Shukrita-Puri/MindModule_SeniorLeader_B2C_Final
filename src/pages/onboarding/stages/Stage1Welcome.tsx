@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, Lock } from "lucide-react";
+import { ArrowRight, Shield } from "lucide-react";
 import mmLogo from "@/assets/mm-logo-circle.png";
 
 export default function Stage1Welcome() {
@@ -18,28 +18,47 @@ export default function Stage1Welcome() {
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-headline text-foreground tracking-tight">
           Welcome to<br/>MIND MODULE
         </h1>
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-subheadline italic text-saffron font-medium tracking-wide">
-          Proactive Self Mastery for Peak Performers
-        </h2>
       </div>
 
-      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] animate-fade-in delay-200">
+      <div className="bg-white/65 backdrop-blur-[30px] backdrop-saturate-150 border border-black/[0.08] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] animate-fade-in delay-200 space-y-5">
         <p className="text-base text-foreground/90 font-body leading-relaxed">
-          This takes three minutes. Your answers shape everything the app surfaces for you — your practices, your daily brief, your coaching. The more honest you are, the more precisely it works.
+          Most leaders don't fail because they lack strategy.
+        </p>
+        <p className="text-base text-foreground/90 font-body leading-relaxed">
+          They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most.
+        </p>
+        <p className="text-base text-foreground/90 font-body leading-relaxed font-semibold">
+          This system changes that.
+        </p>
+        <p className="text-base text-foreground/90 font-body leading-relaxed">
+          Three minutes. Five questions.
+        </p>
+        <p className="text-base text-foreground/90 font-body leading-relaxed">
+          Your answers build your performance profile across three areas:
+        </p>
+        <div className="space-y-2 pl-1">
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RECALIBRATE</span> — How you regulate under pressure</p>
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">CLARITY</span> — How you decide under cognitive load</p>
+          <p className="text-sm text-foreground/90 font-body"><span className="font-bold tracking-wide">RENEWAL</span> — How you sustain performance over time</p>
+        </div>
+        <p className="text-base text-foreground/90 font-body leading-relaxed">
+          Everything personalizes from this:
+        </p>
+        <div className="space-y-1 pl-1">
+          <p className="text-sm text-foreground/90 font-body">→ Your Daily Brief</p>
+          <p className="text-sm text-foreground/90 font-body">→ Your Proactive Mastery Plan</p>
+          <p className="text-sm text-foreground/90 font-body">→ Your AI Coach</p>
+          <p className="text-sm text-foreground/90 font-body">→ Your Just-In-Time Prep</p>
+        </div>
+        <p className="text-sm text-foreground/70 font-body italic leading-relaxed">
+          The more honest you are, the smarter the system gets.
         </p>
       </div>
 
       {/* Privacy continuity footer */}
-      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2 animate-fade-in delay-300">
-        <div className="flex items-center gap-1.5">
-          <Shield size={14} className="text-saffron/60" />
-          <span>Privacy by Design</span>
-        </div>
-        <span className="text-saffron/40">•</span>
-        <div className="flex items-center gap-1.5">
-          <Lock size={14} className="text-saffron/60" />
-          <span>Data Stays Local</span>
-        </div>
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2 animate-fade-in delay-300">
+        <Shield size={14} className="text-saffron/60" />
+        <span>Privacy by Design</span>
       </div>
 
       <Button
@@ -48,7 +67,7 @@ export default function Stage1Welcome() {
         onClick={() => navigate("/onboarding/identity")}
         className="w-full text-lg py-6 px-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in delay-400"
       >
-        Begin
+        Start Questions
         <ArrowRight size={20} className="ml-2" />
       </Button>
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock } from "lucide-react";
+import { Shield } from "lucide-react";
 import mmLogoCircle from "@/assets/mm-logo-circle.png";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -90,9 +90,7 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         
         {/* Tagline */}
         <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
-          The World's First Proactive Performance System For Your Inner Game.
-          <br />
-          Built for Leaders, By Leaders.
+          A New Inner Operating System for Leaders.
         </h2>
         
         {/* Gold Divider */}
@@ -100,16 +98,16 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         
         {/* Description */}
         <p className="text-[11px] sm:text-base lg:text-lg text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
-          It understands your day, learns your patterns, to build your inner infrastructure. So you show up at your highest level before high stakes arrive– not after they've already cost you.
+          It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive.
         </p>
         <p className="text-sm sm:text-xl lg:text-2xl font-bold text-muted-foreground font-body mt-1">
-          Calibrate. Clarify. Renew.
+          Built by leaders. For leaders.
         </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-3 mt-2">
           <Button onClick={handleGetStarted} variant="critical" size="lg" className="px-8 py-4 sm:px-12 sm:py-6 text-sm sm:text-lg font-medium tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-            Begin Your Journey
+            Let's Go
           </Button>
           
           <button onClick={handleSignIn} className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-body">
@@ -118,16 +116,9 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         </div>
         
         {/* Privacy Trust Badge */}
-        <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-8 border-t border-gold/10 w-full">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
-            <span className="font-body tracking-wide">Privacy by Design</span>
-          </div>
-          <span className="text-gold/40">•</span>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
-            <span className="font-body tracking-wide">Local-First Architecture</span>
-          </div>
+        <div className="flex flex-row items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-8 border-t border-gold/10 w-full">
+          <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
+          <span className="font-body tracking-wide">Privacy by Design</span>
         </div>
       </div>
       
