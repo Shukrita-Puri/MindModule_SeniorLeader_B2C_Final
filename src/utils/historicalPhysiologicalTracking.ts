@@ -188,9 +188,9 @@ export function analyzeEventPhysiologicalPattern(
   };
 }
 
-export function autoRecordPhysiologyForCalendarEvents(): void {
-  // Get today's calendar events
-  const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+export function autoRecordPhysiologyForCalendarEvents(calendarEvents?: any[]): void {
+  // Use provided calendar events (from DB fetch) or empty array
+  const events = calendarEvents || [];
   
   // Get latest physiological data
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
@@ -209,8 +209,8 @@ export function autoRecordPhysiologyForCalendarEvents(): void {
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
   
-  calendarEvents.forEach((event: any) => {
-    const eventEnd = new Date(event.endTime);
+  events.forEach((event: any) => {
+    const eventEnd = new Date(event.endTime || event.end_time);
     
     // Check if event ended in last 2 hours
     if (eventEnd > twoHoursAgo && eventEnd < now) {
@@ -331,10 +331,5 @@ export function identifyStressTriggers(): {
   }).sort((a, b) => b.occurrences - a.occurrences);
 }
 
-// Initialize auto-recording on page load
-if (typeof window !== 'undefined') {
-  // Run every hour
-  setInterval(autoRecordPhysiologyForCalendarEvents, 60 * 60 * 1000);
-  // Run once on load
-  setTimeout(autoRecordPhysiologyForCalendarEvents, 5000);
-}
+// Auto-recording removed — calendarEvents must be passed by callers from DB fetch.
+// Callers (e.g. DailyRitual) should invoke autoRecordPhysiologyForCalendarEvents(events) explicitly.

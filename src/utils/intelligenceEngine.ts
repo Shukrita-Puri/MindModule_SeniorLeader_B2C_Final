@@ -211,7 +211,7 @@ export function generateIntelligentPriorities(): IntelligentPriority[] {
   const practiceHistory = JSON.parse(localStorage.getItem('practiceHistory') || '[]');
   const patterns = detectUserPatterns();
   const metaSkills = getMetaSkillGrowth();
-  const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  const calendarEvents: any[] = []; // Deprecated: was localStorage, now empty (file being phased out)
   const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
   
   // Priority 1: Yesterday's Practice Follow-Up (if exists)
@@ -513,7 +513,7 @@ function getLowestMetaSkill() {
 
 function getUpcomingHighStakesEvent() {
   // Placeholder - would fetch from connected calendar
-  const events = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  const events: any[] = []; // Deprecated: was localStorage, now empty (file being phased out)
   const upcoming = events.find((e: any) => {
     const daysAway = Math.floor((new Date(e.datetime).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     return daysAway > 0 && daysAway <= 14;
