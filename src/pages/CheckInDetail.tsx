@@ -20,6 +20,7 @@ const CheckInDetail = () => {
   const [saving, setSaving] = useState(false);
 
   const checkinDate = (location.state as any)?.checkinDate || new Date().toISOString().split('T')[0];
+  const timeWindow = (location.state as any)?.timeWindow;
 
   const clarityLabels = ['Foggy', 'Hazy', 'Neutral', 'Clear', 'Sharp'];
   const confidenceLabels = ['Uncertain', 'Hesitant', 'Neutral', 'Steady', 'Certain'];
@@ -48,6 +49,7 @@ const CheckInDetail = () => {
             checkinDate,
             clarity,
             confidence,
+            timeWindow,
           },
         });
 

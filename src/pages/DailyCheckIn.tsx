@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAuthToken } from '@/services/authTokenService';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { saveCheckin } from "@/utils/dailyCheckins";
+import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
 
@@ -130,14 +130,12 @@ const DailyCheckIn = () => {
       completedFull: true
     };
 
-    // Save to localStorage for immediate use
-    localStorage.setItem('dailyCheckIn', JSON.stringify(checkInData));
-    console.log('[Check-In] Saved to localStorage:', checkInData);
-
-    // Also save to database for persistence and insights
+    // Save to database (no localStorage for sensitive check-in data)
+    const timeWindow = getCurrentTimeWindow();
     try {
       await saveCheckin({
         checkin_date: checkinDate,
+        time_window: timeWindow,
         outcome,
         skipped: false,
         timestamp,
@@ -153,7 +151,7 @@ const DailyCheckIn = () => {
 
     // Navigate to optional detail screen for clarity/confidence
     setTimeout(() => {
-      navigate('/check-in-detail', { state: { checkinDate } });
+      navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
     }, 100);
   };
 

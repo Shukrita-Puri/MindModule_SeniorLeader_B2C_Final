@@ -349,6 +349,57 @@ export type Database = {
           },
         ]
       }
+      checkin_patterns: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          day_of_week: number | null
+          id: string
+          last_observed_at: string | null
+          observation_count: number | null
+          pattern_description: string | null
+          pattern_type: string
+          prediction_accuracy: number | null
+          time_window: string | null
+          typical_outcome: string | null
+          typical_tier: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          day_of_week?: number | null
+          id?: string
+          last_observed_at?: string | null
+          observation_count?: number | null
+          pattern_description?: string | null
+          pattern_type: string
+          prediction_accuracy?: number | null
+          time_window?: string | null
+          typical_outcome?: string | null
+          typical_tier?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          day_of_week?: number | null
+          id?: string
+          last_observed_at?: string | null
+          observation_count?: number | null
+          pattern_description?: string | null
+          pattern_type?: string
+          prediction_accuracy?: number | null
+          time_window?: string | null
+          typical_outcome?: string | null
+          typical_tier?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkin_skip_events: {
         Row: {
           created_at: string | null
@@ -1073,6 +1124,7 @@ export type Database = {
           outcome: string
           skipped: boolean | null
           state_tags: string[] | null
+          time_window: string
           timestamp: string
           user_id: string
         }
@@ -1087,6 +1139,7 @@ export type Database = {
           outcome: string
           skipped?: boolean | null
           state_tags?: string[] | null
+          time_window?: string
           timestamp: string
           user_id: string
         }
@@ -1101,6 +1154,7 @@ export type Database = {
           outcome?: string
           skipped?: boolean | null
           state_tags?: string[] | null
+          time_window?: string
           timestamp?: string
           user_id?: string
         }
@@ -1653,6 +1707,115 @@ export type Database = {
         }
         Relationships: []
       }
+      evening_checkins: {
+        Row: {
+          checkin_date: string
+          created_at: string | null
+          evening_state: string | null
+          id: string
+          reflection_completed: boolean | null
+          reflection_text: string | null
+          timestamp: string
+          tiny_win_captured: boolean | null
+          tiny_win_id: string | null
+          user_id: string
+        }
+        Insert: {
+          checkin_date: string
+          created_at?: string | null
+          evening_state?: string | null
+          id?: string
+          reflection_completed?: boolean | null
+          reflection_text?: string | null
+          timestamp: string
+          tiny_win_captured?: boolean | null
+          tiny_win_id?: string | null
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          created_at?: string | null
+          evening_state?: string | null
+          id?: string
+          reflection_completed?: boolean | null
+          reflection_text?: string | null
+          timestamp?: string
+          tiny_win_captured?: boolean | null
+          tiny_win_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evening_checkins_tiny_win_id_fkey"
+            columns: ["tiny_win_id"]
+            isOneToOne: false
+            referencedRelation: "tiny_wins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inferred_states: {
+        Row: {
+          accuracy_score: number | null
+          actual_checkin_id: string | null
+          based_on: Json
+          confidence_score: number
+          created_at: string | null
+          id: string
+          inference_method: string
+          inferred_at: string
+          inferred_for_date: string
+          inferred_for_window: string
+          inferred_outcome: string | null
+          inferred_score: number
+          inferred_tier: string
+          used_for: string | null
+          user_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          actual_checkin_id?: string | null
+          based_on: Json
+          confidence_score: number
+          created_at?: string | null
+          id?: string
+          inference_method: string
+          inferred_at: string
+          inferred_for_date: string
+          inferred_for_window: string
+          inferred_outcome?: string | null
+          inferred_score: number
+          inferred_tier: string
+          used_for?: string | null
+          user_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          actual_checkin_id?: string | null
+          based_on?: Json
+          confidence_score?: number
+          created_at?: string | null
+          id?: string
+          inference_method?: string
+          inferred_at?: string
+          inferred_for_date?: string
+          inferred_for_window?: string
+          inferred_outcome?: string | null
+          inferred_score?: number
+          inferred_tier?: string
+          used_for?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inferred_states_actual_checkin_id_fkey"
+            columns: ["actual_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "daily_checkins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inner_readiness_scores: {
         Row: {
           base_statement: string | null
@@ -1968,6 +2131,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      mastery_plan_completions: {
+        Row: {
+          based_on_window: string | null
+          calendar_event_id: string | null
+          completed_at: string | null
+          completion_percentage: number | null
+          created_at: string | null
+          id: string
+          is_complete: boolean | null
+          plan_date: string
+          plan_type: string
+          practices_assigned: string[] | null
+          practices_completed: string[] | null
+          total_practices: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          based_on_window?: string | null
+          calendar_event_id?: string | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          id?: string
+          is_complete?: boolean | null
+          plan_date: string
+          plan_type: string
+          practices_assigned?: string[] | null
+          practices_completed?: string[] | null
+          total_practices: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          based_on_window?: string | null
+          calendar_event_id?: string | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          id?: string
+          is_complete?: boolean | null
+          plan_date?: string
+          plan_type?: string
+          practices_assigned?: string[] | null
+          practices_completed?: string[] | null
+          total_practices?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mastery_plan_completions_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mental_fitness_scores: {
         Row: {
