@@ -1,57 +1,53 @@
 
 
-## Mastery Plan + JIT — Full Audit (Post-Implementation) — COMPLETED
+## Copy Updates — Front Page + Onboarding Welcome
 
-All steps implemented. Trust gap fully closed.
-
----
-
-### COMPLETED CHANGES
-
-#### Step 1: Trust gap closed — ALL signals server-side ✅
-**File:** `supabase/functions/generate-mastery-plan/index.ts`
-
-- `PlanRequest` now only accepts `timezoneOffset` from client
-- All 11 previously client-supplied signals are now derived server-side:
-  - `calendarLoad`/`calendarPressure`: computed from server-fetched `calendar_events`
-  - `completedToday`: from `daily_ritual_completions`
-  - `favorites`: from `user_favorites`
-  - `clarityLevel`/`confidenceLevel`/`checkInOutcome`: from `daily_checkins`
-  - `innerReadinessTier`/`innerReadinessScore`: from `daily_checkins.energy_balance`
-  - `outerReadinessPhrase`/`outerReadinessDriver`: via server-to-server call to `compute-outer-readiness`
-
-#### Step 2: DailyRitual.tsx simplified ✅
-**File:** `src/components/home/DailyRitual.tsx`
-
-- Removed `computeEnergyState` and `fetchOuterReadiness` imports/calls from plan generation
-- `requestBody` is now just `{ timezoneOffset }`
-- Removed energy hash staleness check (no longer needed)
-- Energy state computation remains for UI display only (TodayStateCard)
-
-#### Step 3: DEV_MODE bypass added ✅
-**Files:** `supabase/functions/daily-rituals/index.ts`, `supabase/functions/track-jit-skip/index.ts`
-
-- Both EFs now check `x-dev-user-id` header when JWT auth fails and `ENVIRONMENT !== 'production'`
-
-#### Step 4: JitCarousel DEV_MODE header ✅
-**File:** `src/components/home/JitCarousel.tsx`
-
-- Added `DEV_MODE`/`DEV_USER` imports and `x-dev-user-id` header in `trackJitAction`
+Two files need text-only changes (no layout or UI modifications).
 
 ---
 
-### RESOLVED ISSUES
+### File 1: `src/pages/Front.tsx`
 
-| Issue | Status |
-|-------|--------|
-| Trust gap (all 11 client signals) | ✅ Fully closed — EF derives everything server-side |
-| Bug A: calendarLoad/Pressure broken for Auth0 | ✅ Fixed — computed server-side |
-| Bug B: useOuterReadiness profiles query broken | ✅ No longer relevant — EF calls compute-outer-readiness server-to-server |
-| Bug C: DEV_MODE broken for daily-rituals/track-jit-skip | ✅ Fixed with x-dev-user-id bypass |
-| Bug D: energyStateEngine DEV_MODE | N/A — plan generation no longer depends on client energy state |
-| Rate limiting | ✅ Already in place (30s per-user cooldown) |
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-### REMAINING (NON-CRITICAL)
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-- `energyStateEngine.ts` direct `calendar_events` query still fails for Auth0 users (RLS issue) — affects **UI display only** (TodayStateCard), not plan generation
-- `useOuterReadiness.ts` direct `profiles` query still fails for Auth0 — affects **UI display only**, not plan generation
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
+
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
+
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+
+---
+
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
+
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+
