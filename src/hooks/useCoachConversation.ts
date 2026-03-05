@@ -207,15 +207,20 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     await saveMessage(currentSessionId, 'user', content, messages.length);
 
     try {
-      // Build context for first message only
-      let context: CoachContext | undefined;
+      // Build minimal ephemeral context (server builds full context from DB)
+      let context: Record<string, any> | undefined;
       if (!contextSentRef.current) {
-        context = await buildCoachContext(user?.id);
+        const energyState = await computeEnergyState();
+        context = {
+          energyScore: energyState?.overallBalance,
+          energyTier: energyState?.energyTier,
+          checkInOutcome: energyState?.checkInOutcome,
+        };
         
         // Add practice steps if in guided-reflection mode
         if (flowType === 'guided-reflection' && practiceContext) {
-          (context as any).practiceTitle = practiceContext.title;
-          (context as any).practiceSteps = practiceContext.steps;
+          context.practiceTitle = practiceContext.title;
+          context.practiceSteps = practiceContext.steps;
         }
         
         contextSentRef.current = true;
