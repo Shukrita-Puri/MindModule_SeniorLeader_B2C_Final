@@ -2670,6 +2670,8 @@ export type Database = {
       profiles: {
         Row: {
           alignment_status: string | null
+          archetype_description: string | null
+          archetype_title: string | null
           avatar_url: string | null
           biggest_pressure: string | null
           component_scores: Json | null
@@ -2689,6 +2691,7 @@ export type Database = {
           mental_fitness_baseline: number | null
           meta_skill_scores: Json | null
           onboarding_completed_at: string | null
+          onboarding_insight: string | null
           onboarding_session_id: string | null
           practice_priority_tag: string | null
           pressure_context_tag: string | null
@@ -2717,6 +2720,8 @@ export type Database = {
         }
         Insert: {
           alignment_status?: string | null
+          archetype_description?: string | null
+          archetype_title?: string | null
           avatar_url?: string | null
           biggest_pressure?: string | null
           component_scores?: Json | null
@@ -2736,6 +2741,7 @@ export type Database = {
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
+          onboarding_insight?: string | null
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
           pressure_context_tag?: string | null
@@ -2764,6 +2770,8 @@ export type Database = {
         }
         Update: {
           alignment_status?: string | null
+          archetype_description?: string | null
+          archetype_title?: string | null
           avatar_url?: string | null
           biggest_pressure?: string | null
           component_scores?: Json | null
@@ -2783,6 +2791,7 @@ export type Database = {
           mental_fitness_baseline?: number | null
           meta_skill_scores?: Json | null
           onboarding_completed_at?: string | null
+          onboarding_insight?: string | null
           onboarding_session_id?: string | null
           practice_priority_tag?: string | null
           pressure_context_tag?: string | null

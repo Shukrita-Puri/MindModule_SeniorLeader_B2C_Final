@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
       mental_clarity_response,
       growth_intention,
       skip_completion,
+      onboarding_insight,
+      archetype_description,
+      archetype_title,
     } = body;
 
     const supabaseAdmin = createClient(
@@ -78,6 +81,9 @@ Deno.serve(async (req) => {
     if (stress_response_response !== undefined) updateData.focus_recovery_response = stress_response_response;
     if (recovery_patterns_response !== undefined) updateData.energy_renewal_response = recovery_patterns_response;
     if (mental_clarity_response !== undefined) updateData.growth_priority = mental_clarity_response;
+    if (onboarding_insight !== undefined) updateData.onboarding_insight = onboarding_insight;
+    if (archetype_description !== undefined) updateData.archetype_description = archetype_description;
+    if (archetype_title !== undefined) updateData.archetype_title = archetype_title;
 
     // Idempotent: only set onboarding_completed_at if not already set
     // skip_completion=true allows persisting baseline data without marking onboarding as done

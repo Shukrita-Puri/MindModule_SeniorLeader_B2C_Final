@@ -38,7 +38,7 @@ export default function Stage8Results() {
   const completionPersisted = useRef(false);
 
   // Persist baseline data to DB (without marking onboarding complete)
-  const persistBaseline = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string) => {
+  const persistBaseline = async (baselineScore: number, componentScores: ComponentScoresV2, archetype: string, archetypeTitle: string, archetypeDescription: string, insightText: string) => {
     if (completionPersisted.current) return;
     completionPersisted.current = true;
 
@@ -75,6 +75,9 @@ export default function Stage8Results() {
             recovery_patterns_response: responses.recovery_patterns_response,
             mental_clarity_response: responses.mental_clarity_response,
             growth_intention: responses.growth_intention,
+            onboarding_insight: insightText,
+            archetype_description: archetypeDescription,
+            archetype_title: archetypeTitle,
           }),
         }
       );
@@ -152,7 +155,7 @@ export default function Stage8Results() {
 
         // Persist to DB if authenticated (non-blocking)
         if (isAuthenticated) {
-          persistBaseline(baselineScore, componentScores, archetype);
+          persistBaseline(baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight);
           recordStep('results');
         } else {
           console.log('[Results] User not authenticated, skipping DB persistence');
