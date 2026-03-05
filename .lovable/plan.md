@@ -1,106 +1,117 @@
 
 
-## Audit Result: Google Calendar Data Flow — Events + Load/Pressure
+## Full Audit: localStorage Sensitive Data, Tag Mapping, DEV_MODE RLS, and Auth User Login Flow
 
-### Verification Summary
-
-All three critical fixes from the plan have been confirmed as **implemented and working**:
+### AUDIT RESULTS
 
 ---
 
-### 1. RLS Policy on `calendar_events` — CONFIRMED
+### 1. Tag Mapping Mismatch — CONFIRMED BROKEN (Critical)
 
-The database has two policies on `calendar_events`:
+**`checkInToTags.ts`** maps legacy keys: `pause`, `power-up`, `presence`, `calm`, `ready`
+**`DailyCheckIn.tsx`** sends modern outcomes: `overwhelmed`, `drained`, `steady`, `scattered`, `focused`
 
-| Policy | Command | Qualifier |
-|--------|---------|-----------|
-| `Service role can manage all calendar events` | ALL | `auth.role() = 'service_role'` |
-| `Users can view own calendar events` | SELECT | `user_id = (auth.jwt() ->> 'sub')` |
+**Result:** Only `scattered` partially maps (to `presence` fallback). All others fall through to default `pause` mapping:
+- `overwhelmed` → `pause` (accidentally OK)
+- `drained` → `pause` (wrong — should map like `power-up`)
+- `steady` → `pause` (wrong — should map like `ready`)
+- `focused` → `pause` (wrong — should map like `ready`)
 
-Auth users can now read their own calendar events via the anon key client. This unblocks `DailyRitual.tsx`, `PostEventReflection.tsx`, `energyStateEngine.ts`, and all other client-side reads.
+**Consumers affected:**
+- `recommendationEngine.ts` — uses `mapCheckInToTags()` and `getRecommendationReasoning()` (also uses legacy keys `pause`, `power-up`, etc.)
+- `energyStateEngine.ts` — uses `getEnergyStateFromCheckIn()` 
+- Downstream: mastery plan, coach context, JIT recommendations all receive wrong energy/state tags
 
----
-
-### 2. `energyStateEngine.ts` — localStorage Replaced with DB Fetch — CONFIRMED
-
-Lines 160-177 now fetch calendar events directly from the DB:
-```typescript
-let calendarData: any[] = [];
-const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
-if (effectiveUserId) {
-  const { data: events } = await supabase
-    .from('calendar_events')
-    .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
-    .eq('user_id', effectiveUserId)
-    .gte('start_time', now.toISOString())
-    .lte('start_time', fourHoursLater.toISOString());
-  calendarData = events || [];
-}
-```
-
-`calendarLoad` and `calendarPressure` are computed from real DB data (lines 227-230) and flow correctly to all downstream consumers.
-
----
-
-### 3. Utility Files — localStorage Removed — CONFIRMED
-
-| File | Status |
-|------|--------|
-| `sanctuaryEventTracking.ts` (line 182) | Uses `calendarEvents` param, falls back to `[]` — no localStorage |
-| `historicalPhysiologicalTracking.ts` (line 191-193) | Uses `calendarEvents` param, falls back to `[]` — no localStorage |
-| `intelligenceEngine.ts` | Still has `localStorage.getItem('calendarConnected')` (line 234) — but this is a non-sensitive boolean flag in a deprecated file. Acceptable. |
-
----
-
-### Full Downstream Consumer Audit
-
-| Consumer | How It Gets Calendar Events | Gets Load/Pressure | Auth Path | Status |
-|----------|---------------------------|---------------------|-----------|--------|
-| **`energyStateEngine.ts`** | DB query (`calendar_events` with RLS) | Computes via `getCalendarMetrics()` | userId from caller | **CLEAN** |
-| **`DailyRitual.tsx`** (line 283-288) | DB query (`calendar_events` with RLS) | From `energyState.calendarLoad/Pressure` | `user.id` | **CLEAN** |
-| **`generate-mastery-plan` EF** | Receives events + load/pressure in request body | From `energyState` via DailyRitual | `authenticateRequest()` | **CLEAN** |
-| **`compute-outer-readiness` EF** | Receives load/pressure in request body | From `energyState` via caller | Stateless (data passed) | **CLEAN** |
-| **`self-mastery-coach` EF** (line 1796-1800) | DB query via service role | Computes own context | `verifyAuth0JWT()` | **CLEAN** |
-| **`smart-nudges` EF** (lines 403, 433, 703, 760, 855) | DB query via service role | Computes own load | `authenticateRequest()` | **CLEAN** |
-| **`generate-jit-events` EF** (line 137-139) | DB query via service role | N/A | `authenticateRequest()` | **CLEAN** |
-| **`performance-rhythm-insights` EF** (line 89) | DB query via service role | N/A | `authenticateRequest()` | **CLEAN** |
-| **`sync-calendar` EF** (lines 390-404) | Writes to DB via service role | N/A | `verifyAuth0Token()` | **CLEAN** |
-| **`PostEventReflection.tsx`** (line 58-60) | DB query (`calendar_events` with RLS) | N/A | `user.id` | **CLEAN** |
-| **`CalendarStateCorrelations.tsx`** (line 86-88) | DB query (`calendar_events` with RLS) | N/A | `user.id` | **CLEAN** |
-| **`PerformanceRhythmCard.tsx`** (line 103-105) | DB query (`calendar_events` with RLS) | N/A | `user.id` | **CLEAN** |
-| **`useCalendarSync.ts`** (line 77-78) | DB query (`calendar_events` with RLS) | N/A | `user.id` | **CLEAN** |
-| **`sanctuaryEventTracking.ts`** | Param from caller | N/A | N/A | **CLEAN** |
-| **`historicalPhysiologicalTracking.ts`** | Param from caller | N/A | N/A | **CLEAN** |
-
----
-
-### Calendar Load/Pressure Flow (End-to-End)
+**Fix:** Add modern outcome keys to both `mapCheckInToTags()` and `getEnergyStateFromCheckIn()`:
 
 ```text
-sync-calendar EF (Google API → DB: calendar_events) [service role]
-         ↓
-energyStateEngine.ts (DB fetch → getCalendarMetrics → calendarLoad/calendarPressure)
-         ↓
-    ┌────┴────────────────────┐
-    ↓                         ↓
-DailyRitual.tsx          fetchOuterReadiness()
-  passes to:               passes to:
-  generate-mastery-plan EF   compute-outer-readiness EF
-  (calendarLoad, calendarPressure, calendarEvents)
+'overwhelmed' → same as 'pause' (EXCESS_FIRE, TENSE)
+'drained'     → same as 'power-up' (LOW_FIRE, FATIGUED)
+'scattered'   → same as 'presence' (EXCESS_AIR, SCATTERED)
+'steady'      → BALANCED, BALANCED (new — mid-range)
+'focused'     → same as 'ready' (BALANCED, BALANCED)
 ```
 
-**All links in this chain are now live and fetching real data from the database.** No remaining `localStorage('calendarEvents')` reads exist in active code.
+Also update `getRecommendationReasoning()` in `recommendationEngine.ts` to include new outcome keys.
 
 ---
 
-### Verdict
+### 2. DEV_MODE RLS Policies in Production — CONFIRMED (Critical)
 
-**All fixes implemented. No remaining issues.** The calendar data pipeline is fully functional for authenticated users:
-- RLS policy enables client-side reads
-- `energyStateEngine` fetches from DB instead of empty localStorage
-- Load/pressure metrics flow correctly to mastery plan and outer readiness
-- All 9 Edge Functions that touch calendar data use service role with userId scoping
-- All 6 client-side components use the anon key with the new RLS policy
+**12+ RLS policies** allow anyone with the anon key to read/write as `dev-user-123` on these tables:
+- `daily_checkins` (SELECT, INSERT, UPDATE)
+- `profiles` (SELECT, INSERT, UPDATE)
+- `tiny_wins` (SELECT)
+- `dialogue_sessions` (SELECT, INSERT, UPDATE)
+- `dialogue_messages` (SELECT, INSERT via session join)
+- `detected_signals` (SELECT via session join)
+- `daily_ritual_completions` (SELECT, INSERT, UPDATE)
+- `user_favorites` (SELECT, INSERT, DELETE)
+- `practice_sessions` (INSERT, SELECT)
+- `coach_intervention_outcomes` (ALL)
 
-No code changes required.
+**Fix:** Create a migration to DROP all `dev-user-123` policies. DEV_MODE code paths already use direct Supabase client calls which will work via service role in EFs. For local development, developers should use the service role key directly.
+
+---
+
+### 3. Remaining localStorage Reads of Sensitive Data
+
+#### Sensitive — Should Migrate to Server
+
+| File | Key | Data Type | Status |
+|------|-----|-----------|--------|
+| `intelligenceEngine.ts` | `practiceHistory`, `recalibrateHistory`, `quickWins`, `mentalFitnessScore`, `checkInHistory` | Practice/scoring data | **Deprecated file** — not imported. No fix needed, remove file. |
+| `mentalFitnessEngine.ts` | `dailyRitualHistory`, `practiceHistory`, `recalibrateHistory`, `mentalFitnessBaseline` | Scoring data | **Deprecated file** (marked line 2) — not imported. No fix needed, remove file. |
+
+#### Non-Sensitive — Acceptable in localStorage
+
+| File | Key | Purpose | Verdict |
+|------|-----|---------|---------|
+| `onboardingStatus.ts` | `hasEverCheckedIn`, `selectedPlan`, `contextConnections`, `mind_module_onboarding` | Onboarding gate flags | **OK** — non-sensitive booleans/flow state |
+| `onboardingStorage.ts` | `mind_module_onboarding` | Pre-signup session data | **OK** — anonymous session, cleared on signup |
+| `energyStateEngine.ts` | `wearableData` | Ephemeral HRV signal | **OK** — per architecture standard |
+| `sanctuaryEventTracking.ts` | `ouraData`, `sanctuaryEvents` (offline queue) | Ephemeral signal + offline buffer | **OK** |
+| `practiceCompletionTracker.ts` | `todayRecommendedIds`, `practiceQueue` | UI queue state | **OK** — non-sensitive transient |
+| `GuidedPracticePlayer.tsx` | `practiceQueue`, `jitInterventionData`, `todayRecommendedIds` | UI navigation state | **OK** |
+| `MicroPracticePlayerCards.tsx` | `practiceQueue`, `jitInterventionData`, `todayRecommendedIds` | UI navigation state | **OK** |
+| `dailyCheckins.ts` | `hasEverCheckedIn` (write only) | Lightweight flag | **OK** |
+
+**Verdict:** No active files read sensitive data from localStorage. The two deprecated files (`intelligenceEngine.ts`, `mentalFitnessEngine.ts`) are dead code — not imported by any active component.
+
+---
+
+### 4. Auth User Login Flow — Daily Check-In Routing
+
+**Current flow for signed-up users:**
+1. User logs in → `AuthCallback.tsx` → redirects to `/daily-check-in` (line 118, 153)
+2. `/daily-check-in` is wrapped in `<ProtectedRoute><OnboardingGuard>` (App.tsx line 102)
+3. `ProtectedRoute` verifies Auth0 authentication
+4. `OnboardingGuard` checks onboarding completion via `onboarding_progress` DB table
+5. If onboarding incomplete → redirects to resume point
+6. If complete → renders `DailyCheckIn.tsx`
+
+**Multi-window check-in:** The daily check-in uses `time_window` (`morning`, `afternoon`, `evening`) with a unique constraint on `(user_id, checkin_date, time_window)`. Users can check in up to 3 times per day. The routing doesn't force re-check-in if one window is already done — `DailyCheckIn.tsx` always renders and allows the user to check in for the current time window.
+
+**This is correct behavior** — users always land on check-in on login, can submit for current window, then proceed to home.
+
+---
+
+### 5. Silent Failures (High)
+
+Both `DailyCheckIn.tsx` and `CheckInDetail.tsx` navigate away regardless of save success. No error toast is shown to the user. The `handleSave` in `CheckInDetail.tsx` catches errors but still calls `navigate('/executive-home')`.
+
+**Fix:** Add error toasts and only navigate on success.
+
+---
+
+### Implementation Plan
+
+| # | Change | Severity | Files |
+|---|--------|----------|-------|
+| 1 | **Fix tag mapping** — add `overwhelmed`, `drained`, `steady`, `scattered`, `focused` keys | Critical | `checkInToTags.ts`, `recommendationEngine.ts` |
+| 2 | **Remove DEV_MODE RLS policies** — DROP all `dev-user-123` policies from production | Critical | New DB migration |
+| 3 | **Add error handling** — show toast on save failure, only navigate on success | High | `DailyCheckIn.tsx`, `CheckInDetail.tsx` |
+| 4 | **Delete deprecated files** — remove dead `mentalFitnessEngine.ts` and `intelligenceEngine.ts` | Low | Delete 2 files |
+
+Files changed: `checkInToTags.ts`, `recommendationEngine.ts`, `DailyCheckIn.tsx`, `CheckInDetail.tsx`, 1 DB migration, delete 2 deprecated files.
 
