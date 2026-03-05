@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN';
+  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS';
   eventType?: string;
   category?: string;
   contentId?: string;
@@ -170,6 +170,29 @@ serve(async (req) => {
         console.log('[user-events] Checkin saved for', dateToSave);
         return new Response(
           JSON.stringify({ success: true, data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'GET_RECENT_SANCTUARY_EVENTS': {
+        const limit = (body as any).limit || 5;
+
+        const { data, error } = await supabase
+          .from('sanctuary_events')
+          .select('id, timestamp, category, content_type')
+          .eq('user_id', userId)
+          .eq('event_type', 'completed')
+          .order('timestamp', { ascending: false })
+          .limit(limit);
+
+        if (error) {
+          console.error('[user-events] Error fetching sanctuary events:', error);
+          throw error;
+        }
+
+        console.log('[user-events] Found sanctuary events:', data?.length || 0);
+        return new Response(
+          JSON.stringify({ success: true, data: data || [] }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

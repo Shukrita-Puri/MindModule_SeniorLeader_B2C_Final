@@ -37,7 +37,7 @@ serve(async (req) => {
       case 'GET_FAVORITES': {
         const { data, error } = await supabase
           .from('user_favorites')
-          .select('content_id')
+          .select('content_id, content_type, category')
           .eq('user_id', userId);
 
         if (error) throw error;
