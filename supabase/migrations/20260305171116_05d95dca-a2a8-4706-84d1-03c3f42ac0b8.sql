@@ -1,0 +1,2 @@
+ALTER TABLE public.daily_checkins DROP CONSTRAINT daily_checkins_user_id_checkin_date_key;
+ALTER TABLE public.daily_checkins ADD CONSTRAINT daily_checkins_user_id_checkin_date_time_window_key UNIQUE (user_id, checkin_date, time_window);
