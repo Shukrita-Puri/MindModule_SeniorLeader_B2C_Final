@@ -44,21 +44,12 @@ export default function Stage1Welcome() {
         <p className="text-base text-foreground/90 font-body leading-relaxed">
           Everything personalizes from this:
         </p>
-        <div className="space-y-1 pl-1">
-          <p className="text-sm text-foreground/90 font-body">→ Your Daily Brief</p>
-          <p className="text-sm text-foreground/90 font-body">→ Your Proactive Mastery Plan</p>
-          <p className="text-sm text-foreground/90 font-body">→ Your AI Coach</p>
-          <p className="text-sm text-foreground/90 font-body">→ Your Just-In-Time Prep</p>
-        </div>
+        <p className="text-sm text-foreground/80 font-body leading-relaxed text-center">
+          Your Daily Brief&nbsp;&nbsp;|&nbsp;&nbsp;Your Proactive Mastery Plan&nbsp;&nbsp;|&nbsp;&nbsp;Your Intelligence Based Patterns&nbsp;&nbsp;|&nbsp;&nbsp;Your Just-In-Time Preparation
+        </p>
         <p className="text-sm text-foreground/70 font-body italic leading-relaxed">
           The more honest you are, the smarter the system gets.
         </p>
-      </div>
-
-      {/* Privacy continuity footer */}
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2 animate-fade-in delay-300">
-        <Shield size={14} className="text-saffron/60" />
-        <span>Privacy by Design</span>
       </div>
 
       <Button
@@ -70,6 +61,12 @@ export default function Stage1Welcome() {
         Start Questions
         <ArrowRight size={20} className="ml-2" />
       </Button>
+
+      {/* Privacy continuity footer */}
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2 animate-fade-in delay-300">
+        <Shield size={14} className="text-saffron/60" />
+        <span>Privacy by Design</span>
+      </div>
     </div>
   );
 }
