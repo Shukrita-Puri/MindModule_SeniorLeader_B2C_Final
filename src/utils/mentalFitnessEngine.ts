@@ -199,15 +199,8 @@ function getAllCheckIns(): CheckInRecord[] {
     }
   });
   
-  // Also check for latest dailyCheckIn
-  try {
-    const latest = JSON.parse(localStorage.getItem('dailyCheckIn') || '{}');
-    if (latest.timestamp) {
-      checkIns.push(latest);
-    }
-  } catch (e) {
-    // Skip invalid entry
-  }
+  // Note: localStorage('dailyCheckIn') read removed — data now lives server-side.
+  // This entire file is deprecated; see @deprecated header.
   
   return checkIns;
 }
