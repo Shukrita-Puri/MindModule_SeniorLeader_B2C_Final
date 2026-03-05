@@ -195,7 +195,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         for (let t = 0; t < 3; t++) {
           for (let d = 0; d < 7; d++) {
             const scores = cellComposites[t][d];
-            if (scores.length >= 2) {
+            if (scores.length >= 1) {
               const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
               if (!bestReadinessWindow || avg > bestReadinessWindow.avgScore) {
                 bestReadinessWindow = {
@@ -211,7 +211,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
         // ── Calendar Pattern (1B) ──
         let calendarInsight: string | null = null;
-        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 10) {
+        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
           const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
             board: ['board', 'board meeting', 'board of directors'],
             investor: ['investor', 'vc', 'funding', 'pitch'],
@@ -242,7 +242,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
           const correlations: { eventType: string; avgScore: number; count: number }[] = [];
           eventTypeCorrelations.forEach((d, eventType) => {
-            if (d.count >= 3) {
+            if (d.count >= 2) {
               correlations.push({ eventType, avgScore: d.scores.reduce((a, b) => a + b, 0) / d.count, count: d.count });
             }
           });
@@ -258,7 +258,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
         // ── Cause-Effect (1C) ──
         let causeEffectInsight: string | null = null;
-        if (behaviorLogs.length >= 5) {
+        if (behaviorLogs.length >= 3) {
           const behaviorPatterns = new Map<string, { behavior: string; outcome: string; count: number }>();
           for (const log of behaviorLogs) {
             const bd = new Date(log.created_at).toISOString().split('T')[0];
@@ -309,7 +309,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const coachSessionCount = dialogueMessages.filter(m => m.sender_type === 'coach').length > 0 ? 
           new Set(dialogueMessages.filter(m => m.sender_type === 'coach').map(m => m.session_id)).size : 0;
 
-        if (checkIns.length >= 10 && (highStakesEvents.length >= 2 || coachSessionCount >= 3)) {
+        if (checkIns.length >= 7 && (highStakesEvents.length >= 1 || coachSessionCount >= 2)) {
           // Pre-event sessions
           const preEventSessionsCompleted = rituals.filter(r =>
             r.session_period === 'pre-event' && r.completion_status === 'full' &&
@@ -408,35 +408,28 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const getProgressiveMessage = () => {
     if (!data) return null;
     if (data.checkInCount === 0) return 'Complete your first check-in to start mapping your rhythm.';
-    if (data.checkInCount < 7) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — ${7 - data.checkInCount} more to see your readiness rhythm.`;
+    if (data.checkInCount < 5) return `${data.checkInCount} check-in${data.checkInCount > 1 ? 's' : ''} logged — ${5 - data.checkInCount} more to see your readiness rhythm.`;
     return null;
   };
 
   const getInsightUnlockMessages = () => {
-    if (!data || data.checkInCount < 7) return [];
+    if (!data || data.checkInCount < 5) return [];
     const messages: { icon: 'sparkles' | 'calendar' | 'target'; text: string }[] = [];
 
-    if (data.checkInCount < 10) {
+    if (data.checkInCount < 7) {
       messages.push({
         icon: 'target',
-        text: `${10 - data.checkInCount} more check-in${10 - data.checkInCount > 1 ? 's' : ''} to unlock calendar & cause-effect insights`,
+        text: `${7 - data.checkInCount} more check-in${7 - data.checkInCount > 1 ? 's' : ''} to unlock calendar, cause-effect & presence insights`,
       });
-    } else if (data.checkInCount < 15) {
+    } else {
       if (!data.calendarInsight && !data.causeEffectInsight) {
-        // They have enough check-ins but no data — encourage connecting calendar / logging behaviors
         if (!data.hasCalendar) {
           messages.push({ icon: 'calendar', text: 'Connect your calendar to reveal how events affect your readiness' });
         }
-        if (data.behaviorLogCount < 5) {
-          messages.push({ icon: 'target', text: `Log ${5 - data.behaviorLogCount} more behavior${5 - data.behaviorLogCount > 1 ? 's' : ''} to see cause-effect patterns` });
+        if (data.behaviorLogCount < 3) {
+          messages.push({ icon: 'target', text: `Log ${3 - data.behaviorLogCount} more behavior${3 - data.behaviorLogCount > 1 ? 's' : ''} to see cause-effect patterns` });
         }
       }
-      messages.push({
-        icon: 'sparkles',
-        text: `${15 - data.checkInCount} more check-in${15 - data.checkInCount > 1 ? 's' : ''} to unlock "How You Show Up" — your presence under pressure`,
-      });
-    } else {
-      // 15+ but no presence data yet
       if (!data.presenceLabel) {
         messages.push({ icon: 'sparkles', text: 'Keep checking in — presence insights appear after more high-stakes moments or coach sessions' });
       }
@@ -475,7 +468,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             )}
 
             {/* 1A — How You Show Up (15+ check-ins) */}
-            {data.checkInCount >= 15 && data.presenceLabel && (
+            {data.checkInCount >= 7 && data.presenceLabel && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary/70" />
@@ -491,7 +484,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             )}
 
             {/* 1B — Calendar Pattern (10+ check-ins) */}
-            {data.checkInCount >= 10 && data.calendarInsight && (
+            {data.checkInCount >= 7 && data.calendarInsight && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-primary/70" />
@@ -504,7 +497,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             )}
 
             {/* 1C — Cause-Effect (10+ check-ins) */}
-            {data.checkInCount >= 10 && data.causeEffectInsight && (
+            {data.checkInCount >= 7 && data.causeEffectInsight && (
               <div className="p-4 rounded-xl bg-muted/20 border border-border/30 space-y-2">
                 <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
               </div>
@@ -523,7 +516,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 ))}
               </div>
             )}
-            {data.checkInCount >= 10 && !data.hasCalendar && !data.calendarInsight && (
+            {data.checkInCount >= 7 && !data.hasCalendar && !data.calendarInsight && (
               <div className="p-4 rounded-xl bg-muted/20 border border-border/30 flex items-center gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">
@@ -533,7 +526,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             )}
 
             {/* 2 — Heatmap (7+ check-ins) */}
-            {data.checkInCount >= 7 && data.grid && (
+            {data.checkInCount >= 5 && data.grid && (
               <>
                 <div>
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body mb-3 block">
