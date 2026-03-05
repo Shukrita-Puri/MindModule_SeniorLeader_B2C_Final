@@ -200,3 +200,15 @@ All use the service role client initialized at line 2306, with `userId` from the
 
 **Verdict: Auth path is fully implemented and correct across all coach and check-in features.**
 
+### SOURCE VERIFICATION (performed 2026-03-05)
+
+Every claim above was verified against the actual source files:
+
+- **`_shared/auth.ts`**: `authenticateRequest()` calls `verifyAuth0JWT()` which does local RS256 JWKS verification → returns `sub` claim as userId. Confirmed lines 81-144, 184-201.
+- **`extract-tool-commitments/index.ts`**: `SCENARIO_EVENT_MAPPING` defined lines 17-41, `event_types` written at line 171 via `SCENARIO_EVENT_MAPPING[scenarioKey] || []`. Auth via `verifyAuth0JWT` line 10.
+- **`update-commitment-status/index.ts`**: `isTerminal` check at line 62, `resolved_at` spread at line 72. Auth via `verifyAuth0JWT` line 22.
+- **`store-tiny-win/index.ts`**: `category` destructured line 27, written line 56. Auth via `authenticateRequest()` line 16.
+- **`daily-checkins/index.ts`**: `authenticateRequest()` line 52, service role client line 56-59, `SAVE_CHECKIN` upsert lines 220-236 with `onConflict: 'user_id,checkin_date,time_window'`, `UPDATE_CLARITY_CONFIDENCE` lines 264-295 with `timeWindow` filter line 282, `learn-checkin-patterns` fire-and-forget lines 244-257.
+- **`energyStateEngine.ts`**: `fetchTodayCheckin()` lines 136-153 calls EF with `getAuth0Token()`, no localStorage for check-in data. `computeEnergyState()` line 164-179 fetches from DB.
+- **`WellnessCard.tsx`**: `useQuery` lines 12-21 calls `getTodayCheckin()` from `dailyCheckins.ts`. No localStorage.
+- **`CheckInDetail.tsx`**: Auth path lines 39-56 calls EF with `getAccessToken()`, passes `timeWindow` from location state.
