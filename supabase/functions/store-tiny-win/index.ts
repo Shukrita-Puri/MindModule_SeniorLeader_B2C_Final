@@ -23,7 +23,8 @@ serve(async (req) => {
       source = 'coach', 
       sessionId, 
       practiceId, 
-      practiceType 
+      practiceType,
+      category 
     } = await req.json();
 
     if (!winContent || winContent.trim().length < 10) {
@@ -52,6 +53,7 @@ serve(async (req) => {
         session_id: sessionId || null,
         practice_id: practiceId || null,
         practice_type: practiceType || null,
+        category: category || null,
       })
       .select()
       .single();

@@ -59,6 +59,7 @@ serve(async (req) => {
       });
     }
 
+    const isTerminal = status === 'completed' || status === 'abandoned';
     const { error: updateError } = await supabase
       .from('coach_accountability_tracker')
       .update({
@@ -68,6 +69,7 @@ serve(async (req) => {
         completion_evidence: completionEvidence || null,
         was_helpful: wasHelpful ?? null,
         outcome_note: outcomeNote || null,
+        ...(isTerminal ? { resolved_at: new Date().toISOString() } : {}),
       })
       .eq('id', commitmentId);
 
