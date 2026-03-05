@@ -1,97 +1,140 @@
 
 
-## Audit Results: Daily Check-In Feature + Calendar Data Flow
+## Insights Feature — Full Audit Results
+
+### CRITICAL BUGS
+
+#### BUG 1: `performance-rhythm-insights` EF — Unscoped `dialogue_messages` Query (CRITICAL / Security)
+
+**File:** `supabase/functions/performance-rhythm-insights/index.ts` line 97-98
+**Issue:** The EF queries `dialogue_messages` with `.limit(300)` but **no user_id filter and no session_id filter**. This means the Presence section reads messages from ALL users in the system. The same bug exists in the DEV_MODE path of `PerformanceRhythmCard.tsx` (line 124-127).
+
+```typescript
+// EF line 97 — reads ALL dialogue_messages globally
+sb.from("dialogue_messages").select("content, sender_type, session_id").limit(300)
+```
+
+**Fix:** First fetch `dialogue_sessions` for this user, then query messages scoped to those session IDs:
+```typescript
+const { data: userSessions } = await sb
+  .from("dialogue_sessions").select("id")
+  .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso);
+const sessionIds = (userSessions || []).map(s => s.id);
+const dialogueRes = sessionIds.length > 0
+  ? await sb.from("dialogue_messages").select("content, sender_type, session_id")
+      .in("session_id", sessionIds)
+  : { data: [] };
+```
+
+**Impact:** Presence score, coach session count, and presence insight text are all contaminated with other users' data.
 
 ---
 
-### COMPUTE-OUTER-READINESS: Calendar Load/Pressure Flow — VERIFIED CLEAN
+#### BUG 2: `tinyWinsContent` Never Populated in Auth Path (HIGH)
 
-The full chain is working correctly:
+**File:** `src/pages/Insights.tsx` lines 378-391
+**Issue:** In production (non-DEV_MODE), `fetchTinyWinsInsights` calls the EF and sets `tinyWinsInsights` from `data.data`, but **never calls `setTinyWinsContent()`**. The `tinyWinsContent` array stays empty. This means:
+- The "recent win texts" fallback (line 803-812) never renders
+- The `relatedWins` prop passed to `PsychologicalDimensionBubbles` (line 785) is always empty
 
-1. `energyStateEngine.ts` (lines 161-177) fetches calendar events from DB → computes `calendarLoad`/`calendarPressure` via `getCalendarMetrics()` (lines 227-230)
-2. `useOuterReadiness.ts` (lines 59-60) passes `energyState.calendarLoad` and `energyState.calendarPressure` to the EF
-3. `compute-outer-readiness` EF (lines 514-518) destructures `calendarLoad` and `calendarPressure` from the request body
-4. EF uses them in `getTheme()` (line 557) which has full 40-theme matrix covering all tier × load × pressure combinations
-5. EF persists them to `daily_themes` table (lines 589-590)
-6. EF builds `dataSources` array with 'calendar' when load/pressure are non-null (line 485)
-
-**No issues found.** The calendar → energy state → outer readiness pipeline is fully functional.
+**Fix:** Either (a) have the EF return `winsContent` array and set it client-side, or (b) make a separate DB query for win content text in the auth path.
 
 ---
 
-### DAILY CHECK-IN BUGS FOUND
+#### BUG 3: `state-patterns-insights` EF Returns `data.data` but Client Expects Different Shapes (MEDIUM)
 
-#### BUG 1: `saveCheckin` Returns `null` Without Throwing — Silent Auth Failure (HIGH)
+**File:** `src/pages/Insights.tsx` line 436-437 vs `src/components/insights/LeadershipPatternsCard.tsx` line 216-217
+**Issue:** `Insights.tsx` fetches from `state-patterns-insights` and stores `data.data` in `statePatterns` (a `StatePatternInsights` type with `distribution`, `observation`, `checkInCount`). But the EF actually returns a `LeadershipPatternsData` shape with fields like `aiObservation`, `frictionPct`, etc. — no `distribution` field.
 
-**File:** `src/utils/dailyCheckins.ts` line 295
-**Issue:** When `getAuthToken()` returns null, `saveCheckin` returns `null` silently. `DailyCheckIn.tsx` catches thrown errors (line 154) but does NOT check for a `null` return value. The user sees no error and navigates to `/check-in-detail` with unsaved data.
+**Result:** In Auth path, `statePatterns.distribution` is undefined, and `statePatterns.observation` maps to nothing (EF returns `aiObservation`). The `checkInCount` does work because the EF returns it. But the state distribution used on the Insights page (if rendered anywhere) would be broken.
 
-```typescript
-// dailyCheckins.ts line 294-295
-const accessToken = await getAuthToken();
-if (!accessToken) return null;  // Silent failure — no throw
-```
+**Severity:** Medium — currently `checkInCount` is the only field actively consumed from `statePatterns` on the main Insights page. The distribution is not rendered. But it's still a data mismatch.
 
-```typescript
-// DailyCheckIn.tsx line 137 — doesn't check return value
-await saveCheckin({...});  // null return = success path taken
-```
-
-**Fix:** In `DailyCheckIn.tsx`, check the return value of `saveCheckin`. If null, show error toast and don't navigate.
-
-#### BUG 2: UTC Date Gap — Evening Check-Ins Recorded as Next Day (MEDIUM)
-
-**File:** `DailyCheckIn.tsx` line 124
-**Issue:** `checkinDate` is computed as `new Date().toISOString().split('T')[0]` which is UTC. A user in UTC-8 checking in at 10 PM local time gets `checkin_date = next day`. This breaks the "one check-in per time window per day" uniqueness constraint from the user's perspective — they could submit two "evening" check-ins (one at 10 PM local = next day UTC, one at 8 PM local = current day UTC).
-
-The Edge Function (`daily-checkins`) also computes `today` in UTC (line 90, 112, 162), so the mismatch is consistent server-side too. But the user experience is wrong — their "today" history shows yesterday's evening check-in as missing.
-
-**Fix:** Compute `checkinDate` using local date instead of UTC:
-```typescript
-const now = new Date();
-const checkinDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-```
-And pass `timezoneOffset` to the Edge Function so it can compute the correct local date server-side.
-
-#### BUG 3: `canCheckInNow()` Is Never Called (LOW)
-
-**File:** `src/utils/dailyCheckins.ts` line 37
-**Issue:** `canCheckInNow()` exists but is not imported or called anywhere. `DailyCheckIn.tsx` always renders and allows submission regardless of whether the user already checked in for the current time window. The upsert prevents duplicates, but the user gets no feedback that they've already checked in — they just overwrite their previous check-in silently.
-
-**Fix:** Call `canCheckInNow()` in `DailyCheckIn.tsx` on mount. If `canCheckIn === false`, show the existing check-in outcome and offer to update or skip to home.
-
-#### BUG 4: `compute-inner-readiness` Called Without Auth Token (MEDIUM)
-
-**File:** `energyStateEngine.ts` line 203
-**Issue:** `supabase.functions.invoke('compute-inner-readiness', {...})` is called without an Authorization header. The EF config may have `verify_jwt = false`, but this means the EF has no way to identify the user. If it needs user context, it's broken. If it doesn't need user context (pure scoring), it's fine but exposes a public endpoint.
-
-**Fix:** Pass the Auth0 token in the headers, same as other EF calls.
+**Fix:** Either map the EF response to match `StatePatternInsights`, or change the client type to match the EF response.
 
 ---
 
-### CALENDAR END-TO-END FLOW — VERIFIED
+### HIGH-PRIORITY ISSUES
 
-| Step | Status |
-|------|--------|
-| Google Calendar OAuth → `calendar-auth` EF | CLEAN |
-| `sync-calendar` EF → writes to `calendar_events` DB | CLEAN |
-| RLS: `Users can view own calendar events` SELECT policy | CONFIRMED |
-| `energyStateEngine.ts` → DB fetch (next 4h events) | CLEAN |
-| `getCalendarMetrics()` → load/pressure computation | CLEAN |
-| `useOuterReadiness` → passes load/pressure to EF | CLEAN |
-| `compute-outer-readiness` EF → uses in `getTheme()` | CLEAN |
-| Home page mastery plan receives load/pressure | CLEAN |
+#### BUG 4: `LeadershipPatternsCard` Auth Path — Watch For Fallback Logic Error (HIGH)
+
+**File:** `src/components/insights/LeadershipPatternsCard.tsx` lines 399-409
+**Issue:** When `coachFriction` is null AND `coachSessionCount < 3`, it shows "Complete 3 coach sessions to surface personalized observations". But the EF always returns `coachSessionCount` (from `dialogue_sessions`), and the fallback `archetypeWatchFor` is only shown when `coachSessionCount >= 3` AND `coachFriction` is null. This means users with 0-2 coach sessions and no coach friction see a placeholder instead of their archetype's Watch For text.
+
+**Expected behavior:** Always show archetype Watch For as the base, with coach friction replacing it when available.
+
+**Fix:** Change the conditional: show `archetypeWatchFor` when no `coachFriction`, regardless of `coachSessionCount`. Move the "complete 3 sessions" nudge below as a secondary note.
+
+---
+
+#### BUG 5: DEV_MODE `dialogue_messages` Query Unscoped (HIGH)
+
+**File:** `src/components/insights/PerformanceRhythmCard.tsx` line 124-127, `src/pages/Insights.tsx` line 453-458
+**Issue:** Both DEV_MODE paths query `dialogue_messages` without filtering by `user_id` or session scope. Same class of bug as BUG 1 but on the client side (less critical since DEV_MODE is false).
+
+**Fix:** Scope queries through `dialogue_sessions` filtered by user_id first.
+
+---
+
+### MEDIUM ISSUES
+
+#### BUG 6: `score_date` Used as Time Window Index but Stores Date Only (MEDIUM)
+
+**File:** `supabase/functions/performance-rhythm-insights/index.ts` lines 133-138
+**Issue:** `inner_readiness_scores.score_date` is a date column (no time component). `getTimeWindow(d.getHours())` on a date-only value always returns hour 0 → time window 2 (Evening). All composite scores pile into the Evening row of the heatmap.
+
+**Fix:** Use `time_of_day` column (already selected in the query at line 93) to determine the time window instead of parsing hours from `score_date`.
+
+---
+
+#### BUG 7: `insights-semantic-analysis` EF Uses 7-Day Window for Check-Ins/Wins (MEDIUM)
+
+**File:** `supabase/functions/insights-semantic-analysis/index.ts` line 117
+**Issue:** The `days` parameter defaults to 7. This means the Mind Map only analyzes the last 7 days of data, while all other cards use 14-30 days. For users who check in sporadically, the Mind Map may show nothing while other cards have data.
+
+**Fix:** Default `days` to 30 to match other EFs, or at minimum 14.
+
+---
+
+### DB & TABLE VALIDATION
+
+| Card | Tables Read | Status |
+|------|------------|--------|
+| **Card 1 (Self-Mastery)** EF | `profiles`, `daily_checkins`, `daily_themes`, `user_coach_insights`, `sanctuary_events`, `daily_ritual_completions`, `tiny_wins`, `wearable_data`, `dialogue_sessions`, `dialogue_messages`, `calendar_connections`, `behavior_logs`, `inner_readiness_scores` | All tables exist. RLS correct (service_role). |
+| **Card 2 (Momentum)** EF | `tiny_wins` | Table exists. RLS correct. |
+| **Card 3 (Rhythm)** EF | `daily_checkins`, `calendar_connections`, `calendar_events`, `behavior_logs`, `inner_readiness_scores`, `daily_ritual_completions`, `dialogue_messages` | All exist. **`dialogue_messages` unscoped — BUG 1.** |
+| **Card 4 (Mind Map)** EF | `daily_themes`, `dialogue_sessions`, `dialogue_messages`, `sanctuary_events`, `tiny_wins`, `daily_checkins`, `coach_session_summaries`, `coach_pattern_observations` | All exist. RLS correct. |
+
+### EF CONNECTION VALIDATION
+
+| EF | Called From | Auth | Status |
+|----|-----------|------|--------|
+| `state-patterns-insights` | `LeadershipPatternsCard.tsx`, `Insights.tsx` | `verifyAuth0JWT` | Working (logs confirm) |
+| `tiny-wins-insights` | `Insights.tsx` | `verifyAuth0JWT` | Working |
+| `performance-rhythm-insights` | `PerformanceRhythmCard.tsx` | `verifyAuth0JWT` | Working but **BUG 1** |
+| `insights-semantic-analysis` | `Insights.tsx` | `verifyAuth0JWT` | Working |
+
+### WORKFLOW ACCURACY
+
+| Card | Flow | Verified |
+|------|------|----------|
+| Card 1 | User check-in → `daily_checkins` → EF reads 30d → computes scores/archetype/friction/trend → AI observation → returns to client | Correct |
+| Card 2 | Coach detects win → `store-tiny-win` → `tiny_wins` → EF reads 14d → extracts dimensions → AI observation → returns to client | Correct but **tinyWinsContent missing in Auth path (BUG 2)** |
+| Card 3 | Check-in + calendar + behaviors → EF reads 30d → builds grid + best window + calendar/cause-effect/presence → returns to client | **Dialogue messages unscoped (BUG 1)**, **score_date time window wrong (BUG 6)** |
+| Card 4 | Coach conversations + wins + check-ins + practices → EF extracts themes via AI → returns unified themes + relationships → client renders bubbles | Correct but **7-day default too short (BUG 7)** |
 
 ---
 
 ### IMPLEMENTATION PLAN
 
-| # | Fix | Severity | File |
-|---|-----|----------|------|
-| 1 | Check `saveCheckin` return value — show error if null | HIGH | `DailyCheckIn.tsx` |
-| 2 | Use local date instead of UTC for `checkinDate` | MEDIUM | `DailyCheckIn.tsx` |
-| 3 | Call `canCheckInNow()` on mount — show already-checked-in state | LOW | `DailyCheckIn.tsx` |
-| 4 | Add Auth token to `compute-inner-readiness` call | MEDIUM | `energyStateEngine.ts` |
+| # | Fix | Severity | Files |
+|---|-----|----------|-------|
+| 1 | **Scope `dialogue_messages` query by user's session IDs** in `performance-rhythm-insights` EF | CRITICAL | `supabase/functions/performance-rhythm-insights/index.ts` |
+| 2 | **Populate `tinyWinsContent` in Auth path** — add win content to EF response or fetch separately | HIGH | `supabase/functions/tiny-wins-insights/index.ts`, `src/pages/Insights.tsx` |
+| 3 | **Fix Watch For fallback** — always show archetype text when no coach friction | HIGH | `src/components/insights/LeadershipPatternsCard.tsx` |
+| 4 | **Fix `score_date` time window** — use `time_of_day` column instead of parsing hours | MEDIUM | `supabase/functions/performance-rhythm-insights/index.ts` |
+| 5 | **Increase Mind Map default days** from 7 to 30 | MEDIUM | `supabase/functions/insights-semantic-analysis/index.ts` |
+| 6 | **Scope DEV_MODE dialogue queries** (optional cleanup) | LOW | `src/components/insights/PerformanceRhythmCard.tsx`, `src/pages/Insights.tsx` |
 
-**Files changed:** `src/pages/DailyCheckIn.tsx`, `src/utils/energyStateEngine.ts`
+**Files changed:** 2 Edge Functions, 2 Client Components.
 
