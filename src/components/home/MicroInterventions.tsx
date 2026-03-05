@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Bell, Target, Activity, Zap, Heart, Battery, AlertCircle, X, ThumbsUp, ThumbsDown, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { DEV_MODE } from '@/config/devMode';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,16 +141,28 @@ const PerformancePreparationInterventions = () => {
 
       const completed = new Set(interventionData?.map(i => i.intervention_id) || []);
 
-      // Get favorites
-      const { data: favoritesData } = await supabase
-        .from('user_favorites')
-        .select('content_id')
-        .eq('user_id', user.id);
+      // Get favorites via EF (direct DB query fails for Auth0 users due to RLS mismatch)
+      let favoriteIds: string[] = [];
+      try {
+        const accessToken = DEV_MODE
+          ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+          : (await import('@/services/authTokenService')).getAuthToken();
+        const token = typeof accessToken === 'string' ? accessToken : await accessToken;
+        if (token) {
+          const { data: favData } = await supabase.functions.invoke('user-favorites', {
+            headers: { Authorization: `Bearer ${token}` },
+            body: { action: 'GET_FAVORITES' },
+          });
+          favoriteIds = (favData?.data || []).map((f: any) => f.content_id);
+        }
+      } catch (e) {
+        console.error('[MicroInterventions] Error fetching favorites:', e);
+      }
 
       setUserPreferences({
         effectiveContentTypes: effectiveTypes,
         completedInterventions: completed,
-        favoriteContentIds: favoritesData?.map(f => f.content_id) || [],
+        favoriteContentIds: favoriteIds,
       });
     } catch (error) {
       console.error('Error loading user preferences:', error);

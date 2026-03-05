@@ -19,7 +19,8 @@ interface RequestBody {
     | 'GET_MOST_RECENT_CHECKIN_TODAY'
     | 'GET_CHECKIN_FOR_WINDOW'
     | 'GET_ALL_CHECKINS_TODAY'
-    | 'INFER_CURRENT_STATE';
+    | 'INFER_CURRENT_STATE'
+    | 'GET_RECENT_CHECKINS';
   days?: number;
   startDate?: string;
   endDate?: string;
@@ -369,6 +370,26 @@ serve(async (req) => {
         return new Response(JSON.stringify({ data: inferData?.data || inferData }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: inferResponse.status,
+        });
+      }
+
+      case 'GET_RECENT_CHECKINS': {
+        const limit = (body as any).limit || 5;
+
+        const { data, error } = await supabase
+          .from('daily_checkins')
+          .select('id, checkin_date, outcome, energy_balance')
+          .eq('user_id', userId)
+          .order('checkin_date', { ascending: false })
+          .limit(limit);
+
+        if (error) {
+          console.error('[daily-checkins] GET_RECENT_CHECKINS error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ data: data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { DEV_MODE, DEV_USER } from "@/config/devMode";
+import { DEV_MODE } from "@/config/devMode";
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 
 interface FavoriteItem {
@@ -11,6 +11,13 @@ interface FavoriteItem {
   category: string;
   title: string | null;
 }
+
+const getToken = async (): Promise<string | null> => {
+  if (DEV_MODE) {
+    return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  }
+  return await getAccessToken();
+};
 
 export const useFavorites = () => {
   const { isAuthenticated, user } = useAuth();
@@ -25,44 +32,25 @@ export const useFavorites = () => {
     }
     
     try {
-      const userId = DEV_MODE ? DEV_USER.id : user.id;
-      let favoritesData: any[] = [];
-
-      if (DEV_MODE) {
-        // DEV_MODE: Query database directly (RLS bypassed via service key in edge function not needed)
-        console.log('[useFavorites] DEV_MODE: Fetching favorites directly from DB');
-        const { data, error } = await supabase
-          .from('user_favorites')
-          .select('content_id, content_type, category')
-          .eq('user_id', userId);
-        
-        if (error) {
-          console.error('[useFavorites] DEV_MODE DB error:', error);
-          throw error;
-        }
-        favoritesData = data || [];
-      } else {
-        // Production: Use edge function with Auth0 token
-        const accessToken = await getAccessToken();
-        if (!accessToken) {
-          console.warn('[useFavorites] No access token available');
-          setFavorites(new Map());
-          setLoading(false);
-          return;
-        }
-
-        const { data, error: favoritesError } = await supabase.functions.invoke('user-favorites', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: { action: 'GET_FAVORITES' }
-        });
-
-        if (favoritesError) {
-          console.error('[useFavorites] Edge function error:', favoritesError);
-          throw favoritesError;
-        }
-        favoritesData = data?.data || [];
+      const accessToken = await getToken();
+      if (!accessToken) {
+        console.warn('[useFavorites] No access token available');
+        setFavorites(new Map());
+        setLoading(false);
+        return;
       }
 
+      const { data, error: favoritesError } = await supabase.functions.invoke('user-favorites', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { action: 'GET_FAVORITES' }
+      });
+
+      if (favoritesError) {
+        console.error('[useFavorites] Edge function error:', favoritesError);
+        throw favoritesError;
+      }
+
+      const favoritesData = data?.data || [];
       console.log('[useFavorites] Fetched favorites:', favoritesData.length);
 
       if (!favoritesData || favoritesData.length === 0) {
@@ -122,134 +110,64 @@ export const useFavorites = () => {
       return;
     }
 
-    const userId = DEV_MODE ? DEV_USER.id : user.id;
     const isFavorited = favorites.has(contentId);
 
     try {
-      if (DEV_MODE) {
-        // DEV_MODE: Direct database operations
-        console.log('[useFavorites] DEV_MODE: Toggling favorite directly in DB');
-        
-        if (isFavorited) {
-          const { error } = await supabase
-            .from('user_favorites')
-            .delete()
-            .eq('user_id', userId)
-            .eq('content_id', contentId);
+      const accessToken = await getToken();
+      if (!accessToken) {
+        console.warn('[useFavorites] No access token for toggle');
+        toast.error("Authentication required");
+        return;
+      }
 
-          if (error) {
-            console.error('[useFavorites] DEV_MODE Remove error:', error);
-            throw error;
-          }
+      if (isFavorited) {
+        const { error } = await supabase.functions.invoke('user-favorites', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { action: 'REMOVE_FAVORITE', contentId }
+        });
 
-          setFavorites(prev => {
-            const newFavorites = new Map(prev);
-            newFavorites.delete(contentId);
-            return newFavorites;
-          });
-          toast.success("Removed from favorites");
-          console.log('[useFavorites] Removed favorite:', contentId);
-        } else {
-          const { error } = await supabase
-            .from('user_favorites')
-            .insert({
-              user_id: userId,
-              content_id: contentId,
-              content_type: contentType,
-              category: category
-            });
-
-          if (error) {
-            console.error('[useFavorites] DEV_MODE Add error:', error);
-            throw error;
-          }
-
-          // Fetch the title for the new favorite
-          const { data: contentData } = await supabase
-            .from('sanctuary_content')
-            .select('title')
-            .eq('id', contentId)
-            .single();
-
-          setFavorites(prev => {
-            const newMap = new Map(prev);
-            newMap.set(contentId, {
-              content_id: contentId,
-              content_type: contentType,
-              category: category,
-              title: contentData?.title || null
-            });
-            return newMap;
-          });
-          toast.success("Added to favorites");
-          console.log('[useFavorites] Added favorite:', contentId);
+        if (error) {
+          console.error('[useFavorites] Remove favorite error:', error);
+          throw error;
         }
+
+        setFavorites(prev => {
+          const newFavorites = new Map(prev);
+          newFavorites.delete(contentId);
+          return newFavorites;
+        });
+        toast.success("Removed from favorites");
+        console.log('[useFavorites] Removed favorite:', contentId);
       } else {
-        // Production: Use edge function with Auth0 token
-        const accessToken = await getAccessToken();
-        if (!accessToken) {
-          console.warn('[useFavorites] No access token for toggle');
-          toast.error("Authentication required");
-          return;
+        const { error } = await supabase.functions.invoke('user-favorites', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { action: 'ADD_FAVORITE', contentId, contentType, category }
+        });
+
+        if (error) {
+          console.error('[useFavorites] Add favorite error:', error);
+          throw error;
         }
 
-        if (isFavorited) {
-          const { error } = await supabase.functions.invoke('user-favorites', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: { 
-              action: 'REMOVE_FAVORITE',
-              contentId 
-            }
+        // Fetch the title for the new favorite
+        const { data: contentData } = await supabase
+          .from('sanctuary_content')
+          .select('title')
+          .eq('id', contentId)
+          .single();
+
+        setFavorites(prev => {
+          const newMap = new Map(prev);
+          newMap.set(contentId, {
+            content_id: contentId,
+            content_type: contentType,
+            category: category,
+            title: contentData?.title || null
           });
-
-          if (error) {
-            console.error('[useFavorites] Remove favorite error:', error);
-            throw error;
-          }
-
-          setFavorites(prev => {
-            const newFavorites = new Map(prev);
-            newFavorites.delete(contentId);
-            return newFavorites;
-          });
-          toast.success("Removed from favorites");
-          console.log('[useFavorites] Removed favorite:', contentId);
-        } else {
-          const { error } = await supabase.functions.invoke('user-favorites', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: { 
-              action: 'ADD_FAVORITE',
-              contentId,
-              contentType,
-              category
-            }
-          });
-
-          if (error) {
-            console.error('[useFavorites] Add favorite error:', error);
-            throw error;
-          }
-
-          // Fetch the title for the new favorite
-          const { data: contentData } = await supabase
-            .from('sanctuary_content')
-            .select('title')
-            .eq('id', contentId)
-            .single();
-
-          setFavorites(prev => {
-            const newMap = new Map(prev);
-            newMap.set(contentId, {
-              content_id: contentId,
-              content_type: contentType,
-              category: category,
-              title: contentData?.title || null
-            });
-            return newMap;
-          });
-          toast.success("Added to favorites");
-          console.log('[useFavorites] Added favorite:', contentId);
-        }
+          return newMap;
+        });
+        toast.success("Added to favorites");
+        console.log('[useFavorites] Added favorite:', contentId);
       }
     } catch (error: any) {
       console.error('[useFavorites] Error toggling favorite:', error);
