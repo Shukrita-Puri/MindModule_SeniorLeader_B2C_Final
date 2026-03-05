@@ -151,7 +151,8 @@ export async function uploadOfflineEvents() {
 }
 
 // checkInOutcome: pass already-fetched check-in outcome from server. Callers have this from energy state or React Query.
-export function getEnrichedContextData(checkInOutcome?: string): {
+// calendarEvents: pass pre-fetched calendar events from DB. No more localStorage read.
+export function getEnrichedContextData(checkInOutcome?: string, calendarEvents?: any[]): {
   timeOfDay: string;
   dayOfWeek: string;
   checkInOutcome?: string;
@@ -177,15 +178,15 @@ export function getEnrichedContextData(checkInOutcome?: string): {
   const ouraData = JSON.parse(localStorage.getItem('ouraData') || '{}');
   const ouraReadiness = ouraData.readiness;
   
-  // Get calendar events (ephemeral signal — acceptable in localStorage)
-  const calendarEvents = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
+  // Calendar events: use provided param (from DB fetch) or empty array
+  const resolvedCalendarEvents = calendarEvents || [];
   
   return {
     timeOfDay,
     dayOfWeek,
     checkInOutcome,
     ouraReadiness,
-    calendarEvents: calendarEvents.slice(0, 3), // Next 3 events
+    calendarEvents: resolvedCalendarEvents.slice(0, 3), // Next 3 events
     energyState: checkInOutcome
   };
 }
