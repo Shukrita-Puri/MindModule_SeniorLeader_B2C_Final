@@ -114,7 +114,7 @@ serve(async (req) => {
     const userId = await verifyAuth0JWT(authHeader);
 
     const requestBody = await req.json();
-    const { days = 7, action = 'analyze', keyword } = requestBody;
+    const { days = 30, action = 'analyze', keyword } = requestBody;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

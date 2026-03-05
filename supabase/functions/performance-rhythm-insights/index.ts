@@ -94,8 +94,8 @@ serve(async (req) => {
           .eq("user_id", userId).gte("score_date", thirtyDaysAgoStr),
         sb.from("daily_ritual_completions").select("ritual_date, completion_status, session_period")
           .eq("user_id", userId).gte("ritual_date", thirtyDaysAgoStr),
-        sb.from("dialogue_messages").select("content, sender_type, session_id")
-          .limit(300),
+        sb.from("dialogue_sessions").select("id")
+          .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
       ]);
 
     const checkIns = checkInsRes.data || [];
@@ -104,7 +104,16 @@ serve(async (req) => {
     const behaviorLogs = behaviorRes.data || [];
     const readinessScores = readinessRes.data || [];
     const rituals = ritualsRes.data || [];
-    const dialogueMessages = dialogueRes.data || [];
+
+    // BUG 1 fix: Scope dialogue_messages by user's session IDs
+    const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
+    let dialogueMessages: any[] = [];
+    if (userSessionIds.length > 0) {
+      const { data: msgs } = await sb.from("dialogue_messages")
+        .select("content, sender_type, session_id")
+        .in("session_id", userSessionIds);
+      dialogueMessages = msgs || [];
+    }
 
     console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs`);
 
@@ -132,7 +141,8 @@ serve(async (req) => {
     );
     for (const s of readinessScores) {
       const d = new Date(s.score_date);
-      const tw = getTimeWindow(d.getHours());
+      // BUG 6 fix: Use time_of_day column instead of parsing hours from date-only score_date
+      const tw = s.time_of_day === 'morning' ? 0 : s.time_of_day === 'afternoon' ? 1 : 2;
       const di = getDayIndex(d.getDay());
       cellComposites[tw][di].push(s.composite_score);
     }

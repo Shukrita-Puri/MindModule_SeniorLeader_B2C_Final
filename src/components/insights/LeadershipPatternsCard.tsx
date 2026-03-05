@@ -401,10 +401,13 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
                       <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
                     </div>
-                  ) : data.coachSessionCount < 3 ? (
-                    <p className="text-xs text-muted-foreground">Complete 3 coach sessions to surface personalized observations</p>
                   ) : (
-                    <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
+                    <>
+                      <p className="text-sm text-saffron">{data.archetypeWatchFor}</p>
+                      {data.coachSessionCount < 3 && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">Will personalize with coach sessions</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
