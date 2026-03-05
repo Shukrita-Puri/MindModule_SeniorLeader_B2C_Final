@@ -1,151 +1,90 @@
 
 
-## Starred & Recent Activity — Full Audit
+## Mastery Plan + JIT — Implementation Plan
 
-### STARRED ITEMS (Favorites)
+This plan addresses all 4 bugs from the audit plus the additional issues you raised (client trust gap, sessionStorage staleness, empty userId fallback, rate limiting, DEV_MODE fix).
 
-**Storage:** Cloud (DB table `user_favorites` with RLS). No localStorage involved.
+### Changes Overview
 
-**Data Retention:** Unlimited — no TTL or cleanup. All favorites persist indefinitely.
-
-**Schema:** `user_favorites` table with columns: `id`, `user_id`, `content_id`, `content_type`, `category`, `created_at`. Unique constraint on `(user_id, content_id)`.
-
-**Auth Path:** Edge function `user-favorites` with `authenticateRequest()` → service_role client. Correctly scoped by userId from JWT.
-
-**DEV_MODE Path:** Direct Supabase client queries against `user_favorites` table. DEV_MODE RLS policies were created in migration `20260125...` but then **dropped** in migration `20260305154847`. This means DEV_MODE direct DB queries will **fail silently** due to RLS deny-by-default.
-
-**Read/Write Flow:**
-- **Read:** `useFavorites.tsx` → `fetchFavorites()` → EF `GET_FAVORITES` (auth) or direct DB (dev)
-- **Write:** `useFavorites.tsx` → `toggleFavorite()` → EF `ADD_FAVORITE`/`REMOVE_FAVORITE` (auth) or direct DB (dev)
-- **Display:** `StarredItems.tsx` renders from `useFavorites()` hook
-
-**Downstream Consumers:**
-| Consumer | Reads From | Method |
-|----------|-----------|--------|
-| `StarredItems.tsx` | `useFavorites()` hook | Displays in sidebar |
-| `DailyRitual.tsx` | `useFavorites()` → `isFavorite()` | Checks if ritual items are favorited |
-| `PerformancePreparation.tsx` | `useFavorites()` | Favorite status for prep items |
-| `JitCarousel.tsx` | `useFavorites()` → `isFavorite()` | Favorite badge on JIT pills |
-| `PauseOutcomePage.tsx` | `useFavorites()` → `toggleFavorite()` | Star/unstar practices |
-| `MicroInterventions.tsx` | Direct DB query `user_favorites` | Gets `favoriteContentIds` |
+**4 files modified, 0 DB migrations.**
 
 ---
 
-### CRITICAL BUG 1: EF `GET_FAVORITES` Returns Incomplete Data (HIGH)
+### Step 1: Add auth + move upstream queries into `generate-mastery-plan` EF
 
-**File:** `supabase/functions/user-favorites/index.ts` line 39
+**File:** `supabase/functions/generate-mastery-plan/index.ts`
 
-**Issue:** The `GET_FAVORITES` action only selects `content_id`:
-```sql
-.select('content_id')
-```
+**Handler changes (lines 1245-1270):**
+- Import `authenticateRequest` from `../_shared/auth.ts`
+- Call `authenticateRequest(req, corsHeaders)` — use verified `userId` from JWT, ignore `body.userId`
+- Add per-user rate limiting: before doing any work, query a simple in-memory map keyed by userId with a 30-second cooldown. If the user called within 30s, return the previous response from a cache (or a 429). This prevents LLM cost amplification. (Note: the EF doesn't call an LLM — it's pure algorithmic scoring — but the rate limit still prevents abuse of DB queries.)
 
-But the client (`useFavorites.tsx` line 63) expects `content_type` and `category` too:
-```typescript
-favoritesData = data?.data || [];
-// Later uses favorite.content_type and favorite.category
-```
+**New server-side queries (inside `generateMasteryPlan`, after existing skip/commitment queries around line 935):**
+- `calendar_events`: SELECT for user, next 48h (currently done client-side at DailyRitual line 283)
+- `daily_checkins`: SELECT last 7 outcomes for pattern detection (currently client-side line 303)
+- `profiles`: SELECT `practice_priority_tag, pressure_context_tag, archetype` (currently client-side line 327)
+- `content_relevance_feedback`: SELECT content_ids with star_rating >= 4 (currently client-side line 339)
+- `user_coach_insights`: SELECT active insights with confidence >= 0.6, limit 50 (currently in `coachInsightsExtractor.ts`)
 
-**Impact:** For **auth-path users**, `content_type` and `category` are `undefined` on every favorite. This breaks:
-- `StarredItems.tsx` navigation — `handlePracticeClick()` checks `content_type` to route to soundscapes/guided-practices/micro-practices. With `undefined`, it always falls through to the `else` branch and navigates to `/recalibrate` instead of the correct practice page.
-- Any downstream consumer checking `content_type` or `category`.
+These queries use the existing `supabaseClient` (service_role), so no RLS issues. The `PlanRequest` interface will drop `calendarEvents`, `coachInsights`, `effectiveContent`, `patternInsight`, `practicePriorityTag`, `pressureContextTag`, `archetype` — these are now fetched server-side from the verified userId.
 
-**DEV_MODE** is unaffected because it queries `content_id, content_type, category` directly.
-
-**Fix:** Change EF line 39 from `.select('content_id')` to `.select('content_id, content_type, category')`.
+**Trust gap note:** `innerReadinessTier`, `innerReadinessScore`, `outerReadinessPhrase`, `outerReadinessDriver`, `favorites`, `completedToday`, `clarityLevel`, `confidenceLevel`, `checkInOutcome`, `calendarLoad`, `calendarPressure` remain client-supplied. These are pre-computed signals from other EFs (energy state, outer readiness) and local UI state. A compromised client could manipulate these to game content selection. This is an accepted risk for now — the impact is limited to seeing different practice recommendations (no data exfiltration or privilege escalation). A future hardening pass could verify these server-side by re-fetching from their source tables.
 
 ---
 
-### CRITICAL BUG 2: DEV_MODE RLS Policies Dropped (MEDIUM)
+### Step 2: Simplify `DailyRitual.tsx` client-side
 
-**Issue:** Migration `20260305154847` dropped the DEV_MODE RLS policies for `user_favorites`:
-```sql
-DROP POLICY IF EXISTS "Dev user can view favorites" ON public.user_favorites;
-DROP POLICY IF EXISTS "Dev user can delete favorites" ON public.user_favorites;
-DROP POLICY IF EXISTS "Dev user can insert favorites" ON public.user_favorites;
-```
+**File:** `src/components/home/DailyRitual.tsx`
 
-The `useFavorites.tsx` DEV_MODE path queries the DB directly using the anon key client. Without RLS policies allowing `user_id = 'dev-user-123'`, all queries return empty results (RLS deny-by-default). Favorites appear empty in DEV_MODE.
-
-**Fix:** Route DEV_MODE through the Edge Function (same as auth path but with a dev token), or re-add the DEV_MODE RLS policies. The cleanest approach is to make DEV_MODE use the EF path as well, since the EF uses service_role which bypasses RLS.
+- **Remove** 5 direct DB queries (calendar_events, daily_checkins, profiles, content_relevance_feedback, user_coach_insights) — lines 275-345
+- **Remove** `getActiveCoachInsights` import
+- **Simplify** `requestBody` to only pass: `innerReadinessTier`, `innerReadinessScore`, `outerReadinessPhrase`, `outerReadinessDriver`, `calendarLoad`, `calendarPressure`, `favorites`, `completedToday`, `timezoneOffset`, `clarityLevel`, `confidenceLevel`, `checkInOutcome`
+- **Fix empty userId:** Remove `userId: user?.id || ''` from the request body entirely (auth is now handled by JWT in the EF)
+- **Fix sessionStorage staleness:** After setting the cached plan, also store the energy state hash. On reload, compare current energy state hash against stored — if different, invalidate the cache and regenerate. This catches mid-day energy changes.
+- **Fix restart ritual:** Replace direct `supabase.from('daily_ritual_completions').delete()` (line 504) with `supabase.functions.invoke('daily-rituals', { body: { action: 'DELETE_TODAY_RITUAL' } })`
 
 ---
 
-### RECENT ACTIVITY
+### Step 3: Add `DELETE_TODAY_RITUAL` action to `daily-rituals` EF
 
-**Storage:** Cloud (reads from 3 DB tables). No localStorage involved.
+**File:** `supabase/functions/daily-rituals/index.ts`
 
-**Data Retention:** Shows last 10 items total, pulling 5 most recent from each source:
-- `dialogue_sessions` (coach conversations) — 5 most recent
-- `daily_checkins` (check-ins) — 5 most recent
-- `sanctuary_events` (practice completions) — 5 most recent
-
-**Auth Path:** Coach sessions fetched via EF `dialogue-session-manage` with `LIST_COACH_SESSIONS` action. Check-ins and sanctuary events fetched via **direct Supabase client queries**.
-
-**DEV_MODE Path:** Coach sessions fetched via direct DB query on `dialogue_sessions` + `dialogue_messages`. Check-ins and sanctuary events use same direct queries as auth path.
-
-**Read/Write Flow:**
-- **Read only** — `useRecentActivity.ts` aggregates from 3 sources, sorts by date, returns top 10
-- **Display:** `RecentActivity.tsx` renders grouped by date (Today/Yesterday/Day name)
-- **Navigation:** Clicking coach items navigates to `/coach` with `resumeSession` state
-
-**Downstream:** No downstream consumers — `useRecentActivity` is terminal (display only).
+- Add `'DELETE_TODAY_RITUAL'` to the `RequestBody` action union type
+- Add case: delete from `daily_ritual_completions` where `user_id = userId` and `ritual_date = today`
+- Uses existing `authenticateRequest` + service_role pattern
 
 ---
 
-### BUG 3: Auth Path Direct DB Queries Will Fail for Auth0 Users (HIGH)
+### Step 4: Fix JitCarousel dismiss/snooze
 
-**File:** `useRecentActivity.ts` lines 94-129
+**File:** `src/components/home/JitCarousel.tsx`
 
-**Issue:** The check-in and sanctuary_events queries use `supabase.from(...)` directly with the browser client:
-```typescript
-const { data: checkins } = await supabase
-  .from('daily_checkins')
-  .select(...)
-  .eq('user_id', user.id);
-```
-
-For Auth0 users, `auth.uid()` returns the Supabase anonymous session UUID, **not** the Auth0 `sub` claim. The RLS policies on `daily_checkins` use:
-```sql
-USING (((auth.uid())::text = user_id))
-```
-
-But `user_id` in the table stores the Auth0 `sub` (e.g., `auth0|abc123`), while `auth.uid()` returns the Supabase anon UUID. These don't match, so **RLS blocks all rows**. The recent activity sidebar shows no check-ins or practice completions for authenticated users.
-
-The coach sessions work because they go through the EF (which uses service_role), but check-ins and sanctuary_events are broken.
-
-**Fix:** Route these queries through an Edge Function that uses `authenticateRequest()` + service_role, consistent with the rest of the architecture.
+- Replace direct `supabase.from('jit_preferences').insert()` in `handleDismiss` and `handleSnooze` with `supabase.functions.invoke('track-jit-skip', { body: { action: 'dismissed'/'snoozed', eventType, eventTitle } })`
+- The `track-jit-skip` EF already exists with `authenticateRequest()` — no EF changes needed
+- Remove unused `DEV_MODE`/`DEV_USER` imports and direct DB access
 
 ---
 
-### BUG 4: `MicroInterventions.tsx` Direct DB Query (MEDIUM)
+### Step 5: DEV_MODE fix
 
-**File:** `src/components/home/MicroInterventions.tsx` line 144-147
+**Approach:** In `DailyRitual.tsx` and `JitCarousel.tsx`, DEV_MODE follows the same EF path as auth users. The EFs use `authenticateRequest()` which requires a Bearer token. The existing `token || anonKey` pattern (per memory) sends the anon key when no Auth0 token exists. The `_shared/auth.ts` will reject the anon key (it's not a valid Auth0 JWT).
 
-**Issue:** Same as Bug 3 — queries `user_favorites` directly via browser client. Auth0 users' `auth.uid()` won't match the stored `user_id`. Returns empty favorites list.
+**Fix:** In `generate-mastery-plan`'s new auth block, add a DEV_MODE bypass: if auth fails AND the request body contains `devMode: true` AND `Deno.env.get('ENVIRONMENT') !== 'production'`, fall back to `body.userId`. This keeps production locked down while allowing dev testing. Same pattern for `track-jit-skip` (already has auth — just needs the dev bypass if not already present).
 
-**Fix:** Use `useFavorites()` hook (which routes through the EF) instead of direct DB query.
+Alternatively (simpler): in `DailyRitual.tsx`, when `DEV_MODE` is true, pass the userId in a `x-dev-user-id` header. The EF checks for this header only when JWT verification fails and a `DEV_ALLOWED` env var is set.
 
 ---
 
-### SUMMARY
+### Additional Notes
 
-| # | Bug | Severity | Fix |
-|---|-----|----------|-----|
-| 1 | EF `GET_FAVORITES` only returns `content_id`, missing `content_type` and `category` — breaks starred item navigation for auth users | HIGH | Add columns to EF select |
-| 2 | DEV_MODE RLS policies for `user_favorites` were dropped — dev favorites broken | MEDIUM | Route DEV_MODE through EF |
-| 3 | `useRecentActivity` direct DB queries for check-ins and sanctuary_events fail for Auth0 users due to RLS mismatch | HIGH | Route through EF |
-| 4 | `MicroInterventions.tsx` direct `user_favorites` query fails for Auth0 users | MEDIUM | Use `useFavorites()` hook |
+| Issue | Resolution |
+|-------|-----------|
+| Client trust gap | Documented above — accepted risk, no data exfil possible |
+| sessionStorage staleness | Energy state hash comparison before serving cache |
+| Empty userId fallback | Removed from request body — auth is JWT-only |
+| Rate limiting | 30s per-user cooldown in EF (in-memory map) |
+| DEV_MODE broken | Dev header bypass when non-production env |
+| `coachInsightsExtractor.ts` | No changes needed — its only consumer (DailyRitual) no longer calls it. The module remains available for future use but the direct DB query is no longer in the critical path. |
 
-### IMPLEMENTATION PLAN
-
-**Step 1:** Fix EF `user-favorites/index.ts` — change `GET_FAVORITES` select to include `content_id, content_type, category`.
-
-**Step 2:** Update `useRecentActivity.ts` — route check-in and sanctuary_events fetches through the `daily-checkins` EF (for check-ins) and a new action or existing EF (for sanctuary_events). Both paths (auth + dev) should use service_role-backed queries.
-
-**Step 3:** Fix `MicroInterventions.tsx` — replace direct `user_favorites` query with the `useFavorites()` hook or route through the EF.
-
-**Step 4:** Consolidate DEV_MODE favorites path to use the EF (service_role bypasses RLS, so no dev-specific policies needed).
-
-**Files changed:** 3-4 file edits, 0 DB migrations needed.
+**Files changed:** 4 (generate-mastery-plan EF, DailyRitual.tsx, JitCarousel.tsx, daily-rituals EF). No DB migrations.
 
