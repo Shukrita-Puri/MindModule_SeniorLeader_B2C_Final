@@ -13,6 +13,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { supabase } from '@/integrations/supabase/client';
 import MetricInfoModal from '@/components/home/MetricInfoModal';
 import { getAuthToken } from '@/services/authTokenService';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 interface PreEventModule {
   type: string;
@@ -57,6 +58,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       const token = await getAuthToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
       await supabase.functions.invoke('track-jit-skip', {
         headers,
         body: {

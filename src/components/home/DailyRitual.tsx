@@ -12,8 +12,6 @@ import confetti from 'canvas-confetti';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
-import { computeEnergyState } from '@/utils/energyStateEngine';
-import { fetchOuterReadiness } from '@/hooks/useOuterReadiness';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -217,11 +215,6 @@ const DailyRitual = () => {
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
   };
 
-  // Generate a simple hash for energy state to detect mid-day changes
-  const getEnergyHash = (energyState: any, outerBrief: any) => {
-    return `${energyState.energyTier}-${energyState.overallBalance}-${outerBrief?.phrase || ''}-${energyState.checkInOutcome || ''}`;
-  };
-
   const loadPlan = async () => {
     setLoading(true);
     try {
@@ -255,23 +248,7 @@ const DailyRitual = () => {
         }
       }
 
-      // Compute energy state early for staleness check
-      const userId = DEV_MODE ? DEV_USER.id : user?.id;
-      const energyState = await computeEnergyState(userId);
-      const outerBrief = await fetchOuterReadiness(userId);
-      const currentEnergyHash = getEnergyHash(energyState, outerBrief);
-
-      // Check sessionStorage staleness — invalidate if energy state changed mid-day
-      if (!shouldRegenerate && sessionLoaded === 'true') {
-        const storedHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}`);
-        if (storedHash && storedHash !== currentEnergyHash) {
-          console.log('[DailyRitual] Energy state changed mid-day, invalidating cache');
-          shouldRegenerate = true;
-          sessionStorage.removeItem(sessionKey);
-        }
-      }
-
-      // Use session cache if available
+      // Use session cache if available (EF handles staleness via rate limiting)
       if (!shouldRegenerate && sessionLoaded === 'true') {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}`);
         if (cachedPlan) {
@@ -290,10 +267,6 @@ const DailyRitual = () => {
         }
       }
 
-      // Generate fresh plan via backend — all upstream DB queries now server-side
-      const favoriteIds = Array.from(favorites.keys());
-      const completedToday = todayRitual?.completed_practice_ids || [];
-
       // Build auth headers
       const headers: Record<string, string> = {};
       if (DEV_MODE) {
@@ -304,20 +277,9 @@ const DailyRitual = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Only timezoneOffset — ALL signals are now derived server-side
       const requestBody = {
-        // Client-supplied signals only (server fetches calendar, profile, insights, etc.)
-        innerReadinessTier: energyState.energyTier,
-        innerReadinessScore: energyState.overallBalance || 50,
-        outerReadinessPhrase: outerBrief?.phrase || 'Steady execution.',
-        outerReadinessDriver: outerBrief?.driver || 'state',
-        calendarLoad: energyState.calendarLoad || 'none',
-        calendarPressure: energyState.calendarPressure || 'none',
-        favorites: favoriteIds,
-        completedToday,
         timezoneOffset: new Date().getTimezoneOffset(),
-        clarityLevel: todayCheckin?.clarity_level ?? 0,
-        confidenceLevel: todayCheckin?.confidence_level ?? 0,
-        checkInOutcome: energyState.checkInOutcome || 'steady',
       };
 
       const { data: planData, error } = await supabase.functions.invoke('generate-mastery-plan', {
@@ -334,7 +296,7 @@ const DailyRitual = () => {
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
 
-      // Store plan for stability + energy hash for staleness detection
+      // Store plan for stability
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         await upsertRitual({
@@ -345,7 +307,6 @@ const DailyRitual = () => {
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}`, JSON.stringify(planResponse));
-        sessionStorage.setItem(`plan-energy-hash-${todayDate}`, currentEnergyHash);
       }
 
       setRitualStatus(prev => ({

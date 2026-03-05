@@ -57,7 +57,9 @@ interface CalendarEvent {
 interface PlanRequest {
   // Verified server-side — NOT from client
   userId: string;
-  // Client-supplied signals (pre-computed by other EFs — accepted trust gap)
+  // Only client-supplied field
+  timezoneOffset: number;
+  // ALL below are server-fetched — populated inside generateMasteryPlan
   innerReadinessTier: string;
   innerReadinessScore: number;
   outerReadinessPhrase: string;
@@ -66,12 +68,9 @@ interface PlanRequest {
   calendarPressure: string;
   favorites: string[];
   completedToday: string[];
-  timezoneOffset: number;
   clarityLevel: number;
   confidenceLevel: number;
   checkInOutcome: string;
-  wearableStress?: string;
-  // Server-fetched — populated inside generateMasteryPlan
   calendarEvents: CalendarEvent[];
   coachInsights?: any[];
   effectiveContent?: string[];
@@ -911,8 +910,9 @@ function getCoachPromptForContext(
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
 
-  // 0. Server-side upstream queries (moved from client to fix Auth0 RLS + trust gap)
+  // 0. Server-side upstream queries — ALL signals derived here (trust gap closed)
   // Calendar events — next 48h
+  let rawCalendarEvents: any[] = [];
   try {
     const now = new Date();
     const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
@@ -922,21 +922,77 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       .eq('user_id', req.userId)
       .gte('start_time', now.toISOString())
       .lte('start_time', in48h.toISOString());
-    req.calendarEvents = (events || []).map((e: any) => ({
+    rawCalendarEvents = events || [];
+    req.calendarEvents = rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
       isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring
     }));
   } catch { req.calendarEvents = []; }
 
-  // Check-in pattern — last 7 outcomes for consecutive-low detection
+  // Compute calendarLoad and calendarPressure server-side from fetched events
+  try {
+    const now = new Date();
+    const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    const upcomingEvents = rawCalendarEvents.filter((event: any) => {
+      const startTime = new Date(event.start_time);
+      return startTime >= now && startTime <= fourHoursLater;
+    });
+    const meetingCount = upcomingEvents.length;
+    req.calendarLoad = meetingCount >= 5 ? 'high' : meetingCount >= 3 ? 'medium' : 'low';
+
+    let totalPressure = 0;
+    upcomingEvents.forEach((event: any) => {
+      let ep = 0;
+      if (event.is_organizer) ep += 2;
+      const attendees = event.attendees_count || 0;
+      if (attendees > 5) ep += 2; else if (attendees > 2) ep += 1;
+      const start = new Date(event.start_time);
+      const end = new Date(event.end_time);
+      const durationMin = (end.getTime() - start.getTime()) / 60000;
+      if (durationMin > 60) ep += 2; else if (durationMin >= 30) ep += 1;
+      if (!event.is_recurring) ep += 1;
+      const hour = start.getHours();
+      if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 16)) ep += 1;
+      totalPressure += ep;
+    });
+    // Back-to-back detection
+    const sorted = [...upcomingEvents].sort((a: any, b: any) =>
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+      if (gap < 15) totalPressure += 1;
+    }
+    req.calendarPressure = totalPressure >= 6 ? 'high' : totalPressure >= 3 ? 'medium' : 'low';
+  } catch {
+    req.calendarLoad = 'none';
+    req.calendarPressure = 'none';
+  }
+
+  // Check-in data — pattern detection + clarity/confidence/outcome + inner readiness
   try {
     const { data: checkins } = await supabaseClient
       .from('daily_checkins')
-      .select('outcome')
+      .select('outcome, clarity_level, confidence_level, energy_balance, checkin_date')
       .eq('user_id', req.userId)
       .order('checkin_date', { ascending: false })
       .limit(7);
     if (checkins?.length) {
+      // Latest check-in → clarity, confidence, outcome, inner readiness
+      const latest = checkins[0];
+      req.clarityLevel = latest.clarity_level ?? 0;
+      req.confidenceLevel = latest.confidence_level ?? 0;
+      req.checkInOutcome = latest.outcome || 'steady';
+
+      // Inner readiness from energy_balance
+      const eb = latest.energy_balance ?? 50;
+      req.innerReadinessScore = eb;
+      if (eb < 40) req.innerReadinessTier = 'depleted';
+      else if (eb < 60) req.innerReadinessTier = 'managing';
+      else if (eb < 75) req.innerReadinessTier = 'strong';
+      else req.innerReadinessTier = 'peak';
+
+      // Consecutive-low pattern detection
       const first = checkins[0].outcome;
       const lowStates = ['overwhelmed', 'drained', 'scattered'];
       if (lowStates.includes(first)) {
@@ -986,6 +1042,49 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       contentReference: r.content_reference || undefined, confidence: r.confidence_score || 0.5
     }));
   } catch { req.coachInsights = []; }
+
+  // Completed today — from daily_ritual_completions
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: ritual } = await supabaseClient
+      .from('daily_ritual_completions')
+      .select('completed_practice_ids')
+      .eq('user_id', req.userId)
+      .eq('ritual_date', today)
+      .maybeSingle();
+    req.completedToday = ritual?.completed_practice_ids || [];
+  } catch { req.completedToday = []; }
+
+  // Favorites — from user_favorites
+  try {
+    const { data: favs } = await supabaseClient
+      .from('user_favorites')
+      .select('content_id')
+      .eq('user_id', req.userId);
+    req.favorites = (favs || []).map((f: any) => f.content_id);
+  } catch { req.favorites = []; }
+
+  // Outer readiness — call compute-outer-readiness server-to-server
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const outerRes = await fetch(`${supabaseUrl}/functions/v1/compute-outer-readiness`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ userId: req.userId }),
+    });
+    if (outerRes.ok) {
+      const outerData = await outerRes.json();
+      req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
+      req.outerReadinessDriver = outerData.driver || 'state';
+    }
+  } catch {
+    req.outerReadinessPhrase = 'Steady execution.';
+    req.outerReadinessDriver = 'state';
+  }
 
   // 1. Get skip preferences
   let skippedTypes: string[] = [];
@@ -1365,11 +1464,22 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    // Use verified userId, ignore body.userId
+    // Only timezoneOffset comes from client — all other signals are server-derived
     const planReq: PlanRequest = {
-      ...body,
       userId,
-      // Initialize server-fetched fields (populated inside generateMasteryPlan)
+      timezoneOffset: body.timezoneOffset ?? new Date().getTimezoneOffset(),
+      // All below are populated server-side inside generateMasteryPlan
+      innerReadinessTier: 'managing',
+      innerReadinessScore: 50,
+      outerReadinessPhrase: 'Steady execution.',
+      outerReadinessDriver: 'state',
+      calendarLoad: 'none',
+      calendarPressure: 'none',
+      favorites: [],
+      completedToday: [],
+      clarityLevel: 0,
+      confidenceLevel: 0,
+      checkInOutcome: 'steady',
       calendarEvents: [],
       coachInsights: [],
       effectiveContent: [],
