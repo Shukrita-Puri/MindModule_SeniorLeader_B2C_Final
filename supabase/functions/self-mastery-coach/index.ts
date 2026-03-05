@@ -1447,14 +1447,14 @@ async function buildServerContext(
       .gte('observation_count', 3)
       .order('observation_count', { ascending: false })
       .limit(3),
-    // 7. Recent memories
+    // 7. Recent memories (fetch more for recency-decay re-ranking)
     supabase
       .from('coach_memory_index')
-      .select('memory_type, memory_content, memory_context, key_themes')
+      .select('memory_type, memory_content, memory_context, key_themes, importance_score, created_at, access_count, pattern_area')
       .eq('user_id', userId)
       .order('importance_score', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(10),
+      .limit(20),
     // 8. Probing effectiveness
     supabase
       .from('coach_probing_effectiveness')
@@ -1540,9 +1540,30 @@ async function buildServerContext(
     }));
   }
 
-  // Recent memories
+  // Recent memories — apply recency decay + importance scoring, then take top 5
   if (memoriesResult.data && memoriesResult.data.length > 0) {
-    context.recentMemories = memoriesResult.data.map((m: any) => ({
+    const now = Date.now();
+    const dominantPattern = context.dominantPattern || null;
+    const rankedMemories = memoriesResult.data.map((m: any) => {
+      const daysSince = (now - new Date(m.created_at).getTime()) / (1000 * 60 * 60 * 24);
+      const recencyDecay = Math.max(0, 1 - (daysSince / 30));
+      let adjustedImportance = (m.importance_score || 5);
+      // +1 if accessed 3+ times
+      if ((m.access_count || 0) >= 3) adjustedImportance += 1;
+      // +1 if matches dominant pattern
+      if (dominantPattern && m.pattern_area === dominantPattern) adjustedImportance += 1;
+      // +2 if within 7 days
+      if (daysSince <= 7) adjustedImportance += 2;
+      // -1 if old and never accessed
+      if (daysSince > 30 && (m.access_count || 0) === 0) adjustedImportance -= 1;
+      adjustedImportance = Math.max(1, Math.min(10, adjustedImportance));
+      const relevanceScore = (adjustedImportance / 10) * recencyDecay;
+      return { ...m, relevanceScore };
+    })
+    .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 5);
+
+    context.recentMemories = rankedMemories.map((m: any) => ({
       memory_type: m.memory_type,
       memory_content: m.memory_content,
       memory_context: m.memory_context,
