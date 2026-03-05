@@ -14,8 +14,9 @@ import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
 import { getTodayCheckin } from '@/utils/dailyCheckins';
 import { computeEnergyState } from '@/utils/energyStateEngine';
 import { fetchOuterReadiness } from '@/hooks/useOuterReadiness';
-import { getActiveCoachInsights } from '@/utils/coachInsightsExtractor';
 import { getContentById } from '@/data/practicesAndSoundscapes';
+import { getAuthToken } from '@/services/authTokenService';
+import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 // Background images for Coach cards
 import coachVisual from '@/assets/coach-visual-calm.jpeg';
@@ -216,6 +217,11 @@ const DailyRitual = () => {
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
   };
 
+  // Generate a simple hash for energy state to detect mid-day changes
+  const getEnergyHash = (energyState: any, outerBrief: any) => {
+    return `${energyState.energyTier}-${energyState.overallBalance}-${outerBrief?.phrase || ''}-${energyState.checkInOutcome || ''}`;
+  };
+
   const loadPlan = async () => {
     setLoading(true);
     try {
@@ -249,6 +255,22 @@ const DailyRitual = () => {
         }
       }
 
+      // Compute energy state early for staleness check
+      const userId = DEV_MODE ? DEV_USER.id : user?.id;
+      const energyState = await computeEnergyState(userId);
+      const outerBrief = await fetchOuterReadiness(userId);
+      const currentEnergyHash = getEnergyHash(energyState, outerBrief);
+
+      // Check sessionStorage staleness — invalidate if energy state changed mid-day
+      if (!shouldRegenerate && sessionLoaded === 'true') {
+        const storedHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}`);
+        if (storedHash && storedHash !== currentEnergyHash) {
+          console.log('[DailyRitual] Energy state changed mid-day, invalidating cache');
+          shouldRegenerate = true;
+          sessionStorage.removeItem(sessionKey);
+        }
+      }
+
       // Use session cache if available
       if (!shouldRegenerate && sessionLoaded === 'true') {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}`);
@@ -268,105 +290,38 @@ const DailyRitual = () => {
         }
       }
 
-      // Generate fresh plan via backend
-      const energyState = await computeEnergyState(user?.id);
-      const outerBrief = await fetchOuterReadiness(user?.id);
+      // Generate fresh plan via backend — all upstream DB queries now server-side
       const favoriteIds = Array.from(favorites.keys());
-      const coachInsights = user?.id ? await getActiveCoachInsights(user.id) : [];
       const completedToday = todayRitual?.completed_practice_ids || [];
 
-      // Fetch calendar events
-      let calendarEvents: any[] = [];
-      if (user?.id) {
-        const now = new Date();
-        const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-        const { data: events } = await supabase
-          .from('calendar_events')
-          .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
-          .eq('user_id', user.id)
-          .gte('start_time', now.toISOString())
-          .lte('start_time', in48h.toISOString());
-        calendarEvents = (events || []).map(e => ({
-          id: e.id,
-          title: e.title,
-          startTime: e.start_time,
-          endTime: e.end_time,
-          isOrganizer: e.is_organizer,
-          attendeesCount: e.attendees_count,
-          isRecurring: e.is_recurring
-        }));
+      // Build auth headers
+      const headers: Record<string, string> = {};
+      if (DEV_MODE) {
+        headers['x-dev-user-id'] = DEV_USER.id;
       }
-
-      // Check consecutive low pattern
-      let patternInsight: any = undefined;
-      if (user?.id) {
-        const { data: checkins } = await supabase
-          .from('daily_checkins')
-          .select('outcome')
-          .eq('user_id', user.id)
-          .order('checkin_date', { ascending: false })
-          .limit(7);
-        if (checkins?.length) {
-          const first = checkins[0].outcome;
-          const lowStates = ['overwhelmed', 'drained', 'scattered'];
-          if (lowStates.includes(first)) {
-            let count = 1;
-            for (let i = 1; i < checkins.length; i++) {
-              if (checkins[i].outcome === first) count++;
-              else break;
-            }
-            if (count >= 3) patternInsight = { count, state: first };
-          }
-        }
-      }
-
-      // Fetch onboarding tags from profile
-      let practicePriorityTag = '';
-      let pressureContextTag = '';
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('practice_priority_tag, pressure_context_tag')
-          .eq('id', user.id)
-          .maybeSingle();
-        practicePriorityTag = profile?.practice_priority_tag || '';
-        pressureContextTag = profile?.pressure_context_tag || '';
-      }
-
-      // Fetch effective content IDs (practices rated 4-5 stars)
-      let effectiveContentIds: string[] = [];
-      if (user?.id) {
-        const { data: effectiveFeedback } = await supabase
-          .from('content_relevance_feedback')
-          .select('content_id')
-          .eq('user_id', user.id)
-          .gte('star_rating', 4);
-        effectiveContentIds = effectiveFeedback?.map(f => f.content_id) || [];
+      const token = await getAuthToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const requestBody = {
-        userId: user?.id || '',
+        // Client-supplied signals only (server fetches calendar, profile, insights, etc.)
         innerReadinessTier: energyState.energyTier,
         innerReadinessScore: energyState.overallBalance || 50,
         outerReadinessPhrase: outerBrief?.phrase || 'Steady execution.',
         outerReadinessDriver: outerBrief?.driver || 'state',
         calendarLoad: energyState.calendarLoad || 'none',
         calendarPressure: energyState.calendarPressure || 'none',
-        calendarEvents,
         favorites: favoriteIds,
         completedToday,
         timezoneOffset: new Date().getTimezoneOffset(),
         clarityLevel: todayCheckin?.clarity_level ?? 0,
         confidenceLevel: todayCheckin?.confidence_level ?? 0,
         checkInOutcome: energyState.checkInOutcome || 'steady',
-        coachInsights: coachInsights.map(i => ({ id: i.id, type: i.type, content: i.content, contentReference: i.contentReference, confidence: i.confidence })),
-        effectiveContent: effectiveContentIds,
-        patternInsight,
-        practicePriorityTag,
-        pressureContextTag
       };
 
       const { data: planData, error } = await supabase.functions.invoke('generate-mastery-plan', {
+        headers,
         body: requestBody
       });
 
@@ -379,8 +334,8 @@ const DailyRitual = () => {
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
 
-      // Store plan for stability
-      if (user) {
+      // Store plan for stability + energy hash for staleness detection
+      if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         await upsertRitual({
           ritual_date: todayDate,
@@ -390,6 +345,7 @@ const DailyRitual = () => {
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}`, JSON.stringify(planResponse));
+        sessionStorage.setItem(`plan-energy-hash-${todayDate}`, currentEnergyHash);
       }
 
       setRitualStatus(prev => ({
@@ -499,9 +455,16 @@ const DailyRitual = () => {
   };
 
   const handleRestartRitual = async () => {
-    if (user) {
-      const today = new Date().toISOString().split('T')[0];
-      await supabase.from('daily_ritual_completions').delete().eq('user_id', user.id).eq('ritual_date', today);
+    if (user || DEV_MODE) {
+      // Route through EF instead of direct DB delete (Auth0 RLS fix)
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
+      await supabase.functions.invoke('daily-rituals', {
+        headers,
+        body: { action: 'DELETE_TODAY_RITUAL' }
+      });
     }
     localStorage.removeItem('practiceQueue');
     localStorage.removeItem('queueIndex');
@@ -509,6 +472,7 @@ const DailyRitual = () => {
     const todayDate = new Date().toISOString().split('T')[0];
     sessionStorage.removeItem(`plan-loaded-${todayDate}`);
     sessionStorage.removeItem(`plan-data-${todayDate}`);
+    sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
     setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: plan?.timeOfDayPlan?.modules?.length || 0 });
     await loadPlan();
   };
