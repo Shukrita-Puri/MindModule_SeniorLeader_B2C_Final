@@ -7,10 +7,10 @@
  * + Just-in-time interventions when triggered (PerformancePreparation)
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import { migrateOnboardingToDatabase } from "@/utils/onboardingMigration";
+
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import CoachAccessButton from "@/components/navigation/CoachAccessButton";
@@ -32,8 +32,6 @@ import luxuryWatercolorHero from '@/assets/luxury-watercolor-hero.jpeg';
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
-  const [migrationComplete, setMigrationComplete] = useState(false);
-  
   // Fetch energy state for hero visual
   const { data: energyState } = useQuery({
     queryKey: ['energy-state', user?.id],
@@ -45,20 +43,7 @@ const ExecutiveHome = () => {
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
   
-  // Migrate onboarding data from localStorage to database on first visit
-  useEffect(() => {
-    const migrateData = async () => {
-      if (user?.id && !migrationComplete) {
-        const success = await migrateOnboardingToDatabase(user.id);
-        if (success) {
-          console.log('✅ Onboarding data persisted to database');
-          setMigrationComplete(true);
-        }
-      }
-    };
-
-    migrateData();
-  }, [user?.id, migrationComplete]);
+  
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
