@@ -11,6 +11,65 @@ export interface CheckInTagMapping {
 
 export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
   const tagMap: Record<string, CheckInTagMapping> = {
+    // Modern outcomes (from DailyCheckIn.tsx)
+    'overwhelmed': {
+      emotionTag: 'tense',
+      energyTag: ENERGY_TAGS.EXCESS_FIRE,
+      stateTag: STATE_TAGS.TENSE,
+      recommendationTags: [
+        PRACTICE_TAGS.FIRE_DOWN,
+        PRACTICE_TAGS.GROUNDING,
+        PRACTICE_TAGS.EARTH_UP,
+        PRACTICE_TAGS.COOLING,
+        PRACTICE_TAGS.NERVOUS_SYSTEM
+      ]
+    },
+    'drained': {
+      emotionTag: 'fatigued',
+      energyTag: ENERGY_TAGS.LOW_FIRE,
+      stateTag: STATE_TAGS.FATIGUED,
+      recommendationTags: [
+        PRACTICE_TAGS.FIRE_UP,
+        PRACTICE_TAGS.ACTIVATION,
+        PRACTICE_TAGS.EARTH_UP,
+        PRACTICE_TAGS.PRE_PERFORMANCE
+      ]
+    },
+    'scattered': {
+      emotionTag: 'scattered',
+      energyTag: ENERGY_TAGS.EXCESS_AIR,
+      stateTag: STATE_TAGS.SCATTERED,
+      recommendationTags: [
+        PRACTICE_TAGS.AIR_DOWN,
+        PRACTICE_TAGS.CENTERING,
+        PRACTICE_TAGS.FOCUS,
+        PRACTICE_TAGS.MENTAL_CLARITY,
+        PRACTICE_TAGS.GROUNDING
+      ]
+    },
+    'steady': {
+      emotionTag: 'steady',
+      energyTag: ENERGY_TAGS.BALANCED,
+      stateTag: STATE_TAGS.BALANCED,
+      recommendationTags: [
+        PRACTICE_TAGS.GROUNDING,
+        PRACTICE_TAGS.CENTERING,
+        PRACTICE_TAGS.EMOTIONAL_BALANCE,
+        PRACTICE_TAGS.MENTAL_CLARITY
+      ]
+    },
+    'focused': {
+      emotionTag: 'focused',
+      energyTag: ENERGY_TAGS.BALANCED,
+      stateTag: STATE_TAGS.BALANCED,
+      recommendationTags: [
+        PRACTICE_TAGS.GROUNDING,
+        PRACTICE_TAGS.MENTAL_CLARITY,
+        PRACTICE_TAGS.FOCUS,
+        PRACTICE_TAGS.CENTERING
+      ]
+    },
+    // Legacy outcome aliases (kept for backward compat with existing DB records)
     'pause': {
       emotionTag: 'tense',
       energyTag: ENERGY_TAGS.EXCESS_FIRE,
@@ -63,15 +122,15 @@ export function mapCheckInToTags(checkInOutcome: string): CheckInTagMapping {
       energyTag: ENERGY_TAGS.BALANCED,
       stateTag: STATE_TAGS.BALANCED,
       recommendationTags: [
-        PRACTICE_TAGS.GROUNDING,       // Anchor balance
-        PRACTICE_TAGS.MENTAL_CLARITY,  // Sustain clarity
-        PRACTICE_TAGS.FOCUS,           // Optimize focus
-        PRACTICE_TAGS.CENTERING        // Maintain center
+        PRACTICE_TAGS.GROUNDING,
+        PRACTICE_TAGS.MENTAL_CLARITY,
+        PRACTICE_TAGS.FOCUS,
+        PRACTICE_TAGS.CENTERING
       ]
     }
   };
   
-  return tagMap[checkInOutcome] || tagMap['pause'];
+  return tagMap[checkInOutcome] || tagMap['overwhelmed'];
 }
 
 export function getEnergyStateFromCheckIn(checkInOutcome: string): {
@@ -81,11 +140,18 @@ export function getEnergyStateFromCheckIn(checkInOutcome: string): {
   const mapping = mapCheckInToTags(checkInOutcome);
   
   const balanceMap: Record<string, number> = {
-    'pause': 40,      // stressed/overwhelmed = 40% balanced
-    'power-up': 35,   // drained/tired = 35% balanced
-    'presence': 50,   // scattered = 50% balanced
-    'calm': 45,       // anxious = 45% balanced
-    'ready': 85       // motivated/ready = 85% balanced
+    // Modern outcomes
+    'overwhelmed': 40,
+    'drained': 35,
+    'scattered': 50,
+    'steady': 70,
+    'focused': 85,
+    // Legacy aliases
+    'pause': 40,
+    'power-up': 35,
+    'presence': 50,
+    'calm': 45,
+    'ready': 85
   };
   
   return {

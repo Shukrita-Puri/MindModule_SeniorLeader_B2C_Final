@@ -259,7 +259,14 @@ function createRecommendation(
 
 export function getRecommendationReasoning(content: any, checkInOutcome: string): string {
   const reasoningMap: Record<string, string> = {
-    'pause': `Your system needs to downregulate. This ${content.contentType} uses ${content.origin} to restore calm.`,
+    // Modern outcomes
+    'overwhelmed': `Your system needs to downregulate. This ${content.contentType} restores calm and releases tension.`,
+    'drained': `Your energy is low. This ${content.contentType} activates your nervous system for peak performance.`,
+    'scattered': `You're scattered. This ${content.contentType} centers your attention and sharpens focus.`,
+    'steady': `You're grounded. This ${content.contentType} deepens your current balanced state.`,
+    'focused': `You're primed. This ${content.contentType} optimizes your already strong state.`,
+    // Legacy aliases
+    'pause': `Your system needs to downregulate. This ${content.contentType} restores calm and releases tension.`,
     'power-up': `Your energy is low. This ${content.contentType} activates your nervous system for peak performance.`,
     'presence': `You're scattered. This ${content.contentType} centers your attention and sharpens focus.`,
     'calm': `Anxiety is high. This ${content.contentType} balances your nervous system.`,

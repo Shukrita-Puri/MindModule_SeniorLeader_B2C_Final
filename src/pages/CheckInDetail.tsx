@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
+import { toast } from '@/hooks/use-toast';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
@@ -40,7 +41,8 @@ const CheckInDetail = () => {
         const accessToken = await getAccessToken();
         if (!accessToken) {
           console.error('[CheckInDetail] No access token available');
-          navigate('/executive-home');
+          toast({ title: 'Authentication error', description: 'Please log in again.', variant: 'destructive' });
+          setSaving(false);
           return;
         }
 
@@ -57,12 +59,16 @@ const CheckInDetail = () => {
 
         if (error) {
           console.error('[CheckInDetail] Edge function error:', error);
+          throw error;
         }
       }
+      navigate('/executive-home');
     } catch (e) {
       console.error('[CheckInDetail] Save error:', e);
+      toast({ title: 'Save failed', description: 'Unable to save clarity & confidence. Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-    navigate('/executive-home');
   };
 
   return (
