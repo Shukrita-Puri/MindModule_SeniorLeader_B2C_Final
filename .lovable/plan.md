@@ -1,77 +1,173 @@
 
 
-## Mastery Plan + JIT — Implementation Plan
+## Mastery Plan + JIT — Full Audit (Post-Implementation)
 
-This plan addresses all 4 bugs from the audit plus the additional issues you raised (client trust gap, sessionStorage staleness, empty userId fallback, rate limiting, DEV_MODE fix).
+This audit covers the current state after the previous round of fixes. It identifies remaining bugs, the trust gap status, and connectivity issues.
 
-### Changes Overview
+---
+
+### CURRENT STATE SUMMARY
+
+The previous implementation successfully:
+- Added `authenticateRequest` to `generate-mastery-plan` EF with rate limiting
+- Moved 5 upstream DB queries (calendar, checkins, profiles, feedback, coach insights) into the EF server-side
+- Removed `userId` from the client request body
+- Added energy hash-based sessionStorage staleness detection
+- Routed restart ritual through `daily-rituals` EF (`DELETE_TODAY_RITUAL`)
+- Routed JIT dismiss/snooze through `track-jit-skip` EF
+
+---
+
+### 1. CRITICAL BUGS (Remaining)
+
+**BUG A (HIGH): `energyStateEngine.ts` direct `calendar_events` query fails for Auth0 users**
+
+File: `src/utils/energyStateEngine.ts` lines 166-178
+
+`computeEnergyState()` queries `calendar_events` directly via the browser client to compute `calendarLoad` and `calendarPressure`. The `calendar_events` RLS policy uses `user_id = (auth.jwt() ->> 'sub')` which works, BUT there's also a restrictive policy `auth.role() = 'service_role'` that is `Permissive: No`. Since ALL restrictive policies must pass, this blocks the query for non-service-role callers even if the JWT sub matches.
+
+Impact: `calendarLoad` and `calendarPressure` sent to `generate-mastery-plan` are always `'none'` for Auth0 users. This means:
+- Duration ceiling is never applied (no calendar-aware plan sizing)
+- Calendar density is zero (affects time-of-day recommendations)
+- The EF's own server-side calendar query works fine, but the client-supplied `calendarLoad`/`calendarPressure` signals are wrong
+
+**BUG B (HIGH): `useOuterReadiness.ts` direct `profiles` query fails for Auth0 users**
+
+File: `src/hooks/useOuterReadiness.ts` line 49-53
+
+`fetchOuterReadiness()` queries `profiles` directly to get `user_archetype`. The `profiles` RLS has a restrictive `service_role` policy AND a restrictive `(auth.uid())::text = id` policy. For Auth0 users, `auth.uid()` is the Supabase anon UUID, not the Auth0 `sub` stored as `id`. So this returns null.
+
+Impact: The `archetype` field passed to `compute-outer-readiness` is always null for Auth0 users, weakening the outer readiness phrase personalization.
+
+**BUG C (MEDIUM): DEV_MODE broken for `daily-rituals` and `track-jit-skip` EFs**
+
+Both EFs use `authenticateRequest()` which requires a valid JWT. Neither has a DEV_MODE bypass (only `generate-mastery-plan` has the `x-dev-user-id` header fallback). This means:
+- `handleRestartRitual` fails silently in DEV_MODE
+- JIT dismiss/snooze fails silently in DEV_MODE
+- `getTodayRitual`, `upsertRitual` also go through `daily-rituals` EF — all broken in DEV_MODE
+
+**BUG D (MEDIUM): `energyStateEngine.ts` DEV_MODE direct `daily_checkins` query will fail**
+
+Line 115-134: DEV_MODE path queries `daily_checkins` directly, but the dev RLS policies were dropped in the recent migration. The query returns empty, so DEV_MODE energy state always falls back to defaults.
+
+---
+
+### 2. THE TRUST GAP — Should it be closed?
+
+The client currently supplies these signals to `generate-mastery-plan`:
+
+| Signal | Source | Can verify server-side? | Risk if manipulated |
+|--------|--------|------------------------|-------------------|
+| `innerReadinessTier` | `compute-inner-readiness` EF | Yes — re-call the EF | Different content tier selected |
+| `innerReadinessScore` | Same EF | Yes | Score-based weighting changes |
+| `outerReadinessPhrase` | `compute-outer-readiness` EF | Yes — re-call | Theme mapping changes |
+| `outerReadinessDriver` | Same EF | Yes | Module focus changes |
+| `favorites` | `user_favorites` DB | Yes — query server-side | Favorites bonus (+30) gaming |
+| `completedToday` | `daily_ritual_completions` DB | Yes — query server-side | Could re-trigger completed content |
+| `clarityLevel` | `daily_checkins` DB | Yes — query server-side | Clarity weighting changes |
+| `confidenceLevel` | Same | Yes | Same |
+| `checkInOutcome` | Same | Yes | Outcome-based tier changes |
+| `calendarLoad` | Client-computed from `calendar_events` | Yes — compute in EF | Duration ceiling bypass |
+| `calendarPressure` | Same | Yes | Same |
+
+**Verdict:** Every single client-supplied signal CAN be verified server-side because the source data is all in the database. The risk is not just "different practice recommendations" — a manipulated `favorites` array with fake IDs could shift the +30 bonus to specific content, and a spoofed `calendarLoad: 'none'` bypasses the duration ceiling entirely. This isn't catastrophic, but it's a correctness issue that undermines the plan's intelligence.
+
+**Recommendation:** Close the trust gap fully. The EF already queries `daily_checkins`, `profiles`, `calendar_events`, and `content_relevance_feedback` server-side. It should also:
+1. Query `daily_ritual_completions` to get `completedToday` 
+2. Query `user_favorites` to get `favorites`
+3. Compute `calendarLoad`/`calendarPressure` from the calendar events it already fetches
+4. Get `clarityLevel`, `confidenceLevel`, `checkInOutcome` from the checkins it already fetches
+5. Re-derive `innerReadinessTier`/`innerReadinessScore` by calling `compute-inner-readiness` logic inline or trusting the persisted `energy_balance` score from `daily_checkins`
+6. For outer readiness — either call `compute-outer-readiness` server-to-server or trust the cached value
+
+This eliminates ALL client-supplied signals except `timezoneOffset` (which is inherently client-side and harmless).
+
+---
+
+### 3. AUTH PATH vs DEV_MODE STATUS
+
+| Component | Auth Path | DEV_MODE | Fix needed? |
+|-----------|-----------|----------|-------------|
+| `generate-mastery-plan` EF | Working (JWT) | Working (`x-dev-user-id`) | No |
+| `daily-rituals` EF | Working (JWT) | **BROKEN** (no bypass) | Yes |
+| `track-jit-skip` EF | Working (JWT) | **BROKEN** (no bypass) | Yes |
+| `energyStateEngine` calendar query | **BROKEN** (RLS) | **BROKEN** (RLS dropped) | Yes |
+| `useOuterReadiness` profiles query | **BROKEN** (RLS) | **BROKEN** (RLS dropped) | Yes |
+| `DailyRitual.tsx` plan generation | Working | Working | No |
+| `JitCarousel.tsx` dismiss/snooze | Working | **BROKEN** | Yes |
+
+---
+
+### 4. UPSTREAM/DOWNSTREAM CONNECTIVITY
+
+**Upstream → generate-mastery-plan:**
+
+| Source | Connected? | Notes |
+|--------|-----------|-------|
+| Calendar events | Yes (server-side) | Working |
+| Check-in pattern | Yes (server-side) | Working |
+| Profile tags | Yes (server-side) | Working |
+| Effective content | Yes (server-side) | Working |
+| Coach insights | Yes (server-side) | Working |
+| JIT skip history | Yes (server-side) | Working |
+| Coach commitments | Yes (server-side) | Working |
+| Inner readiness | **Partial** | Client-supplied, source is EF — could be spoofed |
+| Outer readiness | **Partial** | Client-supplied, source is EF — could be spoofed |
+| Favorites | **Partial** | Client-supplied, source is DB — could be spoofed |
+| Completed today | **Partial** | Client-supplied, source is DB — could be spoofed |
+| Calendar load/pressure | **BROKEN** | Client-side computation fails for Auth0 (Bug A) |
+
+**Downstream:**
+
+| Consumer | Connected? | Notes |
+|----------|-----------|-------|
+| Ritual completions (upsert) | Yes | Via EF |
+| Ritual completions (delete) | Yes (Auth) / **Broken** (Dev) | Via EF, no dev bypass |
+| JIT preferences (dismiss/snooze) | Yes (Auth) / **Broken** (Dev) | Via EF, no dev bypass |
+| Practice navigation | Yes | localStorage queue |
+| Coach navigation | Yes | Route state |
+
+---
+
+### 5. IMPLEMENTATION PLAN
 
 **4 files modified, 0 DB migrations.**
 
----
-
-### Step 1: Add auth + move upstream queries into `generate-mastery-plan` EF
+#### Step 1: Close the trust gap — move ALL signals server-side in `generate-mastery-plan` EF
 
 **File:** `supabase/functions/generate-mastery-plan/index.ts`
 
-**Handler changes (lines 1245-1270):**
-- Import `authenticateRequest` from `../_shared/auth.ts`
-- Call `authenticateRequest(req, corsHeaders)` — use verified `userId` from JWT, ignore `body.userId`
-- Add per-user rate limiting: before doing any work, query a simple in-memory map keyed by userId with a 30-second cooldown. If the user called within 30s, return the previous response from a cache (or a 429). This prevents LLM cost amplification. (Note: the EF doesn't call an LLM — it's pure algorithmic scoring — but the rate limit still prevents abuse of DB queries.)
+In `generateMasteryPlan()`, after the existing server-side queries (which already fetch calendar_events, daily_checkins, profiles, content_relevance_feedback, user_coach_insights):
 
-**New server-side queries (inside `generateMasteryPlan`, after existing skip/commitment queries around line 935):**
-- `calendar_events`: SELECT for user, next 48h (currently done client-side at DailyRitual line 283)
-- `daily_checkins`: SELECT last 7 outcomes for pattern detection (currently client-side line 303)
-- `profiles`: SELECT `practice_priority_tag, pressure_context_tag, archetype` (currently client-side line 327)
-- `content_relevance_feedback`: SELECT content_ids with star_rating >= 4 (currently client-side line 339)
-- `user_coach_insights`: SELECT active insights with confidence >= 0.6, limit 50 (currently in `coachInsightsExtractor.ts`)
+1. **Compute `calendarLoad`/`calendarPressure`** from the calendar events already fetched (port `getCalendarMetrics` logic from `src/utils/energyStateScoring.ts` into the EF)
+2. **Get `completedToday`** from `daily_ritual_completions` (already have service_role client)
+3. **Get `favorites`** from `user_favorites` (already have service_role client)
+4. **Get `clarityLevel`, `confidenceLevel`, `checkInOutcome`** from the `daily_checkins` query already being done (just extract more fields)
+5. **Get `innerReadinessScore`/`innerReadinessTier`** from the most recent `daily_checkins.energy_balance` field (already persisted by energyStateEngine) — or use the check-in outcome to derive the tier using the same mapping the EF already has
+6. **Get outer readiness phrase/driver** by calling `compute-outer-readiness` EF server-to-server via fetch, OR by inlining the lightweight theme-mapping logic
 
-These queries use the existing `supabaseClient` (service_role), so no RLS issues. The `PlanRequest` interface will drop `calendarEvents`, `coachInsights`, `effectiveContent`, `patternInsight`, `practicePriorityTag`, `pressureContextTag`, `archetype` — these are now fetched server-side from the verified userId.
+Update `PlanRequest` to remove all client-supplied fields. The client request body becomes just `{ timezoneOffset: number }`.
 
-**Trust gap note:** `innerReadinessTier`, `innerReadinessScore`, `outerReadinessPhrase`, `outerReadinessDriver`, `favorites`, `completedToday`, `clarityLevel`, `confidenceLevel`, `checkInOutcome`, `calendarLoad`, `calendarPressure` remain client-supplied. These are pre-computed signals from other EFs (energy state, outer readiness) and local UI state. A compromised client could manipulate these to game content selection. This is an accepted risk for now — the impact is limited to seeing different practice recommendations (no data exfiltration or privilege escalation). A future hardening pass could verify these server-side by re-fetching from their source tables.
-
----
-
-### Step 2: Simplify `DailyRitual.tsx` client-side
+#### Step 2: Simplify `DailyRitual.tsx` further
 
 **File:** `src/components/home/DailyRitual.tsx`
 
-- **Remove** 5 direct DB queries (calendar_events, daily_checkins, profiles, content_relevance_feedback, user_coach_insights) — lines 275-345
-- **Remove** `getActiveCoachInsights` import
-- **Simplify** `requestBody` to only pass: `innerReadinessTier`, `innerReadinessScore`, `outerReadinessPhrase`, `outerReadinessDriver`, `calendarLoad`, `calendarPressure`, `favorites`, `completedToday`, `timezoneOffset`, `clarityLevel`, `confidenceLevel`, `checkInOutcome`
-- **Fix empty userId:** Remove `userId: user?.id || ''` from the request body entirely (auth is now handled by JWT in the EF)
-- **Fix sessionStorage staleness:** After setting the cached plan, also store the energy state hash. On reload, compare current energy state hash against stored — if different, invalidate the cache and regenerate. This catches mid-day energy changes.
-- **Fix restart ritual:** Replace direct `supabase.from('daily_ritual_completions').delete()` (line 504) with `supabase.functions.invoke('daily-rituals', { body: { action: 'DELETE_TODAY_RITUAL' } })`
+- Remove `computeEnergyState` and `fetchOuterReadiness` calls from `loadPlan()`
+- Remove the energy hash staleness check (no longer needed — EF fetches fresh data every time, rate-limited to 30s)
+- `requestBody` becomes just `{ timezoneOffset: new Date().getTimezoneOffset() }`
+- Keep energy state computation for the **UI display** (TodayStateCard etc.) but NOT for plan generation
 
----
+#### Step 3: Add DEV_MODE bypass to `daily-rituals` and `track-jit-skip` EFs
 
-### Step 3: Add `DELETE_TODAY_RITUAL` action to `daily-rituals` EF
+**Files:** `supabase/functions/daily-rituals/index.ts`, `supabase/functions/track-jit-skip/index.ts`
 
-**File:** `supabase/functions/daily-rituals/index.ts`
+Add the same pattern as `generate-mastery-plan`: if `authenticateRequest` fails and `ENVIRONMENT !== 'production'`, check for `x-dev-user-id` header.
 
-- Add `'DELETE_TODAY_RITUAL'` to the `RequestBody` action union type
-- Add case: delete from `daily_ritual_completions` where `user_id = userId` and `ritual_date = today`
-- Uses existing `authenticateRequest` + service_role pattern
-
----
-
-### Step 4: Fix JitCarousel dismiss/snooze
+#### Step 4: Fix JitCarousel DEV_MODE header
 
 **File:** `src/components/home/JitCarousel.tsx`
 
-- Replace direct `supabase.from('jit_preferences').insert()` in `handleDismiss` and `handleSnooze` with `supabase.functions.invoke('track-jit-skip', { body: { action: 'dismissed'/'snoozed', eventType, eventTitle } })`
-- The `track-jit-skip` EF already exists with `authenticateRequest()` — no EF changes needed
-- Remove unused `DEV_MODE`/`DEV_USER` imports and direct DB access
-
----
-
-### Step 5: DEV_MODE fix
-
-**Approach:** In `DailyRitual.tsx` and `JitCarousel.tsx`, DEV_MODE follows the same EF path as auth users. The EFs use `authenticateRequest()` which requires a Bearer token. The existing `token || anonKey` pattern (per memory) sends the anon key when no Auth0 token exists. The `_shared/auth.ts` will reject the anon key (it's not a valid Auth0 JWT).
-
-**Fix:** In `generate-mastery-plan`'s new auth block, add a DEV_MODE bypass: if auth fails AND the request body contains `devMode: true` AND `Deno.env.get('ENVIRONMENT') !== 'production'`, fall back to `body.userId`. This keeps production locked down while allowing dev testing. Same pattern for `track-jit-skip` (already has auth — just needs the dev bypass if not already present).
-
-Alternatively (simpler): in `DailyRitual.tsx`, when `DEV_MODE` is true, pass the userId in a `x-dev-user-id` header. The EF checks for this header only when JWT verification fails and a `DEV_ALLOWED` env var is set.
+Add `if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;` in `trackJitAction`.
 
 ---
 
@@ -79,12 +175,11 @@ Alternatively (simpler): in `DailyRitual.tsx`, when `DEV_MODE` is true, pass the
 
 | Issue | Resolution |
 |-------|-----------|
-| Client trust gap | Documented above — accepted risk, no data exfil possible |
-| sessionStorage staleness | Energy state hash comparison before serving cache |
-| Empty userId fallback | Removed from request body — auth is JWT-only |
-| Rate limiting | 30s per-user cooldown in EF (in-memory map) |
-| DEV_MODE broken | Dev header bypass when non-production env |
-| `coachInsightsExtractor.ts` | No changes needed — its only consumer (DailyRitual) no longer calls it. The module remains available for future use but the direct DB query is no longer in the critical path. |
+| Trust gap (all client signals) | Fully closed — EF computes everything server-side |
+| `calendarLoad`/`calendarPressure` broken for Auth0 | Fixed — computed server-side from EF's own calendar query |
+| `useOuterReadiness` profiles query broken | No longer relevant for plan generation (EF handles it) |
+| DEV_MODE broken for rituals/JIT | Fixed with `x-dev-user-id` bypass |
+| `energyStateEngine` direct calendar query | Remains for UI display (non-critical) — plan generation no longer depends on it |
 
-**Files changed:** 4 (generate-mastery-plan EF, DailyRitual.tsx, JitCarousel.tsx, daily-rituals EF). No DB migrations.
+**Files changed:** 4 (`generate-mastery-plan/index.ts`, `DailyRitual.tsx`, `daily-rituals/index.ts`, `track-jit-skip/index.ts`). 0 DB migrations.
 
