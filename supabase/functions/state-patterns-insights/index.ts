@@ -172,9 +172,15 @@ Deno.serve(async (req) => {
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
     const fourteenStr = fourteenDaysAgo.toISOString().split("T")[0];
 
-    // ── Friction frequency ──
-    const lowStates = checkIns.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || ""));
-    const frictionPct = totalCheckins > 0 ? Math.round((lowStates.length / totalCheckins) * 100) : 0;
+    // ── Friction frequency (count DAYS not individual check-ins) ──
+    const allDates = new Set(checkIns.map((c: any) => c.checkin_date));
+    const lowStateDates = new Set(
+      checkIns
+        .filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || ""))
+        .map((c: any) => c.checkin_date)
+    );
+    const totalDays = allDates.size;
+    const frictionPct = totalDays > 0 ? Math.round((lowStateDates.size / totalDays) * 100) : 0;
     const frictionLabel = frictionPct <= 25 ? "Low friction" : frictionPct <= 50 ? "Moderate friction" : frictionPct <= 75 ? "High friction pattern" : "Sustained friction";
 
     // Friction trend (last 7 vs prior 7)
@@ -183,8 +189,12 @@ Deno.serve(async (req) => {
     let trendDirection: "improving" | "stable" | "declining" = "stable";
 
     if (recentCheckins7.length > 0 && priorCheckins7.length > 0) {
-      const recentFriction = recentCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || "")).length / recentCheckins7.length * 100;
-      const priorFriction = priorCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || "")).length / priorCheckins7.length * 100;
+      const recentDates = new Set(recentCheckins7.map((c: any) => c.checkin_date));
+      const recentLowDates = new Set(recentCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || "")).map((c: any) => c.checkin_date));
+      const priorDates = new Set(priorCheckins7.map((c: any) => c.checkin_date));
+      const priorLowDates = new Set(priorCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || "")).map((c: any) => c.checkin_date));
+      const recentFriction = recentDates.size > 0 ? (recentLowDates.size / recentDates.size) * 100 : 0;
+      const priorFriction = priorDates.size > 0 ? (priorLowDates.size / priorDates.size) * 100 : 0;
       const diff = priorFriction - recentFriction; // positive = improving (less friction now)
       if (diff >= 10) trendDirection = "improving";
       else if (diff <= -10) trendDirection = "declining";

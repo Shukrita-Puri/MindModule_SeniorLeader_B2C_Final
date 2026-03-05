@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.resolve-session-commitments]
 verify_jwt = false
+
+[functions.infer-current-state]
+verify_jwt = false
+
+[functions.learn-checkin-patterns]
+verify_jwt = false
