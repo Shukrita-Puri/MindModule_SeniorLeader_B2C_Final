@@ -7,6 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
+import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
 
 // ==================== RETRY GUARDRAIL ====================
@@ -50,7 +51,7 @@ async function persistCompositeScore(checkinDate: string, score: number): Promis
     if (!token) throw new Error('No Auth0 token available');
 
     const res = await supabase.functions.invoke('daily-checkins', {
-      body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate, energyBalance: score },
+      body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate, energyBalance: score, timeWindow: getCurrentTimeWindow() },
       headers: { Authorization: `Bearer ${token}` },
     });
 
