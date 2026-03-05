@@ -2,7 +2,16 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, BookOpen, Target, MessageSquare, Calendar } from 'lucide-react';
-import type { IntelligentPriority } from '@/utils/intelligenceEngine';
+
+interface IntelligentPriority {
+  title: string;
+  subtitle?: string;
+  icon: string;
+  route: string;
+  whyThisMatters: string;
+  ctaLabel: string;
+  timeHorizon?: string;
+}
 
 interface Props {
   priority: IntelligentPriority;

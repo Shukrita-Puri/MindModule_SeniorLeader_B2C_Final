@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { saveCheckin, getCurrentTimeWindow } from "@/utils/dailyCheckins";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
 import { useRef, useState, useEffect, useCallback } from "react";
+import { toast } from "@/hooks/use-toast";
 
 // New outcome types mapping to internal axes
 type Outcome = "overwhelmed" | "drained" | "steady" | "scattered" | "focused";
@@ -142,17 +143,22 @@ const DailyCheckIn = () => {
         data_sources: { check_in: true }
       });
       console.log('[Check-In] Saved to database');
+
+      // Invalidate energy-state query to force refetch
+      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+
+      // Navigate to optional detail screen for clarity/confidence
+      setTimeout(() => {
+        navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
+      }, 100);
     } catch (error) {
       console.error('[Check-In] Failed to save to database:', error);
+      toast({
+        title: 'Check-in failed',
+        description: 'Unable to save your check-in. Please try again.',
+        variant: 'destructive',
+      });
     }
-
-    // Invalidate energy-state query to force refetch
-    queryClient.invalidateQueries({ queryKey: ['energy-state'] });
-
-    // Navigate to optional detail screen for clarity/confidence
-    setTimeout(() => {
-      navigate('/check-in-detail', { state: { checkinDate, timeWindow } });
-    }, 100);
   };
 
   const handleSkipToHome = async () => {
