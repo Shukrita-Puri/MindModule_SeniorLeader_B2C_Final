@@ -146,14 +146,9 @@ Return a JSON array. Empty array if no clear patterns.`
       );
 
       if (match) {
-        // Update existing pattern
+        // Update existing pattern via RPC
         const { error } = await supabase
-          .from('coach_pattern_observations')
-          .update({
-            observation_count: (match.observation_count || 1) + 1,
-            last_observed_at: new Date().toISOString(),
-          })
-          .eq('id', match.id);
+          .rpc('increment_pattern_observation', { p_pattern_id: match.id });
 
         if (!error) patternsUpdated++;
       } else {

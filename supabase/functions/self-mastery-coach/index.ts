@@ -1402,6 +1402,8 @@ async function buildServerContext(
     breakthroughsResult,
     insightsActiveResult,
     consecutiveResult,
+    practiceEffectivenessResult,
+    calendarCorrelationsResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -1480,6 +1482,10 @@ async function buildServerContext(
       .limit(2),
     // 11. Consecutive low-state pattern
     fetchConsecutivePattern(supabase, userId, clientContext?.todayState?.outcome),
+    // 12. Practice effectiveness (sanctuary_events + next-day check-ins)
+    fetchPracticeEffectiveness(supabase, userId),
+    // 13. Calendar-state correlations
+    fetchCalendarStateCorrelations(supabase, userId),
   ]);
 
   // --- Populate context from server results ---
@@ -1590,6 +1596,16 @@ async function buildServerContext(
     context.consecutivePattern = consecutiveResult;
   }
 
+  // Practice effectiveness
+  if (practiceEffectivenessResult && practiceEffectivenessResult.length > 0) {
+    context.practiceEffectiveness = practiceEffectivenessResult;
+  }
+
+  // Calendar-state correlations
+  if (calendarCorrelationsResult && calendarCorrelationsResult.length > 0) {
+    context.calendarStateCorrelations = calendarCorrelationsResult;
+  }
+
   return context;
 }
 
@@ -1684,6 +1700,132 @@ async function fetchConsecutivePattern(
     return count >= 3 ? { days: count, state: currentOutcome } : undefined;
   } catch {
     return undefined;
+  }
+}
+
+// Helper: Practice effectiveness (which practices lead to improved next-day state)
+async function fetchPracticeEffectiveness(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<Array<{ practice_name: string; effectiveness_rate: number }>> {
+  try {
+    // Get completed practices in last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: events } = await supabase
+      .from('sanctuary_events')
+      .select('content_id, content_type, created_at')
+      .eq('user_id', userId)
+      .eq('event_type', 'completed')
+      .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (!events || events.length < 3) return [];
+
+    // Get check-ins for correlation
+    const { data: checkIns } = await supabase
+      .from('daily_checkins')
+      .select('checkin_date, outcome')
+      .eq('user_id', userId)
+      .gte('checkin_date', new Date(Date.now() - 31 * 86400000).toISOString().split('T')[0])
+      .order('checkin_date', { ascending: true });
+
+    if (!checkIns || checkIns.length < 3) return [];
+
+    const positiveStates = new Set(['focused', 'steady', 'energized', 'creative']);
+    const checkInByDate: Record<string, string> = {};
+    checkIns.forEach((c: any) => { checkInByDate[c.checkin_date] = c.outcome; });
+
+    // For each practice, check if next-day state was positive
+    const practiceStats: Record<string, { improved: number; total: number }> = {};
+    for (const ev of events) {
+      const practiceDate = new Date(ev.created_at).toISOString().split('T')[0];
+      const nextDay = new Date(new Date(practiceDate).getTime() + 86400000).toISOString().split('T')[0];
+      const nextDayOutcome = checkInByDate[nextDay];
+      if (!nextDayOutcome) continue;
+
+      const name = (ev as any).content_type || (ev as any).content_id || 'unknown';
+      if (!practiceStats[name]) practiceStats[name] = { improved: 0, total: 0 };
+      practiceStats[name].total++;
+      if (positiveStates.has(nextDayOutcome)) practiceStats[name].improved++;
+    }
+
+    return Object.entries(practiceStats)
+      .filter(([, s]) => s.total >= 2)
+      .map(([practice_name, s]) => ({
+        practice_name,
+        effectiveness_rate: Math.round((s.improved / s.total) * 100),
+      }))
+      .sort((a, b) => b.effectiveness_rate - a.effectiveness_rate)
+      .slice(0, 5);
+  } catch (e) {
+    console.error('[buildServerContext] Error fetching practice effectiveness:', e);
+    return [];
+  }
+}
+
+// Helper: Calendar-state correlations
+async function fetchCalendarStateCorrelations(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<Array<{ event_keyword: string; typical_state: string; correlation_pct: number; occurrence_count: number }>> {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+
+    const [eventsResult, checkInsResult] = await Promise.all([
+      supabase
+        .from('calendar_events')
+        .select('title, start_time')
+        .eq('user_id', userId)
+        .gte('start_time', thirtyDaysAgo.toISOString())
+        .limit(200),
+      supabase
+        .from('daily_checkins')
+        .select('checkin_date, outcome')
+        .eq('user_id', userId)
+        .gte('checkin_date', thirtyDaysAgo.toISOString().split('T')[0]),
+    ]);
+
+    const events = eventsResult.data || [];
+    const checkIns = checkInsResult.data || [];
+    if (events.length < 5 || checkIns.length < 5) return [];
+
+    const checkInByDate: Record<string, string> = {};
+    checkIns.forEach((c: any) => { checkInByDate[c.checkin_date] = c.outcome; });
+
+    // Extract keywords from event titles and correlate with same-day state
+    const keywordStates: Record<string, Record<string, number>> = {};
+    const keywords = ['1:1', 'standup', 'review', 'interview', 'board', 'strategy', 'planning', 'all-hands', 'retro', 'sync', 'workshop', 'presentation', 'demo'];
+
+    for (const ev of events) {
+      const title = ((ev as any).title || '').toLowerCase();
+      const eventDate = new Date((ev as any).start_time).toISOString().split('T')[0];
+      const outcome = checkInByDate[eventDate];
+      if (!outcome) continue;
+
+      for (const kw of keywords) {
+        if (title.includes(kw)) {
+          if (!keywordStates[kw]) keywordStates[kw] = {};
+          keywordStates[kw][outcome] = (keywordStates[kw][outcome] || 0) + 1;
+        }
+      }
+    }
+
+    const correlations: Array<{ event_keyword: string; typical_state: string; correlation_pct: number; occurrence_count: number }> = [];
+    for (const [keyword, states] of Object.entries(keywordStates)) {
+      const total = Object.values(states).reduce((a, b) => a + b, 0);
+      if (total < 3) continue;
+      const [topState, topCount] = Object.entries(states).sort((a, b) => b[1] - a[1])[0];
+      const pct = Math.round((topCount / total) * 100);
+      if (pct >= 50) {
+        correlations.push({ event_keyword: keyword, typical_state: topState, correlation_pct: pct, occurrence_count: total });
+      }
+    }
+
+    return correlations.sort((a, b) => b.occurrence_count - a.occurrence_count).slice(0, 5);
+  } catch (e) {
+    console.error('[buildServerContext] Error fetching calendar correlations:', e);
+    return [];
   }
 }
 
@@ -1893,6 +2035,16 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string): string =>
         lines.push(`- ${p.practice_name} (${p.effectiveness_rate}% → improved state)`);
       });
       lines.push('Prioritise these when recommending.');
+    }
+
+    // Calendar-State Correlations
+    if (context.calendarStateCorrelations && context.calendarStateCorrelations.length > 0) {
+      lines.push('\n## Calendar-State Correlations');
+      lines.push('Patterns between calendar events and user state:');
+      context.calendarStateCorrelations.forEach(c => {
+        lines.push(`- "${c.event_keyword}" events → typically **${c.typical_state}** (${c.correlation_pct}% of ${c.occurrence_count} occurrences)`);
+      });
+      lines.push('Use these correlations to anticipate and proactively address state shifts.');
     }
 
     // === COACH MEMORY CONTEXT ===

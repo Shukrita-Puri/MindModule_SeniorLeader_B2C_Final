@@ -416,6 +416,7 @@ export type Database = {
           meta_skill: string | null
           outcome_note: string | null
           pattern_area: string | null
+          resolved_at: string | null
           session_id: string
           status: string | null
           target_duration_days: number | null
@@ -437,6 +438,7 @@ export type Database = {
           meta_skill?: string | null
           outcome_note?: string | null
           pattern_area?: string | null
+          resolved_at?: string | null
           session_id: string
           status?: string | null
           target_duration_days?: number | null
@@ -458,6 +460,7 @@ export type Database = {
           meta_skill?: string | null
           outcome_note?: string | null
           pattern_area?: string | null
+          resolved_at?: string | null
           session_id?: string
           status?: string | null
           target_duration_days?: number | null
@@ -933,12 +936,15 @@ export type Database = {
       coach_tools_offered: {
         Row: {
           check_in_at: string | null
+          checked_at: string | null
           commitment_timeframe: string | null
           created_at: string | null
           event_types: string[] | null
           expires_at: string | null
           id: string
           offered_at: string | null
+          pattern_area: string | null
+          pattern_discovered: string | null
           scenario: string | null
           session_id: string | null
           status: string | null
@@ -947,16 +953,21 @@ export type Database = {
           tool_type: string | null
           used_at: string | null
           user_id: string
+          user_response: string | null
+          was_effective: boolean | null
           was_used: boolean | null
         }
         Insert: {
           check_in_at?: string | null
+          checked_at?: string | null
           commitment_timeframe?: string | null
           created_at?: string | null
           event_types?: string[] | null
           expires_at?: string | null
           id?: string
           offered_at?: string | null
+          pattern_area?: string | null
+          pattern_discovered?: string | null
           scenario?: string | null
           session_id?: string | null
           status?: string | null
@@ -965,16 +976,21 @@ export type Database = {
           tool_type?: string | null
           used_at?: string | null
           user_id: string
+          user_response?: string | null
+          was_effective?: boolean | null
           was_used?: boolean | null
         }
         Update: {
           check_in_at?: string | null
+          checked_at?: string | null
           commitment_timeframe?: string | null
           created_at?: string | null
           event_types?: string[] | null
           expires_at?: string | null
           id?: string
           offered_at?: string | null
+          pattern_area?: string | null
+          pattern_discovered?: string | null
           scenario?: string | null
           session_id?: string | null
           status?: string | null
@@ -983,6 +999,8 @@ export type Database = {
           tool_type?: string | null
           used_at?: string | null
           user_id?: string
+          user_response?: string | null
+          was_effective?: boolean | null
           was_used?: boolean | null
         }
         Relationships: [
@@ -3056,6 +3074,7 @@ export type Database = {
         Row: {
           agency_type: string | null
           analyzed_at: string | null
+          category: string | null
           coach_acknowledgment: string | null
           created_at: string
           detected_at: string
@@ -3078,6 +3097,7 @@ export type Database = {
         Insert: {
           agency_type?: string | null
           analyzed_at?: string | null
+          category?: string | null
           coach_acknowledgment?: string | null
           created_at?: string
           detected_at?: string
@@ -3100,6 +3120,7 @@ export type Database = {
         Update: {
           agency_type?: string | null
           analyzed_at?: string | null
+          category?: string | null
           coach_acknowledgment?: string | null
           created_at?: string
           detected_at?: string
@@ -3483,6 +3504,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_pattern_observation: {
+        Args: { p_pattern_id: string }
+        Returns: undefined
       }
       migrate_calendar_tokens: { Args: never; Returns: undefined }
       migrate_oura_tokens: { Args: never; Returns: undefined }
