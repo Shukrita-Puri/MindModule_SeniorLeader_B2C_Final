@@ -1472,7 +1472,7 @@ async function buildServerContext(
     // 10. Active LEAN ON / WATCH FOR insights
     supabase
       .from('user_coach_insights')
-      .select('insight_type, insight_text')
+      .select('insight_type, insight_content')
       .eq('user_id', userId)
       .eq('is_active', true)
       .in('insight_type', ['strength', 'growth_area'])
@@ -1580,8 +1580,8 @@ async function buildServerContext(
     const leanOn = insightsActiveResult.data.find((i: any) => i.insight_type === 'strength');
     const watchFor = insightsActiveResult.data.find((i: any) => i.insight_type === 'growth_area');
     context.currentInsights = {
-      leanOn: (leanOn as any)?.insight_text || undefined,
-      watchFor: (watchFor as any)?.insight_text || undefined,
+      leanOn: (leanOn as any)?.insight_content || undefined,
+      watchFor: (watchFor as any)?.insight_content || undefined,
     };
   }
 

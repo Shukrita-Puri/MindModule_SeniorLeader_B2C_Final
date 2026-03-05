@@ -251,7 +251,7 @@ serve(async (req) => {
         .from('user_coach_insights')
         .select('insight_content')
         .eq('user_id', userId)
-        .eq('insight_type_v2', 'goal')
+        .eq('insight_type', 'goal')
         .eq('is_active', true)
         .ilike('insight_content', `%${eventType.replace(/_/g, ' ')}%`)
         .limit(1)

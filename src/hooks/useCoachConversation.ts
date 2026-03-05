@@ -501,6 +501,32 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             userId: user.id,
           }),
         }).catch(err => console.error('Pattern detection failed:', err));
+
+        // 7. Detect coach scenarios (fire-and-forget, parallel)
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-coach-scenarios`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).catch(err => console.error('Coach scenario detection failed:', err));
+
+        // 8. Extract tool commitments (fire-and-forget, parallel)
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-tool-commitments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${insightToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            userId: user.id,
+          }),
+        }).catch(err => console.error('Tool commitment extraction failed:', err));
       }
       
     } catch (error) {

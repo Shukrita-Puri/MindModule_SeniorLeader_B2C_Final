@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.daily-rituals]
 verify_jwt = false
+
+[functions.detect-coach-scenarios]
+verify_jwt = false
+
+[functions.extract-tool-commitments]
+verify_jwt = false
