@@ -304,17 +304,41 @@ serve(async (req) => {
           });
         }
 
-        let query = supabase
+        let resolvedTimeWindow = timeWindow;
+
+        // Backward compatibility: legacy clients may omit timeWindow
+        if (!resolvedTimeWindow) {
+          const { data: latestCheckin, error: latestError } = await supabase
+            .from('daily_checkins')
+            .select('time_window')
+            .eq('user_id', userId)
+            .eq('checkin_date', checkinDate)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestError) {
+            console.error('[daily-checkins] UPDATE_ENERGY_BALANCE fallback lookup error:', latestError);
+            throw latestError;
+          }
+
+          resolvedTimeWindow = latestCheckin?.time_window as RequestBody['timeWindow'] | undefined;
+        }
+
+        if (!resolvedTimeWindow) {
+          return new Response(JSON.stringify({ data: null }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data, error } = await supabase
           .from('daily_checkins')
           .update({ energy_balance: energyBalance })
           .eq('user_id', userId)
-          .eq('checkin_date', checkinDate);
-
-        if (timeWindow) {
-          query = query.eq('time_window', timeWindow);
-        }
-
-        const { data, error } = await query.select().maybeSingle();
+          .eq('checkin_date', checkinDate)
+          .eq('time_window', resolvedTimeWindow)
+          .select()
+          .maybeSingle();
 
         if (error) {
           console.error('[daily-checkins] UPDATE_ENERGY_BALANCE error:', error);
