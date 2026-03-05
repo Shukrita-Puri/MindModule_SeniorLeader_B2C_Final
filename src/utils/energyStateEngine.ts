@@ -154,24 +154,18 @@ async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | nu
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
-  // 1. Read raw inputs from localStorage
-  const checkInData = JSON.parse(localStorage.getItem('dailyCheckIn') || localStorage.getItem('todayCheckIn') || '{}');
-  const checkInSkipped = JSON.parse(localStorage.getItem('checkInSkipped') || '{}');
+  // 1. Read ephemeral signal data from localStorage (non-sensitive, acceptable)
   const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
   const calendarData = JSON.parse(localStorage.getItem('calendarEvents') || '[]');
-
-  const today = new Date().toDateString();
-  const checkInToday = checkInData.timestamp && new Date(checkInData.timestamp).toDateString() === today;
-  const hasCheckInLocal = checkInToday && checkInData.outcome && !checkInData.skipped && !checkInSkipped.skipped;
 
   const hasWearable = (wearableData.readiness > 0 || wearableData.hrv > 0);
   const hasCalendar = calendarData.length > 0;
 
-  // 2. Fetch clarity/confidence from DB (not in localStorage)
+  // 2. Fetch check-in data from DB (sole source of truth — no localStorage)
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
-  let checkInOutcome: string | null = hasCheckInLocal ? checkInData.outcome : null;
-  let hasCheckIn = !!hasCheckInLocal;
+  let checkInOutcome: string | null = null;
+  let hasCheckIn = false;
 
   if (userId) {
     const dbCheckin = await fetchTodayCheckin(userId);

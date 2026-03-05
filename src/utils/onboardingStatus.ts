@@ -36,9 +36,8 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   const contextConnections = localStorage.getItem('contextConnections');
   const hasCompletedContextConnection = contextConnections !== null;
 
-  // Check if they've completed daily check-in
-  const firstCheckIn = localStorage.getItem('dailyCheckIn');
-  const hasCompletedCheckIn = firstCheckIn !== null;
+  // Check if they've completed daily check-in (lightweight non-sensitive flag)
+  const hasCompletedCheckIn = localStorage.getItem('hasEverCheckedIn') === 'true';
 
   // Calculate completed stages
   const completedStages: string[] = [];
@@ -191,8 +190,8 @@ function getResumeRouteFromLocal(): string {
   const contextConnections = localStorage.getItem('contextConnections');
   if (!contextConnections) return '/onboarding/context-connection';
 
-  const firstCheckIn = localStorage.getItem('dailyCheckIn');
-  if (!firstCheckIn) return '/daily-check-in';
+  const hasEverCheckedIn = localStorage.getItem('hasEverCheckedIn') === 'true';
+  if (!hasEverCheckedIn) return '/daily-check-in';
 
   return '/daily-check-in';
 }
