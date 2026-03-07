@@ -98,23 +98,7 @@ const TodayStateCard = () => {
         {insight}
       </p>
 
-      {/* Layer indicator - only shown when extra layers triggered */}
-      {hasExtraLayers && (
-        <div className="flex items-center gap-1.5 mb-4">
-          {layersActive.includes('clarity-confidence') && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-saffron/10 text-saffron font-medium font-body">
-              Clarity &amp; Confidence signal
-            </span>
-          )}
-          {layersActive.includes('divergence') && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium font-body">
-              Physiological divergence
-            </span>
-          )}
-        </div>
-      )}
-
-      {!hasExtraLayers && <div className="mb-4" />}
+      <div className="mb-4" />
 
       {/* Data Sources + CTA - clickable for navigation */}
       <div 
