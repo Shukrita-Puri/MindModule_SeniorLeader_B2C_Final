@@ -274,32 +274,80 @@ const sundayEveningInsights: Record<EnergyTier, { leanOn: string; watchFor: stri
   },
 };
 
-// Priority 2: C+C Signal Modifier
+// Priority 2: C+C Independent Signal Modifier (aligned with Inner Readiness Layer 2)
 function getCCModifier(clarity: number | null, confidence: number | null): { leanOn: string; watchFor: string } | null {
   const c = clarity ?? 3;
   const conf = confidence ?? 3;
-  const avg = (c + conf) / 2;
-  
-  if (avg <= 2.5) {
-    const lowC = c <= 2.5;
-    const lowConf = conf <= 2.5;
-    if (lowC && lowConf)
-      return { leanOn: "Your awareness that today needs more deliberation than momentum.", watchFor: "High-stakes commitments made before your judgment has found its footing." };
-    if (lowConf)
-      return { leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.", watchFor: "Decisions performed from projected confidence rather than genuine conviction." };
-    return { leanOn: "Your capacity to ask the right question before committing to a direction.", watchFor: "Moving into the day's demands before you've found your anchor point." };
+  const clarityLow = c <= 2;
+  const clarityHigh = c >= 4;
+  const confidenceLow = conf <= 2;
+  const confidenceHigh = conf >= 4;
+
+  // Pattern 1: Low clarity + High confidence — conviction without direction
+  if (clarityLow && confidenceHigh) {
+    return {
+      leanOn: "Your willingness to pause despite feeling certain. Conviction without direction can be redirected, not forced.",
+      watchFor: "Moving decisively on an unclear path. High confidence is masking the absence of a clear direction.",
+    };
   }
-  
-  if (avg >= 4.5) {
-    const highC = c >= 4.5;
-    const highConf = conf >= 4.5;
-    if (highC && highConf)
-      return { leanOn: "Full decision readiness. You are resourced, clear, and certain in your direction today.", watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it." };
-    if (highConf)
-      return { leanOn: "Your conviction. You trust your judgment today and can move with authority.", watchFor: "Confidence tipping into certainty that closes off important inputs." };
-    return { leanOn: "Your directional certainty. You know what matters today and why.", watchFor: "Clarity about your own view crowding out the perspectives you need." };
+
+  // Pattern 2: High clarity + Low confidence — direction without trust
+  if (clarityHigh && confidenceLow) {
+    return {
+      leanOn: "Your directional certainty. The path is clear even if your trust in execution is lagging.",
+      watchFor: "Hesitating on decisions you already know the answer to. The doubt is about execution, not direction.",
+    };
   }
-  
+
+  // Pattern 3: Both low — neither direction nor trust
+  if (clarityLow && confidenceLow) {
+    return {
+      leanOn: "Your awareness that today needs more deliberation than momentum.",
+      watchFor: "High-stakes commitments made before your judgment has found its footing.",
+    };
+  }
+
+  // Pattern 4: Both high — full decision readiness
+  if (clarityHigh && confidenceHigh) {
+    return {
+      leanOn: "Full decision readiness. You are resourced, clear, and certain in your direction today.",
+      watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
+    };
+  }
+
+  // Pattern 5: Low clarity only (mid confidence)
+  if (clarityLow) {
+    return {
+      leanOn: "Your capacity to ask the right question before committing to a direction.",
+      watchFor: "Moving into the day's demands before you've found your anchor point.",
+    };
+  }
+
+  // Pattern 6: Low confidence only (mid clarity)
+  if (confidenceLow) {
+    return {
+      leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
+      watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
+    };
+  }
+
+  // Pattern 7: High clarity only (mid confidence)
+  if (clarityHigh) {
+    return {
+      leanOn: "Your directional certainty. You know what matters today and why.",
+      watchFor: "Clarity about your own view crowding out the perspectives you need.",
+    };
+  }
+
+  // Pattern 8: High confidence only (mid clarity)
+  if (confidenceHigh) {
+    return {
+      leanOn: "Your conviction. You trust your judgment today and can move with authority.",
+      watchFor: "Confidence tipping into certainty that closes off important inputs.",
+    };
+  }
+
+  // Mid-range on both — no modifier, fall through to archetype/tier
   return null;
 }
 

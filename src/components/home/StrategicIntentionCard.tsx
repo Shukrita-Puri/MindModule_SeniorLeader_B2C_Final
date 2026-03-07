@@ -54,11 +54,11 @@ const StrategicIntentionCard = () => {
 
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
-          <p className="text-xs text-primary/70 font-subheadline">
+          <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
             <span className="font-semibold">Lean on:</span>{' '}
             {brief.leanOn}
           </p>
-          <p className="text-xs text-muted-foreground/70 font-subheadline">
+          <p className="text-[13px] text-muted-foreground/80 font-subheadline leading-relaxed">
             <span className="font-semibold">Watch for:</span>{' '}
             {brief.watchFor}
           </p>
