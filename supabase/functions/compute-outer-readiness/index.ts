@@ -67,7 +67,6 @@ function getTheme(
   dayOfWeek: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
-  // No calendar connected — tier-only fallbacks with sub-tier precision
   if (pressure === null || load === null) {
     return getNoCalendarTheme(tier, score, hour, dayOfWeek);
   }
@@ -383,7 +382,7 @@ const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watch
     strong: { leanOn: "Your strategic read of the full field. You see the whole board clearly from this state.", watchFor: "Over-navigating what could be decided directly and cleanly." },
     peak: { leanOn: "Your strategic agility at full cognitive capacity. Your sharpest navigation state.", watchFor: "Complexity for its own sake when direct, decisive action is what the moment needs." },
   },
-  // Legacy ID fallbacks for backward compatibility
+  // Legacy ID fallbacks
   'natural-regulator': {
     depleted: { leanOn: "Your instinct to return to stillness. It restores you faster than most.", watchFor: "Absorbing the room's energy when your own reserves need protecting." },
     managing: { leanOn: "Your capacity to stay rooted when the pace around you accelerates.", watchFor: "Underestimating the quiet drain of holding steadiness for others." },
@@ -410,7 +409,7 @@ const archetypeMatrix: Record<string, Record<EnergyTier, { leanOn: string; watch
   },
 };
 
-// Priority 4: Hardcoded tier fallbacks
+// Priority 5: Hardcoded tier fallbacks
 const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
   depleted: { leanOn: "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.", watchFor: "Committing to demands that require more than your current state can sustain." },
   managing: { leanOn: "Your operational steadiness. Consistent presence is a form of strength.", watchFor: "Over-extending into territory that requires more than your current reserves." },
@@ -418,6 +417,7 @@ const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = 
   peak: { leanOn: "Your full readiness. You are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
 };
 
+// ==================== LEAN ON / WATCH FOR — PRIORITY CASCADE ====================
 function getLeanOnWatchFor(
   tier: EnergyTier,
   archetype: string | null,
@@ -425,51 +425,50 @@ function getLeanOnWatchFor(
   confidence: number | null,
   coachStrength: string | null,
   coachGrowth: string | null,
+  coachInsightCreatedAt: string | null,
   hour: number,
   dayOfWeek: number,
 ): { leanOn: string; watchFor: string } {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
 
-  // After 9 PM: recovery-oriented insights, but C+C can override when extreme
-  if (lateEvening) {
-    // Priority 1: Coach insights still take precedence
-    if (coachStrength && coachGrowth) {
-      return { leanOn: coachStrength, watchFor: coachGrowth };
-    }
-    
-    // Priority 2: Extreme low C+C overrides evening defaults
-    // When clarity/confidence are very low, the "strong readiness" evening message is misleading
-    const ccMod = getCCModifier(clarity, confidence);
-    if (ccMod) {
-      // Blend C+C insight with evening context
-      const eveningSet = dayCtx === 'sunday' ? sundayEveningInsights[tier] : eveningTierInsights[tier];
-      const avgCC = ((clarity ?? 3) + (confidence ?? 3)) / 2;
-      if (avgCC <= 2.5) {
-        // Low C+C dominates: use C+C leanOn/watchFor since felt readiness is undermined
-        return { leanOn: ccMod.leanOn, watchFor: ccMod.watchFor };
-      }
-      // High C+C: blend evening context with C+C confidence boost
-      return { leanOn: eveningSet.leanOn, watchFor: eveningSet.watchFor };
-    }
-    
-    // Sunday evening gets its own set
-    if (dayCtx === 'sunday') {
-      return sundayEveningInsights[tier];
-    }
-    // All other late evenings
-    return eveningTierInsights[tier];
+  // ── Priority 0: Sunday evening (after 9pm on Sunday) — always wins ──
+  if (lateEvening && dayCtx === 'sunday') {
+    return sundayEveningInsights[tier];
   }
 
-  // Daytime: full cascade
-  // Priority 1: Coach insights
+  // ── Priority 1: Coach insights (with recency + contradiction check) ──
   if (coachStrength && coachGrowth) {
-    return { leanOn: coachStrength, watchFor: coachGrowth };
+    let useCoach = true;
+
+    if (coachInsightCreatedAt) {
+      const daysSince = Math.floor(
+        (Date.now() - new Date(coachInsightCreatedAt).getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysSince > 3) {
+        // Check for contradiction: coach mentions clarity/confidence as strength but today's C×C is low
+        const combined = (coachStrength + ' ' + coachGrowth).toLowerCase();
+        const mentionsClarity = combined.includes('clarity') || combined.includes('clear');
+        const mentionsConfidence = combined.includes('confidence') || combined.includes('conviction');
+
+        if (mentionsClarity && (clarity ?? 3) <= 2) {
+          useCoach = false; // Coach insight contradicted by today's low clarity
+        } else if (mentionsConfidence && (confidence ?? 3) <= 2) {
+          useCoach = false; // Coach insight contradicted by today's low confidence
+        }
+      }
+      // ≤ 3 days: always use (useCoach stays true)
+    }
+
+    if (useCoach) {
+      return { leanOn: coachStrength, watchFor: coachGrowth };
+    }
   }
-  
+
   // Partial coach: mix with other priorities
   const ccMod = getCCModifier(clarity, confidence);
-  
+
   if (coachStrength) {
     const watchFor = ccMod?.watchFor || archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
     return { leanOn: coachStrength, watchFor };
@@ -478,48 +477,77 @@ function getLeanOnWatchFor(
     const leanOn = ccMod?.leanOn || archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
     return { leanOn, watchFor: coachGrowth };
   }
-  
-  // Priority 2: C+C signal modifier
+
+  // ── Priority 2: C×C independent signal modifier ──
   if (ccMod) return ccMod;
-  
-  // Priority 3: Archetype × Tier
+
+  // ── Priority 3: Evening recovery (after 9pm, weekdays only) ──
+  if (lateEvening) {
+    return eveningTierInsights[tier];
+  }
+
+  // ── Priority 4: Archetype × Tier ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     return archetypeMatrix[archetype][tier];
   }
-  
-  // Priority 4: Tier fallback
+
+  // ── Priority 5: Tier fallback ──
   return tierFallbacks[tier];
 }
 
-// ==================== PATTERN RECOGNITION ====================
+// ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
 function getPatternOverride(
-  checkIns: Array<{ checkin_date: string; outcome: string }>,
+  checkIns: Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>,
   currentOutcome: string | null
 ): string | null {
-  if (!currentOutcome || !checkIns || checkIns.length < 2) return null;
-  
-  const lowStates = ['overwhelmed', 'drained', 'scattered'];
-  if (!lowStates.includes(currentOutcome)) return null;
-  
-  const sorted = [...checkIns].sort((a, b) => 
+  if (!checkIns || checkIns.length < 2) return null;
+
+  const sorted = [...checkIns].sort((a, b) =>
     new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime()
   );
-  
-  let count = 0;
+
+  // ── C×C patterns: 3+ consecutive days of low clarity or low confidence ──
+  let lowClarityCount = 0;
   for (const c of sorted) {
-    if (c.outcome === currentOutcome) count++;
+    if (c.clarity_level != null && c.clarity_level <= 2) lowClarityCount++;
     else break;
   }
-  
-  if (count < 3) return null;
-  
-  const signals: Record<string, string> = {
+  if (lowClarityCount >= 3) {
+    return `Day ${lowClarityCount} with low clarity. Persistent lack of direction across consecutive days points to an unresolved strategic question or missing anchor point. What decision or clarity do you need that you haven't found yet?`;
+  }
+
+  let lowConfidenceCount = 0;
+  for (const c of sorted) {
+    if (c.confidence_level != null && c.confidence_level <= 2) lowConfidenceCount++;
+    else break;
+  }
+  if (lowConfidenceCount >= 3) {
+    return `Day ${lowConfidenceCount} with low confidence. Sustained execution doubt across multiple days is rarely about capability. What pattern of self-trust has been compromised?`;
+  }
+
+  // ── Outcome patterns: 3+ consecutive days at same outcome ──
+  if (!currentOutcome) return null;
+
+  let outcomeCount = 0;
+  for (const c of sorted) {
+    if (c.outcome === currentOutcome) outcomeCount++;
+    else break;
+  }
+
+  if (outcomeCount < 3) return null;
+
+  const outcomeSignals: Record<string, string> = {
     overwhelmed: "Sustained overload at this level points to something structural, not something a daily regulation practice alone resolves. What has been consistently missing?",
     drained: "A multi-day depletion pattern signals an accumulating recovery deficit, not a single bad night. Your system may need more than the day's margins can provide.",
     scattered: "Persistent fragmentation across consecutive days points to unresolved open loops or an unprocessed decision backlog. What is still occupying bandwidth that needs to be closed?",
+    steady: "Sustained baseline stability is valuable. The question is whether this is protective regulation or avoidance of activation.",
+    focused: "Consecutive days of high cognitive activation without corresponding rest can lead to burnout masked as productivity. What's sustaining this, and what's the cost?",
   };
-  
-  return `Day ${count} at this state. Your system is showing a pattern. ${signals[currentOutcome]}`;
+
+  const signal = outcomeSignals[currentOutcome];
+  if (!signal) return null;
+
+  return `Day ${outcomeCount} at this state. Your system is showing a pattern. ${signal}`;
 }
 
 // ==================== DATA SOURCES BUILDER ====================
@@ -580,16 +608,17 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const db = createClient(supabaseUrl, supabaseKey);
 
+    // Change 1: Add created_at to coach insights query, add clarity_level + confidence_level to check-ins
     const [coachRes, checkInRes] = await Promise.all([
       db.from('user_coach_insights')
-        .select('insight_type, insight_content')
+        .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
         .in('insight_type', ['strength', 'growth_area'])
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(5),
       db.from('daily_checkins')
-        .select('checkin_date, outcome')
+        .select('checkin_date, outcome, clarity_level, confidence_level')
         .eq('user_id', userId)
         .gte('checkin_date', new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0])
         .order('checkin_date', { ascending: false })
@@ -599,27 +628,34 @@ serve(async (req) => {
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
     
-    const coachStrength = coachInsights.find((i: any) => i.insight_type === 'strength')?.insight_content || null;
-    const coachGrowth = coachInsights.find((i: any) => i.insight_type === 'growth_area')?.insight_content || null;
+    const strengthInsight = coachInsights.find((i: any) => i.insight_type === 'strength');
+    const growthInsight = coachInsights.find((i: any) => i.insight_type === 'growth_area');
+    const coachStrength = strengthInsight?.insight_content || null;
+    const coachGrowth = growthInsight?.insight_content || null;
+    // Use the most recent created_at from either insight for recency check
+    const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
     const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
     const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
     
-    // C+C divergence override: if tier is strong/peak but C+C is very low,
-    // override theme phrase and context to reflect the internal conflict
-    const avgCC = ((clarityLevel ?? 3) + (confidenceLevel ?? 3)) / 2;
+    // Change 4: "Strength without clarity" override — independent signals
+    // Trigger when clarity ≤ 2 OR confidence ≤ 2 (not averaged) for strong/peak tier
     const ccProvided = clarityLevel !== null || confidenceLevel !== null;
     let finalPhrase = theme.phrase;
     let finalContext = patternOverride || theme.context;
     
-    if (ccProvided && avgCC <= 2.0 && (innerReadinessTier === 'strong' || innerReadinessTier === 'peak')) {
-      finalPhrase = "Strength without clarity.";
-      finalContext = "Your felt energy is high, but your internal compass — clarity and confidence — is signalling uncertainty. High activation without direction can lead to misplaced effort. Before deploying your readiness, find your anchor.";
+    if (ccProvided && (innerReadinessTier === 'strong' || innerReadinessTier === 'peak')) {
+      const cLow = clarityLevel !== null && clarityLevel <= 2;
+      const confLow = confidenceLevel !== null && confidenceLevel <= 2;
+      if (cLow || confLow) {
+        finalPhrase = "Strength without clarity.";
+        finalContext = "Your felt energy is high, but your internal compass — clarity and confidence — is signalling uncertainty. High activation without direction can lead to misplaced effort. Before deploying your readiness, find your anchor.";
+      }
     }
     
     const { leanOn, watchFor } = getLeanOnWatchFor(
       innerReadinessTier, archetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth, hour, dayOfWeek
+      coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
