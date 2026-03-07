@@ -1,53 +1,67 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Outer Readiness Brief — Revised C×C Logic Implementation Plan
 
-Two files need text-only changes (no layout or UI modifications).
+## What's Already Done (from previous changes)
+- C×C independent signal evaluation (8 patterns) in `getCCModifier` — **already implemented**
+- Sunday evening + weekday evening Lean On/Watch For objects — **already exist**
 
----
+## What Needs to Change
 
-### File 1: `src/pages/Front.tsx`
+### Change 1: Coach Insights Recency + Contradiction Check (Priority 1)
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+**Current:** Coach insights always win when present (lines 466-468). No recency check, no contradiction detection.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+**New logic:**
+- Add `created_at` to the coach insights query (line 585)
+- ≤ 3 days old: always use coach insights
+- \> 3 days old AND contradicts today's C×C (coach says "clarity" but clarity ≤ 2, or "confidence" but confidence ≤ 2): skip to Priority 2
+- \> 3 days old AND no contradiction: still use coach insights
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+**Files:** `supabase/functions/compute-outer-readiness/index.ts` — lines 583-603 (query) and lines 421-492 (getLeanOnWatchFor)
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+### Change 2: Restructure Priority Cascade in `getLeanOnWatchFor`
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+**Current priority order:**
+- Late evening block (lines 435-462): Coach → C×C → Sunday/Evening fallback
+- Daytime block (lines 464-491): Coach → C×C → Archetype → Tier
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+**New priority order:**
+- Priority 0: Sunday evening (after 9pm on Sunday) — always wins
+- Priority 1: Coach insights (with recency + contradiction check)
+- Priority 2: C×C independent modifier
+- Priority 3: Evening recovery (after 9pm, weekdays only) — Lean On/Watch For only, context line stays
+- Priority 4: Archetype × Tier
+- Priority 5: Tier fallback
 
----
+Key change: Sunday evening override becomes highest priority (no longer gated behind coach insights). Evening weekday override moves below C×C in the cascade.
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+### Change 3: Expand Pattern Recognition to All Tiers + Outcomes + C×C
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+**Current:** `getPatternOverride` only triggers for `overwhelmed`, `drained`, `scattered` (low states only).
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+**New:** Expand to check:
+- **Tier patterns** (3+ consecutive days at same tier): depleted, managing, strong, peak — each with its own override statement
+- **Outcome patterns** (3+ consecutive days at same outcome): overwhelmed, drained, scattered, steady, focused — each with its own override statement  
+- **C×C patterns** (3+ consecutive days of low clarity OR low confidence): requires adding `clarity_level` and `confidence_level` to the check-in query (line 592)
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+The check-in query needs to fetch `clarity_level`, `confidence_level`, and will need the tier (which isn't stored in daily_checkins — we'll derive from outcome or use the energy state). Since tier isn't in daily_checkins, we'll focus on outcome and C×C patterns. The tier pattern override statements from the spec will map to outcomes that correlate with those tiers.
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+**Updated query:** Add `clarity_level, confidence_level` to the select on line 592.
 
----
+### Change 4: "Strength Without Clarity" Override — Independent Signals
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+**Current (line 615):** `avgCC <= 2.0` with averaging.
+
+**New:** Trigger when `clarityLevel <= 2 OR confidenceLevel <= 2` (independent check, matching Layer 2 approach). Only for strong/peak tier.
+
+### Summary of file changes
+
+**Single file:** `supabase/functions/compute-outer-readiness/index.ts`
+
+1. **Query** (lines 583-596): Add `created_at` to coach insights select, add `clarity_level, confidence_level` to check-ins select
+2. **`getPatternOverride`** (lines 494-523): Rewrite to support all outcomes + C×C patterns with new override statements
+3. **`getLeanOnWatchFor`** (lines 421-492): Restructure priority cascade with Sunday Priority 0, coach recency check, evening weekday as Priority 3
+4. **"Strength without clarity"** (line 615): Change from avg to independent signal check
+5. **Deploy** the updated edge function
 
