@@ -25,6 +25,10 @@ interface AppUser {
   onboarding_completed?: boolean;
   onboarding_completed_at?: string | null;
   user_archetype?: string;
+  subscription_tier?: string;
+  trial_ends_at?: string | null;
+  subscription_current_period_end?: string | null;
+  subscription_canceled_at?: string | null;
 }
 
 interface AuthContextType {
@@ -213,6 +217,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
             user_archetype: profile.user_archetype,
+            subscription_tier: profile.subscription_tier || 'none',
+            trial_ends_at: profile.trial_ends_at || null,
+            subscription_current_period_end: profile.subscription_current_period_end || null,
+            subscription_canceled_at: profile.subscription_canceled_at || null,
           });
         } else {
           console.warn('[useAuth] Native profile sync failed:', response.status);
@@ -272,6 +280,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
             user_archetype: profile.user_archetype,
+            subscription_tier: profile.subscription_tier || 'none',
+            trial_ends_at: profile.trial_ends_at || null,
+            subscription_current_period_end: profile.subscription_current_period_end || null,
+            subscription_canceled_at: profile.subscription_canceled_at || null,
           };
           setAppUser(mappedUser);
         } else {
@@ -289,6 +301,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             picture: auth0User.picture,
             subscription_status: 'trial',
             subscription_plan: 'monthly',
+            onboarding_completed_at: null,
+            subscription_tier: 'none',
           });
         }
       } catch (error) {
@@ -304,6 +318,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           picture: auth0User.picture,
           subscription_status: 'trial',
           subscription_plan: 'monthly',
+          onboarding_completed_at: null,
+          subscription_tier: 'none',
         });
       } finally {
         setSyncing(false);
@@ -346,6 +362,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           onboarding_completed: !!profile.onboarding_completed_at,
           onboarding_completed_at: profile.onboarding_completed_at || null,
           user_archetype: profile.user_archetype || prev.user_archetype,
+          subscription_tier: profile.subscription_tier || prev.subscription_tier,
+          trial_ends_at: profile.trial_ends_at || prev.trial_ends_at,
+          subscription_current_period_end: profile.subscription_current_period_end || prev.subscription_current_period_end,
+          subscription_canceled_at: profile.subscription_canceled_at || prev.subscription_canceled_at,
         } : prev);
       } else {
         console.warn('[useAuth] Profile refresh failed:', response.status);

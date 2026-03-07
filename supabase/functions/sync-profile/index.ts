@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
           ignoreDuplicates: false, // Always update on conflict
         }
       )
-      .select("id, email, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype")
+      .select("id, email, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at")
       .single();
 
     if (error) {

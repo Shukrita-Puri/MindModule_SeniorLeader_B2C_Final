@@ -29,13 +29,6 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
     };
   }
 
-  // Check if they've completed payment selection
-  const hasSelectedPlan = localStorage.getItem('selectedPlan') !== null;
-  
-  // Check if they've completed context connection
-  const contextConnections = localStorage.getItem('contextConnections');
-  const hasCompletedContextConnection = contextConnections !== null;
-
   // Check if they've completed daily check-in (lightweight non-sensitive flag)
   const hasCompletedCheckIn = localStorage.getItem('hasEverCheckedIn') === 'true';
 
@@ -73,25 +66,13 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
     currentStage = 7;
   }
   
-  if (responses.growth_intention) {
+  if (responses.growth_intention || responses.practice_priority_tag) {
     completedStages.push('growth-intention');
     currentStage = 8;
   }
   
-  if (responses.mental_fitness_baseline) {
-    completedStages.push('results');
-    currentStage = 9;
-  }
-  
-  if (hasSelectedPlan) {
-    completedStages.push('payment');
-    currentStage = 9;
-  }
-  
-  if (hasCompletedContextConnection) {
-    completedStages.push('context-connection');
-    currentStage = 10;
-  }
+  // Post-auth stages: results, payment, context-connection
+  // These are now tracked via Cloud DB only — don't check localStorage
 
   const isComplete = hasCompletedCheckIn;
   const percentComplete = Math.round((completedStages.length / TOTAL_STAGES) * 100);
@@ -180,20 +161,10 @@ function getResumeRouteFromLocal(): string {
   if (!responses.stress_response_response) return '/onboarding/stress-response';
   if (!responses.recovery_patterns_response) return '/onboarding/recovery-patterns';
   if (!responses.mental_clarity_response) return '/onboarding/mental-clarity';
-  if (!responses.growth_intention) return '/onboarding/growth-intention';
-  if (!responses.mental_fitness_baseline) return '/onboarding/signup-step';
-  if (!responses.resultsViewed) return '/onboarding/results';
-
-  const hasSelectedPlan = localStorage.getItem('selectedPlan') !== null;
-  if (!hasSelectedPlan) return '/onboarding/payment';
-
-  const contextConnections = localStorage.getItem('contextConnections');
-  if (!contextConnections) return '/onboarding/context-connection';
-
-  const hasEverCheckedIn = localStorage.getItem('hasEverCheckedIn') === 'true';
-  if (!hasEverCheckedIn) return '/daily-check-in';
-
-  return '/daily-check-in';
+  if (!responses.growth_intention && !responses.practice_priority_tag) return '/onboarding/growth-intention';
+  
+  // Post-auth stages are gated by DB only — if we reach here, send to signup-step
+  return '/onboarding/signup-step';
 }
 
 /**
@@ -266,7 +237,7 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
     '/onboarding/recovery-patterns': () => !!responses.stress_response_response,
     '/onboarding/mental-clarity': () => !!responses.recovery_patterns_response,
     '/onboarding/growth-intention': () => !!responses.mental_clarity_response,
-    '/onboarding/signup-step': () => !!responses.growth_intention,
+    '/onboarding/signup-step': () => !!responses.growth_intention || !!responses.practice_priority_tag,
   };
 
   const gate = localGates[targetPath];

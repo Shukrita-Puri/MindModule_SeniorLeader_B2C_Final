@@ -9,30 +9,29 @@ import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
+import { hasValidSubscription, isWithin60DaysOfCancellation, resetIncompleteOnboarding } from "@/utils/subscriptionHelpers";
 
 const Front = () => {
   if (DEV_MODE) {
-    return <FrontContent onSignIn={() => {}} />;
+    return <FrontContent onSignIn={() => {}} onLetsGoReset={async () => {}} isAuthenticated={false} user={null} />;
   }
   return <Auth0Front />;
 };
 
 const Auth0Front = () => {
-  const { loginWithRedirect } = useAuth0();
-  const { isAuthenticated, loading } = useAuth();
+  const { loginWithRedirect, logout } = useAuth0();
+  const { isAuthenticated, loading, user, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!loading && isAuthenticated && user?.onboarding_completed_at && hasValidSubscription(user as any)) {
       navigate('/daily-check-in', { replace: true });
     }
-  }, [loading, isAuthenticated, navigate]);
+  }, [loading, isAuthenticated, user, navigate]);
 
   const handleSignIn = async () => {
-    // User explicitly initiated login — clear any active logout guard
     clearLogoutGuard();
 
-    // On iOS native, open in-app browser instead of full redirect
     const handled = await nativeLogin({ returnTo: '/daily-check-in' });
     if (handled) return;
 
@@ -46,15 +45,51 @@ const Auth0Front = () => {
     });
   };
 
-  return <FrontContent onSignIn={handleSignIn} />
+  const handleLetsGoReset = async () => {
+    if (isAuthenticated && user) {
+      // Check 60-day cancellation rule
+      if (isWithin60DaysOfCancellation(user as any)) {
+        // Recent cancellation — go straight to payment
+        navigate('/onboarding/payment');
+        return;
+      }
+
+      // Authenticated but no valid subscription — full reset
+      if (!hasValidSubscription(user as any)) {
+        try {
+          await resetIncompleteOnboarding();
+        } catch (err) {
+          console.warn('[Front] Reset failed, continuing with logout:', err);
+        }
+        await signOut();
+        // After signOut, user lands back on / and can press "Let's Go" as fresh user
+        return;
+      }
+    }
+  };
+
+  return <FrontContent onSignIn={handleSignIn} onLetsGoReset={handleLetsGoReset} isAuthenticated={isAuthenticated} user={user} />;
 };
 
-const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
+const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
+  onSignIn: () => void;
+  onLetsGoReset: () => Promise<void>;
+  isAuthenticated: boolean;
+  user: any;
+}) => {
   const navigate = useNavigate();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
     setIsTransitioning(true);
+
+    // If authenticated but no valid subscription, trigger re-entry flow
+    if (isAuthenticated && user && !hasValidSubscription(user)) {
+      await onLetsGoReset();
+      setIsTransitioning(false);
+      return;
+    }
+
     setTimeout(() => {
       clearSession();
       navigate('/onboarding');
@@ -129,6 +164,7 @@ const FrontContent = ({ onSignIn }: {onSignIn: () => void;}) => {
         </a>
       </div>
       
-    </div>;};
+    </div>;
+};
 
 export default Front;

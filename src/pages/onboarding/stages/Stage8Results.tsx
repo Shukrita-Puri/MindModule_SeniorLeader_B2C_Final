@@ -126,16 +126,7 @@ export default function Stage8Results() {
 
         const { baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight } = data;
         
-        saveResponse('mental_fitness_baseline', baselineScore);
-        saveResponse('baseline_established_date', new Date().toISOString());
-        saveResponse('inner_world_archetype', { id: archetype, title: archetypeTitle });
-        saveResponse('resultsViewed', true);
-        
-        updateSession({
-          mental_fitness_baseline: baselineScore,
-          user_archetype: archetype,
-          component_scores: componentScores,
-        });
+        // Results are persisted to Cloud DB only (no localStorage writes for sensitive data)
 
         const goalLabel = PRACTICE_PRIORITY_LABELS[responses.practice_priority_tag] || 'your highest-leverage area';
 
