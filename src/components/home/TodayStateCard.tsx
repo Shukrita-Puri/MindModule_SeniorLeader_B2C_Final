@@ -61,7 +61,6 @@ const TodayStateCard = () => {
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
-  const hasExtraLayers = layersActive.includes('clarity-confidence') || layersActive.includes('divergence');
 
   return (
     <div className={cn(
