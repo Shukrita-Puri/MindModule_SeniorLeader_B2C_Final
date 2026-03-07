@@ -3574,6 +3574,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_integrations: {
+        Row: {
+          calendar_connected_at: string | null
+          calendar_provider: string | null
+          updated_at: string | null
+          user_id: string
+          watch_connected_at: string | null
+          watch_type: string | null
+        }
+        Insert: {
+          calendar_connected_at?: string | null
+          calendar_provider?: string | null
+          updated_at?: string | null
+          user_id: string
+          watch_connected_at?: string | null
+          watch_type?: string | null
+        }
+        Update: {
+          calendar_connected_at?: string | null
+          calendar_provider?: string | null
+          updated_at?: string | null
+          user_id?: string
+          watch_connected_at?: string | null
+          watch_type?: string | null
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string
