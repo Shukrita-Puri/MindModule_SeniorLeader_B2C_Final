@@ -16,8 +16,8 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
   useEffect(() => {
     if (loading || !user) return;
 
-    const valid = hasValidSubscription(user);
-    console.log('[SubscriptionGuard] user:', user.id, 'subscription_tier:', user.subscription_tier, 'valid:', valid, 'path:', location.pathname);
+    const valid = hasValidSubscription(user as any);
+    console.log('[SubscriptionGuard] user:', user.id, 'subscription_tier:', (user as any).subscription_tier, 'valid:', valid, 'path:', location.pathname);
 
     if (!valid) {
       console.log('[SubscriptionGuard] ❌ No valid subscription, redirecting to /onboarding/payment');
@@ -37,7 +37,7 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
 
   if (!user) return null;
 
-  if (!hasValidSubscription(user)) return null;
+  if (!hasValidSubscription(user as any)) return null;
 
   return <>{children}</>;
 };
