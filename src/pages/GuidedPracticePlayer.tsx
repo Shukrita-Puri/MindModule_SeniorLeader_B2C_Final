@@ -1173,21 +1173,20 @@ const GuidedPracticePlayer = () => {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <Card className="mt-2 bg-gradient-to-b from-taupe-rich/40 via-black/70 to-black/80 backdrop-blur-xl border border-gold/20 rounded-xl">
-                      <CardContent className="pt-4 pb-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                    <div className="mt-2 rounded-3xl p-6 bg-white/15 backdrop-blur-md border border-white/40 space-y-3 max-h-[40vh] overflow-y-auto">
                         {contentData?.technique && (
                           <div>
-                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Technique</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">Technique</h3>
                             <p className="text-white/80 text-xs leading-relaxed font-body">{contentData.technique}</p>
                           </div>
                         )}
                         {contentData?.benefits && contentData.benefits.length > 0 && (
                           <div>
-                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">Benefits</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">Benefits</h3>
                             <ul className="space-y-1">
                               {contentData.benefits.map((benefit: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
-                                  <span className="text-gold mt-0.5">•</span>
+                                  <span className="text-white/50 mt-0.5">•</span>
                                   <span>{benefit}</span>
                                 </li>
                               ))}
@@ -1196,19 +1195,18 @@ const GuidedPracticePlayer = () => {
                         )}
                         {contentData?.whatYouNeed && contentData.whatYouNeed.length > 0 && (
                           <div>
-                            <h3 className="text-gold font-subheadline font-semibold text-sm mb-1">What You Need</h3>
+                            <h3 className="text-xs uppercase tracking-wide text-white/50 font-subheadline font-semibold mb-1">What You Need</h3>
                             <ul className="space-y-1">
                               {contentData.whatYouNeed.map((item: string, i: number) => (
                                 <li key={i} className="flex items-start gap-2 text-white/80 text-xs font-body">
-                                  <span className="text-gold mt-0.5">•</span>
+                                  <span className="text-white/50 mt-0.5">•</span>
                                   <span>{item}</span>
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
+                    </div>
                   </CollapsibleContent>
                 </Collapsible>
               </div>
