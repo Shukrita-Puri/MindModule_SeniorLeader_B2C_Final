@@ -143,21 +143,77 @@ const TIER_FALLBACK_STATEMENTS: Record<string, Record<string, string>> = {
 };
 
 // Layer 2: C+C Modifiers (appended when avg C+C ≤ 2.5 or ≥ 4.5)
-const LOW_CC_MODIFIERS: Record<string, string> = {
-  overwhelmed: "Low clarity and confidence in this state compounds the risk.",
-  drained: "Your clarity and confidence scores suggest your judgment is more impaired than it may feel.",
-  scattered: "Low clarity is deepening the fragmentation.",
-  steady: "Your stability is present but your confidence is signalling hesitation.",
-  focused: "High energy with low confidence is a misalignment worth noting.",
-};
+// ==================== LAYER 2: C×C INDEPENDENT SIGNAL MODIFIER ====================
+function getCCModifier(
+  outcome: string,
+  clarity: number,
+  confidence: number,
+  timeOfDay: 'morning' | 'afternoon' | 'evening'
+): string | null {
+  const clarityLow = clarity <= 2;
+  const clarityMid = clarity === 3;
+  const clarityHigh = clarity >= 4;
+  const confidenceLow = confidence <= 2;
+  const confidenceMid = confidence === 3;
+  const confidenceHigh = confidence >= 4;
 
-const HIGH_CC_MODIFIERS: Record<string, string> = {
-  overwhelmed: "Despite the load, your clarity and confidence are holding.",
-  drained: "Even depleted, your judgment is intact — this is about pacing, not direction.",
-  scattered: "Your clarity and confidence are strong — this is an attention issue, not a direction issue.",
-  steady: "Strong clarity and confidence on a steady foundation — a good combination.",
-  focused: "Peak energy, clarity, and confidence are all aligned.",
-};
+  // PATTERN 1: Low clarity + High confidence + Evening (Rule 2: time mentioned)
+  if (clarityLow && confidenceHigh && timeOfDay === 'evening') {
+    return "High confidence without clarity this late in the day. The urgency you feel is disconnected from your sense of direction.";
+  }
+  // PATTERN 2: Low clarity + High confidence (NOT evening)
+  if (clarityLow && confidenceHigh) {
+    return "Low clarity with high confidence. You're certain about an unclear path.";
+  }
+  // PATTERN 3: High clarity + Low confidence + Morning (Rule 3: time mentioned)
+  if (clarityHigh && confidenceLow && timeOfDay === 'morning') {
+    return "High clarity with low confidence. The path is clear, but the doubt is about execution. Morning clarity is typically your most reliable signal.";
+  }
+  // PATTERN 4: High clarity + Low confidence (NOT morning)
+  if (clarityHigh && confidenceLow) {
+    return "High clarity with low confidence. The path is clear, but the doubt is about execution, not direction.";
+  }
+  // PATTERN 5: Low clarity + Evening (any confidence except high — handled above) (Rule 1: time mentioned)
+  if (clarityLow && timeOfDay === 'evening') {
+    return "Clarity is low this late in the day. Your sense of direction is fragmented when decision-making is already impaired.";
+  }
+  // PATTERN 6: Low clarity + Low confidence (NOT evening)
+  if (clarityLow && confidenceLow) {
+    return "Low clarity and low confidence. Both your sense of direction and your trust in execution are wavering.";
+  }
+  // PATTERN 7: Low clarity only (mid confidence, NOT evening)
+  if (clarityLow && confidenceMid) {
+    return "Low clarity. Your sense of direction is unclear right now.";
+  }
+  // PATTERN 8: Both high
+  if (clarityHigh && confidenceHigh) {
+    return "High clarity and high confidence. Both your sense of direction and your trust in execution are aligned.";
+  }
+  // PATTERN 9: High clarity + Mid confidence
+  if (clarityHigh && confidenceMid) {
+    return "High clarity with moderate confidence. The path is clear, execution certainty is holding.";
+  }
+  // PATTERN 10: Mid clarity + High confidence
+  if (clarityMid && confidenceHigh) {
+    return "Moderate clarity with high confidence. You trust your execution more than your current sense of direction.";
+  }
+  // PATTERN 11: Mid clarity + Low confidence
+  if (clarityMid && confidenceLow) {
+    return "Moderate clarity with low confidence. The uncertainty is about execution, not direction.";
+  }
+  // PATTERN 12: Both mid-range (outcome-dependent)
+  if (clarityMid && confidenceMid) {
+    const midModifiers: Record<string, string> = {
+      focused: "Strong energy with moderate clarity and confidence. Your internal compass is neither sharp nor lost.",
+      scattered: "Fragmented attention with moderate clarity. Focus is compromised but direction isn't fully lost.",
+      drained: "Low energy with moderate clarity. Your sense of direction is holding despite depletion.",
+      overwhelmed: "Under pressure with moderate clarity. The load is real but your internal compass is still functioning.",
+    };
+    return midModifiers[outcome] || null; // steady returns null — Layer 1 sufficient
+  }
+
+  return null;
+}
 
 function assembleContextStatement(
   outcome: string | null,
@@ -179,14 +235,11 @@ function assembleContextStatement(
     parts.push(TIER_FALLBACK_STATEMENTS[tier][timeOfDay]);
   }
 
-  // Layer 2: C+C modifier (only when avg ≤ 2.5 or ≥ 4.5)
+  // Layer 2: Clarity × Confidence as independent signals
   if (hasCheckIn && outcome) {
-    const avgCC = (clarity + confidence) / 2;
-    if (avgCC <= 2.5 && LOW_CC_MODIFIERS[outcome]) {
-      parts.push(LOW_CC_MODIFIERS[outcome]);
-      layersActive.push('clarity-confidence');
-    } else if (avgCC >= 4.5 && HIGH_CC_MODIFIERS[outcome]) {
-      parts.push(HIGH_CC_MODIFIERS[outcome]);
+    const ccModifier = getCCModifier(outcome, clarity, confidence, timeOfDay);
+    if (ccModifier) {
+      parts.push(ccModifier);
       layersActive.push('clarity-confidence');
     }
   }
