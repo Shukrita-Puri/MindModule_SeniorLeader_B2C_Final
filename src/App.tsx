@@ -100,39 +100,39 @@ const router = createBrowserRouter([
       },
       {
         path: "daily-check-in",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><DailyCheckIn /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><DailyCheckIn /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "executive-home",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><ExecutiveHome /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ExecutiveHome /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "coach",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SelfMasteryCoach /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><SelfMasteryCoach /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "insights",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Insights /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Insights /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "profile",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Profile /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Profile /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "connected-data",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><ConnectedData /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><ConnectedData /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "check-in-detail",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><CheckInDetail /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><CheckInDetail /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "refer",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Refer /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Refer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "recalibrate",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><RecalibrateMode /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><RecalibrateMode /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
         children: [
           {
             path: "power-up",
@@ -150,27 +150,27 @@ const router = createBrowserRouter([
       },
       {
         path: "nudge-settings",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><NudgeSettings /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><NudgeSettings /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "nudge-simulator",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><NudgeSimulator /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><NudgeSimulator /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "soundscapes/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SoundscapePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><SoundscapePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "guided-practices/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><GuidedPracticePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><GuidedPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><MicroPracticePlayer /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "micro-practice/:id/cards",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><MicroPracticePlayerCards /></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><MicroPracticePlayerCards /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "privacy",
