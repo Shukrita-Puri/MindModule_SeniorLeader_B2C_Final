@@ -120,12 +120,6 @@ export default function Stage7ContextConnection() {
   };
 
   const handleComplete = async () => {
-    const session = getSession();
-    if (session) {
-      session.responses.onboardingCompleted = true;
-      session.responses.completedAt = new Date().toISOString();
-      localStorage.setItem('mind_module_onboarding', JSON.stringify(session));
-    }
     
     recordStep('context_connection', {
       context_calendar_enabled: calendarEnabled,

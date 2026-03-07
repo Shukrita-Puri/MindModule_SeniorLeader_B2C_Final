@@ -50,6 +50,10 @@ Deno.serve(async (req) => {
         onboarding_insight: null,
         archetype_description: null,
         archetype_title: null,
+        meta_skill_scores: null,
+        profile_type: null,
+        profile_description: null,
+        alignment_status: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
