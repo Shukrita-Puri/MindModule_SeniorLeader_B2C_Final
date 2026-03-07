@@ -48,28 +48,13 @@ export default function Stage7ContextConnection() {
       toast.success('Google Calendar connected successfully');
       searchParams.delete('calendar_connected');
       setSearchParams(searchParams, { replace: true });
-      const prefs = { calendar: true, watch: watchEnabled };
-      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
-    }
-  }, []);
-
-  // Load saved preferences on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('contextConnectionPreferences');
-    if (saved) {
-      const prefs = JSON.parse(saved);
-      setCalendarEnabled(prefs.calendar || false);
-      setWatchEnabled(prefs.watch || false);
     }
   }, []);
 
   // Handle Google Calendar toggle
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
-      // Toggling off — just save preference
       setCalendarEnabled(false);
-      const prefs = { calendar: false, watch: watchEnabled };
-      localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
       return;
     }
 
@@ -81,7 +66,6 @@ export default function Stage7ContextConnection() {
     setCalendarEnabled(true);
     setLoading(true);
     try {
-      // Build request: use Auth0 token if available, fall back to userId for dev mode
       const token = await getAuthToken();
       const headers: Record<string, string> = {};
       if (token) {
@@ -93,7 +77,6 @@ export default function Stage7ContextConnection() {
           action: 'connect', 
           provider: 'google',
           redirectPath: '/onboarding/context-connection',
-          // Pass userId directly when no Auth0 token (dev mode / native)
           ...(!token && user?.id ? { userId: user.id } : {})
         },
         headers,
@@ -118,7 +101,6 @@ export default function Stage7ContextConnection() {
       try {
         await requestHRVPermission();
         toast.success('Apple Watch connected via HealthKit');
-        // Fetch HRV data after permission granted
         try {
           const hrvData = await getHRV();
           console.log('HRV samples:', hrvData);
@@ -135,20 +117,9 @@ export default function Stage7ContextConnection() {
     }
 
     setWatchEnabled(checked);
-    const prefs = { calendar: calendarEnabled, watch: checked };
-    localStorage.setItem('contextConnectionPreferences', JSON.stringify(prefs));
   };
 
   const handleComplete = async () => {
-    const contextData = {
-      onboardingCompletedAt: new Date().toISOString(),
-      calendarEnabled,
-      watchEnabled,
-      plan: 'super-pro'
-    };
-    
-    localStorage.setItem('contextConnections', JSON.stringify(contextData));
-    
     const session = getSession();
     if (session) {
       session.responses.onboardingCompleted = true;
@@ -163,6 +134,7 @@ export default function Stage7ContextConnection() {
     });
 
     // Mark onboarding as truly complete (sets onboarding_completed_at)
+    // Also persists integrations to Cloud DB
     try {
       const token = await getAuthToken();
       if (token) {
@@ -175,7 +147,10 @@ export default function Stage7ContextConnection() {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({}),
+            body: JSON.stringify({
+              calendar_provider: calendarEnabled ? 'google' : null,
+              watch_type: watchEnabled ? (isNativeApp() ? 'apple' : 'apple_pending') : null,
+            }),
           }
         );
         if (res.ok) {
