@@ -1,57 +1,53 @@
 
 
-## Bug Analysis: Auth Not Triggering Before Results Page
+## Copy Updates — Front Page + Onboarding Welcome
 
-### What's happening
-
-There are **two distinct issues** causing the broken flow:
+Two files need text-only changes (no layout or UI modifications).
 
 ---
 
-### Issue 1: Auth0 Audience Misconfiguration (ROOT CAUSE of auth failure)
+### File 1: `src/pages/Front.tsx`
 
-The console shows this error:
-```
-Service not found: https://dGqCgDcc7CYYguC
-```
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-The `VITE_AUTH0_AUDIENCE` secret appears to contain a garbled/incorrect value. `getSanitisedAuth0Audience()` prepends `https://` to whatever is stored, producing an invalid audience URL that Auth0 rejects with "Service not found." This means **authentication can never succeed** — the Auth0 SDK errors out on every login attempt.
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-**Fix:** You need to update the `VITE_AUTH0_AUDIENCE` secret to the correct Auth0 API audience identifier (typically something like `https://api.mindmodule.me` or whatever is configured in your Auth0 dashboard under Applications → APIs).
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
----
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-### Issue 2: Lovable Preview Iframe Blocks Auth0
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-You're testing in the Lovable preview, which runs inside an iframe. `Stage8SignupStep` correctly detects this and shows "Open in new tab." However, opening a new tab means the **new tab won't have the localStorage onboarding answers** from the iframe session — so when the user reaches `/onboarding/results`, `getAllResponses()` returns empty and the error screen appears.
-
-This is a known limitation of testing auth flows in the Lovable preview. The published URL (`wwwmindmoduleme.lovable.app`) runs in a full browser window where Auth0 redirects work and localStorage persists across the redirect.
-
----
-
-### Issue 3: Page Bouncing
-
-The bouncing happens because Auth0's `isLoading` state toggles as the SDK tries and fails to initialize with the bad audience. Components re-render between loading/error states repeatedly.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
 ---
 
-### Recommended Fix
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**Step 1 (You need to do this):** Update the `VITE_AUTH0_AUDIENCE` secret to the correct value from your Auth0 dashboard (APIs → your API → Identifier).
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-**Step 2 (Code change):** No code changes needed — the flow is architecturally correct. The signup step gates auth before results, and `onRedirectCallback` in `main.tsx` routes back to `/onboarding/results` after successful auth. The localStorage persists across same-origin redirects.
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-**Step 3 (Testing):** Test on the published URL, not the preview iframe, since Auth0 requires a full browser window.
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
 ---
 
-### Summary
-
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| Auth never succeeds | `VITE_AUTH0_AUDIENCE` has wrong value | Update the secret |
-| "Answers not saved" error | New tab loses iframe localStorage | Test on published URL |
-| Page bouncing | Auth0 SDK error loop | Resolved once audience is fixed |
-
-No code changes are required. This is a configuration issue.
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
