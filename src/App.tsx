@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGuard";
+import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AuthProvider } from "./hooks/useAuth";
 // Lazy load pages for code splitting

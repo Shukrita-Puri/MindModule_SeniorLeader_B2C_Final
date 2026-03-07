@@ -85,6 +85,33 @@ Deno.serve(async (req) => {
     if (archetype_description !== undefined) updateData.archetype_description = archetype_description;
     if (archetype_title !== undefined) updateData.archetype_title = archetype_title;
 
+    // Persist user_integrations if calendar/watch data provided
+    const { calendar_provider, watch_type } = body;
+    if (calendar_provider !== undefined || watch_type !== undefined) {
+      const integrationData: Record<string, unknown> = {
+        user_id: userId,
+        updated_at: new Date().toISOString(),
+      };
+      if (calendar_provider !== undefined) {
+        integrationData.calendar_provider = calendar_provider;
+        if (calendar_provider) integrationData.calendar_connected_at = new Date().toISOString();
+      }
+      if (watch_type !== undefined) {
+        integrationData.watch_type = watch_type;
+        if (watch_type) integrationData.watch_connected_at = new Date().toISOString();
+      }
+
+      const { error: intErr } = await supabaseAdmin
+        .from("user_integrations")
+        .upsert(integrationData, { onConflict: "user_id" });
+
+      if (intErr) {
+        console.warn("[complete-onboarding] user_integrations upsert warning:", intErr);
+      } else {
+        console.log("[complete-onboarding] ✅ user_integrations saved for:", userId);
+      }
+    }
+
     // Idempotent: only set onboarding_completed_at if not already set
     // skip_completion=true allows persisting baseline data without marking onboarding as done
     if (skip_completion) {
