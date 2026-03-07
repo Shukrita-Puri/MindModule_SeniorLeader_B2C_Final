@@ -1,53 +1,27 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Plan: Replace Layer 2 Logic in `compute-inner-readiness` Edge Function
 
-Two files need text-only changes (no layout or UI modifications).
+## What Changes
 
----
+### 1. Edge Function: `supabase/functions/compute-inner-readiness/index.ts`
 
-### File 1: `src/pages/Front.tsx`
+**Delete** lines 145-160 (the `LOW_CC_MODIFIERS` and `HIGH_CC_MODIFIERS` lookup tables).
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+**Replace** the Layer 2 section in `assembleContextStatement` (lines 182-191) with a call to a new `getCCModifier(outcome, clarity, confidence, timeOfDay)` function.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+**Add** the new `getCCModifier` function (provided in the user's spec) which evaluates Clarity and Confidence as two independent signals across 12 deterministic patterns, with time-of-day mentioned only in 3 specific cases (Rules 1-3).
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+Key behavioral change: Layer 2 now triggers for almost all C×C combinations (not just extremes), except `clarity === 3 AND confidence === 3 AND outcome === 'steady'` which returns null.
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+### 2. Tooltip Update: `src/components/home/TodayStateCard.tsx`
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+**Update** the `MetricInfoModal` description prop (line 78) to the revised tooltip text that clarifies "clarity about direction, confidence in execution" and mentions C×C divergence as an example.
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
-
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+### No Other Changes
+- IRScore formula stays `(clarity + confidence) × 8`
+- Weighting modes 1-4 unchanged
+- Layer 1 and Layer 3 unchanged
+- Database schema unchanged
+- No frontend logic changes
 
