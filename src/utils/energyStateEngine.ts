@@ -44,10 +44,21 @@ async function persistCompositeScore(checkinDate: string, score: number): Promis
     pendingScoreUpdate = null;
   }
 
+  const isFirstAttempt = !pendingScoreUpdate || pendingScoreUpdate.checkinDate !== checkinDate;
   pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0 };
 
   try {
-    const token = await getAuth0Token();
+    // On first attempt, wait up to 3s for token to be ready (avoids unnecessary retry cycle)
+    let token: string | null = null;
+    if (isFirstAttempt) {
+      for (let i = 0; i < 6; i++) {
+        token = await getAuth0Token();
+        if (token) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+    } else {
+      token = await getAuth0Token();
+    }
     if (!token) throw new Error('No Auth0 token available');
 
     const res = await supabase.functions.invoke('daily-checkins', {
