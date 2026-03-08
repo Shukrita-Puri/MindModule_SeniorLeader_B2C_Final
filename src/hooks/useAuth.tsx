@@ -210,7 +210,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setAppUser({
             id: profile.id,
             email: profile.email,
-            name: profile.full_name || payload.name,
+            name: profile.display_name || profile.auth_name || profile.full_name || payload.name,
             picture: payload.picture,
             subscription_status: profile.subscription_status || 'trial',
             subscription_plan: profile.subscription_plan || 'monthly',
