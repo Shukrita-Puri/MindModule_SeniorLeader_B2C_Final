@@ -86,3 +86,12 @@ verify_jwt = false
 
 [functions.create-customer-portal]
 verify_jwt = false
+
+[functions.check-connections-status]
+verify_jwt = false
+
+[functions.generate-referral-link]
+verify_jwt = false
+
+[functions.track-referral-signup]
+verify_jwt = false

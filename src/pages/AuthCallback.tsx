@@ -153,6 +153,19 @@ const AuthCallback = () => {
       const returnTo = sessionStorage.getItem('auth0_return_to') || '/daily-check-in';
       sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
+
+      // Track referral signup if referral code exists
+      const referralCode = localStorage.getItem('referral_code');
+      if (referralCode && user?.sub) {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        fetch(`https://${projectId}.supabase.co/functions/v1/track-referral-signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referralCode }),
+        }).catch(err => console.warn('[AuthCallback] Referral tracking failed:', err));
+        localStorage.removeItem('referral_code');
+      }
+
       navigate(returnTo);
     }
   }, [isLoading, error, isAuthenticated, navigate, user]);

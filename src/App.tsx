@@ -33,6 +33,7 @@ const Insights = lazy(() => import("./pages/Insights"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
+const JoinPage = lazy(() => import("./pages/JoinPage"));
 const CheckInDetail = lazy(() => import("./pages/CheckInDetail"));
 
 // Recalibrate outcome pages
@@ -129,6 +130,10 @@ const router = createBrowserRouter([
       {
         path: "refer",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Refer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+      },
+      {
+        path: "join/:code",
+        element: <Suspense fallback={<LoadingFallback />}><JoinPage /></Suspense>,
       },
       {
         path: "recalibrate",

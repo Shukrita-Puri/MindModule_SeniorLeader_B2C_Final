@@ -1,35 +1,91 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Calendar, Watch, Link2, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Watch, Link2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { getAuthToken } from '@/services/authTokenService';
+import { format } from 'date-fns';
+
+interface ConnectionStatus {
+  calendar: { connected: boolean; provider: string | null; lastSync: string | null };
+  oura: { connected: boolean; lastSync: string | null };
+  appleWatch: { connected: boolean; lastSync: string | null };
+}
 
 const ConnectedData = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // These would typically come from your database
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const token = await getAuthToken();
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        if (res.ok) {
+          setStatus(await res.json());
+        }
+      } catch (err) {
+        console.error('[ConnectedData] Failed to fetch status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStatus();
+  }, []);
+
+  const formatLastSync = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      return `Last synced ${format(new Date(dateStr), 'MMM d, h:mm a')}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleCalendarConnect = () => {
+    // Navigate to onboarding context connection which has the calendar OAuth flow
+    navigate('/onboarding/context-connection');
+  };
+
   const connections = [
     {
       id: 'google-calendar',
       name: 'Google Calendar',
       icon: Calendar,
       description: 'Sync your calendar for contextual recommendations',
-      connected: false,
+      connected: status?.calendar.connected ?? false,
+      lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      provider: status?.calendar.provider,
+      onConnect: handleCalendarConnect,
     },
     {
       id: 'apple-watch',
       name: 'Apple Watch',
       icon: Watch,
       description: 'Connect via Apple Health for HRV and sleep data',
-      connected: false,
+      connected: status?.appleWatch.connected ?? false,
+      lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
     },
     {
       id: 'oura',
       name: 'Oura Ring',
       icon: Watch,
       description: 'Connect your Oura for sleep and readiness data',
-      connected: false,
+      connected: status?.oura.connected ?? false,
+      lastSync: formatLastSync(status?.oura.lastSync ?? null),
     },
   ];
 
@@ -69,33 +125,46 @@ const ConnectedData = () => {
         <div className="space-y-4">
           <h2 className="text-lg font-headline font-semibold">Data Sources</h2>
           
-          {connections.map((connection) => (
-            <Card key={connection.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                      <connection.icon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium flex items-center gap-2">
-                        {connection.name}
-                        {connection.connected ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-muted-foreground" />
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            connections.map((connection) => (
+              <Card key={connection.id}>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                        <connection.icon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2">
+                          {connection.name}
+                          {connection.connected ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{connection.description}</p>
+                        {connection.connected && connection.lastSync && (
+                          <p className="text-xs text-muted-foreground mt-1">{connection.lastSync}</p>
                         )}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{connection.description}</p>
+                      </div>
                     </div>
+                    <Button
+                      variant={connection.connected ? "outline" : "default"}
+                      size="sm"
+                      onClick={connection.onConnect}
+                    >
+                      {connection.connected ? 'Connected' : 'Connect'}
+                    </Button>
                   </div>
-                  <Button variant={connection.connected ? "outline" : "default"} size="sm">
-                    {connection.connected ? 'Disconnect' : 'Connect'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Data Privacy Note */}

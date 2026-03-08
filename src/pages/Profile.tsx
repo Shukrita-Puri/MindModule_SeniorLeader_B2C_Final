@@ -107,7 +107,7 @@ const Profile = () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ full_name: newName.trim() }),
+          body: JSON.stringify({ display_name: newName.trim() }),
         }
       );
       if (res.ok) {
