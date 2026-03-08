@@ -86,17 +86,17 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
       return { success: true, data };
     }
     
-    // Get user ID from supabase auth
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get Auth0 token for edge function auth
+    const accessToken = await getAuthToken();
     
     const eventWithUser: SanctuaryEventData = {
       ...validatedEvent,
-      userId: user?.id,
       timestamp: validatedEvent.timestamp || new Date().toISOString()
     };
     
-    // Try to send to edge function
+    // Send to edge function with Auth0 token
     const { data, error } = await supabase.functions.invoke('track-sanctuary-event', {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       body: eventWithUser
     });
     
