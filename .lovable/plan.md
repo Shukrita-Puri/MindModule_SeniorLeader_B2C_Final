@@ -1,42 +1,53 @@
 
 
-## Permanent Fix for Mid-Session User Switch Bug
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Root Cause
-When a user logs out, only client-side state is cleared. The Auth0 session cookie at `auth.mindmodule.me` persists. On next login, Auth0's silent refresh can return tokens for the previous account, causing the email/profile to switch mid-session.
+Two files need text-only changes (no layout or UI modifications).
 
-### Plan — 3 Changes
+---
 
-**1. Federated Logout (Tier 1 — Critical)**
+### File 1: `src/pages/Front.tsx`
 
-**File: `src/hooks/useAuth.tsx`** — `signOut` function (lines 393-427)
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-- **Web logout** (line 422): Add `federated: true` to `logoutParams` to clear the Auth0 session cookie and upstream IdP session
-- **Native iOS logout** (line 413): After `logout({ openUrl: false })`, manually open the Auth0 `/v2/logout` endpoint via `@capacitor/browser` to clear the server-side session cookie without a visible redirect. This is necessary because `openUrl: false` only clears the local SDK cache.
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-**2. Client-Side Token Validation (Tier 4 — Defensive)**
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-**File: `src/hooks/useAuth.tsx`** — `syncProfile` effect (lines 239-344)
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-- Before calling `sync-profile`, decode the access token's `sub` claim and compare it to `auth0User.sub`
-- If mismatch detected: log error, force federated logout, show toast, and abort sync
-- This catches the case where Auth0 SDK returns a token for the wrong user
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**3. Server-Side Token-UserInfo Cross-Check (Tier 3 — Safety Net)**
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-**File: `supabase/functions/sync-profile/index.ts`**
+---
 
-- After `verifyAuth0JWT` returns the `userId` (from JWT `sub`), and after fetching `/userinfo`, compare `userId` with `userinfo.sub`
-- If they differ, return `403` with a clear error — prevents profile corruption even if client-side checks fail
-- This check is essentially free since the function already calls `/userinfo`
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-### What We Skip
-- **Tier 2 (disable silent auth)**: Too aggressive. Breaks session persistence and forces re-login frequently. The other 3 tiers provide sufficient protection.
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-### Summary of Impact
-| Change | Prevents | Effort |
-|--------|----------|--------|
-| Federated logout | Stale Auth0 session cookies | Small |
-| Client token validation | Sync with wrong identity | Small |
-| Server cross-check | Profile corruption | Small |
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
+
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

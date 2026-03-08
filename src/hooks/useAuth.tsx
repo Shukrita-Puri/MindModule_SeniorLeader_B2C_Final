@@ -4,6 +4,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
+import { toast } from 'sonner';
 
 // Extend window type for global auth client
 declare global {
@@ -259,6 +260,26 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Get access token for server-side verification
         const token = await getAccessTokenSilently();
 
+        // TIER 4: Client-side token validation — verify token sub matches Auth0 SDK user
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const tokenSub = payload.sub;
+            if (tokenSub && currentSub && tokenSub !== currentSub) {
+              console.error('[useAuth] 🚨 TOKEN MISMATCH — token sub:', tokenSub, 'auth0User sub:', currentSub);
+              syncAttempted.current = false;
+              setSyncing(false);
+              toast.error('Session mismatch detected. Please log in again.');
+              // Force federated logout to clear stale session
+              await signOutFederated();
+              return;
+            }
+          }
+        } catch (decodeErr) {
+          console.warn('[useAuth] Token decode check failed (non-fatal):', decodeErr);
+        }
+
         // Call sync-profile edge function (server-side upsert)
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const response = await fetch(
@@ -390,7 +411,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signOut = async () => {
+  // Shared federated logout helper — clears Auth0 session cookie + IdP session
+  const signOutFederated = async () => {
     // 1. Activate logout guard BEFORE anything else — prevents auto-login race
     activateLogoutGuard();
     clearTokenCache();
@@ -405,26 +427,42 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAppUser(null);
     delete window.__auth0Client;
 
-    // 3. On native iOS, do a local-only logout (no external redirect to Auth0)
-    //    to avoid bouncing the user into Safari.
+    // 3. On native iOS, do a local-only logout then hit Auth0 /v2/logout
+    //    to clear the server-side session cookie without a Safari redirect.
     if (isNativeiOS()) {
-      // Clear Auth0 SDK cache locally without triggering a redirect
       try {
         await logout({ openUrl: false });
       } catch (e) {
         console.warn('[useAuth] Native logout cleanup error (non-fatal):', e);
       }
-      // Navigation to "/" is handled by the caller (signOut consumer)
+
+      // Clear Auth0 server session via /v2/logout in a background browser call
+      try {
+        const domain = getSanitisedAuth0Domain();
+        const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+        const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: logoutUrl, presentationStyle: 'popover' });
+        // Give Auth0 a moment to clear the session, then close
+        setTimeout(async () => {
+          try { await Browser.close(); } catch { /* ignore */ }
+        }, 1500);
+      } catch (e) {
+        console.warn('[useAuth] Native Auth0 session clear error (non-fatal):', e);
+      }
       return;
     }
 
-    // 4. Web: standard Auth0 redirect logout
+    // 4. Web: federated logout — clears Auth0 session cookie + IdP session
     await logout({ 
       logoutParams: { 
-        returnTo: window.location.origin 
+        returnTo: window.location.origin,
+        federated: true,
       } 
     });
   };
+
+  const signOut = signOutFederated;
 
   const effectiveAuthenticated = isAuthenticated || nativeAuthed;
 
