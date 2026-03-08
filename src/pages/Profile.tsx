@@ -341,6 +341,18 @@ const Profile = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancellation Flow */}
+      {showCancelFlow && (
+        <CancellationFlow
+          onClose={() => setShowCancelFlow(false)}
+          onCanceled={(endsAt) => {
+            setShowCancelFlow(false);
+            refreshProfile();
+            toast.success(`Your plan will remain active until ${format(new Date(endsAt), 'MMM d, yyyy')}`);
+          }}
+        />
+      )}
     </div>
   );
 };
