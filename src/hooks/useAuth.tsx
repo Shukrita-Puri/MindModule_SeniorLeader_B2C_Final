@@ -357,6 +357,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[useAuth] ✅ Profile refreshed, onboarding_completed_at:', profile.onboarding_completed_at);
         setAppUser(prev => prev ? {
           ...prev,
+          name: profile.full_name || prev.name,
           subscription_status: profile.subscription_status || prev.subscription_status,
           subscription_plan: profile.subscription_plan || prev.subscription_plan,
           onboarding_completed: !!profile.onboarding_completed_at,
