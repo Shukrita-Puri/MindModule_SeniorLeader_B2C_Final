@@ -1,53 +1,58 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+## Connected Data Page Redesign + Profile Menu Reorder
 
-Two files need text-only changes (no layout or UI modifications).
+### Current Issues
+1. **No actual logos** — uses Lucide icons instead of Google Calendar / Apple Watch brand logos
+2. **No disconnect/remove option** — connected items show a static "Connected" button with no way to remove
+3. **Connect buttons are dead** — they either navigate to onboarding or do nothing (Apple Watch has no `onConnect`)
+4. **Profile settings order** — "Upgrade to Pro" is after profile card; needs reordering and renaming
+5. **No 3-dot menu** for connected items (like Claude's connector pattern)
 
----
+### Plan
 
-### File 1: `src/pages/Front.tsx`
+#### 1. Add brand logos to `public/images/`
+- Google Calendar logo (SVG inline or from a CDN-safe URL)
+- Apple Watch / Apple Health logo (SVG inline)
+- Since we can't download external assets easily, we'll use inline SVG components for both logos within the ConnectedData page
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+#### 2. Rewrite `ConnectedData.tsx`
+- **Remove** the info card ("Why connect your data?") — user asked to simplify
+- **Remove** the privacy paragraph — replace with a simple "Privacy Policy" text link
+- Each connector card shows:
+  - Brand logo (not icon) on the left
+  - Name + description
+  - If **not connected**: "Connect" button that triggers the actual OAuth flow (Google Calendar) or HealthKit request (Apple Watch)
+  - If **connected**: last sync info + a 3-dot menu (`DropdownMenu`) with "Remove" option
+- **Google Calendar connect**: Reuse `CalendarConnectionSettings`'s `handleConnect('google')` logic — call `calendar-auth` EF directly
+- **Apple Watch connect**: Call `requestHealthKitPermissions()` from `healthKitCapacitor.ts` on native; on web show an info toast that it requires the native app
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+#### 3. Reorder Profile.tsx settings section
+- Rename "Upgrade to Pro" / "Manage Subscription" → "Upgrade Plan" (for non-paying users)
+- Move order to: **Profile card → Account Details → Settings** where Settings list is:
+  1. Upgrade Plan (only if user is NOT on monthly_pro or annual_pro, links to `/onboarding/payment`)
+  2. Connected Data Sources
+  3. Privacy & Security
+  4. Refer to Friends (add this — currently missing from profile settings)
+  5. Sign Out (add this — currently missing from profile settings)
+- For paying users: show "Manage Plan" instead, linking to Stripe portal
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+#### 4. Critical bugs identified
+- **Apple Watch "Connect" button does nothing on web** — no `onConnect` handler defined. Fix: add handler that calls HealthKit on native or shows informational message on web
+- **Google Calendar connect navigates to onboarding** instead of triggering OAuth directly — Fix: call `calendar-auth` EF inline
+- **No disconnect flow for Apple Watch** — need to clear `wearable_data` or mark inactive. For MVP: clear localStorage wearable prefs + toast confirmation
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+### Files to modify
+| File | Change |
+|------|--------|
+| `src/pages/ConnectedData.tsx` | Full rewrite: brand logos, working connect/disconnect, 3-dot menu, simplified privacy link |
+| `src/pages/Profile.tsx` | Reorder settings, rename upgrade button, add Refer + Sign Out links, conditional upgrade vs manage |
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
-
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
-
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+### Technical Details
+- Google Calendar logo: inline SVG component (the colored calendar "31" icon)
+- Apple logo: inline SVG component (Apple symbol)
+- 3-dot menu: use existing `DropdownMenu` from radix (`@radix-ui/react-dropdown-menu`)
+- Calendar disconnect: call `supabase.functions.invoke('calendar-auth', { body: { action: 'disconnect', provider } })`
+- Apple Watch disconnect: clear localStorage `contextConnections` wearable state + toast
+- Sign out: call `useAuth().logout()`
 
