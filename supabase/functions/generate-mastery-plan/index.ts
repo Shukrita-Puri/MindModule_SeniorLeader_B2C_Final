@@ -969,17 +969,32 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.calendarPressure = 'none';
   }
 
-  // Check-in data — pattern detection + clarity/confidence/outcome + inner readiness
+  // Check-in data — prioritize current time window, fall back to latest
   try {
+    const timeOfDay = getTimeOfDay(req.timezoneOffset);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First: try to get check-in for the CURRENT time window
+    const { data: windowCheckin } = await supabaseClient
+      .from('daily_checkins')
+      .select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window')
+      .eq('user_id', req.userId)
+      .eq('checkin_date', today)
+      .eq('time_window', timeOfDay)
+      .maybeSingle();
+    
+    // Fall back to latest check-in across all windows
     const { data: checkins } = await supabaseClient
       .from('daily_checkins')
-      .select('outcome, clarity_level, confidence_level, energy_balance, checkin_date')
+      .select('outcome, clarity_level, confidence_level, energy_balance, checkin_date, time_window')
       .eq('user_id', req.userId)
       .order('checkin_date', { ascending: false })
       .limit(7);
-    if (checkins?.length) {
-      // Latest check-in → clarity, confidence, outcome, inner readiness
-      const latest = checkins[0];
+    
+    // Use window-specific check-in if available, otherwise latest
+    const latest = windowCheckin || (checkins?.length ? checkins[0] : null);
+    
+    if (latest) {
       req.clarityLevel = latest.clarity_level ?? 0;
       req.confidenceLevel = latest.confidence_level ?? 0;
       req.checkInOutcome = latest.outcome || 'steady';
@@ -991,8 +1006,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       else if (eb < 60) req.innerReadinessTier = 'managing';
       else if (eb < 75) req.innerReadinessTier = 'strong';
       else req.innerReadinessTier = 'peak';
-
-      // Consecutive-low pattern detection
+    }
+    
+    // Consecutive-low pattern detection (uses full history)
+    if (checkins?.length) {
       const first = checkins[0].outcome;
       const lowStates = ['overwhelmed', 'drained', 'scattered'];
       if (lowStates.includes(first)) {
