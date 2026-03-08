@@ -161,7 +161,7 @@ const ConnectedData = () => {
       id: 'apple-watch',
       name: 'Apple Watch',
       description: 'Connect via Apple Health for HRV and sleep data',
-      logo: <AppleHealthLogo />,
+      logo: <img src={appleWatchLogo} alt="Apple Watch" className="h-8 w-8 rounded" />,
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
       onConnect: handleConnectAppleWatch,
