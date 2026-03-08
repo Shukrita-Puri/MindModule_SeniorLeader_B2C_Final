@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -20,7 +20,7 @@ const tierLabels: Record<string, string> = {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, refreshProfile } = useAuth();
+  const { user, signOut, refreshProfile } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -39,7 +39,6 @@ const Profile = () => {
       ? 'Trial'
       : user?.subscription_status || 'Active';
 
-  // Determine expiry/renewal date
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
     expiryLabel = `Trial ends ${format(new Date(user.trial_ends_at), 'MMM d, yyyy')}`;
@@ -48,8 +47,8 @@ const Profile = () => {
     expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
   }
 
-  const hasBillingAccount = !!(user as any)?.stripe_customer_id || 
-    ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
+  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
+  const hasBillingAccount = !!(user as any)?.stripe_customer_id || isPaying;
 
   const handleManageSubscription = async () => {
     if (!hasBillingAccount) {
@@ -123,6 +122,11 @@ const Profile = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/signup');
   };
 
   return (
@@ -203,36 +207,74 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Actions */}
+        {/* Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Settings</CardTitle>
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Upgrade Plan / Manage Plan */}
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
-              onClick={handleManageSubscription}
+              onClick={isPaying ? handleManageSubscription : () => navigate('/onboarding/payment')}
               disabled={managingPortal}
             >
-              <ExternalLink className="h-4 w-4" />
-              {managingPortal ? 'Opening…' : hasBillingAccount ? 'Manage Subscription' : 'Upgrade to Pro'}
+              {isPaying ? (
+                <>
+                  <ExternalLink className="h-4 w-4" />
+                  {managingPortal ? 'Opening…' : 'Manage Plan'}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Upgrade Plan
+                </>
+              )}
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
+
+            {/* Connected Data */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
               onClick={() => navigate('/connected-data')}
             >
+              <Database className="h-4 w-4" />
               Connected Data Sources
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
+
+            {/* Privacy & Security */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
               onClick={() => navigate('/privacy')}
             >
+              <Lock className="h-4 w-4" />
               Privacy & Security
             </Button>
+
+            {/* Refer */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => navigate('/refer')}
+            >
+              <Gift className="h-4 w-4" />
+              Refer a Friend
+            </Button>
+
+            {/* Sign Out */}
+            {user && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
