@@ -233,10 +233,23 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })();
   }, [isLoading, isAuthenticated]);
 
+  // Track the last synced Auth0 sub to detect mid-session user switches
+  const lastSyncedSub = useRef<string | null>(null);
+
   useEffect(() => {
     const syncProfile = async () => {
       if (!auth0User || !isAuthenticated || syncing) return;
-      // Only attempt sync once per auth session
+
+      const currentSub = auth0User.sub;
+
+      // Detect mid-session user switch: if Auth0 silently refreshed and
+      // returned a different identity, reset sync gate so we re-sync.
+      if (syncAttempted.current && currentSub && lastSyncedSub.current && currentSub !== lastSyncedSub.current) {
+        console.warn('[useAuth] ⚠️ Auth0 user changed mid-session:', lastSyncedSub.current, '→', currentSub);
+        syncAttempted.current = false;
+      }
+
+      // Only attempt sync once per identity
       if (syncAttempted.current) return;
       syncAttempted.current = true;
       
@@ -268,6 +281,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (response.ok) {
           const { profile } = await response.json();
           console.log('[useAuth] ✅ Profile synced to Supabase:', profile.id);
+          lastSyncedSub.current = currentSub || profile.id;
 
           // Use Supabase profile as source of truth for app user
           const mappedUser: AppUser = {
