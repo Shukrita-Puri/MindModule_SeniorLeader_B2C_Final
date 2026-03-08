@@ -1,17 +1,88 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, User, Mail, Shield, CreditCard } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { getAuthToken } from '@/services/authTokenService';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+
+const tierLabels: Record<string, string> = {
+  none: 'Free',
+  trial: 'Trial',
+  monthly_pro: 'Monthly Pro',
+  annual_pro: 'Annual Pro',
+};
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const [editOpen, setEditOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
+
+  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'Free';
+
+  const isCanceled = !!user?.subscription_canceled_at;
+  const statusLabel = isCanceled
+    ? 'Canceled'
+    : user?.subscription_status === 'trial'
+      ? 'Trial'
+      : user?.subscription_status || 'Active';
+
+  // Determine expiry/renewal date
+  let expiryLabel: string | null = null;
+  if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
+    expiryLabel = `Trial ends ${format(new Date(user.trial_ends_at), 'MMM d, yyyy')}`;
+  } else if (user?.subscription_current_period_end) {
+    const dateStr = format(new Date(user.subscription_current_period_end), 'MMM d, yyyy');
+    expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
+  }
+
+  const handleEditName = () => {
+    setNewName(user?.name || '');
+    setEditOpen(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/update-profile`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ full_name: newName.trim() }),
+        }
+      );
+      if (res.ok) {
+        toast.success('Name updated');
+        await refreshProfile();
+        setEditOpen(false);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Failed to update name');
+      }
+    } catch {
+      toast.error('Failed to update name');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,7 +108,12 @@ const Profile = () => {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h2 className="text-2xl font-headline font-semibold">{user?.name || 'User'}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-headline font-semibold">{user?.name || 'User'}</h2>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditName}>
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
                 <p className="text-muted-foreground">{user?.email}</p>
               </div>
             </div>
@@ -65,15 +141,24 @@ const Profile = () => {
                 <Shield className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Status</span>
               </div>
-              <span className="text-sm capitalize">{user?.subscription_status || 'Active'}</span>
+              <span className="text-sm capitalize">{statusLabel}</span>
             </div>
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Plan</span>
               </div>
-              <span className="text-sm capitalize">{user?.subscription_plan || 'Premium'}</span>
+              <span className="text-sm">{planLabel}</span>
             </div>
+            {expiryLabel && (
+              <div className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Renewal</span>
+                </div>
+                <span className="text-sm">{expiryLabel}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -101,6 +186,28 @@ const Profile = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit your name</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Your preferred name"
+            maxLength={100}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveName} disabled={saving || !newName.trim()}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
