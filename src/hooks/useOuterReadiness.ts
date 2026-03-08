@@ -46,19 +46,12 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('user_archetype')
-    .eq('id', userId)
-    .maybeSingle();
-
   const res = await supabase.functions.invoke('compute-outer-readiness', {
     body: {
       innerReadinessTier: energyState.energyTier,
       innerReadinessScore: energyState.overallBalance ?? 50,
       calendarLoad: energyState.calendarLoad || null,
       calendarPressure: energyState.calendarPressure || null,
-      archetype: profile?.user_archetype || null,
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,

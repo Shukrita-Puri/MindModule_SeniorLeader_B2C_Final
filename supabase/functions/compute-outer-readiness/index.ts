@@ -612,7 +612,7 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // Change 1: Add created_at to coach insights query, add clarity_level + confidence_level to check-ins
-    const [coachRes, checkInRes] = await Promise.all([
+    const [coachRes, checkInRes, profileRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
         .eq('user_id', userId)
@@ -626,10 +626,16 @@ serve(async (req) => {
         .gte('checkin_date', new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0])
         .order('checkin_date', { ascending: false })
         .limit(10),
+      db.from('profiles')
+        .select('user_archetype')
+        .eq('id', userId)
+        .maybeSingle(),
     ]);
 
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
+    // Server-side archetype fetch (bypasses RLS via service role)
+    const serverArchetype = profileRes.data?.user_archetype || null;
     
     const strengthInsight = coachInsights.find((i: any) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: any) => i.insight_type === 'growth_area');
@@ -657,12 +663,12 @@ serve(async (req) => {
     }
     
     const { leanOn, watchFor } = getLeanOnWatchFor(
-      safeTier, archetype, clarityLevel, confidenceLevel,
+      safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
-    const dataSources = buildDataSources(hasCalendar, archetype, checkInOutcome);
+    const dataSources = buildDataSources(hasCalendar, serverArchetype, checkInOutcome);
 
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
@@ -679,7 +685,7 @@ serve(async (req) => {
         lean_on: leanOn,
         watch_for: watchFor,
         inner_readiness_score: innerReadinessScore,
-        archetype: archetype || null,
+        archetype: serverArchetype,
       }, { onConflict: 'user_id,theme_date' });
     } catch (e) {
       console.error('[compute-outer-readiness] Theme persistence error:', e);
