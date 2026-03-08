@@ -120,7 +120,7 @@ const Refer = () => {
               'You unlock Founding Member badge with first access and opportunity to co-build with the founding team (locked after first 100 users)',
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-3">
-                <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-saffron/15 flex items-center justify-center text-xs font-semibold text-saffron">
+                <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-taupe/15 flex items-center justify-center text-xs font-semibold text-taupe">
                   {i + 1}
                 </span>
                 <p className="text-sm text-muted-foreground font-body leading-relaxed">{text}</p>
