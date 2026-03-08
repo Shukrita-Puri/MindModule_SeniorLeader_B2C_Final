@@ -103,6 +103,100 @@ Deno.serve(async (req) => {
           });
 
           console.log(`[stripe-webhook] Subscription active for ${userId}: ${tier}`);
+
+          // ═══════════════════════════════════════════════════════════
+          // REFERRAL CREDIT: Credit 1 month free to referrer on Pro conversion
+          // ═══════════════════════════════════════════════════════════
+          try {
+            // Check if this user was referred
+            const { data: conversion } = await supabase
+              .from('referral_conversions')
+              .select('id, referrer_id, referral_code, credited_to_referrer')
+              .eq('referee_id', userId)
+              .is('credited_to_referrer', null)
+              .single();
+
+            if (conversion && conversion.referrer_id) {
+              // Mark conversion as credited
+              await supabase
+                .from('referral_conversions')
+                .update({
+                  converted_to_pro_at: new Date().toISOString(),
+                  credited_to_referrer: true,
+                  credited_at: new Date().toISOString(),
+                })
+                .eq('id', conversion.id);
+
+              // Increment total_conversions and credited_months for referrer
+              const { data: referrer } = await supabase
+                .from('user_referrals')
+                .select('total_conversions, credited_months, last_reset_at')
+                .eq('user_id', conversion.referrer_id)
+                .single();
+
+              if (referrer) {
+                // Check if we need to reset the 3-month cycle
+                const lastReset = referrer.last_reset_at ? new Date(referrer.last_reset_at) : null;
+                const now = new Date();
+                const threeMonthsMs = 90 * 24 * 60 * 60 * 1000;
+                let newCreditedMonths = (referrer.credited_months || 0) + 1;
+                let shouldReset = false;
+
+                if (lastReset && (now.getTime() - lastReset.getTime()) > threeMonthsMs) {
+                  // Reset cycle - start fresh
+                  newCreditedMonths = 1;
+                  shouldReset = true;
+                }
+
+                // Cap at 6 months per cycle
+                if (newCreditedMonths > 6) newCreditedMonths = 6;
+
+                await supabase
+                  .from('user_referrals')
+                  .update({
+                    total_conversions: (referrer.total_conversions || 0) + 1,
+                    credited_months: newCreditedMonths,
+                    ...(shouldReset || !lastReset ? { last_reset_at: now.toISOString() } : {}),
+                  })
+                  .eq('user_id', conversion.referrer_id);
+
+                // Extend referrer's subscription by 1 month (if they have one)
+                const { data: referrerProfile } = await supabase
+                  .from('profiles')
+                  .select('stripe_subscription_id')
+                  .eq('id', conversion.referrer_id)
+                  .single();
+
+                if (referrerProfile?.stripe_subscription_id) {
+                  try {
+                    // Add 1 month free to referrer's subscription via Stripe
+                    const refSub = await stripe.subscriptions.retrieve(referrerProfile.stripe_subscription_id);
+                    const newEndDate = new Date((refSub.current_period_end + 30 * 24 * 60 * 60) * 1000);
+                    
+                    // Create a credit note or extend trial - for simplicity, add invoice credit
+                    const customer = refSub.customer as string;
+                    const priceAmount = refSub.items.data[0]?.price?.unit_amount || 0;
+                    
+                    if (priceAmount > 0) {
+                      await stripe.customers.createBalanceTransaction(customer, {
+                        amount: -priceAmount, // Negative = credit
+                        currency: refSub.items.data[0]?.price?.currency || 'usd',
+                        description: `Referral credit: ${conversion.referral_code}`,
+                      });
+                      console.log(`[stripe-webhook] ✅ Credited ${priceAmount} to referrer ${conversion.referrer_id}`);
+                    }
+                  } catch (stripeErr) {
+                    console.warn('[stripe-webhook] Failed to credit Stripe balance:', stripeErr);
+                  }
+                }
+
+                console.log(`[stripe-webhook] ✅ Referral credited: ${conversion.referral_code} → ${conversion.referrer_id}`);
+              }
+            }
+          } catch (refErr) {
+            // Non-critical - log but don't fail the webhook
+            console.warn('[stripe-webhook] Referral credit check failed:', refErr);
+          }
         }
         break;
       }

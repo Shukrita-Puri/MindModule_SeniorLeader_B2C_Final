@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const APP_STORE_URL = "https://apps.apple.com/app/mind-module/id123456789";
+const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://mindmodule.me";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -78,10 +78,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    const referralLink = `${FRONTEND_URL}/join/${referralCode}`;
     const { error } = await db.from("user_referrals").insert({
       user_id: userId,
       referral_code: referralCode,
-      referral_link: APP_STORE_URL,
+      referral_link: referralLink,
     });
 
     if (error) {
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         referral_code: referralCode,
-        referral_link: APP_STORE_URL,
+        referral_link: referralLink,
         total_signups: 0,
         total_conversions: 0,
       }),

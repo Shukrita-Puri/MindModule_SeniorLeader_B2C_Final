@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import giftBoxImg from '@/assets/referral-gift-box.png';
 import mmLogoMini from '@/assets/mm-logo-mini.png';
 
-const APP_STORE_URL = 'https://apps.apple.com/app/mind-module/id123456789';
+const SHARE_BASE_URL = 'https://mindmodule.me/join';
 
 const Refer = () => {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ const Refer = () => {
   }, []);
 
   const getShareMessage = () =>
-    `I've been using Mind Module — an inner operating system for leaders who operate under sustained pressure. It has been helping me stay regulated under pressure, lead with more clarity and make better decisions when it matters most. Thought you'd find it valuable too.\n\nDownload it here: ${APP_STORE_URL}\n\nUse my code ${referralCode}`;
+    `I've been using Mind Module — an inner operating system for leaders who operate under sustained pressure. It has been helping me stay regulated under pressure, lead with more clarity and make better decisions when it matters most. Thought you'd find it valuable too.\n\nJoin here: ${SHARE_BASE_URL}/${referralCode}`;
 
   const handleShare = async () => {
     const message = getShareMessage();
