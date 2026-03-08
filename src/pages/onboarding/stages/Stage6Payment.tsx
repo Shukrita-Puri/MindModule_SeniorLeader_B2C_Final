@@ -1,17 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, X, Shield, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
+  const { user } = useAuth();
+  const currentTier = user?.subscription_tier || 'none';
+
+  // Determine which plans are available (hide the one user is already on)
+  const availablePlans = useMemo(() => {
+    const plans: ('monthly' | 'annual')[] = [];
+    if (currentTier !== 'monthly_pro') plans.push('monthly');
+    if (currentTier !== 'annual_pro') plans.push('annual');
+    return plans;
+  }, [currentTier]);
+
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState<'USD' | 'GBP'>('USD');
+
+  // Auto-select the first available plan
+  useEffect(() => {
+    if (availablePlans.length > 0 && !availablePlans.includes(selectedPlan)) {
+      setSelectedPlan(availablePlans[0]);
+    }
+  }, [availablePlans, selectedPlan]);
 
   useEffect(() => {
     detectCurrency();
@@ -103,6 +122,24 @@ export default function Stage6Payment() {
 
   const features = selectedPlan === 'annual' ? annualFeatures : monthlyFeatures;
 
+  // If user is already on the best plan
+  if (availablePlans.length === 0) {
+    return (
+      <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
+        <div className="flex items-center mb-6">
+          <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft size={16} />
+          </button>
+        </div>
+        <div className="py-12">
+          <p className="text-lg font-medium mb-2">You're on the best plan!</p>
+          <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
       {/* Top bar */}
@@ -110,33 +147,43 @@ export default function Stage6Payment() {
         <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft size={16} />
         </button>
-        <div className="bg-muted rounded-full p-1 flex">
-          <button
-            onClick={() => setSelectedPlan('annual')}
-            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedPlan === 'annual'
-                ? 'bg-foreground text-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Annual
-          </button>
-          <button
-            onClick={() => setSelectedPlan('monthly')}
-            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedPlan === 'monthly'
-                ? 'bg-foreground text-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Monthly
-          </button>
-        </div>
+        {availablePlans.length > 1 ? (
+          <div className="bg-muted rounded-full p-1 flex">
+            {availablePlans.includes('annual') && (
+              <button
+                onClick={() => setSelectedPlan('annual')}
+                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  selectedPlan === 'annual'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Annual
+              </button>
+            )}
+            {availablePlans.includes('monthly') && (
+              <button
+                onClick={() => setSelectedPlan('monthly')}
+                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  selectedPlan === 'monthly'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Monthly
+              </button>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
         <div className="w-8" />
       </div>
 
       {/* Title */}
-      <h1 className="text-3xl font-headline font-bold mb-6">Pricing</h1>
+      <h1 className="text-3xl font-headline font-bold mb-6">
+        {currentTier === 'none' || currentTier === 'trial' ? 'Pricing' : 'Upgrade Plan'}
+      </h1>
 
       {/* Plan Card */}
       <div className={`rounded-2xl p-6 mb-5 transition-all ${
