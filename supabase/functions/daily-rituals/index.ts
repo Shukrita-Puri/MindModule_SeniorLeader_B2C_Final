@@ -8,15 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function getServerTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getUTCHours();
+  // Default to UTC — client can pass session_period to override
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  return 'evening';
+}
+
 interface RequestBody {
   action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE' | 'COMPLETE_PRACTICE' | 'DELETE_TODAY_RITUAL';
   startDate?: string;
   endDate?: string;
+  sessionPeriod?: 'morning' | 'afternoon' | 'evening';
   practiceType?: 'soundscape' | 'guided_practice' | 'micro_exercise';
   practiceId?: string;
   practiceQueue?: { id: string }[];
   ritualData?: {
     ritual_date: string;
+    session_period?: string;
     soundscape_completed?: boolean;
     soundscape_completed_at?: string;
     guided_practice_completed?: boolean;
