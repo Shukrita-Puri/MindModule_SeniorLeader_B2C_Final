@@ -121,8 +121,8 @@ const AuthCallback = () => {
         console.log('[AuthCallback] ✅ Native auth complete, reloading to:', returnTo);
         toast.success('Welcome!');
 
-        // Referral tracking moved to Stage8Results (two-stage attribution)
-        // localStorage('referral_code') preserved for payment page
+        // Referral attribution is payment-only (handled by stripe-webhook)
+        // No client-side referral tracking needed here
 
         // Clear login flags, keep callbackInProgress until reload completes
         clearNativeLoginInProgress();
