@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAudioDurations, formatAudioDurationLabel } from "@/hooks/useAudioDuration";
 import { cn } from "@/lib/utils";
+import { getAuthToken } from '@/services/authTokenService';
 
 const PauseOutcomePage = () => {
   const navigate = useNavigate();
