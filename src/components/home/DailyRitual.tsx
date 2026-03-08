@@ -99,6 +99,7 @@ const DailyRitual = () => {
   const [activeView, setActiveView] = useState<'timeOfDay' | 'preEvent'>('timeOfDay');
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
+  const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
     completedCount: number;
