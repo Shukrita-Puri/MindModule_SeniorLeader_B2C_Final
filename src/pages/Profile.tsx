@@ -4,16 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const tierLabels: Record<string, string> = {
-  none: 'Free',
-  trial: 'Trial',
+  none: 'No Plan',
+  trial: '7 Day Trial',
   monthly_pro: 'Monthly Pro',
   annual_pro: 'Annual Pro',
 };
@@ -30,14 +31,17 @@ const Profile = () => {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
 
-  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'Free';
+  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'No Plan';
 
+  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
   const statusLabel = isCanceled
     ? 'Canceled'
-    : user?.subscription_status === 'trial'
-      ? 'Trial'
-      : user?.subscription_status || 'Active';
+    : isPaying
+      ? 'Paid'
+      : user?.subscription_status === 'trial'
+        ? 'Trial'
+        : 'Free';
 
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
@@ -47,7 +51,6 @@ const Profile = () => {
     expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
   }
 
-  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const hasBillingAccount = !!(user as any)?.stripe_customer_id || isPaying;
 
   const handleManageSubscription = async () => {
@@ -193,7 +196,36 @@ const Profile = () => {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Plan</span>
               </div>
-              <span className="text-sm">{planLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{planLabel}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1 rounded hover:bg-muted transition-colors">
+                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {!isPaying && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </DropdownMenuItem>
+                    )}
+                    {isPaying && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Change Plan
+                      </DropdownMenuItem>
+                    )}
+                    {hasBillingAccount && (
+                      <DropdownMenuItem onClick={handleManageSubscription}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Manage Subscription
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
             {expiryLabel && (
               <div className="flex items-center justify-between py-2">
