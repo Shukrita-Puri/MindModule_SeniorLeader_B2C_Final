@@ -66,16 +66,23 @@ export async function getRituals(days: number = 30): Promise<RitualData[]> {
   }
 }
 
-export async function getTodayRitual(): Promise<RitualData | null> {
+export async function getTodayRitual(sessionPeriod?: 'morning' | 'afternoon' | 'evening'): Promise<RitualData | null> {
   const today = new Date().toLocaleDateString('en-CA');
   
   // DEV_MODE: Direct database query
   if (DEV_MODE) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('daily_ritual_completions')
       .select('*')
       .eq('user_id', DEV_USER.id)
-      .eq('ritual_date', today)
+      .eq('ritual_date', today);
+    
+    if (sessionPeriod) {
+      query = query.eq('session_period', sessionPeriod);
+    }
+    
+    const { data, error } = await query
+      .order('updated_at', { ascending: false })
       .maybeSingle();
     
     if (error) {
@@ -95,7 +102,7 @@ export async function getTodayRitual(): Promise<RitualData | null> {
 
     const { data, error } = await supabase.functions.invoke('daily-rituals', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { action: 'GET_TODAY_RITUAL' }
+      body: { action: 'GET_TODAY_RITUAL', sessionPeriod }
     });
 
     if (error) throw error;
@@ -104,6 +111,11 @@ export async function getTodayRitual(): Promise<RitualData | null> {
     console.error('[dailyRituals] Failed to fetch today ritual:', error);
     return null;
   }
+}
+
+// Get ritual for a specific time period today
+export async function getRitualForPeriod(period: 'morning' | 'afternoon' | 'evening'): Promise<RitualData | null> {
+  return getTodayRitual(period);
 }
 
 export async function getRitualRange(startDate: string, endDate: string): Promise<RitualData[]> {
