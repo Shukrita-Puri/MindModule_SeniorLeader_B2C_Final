@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { 
   User, 
-  Link2, 
-  Shield, 
   Share2, 
   LogOut,
-  ChevronUp
+  ChevronUp,
+  ArrowUpCircle
 } from 'lucide-react';
 import {
   Popover,
@@ -35,8 +34,7 @@ const UserSettingsPopover = () => {
     : user?.email?.[0]?.toUpperCase() || 'U';
   const menuItems = [
     { icon: User, label: 'Profile', path: '/profile' },
-    { icon: Link2, label: 'Connected Data', path: '/connected-data' },
-    { icon: Shield, label: 'Privacy & Security', path: '/privacy' },
+    { icon: ArrowUpCircle, label: 'Upgrade Plan', path: '/onboarding/payment' },
     { icon: Share2, label: 'Refer to Friends', path: '/refer' },
   ];
 
