@@ -206,6 +206,8 @@ const SelfMasteryCoach = () => {
     const next = practiceQueue[currentQueueIndex + 1];
     if (!next) return;
     
+    localStorage.setItem('queueIndex', String(currentQueueIndex + 1));
+    
     if (next.contentType === 'soundbath') {
       navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'guided-practice') {

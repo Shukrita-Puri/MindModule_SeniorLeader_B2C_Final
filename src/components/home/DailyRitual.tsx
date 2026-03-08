@@ -628,21 +628,7 @@ const DailyRitual = () => {
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
               <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                {(() => {
-                  const queue = localStorage.getItem('practiceQueue');
-                  const currentIndex = parseInt(localStorage.getItem('queueIndex') || '0');
-                  if (queue) {
-                    try {
-                      const queueData = JSON.parse(queue);
-                      const nextPractice = queueData[currentIndex];
-                      if (nextPractice?.title) {
-                        const title = nextPractice.title.length > 22 ? nextPractice.title.slice(0, 22) + '...' : nextPractice.title;
-                        return `Continue: ${title}`;
-                      }
-                    } catch { /* fallback */ }
-                  }
-                  return 'Continue Flow';
-                })()}
+                Continue Plan
               </Button>
             )}
             {ritualStatus.status === 'completed' && (
