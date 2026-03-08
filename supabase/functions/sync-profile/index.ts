@@ -2,11 +2,10 @@
  * sync-profile: Upserts Auth0 user data into Supabase profiles.
  * Called after every successful Auth0 login/callback.
  * 
- * - Verifies Auth0 JWT (server-side trust)
- * - Extracts user info from token claims + Auth0 /userinfo
- * - Upserts into profiles using Auth0 `sub` as primary key
- * - Never trusts client-provided userId for writes
- * - Idempotent: safe to call multiple times
+ * Two-column name approach:
+ * - auth_name: Always synced from Auth0 /userinfo (never user-editable)
+ * - display_name: Only set on initial profile creation, never overwritten by sync
+ * - full_name: Deprecated, no longer written
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -78,31 +77,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Upsert profile using service role (bypasses RLS)
+    // 4. Check if profile already exists (to preserve display_name)
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, display_name")
+      .eq("id", userId)
+      .single();
+
     const now = new Date().toISOString();
+    const isNewProfile = !existingProfile;
+
+    // Build upsert data — auth_name always updated, display_name only on new profiles
+    const upsertData: Record<string, unknown> = {
+      id: userId,
+      email,
+      auth_name: name,
+      avatar_url: picture,
+      last_login_at: now,
+      updated_at: now,
+    };
+
+    // Only set display_name on initial profile creation
+    if (isNewProfile) {
+      upsertData.display_name = name;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("profiles")
-      .upsert(
-        {
-          id: userId,
-          email,
-          full_name: name,
-          avatar_url: picture,
-          last_login_at: now,
-          updated_at: now,
-        },
-        {
-          onConflict: "id",
-          ignoreDuplicates: false, // Always update on conflict
-        }
-      )
-      .select("id, email, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at")
+      .upsert(upsertData, {
+        onConflict: "id",
+        ignoreDuplicates: false,
+      })
+      .select("id, email, display_name, auth_name, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at")
       .single();
 
     if (error) {
@@ -113,7 +124,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("[sync-profile] ✅ Profile synced for:", userId);
+    console.log("[sync-profile] ✅ Profile synced for:", userId, "isNew:", isNewProfile);
 
     return new Response(
       JSON.stringify({

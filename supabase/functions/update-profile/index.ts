@@ -19,17 +19,18 @@ Deno.serve(async (req) => {
     const userId = authResult.userId;
 
     const body = await req.json();
-    const { full_name } = body;
+    // Support both old field name (full_name) and new (display_name) for backward compat
+    const nameValue = body.display_name ?? body.full_name;
 
-    if (typeof full_name !== "string" || full_name.trim().length === 0) {
+    if (typeof nameValue !== "string" || nameValue.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: "full_name is required and must be a non-empty string" }),
+        JSON.stringify({ error: "display_name is required and must be a non-empty string" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Sanitize: trim and limit length
-    const sanitizedName = full_name.trim().slice(0, 100);
+    const sanitizedName = nameValue.trim().slice(0, 100);
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -38,9 +39,9 @@ Deno.serve(async (req) => {
 
     const { data, error } = await db
       .from("profiles")
-      .update({ full_name: sanitizedName })
+      .update({ display_name: sanitizedName })
       .eq("id", userId)
-      .select("id, full_name, email, avatar_url, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at")
+      .select("id, display_name, auth_name, full_name, email, avatar_url, subscription_tier, subscription_status, subscription_plan, trial_ends_at, subscription_current_period_end, subscription_canceled_at")
       .single();
 
     if (error) {
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[update-profile] ✅ Updated name for ${userId} to "${sanitizedName}"`);
+    console.log(`[update-profile] ✅ Updated display_name for ${userId} to "${sanitizedName}"`);
 
     return new Response(
       JSON.stringify({ profile: data }),
