@@ -84,6 +84,25 @@ const Refer = () => {
             alt="Referral gift box"
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
+          {/* Mini MM logos floating out of the box */}
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-28 top-3 w-7 h-7 rounded-md pointer-events-none opacity-80 rotate-[-15deg] drop-shadow-md animate-pulse"
+            style={{ animationDuration: '3s' }}
+          />
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-14 top-1 w-5 h-5 rounded-sm pointer-events-none opacity-70 rotate-[10deg] drop-shadow-md animate-pulse"
+            style={{ animationDuration: '4s', animationDelay: '0.5s' }}
+          />
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-36 -top-1 w-6 h-6 rounded-sm pointer-events-none opacity-75 rotate-[25deg] drop-shadow-md animate-pulse"
+            style={{ animationDuration: '3.5s', animationDelay: '1s' }}
+          />
 
           {/* Text content — left side, with right padding for the box */}
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
