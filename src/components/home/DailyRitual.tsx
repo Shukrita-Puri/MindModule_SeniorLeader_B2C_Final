@@ -376,10 +376,12 @@ const DailyRitual = () => {
   const handleMarkComplete = async (practiceId: string) => {
     if (!user?.id || completedPracticeIds.includes(practiceId)) return;
     const today = new Date().toISOString().split('T')[0];
+    const currentPeriod = getCurrentTimeWindow();
     const modules = plan?.timeOfDayPlan?.modules || [];
     const newCompletedIds = [...completedPracticeIds, practiceId];
     const result = await upsertRitual({
       ritual_date: today,
+      session_period: currentPeriod,
       completed_practice_ids: newCompletedIds,
       recommended_practice_ids: modules.map(m => m.contentId),
       recommended_practices_count: modules.length,
