@@ -1,53 +1,37 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+## Plan: Refer Page — MM Logo Animations + Card Styling Fix
 
-Two files need text-only changes (no layout or UI modifications).
+### 1. Add MM logos "flying out" of the gift box in the hero section
 
----
+In the hero section of `Refer.tsx`, add 3-4 `mm-logo-mini.png` images positioned absolutely near the gift box (right side). They will:
+- Be placed between the box bottom and lid, appearing to burst outward
+- Use CSS animations (`animate-bounce`, custom keyframes, or Tailwind arbitrary transforms) to create a floating/flying effect
+- Stay close to the box — not overlapping any text (text is on the left, box is on the right)
+- One logo will be larger (~40px) so it's clearly recognizable as the MM icon; others will be smaller (~20-24px)
+- All will have slight rotation and offset variations for a natural "spilling out" look
+- Use `pointer-events-none` so they don't interfere with interactions
 
-### File 1: `src/pages/Front.tsx`
+Import: `import mmLogoMini from '@/assets/mm-logo-mini.png';`
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+### 2. Match card styling to Profile page
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+The Profile page uses the `<Card>` component from `src/components/ui/card.tsx` which has this styling:
+```
+rounded-2xl border border-black/[0.08] bg-white/65 backdrop-blur-[30px] backdrop-saturate-150
+shadow-[0_8px_32px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]
+```
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+The current Refer page uses a custom `cardClass` with flat styling (`border-border/40`, minimal shadow). 
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+**Fix:** Replace the custom `cardClass` with the actual `<Card>` component (same one Profile uses), or update the `cardClass` string to match the Card component's styling exactly. Using the `<Card>` component directly is cleaner and ensures consistency.
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+Changes:
+- Import `Card` from `@/components/ui/card`
+- Replace `<div className={cardClass}>` wrappers with `<Card>` for: How It Works, Referral Code, and Stats sections
+- Remove the `cardClass` constant
+- The hero section keeps its own saffron gradient styling (not a Card)
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
-
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+### Files Modified
+- `src/pages/Refer.tsx` — both changes above
 
