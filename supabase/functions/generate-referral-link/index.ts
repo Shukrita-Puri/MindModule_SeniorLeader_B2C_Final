@@ -78,10 +78,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    const referralLink = `${FRONTEND_URL}/join/${referralCode}`;
     const { error } = await db.from("user_referrals").insert({
       user_id: userId,
       referral_code: referralCode,
-      referral_link: APP_STORE_URL,
+      referral_link: referralLink,
     });
 
     if (error) {
