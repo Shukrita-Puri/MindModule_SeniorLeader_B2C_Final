@@ -400,7 +400,7 @@ const DailyRitual = () => {
     }))));
     localStorage.setItem('queueIndex', '0');
     localStorage.setItem('ritualMode', 'true');
-    localStorage.setItem('todayRecommendedIds', JSON.stringify(modules.map(m => m.contentId)));
+    // todayRecommendedIds removed — redundant with DB
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
