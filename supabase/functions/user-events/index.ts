@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS';
+  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS' | 'GET_COMPLETION_COUNTS' | 'GET_SANCTUARY_DATA';
   eventType?: string;
   category?: string;
   contentId?: string;
