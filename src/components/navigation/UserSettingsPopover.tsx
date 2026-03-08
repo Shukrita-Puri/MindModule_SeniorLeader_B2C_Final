@@ -88,14 +88,14 @@ const UserSettingsPopover = () => {
         {/* User info header */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
+            <AvatarImage src={user?.picture} alt={displayName} />
             <AvatarFallback className="bg-primary/10 text-primary text-lg">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{user?.name || 'User'}</p>
-            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+            <p className="font-medium truncate">{displayName}</p>
+            {displayEmail && <p className="text-sm text-muted-foreground truncate">{displayEmail}</p>}
           </div>
         </div>
 
