@@ -47,6 +47,18 @@ Deno.serve(async (req) => {
         email = info.email || null;
         name = info.name || null;
         picture = info.picture || null;
+
+        // TIER 3: Server-side cross-check — verify JWT sub matches /userinfo sub
+        if (info.sub && info.sub !== userId) {
+          console.error("[sync-profile] 🚨 IDENTITY MISMATCH — JWT sub:", userId, "userinfo sub:", info.sub);
+          return new Response(
+            JSON.stringify({
+              error: "Token identity mismatch detected",
+              detail: "JWT subject does not match /userinfo subject. Possible stale session.",
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       } else {
         console.warn(
           `[sync-profile] /userinfo returned ${userinfoRes.status}, proceeding with token claims only`

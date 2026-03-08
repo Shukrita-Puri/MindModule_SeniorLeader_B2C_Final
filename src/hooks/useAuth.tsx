@@ -411,7 +411,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signOut = async () => {
+  // Shared federated logout helper — clears Auth0 session cookie + IdP session
+  const signOutFederated = async () => {
     // 1. Activate logout guard BEFORE anything else — prevents auto-login race
     activateLogoutGuard();
     clearTokenCache();
@@ -426,26 +427,42 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAppUser(null);
     delete window.__auth0Client;
 
-    // 3. On native iOS, do a local-only logout (no external redirect to Auth0)
-    //    to avoid bouncing the user into Safari.
+    // 3. On native iOS, do a local-only logout then hit Auth0 /v2/logout
+    //    to clear the server-side session cookie without a Safari redirect.
     if (isNativeiOS()) {
-      // Clear Auth0 SDK cache locally without triggering a redirect
       try {
         await logout({ openUrl: false });
       } catch (e) {
         console.warn('[useAuth] Native logout cleanup error (non-fatal):', e);
       }
-      // Navigation to "/" is handled by the caller (signOut consumer)
+
+      // Clear Auth0 server session via /v2/logout in a background browser call
+      try {
+        const domain = getSanitisedAuth0Domain();
+        const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+        const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: logoutUrl, presentationStyle: 'popover' });
+        // Give Auth0 a moment to clear the session, then close
+        setTimeout(async () => {
+          try { await Browser.close(); } catch { /* ignore */ }
+        }, 1500);
+      } catch (e) {
+        console.warn('[useAuth] Native Auth0 session clear error (non-fatal):', e);
+      }
       return;
     }
 
-    // 4. Web: standard Auth0 redirect logout
+    // 4. Web: federated logout — clears Auth0 session cookie + IdP session
     await logout({ 
       logoutParams: { 
-        returnTo: window.location.origin 
+        returnTo: window.location.origin,
+        federated: true,
       } 
     });
   };
+
+  const signOut = signOutFederated;
 
   const effectiveAuthenticated = isAuthenticated || nativeAuthed;
 
