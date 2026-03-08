@@ -1,53 +1,34 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Fix: `compute-outer-readiness` crash on missing `innerReadinessTier`
 
-Two files need text-only changes (no layout or UI modifications).
+## Root Cause
 
----
+The edge function logs show a real runtime error:
+```
+Error: Cannot destructure property 'leanOn' of 'getLeanOnWatchFor(...)' as it is undefined.
+```
 
-### File 1: `src/pages/Front.tsx`
+`getLeanOnWatchFor` always ends with `return tierFallbacks[tier]` (line 495). But if `innerReadinessTier` arrives as `undefined` or `null` from the request body (e.g. the energy state engine call failed or returned before the tier was set), then `tierFallbacks[undefined]` returns `undefined`, crashing the destructure on line 656.
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+The client fallback in `energyStateEngine.ts` (line 309) defaults to `'managing'`, but if the edge function call to `compute-inner-readiness` fails or the network request is malformed, the tier can still be missing.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+## Fix (1 line change)
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+In `compute-outer-readiness/index.ts`, add a default for `innerReadinessTier` right after destructuring the body (around line 591):
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+```typescript
+// Change line ~591 from:
+innerReadinessTier,
+// To a defaulted version after destructuring, e.g. line ~601:
+const safeTier: EnergyTier = innerReadinessTier || 'managing';
+```
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+Then use `safeTier` instead of `innerReadinessTier` in all downstream calls: `getTheme()` (line 638), `getLeanOnWatchFor()` (line 657), the "strength without clarity" check (line 647), and the DB upsert.
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+This is a defensive guard — `'managing'` is the correct neutral default (same as the client fallback).
 
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+## Files Changed
+- `supabase/functions/compute-outer-readiness/index.ts` — add safe default + use it in 4 references
+- Redeploy edge function
 
