@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Calendar, Watch, Link2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { ArrowLeft, Calendar, Watch, Link2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { format } from 'date-fns';
@@ -56,7 +56,6 @@ const ConnectedData = () => {
   };
 
   const handleCalendarConnect = () => {
-    // Navigate to onboarding context connection which has the calendar OAuth flow
     navigate('/onboarding/context-connection');
   };
 
@@ -64,7 +63,6 @@ const ConnectedData = () => {
     {
       id: 'google-calendar',
       name: 'Google Calendar',
-      icon: Calendar,
       description: 'Sync your calendar for contextual recommendations',
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
@@ -74,18 +72,9 @@ const ConnectedData = () => {
     {
       id: 'apple-watch',
       name: 'Apple Watch',
-      icon: Watch,
       description: 'Connect via Apple Health for HRV and sleep data',
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
-    },
-    {
-      id: 'oura',
-      name: 'Oura Ring',
-      icon: Watch,
-      description: 'Connect your Oura for sleep and readiness data',
-      connected: status?.oura.connected ?? false,
-      lastSync: formatLastSync(status?.oura.lastSync ?? null),
     },
   ];
 
@@ -134,24 +123,12 @@ const ConnectedData = () => {
               <Card key={connection.id}>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                        <connection.icon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium flex items-center gap-2">
-                          {connection.name}
-                          {connection.connected ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{connection.description}</p>
-                        {connection.connected && connection.lastSync && (
-                          <p className="text-xs text-muted-foreground mt-1">{connection.lastSync}</p>
-                        )}
-                      </div>
+                    <div>
+                      <h3 className="font-medium">{connection.name}</h3>
+                      <p className="text-sm text-muted-foreground">{connection.description}</p>
+                      {connection.connected && connection.lastSync && (
+                        <p className="text-xs text-muted-foreground mt-1">{connection.lastSync}</p>
+                      )}
                     </div>
                     <Button
                       variant={connection.connected ? "outline" : "default"}
@@ -167,16 +144,14 @@ const ConnectedData = () => {
           )}
         </div>
 
-        {/* Data Privacy Note */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Data Privacy</CardTitle>
-            <CardDescription>
-              Your data is encrypted and never shared with third parties. You can disconnect 
-              any source at any time and request complete data deletion.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {/* Data Privacy Link */}
+        <Button
+          variant="link"
+          className="text-sm text-muted-foreground px-0"
+          onClick={() => navigate('/privacy')}
+        >
+          Data Privacy Policy →
+        </Button>
       </div>
     </div>
   );
