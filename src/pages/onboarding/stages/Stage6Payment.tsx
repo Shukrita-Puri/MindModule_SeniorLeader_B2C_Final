@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, Shield, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { toast } from "sonner";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
@@ -53,12 +54,15 @@ export default function Stage6Payment() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       if (data.checkoutUrl) {
+        // Clear referral code from localStorage after successful handoff to Stripe
+        localStorage.removeItem('referral_code');
         window.location.href = data.checkoutUrl;
         return;
       }
       throw new Error('No checkout URL returned');
     } catch (err: any) {
       console.error('[Payment] Error:', err?.message || err);
+      toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
       recordStep('payment', { selected_plan: selectedPlan });
       navigate('/onboarding/context-connection');
     } finally {

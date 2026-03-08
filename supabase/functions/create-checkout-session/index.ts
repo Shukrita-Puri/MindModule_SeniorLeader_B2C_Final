@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════
     // REFERRAL CODE VALIDATION (no attribution here — just validate for Stripe metadata)
-    // Stage 1 attribution happens at onboarding completion via track-referral-signup
+    // Attribution happens in stripe-webhook on checkout.session.completed
     // ═══════════════════════════════════════════════════════════
     let validatedReferralCode: string | null = null;
 
