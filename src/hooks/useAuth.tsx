@@ -4,6 +4,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
+import { toast } from 'sonner';
 
 // Extend window type for global auth client
 declare global {
