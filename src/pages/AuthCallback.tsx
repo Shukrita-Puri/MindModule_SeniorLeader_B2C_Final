@@ -15,7 +15,7 @@ import {
 } from '@/utils/nativeAuth';
 
 const AuthCallback = () => {
-  const { isLoading, error, isAuthenticated, user, handleRedirectCallback } = useAuth0();
+  const { isLoading, error, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
   const nativeHandled = useRef(false);
 
@@ -121,6 +121,21 @@ const AuthCallback = () => {
         console.log('[AuthCallback] ✅ Native auth complete, reloading to:', returnTo);
         toast.success('Welcome!');
 
+        // Track referral signup if referral code exists (native flow)
+        const referralCode = localStorage.getItem('referral_code');
+        if (referralCode && tokens.access_token) {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          fetch(`https://${projectId}.supabase.co/functions/v1/track-referral-signup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.access_token}`,
+            },
+            body: JSON.stringify({ referralCode }),
+          }).catch(err => console.warn('[AuthCallback] Referral tracking failed:', err));
+          localStorage.removeItem('referral_code');
+        }
+
         // Clear login flags, keep callbackInProgress until reload completes
         clearNativeLoginInProgress();
 
@@ -154,21 +169,31 @@ const AuthCallback = () => {
       sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
 
-      // Track referral signup if referral code exists
+      // Track referral signup if referral code exists (web flow)
       const referralCode = localStorage.getItem('referral_code');
       if (referralCode && user?.sub) {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        fetch(`https://${projectId}.supabase.co/functions/v1/track-referral-signup`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ referralCode }),
-        }).catch(err => console.warn('[AuthCallback] Referral tracking failed:', err));
-        localStorage.removeItem('referral_code');
+        (async () => {
+          try {
+            const token = await getAccessTokenSilently();
+            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+            await fetch(`https://${projectId}.supabase.co/functions/v1/track-referral-signup`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ referralCode }),
+            });
+          } catch (err) {
+            console.warn('[AuthCallback] Referral tracking failed:', err);
+          }
+          localStorage.removeItem('referral_code');
+        })();
       }
 
       navigate(returnTo);
     }
-  }, [isLoading, error, isAuthenticated, navigate, user]);
+  }, [isLoading, error, isAuthenticated, navigate, user, getAccessTokenSilently]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

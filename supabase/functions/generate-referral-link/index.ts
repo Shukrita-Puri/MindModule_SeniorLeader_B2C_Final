@@ -7,6 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const APP_STORE_URL = "https://apps.apple.com/app/mind-module/id123456789";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,7 +49,7 @@ Deno.serve(async (req) => {
     const firstName = name.split(" ")[0];
     const initials = firstName.substring(0, 2).toUpperCase();
 
-    // Generate unique code: MM + initials + 3 random chars
+    // Generate unique branded code: MM-{initials}-1MP-{3 random chars}
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let referralCode = "";
     let attempts = 0;
@@ -57,7 +59,7 @@ Deno.serve(async (req) => {
       for (let i = 0; i < 3; i++) {
         randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
       }
-      referralCode = `MM${initials}${randomSuffix}`;
+      referralCode = `MM-${initials}-1MP-${randomSuffix}`;
 
       const { data: collision } = await db
         .from("user_referrals")
@@ -76,13 +78,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://wwwmindmoduleme.lovable.app";
-    const referralLink = `${frontendUrl}/join/${referralCode}`;
-
     const { error } = await db.from("user_referrals").insert({
       user_id: userId,
       referral_code: referralCode,
-      referral_link: referralLink,
+      referral_link: APP_STORE_URL,
     });
 
     if (error) {
@@ -96,7 +95,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         referral_code: referralCode,
-        referral_link: referralLink,
+        referral_link: APP_STORE_URL,
         total_signups: 0,
         total_conversions: 0,
       }),

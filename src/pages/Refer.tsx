@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Copy, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import giftBoxImg from '@/assets/referral-gift-box.png';
-import mmLogoMini from '@/assets/mm-logo-mini.png';
+
+const APP_STORE_URL = 'https://apps.apple.com/app/mind-module/id123456789';
 
 const Refer = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [referralLink, setReferralLink] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [signedUpCount, setSignedUpCount] = useState(0);
   const [convertedCount, setConvertedCount] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
@@ -36,7 +37,7 @@ const Refer = () => {
         );
         if (res.ok) {
           const data = await res.json();
-          setReferralLink(data.referral_link || '');
+          setReferralCode(data.referral_code || '');
           setSignedUpCount(data.total_signups || 0);
           setConvertedCount(data.total_conversions || 0);
         }
@@ -49,16 +50,51 @@ const Refer = () => {
     fetchReferralData();
   }, []);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(referralLink);
-      setCopied(true);
-      toast.success('Link copied to clipboard!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Failed to copy link');
+  const getShareMessage = () =>
+    `I've been using Mind Module — an inner operating system for leaders who operate under sustained pressure. It has been helping me stay regulated under pressure, lead with more clarity and make better decisions when it matters most. Thought you'd find it valuable too.\n\nDownload it here: ${APP_STORE_URL}\n\nUse my code ${referralCode}`;
+
+  const handleShare = async () => {
+    const message = getShareMessage();
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: message });
+        toast.success('Shared successfully!');
+      } catch (err: any) {
+        // User cancelled share — not an error
+        if (err?.name !== 'AbortError') {
+          console.error('[Refer] Share failed:', err);
+          await fallbackCopy(message);
+        }
+      }
+    } else {
+      await fallbackCopy(message);
     }
   };
+
+  const fallbackCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success('Message copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy message');
+    }
+  };
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(referralCode);
+      setCopied(true);
+      toast.success('Code copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy code');
+    }
+  };
+
+  const cardClass = 'bg-card/50 backdrop-blur-[16px] border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-2xl';
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,30 +112,13 @@ const Refer = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {/* Hero Section — Gift box overflows right */}
+        {/* Hero Section */}
         <div className="relative rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-gold/5 to-background overflow-hidden shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
-          {/* Gift box — positioned to overflow right, only ~60% visible */}
           <img
             src={giftBoxImg}
             alt="Referral gift box"
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
-          {/* MM logos emerging from the gap between box and lid */}
-          <img src={mmLogoMini} alt="" className="absolute right-20 top-[38%] w-9 h-9 rounded-lg shadow-md pointer-events-none opacity-85 rotate-[-8deg] animate-pulse" style={{ animationDuration: '3s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-32 top-[42%] w-6 h-6 rounded-md shadow-sm pointer-events-none opacity-75 rotate-[18deg] animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.6s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-10 top-[44%] w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-65 rotate-[-20deg] animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-42 top-[36%] w-5 h-5 rounded-sm shadow-sm pointer-events-none opacity-60 rotate-[12deg] animate-pulse" style={{ animationDuration: '3.8s', animationDelay: '1.4s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-26 top-[34%] w-4 h-4 rounded-sm shadow-sm pointer-events-none opacity-55 rotate-[-30deg] animate-pulse" style={{ animationDuration: '4.2s', animationDelay: '0.3s' }} />
-          {/* Sparkles in the gap area */}
-          <span className="absolute right-16 top-[36%] w-1.5 h-1.5 rounded-full bg-saffron/60 pointer-events-none animate-pulse" style={{ animationDuration: '2s' }} />
-          <span className="absolute right-28 top-[40%] w-1 h-1 rounded-full bg-gold/55 pointer-events-none animate-pulse" style={{ animationDuration: '2.3s', animationDelay: '0.2s' }} />
-          <span className="absolute right-38 top-[37%] w-1.5 h-1.5 rounded-full bg-saffron/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.6s', animationDelay: '0.5s' }} />
-          <span className="absolute right-22 top-[43%] w-1 h-1 rounded-full bg-gold/45 pointer-events-none animate-pulse" style={{ animationDuration: '2.8s', animationDelay: '0.9s' }} />
-          <span className="absolute right-46 top-[39%] w-1 h-1 rounded-full bg-saffron/40 pointer-events-none animate-pulse" style={{ animationDuration: '3s', animationDelay: '1.1s' }} />
-          <span className="absolute right-14 top-[41%] w-2 h-2 rounded-full bg-gold/35 pointer-events-none animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.7s' }} />
-          <span className="absolute right-34 top-[35%] w-1 h-1 rounded-full bg-saffron/55 pointer-events-none animate-pulse" style={{ animationDuration: '2.2s', animationDelay: '1.3s' }} />
-
-          {/* Text content — left side, with right padding for the box */}
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
             <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
               Share the Gift of Inner Mastery
@@ -111,13 +130,13 @@ const Refer = () => {
         </div>
 
         {/* How It Works */}
-        <div className="rounded-2xl border border-border bg-card/65 backdrop-blur-[30px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+        <div className={`${cardClass} p-6`}>
           <h3 className="text-lg font-headline font-semibold text-foreground mb-4">How It Works</h3>
           <div className="space-y-4">
             {[
-              'Share your invite link',
-              'You get 1 month free once they subscribe to Pro (valid up to 6 months free & this resets every 3 months)',
-              'You unlock Founding Member badge with first access and opportunity to co-build with the founding team (locked after first 100 users)',
+              'Share your referral code',
+              'You get 1 month free once they subscribe to Pro (valid for up to 6 months free & this resets every 3 months)',
+              'You unlock Founding Member badge with first access to new features (locked after first 100 users)',
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-3">
                 <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-taupe/15 flex items-center justify-center text-xs font-semibold text-taupe">
@@ -129,33 +148,40 @@ const Refer = () => {
           </div>
         </div>
 
-        {/* Referral Link */}
-        <div className="rounded-2xl border border-border bg-card/65 backdrop-blur-[30px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">Your Referral Link</h3>
+        {/* Referral Code */}
+        <div className={`${cardClass} p-6`}>
+          <h3 className="text-lg font-headline font-semibold text-foreground mb-4">Your Referral Code</h3>
           {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0 rounded-xl border border-border bg-muted/50 px-4 py-2.5">
-                <p className="text-sm font-mono text-foreground truncate">{referralLink}</p>
-              </div>
+            <div className="space-y-4">
+              {/* Code display */}
+              <button
+                onClick={handleCopyCode}
+                className="w-full rounded-xl border border-saffron/20 bg-saffron/5 px-6 py-4 text-center transition-colors hover:bg-saffron/10 active:scale-[0.98]"
+              >
+                <p className="text-2xl font-mono font-bold tracking-wider text-foreground">{referralCode}</p>
+                <p className="text-xs text-muted-foreground mt-1">Tap to copy code</p>
+              </button>
+
+              {/* Share the Gift button */}
               <Button
                 variant="critical"
-                size="default"
-                onClick={handleCopy}
-                className="flex-shrink-0"
+                size="lg"
+                onClick={handleShare}
+                className="w-full"
               >
                 {copied ? (
                   <>
                     <Check className="h-4 w-4" />
-                    Copied
+                    Copied!
                   </>
                 ) : (
                   <>
-                    <Copy className="h-4 w-4" />
-                    Copy link
+                    <Share2 className="h-4 w-4" />
+                    Share the Gift
                   </>
                 )}
               </Button>
@@ -164,12 +190,12 @@ const Refer = () => {
         </div>
 
         {/* Stats */}
-        <div className="rounded-2xl border border-border bg-card/65 backdrop-blur-[30px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] text-center">
+        <div className={`${cardClass} p-6 text-center`}>
           <p className="text-lg font-body font-medium text-foreground">
             <span className="text-saffron font-semibold">{signedUpCount}</span> signed up · <span className="text-saffron font-semibold">{convertedCount}</span> converted
           </p>
           {signedUpCount === 0 && (
-            <p className="text-sm text-muted-foreground font-body mt-1">Share your link to get started!</p>
+            <p className="text-sm text-muted-foreground font-body mt-1">Share your code to get started!</p>
           )}
         </div>
 
@@ -195,7 +221,7 @@ const Refer = () => {
             {[
               { title: '1. Eligibility', items: ['Only active Mind Module users can refer others', 'Self-referrals are not allowed', 'One referral per user (referee can only be referred once)'] },
               { title: '2. Rewards', items: ['Referrer receives 1 month free for each Pro subscriber they refer', 'Maximum 6 free months per 3-month period', 'Credits reset every 3 months from first earned credit', 'Credits apply to active subscriptions only'] },
-              { title: '3. Founding Member Badge', items: ['Locked after first 100 Pro subscribers', 'Grants access to co-building opportunities with founding team', 'Lifetime designation (does not expire)'] },
+              { title: '3. Founding Member Badge', items: ['Locked after first 100 Pro subscribers', 'Grants access to first access to new features', 'Lifetime designation (does not expire)'] },
               { title: '4. Conversion Requirements', items: ['Signup = user completes onboarding', 'Conversion = user subscribes to Pro (paid plan)', 'Free trial subscriptions count toward referrer credit once converted to paid'] },
             ].map((section) => (
               <div key={section.title}>
