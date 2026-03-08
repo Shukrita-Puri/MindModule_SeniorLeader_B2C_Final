@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const FRONTEND_URL = Deno.env.get("FRONTEND_URL") || "https://mindmodule.me";
+const APP_STORE_URL = "https://apps.apple.com/app/mind-module/id123456789";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,12 +24,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user already has a referral code
+    // Check if user already has a referral code — .maybeSingle() since may not exist
     const { data: existing } = await db
       .from("user_referrals")
       .select("referral_code, referral_link, total_signups, total_conversions")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return new Response(JSON.stringify(existing), {
@@ -61,11 +61,12 @@ Deno.serve(async (req) => {
       }
       referralCode = `MM-${initials}-1MP-${randomSuffix}`;
 
+      // Check for collision — .maybeSingle() since we expect no match
       const { data: collision } = await db
         .from("user_referrals")
         .select("referral_code")
         .eq("referral_code", referralCode)
-        .single();
+        .maybeSingle();
 
       if (!collision) break;
       attempts++;
@@ -78,7 +79,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const referralLink = `${FRONTEND_URL}/join/${referralCode}`;
+    // Store App Store URL (not web join link)
+    const referralLink = APP_STORE_URL;
     const { error } = await db.from("user_referrals").insert({
       user_id: userId,
       referral_code: referralCode,

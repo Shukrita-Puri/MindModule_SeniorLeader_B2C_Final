@@ -4,6 +4,10 @@
  * Processes Stripe events (no JWT auth — uses Stripe signature verification).
  * Handles: checkout.session.completed, customer.subscription.updated,
  * invoice.payment_succeeded, invoice.payment_failed, customer.subscription.deleted
+ * 
+ * Two-stage referral attribution:
+ *   Stage 1 (signup) handled by track-referral-signup edge function
+ *   Stage 2 (conversion) handled here on subscription.updated → active
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -74,13 +78,13 @@ Deno.serve(async (req) => {
         // ═══════════════════════════════════════════════════════════
         // REFERRAL: Handle code entered in Stripe Checkout custom field
         // (Native iOS users who didn't come via /join/:code web flow)
+        // This creates Stage 1 attribution if not already done
         // ═══════════════════════════════════════════════════════════
         try {
           const customFields = (session as any).custom_fields;
           const referralField = customFields?.find((f: any) => f.key === 'referral_code');
           const stripeEnteredCode = referralField?.text?.value?.trim().toUpperCase();
 
-          // Only process if no conversion already exists (create-checkout-session may have already created one)
           if (stripeEnteredCode) {
             const { data: existingConversion } = await supabase
               .from('referral_conversions')
@@ -91,7 +95,7 @@ Deno.serve(async (req) => {
             if (!existingConversion) {
               const { data: referrer } = await supabase
                 .from('user_referrals')
-                .select('user_id, total_signups')
+                .select('user_id')
                 .eq('referral_code', stripeEnteredCode)
                 .single();
 
@@ -101,12 +105,15 @@ Deno.serve(async (req) => {
                   referee_id: userId,
                   referral_code: stripeEnteredCode,
                   signed_up_at: new Date().toISOString(),
+                  converted_to_pro_at: null,
                 });
 
-                await supabase
-                  .from('user_referrals')
-                  .update({ total_signups: (referrer.total_signups || 0) + 1 })
-                  .eq('user_id', referrer.user_id);
+                // Atomic increment: signup only
+                await supabase.rpc('increment_referral_stats', {
+                  p_referrer_id: referrer.user_id,
+                  p_increment_signups: true,
+                  p_increment_conversions: false,
+                });
 
                 console.log(`[stripe-webhook] Referral from Stripe field: ${stripeEnteredCode} → referrer ${referrer.user_id}`);
               }
@@ -150,19 +157,19 @@ Deno.serve(async (req) => {
           console.log(`[stripe-webhook] Subscription active for ${userId}: ${tier}`);
 
           // ═══════════════════════════════════════════════════════════
-          // REFERRAL CREDIT: Credit 1 month free to referrer on Pro conversion
+          // STAGE 2: REFERRAL CONVERSION — Credit referrer on Pro purchase
+          // Only fires for paid plans (not 7-day trial)
           // ═══════════════════════════════════════════════════════════
           try {
-            // Check if this user was referred
+            // Find uncredited conversion for this user — .maybeSingle() since may not exist
             const { data: conversion } = await supabase
               .from('referral_conversions')
-              .select('id, referrer_id, referral_code, credited_to_referrer')
+              .select('id, referrer_id, referral_code, credited_to_referrer, converted_to_pro_at')
               .eq('referee_id', userId)
-              .is('credited_to_referrer', null)
-              .single();
+              .maybeSingle();
 
-            if (conversion && conversion.referrer_id) {
-              // Mark conversion as credited
+            if (conversion && conversion.referrer_id && !conversion.converted_to_pro_at) {
+              // Mark conversion as completed
               await supabase
                 .from('referral_conversions')
                 .update({
@@ -172,40 +179,26 @@ Deno.serve(async (req) => {
                 })
                 .eq('id', conversion.id);
 
-              // Increment total_conversions and credited_months for referrer
-              const { data: referrer } = await supabase
-                .from('user_referrals')
-                .select('total_conversions, credited_months, last_reset_at')
-                .eq('user_id', conversion.referrer_id)
-                .single();
+              // Atomic increment: ONLY total_conversions (signups already done in Stage 1)
+              await supabase.rpc('increment_referral_stats', {
+                p_referrer_id: conversion.referrer_id,
+                p_increment_signups: false,
+                p_increment_conversions: true,
+              });
 
-              if (referrer) {
-                // Check if we need to reset the 3-month cycle
-                const lastReset = referrer.last_reset_at ? new Date(referrer.last_reset_at) : null;
-                const now = new Date();
-                const threeMonthsMs = 90 * 24 * 60 * 60 * 1000;
-                let newCreditedMonths = (referrer.credited_months || 0) + 1;
-                let shouldReset = false;
+              // Atomic credit referrer (handles 6-month cap + 90-day reset)
+              const { data: creditResult } = await supabase.rpc('credit_referrer_atomic', {
+                p_referrer_id: conversion.referrer_id,
+              });
 
-                if (lastReset && (now.getTime() - lastReset.getTime()) > threeMonthsMs) {
-                  // Reset cycle - start fresh
-                  newCreditedMonths = 1;
-                  shouldReset = true;
-                }
+              if (creditResult?.credited) {
+                // Also extend subscription_current_period_end by 1 month
+                await supabase.rpc('extend_subscription', {
+                  p_user_id: conversion.referrer_id,
+                  p_months: 1,
+                });
 
-                // Cap at 6 months per cycle
-                if (newCreditedMonths > 6) newCreditedMonths = 6;
-
-                await supabase
-                  .from('user_referrals')
-                  .update({
-                    total_conversions: (referrer.total_conversions || 0) + 1,
-                    credited_months: newCreditedMonths,
-                    ...(shouldReset || !lastReset ? { last_reset_at: now.toISOString() } : {}),
-                  })
-                  .eq('user_id', conversion.referrer_id);
-
-                // Extend referrer's subscription by 1 month (if they have one)
+                // Apply Stripe balance credit for the referrer
                 const { data: referrerProfile } = await supabase
                   .from('profiles')
                   .select('stripe_subscription_id')
@@ -214,14 +207,10 @@ Deno.serve(async (req) => {
 
                 if (referrerProfile?.stripe_subscription_id) {
                   try {
-                    // Add 1 month free to referrer's subscription via Stripe
                     const refSub = await stripe.subscriptions.retrieve(referrerProfile.stripe_subscription_id);
-                    const newEndDate = new Date((refSub.current_period_end + 30 * 24 * 60 * 60) * 1000);
-                    
-                    // Create a credit note or extend trial - for simplicity, add invoice credit
                     const customer = refSub.customer as string;
                     const priceAmount = refSub.items.data[0]?.price?.unit_amount || 0;
-                    
+
                     if (priceAmount > 0) {
                       await stripe.customers.createBalanceTransaction(customer, {
                         amount: -priceAmount, // Negative = credit
@@ -235,11 +224,13 @@ Deno.serve(async (req) => {
                   }
                 }
 
-                console.log(`[stripe-webhook] ✅ Referral credited: ${conversion.referral_code} → ${conversion.referrer_id}`);
+                console.log(`[stripe-webhook] ✅ Referral conversion credited: ${conversion.referral_code} → ${conversion.referrer_id} (${creditResult.new_credited}/6 months)`);
+              } else {
+                console.log(`[stripe-webhook] Referral credit skipped: ${creditResult?.reason || 'unknown'}`);
               }
             }
           } catch (refErr) {
-            // Non-critical - log but don't fail the webhook
+            // Non-critical — log but don't fail the webhook
             console.warn('[stripe-webhook] Referral credit check failed:', refErr);
           }
         }

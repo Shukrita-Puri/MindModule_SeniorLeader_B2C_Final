@@ -3,8 +3,11 @@
  * 
  * Authenticates user via Auth0 JWT, gets/creates Stripe customer,
  * creates a Stripe Checkout Session with 7-day trial.
- * Accepts optional referralCode — validates, stores in Stripe metadata,
- * and creates referral_conversions record for attribution.
+ * Accepts optional referralCode — validates and stores in Stripe metadata.
+ * 
+ * NOTE: Referral signup attribution (Stage 1) is handled by track-referral-signup
+ * at onboarding completion. This function only passes the code to Stripe metadata
+ * so the webhook can process Stage 2 conversion attribution.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -67,49 +70,24 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // REFERRAL CODE VALIDATION & ATTRIBUTION
+    // REFERRAL CODE VALIDATION (no attribution here — just validate for Stripe metadata)
+    // Stage 1 attribution happens at onboarding completion via track-referral-signup
     // ═══════════════════════════════════════════════════════════
     let validatedReferralCode: string | null = null;
 
     if (referralCode && typeof referralCode === 'string' && referralCode.trim()) {
       const code = referralCode.trim().toUpperCase();
 
-      // Validate code exists in user_referrals
+      // Validate code exists and isn't self-referral
       const { data: referrer } = await supabase
         .from('user_referrals')
-        .select('user_id, referral_code, total_signups')
+        .select('user_id')
         .eq('referral_code', code)
         .single();
 
       if (referrer && referrer.user_id !== userId) {
         validatedReferralCode = code;
-
-        // Check for existing conversion (prevent duplicates)
-        const { data: existingConversion } = await supabase
-          .from('referral_conversions')
-          .select('id')
-          .eq('referee_id', userId)
-          .maybeSingle();
-
-        if (!existingConversion) {
-          // Create referral_conversions record (signup attribution)
-          await supabase.from('referral_conversions').insert({
-            referrer_id: referrer.user_id,
-            referee_id: userId,
-            referral_code: code,
-            signed_up_at: new Date().toISOString(),
-          });
-
-          // Increment total_signups on the referrer
-          await supabase
-            .from('user_referrals')
-            .update({ total_signups: (referrer.total_signups || 0) + 1 })
-            .eq('user_id', referrer.user_id);
-
-          console.log(`[create-checkout-session] Referral attributed: ${code} → referrer ${referrer.user_id}`);
-        } else {
-          console.log(`[create-checkout-session] Referral conversion already exists for user ${userId}`);
-        }
+        console.log(`[create-checkout-session] Validated referral code: ${code}`);
       } else if (referrer?.user_id === userId) {
         console.warn(`[create-checkout-session] User tried to use own referral code: ${code}`);
       } else {
