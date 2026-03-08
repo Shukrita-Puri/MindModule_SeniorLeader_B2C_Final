@@ -67,6 +67,8 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
       {/* Share Dialog */}
       <Dialog open={!!selectedBadge} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Share Badge</DialogTitle>
+          <DialogDescription className="sr-only">Share your earned badge</DialogDescription>
           {selectedBadge && (
             <ShareableBadgeCard
               achievementName={selectedBadge.name}
