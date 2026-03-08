@@ -5,6 +5,14 @@ import { getAuthToken } from '@/services/authTokenService';
 // Alias for backward compat within this file
 const getAccessToken = getAuthToken;
 
+// Local time window helper (mirrors dailyCheckins.getCurrentTimeWindow)
+function getCurrentTimeWindowForRituals(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  return 'evening';
+}
+
 export interface RitualData {
   id?: string;
   ritual_date: string;
