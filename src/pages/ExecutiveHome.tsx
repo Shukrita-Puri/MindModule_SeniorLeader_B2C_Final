@@ -133,7 +133,12 @@ const ExecutiveHome = () => {
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover video-warm-luxury opacity-40 transition-opacity duration-1000 ease-out"
+                preload="auto"
+                onCanPlay={(e) => {
+                  (e.currentTarget as HTMLVideoElement).style.opacity = '0.4';
+                }}
+                className="w-full h-full object-cover video-warm-luxury transition-opacity duration-1000 ease-out"
+                style={{ opacity: 0 }}
               />
               {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
