@@ -26,6 +26,7 @@ const Profile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
 
   const initials = user?.name
