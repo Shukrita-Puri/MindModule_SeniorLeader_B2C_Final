@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const tierLabels: Record<string, string> = {
-  none: 'No Plan',
+  none: '7 Day Trial',
   trial: '7 Day Trial',
   monthly_pro: 'Monthly Pro',
   annual_pro: 'Annual Pro',
