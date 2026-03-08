@@ -380,6 +380,8 @@ const SoundscapePlayer = () => {
     const next = practiceQueue[currentQueueIndex + 1];
     if (!next) return;
     
+    localStorage.setItem('queueIndex', String(currentQueueIndex + 1));
+    
     if (next.contentType === 'soundbath') {
       navigate(`/soundscapes/${next.id}`, { state: { category: next.category, fromRitual: true } });
     } else if (next.contentType === 'guided-practice') {
@@ -710,7 +712,7 @@ const SoundscapePlayer = () => {
           </div>
 
           {/* Bottom control bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-taupe-rich/50 to-black/40 backdrop-blur-xl border-t border-gold/20 rounded-t-2xl px-4 py-3 pb-safe">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/15 backdrop-blur-md border-t border-white/40 rounded-t-2xl px-4 py-3 pb-safe">
             {/* Progress bar */}
             <div className="mb-4">
               <div className="flex items-center gap-3">
@@ -784,7 +786,7 @@ const SoundscapePlayer = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSkip(15)}
-                disabled={currentTime >= displayDuration}
+                disabled={!audioRef.current || currentTime >= (actualDuration || displayDuration) - 1}
                 className="text-white/80 hover:text-gold hover:bg-gold/10"
               >
                 <SkipForward className="w-5 h-5" />

@@ -543,8 +543,8 @@ const DailyRitual = () => {
                     onClick={() => !isDragging && !isCompleted && navigateToPractice(module)}
                     className={cn(
                       "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
-                      "bg-white/65 backdrop-blur-[20px] border border-black/[0.06]",
-                      "shadow-[0_4px_16px_rgba(0,0,0,0.04)]",
+                      "bg-white/15 backdrop-blur-md border border-white/40",
+                      "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                       isCompleted ? "opacity-50 cursor-not-allowed" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       isLastCard && "mr-4"
                     )}
@@ -628,21 +628,7 @@ const DailyRitual = () => {
             )}
             {ritualStatus.status === 'partial' && ritualStatus.completedCount > 0 && (
               <Button onClick={handleContinueRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-                {(() => {
-                  const queue = localStorage.getItem('practiceQueue');
-                  const currentIndex = parseInt(localStorage.getItem('queueIndex') || '0');
-                  if (queue) {
-                    try {
-                      const queueData = JSON.parse(queue);
-                      const nextPractice = queueData[currentIndex];
-                      if (nextPractice?.title) {
-                        const title = nextPractice.title.length > 22 ? nextPractice.title.slice(0, 22) + '...' : nextPractice.title;
-                        return `Continue: ${title}`;
-                      }
-                    } catch { /* fallback */ }
-                  }
-                  return 'Continue Flow';
-                })()}
+                Continue Plan
               </Button>
             )}
             {ritualStatus.status === 'completed' && (

@@ -100,7 +100,7 @@ const PracticeQueueProgress = ({
           <Button
             size="sm"
             onClick={onComplete}
-            className="ml-auto text-xs bg-saffron hover:bg-saffron/90 text-charcoal font-medium"
+            className="ml-auto text-xs bg-saffron hover:bg-saffron/90 text-white font-medium"
           >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
             {isLastPractice ? 'Complete' : 'Continue'}
