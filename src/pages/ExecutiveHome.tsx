@@ -23,12 +23,14 @@ import MetricInfoModal from "@/components/home/MetricInfoModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 
-// Hero fallback images - ES6 imports for proper bundling
-import softnessRelease from '@/assets/softness-release.jpg';
-import harmonicCalmBowl from '@/assets/harmonic-calm-singing-bowl.jpg';
-import flowMeditationColorful from '@/assets/flow-meditation-colorful.jpg';
-import vibrantFlowStateHero from '@/assets/vibrant-flow-state-hero.png';
-import luxuryWatercolorHero from '@/assets/luxury-watercolor-hero.jpeg';
+// Tier-based CSS gradient colors for poster placeholder (no bundled images)
+const TIER_GRADIENTS: Record<string, string> = {
+  depleted: 'from-blue-900/30 via-slate-800/20 to-background',
+  managing: 'from-amber-900/25 via-stone-800/15 to-background',
+  strong: 'from-emerald-900/25 via-teal-800/15 to-background',
+  peak: 'from-violet-900/25 via-purple-800/15 to-background',
+  default: 'from-stone-800/20 via-stone-700/10 to-background',
+};
 
 const ExecutiveHome = () => {
   const { user } = useAuth();
@@ -42,8 +44,6 @@ const ExecutiveHome = () => {
   
   // Fetch outer readiness brief (shared cache with StrategicIntentionCard)
   const { data: outerBrief } = useOuterReadiness();
-  
-  
   
   const fullName = user?.name || user?.email || 'there';
   const firstName = fullName.split(' ')[0];
@@ -62,17 +62,10 @@ const ExecutiveHome = () => {
     return outerBrief.phrase || "Let's make today count.";
   };
   
-  // Get calming visual fallback based on energy state (ES6 imports)
-  const getHeroVisual = () => {
-    if (!energyState) return luxuryWatercolorHero;
-    
-    switch (energyState.energyTier) {
-      case 'depleted': return softnessRelease;
-      case 'managing': return harmonicCalmBowl;
-      case 'strong': return flowMeditationColorful;
-      case 'peak': return vibrantFlowStateHero;
-      default: return luxuryWatercolorHero;
-    }
+  // Get tier gradient class for poster placeholder
+  const getTierGradient = () => {
+    const tier = energyState?.energyTier || 'default';
+    return TIER_GRADIENTS[tier] || TIER_GRADIENTS.default;
   };
   
   // Get time of day for video selection
@@ -90,34 +83,28 @@ const ExecutiveHome = () => {
     const tier = energyState?.energyTier || 'default';
     
     // 15 unique local videos - one for each energy tier + time of day combination
-    // These are NOT used elsewhere in the app
     const videoMap: Record<string, Record<string, string>> = {
       depleted: {
-        // Soft, restorative themes for low energy
         morning: '/all-visuals/videos/depleted-morning.mp4',
         afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
         evening: '/all-visuals/videos/depleted-evening.mp4',
       },
       managing: {
-        // Grounding, steady themes for managing energy
         morning: '/all-visuals/videos/managing-morning.mp4',
         afternoon: '/all-visuals/videos/managing-afternoon.mp4',
         evening: '/all-visuals/videos/managing-evening.mp4',
       },
       strong: {
-        // Clear, flowing themes for strong energy
         morning: '/all-visuals/videos/strong-morning.mp4',
         afternoon: '/all-visuals/videos/strong-afternoon.mp4',
         evening: '/all-visuals/videos/strong-evening.mp4',
       },
       peak: {
-        // Vibrant, energizing themes for peak energy
         morning: '/all-visuals/videos/peak-morning.mp4',
         afternoon: '/all-visuals/videos/peak-afternoon.mp4',
         evening: '/all-visuals/videos/peak-evening.mp4',
       },
       default: {
-        // Neutral, calming themes as fallback
         morning: '/all-visuals/videos/default-morning.mp4',
         afternoon: '/all-visuals/videos/default-afternoon.mp4',
         evening: '/all-visuals/videos/default-evening.mp4',
@@ -137,9 +124,11 @@ const ExecutiveHome = () => {
           <div className="relative">
             {/* Nature visual underlay - full bleed, pointer-events: none so touches pass through */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+              {/* CSS gradient placeholder — shows instantly while video loads */}
+              <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()} transition-opacity duration-700`} />
               <video 
+                key={getHeroVideo()}
                 src={getHeroVideo()}
-                poster={getHeroVisual()}
                 autoPlay
                 loop
                 muted
