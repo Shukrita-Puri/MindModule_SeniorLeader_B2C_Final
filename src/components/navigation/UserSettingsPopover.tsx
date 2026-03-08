@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 const UserSettingsPopover = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
