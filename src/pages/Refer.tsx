@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, Share2, Copy, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import giftBoxImg from '@/assets/referral-gift-box.png';
+import mmLogoMini from '@/assets/mm-logo-mini.png';
 
 const APP_STORE_URL = 'https://apps.apple.com/app/mind-module/id123456789';
 
@@ -61,7 +63,6 @@ const Refer = () => {
         await navigator.share({ text: message });
         toast.success('Shared successfully!');
       } catch (err: any) {
-        // User cancelled share — not an error
         if (err?.name !== 'AbortError') {
           console.error('[Refer] Share failed:', err);
           await fallbackCopy(message);
@@ -94,8 +95,6 @@ const Refer = () => {
     }
   };
 
-  const cardClass = 'bg-card/50 backdrop-blur-[16px] border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-2xl';
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -114,11 +113,39 @@ const Refer = () => {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* Hero Section */}
         <div className="relative rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-gold/5 to-background overflow-hidden shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
+          {/* Gift box image */}
           <img
             src={giftBoxImg}
             alt="Referral gift box"
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
+
+          {/* MM logos flying out of the gift box */}
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-12 top-6 w-10 h-10 pointer-events-none opacity-80 animate-float-logo-1"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
+          />
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-2 top-14 w-6 h-6 pointer-events-none opacity-70 animate-float-logo-2"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          />
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-20 top-16 w-5 h-5 pointer-events-none opacity-60 animate-float-logo-3"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          />
+          <img
+            src={mmLogoMini}
+            alt=""
+            className="absolute right-6 top-2 w-5 h-5 pointer-events-none opacity-65 animate-float-logo-4"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          />
+
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
             <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
               Share the Gift of Inner Mastery
@@ -130,7 +157,7 @@ const Refer = () => {
         </div>
 
         {/* How It Works */}
-        <div className={`${cardClass} p-6`}>
+        <Card className="p-6">
           <h3 className="text-lg font-headline font-semibold text-foreground mb-4">How It Works</h3>
           <div className="space-y-4">
             {[
@@ -146,10 +173,10 @@ const Refer = () => {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Referral Code */}
-        <div className={`${cardClass} p-6`}>
+        <Card className="p-6">
           <h3 className="text-lg font-headline font-semibold text-foreground mb-4">Your Referral Code</h3>
           {loading ? (
             <div className="flex items-center justify-center py-6">
@@ -157,7 +184,6 @@ const Refer = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Code display */}
               <button
                 onClick={handleCopyCode}
                 className="w-full rounded-xl border border-saffron/20 bg-saffron/5 px-6 py-4 text-center transition-colors hover:bg-saffron/10 active:scale-[0.98]"
@@ -166,7 +192,6 @@ const Refer = () => {
                 <p className="text-xs text-muted-foreground mt-1">Tap to copy code</p>
               </button>
 
-              {/* Share the Gift button */}
               <Button
                 variant="critical"
                 size="lg"
@@ -187,17 +212,17 @@ const Refer = () => {
               </Button>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Stats */}
-        <div className={`${cardClass} p-6 text-center`}>
+        <Card className="p-6 text-center">
           <p className="text-lg font-body font-medium text-foreground">
             <span className="text-saffron font-semibold">{signedUpCount}</span> signed up · <span className="text-saffron font-semibold">{convertedCount}</span> converted
           </p>
           {signedUpCount === 0 && (
             <p className="text-sm text-muted-foreground font-body mt-1">Share your code to get started!</p>
           )}
-        </div>
+        </Card>
 
         {/* Terms Link */}
         <div className="text-center pb-4">

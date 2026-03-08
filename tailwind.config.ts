@@ -178,6 +178,22 @@ export default {
             transform: "translateX(0)",
           },
         },
+        "float-logo-1": {
+          "0%, 100%": { transform: "translateY(0) rotate(-8deg)" },
+          "50%": { transform: "translateY(-8px) rotate(4deg)" },
+        },
+        "float-logo-2": {
+          "0%, 100%": { transform: "translateY(0) rotate(6deg)" },
+          "50%": { transform: "translateY(-6px) rotate(-4deg)" },
+        },
+        "float-logo-3": {
+          "0%, 100%": { transform: "translateY(0) rotate(10deg)" },
+          "50%": { transform: "translateY(-10px) rotate(-6deg)" },
+        },
+        "float-logo-4": {
+          "0%, 100%": { transform: "translateY(0) rotate(-5deg)" },
+          "50%": { transform: "translateY(-7px) rotate(8deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -190,6 +206,10 @@ export default {
         "slide-out-right": "slide-out-right 0.3s ease-out",
         "shimmer": "shimmer 2s ease-in-out infinite",
         "page-enter": "page-enter 0.4s ease-out",
+        "float-logo-1": "float-logo-1 3s ease-in-out infinite",
+        "float-logo-2": "float-logo-2 3.5s ease-in-out infinite 0.3s",
+        "float-logo-3": "float-logo-3 4s ease-in-out infinite 0.6s",
+        "float-logo-4": "float-logo-4 3.2s ease-in-out infinite 0.9s",
       },
     },
   },
