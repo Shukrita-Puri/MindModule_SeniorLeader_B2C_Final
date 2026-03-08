@@ -3,6 +3,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getAuthToken } from '@/services/authTokenService';
 
 export interface SanctuaryEventData {
   userId?: string;
