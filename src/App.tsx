@@ -33,6 +33,7 @@ const Insights = lazy(() => import("./pages/Insights"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ConnectedData = lazy(() => import("./pages/ConnectedData"));
 const Refer = lazy(() => import("./pages/Refer"));
+const JoinPage = lazy(() => import("./pages/JoinPage"));
 const CheckInDetail = lazy(() => import("./pages/CheckInDetail"));
 
 // Recalibrate outcome pages
