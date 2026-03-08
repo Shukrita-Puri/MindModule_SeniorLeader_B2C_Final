@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const tierLabels: Record<string, string> = {
-  none: 'No Plan',
+  none: '7 Day Trial',
   trial: '7 Day Trial',
   monthly_pro: 'Monthly Pro',
   annual_pro: 'Annual Pro',
@@ -31,7 +31,7 @@ const Profile = () => {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
 
-  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'No Plan';
+  const planLabel = tierLabels[user?.subscription_tier || ''] || '7 Day Trial';
 
   const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
