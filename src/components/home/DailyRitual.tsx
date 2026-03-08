@@ -348,8 +348,10 @@ const DailyRitual = () => {
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
       await upsertRitual({
         ritual_date: today,
+        session_period: currentPeriod,
         completion_status: ritualStatus.status === 'not_started' ? 'partial' : ritualStatus.status,
         recommended_practices_count: modules.length,
         recommended_practice_ids: modules.map(m => m.contentId),
