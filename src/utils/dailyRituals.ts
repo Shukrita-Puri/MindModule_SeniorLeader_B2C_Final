@@ -224,8 +224,9 @@ export async function updateRitualCompletion(
     console.log(`[dailyRituals ${timestamp}] DEV_MODE: Atomic update`);
     
     try {
-      // Get existing ritual
-      const existingRitual = await getTodayRitual();
+      // Get existing ritual for current period
+      const currentPeriod = getCurrentTimeWindowForRituals();
+      const existingRitual = await getTodayRitual(currentPeriod);
       const existingIds = existingRitual?.completed_practice_ids || [];
       const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
       
