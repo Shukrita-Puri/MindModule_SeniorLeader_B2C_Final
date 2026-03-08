@@ -2672,11 +2672,13 @@ export type Database = {
           alignment_status: string | null
           archetype_description: string | null
           archetype_title: string | null
+          auth_name: string | null
           avatar_url: string | null
           biggest_pressure: string | null
           component_scores: Json | null
           created_at: string | null
           current_streak: number | null
+          display_name: string | null
           email: string
           energy_regulation_response: string | null
           energy_renewal_response: string | null
@@ -2722,11 +2724,13 @@ export type Database = {
           alignment_status?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
+          auth_name?: string | null
           avatar_url?: string | null
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
           current_streak?: number | null
+          display_name?: string | null
           email: string
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
@@ -2772,11 +2776,13 @@ export type Database = {
           alignment_status?: string | null
           archetype_description?: string | null
           archetype_title?: string | null
+          auth_name?: string | null
           avatar_url?: string | null
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
           current_streak?: number | null
+          display_name?: string | null
           email?: string
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
@@ -2817,6 +2823,39 @@ export type Database = {
           trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
+        }
+        Relationships: []
+      }
+      referral_conversions: {
+        Row: {
+          converted_to_pro_at: string | null
+          credited_at: string | null
+          credited_to_referrer: boolean | null
+          id: string
+          referee_id: string
+          referral_code: string
+          referrer_id: string
+          signed_up_at: string | null
+        }
+        Insert: {
+          converted_to_pro_at?: string | null
+          credited_at?: string | null
+          credited_to_referrer?: boolean | null
+          id?: string
+          referee_id: string
+          referral_code: string
+          referrer_id: string
+          signed_up_at?: string | null
+        }
+        Update: {
+          converted_to_pro_at?: string | null
+          credited_at?: string | null
+          credited_to_referrer?: boolean | null
+          id?: string
+          referee_id?: string
+          referral_code?: string
+          referrer_id?: string
+          signed_up_at?: string | null
         }
         Relationships: []
       }
@@ -3630,6 +3669,42 @@ export type Database = {
           id?: string
           last_updated?: string
           preferred_times?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_referrals: {
+        Row: {
+          created_at: string | null
+          credited_months: number | null
+          id: string
+          last_reset_at: string | null
+          referral_code: string
+          referral_link: string
+          total_conversions: number | null
+          total_signups: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credited_months?: number | null
+          id?: string
+          last_reset_at?: string | null
+          referral_code: string
+          referral_link: string
+          total_conversions?: number | null
+          total_signups?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credited_months?: number | null
+          id?: string
+          last_reset_at?: string | null
+          referral_code?: string
+          referral_link?: string
+          total_conversions?: number | null
+          total_signups?: number | null
           user_id?: string
         }
         Relationships: []
