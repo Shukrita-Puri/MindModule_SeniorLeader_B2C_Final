@@ -2703,6 +2703,8 @@ export type Database = {
           q2_pressure_response: string | null
           q3_communication_style: string | null
           q4_self_assessed_strength: string | null
+          referral_code_entered_at: string | null
+          referral_code_used: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_cancel_at: string | null
@@ -2755,6 +2757,8 @@ export type Database = {
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          referral_code_entered_at?: string | null
+          referral_code_used?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_cancel_at?: string | null
@@ -2807,6 +2811,8 @@ export type Database = {
           q2_pressure_response?: string | null
           q3_communication_style?: string | null
           q4_self_assessed_strength?: string | null
+          referral_code_entered_at?: string | null
+          referral_code_used?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_cancel_at?: string | null
