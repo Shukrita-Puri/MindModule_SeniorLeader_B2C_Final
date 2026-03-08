@@ -201,25 +201,15 @@ const Profile = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {!isPaying && (
-                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Upgrade Plan
-                      </DropdownMenuItem>
-                    )}
-                    {isPaying && (
-                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Change Plan
-                      </DropdownMenuItem>
-                    )}
-                    {hasBillingAccount && (
-                      <DropdownMenuItem onClick={handleManageSubscription}>
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Manage Billing
-                      </DropdownMenuItem>
-                    )}
-                    {isPaying && !isCanceled && (
+                    <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Change Plan
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={hasBillingAccount ? handleManageSubscription : () => navigate('/onboarding/payment')}>
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Manage Billing
+                    </DropdownMenuItem>
+                    {!isCanceled && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
