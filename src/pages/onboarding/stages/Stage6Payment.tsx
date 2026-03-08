@@ -43,7 +43,11 @@ export default function Stage6Payment() {
         {
           method: 'POST',
           headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan: selectedPlan, currency }),
+          body: JSON.stringify({
+            plan: selectedPlan,
+            currency,
+            referralCode: localStorage.getItem('referral_code') || undefined,
+          }),
         }
       );
       const data = await res.json();

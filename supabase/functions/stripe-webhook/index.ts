@@ -71,6 +71,51 @@ Deno.serve(async (req) => {
           metadata: { plan, currency }
         });
 
+        // ═══════════════════════════════════════════════════════════
+        // REFERRAL: Handle code entered in Stripe Checkout custom field
+        // (Native iOS users who didn't come via /join/:code web flow)
+        // ═══════════════════════════════════════════════════════════
+        try {
+          const customFields = (session as any).custom_fields;
+          const referralField = customFields?.find((f: any) => f.key === 'referral_code');
+          const stripeEnteredCode = referralField?.text?.value?.trim().toUpperCase();
+
+          // Only process if no conversion already exists (create-checkout-session may have already created one)
+          if (stripeEnteredCode) {
+            const { data: existingConversion } = await supabase
+              .from('referral_conversions')
+              .select('id')
+              .eq('referee_id', userId)
+              .maybeSingle();
+
+            if (!existingConversion) {
+              const { data: referrer } = await supabase
+                .from('user_referrals')
+                .select('user_id, total_signups')
+                .eq('referral_code', stripeEnteredCode)
+                .single();
+
+              if (referrer && referrer.user_id !== userId) {
+                await supabase.from('referral_conversions').insert({
+                  referrer_id: referrer.user_id,
+                  referee_id: userId,
+                  referral_code: stripeEnteredCode,
+                  signed_up_at: new Date().toISOString(),
+                });
+
+                await supabase
+                  .from('user_referrals')
+                  .update({ total_signups: (referrer.total_signups || 0) + 1 })
+                  .eq('user_id', referrer.user_id);
+
+                console.log(`[stripe-webhook] Referral from Stripe field: ${stripeEnteredCode} → referrer ${referrer.user_id}`);
+              }
+            }
+          }
+        } catch (refErr) {
+          console.warn('[stripe-webhook] Referral custom field processing failed:', refErr);
+        }
+
         console.log(`[stripe-webhook] Trial started for ${userId}`);
         break;
       }
