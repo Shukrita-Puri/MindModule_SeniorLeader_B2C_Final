@@ -270,12 +270,19 @@ serve(async (req) => {
 
       case 'DELETE_TODAY_RITUAL': {
         const today = new Date().toISOString().split('T')[0];
+        const deletePeriod = body.sessionPeriod;
         
-        const { error } = await supabase
+        let deleteQuery = supabase
           .from('daily_ritual_completions')
           .delete()
           .eq('user_id', userId)
           .eq('ritual_date', today);
+        
+        if (deletePeriod) {
+          deleteQuery = deleteQuery.eq('session_period', deletePeriod);
+        }
+        
+        const { error } = await deleteQuery;
 
         if (error) {
           console.error('[daily-rituals] DELETE_TODAY_RITUAL error:', error);
