@@ -122,6 +122,24 @@ export default function Stage6Payment() {
 
   const features = selectedPlan === 'annual' ? annualFeatures : monthlyFeatures;
 
+  // If user is already on the best plan
+  if (availablePlans.length === 0) {
+    return (
+      <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
+        <div className="flex items-center mb-6">
+          <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft size={16} />
+          </button>
+        </div>
+        <div className="py-12">
+          <p className="text-lg font-medium mb-2">You're on the best plan!</p>
+          <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
       {/* Top bar */}
@@ -129,42 +147,35 @@ export default function Stage6Payment() {
         <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft size={16} />
         </button>
-        {/* Already on the best plan */}
-        {availablePlans.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-lg font-medium mb-2">You're on the best plan!</p>
-            <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
-            <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+        {availablePlans.length > 1 ? (
+          <div className="bg-muted rounded-full p-1 flex">
+            {availablePlans.includes('annual') && (
+              <button
+                onClick={() => setSelectedPlan('annual')}
+                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  selectedPlan === 'annual'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Annual
+              </button>
+            )}
+            {availablePlans.includes('monthly') && (
+              <button
+                onClick={() => setSelectedPlan('monthly')}
+                className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  selectedPlan === 'monthly'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Monthly
+              </button>
+            )}
           </div>
         ) : (
-          <>
-        {availablePlans.length > 1 && (
-        <div className="bg-muted rounded-full p-1 flex">
-          {availablePlans.includes('annual') && (
-          <button
-            onClick={() => setSelectedPlan('annual')}
-            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedPlan === 'annual'
-                ? 'bg-foreground text-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Annual
-          </button>
-          )}
-          {availablePlans.includes('monthly') && (
-          <button
-            onClick={() => setSelectedPlan('monthly')}
-            className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedPlan === 'monthly'
-                ? 'bg-foreground text-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Monthly
-          </button>
-          )}
-        </div>
+          <div />
         )}
         <div className="w-8" />
       </div>
