@@ -667,7 +667,7 @@ serve(async (req) => {
       await db.from('daily_themes').upsert({
         user_id: userId,
         theme_date: today,
-        theme_phrase: theme.phrase,
+        theme_phrase: finalPhrase,
         theme_driver: theme.driver,
         check_in_outcome: checkInOutcome || null,
         calendar_pressure: calendarPressure || null,
