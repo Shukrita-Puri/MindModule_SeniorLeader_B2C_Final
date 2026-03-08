@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.learn-checkin-patterns]
 verify_jwt = false
+
+[functions.update-profile]
+verify_jwt = false
