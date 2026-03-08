@@ -196,7 +196,36 @@ const Profile = () => {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Plan</span>
               </div>
-              <span className="text-sm">{planLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{planLabel}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1 rounded hover:bg-muted transition-colors">
+                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {!isPaying && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </DropdownMenuItem>
+                    )}
+                    {isPaying && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Change Plan
+                      </DropdownMenuItem>
+                    )}
+                    {hasBillingAccount && (
+                      <DropdownMenuItem onClick={handleManageSubscription}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Manage Subscription
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
             {expiryLabel && (
               <div className="flex items-center justify-between py-2">
