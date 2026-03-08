@@ -81,9 +81,14 @@ export default function Stage6Payment() {
       throw new Error('No checkout URL returned');
     } catch (err: any) {
       console.error('[Payment] Error:', err?.message || err);
-      toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
-      recordStep('payment', { selected_plan: selectedPlan });
-      navigate('/onboarding/context-connection');
+      const isUpgradeFlow = user?.onboarding_completed_at;
+      if (isUpgradeFlow) {
+        toast.error('Unable to start checkout. Please try again.');
+      } else {
+        toast.error('Unable to start checkout. You can continue and subscribe later from your profile.');
+        recordStep('payment', { selected_plan: selectedPlan });
+        navigate('/onboarding/context-connection');
+      }
     } finally {
       setLoading(false);
     }

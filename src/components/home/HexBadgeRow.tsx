@@ -2,7 +2,7 @@ import { useState } from 'react';
 import HexBadge from './HexBadge';
 import PointSystemModal from './PointSystemModal';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ShareableBadgeCard from '@/components/achievements/ShareableBadgeCard';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -67,6 +67,8 @@ const HexBadgeRow = ({ progression, currentPoints, cluster }: HexBadgeRowProps) 
       {/* Share Dialog */}
       <Dialog open={!!selectedBadge} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Share Badge</DialogTitle>
+          <DialogDescription className="sr-only">Share your earned badge</DialogDescription>
           {selectedBadge && (
             <ShareableBadgeCard
               achievementName={selectedBadge.name}

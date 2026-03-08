@@ -1,7 +1,11 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { DEV_MODE } from "@/config/devMode";
 import { Loader2 } from "lucide-react";
+
+// Routes that completed users can still access (e.g. upgrade flow)
+const ONBOARDING_WHITELIST = ['/onboarding/payment'];
 
 /**
  * Wraps protected routes to enforce onboarding completion.
@@ -46,14 +50,24 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 /**
  * Wraps the /onboarding route to prevent completed users from re-accessing it.
  * If onboarding_completed_at exists → redirect to /daily-check-in
+ * EXCEPTION: whitelisted routes (e.g. /onboarding/payment for upgrade flow)
  * If NULL → allow onboarding flow
  */
 export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isWhitelisted = ONBOARDING_WHITELIST.includes(location.pathname);
 
   useEffect(() => {
     if (loading) return;
+
+    // DEV_MODE: skip all onboarding guards
+    if (DEV_MODE) {
+      console.log('[OnboardingBlockGuard] DEV_MODE active, allowing access');
+      return;
+    }
 
     // If not authenticated, allow onboarding (anonymous assessment)
     if (!isAuthenticated || !user) {
@@ -61,18 +75,18 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
       return;
     }
 
-    console.log('[OnboardingBlockGuard] user:', user.id, 'onboarding_completed_at:', user.onboarding_completed_at);
+    console.log('[OnboardingBlockGuard] user:', user.id, 'onboarding_completed_at:', user.onboarding_completed_at, 'path:', location.pathname, 'whitelisted:', isWhitelisted);
 
-    if (user.onboarding_completed_at) {
+    if (user.onboarding_completed_at && !isWhitelisted) {
       console.log('[OnboardingBlockGuard] ❌ Onboarding already completed, redirecting to /daily-check-in');
       navigate('/daily-check-in', { replace: true });
     } else {
-      console.log('[OnboardingBlockGuard] ✅ Onboarding not completed, allowing access');
+      console.log('[OnboardingBlockGuard] ✅ Allowing access');
     }
-  }, [loading, isAuthenticated, user, navigate]);
+  }, [loading, isAuthenticated, user, navigate, location.pathname, isWhitelisted]);
 
-  // If authenticated and onboarding completed, block render
-  if (!loading && isAuthenticated && user?.onboarding_completed_at) return null;
+  // If authenticated and onboarding completed and NOT whitelisted, block render
+  if (!DEV_MODE && !loading && isAuthenticated && user?.onboarding_completed_at && !isWhitelisted) return null;
 
   return <>{children}</>;
 };

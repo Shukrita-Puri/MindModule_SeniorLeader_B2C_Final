@@ -56,6 +56,8 @@ export default function OnboardingFlow() {
   // Stage gating: validate access on route change
   useEffect(() => {
     if (location.pathname === '/onboarding') return;
+    // Skip gating for payment page (upgrade flow for completed users)
+    if (location.pathname === '/onboarding/payment') return;
     if (gateChecked.current === location.pathname) return;
     gateChecked.current = location.pathname;
 
