@@ -148,6 +148,21 @@ export default function Stage8Results() {
         if (isAuthenticated) {
           persistBaseline(baselineScore, componentScores, archetype, archetypeTitle, archetypeDescription, insight);
           recordStep('results');
+
+          // Stage 1 Referral Attribution: track signup at onboarding completion
+          // Code stays in localStorage for payment page (Stage 2)
+          const referralCode = localStorage.getItem('referral_code');
+          if (referralCode) {
+            supabase.functions.invoke('track-referral-signup', {
+              body: { referralCode },
+            }).then(({ error }) => {
+              if (error) {
+                console.warn('[Results] Referral signup tracking failed:', error);
+              } else {
+                console.log('[Results] ✅ Referral signup tracked (Stage 1)');
+              }
+            }).catch(err => console.warn('[Results] Referral tracking error:', err));
+          }
         } else {
           console.log('[Results] User not authenticated, skipping DB persistence');
         }

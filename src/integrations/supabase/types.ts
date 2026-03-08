@@ -3811,6 +3811,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      credit_referrer_atomic: { Args: { p_referrer_id: string }; Returns: Json }
+      extend_subscription: {
+        Args: { p_months: number; p_user_id: string }
+        Returns: undefined
+      }
       get_calendar_access_token: {
         Args: { _connection_id: string }
         Returns: string
@@ -3840,6 +3845,14 @@ export type Database = {
       }
       increment_pattern_observation: {
         Args: { p_pattern_id: string }
+        Returns: undefined
+      }
+      increment_referral_stats: {
+        Args: {
+          p_increment_conversions?: boolean
+          p_increment_signups?: boolean
+          p_referrer_id: string
+        }
         Returns: undefined
       }
       migrate_calendar_tokens: { Args: never; Returns: undefined }
