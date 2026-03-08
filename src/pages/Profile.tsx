@@ -210,6 +210,15 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={handleManageSubscription}
+              disabled={managingPortal}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {managingPortal ? 'Opening…' : hasBillingAccount ? 'Manage Subscription' : 'Upgrade to Pro'}
+            </Button>
             <Button 
               variant="outline" 
               className="w-full justify-start"
