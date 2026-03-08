@@ -433,6 +433,7 @@ const DailyRitual = () => {
 
   const handleRestartRitual = async () => {
     if (user || DEV_MODE) {
+      const currentPeriod = getCurrentTimeWindow();
       // Route through EF instead of direct DB delete (Auth0 RLS fix)
       const token = await getAuthToken();
       const headers: Record<string, string> = {};
@@ -440,15 +441,16 @@ const DailyRitual = () => {
       if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
       await supabase.functions.invoke('daily-rituals', {
         headers,
-        body: { action: 'DELETE_TODAY_RITUAL' }
+        body: { action: 'DELETE_TODAY_RITUAL', sessionPeriod: currentPeriod }
       });
     }
     localStorage.removeItem('practiceQueue');
     localStorage.removeItem('queueIndex');
     localStorage.removeItem('ritualMode');
     const todayDate = new Date().toISOString().split('T')[0];
-    sessionStorage.removeItem(`plan-loaded-${todayDate}`);
-    sessionStorage.removeItem(`plan-data-${todayDate}`);
+    const currentPeriod = getCurrentTimeWindow();
+    sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
+    sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
     sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
     setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: plan?.timeOfDayPlan?.modules?.length || 0 });
     await loadPlan();
