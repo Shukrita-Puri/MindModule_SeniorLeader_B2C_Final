@@ -85,28 +85,21 @@ const Refer = () => {
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
           {/* Mini MM logos floating out of the box */}
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-28 top-2 w-8 h-8 rounded-lg shadow-md pointer-events-none opacity-85 rotate-[-12deg] animate-pulse"
-            style={{ animationDuration: '3s' }}
-          />
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-12 -top-1 w-6 h-6 rounded-md shadow-md pointer-events-none opacity-75 rotate-[15deg] animate-pulse"
-            style={{ animationDuration: '4s', animationDelay: '0.5s' }}
-          />
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-40 top-6 w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-70 rotate-[30deg] animate-pulse"
-            style={{ animationDuration: '3.5s', animationDelay: '1s' }}
-          />
+          <img src={mmLogoMini} alt="" className="absolute right-28 top-2 w-8 h-8 rounded-lg shadow-md pointer-events-none opacity-85 rotate-[-12deg] animate-pulse" style={{ animationDuration: '3s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-12 -top-1 w-6 h-6 rounded-md shadow-md pointer-events-none opacity-75 rotate-[15deg] animate-pulse" style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-40 top-6 w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-70 rotate-[30deg] animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '1s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-20 -top-2 w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-65 rotate-[-25deg] animate-pulse" style={{ animationDuration: '3.2s', animationDelay: '0.7s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-48 top-0 w-4 h-4 rounded-sm shadow-sm pointer-events-none opacity-55 rotate-[8deg] animate-pulse" style={{ animationDuration: '4.5s', animationDelay: '1.5s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-6 top-10 w-4 h-4 rounded-sm shadow-sm pointer-events-none opacity-50 rotate-[-35deg] animate-pulse" style={{ animationDuration: '3.8s', animationDelay: '2s' }} />
           {/* Sparkle dots */}
           <span className="absolute right-24 top-8 w-1.5 h-1.5 rounded-full bg-saffron/60 pointer-events-none animate-pulse" style={{ animationDuration: '2s' }} />
           <span className="absolute right-32 top-1 w-1 h-1 rounded-full bg-gold/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
           <span className="absolute right-20 top-14 w-1 h-1 rounded-full bg-saffron/40 pointer-events-none animate-pulse" style={{ animationDuration: '3s', animationDelay: '0.8s' }} />
+          <span className="absolute right-44 top-3 w-1 h-1 rounded-full bg-saffron/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.2s', animationDelay: '0.4s' }} />
+          <span className="absolute right-16 top-5 w-2 h-2 rounded-full bg-gold/40 pointer-events-none animate-pulse" style={{ animationDuration: '2.8s', animationDelay: '1.2s' }} />
+          <span className="absolute right-36 top-12 w-1 h-1 rounded-full bg-saffron/45 pointer-events-none animate-pulse" style={{ animationDuration: '3.2s', animationDelay: '0.6s' }} />
+          <span className="absolute right-8 top-3 w-1.5 h-1.5 rounded-full bg-gold/35 pointer-events-none animate-pulse" style={{ animationDuration: '2.6s', animationDelay: '1.8s' }} />
+          <span className="absolute right-50 top-10 w-1 h-1 rounded-full bg-saffron/30 pointer-events-none animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.9s' }} />
 
           {/* Text content — left side, with right padding for the box */}
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
