@@ -1,43 +1,53 @@
 
 
-## Plan: Fix Status Labels, Enhance Plan Dropdown with Cancel/Downgrade Flow
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Changes
+Two files need text-only changes (no layout or UI modifications).
 
-**1. Fix Status label in Profile.tsx (line 38-44)**
-- Status should only ever be "Free", "Paid", or "Canceled" -- never "Trial"
-- Logic: `isPaying && !isCanceled` = "Paid", `isCanceled` = "Canceled", everything else = "Free"
+---
 
-**2. Update the 3-dot dropdown menu (lines 201-227)**
-- Rename to "Manage Plan" as the conceptual label
-- Menu items:
-  - **Upgrade Plan** (shown when not paying) -- navigates to `/onboarding/payment`
-  - **Change Plan** (shown when paying) -- navigates to `/onboarding/payment`
-  - **Manage Billing** (shown when has billing account) -- opens Stripe portal
-  - **Cancel Plan** (shown when paying and not already canceled) -- opens the existing `CancellationFlow` modal
+### File 1: `src/pages/Front.tsx`
 
-**3. Integrate CancellationFlow into Profile.tsx**
-- Import `CancellationFlow` component
-- Add `showCancelFlow` state
-- "Cancel Plan" dropdown item sets `showCancelFlow = true`
-- On successful cancellation, refresh profile and show toast with end date
-- Render `CancellationFlow` modal conditionally
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**4. Enhance CancellationFlow with best-in-class UX (reference screenshot)**
-- Update title to "Why are you downgrading?" with subtitle "We use this information to improve our product."
-- Update reason labels to be more professional:
-  - "I am having too many technical issues"
-  - "It's too expensive"  
-  - "I'm not using MindModule enough"
-  - "It's missing features"
-  - "I switched to a competitor"
-  - "Other reason"
-- Add optional free-text textarea ("Tell us more about your decision...")
-- Swap button order: primary "Keep current plan" button on top, secondary "Cancel plan" below (retention-first pattern)
-- Include the free-text `feedback` in the cancellation API call
-- Replace `alert()` with `toast.error()` for error handling
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-### Files Modified
-- `src/pages/Profile.tsx` -- status logic fix, cancel flow integration, dropdown update
-- `src/components/subscription/CancellationFlow.tsx` -- enhanced UX per reference screenshot
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
+
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
+
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+
+---
+
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
+
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

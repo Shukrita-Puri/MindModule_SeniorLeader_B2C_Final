@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 
 const tierLabels: Record<string, string> = {
   none: '7 Day Trial',
@@ -25,6 +26,7 @@ const Profile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
 
   const initials = user?.name
@@ -35,13 +37,7 @@ const Profile = () => {
 
   const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
-  const statusLabel = isCanceled
-    ? 'Canceled'
-    : isPaying
-      ? 'Paid'
-      : user?.subscription_status === 'trial'
-        ? 'Trial'
-        : 'Free';
+  const statusLabel = isCanceled ? 'Canceled' : isPaying ? 'Paid' : 'Free';
 
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
@@ -220,8 +216,20 @@ const Profile = () => {
                     {hasBillingAccount && (
                       <DropdownMenuItem onClick={handleManageSubscription}>
                         <ExternalLink className="h-4 w-4 mr-2" />
-                        Manage Subscription
+                        Manage Billing
                       </DropdownMenuItem>
+                    )}
+                    {isPaying && !isCanceled && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setShowCancelFlow(true)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Cancel Plan
+                        </DropdownMenuItem>
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -333,6 +341,18 @@ const Profile = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancellation Flow */}
+      {showCancelFlow && (
+        <CancellationFlow
+          onClose={() => setShowCancelFlow(false)}
+          onCanceled={(endsAt) => {
+            setShowCancelFlow(false);
+            refreshProfile();
+            toast.success(`Your plan will remain active until ${format(new Date(endsAt), 'MMM d, yyyy')}`);
+          }}
+        />
+      )}
     </div>
   );
 };
