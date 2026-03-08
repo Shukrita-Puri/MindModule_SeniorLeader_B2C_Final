@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import giftBoxImg from '@/assets/referral-gift-box.png';
+import mmLogoMini from '@/assets/mm-logo-mini.png';
 
 const Refer = () => {
   const navigate = useNavigate();
