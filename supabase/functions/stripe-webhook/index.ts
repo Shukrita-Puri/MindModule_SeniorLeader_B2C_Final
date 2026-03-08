@@ -76,34 +76,49 @@ Deno.serve(async (req) => {
         });
 
         // ═══════════════════════════════════════════════════════════
-        // REFERRAL: Handle code entered in Stripe Checkout custom field
-        // (Native iOS users who didn't come via /join/:code web flow)
-        // This creates Stage 1 attribution if not already done
+        // PAYMENT-ONLY REFERRAL ATTRIBUTION
+        // Extract code: metadata.referralCode (app flow) → custom_fields (Stripe-native)
+        // Store in profiles.referral_code_used, then create attribution
         // ═══════════════════════════════════════════════════════════
         try {
-          const customFields = (session as any).custom_fields;
-          const referralField = customFields?.find((f: any) => f.key === 'referral_code');
-          const stripeEnteredCode = referralField?.text?.value?.trim().toUpperCase();
+          // Priority 1: metadata from create-checkout-session (app payment page)
+          let referralCode = session.metadata?.referralCode?.trim().toUpperCase() || null;
 
-          if (stripeEnteredCode) {
-            const { data: existingConversion } = await supabase
-              .from('referral_conversions')
-              .select('id')
-              .eq('referee_id', userId)
+          // Priority 2: Stripe Checkout custom_fields (native iOS manual entry)
+          if (!referralCode) {
+            const customFields = (session as any).custom_fields;
+            const referralField = customFields?.find((f: any) => f.key === 'referral_code');
+            referralCode = referralField?.text?.value?.trim().toUpperCase() || null;
+          }
+
+          if (referralCode) {
+            // Find referrer by code
+            const { data: referrer } = await supabase
+              .from('user_referrals')
+              .select('user_id')
+              .eq('referral_code', referralCode)
               .maybeSingle();
 
-            if (!existingConversion) {
-              const { data: referrer } = await supabase
-                .from('user_referrals')
-                .select('user_id')
-                .eq('referral_code', stripeEnteredCode)
-                .single();
+            if (referrer && referrer.user_id !== userId) {
+              // Store code in profiles for single source of truth
+              await supabase.from('profiles').update({
+                referral_code_used: referralCode,
+                referral_code_entered_at: new Date().toISOString(),
+              }).eq('id', userId);
 
-              if (referrer && referrer.user_id !== userId) {
+              // Check for existing conversion (idempotency)
+              const { data: existingConversion } = await supabase
+                .from('referral_conversions')
+                .select('id')
+                .eq('referee_id', userId)
+                .maybeSingle();
+
+              if (!existingConversion) {
+                // New signup attribution (trial start — no conversion yet)
                 await supabase.from('referral_conversions').insert({
                   referrer_id: referrer.user_id,
                   referee_id: userId,
-                  referral_code: stripeEnteredCode,
+                  referral_code: referralCode,
                   signed_up_at: new Date().toISOString(),
                   converted_to_pro_at: null,
                 });
@@ -115,12 +130,14 @@ Deno.serve(async (req) => {
                   p_increment_conversions: false,
                 });
 
-                console.log(`[stripe-webhook] Referral from Stripe field: ${stripeEnteredCode} → referrer ${referrer.user_id}`);
+                console.log(`[stripe-webhook] Referral attribution: ${referralCode} → referrer ${referrer.user_id}`);
               }
+            } else if (referrer && referrer.user_id === userId) {
+              console.warn(`[stripe-webhook] Self-referral blocked: ${userId} used own code ${referralCode}`);
             }
           }
         } catch (refErr) {
-          console.warn('[stripe-webhook] Referral custom field processing failed:', refErr);
+          console.warn('[stripe-webhook] Referral attribution failed:', refErr);
         }
 
         console.log(`[stripe-webhook] Trial started for ${userId}`);

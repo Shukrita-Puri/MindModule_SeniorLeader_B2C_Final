@@ -3,11 +3,10 @@
  * 
  * Authenticates user via Auth0 JWT, gets/creates Stripe customer,
  * creates a Stripe Checkout Session with 7-day trial.
- * Accepts optional referralCode — validates and stores in Stripe metadata.
+ * Accepts optional referralCode — validates and stores in Stripe session metadata.
  * 
- * NOTE: Referral signup attribution (Stage 1) is handled by track-referral-signup
- * at onboarding completion. This function only passes the code to Stripe metadata
- * so the webhook can process Stage 2 conversion attribution.
+ * Payment-only attribution: The stripe-webhook reads metadata.referralCode
+ * on checkout.session.completed to create referral_conversions records.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

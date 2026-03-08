@@ -157,8 +157,8 @@ const AuthCallback = () => {
       sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
 
-      // Referral tracking moved to Stage8Results (two-stage attribution)
-      // localStorage('referral_code') preserved for payment page
+      // Referral attribution is payment-only (handled by stripe-webhook)
+      // No client-side referral tracking needed here
 
       navigate(returnTo);
     }
