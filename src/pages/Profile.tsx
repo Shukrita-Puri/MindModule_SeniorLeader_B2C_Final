@@ -242,6 +242,7 @@ const Profile = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit your name</DialogTitle>
+            <DialogDescription>Enter the name you'd like the app to call you.</DialogDescription>
           </DialogHeader>
           <Input
             value={newName}
