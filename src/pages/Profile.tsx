@@ -24,6 +24,7 @@ const Profile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [managingPortal, setManagingPortal] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
