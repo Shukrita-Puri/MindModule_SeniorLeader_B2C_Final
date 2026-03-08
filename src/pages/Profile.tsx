@@ -216,8 +216,20 @@ const Profile = () => {
                     {hasBillingAccount && (
                       <DropdownMenuItem onClick={handleManageSubscription}>
                         <ExternalLink className="h-4 w-4 mr-2" />
-                        Manage Subscription
+                        Manage Billing
                       </DropdownMenuItem>
+                    )}
+                    {isPaying && !isCanceled && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setShowCancelFlow(true)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Cancel Plan
+                        </DropdownMenuItem>
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
