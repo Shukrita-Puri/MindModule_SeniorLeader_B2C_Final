@@ -157,27 +157,8 @@ const AuthCallback = () => {
       sessionStorage.removeItem('auth0_return_to');
       toast.success(`Welcome back${user?.given_name ? `, ${user.given_name}` : ''}!`);
 
-      // Track referral signup if referral code exists (web flow)
-      const referralCode = localStorage.getItem('referral_code');
-      if (referralCode && user?.sub) {
-        (async () => {
-          try {
-            const token = await getAccessTokenSilently();
-            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-            await fetch(`https://${projectId}.supabase.co/functions/v1/track-referral-signup`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ referralCode }),
-            });
-          } catch (err) {
-            console.warn('[AuthCallback] Referral tracking failed:', err);
-          }
-          localStorage.removeItem('referral_code');
-        })();
-      }
+      // Referral tracking moved to Stage8Results (two-stage attribution)
+      // localStorage('referral_code') preserved for payment page
 
       navigate(returnTo);
     }
