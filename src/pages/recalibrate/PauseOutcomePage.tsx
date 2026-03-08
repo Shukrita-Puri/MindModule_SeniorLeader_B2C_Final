@@ -57,21 +57,20 @@ const PauseOutcomePage = () => {
 
   useEffect(() => {
     const fetchCompletionCounts = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.id) return;
-      
-      const { data, error } = await supabase
-        .from('sanctuary_events')
-        .select('content_id')
-        .eq('user_id', user.id)
-        .eq('event_type', 'completed');
-      
-      if (data) {
-        const counts: Record<string, number> = {};
-        data.forEach(event => {
-          counts[event.content_id] = (counts[event.content_id] || 0) + 1;
+      try {
+        const accessToken = await getAuthToken();
+        if (!accessToken) return;
+        
+        const { data, error } = await supabase.functions.invoke('user-events', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { action: 'GET_COMPLETION_COUNTS', category: 'pause' },
         });
-        setCompletionCounts(counts);
+        
+        if (!error && data?.success && data.data) {
+          setCompletionCounts(data.data);
+        }
+      } catch (err) {
+        console.error('[PauseOutcome] Error fetching completion counts:', err);
       }
     };
     
