@@ -5,9 +5,9 @@
  * Handles: checkout.session.completed, customer.subscription.updated,
  * invoice.payment_succeeded, invoice.payment_failed, customer.subscription.deleted
  * 
- * Two-stage referral attribution:
- *   Stage 1 (signup) handled by track-referral-signup edge function
- *   Stage 2 (conversion) handled here on subscription.updated → active
+ * Payment-only referral attribution:
+ *   Signup attribution: handled here on checkout.session.completed (code from metadata or custom_fields)
+ *   Conversion credit: handled here on subscription.updated → active
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
