@@ -129,7 +129,18 @@ export default function Stage6Payment() {
         <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft size={16} />
         </button>
+        {/* Already on the best plan */}
+        {availablePlans.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-lg font-medium mb-2">You're on the best plan!</p>
+            <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
+            <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+          </div>
+        ) : (
+          <>
+        {availablePlans.length > 1 && (
         <div className="bg-muted rounded-full p-1 flex">
+          {availablePlans.includes('annual') && (
           <button
             onClick={() => setSelectedPlan('annual')}
             className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -140,6 +151,8 @@ export default function Stage6Payment() {
           >
             Annual
           </button>
+          )}
+          {availablePlans.includes('monthly') && (
           <button
             onClick={() => setSelectedPlan('monthly')}
             className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -150,12 +163,16 @@ export default function Stage6Payment() {
           >
             Monthly
           </button>
+          )}
         </div>
+        )}
         <div className="w-8" />
       </div>
 
       {/* Title */}
-      <h1 className="text-3xl font-headline font-bold mb-6">Pricing</h1>
+      <h1 className="text-3xl font-headline font-bold mb-6">
+        {currentTier === 'none' || currentTier === 'trial' ? 'Pricing' : 'Upgrade Plan'}
+      </h1>
 
       {/* Plan Card */}
       <div className={`rounded-2xl p-6 mb-5 transition-all ${
