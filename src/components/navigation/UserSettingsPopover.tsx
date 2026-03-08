@@ -71,8 +71,8 @@ const UserSettingsPopover = () => {
           {!isCollapsed && (
             <>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium truncate">{displayName}</p>
+                {displayEmail && <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>}
               </div>
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             </>
