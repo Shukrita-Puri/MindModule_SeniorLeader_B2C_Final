@@ -100,12 +100,21 @@ serve(async (req) => {
 
       case 'GET_TODAY_RITUAL': {
         const today = new Date().toISOString().split('T')[0];
+        const period = body.sessionPeriod;
         
-        const { data, error } = await supabase
+        let query = supabase
           .from('daily_ritual_completions')
           .select('*')
           .eq('user_id', userId)
-          .eq('ritual_date', today)
+          .eq('ritual_date', today);
+        
+        // If sessionPeriod provided, filter by it; otherwise get latest
+        if (period) {
+          query = query.eq('session_period', period);
+        }
+        
+        const { data, error } = await query
+          .order('updated_at', { ascending: false })
           .maybeSingle();
 
         if (error) {
