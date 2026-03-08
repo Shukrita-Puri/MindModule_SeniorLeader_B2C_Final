@@ -31,14 +31,18 @@ const Profile = () => {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
 
-  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'Free';
+  const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'No Plan';
 
   const isCanceled = !!user?.subscription_canceled_at;
   const statusLabel = isCanceled
     ? 'Canceled'
-    : user?.subscription_status === 'trial'
-      ? 'Trial'
-      : user?.subscription_status || 'Active';
+    : isPaying
+      ? 'Paid'
+      : user?.subscription_status === 'trial'
+        ? 'Trial'
+        : 'Free';
+
+  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
 
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
