@@ -283,7 +283,8 @@ export async function updateRitualCompletion(
         action: 'COMPLETE_PRACTICE',
         practiceType,
         practiceId,
-        practiceQueue
+        practiceQueue,
+        sessionPeriod: getCurrentTimeWindowForRituals()
       }
     });
 
