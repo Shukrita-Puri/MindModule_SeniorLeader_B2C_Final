@@ -181,7 +181,7 @@ serve(async (req) => {
       }
 
       case 'COMPLETE_PRACTICE': {
-        const { practiceType, practiceId, practiceQueue } = body;
+        const { practiceType, practiceId, practiceQueue, sessionPeriod } = body;
         if (!practiceType || !practiceId) {
           return new Response(JSON.stringify({ error: 'Missing practiceType or practiceId' }), {
             status: 400,
@@ -191,13 +191,15 @@ serve(async (req) => {
 
         const today = new Date().toISOString().split('T')[0];
         const now = new Date().toISOString();
+        const period = sessionPeriod || getServerTimeOfDay();
 
-        // 1. Get current ritual (if exists)
+        // 1. Get current ritual for this period (if exists)
         const { data: existing } = await supabase
           .from('daily_ritual_completions')
           .select('*')
           .eq('user_id', userId)
           .eq('ritual_date', today)
+          .eq('session_period', period)
           .maybeSingle();
 
         // 2. Build updated fields atomically
@@ -209,6 +211,7 @@ serve(async (req) => {
         const updateData: Record<string, any> = {
           user_id: userId,
           ritual_date: today,
+          session_period: period,
           completed_practice_ids: newCompletedIds,
         };
 
@@ -242,10 +245,10 @@ serve(async (req) => {
             ? 'partial'
             : 'skipped';
 
-        // 5. Upsert in ONE call
+        // 5. Upsert in ONE call — now keyed on (user_id, ritual_date, session_period)
         const { data, error } = await supabase
           .from('daily_ritual_completions')
-          .upsert(updateData, { onConflict: 'user_id,ritual_date' })
+          .upsert(updateData, { onConflict: 'user_id,ritual_date,session_period' })
           .select()
           .single();
 
@@ -254,7 +257,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
+        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
 
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
