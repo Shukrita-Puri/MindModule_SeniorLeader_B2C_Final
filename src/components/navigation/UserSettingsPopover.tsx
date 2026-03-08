@@ -26,6 +26,9 @@ const UserSettingsPopover = () => {
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
 
+  // Derive display values — guard against null user during async profile sync
+  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const displayEmail = user?.email || '';
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
@@ -68,8 +71,8 @@ const UserSettingsPopover = () => {
           {!isCollapsed && (
             <>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium truncate">{displayName}</p>
+                {displayEmail && <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>}
               </div>
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             </>
@@ -85,14 +88,14 @@ const UserSettingsPopover = () => {
         {/* User info header */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
+            <AvatarImage src={user?.picture} alt={displayName} />
             <AvatarFallback className="bg-primary/10 text-primary text-lg">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{user?.name || 'User'}</p>
-            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+            <p className="font-medium truncate">{displayName}</p>
+            {displayEmail && <p className="text-sm text-muted-foreground truncate">{displayEmail}</p>}
           </div>
         </div>
 

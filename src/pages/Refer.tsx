@@ -75,19 +75,24 @@ const Refer = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {/* Hero Section */}
-        <div className="rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-gold/5 to-background p-8 text-center shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
+        {/* Hero Section — Gift box overflows right */}
+        <div className="relative rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-gold/5 to-background overflow-hidden shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
+          {/* Gift box — positioned to overflow right, only ~60% visible */}
           <img
             src={giftBoxImg}
             alt="Referral gift box"
-            className="w-24 h-24 mx-auto mb-5 drop-shadow-lg"
+            className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
-          <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
-            Share the Gift of Inner Mastery
-          </h2>
-          <p className="text-muted-foreground font-body max-w-md mx-auto">
-            Unlock a month free &amp; become a Founding Member
-          </p>
+
+          {/* Text content — left side, with right padding for the box */}
+          <div className="relative z-10 p-8 pr-36 sm:pr-44">
+            <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
+              Share the Gift of Inner Mastery
+            </h2>
+            <p className="text-muted-foreground font-body max-w-xs">
+              Unlock a month free &amp; become a Founding Member
+            </p>
+          </div>
         </div>
 
         {/* How It Works */}
