@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         referral_code: referralCode,
-        referral_link: APP_STORE_URL,
+        referral_link: referralLink,
         total_signups: 0,
         total_conversions: 0,
       }),
