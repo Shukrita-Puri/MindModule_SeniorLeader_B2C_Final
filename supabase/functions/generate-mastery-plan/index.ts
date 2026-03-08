@@ -1060,14 +1060,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     }));
   } catch { req.coachInsights = []; }
 
-  // Completed today — from daily_ritual_completions
+  // Completed today — from daily_ritual_completions (current period only)
   try {
     const today = new Date().toISOString().split('T')[0];
+    const currentPeriod = getTimeOfDay(req.timezoneOffset);
     const { data: ritual } = await supabaseClient
       .from('daily_ritual_completions')
       .select('completed_practice_ids')
       .eq('user_id', req.userId)
       .eq('ritual_date', today)
+      .eq('session_period', currentPeriod)
       .maybeSingle();
     req.completedToday = ritual?.completed_practice_ids || [];
   } catch { req.completedToday = []; }

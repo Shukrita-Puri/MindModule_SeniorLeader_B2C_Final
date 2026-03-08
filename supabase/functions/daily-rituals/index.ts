@@ -161,12 +161,16 @@ serve(async (req) => {
           });
         }
 
+        // Ensure session_period is set for the new unique constraint
+        const upsertData = {
+          user_id: userId,
+          ...ritualData,
+          session_period: ritualData.session_period || body.sessionPeriod || getServerTimeOfDay()
+        };
+
         const { data, error } = await supabase
           .from('daily_ritual_completions')
-          .upsert({
-            user_id: userId,
-            ...ritualData
-          }, { onConflict: 'user_id,ritual_date' })
+          .upsert(upsertData, { onConflict: 'user_id,ritual_date,session_period' })
           .select()
           .single();
 
