@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { 
   User, 
-  Link2, 
-  Shield, 
   Share2, 
   LogOut,
-  ChevronUp
+  ChevronUp,
+  ArrowUpCircle
 } from 'lucide-react';
 import {
   Popover,
