@@ -88,21 +88,25 @@ const Refer = () => {
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-28 top-3 w-7 h-7 rounded-md pointer-events-none opacity-80 rotate-[-15deg] drop-shadow-md animate-pulse"
+            className="absolute right-28 top-2 w-8 h-8 rounded-lg shadow-md pointer-events-none opacity-85 rotate-[-12deg] animate-pulse"
             style={{ animationDuration: '3s' }}
           />
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-14 top-1 w-5 h-5 rounded-sm pointer-events-none opacity-70 rotate-[10deg] drop-shadow-md animate-pulse"
+            className="absolute right-12 -top-1 w-6 h-6 rounded-md shadow-md pointer-events-none opacity-75 rotate-[15deg] animate-pulse"
             style={{ animationDuration: '4s', animationDelay: '0.5s' }}
           />
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-36 -top-1 w-6 h-6 rounded-sm pointer-events-none opacity-75 rotate-[25deg] drop-shadow-md animate-pulse"
+            className="absolute right-40 top-6 w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-70 rotate-[30deg] animate-pulse"
             style={{ animationDuration: '3.5s', animationDelay: '1s' }}
           />
+          {/* Sparkle dots */}
+          <span className="absolute right-24 top-8 w-1.5 h-1.5 rounded-full bg-saffron/60 pointer-events-none animate-pulse" style={{ animationDuration: '2s' }} />
+          <span className="absolute right-32 top-1 w-1 h-1 rounded-full bg-gold/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+          <span className="absolute right-20 top-14 w-1 h-1 rounded-full bg-saffron/40 pointer-events-none animate-pulse" style={{ animationDuration: '3s', animationDelay: '0.8s' }} />
 
           {/* Text content — left side, with right padding for the box */}
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
