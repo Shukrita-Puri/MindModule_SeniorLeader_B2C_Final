@@ -2,7 +2,7 @@ import { useState } from 'react';
 import HexBadge from './HexBadge';
 import PointSystemModal from './PointSystemModal';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ShareableBadgeCard from '@/components/achievements/ShareableBadgeCard';
 import { useAuth } from '@/hooks/useAuth';
 
