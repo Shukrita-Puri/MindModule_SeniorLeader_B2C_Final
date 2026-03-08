@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, Shield, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { toast } from "sonner";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
