@@ -26,6 +26,9 @@ const UserSettingsPopover = () => {
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
 
+  // Derive display values — guard against null user during async profile sync
+  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const displayEmail = user?.email || '';
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
