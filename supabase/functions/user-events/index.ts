@@ -197,6 +197,77 @@ serve(async (req) => {
         );
       }
 
+      case 'GET_COMPLETION_COUNTS': {
+        const { contentIds, category } = body as any;
+
+        let query = supabase
+          .from('sanctuary_events')
+          .select('content_id')
+          .eq('user_id', userId)
+          .eq('event_type', 'completed');
+
+        if (category) {
+          query = query.eq('category', category);
+        }
+        if (contentIds && contentIds.length > 0) {
+          query = query.in('content_id', contentIds);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[user-events] Error fetching completion counts:', error);
+          throw error;
+        }
+
+        // Aggregate counts by content_id
+        const counts: Record<string, number> = {};
+        (data || []).forEach((row: any) => {
+          counts[row.content_id] = (counts[row.content_id] || 0) + 1;
+        });
+
+        console.log('[user-events] Completion counts:', Object.keys(counts).length, 'items');
+        return new Response(
+          JSON.stringify({ success: true, data: counts }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'GET_SANCTUARY_DATA': {
+        // Generic query for sanctuary_events used by Insights, Coach, etc.
+        const { eventType, category: sanctuaryCategory, days: sanctuaryDays, columns } = body as any;
+        const daysBack = sanctuaryDays || 30;
+        const since = new Date();
+        since.setDate(since.getDate() - daysBack);
+
+        let query = supabase
+          .from('sanctuary_events')
+          .select(columns || 'content_id, category, timestamp, duration_seconds, event_type, created_at')
+          .eq('user_id', userId)
+          .gte('created_at', since.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (eventType) {
+          query = query.eq('event_type', eventType);
+        }
+        if (sanctuaryCategory) {
+          query = query.eq('category', sanctuaryCategory);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[user-events] Error fetching sanctuary data:', error);
+          throw error;
+        }
+
+        console.log('[user-events] Sanctuary data:', data?.length || 0, 'rows');
+        return new Response(
+          JSON.stringify({ success: true, data: data || [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown action: ${action}` }),
