@@ -1,53 +1,59 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Final Audit: Inner Readiness + Outer Readiness Brief
 
-Two files need text-only changes (no layout or UI modifications).
+## Status: Both edge functions are live, returning correct data, no crashes.
 
----
-
-### File 1: `src/pages/Front.tsx`
-
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
-
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
-
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
-
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
-
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
-
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+The network logs confirm both `compute-inner-readiness` (200, score=46, tier=managing) and `compute-outer-readiness` (200, Sunday evening theme correctly served) are operational. The `safeTier` fix is working. The `finalPhrase` persistence fix is in place.
 
 ---
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+## Critical Bug Found: Archetype Always Null (Priority 4 Never Fires)
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+**Root cause:** In `useOuterReadiness.ts` (line 49-53), the client queries `profiles.user_archetype` using the Supabase anon key. But profiles has deny-by-default RLS — the query returns `[]` (confirmed in network logs). The archetype is passed as `null` to the edge function, meaning **Priority 4 (Archetype × Tier) in the Lean On/Watch For cascade never activates**.
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+The edge function already has a service role client (`db` on line 612) but never uses it to fetch the archetype. It trusts the client to pass it.
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+**Impact:** Every user without coach insights, without extreme C×C, and outside late evening hours falls through to Priority 5 (generic tier fallback) instead of getting their personalized archetype-specific Lean On/Watch For.
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+**Fix:** Move the archetype fetch server-side inside `compute-outer-readiness/index.ts`. The edge function already has the `userId` and service role client. Query `profiles.user_archetype` there and ignore the client-passed archetype. Then remove the redundant client-side profiles query from `useOuterReadiness.ts`.
 
----
+### Changes
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+**File 1: `supabase/functions/compute-outer-readiness/index.ts`**
+- After line 612, add a parallel fetch for `profiles.user_archetype` alongside coach insights and check-ins (3 parallel queries instead of 2)
+- Use the server-fetched archetype instead of `body.archetype`
+
+**File 2: `src/hooks/useOuterReadiness.ts`**
+- Remove lines 49-53 (the client-side profiles query that returns empty due to RLS)
+- Remove `archetype: profile?.user_archetype || null` from the request body (or keep it as a no-op fallback; the edge function will use its own server-side value)
+
+### All Downstream Consumers — Confirmed Connected
+
+| Consumer | Source | Status |
+|---|---|---|
+| `TodayStateCard.tsx` | `computeEnergyState()` → `compute-inner-readiness` | Working (200) |
+| `StrategicIntentionCard.tsx` | `useOuterReadiness()` → `compute-outer-readiness` | Working (200) |
+| `ExecutiveHome.tsx` | Both hooks | Working |
+| `coachContextBuilder.ts` | `computeEnergyState()` + `fetchOuterReadiness()` | Connected |
+| `JustInTimeIntervention.tsx` | `computeEnergyState()` | Connected |
+| `DailyRitualCard.tsx` | `computeEnergyState()` | Connected |
+| `useCoachConversation.ts` | `computeEnergyState()` | Connected |
+| `insights-semantic-analysis` EF | Reads `daily_themes.theme_phrase` | Connected |
+| `state-patterns-insights` EF | Reads `daily_themes.theme_phrase, theme_driver` | Connected |
+
+### No Other Bugs Found
+
+- C×C independent signal logic: correct in both functions
+- Priority cascade: correctly ordered (0→1→2→3→4→5)
+- Coach recency + contradiction: correctly implemented
+- Pattern recognition: all outcomes + C×C patterns covered
+- `safeTier` defensive guard: in place
+- `finalPhrase` persisted to DB: confirmed
+- CORS headers: correct
+- Auth: Auth0 JWT verification via shared module
+
+### Summary
+
+One fix needed: move the archetype fetch from client-side (blocked by RLS) to server-side inside the edge function. This unlocks Priority 4 for all users with an archetype. Everything else is healthy and connected.
 
