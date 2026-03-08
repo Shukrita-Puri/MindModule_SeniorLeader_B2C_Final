@@ -16,34 +16,8 @@ import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapac
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-/* ─── Brand Logo Components ─── */
-
-const GoogleCalendarLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <rect x="42" y="42" width="116" height="116" rx="8" fill="#fff"/>
-    <path d="M158 42H130l28 28V42z" fill="#EA4335"/>
-    <path d="M158 70v88a16 16 0 01-16 16h-12l28-28v-76z" fill="#FBBC04"/>
-    <path d="M42 158v12a16 16 0 0016 16h12l-28-28z" fill="#34A853"/>
-    <path d="M70 174H58a16 16 0 01-16-16v-12l28 28z" fill="#188038"/>
-    <path d="M42 42v116l28-28V70l-28-28z" fill="#4285F4"/>
-    <path d="M42 42h116L130 70H70L42 42z" fill="#1967D2"/>
-    <rect x="70" y="70" width="60" height="60" rx="4" fill="#fff"/>
-    <text x="100" y="113" textAnchor="middle" fontFamily="Google Sans, Arial, sans-serif" fontSize="36" fontWeight="700" fill="#4285F4">31</text>
-  </svg>
-);
-
-const AppleHealthLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="ahg" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#FF6B81"/>
-        <stop offset="100%" stopColor="#FF2D55"/>
-      </linearGradient>
-    </defs>
-    <rect width="120" height="120" rx="26" fill="url(#ahg)"/>
-    <path d="M60 30c-5 0-9 2-12 5-3-3-7-5-12-5-9 0-16 7-16 16 0 22 28 40 28 40s28-18 28-40c0-9-7-16-16-16z" fill="#fff" transform="translate(0,6)"/>
-  </svg>
-);
+import googleCalendarLogo from '@/assets/google-calendar-logo.avif';
+import appleWatchLogo from '@/assets/apple-watch-logo.jpg';
 
 /* ─── Types ─── */
 
@@ -177,7 +151,7 @@ const ConnectedData = () => {
       id: 'google-calendar',
       name: 'Google Calendar',
       description: 'Sync your calendar for contextual recommendations',
-      logo: <GoogleCalendarLogo />,
+      logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
       onConnect: handleConnectCalendar,
@@ -187,7 +161,7 @@ const ConnectedData = () => {
       id: 'apple-watch',
       name: 'Apple Watch',
       description: 'Connect via Apple Health for HRV and sleep data',
-      logo: <AppleHealthLogo />,
+      logo: <img src={appleWatchLogo} alt="Apple Watch" className="h-8 w-8 rounded" />,
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
       onConnect: handleConnectAppleWatch,
