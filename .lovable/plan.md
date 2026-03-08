@@ -1,53 +1,48 @@
 
+Audit summary (root causes)
+1) Primary blocker (confirmed): `OnboardingBlockGuard` redirects any authenticated user with `onboarding_completed_at` away from all `/onboarding/*` routes, including `/onboarding/payment`, to `/daily-check-in`.
+2) Secondary blocker (edge case): `validateStageAccess('/onboarding/payment')` can still redirect if onboarding-progress data is missing/incomplete for legacy users, even if profile onboarding is complete.
+3) Dev mode inconsistency: `ProtectedRoute` bypasses in `DEV_MODE`, but onboarding guards still run, so route behavior is inconsistent for dev testing.
+4) Technical error found in this area: Radix dialog accessibility warnings (`DialogContent` missing `DialogTitle`/`DialogDescription`) from `HexBadgeRow` modal path.
 
-## Copy Updates — Front Page + Onboarding Welcome
+Implementation plan
+1) Fix the redirect bug at guard level (auth users)
+- File: `src/components/OnboardingGuard.tsx`
+- Add `useLocation()` in `OnboardingBlockGuard`.
+- Permit `/onboarding/payment` for users with completed onboarding (do not redirect this one route).
+- Keep current redirect for other onboarding routes.
+- Update the render-block condition so it also respects this exception.
+- Add `location.pathname` to dependencies to avoid stale behavior.
 
-Two files need text-only changes (no layout or UI modifications).
+2) Harden stage gating so payment remains reachable for completed users
+- Files: `src/pages/onboarding/OnboardingFlow.tsx`, `src/utils/onboardingStatus.ts`
+- In flow gating, short-circuit validation for `/onboarding/payment` when authenticated profile already has `onboarding_completed_at`.
+- Keep existing onboarding-stage enforcement for non-completed users.
 
----
+3) Make dev mode behavior reliable
+- File: `src/components/OnboardingGuard.tsx` (and optionally `src/config/devMode.ts`)
+- In `DEV_MODE`, bypass onboarding guards (or provide a complete mock onboarding state) so `/profile -> Upgrade Plan -> /onboarding/payment` works consistently during development.
+- Preserve production guard logic unchanged.
 
-### File 1: `src/pages/Front.tsx`
+4) Prevent fallback redirect side effect from payment
+- File: `src/pages/onboarding/stages/Stage6Payment.tsx`
+- On checkout failure, only send users to `/onboarding/context-connection` if they are in onboarding flow.
+- If they came from upgrade flow (already completed onboarding), keep them on payment page and show error toast.
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+5) Fix technical/accessibility errors flagged in logs
+- File: `src/components/home/HexBadgeRow.tsx`
+- Add `DialogTitle` + `DialogDescription` (can be visually hidden) to remove runtime warnings.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+Technical details
+- No backend schema changes required.
+- Route contract remains `/onboarding/payment` (as requested).
+- Guard exception should be path-scoped (not global) to avoid reopening full onboarding for completed users.
+- Validation order should be: route exception for completed users -> normal stage gating for everyone else.
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
-
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
-
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
-
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
-
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
-
+Verification checklist (end-to-end)
+1) Auth user with completed onboarding clicks “Upgrade Plan” on `/profile` -> lands on `/onboarding/payment` (no bounce).
+2) Auth user directly opens `/onboarding/payment` -> stays on payment.
+3) Completed user opening `/onboarding/identity` still redirects to `/daily-check-in`.
+4) In `DEV_MODE`, `/profile -> Upgrade Plan` reaches payment.
+5) Payment checkout failure does not reroute completed users to onboarding context.
+6) No Radix dialog accessibility warnings in console for the affected modal.
