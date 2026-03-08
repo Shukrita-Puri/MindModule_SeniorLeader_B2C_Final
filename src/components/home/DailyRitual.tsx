@@ -192,7 +192,8 @@ const DailyRitual = () => {
 
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
-    const data = await getTodayRitual();
+    const currentPeriod = getCurrentTimeWindow();
+    const data = await getTodayRitual(currentPeriod);
     const modules = plan?.timeOfDayPlan?.modules || [];
     
     if (!data) {
@@ -210,7 +211,7 @@ const DailyRitual = () => {
     if (data.completion_status === 'full') status = 'completed';
     else if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
       status = 'completed';
-      await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full' });
+      await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
