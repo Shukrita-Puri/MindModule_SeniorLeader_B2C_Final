@@ -120,31 +120,45 @@ const Refer = () => {
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
 
-          {/* MM logos flying out of the gift box */}
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-12 top-6 w-10 h-10 pointer-events-none opacity-80 animate-float-logo-1"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
-          />
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-2 top-14 w-6 h-6 pointer-events-none opacity-70 animate-float-logo-2"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-          />
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-20 top-16 w-5 h-5 pointer-events-none opacity-60 animate-float-logo-3"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-          />
-          <img
-            src={mmLogoMini}
-            alt=""
-            className="absolute right-6 top-2 w-5 h-5 pointer-events-none opacity-65 animate-float-logo-4"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-          />
+          {/* MM logos bursting from the gap between lid and box — rounded with sparkles */}
+          <div className="absolute right-0 top-0 w-48 h-48 sm:w-56 sm:h-56 pointer-events-none" aria-hidden="true">
+            {/* Large MM logo — clearly visible */}
+            <img
+              src={mmLogoMini}
+              alt=""
+              className="absolute left-2 top-[42%] w-9 h-9 rounded-full shadow-md animate-float-logo-1"
+              style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))' }}
+            />
+            {/* Medium MM logo */}
+            <img
+              src={mmLogoMini}
+              alt=""
+              className="absolute left-14 top-[36%] w-6 h-6 rounded-full shadow-sm animate-float-logo-2"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+            />
+            {/* Small MM logo */}
+            <img
+              src={mmLogoMini}
+              alt=""
+              className="absolute left-8 top-[52%] w-5 h-5 rounded-full shadow-sm animate-float-logo-3"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+            />
+            {/* Tiny MM logo */}
+            <img
+              src={mmLogoMini}
+              alt=""
+              className="absolute left-20 top-[46%] w-4 h-4 rounded-full shadow-sm animate-float-logo-4"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+            />
+
+            {/* Sparkles */}
+            <span className="absolute left-4 top-[38%] w-2 h-2 rounded-full bg-saffron/60 animate-float-logo-2 blur-[0.5px]" />
+            <span className="absolute left-16 top-[50%] w-1.5 h-1.5 rounded-full bg-gold/50 animate-float-logo-4 blur-[0.5px]" />
+            <span className="absolute left-10 top-[44%] w-1 h-1 rounded-full bg-saffron/70 animate-float-logo-1" />
+            <span className="absolute left-22 top-[40%] w-1.5 h-1.5 rounded-full bg-gold/40 animate-float-logo-3 blur-[0.5px]" />
+            <span className="absolute left-6 top-[54%] w-1 h-1 rounded-full bg-saffron/50 animate-float-logo-2" />
+          </div>
+
 
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
             <h2 className="text-2xl font-headline font-semibold text-foreground mb-2">
