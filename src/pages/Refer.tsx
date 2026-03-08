@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import giftBoxImg from '@/assets/referral-gift-box.png';
 import mmLogoMini from '@/assets/mm-logo-mini.png';
 
-const SHARE_BASE_URL = 'https://mindmodule.me/join';
+const APP_STORE_URL = 'https://apps.apple.com/app/mind-module/id123456789';
 
 const Refer = () => {
   const navigate = useNavigate();
