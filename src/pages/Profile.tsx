@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -24,6 +24,7 @@ const Profile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [managingPortal, setManagingPortal] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -46,6 +47,46 @@ const Profile = () => {
     const dateStr = format(new Date(user.subscription_current_period_end), 'MMM d, yyyy');
     expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
   }
+
+  const hasBillingAccount = !!(user as any)?.stripe_customer_id || 
+    ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
+
+  const handleManageSubscription = async () => {
+    if (!hasBillingAccount) {
+      navigate('/onboarding/payment');
+      return;
+    }
+    setManagingPortal(true);
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/create-customer-portal`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (res.ok) {
+        const { portalUrl } = await res.json();
+        window.open(portalUrl, '_blank');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          navigate('/onboarding/payment');
+        } else {
+          toast.error(err.error || 'Failed to open billing portal');
+        }
+      }
+    } catch {
+      toast.error('Failed to open billing portal');
+    } finally {
+      setManagingPortal(false);
+    }
+  };
 
   const handleEditName = () => {
     setNewName(user?.name || '');
@@ -169,6 +210,15 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={handleManageSubscription}
+              disabled={managingPortal}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {managingPortal ? 'Opening…' : hasBillingAccount ? 'Manage Subscription' : 'Upgrade to Pro'}
+            </Button>
             <Button 
               variant="outline" 
               className="w-full justify-start"
@@ -192,6 +242,7 @@ const Profile = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit your name</DialogTitle>
+            <DialogDescription>Enter the name you'd like the app to call you.</DialogDescription>
           </DialogHeader>
           <Input
             value={newName}

@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.update-profile]
 verify_jwt = false
+
+[functions.create-customer-portal]
+verify_jwt = false
