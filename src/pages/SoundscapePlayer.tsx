@@ -786,7 +786,7 @@ const SoundscapePlayer = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSkip(15)}
-                disabled={currentTime >= displayDuration}
+                disabled={!audioRef.current || currentTime >= (actualDuration || displayDuration) - 1}
                 className="text-white/80 hover:text-gold hover:bg-gold/10"
               >
                 <SkipForward className="w-5 h-5" />
