@@ -220,18 +220,29 @@ const DailyRitual = () => {
   const loadPlan = async () => {
     setLoading(true);
     try {
-      // Check for stored plan first
-      const todayRitual = await getTodayRitual();
-      const todayCheckin = await getTodayCheckin();
+      const currentPeriod = getCurrentTimeWindow();
+      
+      // Check for stored plan for the CURRENT period
+      const todayRitual = await getTodayRitual(currentPeriod);
+      const todayCheckin = await getCheckinForWindow(new Date().toISOString().split('T')[0], currentPeriod);
       const todayDate = new Date().toISOString().split('T')[0];
-      const sessionKey = `plan-loaded-${todayDate}`;
+      const sessionKey = `plan-loaded-${todayDate}-${currentPeriod}`;
       const sessionLoaded = sessionStorage.getItem(sessionKey);
+      
+      // Check if we have a check-in for this window
+      setNoCheckinForWindow(!todayCheckin);
 
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
       let shouldRegenerate = !hasStoredPlan;
 
-      if (hasStoredPlan && todayCheckin && todayRitual) {
+      // Period mismatch: if the stored ritual is for a different period, force regen
+      if (hasStoredPlan && todayRitual?.session_period && todayRitual.session_period !== currentPeriod) {
+        shouldRegenerate = true;
+        sessionStorage.removeItem(sessionKey);
+      }
+
+      if (hasStoredPlan && !shouldRegenerate && todayCheckin && todayRitual) {
         const checkinTime = new Date(todayCheckin.timestamp);
         const planTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
         if (checkinTime.getTime() > planTime.getTime() + 60000) {
@@ -239,6 +250,7 @@ const DailyRitual = () => {
           sessionStorage.removeItem(sessionKey);
           await upsertRitual({
             ritual_date: todayDate,
+            session_period: currentPeriod,
             completion_status: 'partial',
             completed_practice_ids: [],
             soundscape_completed: false,
@@ -252,7 +264,7 @@ const DailyRitual = () => {
 
       // Use session cache if available (EF handles staleness via rate limiting)
       if (!shouldRegenerate && sessionLoaded === 'true') {
-        const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}`);
+        const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
@@ -298,7 +310,7 @@ const DailyRitual = () => {
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
 
-      // Store plan for stability
+      // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         await upsertRitual({
@@ -308,7 +320,7 @@ const DailyRitual = () => {
           session_period: planResponse.timeOfDayPlan.period
         });
         sessionStorage.setItem(sessionKey, 'true');
-        sessionStorage.setItem(`plan-data-${todayDate}`, JSON.stringify(planResponse));
+        sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
       }
 
       setRitualStatus(prev => ({
