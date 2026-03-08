@@ -160,12 +160,14 @@ export async function getRitualRange(startDate: string, endDate: string): Promis
 export async function upsertRitual(ritualData: Omit<RitualData, 'id' | 'user_id'>): Promise<RitualData | null> {
   // DEV_MODE: Direct database upsert
   if (DEV_MODE) {
+    const upsertData = {
+      ...ritualData,
+      user_id: DEV_USER.id,
+      session_period: ritualData.session_period || getCurrentTimeWindowForRituals()
+    };
     const { data, error } = await supabase
       .from('daily_ritual_completions')
-      .upsert(
-        { ...ritualData, user_id: DEV_USER.id },
-        { onConflict: 'user_id,ritual_date' }
-      )
+      .upsert(upsertData, { onConflict: 'user_id,ritual_date,session_period' })
       .select()
       .maybeSingle();
     
