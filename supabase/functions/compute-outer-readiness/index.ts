@@ -599,6 +599,9 @@ serve(async (req) => {
       timezoneOffset = 0,
     } = body;
 
+    // Defensive default: if innerReadinessTier is missing (e.g. compute-inner-readiness failed), fall back to 'managing'
+    const safeTier: EnergyTier = innerReadinessTier || 'managing';
+
     // Compute user's local time
     const userTime = getUserTime(timezoneOffset);
     const hour = userTime.getHours();
@@ -635,7 +638,7 @@ serve(async (req) => {
     // Use the most recent created_at from either insight for recency check
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(innerReadinessTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
     const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
     
     // Change 4: "Strength without clarity" override — independent signals
@@ -644,7 +647,7 @@ serve(async (req) => {
     let finalPhrase = theme.phrase;
     let finalContext = patternOverride || theme.context;
     
-    if (ccProvided && (innerReadinessTier === 'strong' || innerReadinessTier === 'peak')) {
+    if (ccProvided && (safeTier === 'strong' || safeTier === 'peak')) {
       const cLow = clarityLevel !== null && clarityLevel <= 2;
       const confLow = confidenceLevel !== null && confidenceLevel <= 2;
       if (cLow || confLow) {
@@ -654,7 +657,7 @@ serve(async (req) => {
     }
     
     const { leanOn, watchFor } = getLeanOnWatchFor(
-      innerReadinessTier, archetype, clarityLevel, confidenceLevel,
+      safeTier, archetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
