@@ -37,13 +37,7 @@ const Profile = () => {
 
   const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
-  const statusLabel = isCanceled
-    ? 'Canceled'
-    : isPaying
-      ? 'Paid'
-      : user?.subscription_status === 'trial'
-        ? 'Trial'
-        : 'Free';
+  const statusLabel = isCanceled ? 'Canceled' : isPaying ? 'Paid' : 'Free';
 
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
