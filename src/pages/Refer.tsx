@@ -124,25 +124,25 @@ const Refer = () => {
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-12 top-6 w-10 h-10 pointer-events-none opacity-80 animate-[float-logo-1_3s_ease-in-out_infinite]"
+            className="absolute right-12 top-6 w-10 h-10 pointer-events-none opacity-80 animate-float-logo-1"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
           />
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-2 top-14 w-6 h-6 pointer-events-none opacity-70 animate-[float-logo-2_3.5s_ease-in-out_infinite_0.3s]"
+            className="absolute right-2 top-14 w-6 h-6 pointer-events-none opacity-70 animate-float-logo-2"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
           />
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-20 top-16 w-5 h-5 pointer-events-none opacity-60 animate-[float-logo-3_4s_ease-in-out_infinite_0.6s]"
+            className="absolute right-20 top-16 w-5 h-5 pointer-events-none opacity-60 animate-float-logo-3"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
           />
           <img
             src={mmLogoMini}
             alt=""
-            className="absolute right-6 top-2 w-5 h-5 pointer-events-none opacity-65 animate-[float-logo-4_3.2s_ease-in-out_infinite_0.9s]"
+            className="absolute right-6 top-2 w-5 h-5 pointer-events-none opacity-65 animate-float-logo-4"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
           />
 
