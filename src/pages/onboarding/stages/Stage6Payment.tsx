@@ -1,17 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, X, Shield, ArrowLeft } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export default function Stage6Payment() {
   const navigate = useNavigate();
   const { recordStep } = useOnboardingProgress();
+  const { user } = useAuth();
+  const currentTier = user?.subscription_tier || 'none';
+
+  // Determine which plans are available (hide the one user is already on)
+  const availablePlans = useMemo(() => {
+    const plans: ('monthly' | 'annual')[] = [];
+    if (currentTier !== 'monthly_pro') plans.push('monthly');
+    if (currentTier !== 'annual_pro') plans.push('annual');
+    return plans;
+  }, [currentTier]);
+
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState<'USD' | 'GBP'>('USD');
+
+  // Auto-select the first available plan
+  useEffect(() => {
+    if (availablePlans.length > 0 && !availablePlans.includes(selectedPlan)) {
+      setSelectedPlan(availablePlans[0]);
+    }
+  }, [availablePlans, selectedPlan]);
 
   useEffect(() => {
     detectCurrency();
