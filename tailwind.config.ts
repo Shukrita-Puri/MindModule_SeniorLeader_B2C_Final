@@ -178,6 +178,22 @@ export default {
             transform: "translateX(0)",
           },
         },
+        "float-logo-1": {
+          "0%, 100%": { transform: "translateY(0) rotate(-8deg)" },
+          "50%": { transform: "translateY(-8px) rotate(4deg)" },
+        },
+        "float-logo-2": {
+          "0%, 100%": { transform: "translateY(0) rotate(6deg)" },
+          "50%": { transform: "translateY(-6px) rotate(-4deg)" },
+        },
+        "float-logo-3": {
+          "0%, 100%": { transform: "translateY(0) rotate(10deg)" },
+          "50%": { transform: "translateY(-10px) rotate(-6deg)" },
+        },
+        "float-logo-4": {
+          "0%, 100%": { transform: "translateY(0) rotate(-5deg)" },
+          "50%": { transform: "translateY(-7px) rotate(8deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
