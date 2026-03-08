@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { 
   User, 
   Link2, 
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 const UserSettingsPopover = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const [open, setOpen] = useState(false);
@@ -52,6 +53,27 @@ const UserSettingsPopover = () => {
     requestAnimationFrame(() => setOpen(false));
   };
 
+  // Show loading skeleton while user data is being fetched
+  if (loading && !user) {
+    return (
+      <SidebarMenuButton
+        size="lg"
+        className={cn(
+          isCollapsed && "justify-center px-0"
+        )}
+        disabled
+      >
+        <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        {!isCollapsed && (
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+            <div className="h-2.5 w-28 rounded bg-muted animate-pulse" />
+          </div>
+        )}
+      </SidebarMenuButton>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -63,7 +85,7 @@ const UserSettingsPopover = () => {
           )}
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.picture} alt={user?.name || 'User'} />
+            <AvatarImage src={user?.picture} alt={displayName} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs">
               {initials}
             </AvatarFallback>

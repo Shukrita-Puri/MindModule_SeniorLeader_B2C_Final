@@ -84,16 +84,20 @@ const Refer = () => {
             alt="Referral gift box"
             className="absolute -right-16 -top-4 w-56 h-56 sm:w-64 sm:h-64 object-contain pointer-events-none opacity-90 drop-shadow-lg"
           />
-          {/* MM logos emerging from the gap between box and lid (mid-right area) */}
-          <img src={mmLogoMini} alt="" className="absolute right-24 top-[45%] w-7 h-7 rounded-lg shadow-md pointer-events-none opacity-80 rotate-[-10deg] animate-pulse" style={{ animationDuration: '3s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-36 top-[40%] w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-70 rotate-[20deg] animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.8s' }} />
-          <img src={mmLogoMini} alt="" className="absolute right-16 top-[50%] w-4 h-4 rounded-sm shadow-sm pointer-events-none opacity-60 rotate-[-25deg] animate-pulse" style={{ animationDuration: '4s', animationDelay: '1.2s' }} />
-          {/* Sparkles around the gap area */}
-          <span className="absolute right-20 top-[42%] w-1.5 h-1.5 rounded-full bg-saffron/60 pointer-events-none animate-pulse" style={{ animationDuration: '2s' }} />
-          <span className="absolute right-30 top-[48%] w-1 h-1 rounded-full bg-gold/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
-          <span className="absolute right-40 top-[44%] w-1 h-1 rounded-full bg-saffron/45 pointer-events-none animate-pulse" style={{ animationDuration: '2.8s', animationDelay: '0.5s' }} />
-          <span className="absolute right-12 top-[46%] w-1.5 h-1.5 rounded-full bg-gold/40 pointer-events-none animate-pulse" style={{ animationDuration: '3s', animationDelay: '1s' }} />
-          <span className="absolute right-28 top-[52%] w-1 h-1 rounded-full bg-saffron/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.2s', animationDelay: '0.7s' }} />
+          {/* MM logos emerging from the gap between box and lid */}
+          <img src={mmLogoMini} alt="" className="absolute right-20 top-[38%] w-9 h-9 rounded-lg shadow-md pointer-events-none opacity-85 rotate-[-8deg] animate-pulse" style={{ animationDuration: '3s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-32 top-[42%] w-6 h-6 rounded-md shadow-sm pointer-events-none opacity-75 rotate-[18deg] animate-pulse" style={{ animationDuration: '3.5s', animationDelay: '0.6s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-10 top-[44%] w-5 h-5 rounded-md shadow-sm pointer-events-none opacity-65 rotate-[-20deg] animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-42 top-[36%] w-5 h-5 rounded-sm shadow-sm pointer-events-none opacity-60 rotate-[12deg] animate-pulse" style={{ animationDuration: '3.8s', animationDelay: '1.4s' }} />
+          <img src={mmLogoMini} alt="" className="absolute right-26 top-[34%] w-4 h-4 rounded-sm shadow-sm pointer-events-none opacity-55 rotate-[-30deg] animate-pulse" style={{ animationDuration: '4.2s', animationDelay: '0.3s' }} />
+          {/* Sparkles in the gap area */}
+          <span className="absolute right-16 top-[36%] w-1.5 h-1.5 rounded-full bg-saffron/60 pointer-events-none animate-pulse" style={{ animationDuration: '2s' }} />
+          <span className="absolute right-28 top-[40%] w-1 h-1 rounded-full bg-gold/55 pointer-events-none animate-pulse" style={{ animationDuration: '2.3s', animationDelay: '0.2s' }} />
+          <span className="absolute right-38 top-[37%] w-1.5 h-1.5 rounded-full bg-saffron/50 pointer-events-none animate-pulse" style={{ animationDuration: '2.6s', animationDelay: '0.5s' }} />
+          <span className="absolute right-22 top-[43%] w-1 h-1 rounded-full bg-gold/45 pointer-events-none animate-pulse" style={{ animationDuration: '2.8s', animationDelay: '0.9s' }} />
+          <span className="absolute right-46 top-[39%] w-1 h-1 rounded-full bg-saffron/40 pointer-events-none animate-pulse" style={{ animationDuration: '3s', animationDelay: '1.1s' }} />
+          <span className="absolute right-14 top-[41%] w-2 h-2 rounded-full bg-gold/35 pointer-events-none animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.7s' }} />
+          <span className="absolute right-34 top-[35%] w-1 h-1 rounded-full bg-saffron/55 pointer-events-none animate-pulse" style={{ animationDuration: '2.2s', animationDelay: '1.3s' }} />
 
           {/* Text content — left side, with right padding for the box */}
           <div className="relative z-10 p-8 pr-36 sm:pr-44">
@@ -116,7 +120,7 @@ const Refer = () => {
               'You unlock Founding Member badge with first access and opportunity to co-build with the founding team (locked after first 100 users)',
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-3">
-                <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-saffron/15 flex items-center justify-center text-xs font-semibold text-saffron">
+                <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-taupe/15 flex items-center justify-center text-xs font-semibold text-taupe">
                   {i + 1}
                 </span>
                 <p className="text-sm text-muted-foreground font-body leading-relaxed">{text}</p>
