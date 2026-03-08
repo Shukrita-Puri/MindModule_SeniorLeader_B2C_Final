@@ -132,6 +132,10 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Refer /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
+        path: "join/:code",
+        element: <Suspense fallback={<LoadingFallback />}><JoinPage /></Suspense>,
+      },
+      {
         path: "recalibrate",
         element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><RecalibrateMode /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
         children: [
