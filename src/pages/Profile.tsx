@@ -48,6 +48,46 @@ const Profile = () => {
     expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
   }
 
+  const hasBillingAccount = !!(user as any)?.stripe_customer_id || 
+    ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
+
+  const handleManageSubscription = async () => {
+    if (!hasBillingAccount) {
+      navigate('/onboarding/payment');
+      return;
+    }
+    setManagingPortal(true);
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/create-customer-portal`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (res.ok) {
+        const { portalUrl } = await res.json();
+        window.open(portalUrl, '_blank');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          navigate('/onboarding/payment');
+        } else {
+          toast.error(err.error || 'Failed to open billing portal');
+        }
+      }
+    } catch {
+      toast.error('Failed to open billing portal');
+    } finally {
+      setManagingPortal(false);
+    }
+  };
+
   const handleEditName = () => {
     setNewName(user?.name || '');
     setEditOpen(true);
