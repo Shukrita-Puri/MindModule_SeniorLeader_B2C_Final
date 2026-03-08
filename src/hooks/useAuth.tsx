@@ -260,6 +260,26 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Get access token for server-side verification
         const token = await getAccessTokenSilently();
 
+        // TIER 4: Client-side token validation — verify token sub matches Auth0 SDK user
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const tokenSub = payload.sub;
+            if (tokenSub && currentSub && tokenSub !== currentSub) {
+              console.error('[useAuth] 🚨 TOKEN MISMATCH — token sub:', tokenSub, 'auth0User sub:', currentSub);
+              syncAttempted.current = false;
+              setSyncing(false);
+              toast.error('Session mismatch detected. Please log in again.');
+              // Force federated logout to clear stale session
+              await signOutFederated();
+              return;
+            }
+          }
+        } catch (decodeErr) {
+          console.warn('[useAuth] Token decode check failed (non-fatal):', decodeErr);
+        }
+
         // Call sync-profile edge function (server-side upsert)
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const response = await fetch(
