@@ -33,6 +33,7 @@ const Profile = () => {
 
   const planLabel = tierLabels[user?.subscription_tier || ''] || user?.subscription_plan || 'No Plan';
 
+  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
   const statusLabel = isCanceled
     ? 'Canceled'
@@ -42,8 +43,6 @@ const Profile = () => {
         ? 'Trial'
         : 'Free';
 
-  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
-
   let expiryLabel: string | null = null;
   if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
     expiryLabel = `Trial ends ${format(new Date(user.trial_ends_at), 'MMM d, yyyy')}`;
@@ -52,7 +51,6 @@ const Profile = () => {
     expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
   }
 
-  const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const hasBillingAccount = !!(user as any)?.stripe_customer_id || isPaying;
 
   const handleManageSubscription = async () => {
