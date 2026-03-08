@@ -518,21 +518,33 @@ const DailyRitual = () => {
 
       {/* Progress tracker - only for time-of-day */}
       {activeView === 'timeOfDay' && (
-        <div className="px-4 max-w-lg mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground font-body">
-              {plan?.timeOfDayPlan?.label || 'Today'}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-              {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+        <div className="px-4 max-w-lg mx-auto space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground font-body">
+                {plan?.timeOfDayPlan?.label || 'Today'}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+              </span>
+            </div>
+            <span className={cn(
+              "text-xs font-medium font-body",
+              ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
+            )}>
+              {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
             </span>
           </div>
-          <span className={cn(
-            "text-xs font-medium font-body",
-            ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
-          )}>
-            {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
-          </span>
+          {/* Check-in prompt banner */}
+          {noCheckinForWindow && ritualStatus.status !== 'completed' && (
+            <button
+              onClick={() => navigate('/daily-checkin')}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              Check in to personalize your {plan?.timeOfDayPlan?.period || 'current'} plan
+            </button>
+          )}
         </div>
       )}
 
