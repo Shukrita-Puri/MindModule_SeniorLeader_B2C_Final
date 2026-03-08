@@ -10,8 +10,8 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { toast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
 import { useFavorites } from '@/hooks/useFavorites';
-import { getTodayRitual, upsertRitual } from '@/utils/dailyRituals';
-import { getTodayCheckin } from '@/utils/dailyCheckins';
+import { getTodayRitual, getRitualForPeriod, upsertRitual } from '@/utils/dailyRituals';
+import { getTodayCheckin, getCheckinForWindow, getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -99,6 +99,7 @@ const DailyRitual = () => {
   const [activeView, setActiveView] = useState<'timeOfDay' | 'preEvent'>('timeOfDay');
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
+  const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
   const [ritualStatus, setRitualStatus] = useState<{
     status: 'not_started' | 'partial' | 'completed';
     completedCount: number;
@@ -191,7 +192,8 @@ const DailyRitual = () => {
 
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
-    const data = await getTodayRitual();
+    const currentPeriod = getCurrentTimeWindow();
+    const data = await getTodayRitual(currentPeriod);
     const modules = plan?.timeOfDayPlan?.modules || [];
     
     if (!data) {
@@ -209,7 +211,7 @@ const DailyRitual = () => {
     if (data.completion_status === 'full') status = 'completed';
     else if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
       status = 'completed';
-      await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full' });
+      await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
@@ -218,18 +220,29 @@ const DailyRitual = () => {
   const loadPlan = async () => {
     setLoading(true);
     try {
-      // Check for stored plan first
-      const todayRitual = await getTodayRitual();
-      const todayCheckin = await getTodayCheckin();
+      const currentPeriod = getCurrentTimeWindow();
+      
+      // Check for stored plan for the CURRENT period
+      const todayRitual = await getTodayRitual(currentPeriod);
+      const todayCheckin = await getCheckinForWindow(new Date().toISOString().split('T')[0], currentPeriod);
       const todayDate = new Date().toISOString().split('T')[0];
-      const sessionKey = `plan-loaded-${todayDate}`;
+      const sessionKey = `plan-loaded-${todayDate}-${currentPeriod}`;
       const sessionLoaded = sessionStorage.getItem(sessionKey);
+      
+      // Check if we have a check-in for this window
+      setNoCheckinForWindow(!todayCheckin);
 
       const storedPracticeIds = todayRitual?.recommended_practice_ids;
       const hasStoredPlan = storedPracticeIds && storedPracticeIds.length > 0;
       let shouldRegenerate = !hasStoredPlan;
 
-      if (hasStoredPlan && todayCheckin && todayRitual) {
+      // Period mismatch: if the stored ritual is for a different period, force regen
+      if (hasStoredPlan && todayRitual?.session_period && todayRitual.session_period !== currentPeriod) {
+        shouldRegenerate = true;
+        sessionStorage.removeItem(sessionKey);
+      }
+
+      if (hasStoredPlan && !shouldRegenerate && todayCheckin && todayRitual) {
         const checkinTime = new Date(todayCheckin.timestamp);
         const planTime = new Date(todayRitual.updated_at || todayRitual.created_at || todayRitual.ritual_date);
         if (checkinTime.getTime() > planTime.getTime() + 60000) {
@@ -237,6 +250,7 @@ const DailyRitual = () => {
           sessionStorage.removeItem(sessionKey);
           await upsertRitual({
             ritual_date: todayDate,
+            session_period: currentPeriod,
             completion_status: 'partial',
             completed_practice_ids: [],
             soundscape_completed: false,
@@ -250,7 +264,7 @@ const DailyRitual = () => {
 
       // Use session cache if available (EF handles staleness via rate limiting)
       if (!shouldRegenerate && sessionLoaded === 'true') {
-        const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}`);
+        const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
@@ -296,7 +310,7 @@ const DailyRitual = () => {
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
 
-      // Store plan for stability
+      // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
         await upsertRitual({
@@ -306,7 +320,7 @@ const DailyRitual = () => {
           session_period: planResponse.timeOfDayPlan.period
         });
         sessionStorage.setItem(sessionKey, 'true');
-        sessionStorage.setItem(`plan-data-${todayDate}`, JSON.stringify(planResponse));
+        sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
       }
 
       setRitualStatus(prev => ({
@@ -334,8 +348,10 @@ const DailyRitual = () => {
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
       await upsertRitual({
         ritual_date: today,
+        session_period: currentPeriod,
         completion_status: ritualStatus.status === 'not_started' ? 'partial' : ritualStatus.status,
         recommended_practices_count: modules.length,
         recommended_practice_ids: modules.map(m => m.contentId),
@@ -360,10 +376,12 @@ const DailyRitual = () => {
   const handleMarkComplete = async (practiceId: string) => {
     if (!user?.id || completedPracticeIds.includes(practiceId)) return;
     const today = new Date().toISOString().split('T')[0];
+    const currentPeriod = getCurrentTimeWindow();
     const modules = plan?.timeOfDayPlan?.modules || [];
     const newCompletedIds = [...completedPracticeIds, practiceId];
     const result = await upsertRitual({
       ritual_date: today,
+      session_period: currentPeriod,
       completed_practice_ids: newCompletedIds,
       recommended_practice_ids: modules.map(m => m.contentId),
       recommended_practices_count: modules.length,
@@ -386,12 +404,14 @@ const DailyRitual = () => {
     }))));
     localStorage.setItem('queueIndex', '0');
     localStorage.setItem('ritualMode', 'true');
-    localStorage.setItem('todayRecommendedIds', JSON.stringify(modules.map(m => m.contentId)));
+    // todayRecommendedIds removed — redundant with DB
 
     if (user) {
       const today = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
       await upsertRitual({
         ritual_date: today,
+        session_period: currentPeriod,
         completion_status: 'partial',
         recommended_practices_count: modules.length,
         recommended_practice_ids: modules.map(m => m.contentId),
@@ -417,6 +437,7 @@ const DailyRitual = () => {
 
   const handleRestartRitual = async () => {
     if (user || DEV_MODE) {
+      const currentPeriod = getCurrentTimeWindow();
       // Route through EF instead of direct DB delete (Auth0 RLS fix)
       const token = await getAuthToken();
       const headers: Record<string, string> = {};
@@ -424,15 +445,16 @@ const DailyRitual = () => {
       if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
       await supabase.functions.invoke('daily-rituals', {
         headers,
-        body: { action: 'DELETE_TODAY_RITUAL' }
+        body: { action: 'DELETE_TODAY_RITUAL', sessionPeriod: currentPeriod }
       });
     }
     localStorage.removeItem('practiceQueue');
     localStorage.removeItem('queueIndex');
     localStorage.removeItem('ritualMode');
     const todayDate = new Date().toISOString().split('T')[0];
-    sessionStorage.removeItem(`plan-loaded-${todayDate}`);
-    sessionStorage.removeItem(`plan-data-${todayDate}`);
+    const currentPeriod = getCurrentTimeWindow();
+    sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
+    sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
     sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
     setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: plan?.timeOfDayPlan?.modules?.length || 0 });
     await loadPlan();
@@ -500,21 +522,33 @@ const DailyRitual = () => {
 
       {/* Progress tracker - only for time-of-day */}
       {activeView === 'timeOfDay' && (
-        <div className="px-4 max-w-lg mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground font-body">
-              {plan?.timeOfDayPlan?.label || 'Today'}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-              {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+        <div className="px-4 max-w-lg mx-auto space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground font-body">
+                {plan?.timeOfDayPlan?.label || 'Today'}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+              </span>
+            </div>
+            <span className={cn(
+              "text-xs font-medium font-body",
+              ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
+            )}>
+              {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
             </span>
           </div>
-          <span className={cn(
-            "text-xs font-medium font-body",
-            ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
-          )}>
-            {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
-          </span>
+          {/* Check-in prompt banner */}
+          {noCheckinForWindow && ritualStatus.status !== 'completed' && (
+            <button
+              onClick={() => navigate('/daily-checkin')}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              Check in to personalize your {plan?.timeOfDayPlan?.period || 'current'} plan
+            </button>
+          )}
         </div>
       )}
 

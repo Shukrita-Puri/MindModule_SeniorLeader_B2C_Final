@@ -1173,7 +1173,7 @@ export type Database = {
           recommended_practice_ids: string[] | null
           recommended_practices_count: number | null
           ritual_date: string
-          session_period: string | null
+          session_period: string
           soundscape_completed: boolean | null
           soundscape_completed_at: string | null
           updated_at: string
@@ -1191,7 +1191,7 @@ export type Database = {
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date: string
-          session_period?: string | null
+          session_period?: string
           soundscape_completed?: boolean | null
           soundscape_completed_at?: string | null
           updated_at?: string
@@ -1209,7 +1209,7 @@ export type Database = {
           recommended_practice_ids?: string[] | null
           recommended_practices_count?: number | null
           ritual_date?: string
-          session_period?: string | null
+          session_period?: string
           soundscape_completed?: boolean | null
           soundscape_completed_at?: string | null
           updated_at?: string

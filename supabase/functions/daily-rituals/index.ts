@@ -8,15 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function getServerTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getUTCHours();
+  // Default to UTC — client can pass session_period to override
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  return 'evening';
+}
+
 interface RequestBody {
   action: 'GET_RITUALS' | 'GET_TODAY_RITUAL' | 'UPSERT_RITUAL' | 'GET_RITUAL_RANGE' | 'COMPLETE_PRACTICE' | 'DELETE_TODAY_RITUAL';
   startDate?: string;
   endDate?: string;
+  sessionPeriod?: 'morning' | 'afternoon' | 'evening';
   practiceType?: 'soundscape' | 'guided_practice' | 'micro_exercise';
   practiceId?: string;
   practiceQueue?: { id: string }[];
   ritualData?: {
     ritual_date: string;
+    session_period?: string;
     soundscape_completed?: boolean;
     soundscape_completed_at?: string;
     guided_practice_completed?: boolean;
@@ -90,12 +100,21 @@ serve(async (req) => {
 
       case 'GET_TODAY_RITUAL': {
         const today = new Date().toISOString().split('T')[0];
+        const period = body.sessionPeriod;
         
-        const { data, error } = await supabase
+        let query = supabase
           .from('daily_ritual_completions')
           .select('*')
           .eq('user_id', userId)
-          .eq('ritual_date', today)
+          .eq('ritual_date', today);
+        
+        // If sessionPeriod provided, filter by it; otherwise get latest
+        if (period) {
+          query = query.eq('session_period', period);
+        }
+        
+        const { data, error } = await query
+          .order('updated_at', { ascending: false })
           .maybeSingle();
 
         if (error) {
@@ -142,12 +161,16 @@ serve(async (req) => {
           });
         }
 
+        // Ensure session_period is set for the new unique constraint
+        const upsertData = {
+          user_id: userId,
+          ...ritualData,
+          session_period: ritualData.session_period || body.sessionPeriod || getServerTimeOfDay()
+        };
+
         const { data, error } = await supabase
           .from('daily_ritual_completions')
-          .upsert({
-            user_id: userId,
-            ...ritualData
-          }, { onConflict: 'user_id,ritual_date' })
+          .upsert(upsertData, { onConflict: 'user_id,ritual_date,session_period' })
           .select()
           .single();
 
@@ -162,7 +185,7 @@ serve(async (req) => {
       }
 
       case 'COMPLETE_PRACTICE': {
-        const { practiceType, practiceId, practiceQueue } = body;
+        const { practiceType, practiceId, practiceQueue, sessionPeriod } = body;
         if (!practiceType || !practiceId) {
           return new Response(JSON.stringify({ error: 'Missing practiceType or practiceId' }), {
             status: 400,
@@ -172,13 +195,15 @@ serve(async (req) => {
 
         const today = new Date().toISOString().split('T')[0];
         const now = new Date().toISOString();
+        const period = sessionPeriod || getServerTimeOfDay();
 
-        // 1. Get current ritual (if exists)
+        // 1. Get current ritual for this period (if exists)
         const { data: existing } = await supabase
           .from('daily_ritual_completions')
           .select('*')
           .eq('user_id', userId)
           .eq('ritual_date', today)
+          .eq('session_period', period)
           .maybeSingle();
 
         // 2. Build updated fields atomically
@@ -190,6 +215,7 @@ serve(async (req) => {
         const updateData: Record<string, any> = {
           user_id: userId,
           ritual_date: today,
+          session_period: period,
           completed_practice_ids: newCompletedIds,
         };
 
@@ -223,10 +249,10 @@ serve(async (req) => {
             ? 'partial'
             : 'skipped';
 
-        // 5. Upsert in ONE call
+        // 5. Upsert in ONE call — now keyed on (user_id, ritual_date, session_period)
         const { data, error } = await supabase
           .from('daily_ritual_completions')
-          .upsert(updateData, { onConflict: 'user_id,ritual_date' })
+          .upsert(updateData, { onConflict: 'user_id,ritual_date,session_period' })
           .select()
           .single();
 
@@ -235,7 +261,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
+        console.log(`[daily-rituals] COMPLETE_PRACTICE success: ${practiceId}, period=${period}, status=${updateData.completion_status}, completed=${completedCount}/${totalRecommended}`);
 
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -244,12 +270,19 @@ serve(async (req) => {
 
       case 'DELETE_TODAY_RITUAL': {
         const today = new Date().toISOString().split('T')[0];
+        const deletePeriod = body.sessionPeriod;
         
-        const { error } = await supabase
+        let deleteQuery = supabase
           .from('daily_ritual_completions')
           .delete()
           .eq('user_id', userId)
           .eq('ritual_date', today);
+        
+        if (deletePeriod) {
+          deleteQuery = deleteQuery.eq('session_period', deletePeriod);
+        }
+        
+        const { error } = await deleteQuery;
 
         if (error) {
           console.error('[daily-rituals] DELETE_TODAY_RITUAL error:', error);
