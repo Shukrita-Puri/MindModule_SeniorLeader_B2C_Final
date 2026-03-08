@@ -215,8 +215,8 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       if (targetPath === '/onboarding/results' && !data?.signup_step_at) {
         return '/onboarding/signup-step';
       }
-      // Gate: payment requires results
-      if (targetPath === '/onboarding/payment' && !data?.results_at) {
+      // Gate: payment requires results — but allow if user already completed onboarding
+      if (targetPath === '/onboarding/payment' && !data?.results_at && !data?.completed_at) {
         return await getResumeRoute();
       }
       // Gate: context-connection requires payment (or skip)
