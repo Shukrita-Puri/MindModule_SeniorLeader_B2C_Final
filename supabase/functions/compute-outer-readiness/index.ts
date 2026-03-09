@@ -19,18 +19,115 @@ interface OuterReadinessResult {
   watchFor: string;
   driver: ThemeDriver;
   dataSources: string[];
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
 }
 
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
   innerReadinessScore: number;
-  calendarLoad: CalendarLevel | null;
-  calendarPressure: CalendarLevel | null;
-  archetype: string | null;
+  calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
+  calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
+  archetype?: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+}
+
+// ==================== SERVER-SIDE CALENDAR METRICS ====================
+interface CalendarMetricsResult {
+  load: CalendarLevel;
+  pressure: CalendarLevel;
+  eventCount: number;
+  state: 'active' | 'connected_no_events' | 'not_connected';
+}
+
+function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
+  const now = new Date();
+  const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+  const upcoming = events.filter(e => {
+    const start = new Date(e.start_time);
+    return start >= now && start <= fourHoursLater;
+  });
+
+  // Load
+  const count = upcoming.length;
+  let load: CalendarLevel = 'low';
+  if (count >= 5) load = 'high';
+  else if (count >= 3) load = 'medium';
+
+  // Pressure
+  let totalPressure = 0;
+  for (const event of upcoming) {
+    let p = 0;
+    if (event.is_organizer) p += 2;
+    const att = event.attendees_count || 0;
+    if (att > 5) p += 2; else if (att > 2) p += 1;
+    const start = new Date(event.start_time);
+    const end = new Date(event.end_time);
+    const dur = (end.getTime() - start.getTime()) / 60000;
+    if (dur > 60) p += 2; else if (dur >= 30) p += 1;
+    if (!event.is_recurring) p += 1;
+    const hr = start.getHours();
+    if ((hr >= 9 && hr < 12) || (hr >= 14 && hr < 16)) p += 1;
+    totalPressure += p;
+  }
+
+  // Back-to-back
+  const sorted = [...upcoming].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+    if (gap < 15) totalPressure += 1;
+  }
+
+  let pressure: CalendarLevel = 'low';
+  if (totalPressure >= 6) pressure = 'high';
+  else if (totalPressure >= 3) pressure = 'medium';
+
+  return { load, pressure };
+}
+
+async function getServerCalendarMetrics(
+  db: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<CalendarMetricsResult> {
+  // Check connection
+  const { data: conn } = await db
+    .from('calendar_connections')
+    .select('is_active, last_sync')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!conn) {
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
+  }
+
+  // Fetch today's events (next 4 hours for metrics, but also check if ANY events exist for today)
+  const now = new Date();
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const { data: events, error } = await db
+    .from('calendar_events')
+    .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
+    .eq('user_id', userId)
+    .gte('start_time', now.toISOString())
+    .lte('start_time', endOfDay.toISOString());
+
+  if (error) {
+    console.error('[compute-outer-readiness] Calendar events query error:', error);
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
+  }
+
+  const eventList = events || [];
+  if (eventList.length === 0) {
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
+  }
+
+  const metrics = computeCalendarMetrics(eventList);
+  return { ...metrics, eventCount: eventList.length, state: 'active' };
 }
 
 // ==================== TIME HELPERS ====================
