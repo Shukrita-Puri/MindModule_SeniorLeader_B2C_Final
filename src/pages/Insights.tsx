@@ -12,7 +12,7 @@ import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
-import LeadershipPatternsCard from '@/components/insights/LeadershipPatternsCard';
+import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 // BaselineReferenceCard removed — archetype data now lives in LeadershipPatternsCard
