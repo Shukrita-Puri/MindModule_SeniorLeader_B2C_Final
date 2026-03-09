@@ -923,11 +923,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       .gte('start_time', now.toISOString())
       .lte('start_time', in48h.toISOString());
     rawCalendarEvents = events || [];
+    console.log(`[generate-mastery-plan] calendar_events query: ${rawCalendarEvents.length} events in next 48h for user ${req.userId}`);
     req.calendarEvents = rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
       isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring
     }));
-  } catch { req.calendarEvents = []; }
+  } catch (calErr) {
+    console.error('[generate-mastery-plan] calendar_events query failed:', calErr);
+    req.calendarEvents = [];
+  }
 
   // Compute calendarLoad and calendarPressure server-side from fetched events
   try {
