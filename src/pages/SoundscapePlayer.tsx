@@ -272,38 +272,16 @@ const SoundscapePlayer = () => {
 
     // Save practice session and track for insights
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      const userId = DEV_MODE ? DEV_USER.id : user?.id;
+      const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
       
       if (userId && soundscape) {
         // Check if this practice is in today's recommended plan
         const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
         const isRecommendedPractice = todayRecommendedIds.includes(id);
         const shouldTrackRitual = isInQueue || isRecommendedPractice;
-        
-        const session = {
-          user_id: userId,
-          content_id: soundscape.id,
-          content_type: 'soundbath',
-          category: soundscape.category,
-          started_at: new Date(Date.now() - displayDuration * 1000).toISOString(),
-          completed_at: new Date().toISOString(),
-          duration_seconds: displayDuration,
-          completed: true,
-          part_of_ritual: shouldTrackRitual
-        };
 
-        const { data: insertedSession, error } = await supabase
-          .from('practice_sessions')
-          .insert([session])
-          .select()
-          .single();
-
-        if (error) throw error;
-        setSessionId(insertedSession.id);
-
-        // Track to sanctuary_events for Insights page
-        await trackSanctuaryEvent({
+        // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
+        const result = await trackSanctuaryEvent({
           eventType: 'session_complete',
           contentId: soundscape.id,
           contentType: 'soundbath',
@@ -314,8 +292,14 @@ const SoundscapePlayer = () => {
           contextData: {
             timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
             dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-          }
+          },
+          partOfRitual: shouldTrackRitual,
+          metadata: { title: soundscape.title }
         });
+
+        if (result.data?.practiceSessionId) {
+          setSessionId(result.data.practiceSessionId);
+        }
 
         // Update ritual completion if part of recommended plan or queue
         if (shouldTrackRitual) {
