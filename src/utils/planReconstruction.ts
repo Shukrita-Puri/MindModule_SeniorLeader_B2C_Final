@@ -13,8 +13,8 @@ import { sanctuaryContent, type SanctuaryContent } from '@/data/practicesAndSoun
 import { type ModuleRecommendation, type CoachCard } from './performancePlanEngine';
 
 // Background images for Coach cards
-import coachPrepareBackground from '@/assets/vibrant-executive-preparation.png';
-import coachIntegrateBackground from '@/assets/ink-reflection-illustration.png';
+import coachPrepareBackground from '@/assets/shared/vibrant-executive-preparation.png';
+import coachIntegrateBackground from '@/assets/shared/ink-reflection-illustration.png';
 
 /**
  * Create a coach card object for prepare/integrate modules

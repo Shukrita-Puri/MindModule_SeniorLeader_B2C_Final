@@ -1,7 +1,7 @@
 // Centralized thumbnail imports for micro exercises
-import pauseMauve from "@/assets/mindset-pause-mauve.jpg";
-import flowBlue from "@/assets/mindset-flow-blue.jpg";
-import renewalColorful from "@/assets/mindset-renewal-colorful.jpg";
+import pauseMauve from "@/assets/recalibrate/pause/mindset-pause-mauve.jpg";
+import flowBlue from "@/assets/recalibrate/presence/mindset-flow-blue.jpg";
+import renewalColorful from "@/assets/recalibrate/power-up/mindset-renewal-colorful.jpg";
 
 export const getThumbnailByCategory = (category: string): string => {
   switch (category) {

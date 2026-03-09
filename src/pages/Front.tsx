@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield } from "lucide-react";
-import mmLogoCircle from "@/assets/mm-logo-circle.png";
+import mmLogoCircle from "@/assets/brand/mm-logo-circle.png";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";

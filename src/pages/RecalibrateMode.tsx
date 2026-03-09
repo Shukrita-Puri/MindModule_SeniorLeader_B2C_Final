@@ -1,9 +1,9 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import useScrollToTop from "@/hooks/useScrollToTop";
 import FloatingNavigation from "@/components/navigation/FloatingNavigation";
-import architecturalPowerUp from "@/assets/architectural-power-up.jpg";
-import architecturalPause from "@/assets/architectural-pause.jpg";
-import architecturalPresence from "@/assets/architectural-presence.jpg";
+import architecturalPowerUp from "@/assets/recalibrate/power-up/architectural-power-up.jpg";
+import architecturalPause from "@/assets/recalibrate/pause/architectural-pause.jpg";
+import architecturalPresence from "@/assets/recalibrate/presence/architectural-presence.jpg";
 
 const RecalibrateMode = () => {
   const navigate = useNavigate();
