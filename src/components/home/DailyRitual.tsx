@@ -100,7 +100,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
-  const [activeView, setActiveView] = useState<'timeOfDay' | 'preEvent'>('timeOfDay');
+  // activeView removed — JIT handled by JitCarousel component
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
