@@ -649,13 +649,14 @@ function getPatternOverride(
 
 // ==================== DATA SOURCES BUILDER ====================
 function buildDataSources(
-  hasCalendar: boolean,
+  calendarState: 'active' | 'connected_no_events' | 'not_connected',
   archetype: string | null,
   _checkInOutcome: string | null,
 ): string[] {
   const sources: string[] = [];
   sources.push('inner readiness score');
-  if (hasCalendar) sources.push('calendar');
+  if (calendarState === 'active') sources.push('calendar');
+  else if (calendarState === 'connected_no_events') sources.push('calendar (no upcoming events)');
   if (archetype) sources.push('archetype');
   return sources;
 }
