@@ -245,6 +245,10 @@ const SelfMasteryCoach = () => {
 
   const handleQueueComplete = async () => {
     if (isInQueue && flowType) {
+      if (messages.length === 0) {
+        toast.info('Have a conversation with your coach first before marking complete.');
+        return;
+      }
       await markCoachComplete();
     }
     
