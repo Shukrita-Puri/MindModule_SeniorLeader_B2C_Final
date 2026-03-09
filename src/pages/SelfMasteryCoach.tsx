@@ -105,19 +105,31 @@ const SelfMasteryCoach = () => {
       if (messages.length > 0) return;
       
       try {
-        const { data: sessionMessages, error } = await supabase
-          .from('dialogue_messages')
-          .select('sender_type, content, message_index, timestamp')
-          .eq('session_id', locationState.previousSessionId)
-          .order('message_index', { ascending: true });
+        // Use edge function to fetch messages (bypasses RLS)
+        const accessToken = (await import('@/services/authTokenService')).getAuthToken();
+        const token = await accessToken;
+        
+        if (!token) {
+          console.warn('[SelfMasteryCoach] No auth token for session restore');
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('dialogue-data-persist', {
+          headers: { Authorization: `Bearer ${token}` },
+          body: {
+            type: 'fetch_messages',
+            sessionId: locationState.previousSessionId,
+          }
+        });
         
         if (error) {
           console.error('Failed to fetch session messages:', error);
           return;
         }
         
+        const sessionMessages = data?.messages;
         if (sessionMessages && sessionMessages.length > 0) {
-          const restoredMessages = sessionMessages.map(m => ({
+          const restoredMessages = sessionMessages.map((m: any) => ({
             id: crypto.randomUUID(),
             role: m.sender_type as 'user' | 'assistant',
             content: m.content,

@@ -288,62 +288,50 @@ const CoachSplitView = ({
   //  ACTIVE CONVERSATION — single-column chat
   // ════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full min-h-0 relative overflow-hidden">
-      {/* Subtle warm atmospheric background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent" />
-
-      <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-        {/* Top bar — coach identity */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border/30 shrink-0">
-          <CoachAvatar size="sm" />
-          <h2 className="text-sm font-semibold text-foreground leading-tight">Inner Mastery Coach</h2>
-        </div>
-
-        {/* Scrollable message list */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
-          {messages.map((message) => {
-            if (message.role === 'user') {
-              return (
-                <div key={message.id} className="flex items-start justify-end gap-2.5">
-                  <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-stone-100 border border-stone-200 text-foreground text-sm leading-relaxed">
-                    {message.content}
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-semibold text-foreground/70">{firstName.slice(0, 2).toUpperCase()}</span>
-                  </div>
-                </div>
-              );
-            }
-            // Coach message
+    <div className="flex flex-col h-full min-h-0 relative">
+      {/* Scrollable message list — takes ALL available space */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
+        {messages.map((message) => {
+          if (message.role === 'user') {
             return (
-              <div key={message.id} className="flex items-start gap-2.5">
-                <CoachAvatar size="sm" />
-                <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white border border-stone-200">
-                  <CoachMessageContent content={message.content} variant="default" />
+              <div key={message.id} className="flex items-start justify-end gap-2.5">
+                <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-md bg-stone-100 border border-stone-200 text-foreground text-sm leading-relaxed">
+                  {message.content}
+                </div>
+                <div className="w-8 h-8 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-semibold text-foreground/70">{firstName.slice(0, 2).toUpperCase()}</span>
                 </div>
               </div>
             );
-          })}
-
-          {/* Typing indicator */}
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex items-start gap-2.5">
+          }
+          // Coach message
+          return (
+            <div key={message.id} className="flex items-start gap-2.5">
               <CoachAvatar size="sm" />
-              <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-stone-200 flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+              <div className="max-w-[85%] space-y-2 px-4 py-2.5 rounded-2xl rounded-bl-md bg-white border border-stone-200">
+                <CoachMessageContent content={message.content} variant="default" />
               </div>
             </div>
-          )}
+          );
+        })}
 
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Typing indicator */}
+        {isLoading && messages[messages.length - 1]?.role === 'user' && (
+          <div className="flex items-start gap-2.5">
+            <CoachAvatar size="sm" />
+            <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-stone-200 flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
 
-        {/* Input bar */}
-        <InputBar glass={false} {...inputBarProps} />
+        <div ref={messagesEndRef} />
       </div>
+
+      {/* Input bar — pinned to bottom */}
+      <InputBar glass={false} {...inputBarProps} />
     </div>
   );
 };
