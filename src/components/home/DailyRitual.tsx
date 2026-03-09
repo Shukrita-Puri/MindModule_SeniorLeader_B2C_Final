@@ -91,7 +91,11 @@ const isEvening = (): boolean => {
   return hour >= 18;
 };
 
-const DailyRitual = () => {
+interface DailyRitualProps {
+  onPreEventPlanReady?: (plan: PreEventPlan | null) => void;
+}
+
+const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
