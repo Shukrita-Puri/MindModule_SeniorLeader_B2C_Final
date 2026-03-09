@@ -46,7 +46,7 @@ function getTimeOfDay(hour: number): 'morning' | 'afternoon' | 'evening' {
 }
 
 function isLateEvening(hour: number): boolean {
-  return hour >= 21 || hour < 6;
+  return hour >= 21 || hour < 5;
 }
 
 type DayContext = 'weekday' | 'friday' | 'saturday' | 'sunday';

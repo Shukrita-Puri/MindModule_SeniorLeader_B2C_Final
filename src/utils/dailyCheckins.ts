@@ -28,7 +28,7 @@ export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
 
 function getNextWindowName(currentWindow: string): string {
   if (currentWindow === 'morning') return 'afternoon (12pm)';
-  if (currentWindow === 'afternoon') return 'evening (5pm)';
+  if (currentWindow === 'afternoon') return 'evening (6pm)';
   return 'tomorrow morning';
 }
 
