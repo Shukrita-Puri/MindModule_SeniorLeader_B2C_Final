@@ -114,30 +114,27 @@ export default function Stage7ContextConnection() {
     }
 
     setLoading(true);
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error("Authentication required to connect calendar");
-        setLoading(false);
-        return;
-      }
+    console.log("[Stage7] Initiating Auth0 Google Calendar connect redirect…");
 
-      // Redirect to Auth0 authorize endpoint with Google connection + calendar scope.
-      // Auth0 brokers the Google OAuth and handles token exchange securely.
+    try {
+      const redirectUri = `${window.location.origin}/callback`;
+      console.log("[Stage7] redirect_uri:", redirectUri);
+
       await loginWithRedirect({
         authorizationParams: {
           connection: "google-oauth2",
           connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
-          redirect_uri: `${CANONICAL_APP_URL}/callback`,
+          redirect_uri: redirectUri,
         },
         appState: {
           returnTo: "/onboarding/context-connection?calendar_connected=true",
         },
       });
       // Browser will redirect — loading state cleared on unmount
-    } catch (error) {
-      console.error("[Stage7] Error initiating Auth0 Google connect:", error);
-      toast.error("Failed to connect calendar");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("[Stage7] loginWithRedirect failed:", msg);
+      toast.error("Failed to start calendar connection");
       setCalendarEnabled(false);
       setLoading(false);
     }
