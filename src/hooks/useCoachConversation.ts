@@ -228,7 +228,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       // Get Auth0 token for self-mastery-coach
       const coachToken = await getAuthToken();
-      
+
+      const controller = new AbortController();
+      const connectTimeout = window.setTimeout(() => controller.abort(), 25000);
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/self-mastery-coach`, {
         method: 'POST',
         headers: {
@@ -244,6 +247,9 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           sessionId: currentSessionId,
           context, // Pass context to edge function
         }),
+        signal: controller.signal,
+      }).finally(() => {
+        window.clearTimeout(connectTimeout);
       });
 
       if (!response.ok) {

@@ -288,12 +288,12 @@ const CoachSplitView = ({
   //  ACTIVE CONVERSATION — single-column chat
   // ════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full relative overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 relative overflow-hidden">
       {/* Subtle warm atmospheric background */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent" />
 
-      <div className="relative z-10 flex-1 flex flex-col">
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col">
         {/* Top bar — coach identity */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border/30 shrink-0">
           <CoachAvatar size="sm" />
@@ -301,7 +301,7 @@ const CoachSplitView = ({
         </div>
 
         {/* Scrollable message list */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
           {messages.map((message) => {
             if (message.role === 'user') {
               return (
