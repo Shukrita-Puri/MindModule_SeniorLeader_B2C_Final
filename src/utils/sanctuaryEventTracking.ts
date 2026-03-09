@@ -24,6 +24,8 @@ export interface SanctuaryEventData {
     recommendationReason?: string;
   };
   effectivenessRating?: number;
+  partOfRitual?: boolean;
+  metadata?: Record<string, any>;
 }
 
 // Zod schema for input validation
