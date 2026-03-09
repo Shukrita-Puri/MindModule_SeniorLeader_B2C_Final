@@ -1632,6 +1632,107 @@ const triggerHaptic = () => {
   }
 };
 
+// Crisp step card — title + instruction only, secondary content expandable
+const StepCardContent = ({ card }: { card: any }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  const hasSecondary = card.examples?.length || card.guidance || card.reframing || card.closingWisdom || card.question || card.insight;
+
+  return (
+    <div className="flex flex-col items-center text-center space-y-6 py-4">
+      {/* Step label */}
+      <p className="text-white/50 text-xs tracking-[0.25em] uppercase font-medium">
+        Step {card.stepNumber}
+      </p>
+
+      {/* Title — large, commanding action verb */}
+      <h2 className="text-2xl md:text-3xl font-serif font-bold text-white tracking-wide leading-snug px-2">
+        {card.title}
+      </h2>
+
+      {/* Core instruction — the ONE thing to do */}
+      <p className="text-base text-white/85 leading-relaxed max-w-[280px]">
+        {card.instruction}
+      </p>
+
+      {/* Expand toggle for secondary content */}
+      {hasSecondary && (
+        <>
+          <button 
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1.5 text-white/40 text-xs tracking-wider uppercase transition-colors hover:text-white/60 active:scale-95"
+          >
+            {expanded ? 'Less' : 'More'}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+          </button>
+
+          {expanded && (
+            <div className="space-y-4 w-full max-w-[280px] animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Question */}
+              {card.question && (
+                <p className="text-sm text-white/70 italic">{card.question}</p>
+              )}
+
+              {/* Reframing */}
+              {card.reframing && (
+                <div className="text-sm space-x-1">
+                  <span className="text-white/40">{card.reframing.from}</span>
+                  <span className="text-white/30">→</span>
+                  <span className="text-amber-300/80">{card.reframing.to}</span>
+                </div>
+              )}
+
+              {/* Examples */}
+              {card.examples && card.examples.length > 0 && (
+                <div className="space-y-1">
+                  {card.examples.map((ex: string, i: number) => (
+                    <p key={i} className="text-xs text-white/55 text-left">
+                      <span className="text-amber-300/60 mr-1">•</span>{ex}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Guidance */}
+              {card.guidance && (
+                <p className="text-xs text-white/50 leading-relaxed">{card.guidance}</p>
+              )}
+
+              {/* Closing wisdom */}
+              {card.closingWisdom && (
+                <p className="text-sm text-amber-300/80 italic">{card.closingWisdom}</p>
+              )}
+
+              {/* Insight / attribution */}
+              {card.insight && (card.insight.text || card.insight.quote || card.insight.wisdom) && (
+                <div className="pt-2 border-t border-white/10">
+                  {card.insight.text && (
+                    <p className="text-[11px] text-white/40 italic">
+                      {card.insight.text}
+                      {card.insight.source && <span className="text-amber-300/50"> — {card.insight.source}</span>}
+                    </p>
+                  )}
+                  {card.insight.wisdom && (
+                    <p className="text-[11px] text-white/40 italic">
+                      {card.insight.wisdom}
+                      {card.insight.wisdomSource && <span className="text-amber-300/50"> — {card.insight.wisdomSource}</span>}
+                    </p>
+                  )}
+                  {card.insight.quote && (
+                    <p className="text-[11px] text-white/40 italic mt-1">
+                      "{card.insight.quote.text}" <span className="text-amber-300/50">— {card.insight.quote.author}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 const MicroPracticePlayerCards = () => {
   const { id } = useParams();
   const navigate = useNavigate();
