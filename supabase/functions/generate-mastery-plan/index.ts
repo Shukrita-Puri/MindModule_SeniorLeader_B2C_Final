@@ -1486,11 +1486,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
     // Only timezoneOffset comes from client — all other signals are server-derived
     const planReq: PlanRequest = {
       userId,
-      timezoneOffset: body.timezoneOffset ?? new Date().getTimezoneOffset(),
+      timezoneOffset: clientTimezoneOffset,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
