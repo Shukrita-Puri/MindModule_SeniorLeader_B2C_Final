@@ -28,7 +28,7 @@ interface ConnectionStatus {
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
-async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean }> {
+async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean; skipped?: boolean; error?: string }> {
   try {
     const token = await getAuthToken();
     if (!token) {
@@ -47,19 +47,19 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
         body: JSON.stringify({ provider }),
       }
     );
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('[ConnectedData] sync-calendar failed:', res.status, errText);
-      return { success: false };
-    }
+    // sync-calendar now always returns 200 with structured body
     const data = await res.json();
     if (data.reconnectRequired) {
       console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
-      return { success: false, reconnectRequired: true };
+      return { success: false, reconnectRequired: true, error: data.error };
+    }
+    if (data.skipped) {
+      console.warn('[ConnectedData] Sync skipped:', data.reason);
+      return { success: false, skipped: true, error: data.error };
     }
     if (data.success === false) {
-      console.warn('[ConnectedData] Sync returned failure:', data.error);
-      return { success: false };
+      console.warn('[ConnectedData] Sync failure:', data.error);
+      return { success: false, error: data.error };
     }
     console.log('[ConnectedData] ✅ Sync complete:', data.eventCount, 'events');
     return { success: true, eventCount: data.eventCount };
