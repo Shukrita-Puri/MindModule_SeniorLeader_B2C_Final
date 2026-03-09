@@ -9,7 +9,7 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
-import { CANONICAL_APP_URL } from "@/utils/authRedirect";
+
 
 /**
  * Opens a URL using Capacitor's in-app browser on native, or window.location.href on web.
