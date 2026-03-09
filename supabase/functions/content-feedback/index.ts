@@ -99,6 +99,36 @@ serve(async (req) => {
         });
       }
 
+      case 'UPDATE_SESSION_RATING': {
+        if (!reqSessionId || !rating) {
+          return new Response(JSON.stringify({ error: 'Missing sessionId or rating' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { error } = await supabase
+          .from('practice_sessions')
+          .update({
+            effectiveness_rating: rating,
+            metadata: {
+              qualitative_rating: qualitativeRating,
+              feedback_text: feedbackText
+            }
+          })
+          .eq('id', reqSessionId)
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('[content-feedback] UPDATE_SESSION_RATING error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
           status: 400,
