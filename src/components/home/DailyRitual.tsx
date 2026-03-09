@@ -503,8 +503,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
       {/* Calendar pills removed — JIT context now shown in JitCarousel */}
 
-      {/* Progress tracker - only for time-of-day */}
-      {activeView === 'timeOfDay' && (
+      {/* Progress tracker */}
+      {(
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
