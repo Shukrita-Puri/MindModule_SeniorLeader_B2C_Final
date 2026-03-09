@@ -65,14 +65,6 @@ export async function logPracticeCompletion({
 }
 
 /**
- * Check if a practice is part of today's recommended plan
- */
-export function isRecommendedPractice(practiceId: string): boolean {
-  // practiceQueue is the source of truth for ritual membership
-  return isInRitualQueue(practiceId);
-}
-
-/**
  * Check if practice is in an active ritual queue
  */
 export function isInRitualQueue(practiceId: string): boolean {

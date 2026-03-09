@@ -126,11 +126,9 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     if (err instanceof z.ZodError) {
       return { success: false, error: new Error('Invalid event data') };
     }
-    // Add to offline queue for network errors (with user ID if available)
-    const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data?.user?.id;
+    // Add to offline queue for network errors (no userId needed — EF handles auth)
     const eventWithUser: SanctuaryEventData = {
       ...event,
-      userId,
       timestamp: event.timestamp || new Date().toISOString()
     };
     offlineQueue.push(eventWithUser);
