@@ -501,28 +501,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         <PostEventReflection />
       </div>
 
-      {/* Calendar context pills - only show if there are calendar events */}
-      {plan?.calendarPills && plan.calendarPills.length > 0 && (
-        <div className="px-4 max-w-lg mx-auto">
-          <div className="flex items-center gap-2 flex-wrap">
-            {plan.calendarPills.map((pill, i) => (
-              <button
-                key={pill.eventId || i}
-                onClick={() => setActiveView(activeView === 'preEvent' ? 'timeOfDay' : 'preEvent')}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                  activeView === 'preEvent'
-                    ? "bg-taupe text-white shadow-sm"
-                    : "bg-background border border-black/[0.08] text-foreground hover:bg-muted/50"
-                )}
-              >
-                <span>{pill.label}</span>
-                <span className="text-[10px] opacity-70">· {pill.timePill}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Calendar pills removed — JIT context now shown in JitCarousel */}
 
       {/* Progress tracker - only for time-of-day */}
       {activeView === 'timeOfDay' && (
