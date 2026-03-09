@@ -895,8 +895,7 @@ const GuidedPracticePlayer = () => {
   const handlePracticeComplete = async () => {
     // Save practice session to database
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = DEV_MODE ? DEV_USER.id : user?.id;
+      const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
       
       if (userId && practice) {
         const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
@@ -907,25 +906,8 @@ const GuidedPracticePlayer = () => {
         const isRecommendedPractice = todayRecommendedIds.includes(id);
         const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
         
-        const { data, error } = await supabase.from('practice_sessions').insert({
-          user_id: userId,
-          content_id: practice.id,
-          content_type: 'guided',
-          category: practice.category,
-          duration_seconds: practice.totalDuration,
-          started_at: new Date(Date.now() - practice.totalDuration * 1000).toISOString(),
-          completed_at: new Date().toISOString(),
-          completed: true,
-          part_of_ritual: shouldTrackRitual,
-          metadata: { title: practice.title }
-        }).select('id').single();
-        
-        if (data) {
-          setSessionId(data.id);
-        }
-        
-        // Track to sanctuary_events for Insights page
-        await trackSanctuaryEvent({
+        // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
+        const result = await trackSanctuaryEvent({
           eventType: 'session_complete',
           contentId: practice.id,
           contentType: 'guided-practice',
@@ -936,8 +918,14 @@ const GuidedPracticePlayer = () => {
           contextData: {
             timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
             dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-          }
+          },
+          partOfRitual: shouldTrackRitual,
+          metadata: { title: practice.title }
         });
+
+        if (result.data?.practiceSessionId) {
+          setSessionId(result.data.practiceSessionId);
+        }
         
         // Update ritual completion if part of recommended plan or queue
         if (shouldTrackRitual) {
