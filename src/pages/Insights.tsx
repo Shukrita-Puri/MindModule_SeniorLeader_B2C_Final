@@ -394,9 +394,11 @@ const Insights = () => {
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
     setPatternsLoading(true);
+    setLoading(true);
     try {
-      // DEV_MODE: Direct database query
+      // DEV_MODE: Direct database queries + DEV data fetch
       if (DEV_MODE) {
+        await fetchInsightsDataDev();
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
@@ -424,22 +426,48 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
+        setLoading(false);
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use consolidated edge function response
       const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { days: 7 }
       });
       if (!error && data?.data) {
-        setStatePatterns(data.data);
+        const d = data.data;
+        setStatePatterns(d);
+        
+        // Populate weekData, checkInStreak, profileBaseline, practiceData from consolidated response
+        if (d.weekData) setWeekData(d.weekData);
+        if (typeof d.checkInStreak === 'number') setCheckInStreak(d.checkInStreak);
+        if (d.profileBaseline) setProfileBaseline(d.profileBaseline);
+        if (d.practiceData) setPracticeData(d.practiceData);
+        
+        // Populate checkInsWithTimestamp for Energy Rhythm (if weekData has the data)
+        if (d.weekData) {
+          setCheckInsWithTimestamp(d.weekData.filter((wd: DayData) => wd.checkInCompleted).map((wd: DayData) => ({
+            date: wd.date,
+            outcome: wd.outcome,
+            timestamp: wd.date + 'T09:00:00Z' // approximate for rhythm card
+          })));
+        }
+        
+        console.log('[Insights] Consolidated data loaded:', {
+          checkInCount: d.checkInCount,
+          weekDataLength: d.weekData?.length,
+          streak: d.checkInStreak,
+          hasProfile: !!d.profileBaseline,
+          practiceCount: d.practiceData?.length
+        });
       }
     } catch (error) {
       console.error('Error fetching state patterns:', error);
     } finally {
       setPatternsLoading(false);
+      setLoading(false);
     }
   };
 
