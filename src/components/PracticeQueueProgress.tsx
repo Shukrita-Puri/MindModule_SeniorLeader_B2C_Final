@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { SkipForward, Pause, CheckCircle2 } from 'lucide-react';
+import { SkipForward, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QueuedPractice {
