@@ -500,7 +500,7 @@ function getTimeOfDay(timezoneOffset: number): 'morning' | 'afternoon' | 'evenin
   const utcHours = now.getUTCHours();
   const localHour = (utcHours - (timezoneOffset / 60) + 24) % 24;
   if (localHour >= 5 && localHour < 12) return 'morning';
-  if (localHour >= 12 && localHour < 17) return 'afternoon';
+  if (localHour >= 12 && localHour < 18) return 'afternoon';
   return 'evening';
 }
 
@@ -1093,7 +1093,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ userId: req.userId }),
+      body: JSON.stringify({ userId: req.userId, timezoneOffset: req.timezoneOffset }),
     });
     if (outerRes.ok) {
       const outerData = await outerRes.json();
@@ -1471,22 +1471,25 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting — 30s cooldown per user
+    // Rate limiting — 30s cooldown per user+period
     const now = Date.now();
-    const cached = rateLimitMap.get(userId);
+    const body = await req.json();
+    const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
+    const currentPeriod = getTimeOfDay(clientTimezoneOffset);
+    const cacheKey = `${userId}:${currentPeriod}`;
+    const cached = rateLimitMap.get(cacheKey);
     if (cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
-      console.log(`[generate-mastery-plan] Rate limited: ${userId} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      console.log(`[generate-mastery-plan] Rate limited: ${userId} period=${currentPeriod} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       });
     }
 
-    const body = await req.json();
     // Only timezoneOffset comes from client — all other signals are server-derived
     const planReq: PlanRequest = {
       userId,
-      timezoneOffset: body.timezoneOffset ?? new Date().getTimezoneOffset(),
+      timezoneOffset: clientTimezoneOffset,
       // All below are populated server-side inside generateMasteryPlan
       innerReadinessTier: 'managing',
       innerReadinessScore: 50,
@@ -1515,7 +1518,7 @@ Deno.serve(async (req) => {
     const plan = await generateMasteryPlan(planReq, supabaseClient);
 
     // Cache response for rate limiting
-    rateLimitMap.set(userId, { lastCall: now, cachedResponse: plan });
+    rateLimitMap.set(cacheKey, { lastCall: now, cachedResponse: plan });
     // Evict stale entries (prevent memory leak)
     if (rateLimitMap.size > 500) {
       for (const [key, val] of rateLimitMap) {

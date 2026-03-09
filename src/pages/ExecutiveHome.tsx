@@ -51,8 +51,8 @@ const ExecutiveHome = () => {
   // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return `Morning, ${firstName}`;
-    if (hour < 18) return `Afternoon, ${firstName}`;
+    if (hour >= 5 && hour < 12) return `Morning, ${firstName}`;
+    if (hour >= 12 && hour < 18) return `Afternoon, ${firstName}`;
     return `Evening, ${firstName}`;
   };
   
@@ -72,7 +72,7 @@ const ExecutiveHome = () => {
   const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'morning';
-    if (hour >= 12 && hour < 17) return 'afternoon';
+    if (hour >= 12 && hour < 18) return 'afternoon';
     return 'evening';
   };
   

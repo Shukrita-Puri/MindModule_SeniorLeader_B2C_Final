@@ -22,13 +22,13 @@ export interface CheckinData {
 export function getCurrentTimeWindow(): 'morning' | 'afternoon' | 'evening' {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 12 && hour < 18) return 'afternoon';
   return 'evening';
 }
 
 function getNextWindowName(currentWindow: string): string {
   if (currentWindow === 'morning') return 'afternoon (12pm)';
-  if (currentWindow === 'afternoon') return 'evening (5pm)';
+  if (currentWindow === 'afternoon') return 'evening (6pm)';
   return 'tomorrow morning';
 }
 
