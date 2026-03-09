@@ -2305,9 +2305,8 @@ const MicroPracticePlayerCards = () => {
           {isLastCard && (
             <Button
               onClick={handleComplete}
-              className="w-full h-14 text-base font-semibold rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-black"
+              className="w-full h-14 text-base font-semibold rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-white"
             >
-              <CheckCircle2 className="w-5 h-5 mr-2" />
               Mark Complete
             </Button>
           )}
