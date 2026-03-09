@@ -1750,10 +1750,8 @@ const MicroPracticePlayerCards = () => {
       const isPartOfRitual =
         practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
-      // Check if this practice is in today's recommended plan
-      const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
-      const isRecommendedPractice = todayRecommendedIds.includes(id);
-      const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
+      // Queue is source of truth for ritual membership
+      const shouldTrackRitual = isPartOfRitual;
 
       // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
       const result = await trackSanctuaryEvent({
