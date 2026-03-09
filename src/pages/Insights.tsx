@@ -201,48 +201,17 @@ const Insights = () => {
     }
   }, [user?.id]);
 
-  const fetchProfileBaseline = async () => {
-    if (!user?.id) return;
-    try {
-      // Use DEV_USER.id in DEV_MODE
-      const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('mental_fitness_baseline, component_scores, user_archetype, onboarding_completed_at, growth_priority')
-        .eq('id', effectiveUserId)
-        .maybeSingle();
-      
-      console.log('[Insights] Profile baseline fetched:', profile);
-      
-      if (profile) {
-        setProfileBaseline({
-          mentalFitnessBaseline: profile.mental_fitness_baseline || undefined,
-          componentScores: profile.component_scores as Record<string, number> | undefined,
-          userArchetype: profile.user_archetype || undefined,
-          onboardingCompletedAt: profile.onboarding_completed_at || undefined,
-          growthPriority: profile.growth_priority || undefined
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile baseline:', error);
-    }
-  };
-
-  const fetchInsightsData = async () => {
-    if (!user?.id) return;
+  // DEV_MODE only: direct database queries for insights data
+  const fetchInsightsDataDev = async () => {
+    if (!user?.id || !DEV_MODE) return;
     setLoading(true);
-
-    // Use DEV_USER.id in DEV_MODE for consistency
-    const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
+    const effectiveUserId = DEV_USER.id;
 
     try {
-      // Get last 7 days
       const today = new Date();
       const sevenDaysAgo = subDays(today, 6);
 
-      // Fetch check-ins for last 7 days WITH timestamp for Energy Rhythm
-      const { data: checkIns, error: checkInsError } = await supabase
+      const { data: checkIns } = await supabase
         .from('daily_checkins')
         .select('checkin_date, energy_balance, outcome, created_at')
         .eq('user_id', effectiveUserId)
@@ -250,13 +219,6 @@ const Insights = () => {
         .lte('checkin_date', format(today, 'yyyy-MM-dd'))
         .order('checkin_date', { ascending: true });
 
-      if (checkInsError) {
-        console.error('[Insights] Error fetching check-ins:', checkInsError);
-      } else {
-        console.log('[Insights] Fetched check-ins:', checkIns?.length || 0, 'for user:', effectiveUserId);
-      }
-
-      // Store check-ins with timestamps for Energy Rhythm
       if (checkIns) {
         setCheckInsWithTimestamp(checkIns.map(c => ({
           date: c.checkin_date,
@@ -265,7 +227,6 @@ const Insights = () => {
         })));
       }
 
-      // Fetch practice sessions for last 7 days
       const { data: practices } = await supabase
         .from('sanctuary_events')
         .select('category, duration_seconds, event_type, created_at')
@@ -274,13 +235,11 @@ const Insights = () => {
         .gte('created_at', startOfDay(sevenDaysAgo).toISOString())
         .lte('created_at', endOfDay(today).toISOString());
 
-      // Build week data
       const days: DayData[] = [];
       for (let i = 6; i >= 0; i--) {
         const date = subDays(today, i);
         const dateStr = format(date, 'yyyy-MM-dd');
         const checkIn = checkIns?.find(c => c.checkin_date === dateStr);
-        
         days.push({
           date: dateStr,
           dayLabel: format(date, 'EEE'),
@@ -291,19 +250,14 @@ const Insights = () => {
       }
       setWeekData(days);
 
-      // Calculate check-in streak
       let streak = 0;
       for (let i = 0; i < days.length; i++) {
         const dayIndex = days.length - 1 - i;
-        if (days[dayIndex].checkInCompleted) {
-          streak++;
-        } else {
-          break;
-        }
+        if (days[dayIndex].checkInCompleted) streak++;
+        else break;
       }
       setCheckInStreak(streak);
 
-      // Aggregate practice data by category
       const categoryMap = new Map<string, { count: number; totalDuration: number }>();
       practices?.forEach(p => {
         const category = p.category || 'unknown';
@@ -313,7 +267,6 @@ const Insights = () => {
           totalDuration: existing.totalDuration + (p.duration_seconds || 0)
         });
       });
-
       const practiceStats: PracticeData[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
         category: category.charAt(0).toUpperCase() + category.slice(1).replace('-', ' '),
         count: data.count,
@@ -321,8 +274,23 @@ const Insights = () => {
       }));
       setPracticeData(practiceStats);
 
+      // Fetch profile baseline for DEV_MODE
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mental_fitness_baseline, component_scores, user_archetype, onboarding_completed_at, growth_priority')
+        .eq('id', effectiveUserId)
+        .maybeSingle();
+      if (profile) {
+        setProfileBaseline({
+          mentalFitnessBaseline: profile.mental_fitness_baseline || undefined,
+          componentScores: profile.component_scores as Record<string, number> | undefined,
+          userArchetype: profile.user_archetype || undefined,
+          onboardingCompletedAt: profile.onboarding_completed_at || undefined,
+          growthPriority: profile.growth_priority || undefined
+        });
+      }
     } catch (error) {
-      console.error('Error fetching insights:', error);
+      console.error('Error fetching DEV_MODE insights:', error);
     } finally {
       setLoading(false);
     }
