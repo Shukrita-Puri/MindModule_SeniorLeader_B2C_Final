@@ -2105,11 +2105,11 @@ const MicroPracticePlayerCards = () => {
                     </div>
                   )}
 
-                  {card.type === "step" && card.minimal && (
+                  {card.type === "step" && (
                     <div className="flex flex-col items-center text-center space-y-6 py-4">
-                      {/* Step + duration line */}
+                      {/* Step label */}
                       <p className="text-white/60 text-sm tracking-widest uppercase">
-                        ① Step {card.stepNumber}
+                        Step {card.stepNumber}
                       </p>
 
                       {/* Title as large action verb */}
@@ -2117,137 +2117,66 @@ const MicroPracticePlayerCards = () => {
                         {card.title}
                       </h2>
 
-                      {/* Core instruction — 1-2 sentences max */}
+                      {/* Core instruction — concise directive */}
                       <p className="text-base md:text-lg text-white/85 leading-relaxed max-w-xs">
                         {card.instruction}
                       </p>
-                    </div>
-                  )}
 
-                  {card.type === "step" && !card.minimal && (
-                    <div className="flex flex-col items-center text-center space-y-5">
-                      {/* Step number badge */}
-                      <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                        <span className="text-amber-300 font-semibold text-lg">
-                          {card.stepNumber}
-                        </span>
-                      </div>
-
-                      {/* Title */}
-                      <div className="space-y-1">
-                        <h2 className="text-xl md:text-2xl font-serif text-white">
-                          {card.title}
-                        </h2>
-                      </div>
-
-                      {/* Instruction */}
-                      <p className="text-base text-white/90 leading-relaxed">
-                        {card.instruction}
-                      </p>
-
-                      {/* Question - NOT in box, with Q prefix */}
+                      {/* Question — clean inline if present */}
                       {card.question && (
-                        <p className="text-base font-medium text-white">
-                          <span className="text-amber-300 font-bold mr-2">Q</span>
+                        <p className="text-base text-white/90 italic max-w-xs">
                           {card.question}
                         </p>
                       )}
 
-                      {/* Reframing pattern - NO box, plain text */}
+                      {/* Reframing — compact from/to */}
                       {card.reframing && (
-                        <div className="w-full space-y-2">
-                          <p className="text-xs text-amber-300 uppercase tracking-wide">Reframing the Pattern</p>
-                          <div className="flex flex-col gap-1 text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="text-white/60">From:</span>
-                              <span className="text-white/80">{card.reframing.from}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-amber-300 font-medium">To:</span>
-                              <span className="text-white">{card.reframing.to}</span>
-                            </div>
-                          </div>
+                        <div className="space-y-1 text-sm">
+                          <span className="text-white/50">{card.reframing.from}</span>
+                          <span className="text-white/40 mx-2">→</span>
+                          <span className="text-amber-300 font-medium">{card.reframing.to}</span>
                         </div>
                       )}
 
-                      {/* Examples - bullets only */}
-                      {card.examples && (
-                        <div className="space-y-2 w-full">
+                      {/* Examples — minimal bullets */}
+                      {card.examples && card.examples.length > 0 && (
+                        <div className="space-y-1.5 w-full max-w-xs">
                           {card.examples.map((example, i) => (
-                            <div
-                              key={i}
-                              className="flex items-start gap-2 text-sm text-white/80 text-left"
-                            >
-                              <span className="text-amber-300 mt-1">•</span>
-                              <span>{example}</span>
-                            </div>
+                            <p key={i} className="text-sm text-white/70 text-left">
+                              <span className="text-amber-300 mr-1.5">•</span>{example}
+                            </p>
                           ))}
                         </div>
                       )}
 
-                      {/* Guidance (if exists) */}
+                      {/* Guidance — secondary text */}
                       {card.guidance && (
-                        <p className="text-sm text-white/80 font-medium">
+                        <p className="text-sm text-white/60 max-w-xs leading-relaxed">
                           {card.guidance}
                         </p>
                       )}
 
-                      {/* Reframing note - Big, Bold, Italic, Accent color */}
-                      {card.reframingNote && (
-                        <p className="text-lg text-amber-300 font-bold italic">
-                          {card.reframingNote}
-                        </p>
-                      )}
-
-                      {/* Closing wisdom - Big, Bold, Italic, Accent color */}
+                      {/* Closing wisdom — accent italic */}
                       {card.closingWisdom && (
-                        <p className="text-lg text-amber-300 font-bold italic text-center pt-2">
+                        <p className="text-base text-amber-300 font-bold italic pt-2 max-w-xs">
                           {card.closingWisdom}
                         </p>
                       )}
 
-                      {/* Insight box - for research/wisdom only */}
-                      {card.insight && (
-                        <div className="w-full mt-auto pt-4">
-                          <div className="px-4 py-4 bg-white/10 rounded-xl border border-white/20 space-y-3 text-left">
-                            <div className="flex items-start gap-2">
-                              <Sparkles className="w-4 h-4 text-amber-300 mt-0.5 flex-shrink-0" />
-                              <div className="space-y-1">
-                                {card.insight.text && (
-                                  <p className="text-sm text-white/90">
-                                    {card.insight.text}
-                                  </p>
-                                )}
-                                {card.insight.source && (
-                                  <p className="text-xs text-amber-300">
-                                    — {card.insight.source}
-                                  </p>
-                                )}
-                                {card.insight.wisdom && (
-                                  <div className="space-y-1">
-                                    <p className="text-sm text-white/60 italic">
-                                      {card.insight.wisdom}
-                                    </p>
-                                    {card.insight.wisdomSource && (
-                                      <p className="text-xs text-amber-300">
-                                        — {card.insight.wisdomSource}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                                {card.insight.quote && (
-                                  <div className="pt-2 border-t border-white/20">
-                                    <p className="text-sm text-white/80 italic">
-                                      "{card.insight.quote.text}"
-                                    </p>
-                                    <p className="text-xs text-amber-300 mt-1">
-                                      — {card.insight.quote.author}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                      {/* Insight — compact single-line attribution */}
+                      {card.insight && (card.insight.text || card.insight.quote) && (
+                        <div className="w-full max-w-xs pt-3 border-t border-white/15">
+                          {card.insight.text && (
+                            <p className="text-xs text-white/50 italic">
+                              {card.insight.text}
+                              {card.insight.source && <span className="text-amber-300/70"> — {card.insight.source}</span>}
+                            </p>
+                          )}
+                          {card.insight.quote && (
+                            <p className="text-xs text-white/50 italic mt-1">
+                              "{card.insight.quote.text}" <span className="text-amber-300/70">— {card.insight.quote.author}</span>
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
