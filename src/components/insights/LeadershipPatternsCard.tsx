@@ -43,6 +43,7 @@ interface LeadershipPatternsData {
 
 interface LeadershipPatternsCardProps {
   userId?: string;
+  prefetchedData?: LeadershipPatternsData | null;
 }
 
 const trendIcons = {
