@@ -165,12 +165,12 @@ const ConnectedData = () => {
 
       // Trigger initial sync
       const syncResult = await triggerCalendarSync(provider);
-      if (syncResult.success) {
+      if (syncResult.reconnectRequired) {
+        toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
-        // Invalidate outer-readiness so it re-fetches with fresh calendar data
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-        // Refresh status to show last_sync
         await fetchStatus();
       } else {
         toast.error('Calendar connected but initial sync failed. Try "Sync Now".');
