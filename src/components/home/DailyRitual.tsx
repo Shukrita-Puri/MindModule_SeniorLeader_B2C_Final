@@ -85,10 +85,10 @@ interface MasteryPlanResponse {
   };
 }
 
-// Check if current time is evening (after 5pm)
+// Check if current time is evening (after 6pm)
 const isEvening = (): boolean => {
   const hour = new Date().getHours();
-  return hour >= 17;
+  return hour >= 18;
 };
 
 const DailyRitual = () => {
@@ -114,7 +114,7 @@ const DailyRitual = () => {
   // Navigate to Coach with context
   const navigateToCoach = (prompt: string, flowType: string, eventTitle?: string) => {
     navigate('/coach', {
-      state: { initialPrompt: prompt, flowType, eventTitle }
+      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true }
     });
   };
 

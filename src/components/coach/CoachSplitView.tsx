@@ -239,7 +239,7 @@ const CoachSplitView = ({
     return (
       <div className="flex flex-col h-full relative overflow-hidden">
         {/* Dark gradient background — no full-bleed photo */}
-        <div className="absolute inset-0 bg-gradient-to-b from-stone-50 via-white to-stone-100" />
+        <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
         <div className="relative z-10 flex-1 flex flex-col">
           {/* Title + tagline + avatar + greeting — single centered block */}
