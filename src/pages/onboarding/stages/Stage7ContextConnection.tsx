@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -9,10 +8,27 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
+import { getSanitisedAuth0Domain, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 
+/** Generate a cryptographically random string for OAuth state/nonce. */
+function generateRandomString(length = 48): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, length);
+}
+
+/** Environment-safe redirect URI for Auth0 callback. */
+function getCalendarRedirectUri(): string {
+  if (isNativeApp()) {
+    return "app.mindmodule.me://callback";
+  }
+  return `${window.location.origin}/callback`;
+}
 
 /**
- * Opens a URL using Capacitor's in-app browser on native, or window.location.href on web.
+ * Opens a URL using Capacitor's in-app browser on native, or window.location on web.
  */
 async function openOAuthUrl(url: string) {
   if (isNativeApp()) {
@@ -89,8 +105,10 @@ export default function Stage7ContextConnection() {
 
       verifyConnection().then((status) => {
         if (status.connected) {
+          console.log("[Stage7] ✅ Calendar verified connected after callback");
           toast.success("Google Calendar connected successfully");
         } else {
+          console.warn("[Stage7] ⚠️ Calendar not verified after callback");
           toast.error("Calendar connection could not be verified");
         }
       });
@@ -122,7 +140,7 @@ export default function Stage7ContextConnection() {
       const state = generateRandomString(48);
       const nonce = generateRandomString(32);
 
-      // Persist state so the callback handler can route back here
+      // Persist return-to so the callback handler routes back here
       sessionStorage.setItem("auth0_calendar_state", state);
       sessionStorage.setItem(
         "auth0_return_to",
