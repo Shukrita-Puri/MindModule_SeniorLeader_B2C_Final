@@ -122,8 +122,9 @@ export default function Stage7ContextConnection() {
       await loginWithRedirect({
         authorizationParams: {
           connection: "google-oauth2",
-          connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
-          scope: "openid profile email offline_access",
+          scope: "openid profile email offline_access https://www.googleapis.com/auth/calendar.readonly",
+          prompt: "consent",
+          access_type: "offline",
           redirect_uri: redirectUri,
         },
         appState: { returnTo },
