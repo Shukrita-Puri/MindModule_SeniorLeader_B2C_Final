@@ -31,7 +31,7 @@ async function encryptJson(payload: unknown, keyB64: string): Promise<{ ivB64: s
     throw new Error("TOKEN_ENC_KEY_B64 must be 32 bytes (base64-encoded).");
   }
 
-  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV for GCM
+  const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, ["encrypt"]);
 
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
@@ -42,7 +42,7 @@ async function encryptJson(payload: unknown, keyB64: string): Promise<{ ivB64: s
   return { ivB64: bytesToB64(iv), ctB64: bytesToB64(ciphertext) };
 }
 
-// Verify Auth0 token using the userinfo endpoint (works with both JWT and opaque tokens)
+// Verify Auth0 token using the userinfo endpoint
 async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Missing or invalid Authorization header');
@@ -55,33 +55,22 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
     throw new Error('Auth0 domain not configured');
   }
 
-  try {
-    // Use Auth0's userinfo endpoint to verify token and get user info
-    // This works with both JWT tokens (RS256/HS256) and opaque access tokens
-    const userInfoResponse = await fetch(`https://${auth0Domain}/userinfo`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+  const userInfoResponse = await fetch(`https://${auth0Domain}/userinfo`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
 
-    if (!userInfoResponse.ok) {
-      const errorText = await userInfoResponse.text();
-      console.error('[calendar-auth] Userinfo error:', userInfoResponse.status, errorText);
-      throw new Error('Token verification failed');
-    }
-
-    const userInfo = await userInfoResponse.json();
-    console.log('[calendar-auth] Token verified via userinfo, user:', userInfo.sub);
-    
-    if (!userInfo.sub) {
-      throw new Error('Token missing sub claim');
-    }
-
-    return userInfo.sub;
-  } catch (error) {
-    console.error('[calendar-auth] Token verification failed:', error);
-    throw new Error('Invalid or expired token');
+  if (!userInfoResponse.ok) {
+    const errorText = await userInfoResponse.text();
+    console.error('[calendar-auth] Userinfo error:', userInfoResponse.status, errorText);
+    throw new Error('Token verification failed');
   }
+
+  const userInfo = await userInfoResponse.json();
+  if (!userInfo.sub) {
+    throw new Error('Token missing sub claim');
+  }
+
+  return userInfo.sub;
 }
 
 serve(async (req) => {
@@ -93,20 +82,15 @@ serve(async (req) => {
     const url = new URL(req.url);
     const authHeader = req.headers.get('Authorization');
     
-    // Use service role client for database operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // For callback action (OAuth redirect), read from URL params - this is the only unauthenticated path
     let action = url.searchParams.get('action');
     let provider = url.searchParams.get('provider');
-    
-    // State contains the userId for OAuth callback (passed during OAuth initiation)
     const stateUserId = url.searchParams.get('state');
     
-    // For connect/disconnect actions, verify JWT and extract user ID
     let authenticatedUserId: string | null = null;
     let body: Record<string, unknown> = {};
     
@@ -115,56 +99,51 @@ serve(async (req) => {
       action = body.action as string || action;
       provider = body.provider as string || provider;
       
-      // Try to authenticate via Auth0 token
       if (authHeader && authHeader.startsWith('Bearer ')) {
         try {
           authenticatedUserId = await verifyAuth0Token(authHeader);
           console.log('[calendar-auth] Authenticated user:', authenticatedUserId);
         } catch (error) {
-          console.warn('[calendar-auth] Token auth failed, checking for userId in body:', error);
+          console.warn('[calendar-auth] Token auth failed:', error);
         }
       }
       
-      // For the 'connect' action (URL generation only), allow userId from body as fallback
-      // This enables dev mode and scenarios where Auth0 isn't available (e.g., Capacitor native)
       if (!authenticatedUserId && body.userId && body.action === 'connect') {
         authenticatedUserId = body.userId as string;
         console.log('[calendar-auth] Using userId from body for connect:', authenticatedUserId);
       }
     }
     
-    // Default provider to Google when not explicitly provided
     provider = provider || 'google';
 
-    console.log('[calendar-auth] Action:', action, 'Provider:', provider, 'AuthenticatedUserId:', authenticatedUserId);
+    console.log('[calendar-auth] Action:', action, 'Provider:', provider);
 
-    // Validate input
     const providerSchema = z.enum(['google', 'outlook']);
     const validProvider = providerSchema.parse(provider);
 
     if (action === 'connect') {
-      // Step 1: Generate OAuth URL - requires a user ID (from token or body)
       if (!authenticatedUserId) {
         return new Response(
-          JSON.stringify({ error: 'User ID required for connect action. Provide Authorization header or userId in body.' }),
+          JSON.stringify({ error: 'User ID required for connect action.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       let authUrl = '';
-      let clientId = '';
       const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
       if (validProvider === 'google') {
-        clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
+        const clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') ?? '';
         if (!clientId) {
           throw new Error('Google Calendar Client ID not configured');
         }
         const scope = 'https://www.googleapis.com/auth/calendar.readonly';
-        // Encode userId + redirectPath in state for OAuth callback
-        const statePayload = JSON.stringify({ userId: authenticatedUserId, redirectPath: (body.redirectPath as string) || '/onboarding/context-connection' });
+        const statePayload = JSON.stringify({
+          userId: authenticatedUserId,
+          redirectPath: (body.redirectPath as string) || '/onboarding/context-connection',
+        });
         const encodedState = btoa(statePayload);
-        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(encodedState)}`;
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&include_granted_scopes=true&state=${encodeURIComponent(encodedState)}`;
         console.log('[calendar-auth] Generated OAuth URL for user:', authenticatedUserId);
       }
 
@@ -173,14 +152,13 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'callback' || url.searchParams.get('code')) {
-      // Step 2: Handle OAuth callback - userId + redirectPath come from state parameter
+      // OAuth callback
       const code = url.searchParams.get('code');
       
       if (!code || !stateUserId) {
         throw new Error('Missing code or state');
       }
 
-      // Parse state: try new JSON format first, fall back to plain userId for backward compat
       let validUserId: string;
       let redirectPath = '/onboarding/context-connection';
       
@@ -188,14 +166,10 @@ serve(async (req) => {
         const stateData = JSON.parse(atob(decodeURIComponent(stateUserId)));
         validUserId = stateData.userId;
         redirectPath = stateData.redirectPath || redirectPath;
-        console.log('[calendar-auth] Parsed state JSON, userId:', validUserId, 'redirectPath:', redirectPath);
       } catch {
-        // Backward compatibility: state is just the userId string
         validUserId = decodeURIComponent(stateUserId);
-        console.log('[calendar-auth] Legacy state format, userId:', validUserId);
       }
 
-      // Validate the userId - accepts Auth0 format, UUID, or dev-mode IDs (alphanumeric with hyphens)
       const auth0IdPattern = /^[a-zA-Z0-9-]+\|[a-zA-Z0-9]+$/;
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const devIdPattern = /^[a-zA-Z0-9-]{3,50}$/;
@@ -207,7 +181,7 @@ serve(async (req) => {
       let tokenUrl = '';
       let clientId = '';
       let clientSecret = '';
-      let redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
+      const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-auth`;
 
       if (validProvider === 'google') {
         tokenUrl = 'https://oauth2.googleapis.com/token';
@@ -229,36 +203,35 @@ serve(async (req) => {
       });
 
       const tokens = await tokenResponse.json();
-      console.log('[calendar-auth] Token response status:', tokenResponse.status);
-      console.log('[calendar-auth] Tokens received:', tokens.access_token ? 'yes' : 'no', 'error:', tokens.error);
+      console.log('[calendar-auth] Token exchange status:', tokenResponse.status, 'has_access:', !!tokens.access_token, 'has_refresh:', !!tokens.refresh_token);
 
       if (!tokens.access_token) {
-        console.error('[calendar-auth] Token error details:', JSON.stringify(tokens));
-        // Surface the actual Google error rather than a generic message
-        const errorDetail = tokens.error === 'invalid_client' 
-          ? 'Google OAuth client credentials are invalid. Check GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET secrets.'
-          : (tokens.error_description || tokens.error || 'Failed to get access token');
-        throw new Error(errorDetail);
+        console.error('[calendar-auth] Token error:', JSON.stringify(tokens));
+        const frontendUrl = Deno.env.get('FRONTEND_URL');
+        const errorRedirect = `${frontendUrl}${redirectPath}?calendar_error=token_exchange_failed`;
+        return new Response(null, { status: 302, headers: { 'Location': errorRedirect } });
       }
 
-      // Get encryption key from environment
+      // CRITICAL: Warn if no refresh token (Google only sends it on first consent)
+      if (!tokens.refresh_token) {
+        console.warn('[calendar-auth] ⚠️ no_refresh_token_on_connect — user may have previously consented without revocation. Token refresh will not be possible.');
+      }
+
       const encKeyB64 = Deno.env.get('TOKEN_ENC_KEY_B64');
       if (!encKeyB64) {
-        console.error('[calendar-auth] TOKEN_ENC_KEY_B64 not configured');
         throw new Error('Encryption key not configured');
       }
 
-      // Encrypt tokens using AES-256-GCM
-      const tokenPayload = {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token || null,
-        expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      };
-
       const { ivB64, ctB64: accessTokenEnc } = await encryptJson({ token: tokens.access_token }, encKeyB64);
-      const { ctB64: refreshTokenEnc } = await encryptJson({ token: tokens.refresh_token || null }, encKeyB64);
+      
+      // Only encrypt refresh token if present
+      let refreshTokenEnc: string | null = null;
+      if (tokens.refresh_token) {
+        const { ctB64 } = await encryptJson({ token: tokens.refresh_token }, encKeyB64);
+        refreshTokenEnc = ctB64;
+      }
 
-      console.log('[calendar-auth] Tokens encrypted successfully');
+      const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
       // Check if connection exists
       const { data: existingConn } = await supabaseAdmin
@@ -269,7 +242,6 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingConn) {
-        // Update existing connection with encrypted tokens
         const { error: updateError } = await supabaseAdmin
           .from('calendar_connections')
           .update({
@@ -277,19 +249,15 @@ serve(async (req) => {
             refresh_token_enc: refreshTokenEnc,
             token_iv: ivB64,
             token_enc_v: 1,
-            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+            token_expires_at: tokenExpiresAt,
             is_active: true,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingConn.id);
 
-        if (updateError) {
-          console.error('[calendar-auth] Error updating calendar connection:', updateError);
-          throw new Error(updateError.message || 'Failed to update calendar connection');
-        }
-        console.log('[calendar-auth] Updated existing connection:', existingConn.id);
+        if (updateError) throw new Error(updateError.message || 'Failed to update connection');
+        console.log('[calendar-auth] Updated connection:', existingConn.id);
       } else {
-        // Create new connection with encrypted tokens
         const { error: insertError } = await supabaseAdmin
           .from('calendar_connections')
           .insert({
@@ -299,35 +267,21 @@ serve(async (req) => {
             refresh_token_enc: refreshTokenEnc,
             token_iv: ivB64,
             token_enc_v: 1,
-            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+            token_expires_at: tokenExpiresAt,
             is_active: true,
           });
 
-        if (insertError) {
-          console.error('[calendar-auth] Error creating calendar connection:', insertError);
-          throw new Error(insertError.message || 'Failed to create calendar connection');
-        }
+        if (insertError) throw new Error(insertError.message || 'Failed to create connection');
         console.log('[calendar-auth] Created new connection for user:', validUserId);
       }
 
-      console.log('[calendar-auth] Calendar connection stored with encrypted tokens for user:', validUserId);
-
       const frontendUrl = Deno.env.get('FRONTEND_URL');
-      if (!frontendUrl) {
-        throw new Error('FRONTEND_URL not configured');
-      }
+      if (!frontendUrl) throw new Error('FRONTEND_URL not configured');
       const redirectUrl = `${frontendUrl}${redirectPath}?calendar_connected=true`;
       
-      console.log('[calendar-auth] Redirecting to:', redirectUrl);
+      return new Response(null, { status: 302, headers: { 'Location': redirectUrl } });
 
-      return new Response(null, {
-        status: 302,
-        headers: { 
-          'Location': redirectUrl,
-        },
-      });
     } else if (action === 'disconnect') {
-      // Disconnect calendar - requires authenticated user
       if (!authenticatedUserId) {
         return new Response(
           JSON.stringify({ error: 'Authentication required for disconnect action' }),
@@ -335,15 +289,22 @@ serve(async (req) => {
         );
       }
       
+      // Idempotent disconnect: set inactive + clear token fields
       const { error } = await supabaseAdmin
         .from('calendar_connections')
-        .update({ is_active: false })
+        .update({
+          is_active: false,
+          access_token_enc: null,
+          refresh_token_enc: null,
+          token_iv: null,
+          token_expires_at: null,
+        })
         .eq('user_id', authenticatedUserId)
         .eq('provider', validProvider);
 
       if (error) throw error;
       
-      console.log('[calendar-auth] Disconnected calendar for authenticated user:', authenticatedUserId);
+      console.log('[calendar-auth] Disconnected + cleared tokens for user:', authenticatedUserId);
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -354,11 +315,6 @@ serve(async (req) => {
     throw new Error('Invalid action');
   } catch (error) {
     console.error('[calendar-auth] Error:', error);
-    console.error('[calendar-auth] Error type:', typeof error);
-    if (error instanceof Error) {
-      console.error('[calendar-auth] Error message:', error.message);
-      console.error('[calendar-auth] Error stack:', error.stack);
-    }
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

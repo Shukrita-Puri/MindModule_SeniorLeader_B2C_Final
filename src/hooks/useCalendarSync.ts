@@ -131,10 +131,16 @@ export function useCalendarSync(): UseCalendarSyncResult {
         return;
       }
 
-      // Handle reconnect-required response (returned as 200 with success: false)
+      // Handle reconnect-required or skipped responses
       if (data?.reconnectRequired) {
         console.warn('[useCalendarSync] Calendar reconnect required:', data.reason);
         setError(data.error || 'Calendar session expired. Please reconnect your calendar.');
+        return;
+      }
+
+      if (data?.skipped) {
+        console.warn('[useCalendarSync] Sync skipped:', data.reason);
+        setError(data.error || 'Calendar is disconnected.');
         return;
       }
 
@@ -220,8 +226,9 @@ export function useCalendarSync(): UseCalendarSyncResult {
             // Background sync - don't await
             supabase.functions.invoke('sync-calendar', {
               body: { provider: connData.provider, userId: user.id }
-            }).then(() => {
-              if (!cancelled) fetchEvents();
+            }).then((res) => {
+              if (!cancelled && res.data?.success === true) fetchEvents();
+              if (res.data?.reconnectRequired) console.warn('[useCalendarSync] Background sync: reconnect required');
             }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
           }
         } else {

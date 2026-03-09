@@ -28,7 +28,7 @@ interface ConnectionStatus {
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
-async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean }> {
+async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean; skipped?: boolean; error?: string }> {
   try {
     const token = await getAuthToken();
     if (!token) {
@@ -47,19 +47,19 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
         body: JSON.stringify({ provider }),
       }
     );
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('[ConnectedData] sync-calendar failed:', res.status, errText);
-      return { success: false };
-    }
+    // sync-calendar now always returns 200 with structured body
     const data = await res.json();
     if (data.reconnectRequired) {
       console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
-      return { success: false, reconnectRequired: true };
+      return { success: false, reconnectRequired: true, error: data.error };
+    }
+    if (data.skipped) {
+      console.warn('[ConnectedData] Sync skipped:', data.reason);
+      return { success: false, skipped: true, error: data.error };
     }
     if (data.success === false) {
-      console.warn('[ConnectedData] Sync returned failure:', data.error);
-      return { success: false };
+      console.warn('[ConnectedData] Sync failure:', data.error);
+      return { success: false, error: data.error };
     }
     console.log('[ConnectedData] ✅ Sync complete:', data.eventCount, 'events');
     return { success: true, eventCount: data.eventCount };
@@ -167,6 +167,8 @@ const ConnectedData = () => {
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (syncResult.skipped) {
+        toast.error(syncResult.error || 'Calendar is disconnected. Reconnect to sync.');
       } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
@@ -256,6 +258,8 @@ const ConnectedData = () => {
     const result = await triggerCalendarSync(provider);
     if (result.reconnectRequired) {
       toast.error('Calendar session expired. Please reconnect your calendar.');
+    } else if (result.skipped) {
+      toast.error(result.error || 'Calendar is disconnected. Reconnect to sync.');
     } else if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
