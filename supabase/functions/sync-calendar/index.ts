@@ -172,8 +172,8 @@ serve(async (req) => {
       } catch (decryptError) {
         console.error('[sync-calendar] Failed to decrypt access token:', decryptError);
         return new Response(
-          JSON.stringify({ error: 'Failed to decrypt calendar token. Please reconnect your calendar.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, reconnectRequired: true, reason: 'decrypt_failed', error: 'Calendar session expired. Please reconnect your calendar.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -181,8 +181,8 @@ serve(async (req) => {
     if (!accessToken) {
       console.error('[sync-calendar] No encrypted access token found');
       return new Response(
-        JSON.stringify({ error: 'Calendar access token not found. Please reconnect your calendar.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, reconnectRequired: true, reason: 'no_access_token', error: 'Calendar session expired. Please reconnect your calendar.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -208,8 +208,8 @@ serve(async (req) => {
       if (!refreshToken) {
         console.error('[sync-calendar] No refresh token available');
         return new Response(
-          JSON.stringify({ error: 'Token expired and no refresh token available. Please reconnect your calendar.' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, reconnectRequired: true, reason: 'no_refresh_token', error: 'Calendar session expired. Please reconnect your calendar.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -234,8 +234,8 @@ serve(async (req) => {
         if (refreshData.error) {
           console.error('[sync-calendar] Token refresh failed:', refreshData.error);
           return new Response(
-            JSON.stringify({ error: 'Failed to refresh token. Please reconnect your calendar.' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, reconnectRequired: true, reason: 'refresh_failed', error: 'Calendar session expired. Please reconnect your calendar.' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 

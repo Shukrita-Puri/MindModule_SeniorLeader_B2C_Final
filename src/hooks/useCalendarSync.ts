@@ -131,6 +131,19 @@ export function useCalendarSync(): UseCalendarSyncResult {
         return;
       }
 
+      // Handle reconnect-required response (returned as 200 with success: false)
+      if (data?.reconnectRequired) {
+        console.warn('[useCalendarSync] Calendar reconnect required:', data.reason);
+        setError(data.error || 'Calendar session expired. Please reconnect your calendar.');
+        return;
+      }
+
+      if (data?.success === false) {
+        console.warn('[useCalendarSync] Sync returned failure:', data.error);
+        setError(data.error || 'Sync failed');
+        return;
+      }
+
       console.log('[useCalendarSync] Sync complete:', data);
       setLastSync(new Date());
       

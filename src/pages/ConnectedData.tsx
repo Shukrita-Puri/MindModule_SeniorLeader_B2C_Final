@@ -28,7 +28,7 @@ interface ConnectionStatus {
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
-async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number }> {
+async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean }> {
   try {
     const token = await getAuthToken();
     if (!token) {
@@ -53,6 +53,14 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
       return { success: false };
     }
     const data = await res.json();
+    if (data.reconnectRequired) {
+      console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
+      return { success: false, reconnectRequired: true };
+    }
+    if (data.success === false) {
+      console.warn('[ConnectedData] Sync returned failure:', data.error);
+      return { success: false };
+    }
     console.log('[ConnectedData] ✅ Sync complete:', data.eventCount, 'events');
     return { success: true, eventCount: data.eventCount };
   } catch (err) {
@@ -157,12 +165,12 @@ const ConnectedData = () => {
 
       // Trigger initial sync
       const syncResult = await triggerCalendarSync(provider);
-      if (syncResult.success) {
+      if (syncResult.reconnectRequired) {
+        toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
-        // Invalidate outer-readiness so it re-fetches with fresh calendar data
         queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
-        // Refresh status to show last_sync
         await fetchStatus();
       } else {
         toast.error('Calendar connected but initial sync failed. Try "Sync Now".');
@@ -246,7 +254,9 @@ const ConnectedData = () => {
     const provider = status?.calendar.provider || 'google';
     setSyncing(true);
     const result = await triggerCalendarSync(provider);
-    if (result.success) {
+    if (result.reconnectRequired) {
+      toast.error('Calendar session expired. Please reconnect your calendar.');
+    } else if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
