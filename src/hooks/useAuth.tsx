@@ -321,6 +321,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             trial_ends_at: profile.trial_ends_at || null,
             subscription_current_period_end: profile.subscription_current_period_end || null,
             subscription_canceled_at: profile.subscription_canceled_at || null,
+            subscription_cancel_at: profile.subscription_cancel_at || null,
           };
           setAppUser(mappedUser);
         } else {
