@@ -342,7 +342,7 @@ const SelfMasteryCoach = () => {
   };
 
   return (
-    <div className="relative flex flex-col h-screen bg-background animate-page-enter overflow-hidden">
+    <div className="relative flex flex-col h-screen bg-stone-50 dark:bg-background animate-page-enter overflow-hidden">
       {/* Header Navigation */}
       <FloatingNavigation 
         showCoachButton={false}
