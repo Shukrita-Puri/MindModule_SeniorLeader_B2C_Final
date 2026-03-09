@@ -131,10 +131,16 @@ export function useCalendarSync(): UseCalendarSyncResult {
         return;
       }
 
-      // Handle reconnect-required response (returned as 200 with success: false)
+      // Handle reconnect-required or skipped responses
       if (data?.reconnectRequired) {
         console.warn('[useCalendarSync] Calendar reconnect required:', data.reason);
         setError(data.error || 'Calendar session expired. Please reconnect your calendar.');
+        return;
+      }
+
+      if (data?.skipped) {
+        console.warn('[useCalendarSync] Sync skipped:', data.reason);
+        setError(data.error || 'Calendar is disconnected.');
         return;
       }
 
