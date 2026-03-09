@@ -285,9 +285,15 @@ const SelfMasteryCoach = () => {
     }
   }, [flowType, hasInitialized, messages.length]);
 
+  // Persist sessionId immediately so ProtocolCard can read it even before messages arrive
+  useEffect(() => {
+    if (sessionId) {
+      sessionStorage.setItem('coachSessionId', sessionId);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     if (sessionId && messages.length > 0) {
-      sessionStorage.setItem('coachSessionId', sessionId);
       sessionStorage.setItem('coachSessionMessages', JSON.stringify(messages));
     }
   }, [sessionId, messages]);
