@@ -254,7 +254,9 @@ const ConnectedData = () => {
     const provider = status?.calendar.provider || 'google';
     setSyncing(true);
     const result = await triggerCalendarSync(provider);
-    if (result.success) {
+    if (result.reconnectRequired) {
+      toast.error('Calendar session expired. Please reconnect your calendar.');
+    } else if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });

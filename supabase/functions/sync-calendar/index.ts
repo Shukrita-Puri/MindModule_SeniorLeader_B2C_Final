@@ -234,8 +234,8 @@ serve(async (req) => {
         if (refreshData.error) {
           console.error('[sync-calendar] Token refresh failed:', refreshData.error);
           return new Response(
-            JSON.stringify({ error: 'Failed to refresh token. Please reconnect your calendar.' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, reconnectRequired: true, reason: 'refresh_failed', error: 'Calendar session expired. Please reconnect your calendar.' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 

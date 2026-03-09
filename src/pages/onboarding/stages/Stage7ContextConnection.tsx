@@ -134,9 +134,15 @@ export default function Stage7ContextConnection() {
               );
               if (syncRes.ok) {
                 const syncData = await syncRes.json();
-                console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
-                // Invalidate outer-readiness cache so brief uses fresh calendar data
-                queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+                if (syncData.reconnectRequired) {
+                  console.warn("[Stage7] ⚠️ Calendar reconnect required:", syncData.reason);
+                  toast.error("Calendar session expired. Please reconnect your calendar.");
+                } else if (syncData.success !== false) {
+                  console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
+                  queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+                } else {
+                  console.warn("[Stage7] ⚠️ Sync returned failure:", syncData.error);
+                }
               } else {
                 console.warn("[Stage7] ⚠️ Initial sync failed:", syncRes.status);
               }
