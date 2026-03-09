@@ -477,9 +477,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     );
   }
 
-  const activeModules = activeView === 'preEvent' && plan?.preEventPlan
-    ? plan.preEventPlan.modules
-    : plan?.timeOfDayPlan?.modules || [];
+  const activeModules = plan?.timeOfDayPlan?.modules || [];
 
   if (activeModules.length === 0 && !loading) {
     return (
