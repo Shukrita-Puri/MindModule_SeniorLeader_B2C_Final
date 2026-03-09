@@ -48,6 +48,9 @@ const sourceLabels: Record<string, string> = {
   checkins: 'Check-ins'
 };
 
+const truncateTheme = (text: string, maxLen = 18): string =>
+  text.length > maxLen ? text.slice(0, maxLen - 1) + '…' : text;
+
 const InnerWorldBubbles = ({ 
   items, 
   relationships = [],
@@ -65,46 +68,82 @@ const InnerWorldBubbles = ({
     return [...items].sort((a, b) => b.weight - a.weight).slice(0, 8);
   }, [items]);
 
-  // SVG viewBox — compact enough that nodes render large within the card
+  // SVG viewBox — taller to prevent overlap
   const svgWidth = 420;
-  const svgHeight = 380;
-  const centerX = svgWidth / 2;
+  const svgHeight = 480;
 
-  // Node positioning — spread across full width with vertical cascade
+  // Layout slots spread wider with more vertical room
+  const layoutSlots = useMemo(() => [
+    { xFrac: 0.50, yFrac: 0.05 },
+    { xFrac: 0.15, yFrac: 0.20 },
+    { xFrac: 0.80, yFrac: 0.22 },
+    { xFrac: 0.10, yFrac: 0.42 },
+    { xFrac: 0.70, yFrac: 0.40 },
+    { xFrac: 0.40, yFrac: 0.58 },
+    { xFrac: 0.85, yFrac: 0.62 },
+    { xFrac: 0.22, yFrac: 0.80 },
+  ], []);
+
+  // Node positioning with collision detection for labels
   const nodePositions = useMemo(() => {
     const count = sortedItems.length;
     if (count === 0) return [];
 
-    const padX = 15;
-    const padY = 20;
+    const padX = 20;
+    const padY = 25;
     const usableW = svgWidth - padX * 2;
     const usableH = svgHeight - padY * 2;
+    const avgCharW = 7.5;
 
-    // Pre-defined positions that spread across the full canvas
-    const layoutSlots = [
-      { xFrac: 0.55, yFrac: 0.08 }, // top center-right (heaviest)
-      { xFrac: 0.20, yFrac: 0.24 }, // upper-left
-      { xFrac: 0.78, yFrac: 0.28 }, // upper-right
-      { xFrac: 0.12, yFrac: 0.48 }, // mid-left
-      { xFrac: 0.65, yFrac: 0.48 }, // mid-right
-      { xFrac: 0.38, yFrac: 0.65 }, // lower-center
-      { xFrac: 0.82, yFrac: 0.70 }, // lower-right
-      { xFrac: 0.25, yFrac: 0.88 }, // bottom-left
-    ];
-
-    return sortedItems.map((item, i) => {
+    // Initial positions
+    const positions = sortedItems.map((item, i) => {
       const nodeR = 6 + item.weight * 10;
       const slot = layoutSlots[i] || { xFrac: 0.5, yFrac: 0.5 };
-      
       const jX = ((i * 17) % 13) - 6;
       const jY = ((i * 11) % 9) - 4;
-      
       const x = Math.max(padX + nodeR, Math.min(svgWidth - padX - nodeR, padX + usableW * slot.xFrac + jX));
       const y = Math.max(padY + nodeR, Math.min(svgHeight - padY - nodeR, padY + usableH * slot.yFrac + jY));
+      const fontSize = Math.round(13 + item.weight * 4);
+      const labelRight = x < svgWidth * 0.55;
+      const labelX = labelRight ? x + nodeR + 10 : x - nodeR - 10;
+      const labelW = truncateTheme(item.theme).length * avgCharW;
+      const labelH = fontSize + 16; // theme + entry count line
 
-      return { x, y, radius: nodeR };
+      return { x, y, radius: nodeR, fontSize, labelRight, labelX, labelW, labelH };
     });
-  }, [sortedItems, svgWidth, svgHeight]);
+
+    // Collision detection — nudge overlapping labels vertically
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        const a = positions[i];
+        const b = positions[j];
+
+        // Compute label bounding boxes (approximate)
+        const aLeft = a.labelRight ? a.labelX : a.labelX - a.labelW;
+        const aRight = a.labelRight ? a.labelX + a.labelW : a.labelX;
+        const aTop = a.y - a.fontSize;
+        const aBottom = a.y + a.labelH - a.fontSize;
+
+        const bLeft = b.labelRight ? b.labelX : b.labelX - b.labelW;
+        const bRight = b.labelRight ? b.labelX + b.labelW : b.labelX;
+        const bTop = b.y - b.fontSize;
+        const bBottom = b.y + b.labelH - b.fontSize;
+
+        const hOverlap = aLeft < bRight && aRight > bLeft;
+        const vOverlap = aTop < bBottom && aBottom > bTop;
+
+        if (hOverlap && vOverlap) {
+          const nudge = aBottom - bTop + 8;
+          positions[j] = {
+            ...positions[j],
+            y: Math.min(svgHeight - padY - positions[j].radius, positions[j].y + nudge)
+          };
+        }
+      }
+    }
+
+    return positions;
+  }, [sortedItems, svgWidth, svgHeight, layoutSlots]);
 
   // Connection paths
   const connectionPaths = useMemo(() => {
@@ -182,7 +221,7 @@ const InnerWorldBubbles = ({
 
   return (
     <div className="w-full">
-      {/* SVG Node-and-Line Graph — centered, responsive */}
+      {/* SVG Node-and-Line Graph */}
       <svg 
         width="100%" 
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -205,14 +244,12 @@ const InnerWorldBubbles = ({
               strokeOpacity={0.18 + conn.strength * 0.22}
               strokeLinecap="round"
             />
-            {/* Wider invisible hit area for hover */}
             <path
               d={conn.path}
               fill="none"
               stroke="transparent"
               strokeWidth={14}
             />
-            {/* Hover label */}
             {hoveredLine === conn.key && (
               <g>
                 <rect
@@ -246,11 +283,8 @@ const InnerWorldBubbles = ({
         {sortedItems.map((item, index) => {
           const pos = nodePositions[index];
           if (!pos) return null;
-          const fontSize = Math.round(13 + (item.weight * 4));
-          // Labels go right by default; left if node is in right 45% of canvas
-          const labelRight = pos.x < svgWidth * 0.55;
-          const labelX = labelRight ? pos.x + pos.radius + 10 : pos.x - pos.radius - 10;
-          const anchor = labelRight ? 'start' : 'end';
+          const anchor = pos.labelRight ? 'start' : 'end';
+          const displayTheme = truncateTheme(item.theme);
 
           return (
             <g 
@@ -258,7 +292,6 @@ const InnerWorldBubbles = ({
               onClick={() => handleNodeClick(item)}
               className="cursor-pointer"
             >
-              {/* Node circle */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
@@ -268,24 +301,22 @@ const InnerWorldBubbles = ({
                 className="transition-all duration-300 hover:fill-opacity-80"
                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
               />
-              {/* Theme label — beside node */}
               <text
-                x={labelX}
+                x={pos.labelX}
                 y={pos.y - 2}
                 textAnchor={anchor}
                 dominantBaseline="auto"
                 fill="hsl(var(--foreground))"
-                fontSize={fontSize}
+                fontSize={pos.fontSize}
                 fontWeight="600"
                 letterSpacing="-0.01em"
                 className="pointer-events-none select-none"
               >
-                {item.theme}
+                {displayTheme}
               </text>
-              {/* Entry count — below label */}
               <text
-                x={labelX}
-                y={pos.y + fontSize}
+                x={pos.labelX}
+                y={pos.y + pos.fontSize}
                 textAnchor={anchor}
                 dominantBaseline="auto"
                 fill="hsl(var(--muted-foreground))"
@@ -312,7 +343,6 @@ const InnerWorldBubbles = ({
             </button>
             
             <div className="space-y-5">
-              {/* Header */}
               <div>
                 <h4 className="font-semibold text-foreground text-lg">{selectedItem.theme}</h4>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -325,7 +355,6 @@ const InnerWorldBubbles = ({
                 )}
               </div>
 
-              {/* What this theme reveals */}
               {loadingSummary ? (
                 <div className="space-y-3">
                   <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What this theme reveals</h5>
@@ -344,7 +373,6 @@ const InnerWorldBubbles = ({
                 </div>
               ) : null}
 
-              {/* Where it shows up most */}
               <div className="space-y-2">
                 <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Where it shows up most</h5>
                 <div className="flex flex-wrap gap-2">
@@ -359,7 +387,6 @@ const InnerWorldBubbles = ({
                 </div>
               </div>
 
-              {/* Connected to */}
               {nodeSummary?.connectedThemes && nodeSummary.connectedThemes.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Connected to</h5>
@@ -375,7 +402,6 @@ const InnerWorldBubbles = ({
                 </div>
               )}
               
-              {/* Explore with coach */}
               <button
                 onClick={() => {
                   closeModal();
@@ -396,7 +422,6 @@ const InnerWorldBubbles = ({
         </div>,
         document.body
       )}
-
     </div>
   );
 };

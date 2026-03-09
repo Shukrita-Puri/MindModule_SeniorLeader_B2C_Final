@@ -100,7 +100,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
   const [plan, setPlan] = useState<MasteryPlanResponse | null>(null);
-  const [activeView, setActiveView] = useState<'timeOfDay' | 'preEvent'>('timeOfDay');
+  // activeView removed — JIT handled by JitCarousel component
   const [loading, setLoading] = useState(true);
   const [completedPracticeIds, setCompletedPracticeIds] = useState<string[]>([]);
   const [noCheckinForWindow, setNoCheckinForWindow] = useState(false);
@@ -341,9 +341,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const navigateToPractice = async (module: PlanModule) => {
-    const modules = activeView === 'preEvent' && plan?.preEventPlan
-      ? plan.preEventPlan.modules
-      : plan?.timeOfDayPlan?.modules || [];
+    const modules = plan?.timeOfDayPlan?.modules || [];
 
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
       id: m.contentId, title: m.title, contentType: m.contentType, category: m.contentType === 'coach' ? 'coach' : 'pause', duration: m.duration
@@ -400,9 +398,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const handleStartRitual = async () => {
-    const modules = activeView === 'preEvent' && plan?.preEventPlan
-      ? plan.preEventPlan.modules
-      : plan?.timeOfDayPlan?.modules || [];
+    const modules = plan?.timeOfDayPlan?.modules || [];
     if (modules.length === 0) return;
 
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
@@ -477,9 +473,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     );
   }
 
-  const activeModules = activeView === 'preEvent' && plan?.preEventPlan
-    ? plan.preEventPlan.modules
-    : plan?.timeOfDayPlan?.modules || [];
+  const activeModules = plan?.timeOfDayPlan?.modules || [];
 
   if (activeModules.length === 0 && !loading) {
     return (
@@ -503,31 +497,10 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         <PostEventReflection />
       </div>
 
-      {/* Calendar context pills - only show if there are calendar events */}
-      {plan?.calendarPills && plan.calendarPills.length > 0 && (
-        <div className="px-4 max-w-lg mx-auto">
-          <div className="flex items-center gap-2 flex-wrap">
-            {plan.calendarPills.map((pill, i) => (
-              <button
-                key={pill.eventId || i}
-                onClick={() => setActiveView(activeView === 'preEvent' ? 'timeOfDay' : 'preEvent')}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                  activeView === 'preEvent'
-                    ? "bg-taupe text-white shadow-sm"
-                    : "bg-background border border-black/[0.08] text-foreground hover:bg-muted/50"
-                )}
-              >
-                <span>{pill.label}</span>
-                <span className="text-[10px] opacity-70">· {pill.timePill}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Calendar pills removed — JIT context now shown in JitCarousel */}
 
-      {/* Progress tracker - only for time-of-day */}
-      {activeView === 'timeOfDay' && (
+      {/* Progress tracker */}
+      {(
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -558,14 +531,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         </div>
       )}
 
-      {/* Pre-event context if active */}
-      {activeView === 'preEvent' && plan?.preEventPlan && (
-        <div className="px-4 max-w-lg mx-auto">
-          <p className="text-sm text-muted-foreground italic font-body leading-relaxed">
-            {plan.preEventPlan.contextDescription}
-          </p>
-        </div>
-      )}
+      {/* Pre-event context removed — handled by JitCarousel */}
 
       {/* Carousel */}
       <div className="relative w-full">
@@ -652,16 +618,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
       {/* Action Button */}
       <div className="px-4 max-w-lg mx-auto">
-        {activeView === 'preEvent' && plan?.preEventPlan ? (
-          <Button
-            onClick={handleStartRitual}
-            className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
-          >
-            Start Pack
-          </Button>
-        ) : (
-          <>
-            {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
+        {(ritualStatus.status === 'not_started' || (ritualStatus.status === 'partial' && ritualStatus.completedCount === 0)) && (
               <Button onClick={handleStartRitual} className="w-full h-12 text-base font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
                 Start Your Mastery Plan
               </Button>
@@ -682,8 +639,6 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                 </Button>
               </div>
             )}
-          </>
-        )}
       </div>
     </div>
   );
