@@ -74,6 +74,7 @@ function invalidatePlanCache() {
 }
 
 const ConnectedData = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
