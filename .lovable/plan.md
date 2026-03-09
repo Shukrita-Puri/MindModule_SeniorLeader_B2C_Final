@@ -1,53 +1,58 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+## Full Audit: Proactive Mastery Plan Player — Completion Tracking
 
-Two files need text-only changes (no layout or UI modifications).
+### Bugs Found
 
----
+#### BUG 1 (Critical): `todayRecommendedIds` Dead Reference — Completions Not Tracked
 
-### File 1: `src/pages/Front.tsx`
+`DailyRitual.tsx` line 407 has `// todayRecommendedIds removed — redundant with DB`. But all three player files **still read** it from localStorage to determine `shouldTrackRitual`:
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+- `SoundscapePlayer.tsx` line 279
+- `GuidedPracticePlayer.tsx` line 905
+- `MicroPracticePlayerCards.tsx` line 1754
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+Since `todayRecommendedIds` is never written, it always parses as `[]`, so `isRecommendedPractice` is always `false`. The only way `shouldTrackRitual` becomes `true` is if `isInQueue` is `true` — which requires the practice ID to be found in the `practiceQueue` localStorage array.
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+**Impact:** If a user navigates to a practice from DailyRitual but the queue doesn't contain that exact ID (or the queue was cleared), completion is never recorded. This explains why completed practices aren't showing as done.
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+**Fix:** Replace the dead `todayRecommendedIds` check with `practiceQueue` membership check (the queue IS the source of truth now). All three players already parse the queue — just use it consistently.
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+#### BUG 2 (Medium): `dailyRituals.ts` Time Window Mismatch
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+`getCurrentTimeWindowForRituals()` in `dailyRituals.ts` uses `< 17` for afternoon boundary, but `getCurrentTimeWindow()` in `dailyCheckins.ts` uses `< 18`. This was standardized in the last session for all other locations but missed in this file.
 
----
+**Impact:** Between 17:00–18:00, `DailyRitual.tsx` calls `getCurrentTimeWindow()` (afternoon) but `updateRitualCompletion()` calls `getCurrentTimeWindowForRituals()` (evening). The upsert creates a new evening row while the plan query looks for an afternoon row — completions "disappear".
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+**Fix:** Update `dailyRituals.ts` line 12 from `< 17` to `< 18`.
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+#### BUG 3 (Medium): Coach Page — "Complete" Button Fires Without Conversation
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+`markCoachComplete()` (line 237) can be triggered by the `PracticeQueueProgress` "Complete" button at any time — even before the user sends a single message. There's no guard checking `messages.length > 0`.
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+**Fix:** Gate `handleQueueComplete` to only call `markCoachComplete()` when `messages.length > 0`. When no messages, show a toast prompting the user to engage first.
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+#### BUG 4 (UI): Coach Page — Queue Progress Bar Invisible
 
----
+The queue progress bar (line 369–383) renders inside `bg-charcoal/95` but is placed after `FloatingNavigation` with no top padding or spacing. On the Coach page's light `bg-background`, the bar blends into or hides behind the floating nav.
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+**Fix:** Add `pt-16` (or equivalent safe area + nav height offset) to the queue progress wrapper so it sits visibly below the navigation bar. Also give the Coach page a subtle warm background (`bg-stone-50`) for contrast.
+
+#### BUG 5 (UI): "Mark Complete" Button — Icon & Text Color
+
+The MicroPracticePlayerCards "Mark Complete" button (line 2308–2314) has a `CheckCircle2` icon and `text-black` on green background. User wants: remove icon, white text.
+
+### Implementation Plan
+
+| # | File | Change |
+|---|------|--------|
+| 1 | `src/utils/dailyRituals.ts` | Fix time window: `< 17` → `< 18` |
+| 2 | `src/pages/SoundscapePlayer.tsx` | Replace dead `todayRecommendedIds` with `practiceQueue` membership check |
+| 3 | `src/pages/GuidedPracticePlayer.tsx` | Same fix |
+| 4 | `src/pages/MicroPracticePlayerCards.tsx` | Same fix + update Mark Complete button (remove icon, white text) |
+| 5 | `src/utils/practiceCompletionTracker.ts` | Replace dead `todayRecommendedIds` with `practiceQueue` check |
+| 6 | `src/pages/SelfMasteryCoach.tsx` | Gate `markCoachComplete` on `messages.length > 0` + add `bg-stone-50` + adjust queue bar positioning |
+| 7 | `src/components/PracticeQueueProgress.tsx` | Remove `CheckCircle2` icon from Complete button, ensure white text |
+
+No database or edge function changes needed.
 
