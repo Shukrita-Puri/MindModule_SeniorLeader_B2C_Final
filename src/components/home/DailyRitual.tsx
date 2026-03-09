@@ -535,14 +535,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         </div>
       )}
 
-      {/* Pre-event context if active */}
-      {activeView === 'preEvent' && plan?.preEventPlan && (
-        <div className="px-4 max-w-lg mx-auto">
-          <p className="text-sm text-muted-foreground italic font-body leading-relaxed">
-            {plan.preEventPlan.contextDescription}
-          </p>
-        </div>
-      )}
+      {/* Pre-event context removed — handled by JitCarousel */}
 
       {/* Carousel */}
       <div className="relative w-full">
