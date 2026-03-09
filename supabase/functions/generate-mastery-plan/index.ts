@@ -500,7 +500,7 @@ function getTimeOfDay(timezoneOffset: number): 'morning' | 'afternoon' | 'evenin
   const utcHours = now.getUTCHours();
   const localHour = (utcHours - (timezoneOffset / 60) + 24) % 24;
   if (localHour >= 5 && localHour < 12) return 'morning';
-  if (localHour >= 12 && localHour < 17) return 'afternoon';
+  if (localHour >= 12 && localHour < 18) return 'afternoon';
   return 'evening';
 }
 
