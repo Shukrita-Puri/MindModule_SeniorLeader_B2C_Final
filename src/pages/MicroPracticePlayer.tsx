@@ -174,23 +174,41 @@ const MicroPracticePlayer = () => {
       toast.success("Thank you for your feedback!");
     }
     setShowRatingModal(false);
-    // Navigate back to executive home if from ritual, otherwise to category page
-    const returnPath = fromRitual ? '/executive-home' : (practice.category ? `/recalibrate/${practice.category}` : '/recalibrate');
-    navigate(returnPath);
+    navigateAfterComplete();
   };
 
   const handleRatingSkip = () => {
     setShowRatingModal(false);
-    // Navigate back to executive home if from ritual, otherwise to category page
-    const returnPath = fromRitual ? '/executive-home' : (practice.category ? `/recalibrate/${practice.category}` : '/recalibrate');
+    navigateAfterComplete();
+  };
+
+  const navigateAfterComplete = () => {
+    if (fromCoach && coachSessionId) {
+      sessionStorage.removeItem('returnToCoach');
+      sessionStorage.removeItem('returnCoachSessionId');
+      toast.success('Returning to Coach...');
+      navigate('/coach', {
+        state: {
+          resumeSession: true,
+          previousSessionId: coachSessionId
+        }
+      });
+      return;
+    }
+    const returnPath = fromRitual ? '/executive-home' : (practice?.category ? `/recalibrate/${practice.category}` : '/recalibrate');
     navigate(returnPath);
   };
 
   // Handle beginning practice - navigate to cards view for card-based practices
   const handleBeginPractice = () => {
     if (practice.steps) {
-      // Card-based practice
-      navigate(`/micro-practice/${id}/cards`);
+      // Card-based practice — pass coach state through
+      navigate(`/micro-practice/${id}/cards`, {
+        state: {
+          fromCoach,
+          coachSessionId
+        }
+      });
     } else {
       // For non-card practices, mark complete directly
       handleComplete();
