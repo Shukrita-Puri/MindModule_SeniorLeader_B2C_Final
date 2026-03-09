@@ -2370,20 +2370,6 @@ serve(async (req) => {
       throw new Error("All AI models failed");
     }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited" }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      throw new Error(`AI API error: ${response.status}`);
-    }
-
     // Stream response back to client
     return new Response(response.body, {
       headers: {
