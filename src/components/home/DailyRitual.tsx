@@ -272,6 +272,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
+          onPreEventPlanReady?.(parsed.preEventPlan || null);
           const completedIds = todayRitual?.completed_practice_ids || [];
           setCompletedPracticeIds(completedIds);
           const modules = parsed.timeOfDayPlan?.modules || [];
