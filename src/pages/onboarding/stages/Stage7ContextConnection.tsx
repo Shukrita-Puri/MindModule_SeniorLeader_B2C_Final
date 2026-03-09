@@ -135,6 +135,8 @@ export default function Stage7ContextConnection() {
               if (syncRes.ok) {
                 const syncData = await syncRes.json();
                 console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
+                // Invalidate outer-readiness cache so brief uses fresh calendar data
+                queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
               } else {
                 console.warn("[Stage7] ⚠️ Initial sync failed:", syncRes.status);
               }
