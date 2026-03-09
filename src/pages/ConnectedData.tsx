@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
