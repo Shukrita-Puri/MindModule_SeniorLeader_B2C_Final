@@ -76,12 +76,8 @@ export async function logPracticeCompletion({
  * Check if a practice is part of today's recommended plan
  */
 export function isRecommendedPractice(practiceId: string): boolean {
-  try {
-    const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
-    return todayRecommendedIds.includes(practiceId);
-  } catch {
-    return false;
-  }
+  // practiceQueue is the source of truth for ritual membership
+  return isInRitualQueue(practiceId);
 }
 
 /**

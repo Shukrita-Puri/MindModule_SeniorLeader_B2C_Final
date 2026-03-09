@@ -275,10 +275,10 @@ const SoundscapePlayer = () => {
       const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
       
       if (userId && soundscape) {
-        // Check if this practice is in today's recommended plan
-        const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
-        const isRecommendedPractice = todayRecommendedIds.includes(id);
-        const shouldTrackRitual = isInQueue || isRecommendedPractice;
+        // Check if this practice is in today's queue (source of truth for ritual membership)
+        const currentQueue = JSON.parse(localStorage.getItem('practiceQueue') || '[]');
+        const isInCurrentQueue = Array.isArray(currentQueue) && currentQueue.some((p: any) => p.id === id);
+        const shouldTrackRitual = isInQueue || isInCurrentQueue;
 
         // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
         const result = await trackSanctuaryEvent({

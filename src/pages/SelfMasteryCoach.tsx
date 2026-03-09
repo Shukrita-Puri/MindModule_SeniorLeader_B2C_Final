@@ -245,6 +245,10 @@ const SelfMasteryCoach = () => {
 
   const handleQueueComplete = async () => {
     if (isInQueue && flowType) {
+      if (messages.length === 0) {
+        toast.info('Have a conversation with your coach first before marking complete.');
+        return;
+      }
       await markCoachComplete();
     }
     
@@ -338,7 +342,7 @@ const SelfMasteryCoach = () => {
   };
 
   return (
-    <div className="relative flex flex-col h-screen bg-background animate-page-enter overflow-hidden">
+    <div className="relative flex flex-col h-screen bg-stone-50 dark:bg-background animate-page-enter overflow-hidden">
       {/* Header Navigation */}
       <FloatingNavigation 
         showCoachButton={false}
@@ -367,7 +371,7 @@ const SelfMasteryCoach = () => {
 
       {/* Queue Progress */}
       {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
-        <div className="relative z-10 mx-4 mt-2">
+        <div className="relative z-10 mx-4 mt-16">
           <div className="bg-charcoal/95 backdrop-blur-lg rounded-xl border border-white/10 overflow-hidden shadow-lg">
             <PracticeQueueProgress
               currentIndex={currentQueueIndex}

@@ -1750,10 +1750,8 @@ const MicroPracticePlayerCards = () => {
       const isPartOfRitual =
         practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
-      // Check if this practice is in today's recommended plan
-      const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
-      const isRecommendedPractice = todayRecommendedIds.includes(id);
-      const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
+      // Queue is source of truth for ritual membership
+      const shouldTrackRitual = isPartOfRitual;
 
       // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
       const result = await trackSanctuaryEvent({
@@ -2307,9 +2305,8 @@ const MicroPracticePlayerCards = () => {
           {isLastCard && (
             <Button
               onClick={handleComplete}
-              className="w-full h-14 text-base font-semibold rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-black"
+              className="w-full h-14 text-base font-semibold rounded-2xl bg-[#1DB954] hover:bg-[#1DB954]/90 text-white"
             >
-              <CheckCircle2 className="w-5 h-5 mr-2" />
               Mark Complete
             </Button>
           )}
