@@ -234,7 +234,11 @@ serve(async (req) => {
 
       if (!tokens.access_token) {
         console.error('[calendar-auth] Token error details:', JSON.stringify(tokens));
-        throw new Error(tokens.error_description || tokens.error || 'Failed to get access token');
+        // Surface the actual Google error rather than a generic message
+        const errorDetail = tokens.error === 'invalid_client' 
+          ? 'Google OAuth client credentials are invalid. Check GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET secrets.'
+          : (tokens.error_description || tokens.error || 'Failed to get access token');
+        throw new Error(errorDetail);
       }
 
       // Get encryption key from environment
