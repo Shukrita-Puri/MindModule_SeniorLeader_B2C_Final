@@ -4,10 +4,10 @@
  * 1. Where am I today? (TodayStateCard)
  * 2. What matters today? (StrategicIntentionCard)
  * 3. What should I do now? (DailyRitual - Performance Plan)
- * + Just-in-time interventions when triggered (PerformancePreparation)
+ * + Just-in-time interventions when triggered (JitCarousel)
  */
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -32,8 +32,32 @@ const TIER_GRADIENTS: Record<string, string> = {
   default: 'from-stone-800/20 via-stone-700/10 to-background',
 };
 
+interface PreEventPlan {
+  eventTitle: string;
+  eventType: string;
+  minutesUntil: number;
+  timePill: string;
+  contextDescription: string;
+  modules: Array<{
+    type: string;
+    contentId: string;
+    title: string;
+    contentType: string;
+    duration: number;
+    focus: string;
+    intensity: string;
+    isFavorite: boolean;
+    isCoachCard?: boolean;
+    reasoning: string;
+  }>;
+  coachCard: unknown;
+  progressTracked: boolean;
+}
+
 const ExecutiveHome = () => {
   const { user } = useAuth();
+  const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
+
   // Fetch energy state for hero visual
   const { data: energyState } = useQuery({
     queryKey: ['energy-state', user?.id],
@@ -77,12 +101,10 @@ const ExecutiveHome = () => {
   };
   
   // Get looping video based on energy state AND time of day
-  // Each combination has a UNIQUE video - no reuse across states
   const getHeroVideo = () => {
     const timeOfDay = getTimeOfDay();
     const tier = energyState?.energyTier || 'default';
     
-    // 15 unique local videos - one for each energy tier + time of day combination
     const videoMap: Record<string, Record<string, string>> = {
       depleted: {
         morning: '/all-visuals/videos/depleted-morning.mp4',
@@ -120,11 +142,9 @@ const ExecutiveHome = () => {
         <LeftSidebar />
         
         <SidebarInset className="w-full overflow-x-hidden">
-          {/* Immersive Hero Visual - flows behind header */}
+          {/* Immersive Hero Visual */}
           <div className="relative">
-            {/* Nature visual underlay - full bleed, pointer-events: none so touches pass through */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-              {/* CSS gradient placeholder — shows instantly while video loads */}
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()} transition-opacity duration-700`} />
               <video 
                 key={getHeroVideo()}
@@ -140,17 +160,14 @@ const ExecutiveHome = () => {
                 className="w-full h-full object-cover video-warm-luxury transition-opacity duration-1000 ease-out"
                 style={{ opacity: 0 }}
               />
-              {/* Warm luxury gradient - enhanced for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
             </div>
             
-            {/* Header - now INSIDE the visual, safe-area aware */}
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
               <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
               <CoachAccessButton />
             </header>
             
-            {/* Greeting content - elevated above visual */}
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline text-foreground tracking-tight">
                 {getGreeting()}
@@ -164,25 +181,19 @@ const ExecutiveHome = () => {
           {/* Main Content */}
           <div className="flex-1 w-full pb-8">
 
-            {/* Three Core Sections - Liquid flowing layout with separators */}
             <div className="px-4 md:px-6 max-w-lg mx-auto">
-              {/* Section 1: Today's State - "Where am I today?" */}
               <section className="animate-in fade-in duration-500">
                 <TodayStateCard />
               </section>
 
-              {/* Subtle separator */}
               <div className="border-t border-black/[0.06] my-8" />
 
-              {/* Section 2: Strategic Intention - "What matters today?" */}
               <section className="animate-in fade-in duration-500 delay-100">
                 <StrategicIntentionCard />
               </section>
 
-              {/* Subtle separator */}
               <div className="border-t border-black/[0.06] my-8" />
 
-              {/* Section 3: Today's Plan - unified section */}
               <section className="animate-in fade-in duration-500 delay-200">
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
@@ -198,17 +209,15 @@ const ExecutiveHome = () => {
               </section>
             </div>
 
-            {/* Time-of-Day Plan - Primary importance */}
+            {/* Time-of-Day Plan */}
             <div className="animate-in fade-in duration-500 delay-200">
-              <DailyRitual />
+              <DailyRitual onPreEventPlanReady={setPreEventPlan} />
             </div>
 
-            {/* JIT Preparation - Secondary importance, smaller */}
+            {/* JIT Preparation - driven by plan data */}
             <div className="animate-in fade-in duration-500 delay-300 mt-4">
-              <JitCarousel />
+              <JitCarousel preEventPlan={preEventPlan} />
             </div>
-
-            {/* Footer */}
 
             <div className="mt-8">
               <PrivacyFooter />

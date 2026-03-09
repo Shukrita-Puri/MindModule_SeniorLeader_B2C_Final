@@ -91,7 +91,11 @@ const isEvening = (): boolean => {
   return hour >= 18;
 };
 
-const DailyRitual = () => {
+interface DailyRitualProps {
+  onPreEventPlanReady?: (plan: PreEventPlan | null) => void;
+}
+
+const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { favorites, isFavorite } = useFavorites();
@@ -268,6 +272,7 @@ const DailyRitual = () => {
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
+          onPreEventPlanReady?.(parsed.preEventPlan || null);
           const completedIds = todayRitual?.completed_practice_ids || [];
           setCompletedPracticeIds(completedIds);
           const modules = parsed.timeOfDayPlan?.modules || [];
@@ -309,6 +314,7 @@ const DailyRitual = () => {
 
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
+      onPreEventPlanReady?.(planResponse.preEventPlan || null);
 
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
