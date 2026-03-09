@@ -405,6 +405,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           trial_ends_at: profile.trial_ends_at || prev.trial_ends_at,
           subscription_current_period_end: profile.subscription_current_period_end || prev.subscription_current_period_end,
           subscription_canceled_at: profile.subscription_canceled_at || prev.subscription_canceled_at,
+          subscription_cancel_at: profile.subscription_cancel_at || prev.subscription_cancel_at,
         } : prev);
       } else {
         console.warn('[useAuth] Profile refresh failed:', response.status);

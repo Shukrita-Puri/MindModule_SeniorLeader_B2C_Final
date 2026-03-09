@@ -213,7 +213,7 @@ const Profile = () => {
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Manage Billing
                     </DropdownMenuItem>
-                    {!isCanceled && (
+                    {!isCanceled && !isPendingCancellation && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
