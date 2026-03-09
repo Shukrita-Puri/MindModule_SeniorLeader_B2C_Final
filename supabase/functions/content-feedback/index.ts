@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK';
+  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING';
   contentId?: string;
   feedbackData?: {
     content_id: string;
@@ -22,6 +22,10 @@ interface RequestBody {
     feedback_reason?: string;
     context_data?: Record<string, unknown>;
   };
+  sessionId?: string;
+  rating?: number;
+  qualitativeRating?: string;
+  feedbackText?: string;
 }
 
 serve(async (req) => {
@@ -39,7 +43,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, contentId, feedbackData } = await req.json() as RequestBody;
+    const body = await req.json() as RequestBody;
+    const { action, contentId, feedbackData, sessionId: reqSessionId, rating, qualitativeRating, feedbackText } = body;
     console.log(`[content-feedback] Action: ${action}, User: ${userId}`);
 
     switch (action) {
@@ -90,6 +95,36 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'UPDATE_SESSION_RATING': {
+        if (!reqSessionId || !rating) {
+          return new Response(JSON.stringify({ error: 'Missing sessionId or rating' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { error } = await supabase
+          .from('practice_sessions')
+          .update({
+            effectiveness_rating: rating,
+            metadata: {
+              qualitative_rating: qualitativeRating,
+              feedback_text: feedbackText
+            }
+          })
+          .eq('id', reqSessionId)
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('[content-feedback] UPDATE_SESSION_RATING error:', error);
+          throw error;
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

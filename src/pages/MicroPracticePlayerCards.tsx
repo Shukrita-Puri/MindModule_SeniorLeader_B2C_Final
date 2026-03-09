@@ -17,8 +17,6 @@ import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
-import { DEV_MODE, DEV_USER } from "@/config/devMode";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
 import phoenixResilienceHero from "@/assets/recalibrate/power-up/phoenix-resilience-hero.png";
@@ -1736,14 +1734,6 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setShowRatingModal(true);
-        return;
-      }
-
       const practiceQueue = JSON.parse(
         localStorage.getItem("practiceQueue") || "null"
       );

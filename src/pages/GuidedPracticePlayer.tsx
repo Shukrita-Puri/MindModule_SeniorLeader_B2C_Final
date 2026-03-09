@@ -34,8 +34,6 @@ import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
-import { DEV_MODE, DEV_USER } from "@/config/devMode";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 interface PracticeStep {
@@ -895,9 +893,7 @@ const GuidedPracticePlayer = () => {
   const handlePracticeComplete = async () => {
     // Save practice session to database
     try {
-      const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
-      
-      if (userId && practice) {
+      if (practice) {
         const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
         const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
         
