@@ -2619,6 +2619,60 @@ export type Database = {
         }
         Relationships: []
       }
+      physiological_events: {
+        Row: {
+          activity_level: string | null
+          created_at: string
+          end_time: string
+          event_title: string
+          event_type: string
+          hrv: number | null
+          id: string
+          readiness_score: number | null
+          recovery_status: string
+          resting_heart_rate: number | null
+          sleep_score: number | null
+          source: string
+          start_time: string
+          stress_level: string
+          user_id: string
+        }
+        Insert: {
+          activity_level?: string | null
+          created_at?: string
+          end_time: string
+          event_title: string
+          event_type?: string
+          hrv?: number | null
+          id?: string
+          readiness_score?: number | null
+          recovery_status?: string
+          resting_heart_rate?: number | null
+          sleep_score?: number | null
+          source: string
+          start_time: string
+          stress_level?: string
+          user_id: string
+        }
+        Update: {
+          activity_level?: string | null
+          created_at?: string
+          end_time?: string
+          event_title?: string
+          event_type?: string
+          hrv?: number | null
+          id?: string
+          readiness_score?: number | null
+          recovery_status?: string
+          resting_heart_rate?: number | null
+          sleep_score?: number | null
+          source?: string
+          start_time?: string
+          stress_level?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_sessions: {
         Row: {
           category: string

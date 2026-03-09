@@ -106,11 +106,8 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
       if (import.meta.env.DEV) {
         console.error('Error tracking sanctuary event:', error);
       }
-      // Add to offline queue
+      // Add to in-memory offline queue (no localStorage backup — retry on reconnect)
       offlineQueue.push(eventWithUser);
-      // Store in localStorage as backup
-      const existing = JSON.parse(localStorage.getItem('sanctuaryEvents') || '[]');
-      localStorage.setItem('sanctuaryEvents', JSON.stringify([...existing, eventWithUser]));
     } else {
       if (import.meta.env.DEV) {
         console.log('Event tracked successfully');
@@ -126,11 +123,9 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
     if (err instanceof z.ZodError) {
       return { success: false, error: new Error('Invalid event data') };
     }
-    // Add to offline queue for network errors (with user ID if available)
-    const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data?.user?.id;
+    // Add to offline queue for network errors (no userId needed — EF handles auth)
     const eventWithUser: SanctuaryEventData = {
       ...event,
-      userId,
       timestamp: event.timestamp || new Date().toISOString()
     };
     offlineQueue.push(eventWithUser);

@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS' | 'GET_COMPLETION_COUNTS' | 'GET_SANCTUARY_DATA';
+  action: 'TRACK_ENGAGEMENT' | 'GET_ENGAGEMENTS' | 'LOG_CHECKIN_SKIP' | 'SAVE_CHECKIN' | 'GET_RECENT_SANCTUARY_EVENTS' | 'GET_COMPLETION_COUNTS' | 'GET_SANCTUARY_DATA' | 'STORE_PHYSIOLOGICAL_EVENT' | 'GET_PHYSIOLOGICAL_HISTORY' | 'ANALYZE_PHYSIOLOGICAL_PATTERN' | 'IDENTIFY_STRESS_TRIGGERS';
   eventType?: string;
   category?: string;
   contentId?: string;
@@ -25,6 +25,18 @@ interface RequestBody {
   stateTags?: string[];
   energyBalance?: number;
   dataSources?: Record<string, any>;
+  // Physiological event fields
+  eventTitle?: string;
+  startTime?: string;
+  endTime?: string;
+  hrv?: number | null;
+  restingHeartRate?: number | null;
+  sleepScore?: number | null;
+  readinessScore?: number | null;
+  activityLevel?: 'low' | 'moderate' | 'high' | null;
+  source?: 'oura' | 'apple-watch';
+  stressLevel?: 'low' | 'medium' | 'high';
+  recoveryStatus?: 'critical' | 'low' | 'moderate' | 'optimal';
 }
 
 serve(async (req) => {
@@ -264,6 +276,281 @@ serve(async (req) => {
         console.log('[user-events] Sanctuary data:', data?.length || 0, 'rows');
         return new Response(
           JSON.stringify({ success: true, data: data || [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // ============ PHYSIOLOGICAL EVENT ACTIONS ============
+
+      case 'STORE_PHYSIOLOGICAL_EVENT': {
+        const { 
+          eventTitle, eventType, startTime, endTime,
+          hrv, restingHeartRate, sleepScore, readinessScore,
+          activityLevel, source, stressLevel, recoveryStatus 
+        } = body;
+
+        if (!eventTitle || !startTime || !endTime || !source) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'eventTitle, startTime, endTime, and source are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check for duplicate (same user, title, start time within 1 minute)
+        const { data: existing } = await supabase
+          .from('physiological_events')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('event_title', eventTitle)
+          .gte('start_time', new Date(new Date(startTime).getTime() - 60000).toISOString())
+          .lte('start_time', new Date(new Date(startTime).getTime() + 60000).toISOString())
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          console.log('[user-events] Physiological event already recorded:', eventTitle);
+          return new Response(
+            JSON.stringify({ success: true, skipped: true, reason: 'already_recorded' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data, error } = await supabase
+          .from('physiological_events')
+          .insert({
+            user_id: userId,
+            event_title: eventTitle,
+            event_type: eventType || 'meeting',
+            start_time: startTime,
+            end_time: endTime,
+            hrv: hrv || null,
+            resting_heart_rate: restingHeartRate || null,
+            sleep_score: sleepScore || null,
+            readiness_score: readinessScore || null,
+            activity_level: activityLevel || null,
+            source,
+            stress_level: stressLevel || 'medium',
+            recovery_status: recoveryStatus || 'moderate'
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[user-events] Error storing physiological event:', error);
+          throw error;
+        }
+
+        console.log('[user-events] Physiological event stored:', eventTitle);
+        return new Response(
+          JSON.stringify({ success: true, data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'GET_PHYSIOLOGICAL_HISTORY': {
+        const { days } = body;
+        const daysBack = days || 90; // Default 90 days history
+        const since = new Date();
+        since.setDate(since.getDate() - daysBack);
+
+        const { data, error } = await supabase
+          .from('physiological_events')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('created_at', since.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[user-events] Error fetching physiological history:', error);
+          throw error;
+        }
+
+        console.log('[user-events] Physiological history:', data?.length || 0, 'events');
+        return new Response(
+          JSON.stringify({ success: true, data: data || [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'ANALYZE_PHYSIOLOGICAL_PATTERN': {
+        const { eventTitle, eventType } = body;
+
+        if (!eventTitle && !eventType) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'eventTitle or eventType required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Query similar events (90 days)
+        const since = new Date();
+        since.setDate(since.getDate() - 90);
+
+        let query = supabase
+          .from('physiological_events')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('created_at', since.toISOString());
+
+        // Can't do OR in supabase easily, so fetch all and filter
+        const { data: allEvents, error } = await query;
+
+        if (error) {
+          console.error('[user-events] Error analyzing pattern:', error);
+          throw error;
+        }
+
+        // Filter similar events
+        const similarEvents = (allEvents || []).filter((e: any) =>
+          (eventTitle && e.event_title?.toLowerCase().includes(eventTitle.toLowerCase())) ||
+          (eventType && e.event_type === eventType)
+        );
+
+        if (similarEvents.length === 0) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                hasPattern: false,
+                avgHRV: 0,
+                avgReadiness: 0,
+                avgSleep: 0,
+                occurrences: 0,
+                elevated: false,
+                trend: 'insufficient-data',
+                dominantRecoveryStatus: 'unknown'
+              }
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Calculate averages
+        const hrvValues = similarEvents.map((e: any) => e.hrv).filter((h: any) => h !== null) as number[];
+        const readinessValues = similarEvents.map((e: any) => e.readiness_score).filter((r: any) => r !== null) as number[];
+        const sleepValues = similarEvents.map((e: any) => e.sleep_score).filter((s: any) => s !== null) as number[];
+
+        const avgHRV = hrvValues.length > 0 ? hrvValues.reduce((sum, v) => sum + v, 0) / hrvValues.length : 0;
+        const avgReadiness = readinessValues.length > 0 ? readinessValues.reduce((sum, v) => sum + v, 0) / readinessValues.length : 0;
+        const avgSleep = sleepValues.length > 0 ? sleepValues.reduce((sum, v) => sum + v, 0) / sleepValues.length : 0;
+
+        // Determine trend (compare first half vs second half)
+        let trend: string = 'insufficient-data';
+
+        if (similarEvents.length >= 4) {
+          const midpoint = Math.floor(similarEvents.length / 2);
+          const firstHalf = similarEvents.slice(midpoint); // Older
+          const secondHalf = similarEvents.slice(0, midpoint); // Newer
+
+          const firstHalfReadiness = firstHalf.map((e: any) => e.readiness_score).filter((r: any) => r !== null) as number[];
+          const secondHalfReadiness = secondHalf.map((e: any) => e.readiness_score).filter((r: any) => r !== null) as number[];
+
+          if (firstHalfReadiness.length > 0 && secondHalfReadiness.length > 0) {
+            const firstAvg = firstHalfReadiness.reduce((sum, v) => sum + v, 0) / firstHalfReadiness.length;
+            const secondAvg = secondHalfReadiness.reduce((sum, v) => sum + v, 0) / secondHalfReadiness.length;
+
+            const diff = secondAvg - firstAvg;
+            if (diff > 5) trend = 'improving';
+            else if (diff < -5) trend = 'worsening';
+            else trend = 'stable';
+          }
+        }
+
+        // Find dominant recovery status
+        const recoveryStatuses = similarEvents.map((e: any) => e.recovery_status);
+        const statusCounts: Record<string, number> = {};
+        recoveryStatuses.forEach((status: string) => {
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+
+        const dominantRecoveryStatus = Object.entries(statusCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
+
+        console.log('[user-events] Pattern analysis:', similarEvents.length, 'similar events');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              hasPattern: true,
+              avgHRV: Math.round(avgHRV),
+              avgReadiness: Math.round(avgReadiness),
+              avgSleep: Math.round(avgSleep),
+              occurrences: similarEvents.length,
+              elevated: avgHRV > 75,
+              trend,
+              dominantRecoveryStatus
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'IDENTIFY_STRESS_TRIGGERS': {
+        // Get last 90 days of events
+        const since = new Date();
+        since.setDate(since.getDate() - 90);
+
+        const { data, error } = await supabase
+          .from('physiological_events')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('created_at', since.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[user-events] Error identifying stress triggers:', error);
+          throw error;
+        }
+
+        // Group by event type
+        const grouped: Record<string, any[]> = {};
+        (data || []).forEach((event: any) => {
+          if (!grouped[event.event_type]) {
+            grouped[event.event_type] = [];
+          }
+          grouped[event.event_type].push(event);
+        });
+
+        // Calculate averages for each type
+        const triggers = Object.entries(grouped).map(([type, events]) => {
+          const readinessValues = events.map(e => e.readiness_score).filter(r => r !== null) as number[];
+          const hrvValues = events.map(e => e.hrv).filter(h => h !== null) as number[];
+          const sleepValues = events.map(e => e.sleep_score).filter(s => s !== null) as number[];
+
+          const avgReadiness = readinessValues.length > 0
+            ? readinessValues.reduce((sum, v) => sum + v, 0) / readinessValues.length
+            : 0;
+          const avgHRV = hrvValues.length > 0
+            ? hrvValues.reduce((sum, v) => sum + v, 0) / hrvValues.length
+            : 0;
+          const avgSleep = sleepValues.length > 0
+            ? sleepValues.reduce((sum, v) => sum + v, 0) / sleepValues.length
+            : 0;
+
+          // Calculate stress level
+          let stressLevel: string = 'medium';
+          if (avgReadiness > 0) {
+            if (avgReadiness < 50) stressLevel = 'high';
+            else if (avgReadiness < 70) stressLevel = 'medium';
+            else stressLevel = 'low';
+          } else if (avgHRV > 0) {
+            if (avgHRV > 85) stressLevel = 'high';
+            else if (avgHRV > 65) stressLevel = 'medium';
+            else stressLevel = 'low';
+          }
+
+          return {
+            eventType: type,
+            avgReadiness: Math.round(avgReadiness),
+            avgHRV: Math.round(avgHRV),
+            avgSleep: Math.round(avgSleep),
+            occurrences: events.length,
+            stressLevel
+          };
+        }).sort((a, b) => b.occurrences - a.occurrences);
+
+        console.log('[user-events] Stress triggers:', triggers.length, 'event types');
+        return new Response(
+          JSON.stringify({ success: true, data: triggers }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
