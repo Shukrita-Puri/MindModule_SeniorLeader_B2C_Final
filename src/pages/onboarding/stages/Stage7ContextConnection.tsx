@@ -91,7 +91,7 @@ export default function Stage7ContextConnection() {
       // Normal mount — check existing status
       verifyConnection();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [verifyConnection, searchParams, setSearchParams]);
 
   // Handle Google Calendar toggle — Auth0-hosted OAuth via SDK
   const handleCalendarToggle = async (checked: boolean) => {
@@ -122,8 +122,9 @@ export default function Stage7ContextConnection() {
       await loginWithRedirect({
         authorizationParams: {
           connection: "google-oauth2",
-          connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
-          scope: "openid profile email offline_access",
+          scope: "openid profile email offline_access https://www.googleapis.com/auth/calendar.readonly",
+          prompt: "consent",
+          access_type: "offline",
           redirect_uri: redirectUri,
         },
         appState: { returnTo },
