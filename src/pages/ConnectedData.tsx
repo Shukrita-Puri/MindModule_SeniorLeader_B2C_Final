@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Loader2, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Loader2, MoreVertical, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,39 +26,148 @@ interface ConnectionStatus {
   appleWatch: { connected: boolean; lastSync: string | null };
 }
 
+/** Trigger sync-calendar edge function with Auth0 token */
+async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number }> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      console.warn('[ConnectedData] No auth token for sync');
+      return { success: false };
+    }
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/sync-calendar`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ provider }),
+      }
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[ConnectedData] sync-calendar failed:', res.status, errText);
+      return { success: false };
+    }
+    const data = await res.json();
+    console.log('[ConnectedData] ✅ Sync complete:', data.eventCount, 'events');
+    return { success: true, eventCount: data.eventCount };
+  } catch (err) {
+    console.error('[ConnectedData] sync-calendar error:', err);
+    return { success: false };
+  }
+}
+
+/** Invalidate cached mastery plan so next load regenerates with fresh calendar data */
+function invalidatePlanCache() {
+  const todayDate = new Date().toISOString().split('T')[0];
+  const periods = ['morning', 'afternoon', 'evening'];
+  for (const period of periods) {
+    sessionStorage.removeItem(`plan-loaded-${todayDate}-${period}`);
+    sessionStorage.removeItem(`plan-data-${todayDate}-${period}`);
+  }
+  sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
+  console.log('[ConnectedData] Plan cache invalidated');
+}
+
 const ConnectedData = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  // Fetch connection status from backend
+  const fetchStatus = async () => {
+    try {
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (res.ok) {
+        setStatus(await res.json());
+      }
+    } catch (err) {
+      console.error('[ConnectedData] Failed to fetch status:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const token = await getAuthToken();
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        if (res.ok) {
-          setStatus(await res.json());
-        }
-      } catch (err) {
-        console.error('[ConnectedData] Failed to fetch status:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStatus();
   }, []);
+
+  // Handle post-OAuth callback: ?calendar_connected=true
+  useEffect(() => {
+    const calendarCallback = searchParams.get('calendar_connected');
+    if (calendarCallback !== 'true') return;
+
+    // Clean URL param immediately
+    searchParams.delete('calendar_connected');
+    setSearchParams(searchParams, { replace: true });
+
+    console.log('[ConnectedData] Post-OAuth callback detected, triggering sync...');
+    setSyncing(true);
+
+    const runPostConnectSync = async () => {
+      // Small delay to let connection row settle
+      await new Promise(r => setTimeout(r, 500));
+
+      // Re-fetch status to get the provider
+      const token = await getAuthToken();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const statusRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        }
+      );
+
+      let provider = 'google';
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setStatus(statusData);
+        provider = statusData.calendar?.provider || 'google';
+
+        if (!statusData.calendar?.connected) {
+          console.warn('[ConnectedData] Calendar not verified as connected after OAuth');
+          toast.error('Calendar connection could not be verified');
+          setSyncing(false);
+          return;
+        }
+      }
+
+      toast.success('Google Calendar connected!');
+
+      // Trigger initial sync
+      const syncResult = await triggerCalendarSync(provider);
+      if (syncResult.success) {
+        toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
+        invalidatePlanCache();
+        // Refresh status to show last_sync
+        await fetchStatus();
+      } else {
+        toast.error('Calendar connected but initial sync failed. Try "Sync Now".');
+      }
+      setSyncing(false);
+    };
+
+    runPostConnectSync();
+  }, [searchParams, setSearchParams]);
 
   const formatLastSync = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -75,15 +184,24 @@ const ConnectedData = () => {
     setConnecting('google-calendar');
     try {
       const token = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('calendar-auth', {
-        body: {
-          action: 'connect',
-          provider: 'google',
-          redirectPath: '/connected-data',
-        },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (error) throw error;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'connect',
+            provider: 'google',
+            redirectPath: '/connected-data',
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(`calendar-auth failed: ${res.status}`);
+      const data = await res.json();
       if (data?.authUrl) {
         window.location.href = data.authUrl;
       }
@@ -99,16 +217,39 @@ const ConnectedData = () => {
     const provider = status?.calendar.provider || 'google';
     try {
       const token = await getAuthToken();
-      const { error } = await supabase.functions.invoke('calendar-auth', {
-        body: { action: 'disconnect', provider },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (error) throw error;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'disconnect', provider }),
+        }
+      );
+      if (!res.ok) throw new Error('Disconnect failed');
       setStatus(prev => prev ? { ...prev, calendar: { connected: false, provider: null, lastSync: null } } : prev);
+      invalidatePlanCache();
       toast.success('Google Calendar disconnected');
     } catch {
       toast.error('Failed to disconnect calendar');
     }
+  };
+
+  const handleSyncNow = async () => {
+    const provider = status?.calendar.provider || 'google';
+    setSyncing(true);
+    const result = await triggerCalendarSync(provider);
+    if (result.success) {
+      toast.success(`Synced ${result.eventCount ?? 0} events`);
+      invalidatePlanCache();
+      await fetchStatus();
+    } else {
+      toast.error('Sync failed. Please try again.');
+    }
+    setSyncing(false);
   };
 
   /* ─── Apple Watch Handlers ─── */
@@ -156,6 +297,8 @@ const ConnectedData = () => {
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
       onConnect: handleConnectCalendar,
       onDisconnect: handleDisconnectCalendar,
+      onSync: handleSyncNow,
+      canSync: true,
     },
     {
       id: 'apple-watch',
@@ -166,6 +309,7 @@ const ConnectedData = () => {
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
+      canSync: false,
     },
   ];
 
@@ -201,6 +345,11 @@ const ConnectedData = () => {
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
                     )}
+                    {syncing && conn.id === 'google-calendar' && (
+                      <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
+                      </p>
+                    )}
                   </div>
 
                   {/* Action */}
@@ -212,6 +361,15 @@ const ConnectedData = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {conn.canSync && (
+                          <DropdownMenuItem
+                            onClick={conn.onSync}
+                            disabled={syncing}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Sync Now
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={conn.onDisconnect}
