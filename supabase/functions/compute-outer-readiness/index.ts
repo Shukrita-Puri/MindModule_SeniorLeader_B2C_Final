@@ -44,22 +44,19 @@ interface CalendarMetricsResult {
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
   const now = new Date();
-  const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
 
-  const upcoming = events.filter(e => {
-    const start = new Date(e.start_time);
-    return start >= now && start <= fourHoursLater;
-  });
+  // Use ALL of today's events for load (reflects how busy the day was/is)
+  const allEvents = events;
 
-  // Load
-  const count = upcoming.length;
+  // Load — based on total events today (not just upcoming)
+  const count = allEvents.length;
   let load: CalendarLevel = 'low';
   if (count >= 5) load = 'high';
   else if (count >= 3) load = 'medium';
 
-  // Pressure
+  // Pressure — weight upcoming events more, but include past high-stakes events too
   let totalPressure = 0;
-  for (const event of upcoming) {
+  for (const event of allEvents) {
     let p = 0;
     if (event.is_organizer) p += 2;
     const att = event.attendees_count || 0;
@@ -71,11 +68,17 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
     if (!event.is_recurring) p += 1;
     const hr = start.getHours();
     if ((hr >= 9 && hr < 12) || (hr >= 14 && hr < 16)) p += 1;
-    totalPressure += p;
+
+    // Upcoming events carry full weight; past events carry half weight
+    if (start >= now) {
+      totalPressure += p;
+    } else {
+      totalPressure += Math.ceil(p * 0.5);
+    }
   }
 
-  // Back-to-back
-  const sorted = [...upcoming].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  // Back-to-back detection across all events
+  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
   for (let i = 0; i < sorted.length - 1; i++) {
     const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
     if (gap < 15) totalPressure += 1;
