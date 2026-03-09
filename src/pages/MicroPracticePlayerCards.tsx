@@ -1763,7 +1763,7 @@ const MicroPracticePlayerCards = () => {
         duration: practice.duration * 60,
         timestamp: new Date().toISOString(),
         contextData: {
-          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
           dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
         },
         partOfRitual: shouldTrackRitual,

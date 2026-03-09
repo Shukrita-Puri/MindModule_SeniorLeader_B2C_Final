@@ -114,7 +114,7 @@ const DailyRitual = () => {
   // Navigate to Coach with context
   const navigateToCoach = (prompt: string, flowType: string, eventTitle?: string) => {
     navigate('/coach', {
-      state: { initialPrompt: prompt, flowType, eventTitle }
+      state: { initialPrompt: prompt, flowType, eventTitle, fromRitual: true }
     });
   };
 

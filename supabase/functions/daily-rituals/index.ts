@@ -12,7 +12,7 @@ function getServerTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
   const hour = new Date().getUTCHours();
   // Default to UTC — client can pass session_period to override
   if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 12 && hour < 18) return 'afternoon';
   return 'evening';
 }
 
