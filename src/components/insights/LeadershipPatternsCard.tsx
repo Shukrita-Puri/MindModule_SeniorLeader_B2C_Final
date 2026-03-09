@@ -15,30 +15,30 @@ interface DimensionScores {
   renewal: number;
 }
 
-interface LeadershipPatternsData {
-  aiObservation: string | null;
-  baselineArchetypeId: string;
-  baselineArchetypeTitle: string;
-  currentArchetypeId: string | null;
-  currentArchetypeTitle: string | null;
-  archetypeEvolved: boolean;
-  archetypeLeanOn: string;
-  archetypeWatchFor: string;
-  baselineScores: DimensionScores | null;
-  currentScores: DimensionScores | null;
-  scoreDeltas: DimensionScores | null;
-  frictionPct: number;
-  frictionLabel: string;
-  trendDirection: 'improving' | 'stable' | 'declining';
-  typicalState: string | null;
-  recurringThemes: { phrase: string; count: number }[];
-  coachStrength: string | null;
-  coachFriction: string | null;
-  checkInCount: number;
-  coachSessionCount: number;
-  hasWearable: boolean;
-  hasCalendar: boolean;
-  dataSourceNote: string;
+export interface LeadershipPatternsData {
+  aiObservation?: string | null;
+  baselineArchetypeId?: string;
+  baselineArchetypeTitle?: string;
+  currentArchetypeId?: string | null;
+  currentArchetypeTitle?: string | null;
+  archetypeEvolved?: boolean;
+  archetypeLeanOn?: string;
+  archetypeWatchFor?: string;
+  baselineScores?: DimensionScores | null;
+  currentScores?: DimensionScores | null;
+  scoreDeltas?: DimensionScores | null;
+  frictionPct?: number;
+  frictionLabel?: string;
+  trendDirection?: 'improving' | 'stable' | 'declining';
+  typicalState?: string | null;
+  recurringThemes?: { phrase: string; count: number }[];
+  coachStrength?: string | null;
+  coachFriction?: string | null;
+  checkInCount?: number;
+  coachSessionCount?: number;
+  hasWearable?: boolean;
+  hasCalendar?: boolean;
+  dataSourceNote?: string;
 }
 
 interface LeadershipPatternsCardProps {
