@@ -272,9 +272,7 @@ const SoundscapePlayer = () => {
 
     // Save practice session and track for insights
     try {
-      const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
-      
-      if (userId && soundscape) {
+      if (soundscape) {
         // Check if this practice is in today's queue (source of truth for ritual membership)
         const currentQueue = JSON.parse(localStorage.getItem('practiceQueue') || '[]');
         const isInCurrentQueue = Array.isArray(currentQueue) && currentQueue.some((p: any) => p.id === id);

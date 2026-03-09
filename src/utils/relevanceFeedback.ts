@@ -78,25 +78,28 @@ const feedbackSchema = z.object({
 export async function submitRelevanceFeedback(feedback: RelevanceFeedbackData) {
   try {
     const validated = feedbackSchema.parse(feedback);
-    const { data: { user } } = await supabase.auth.getUser();
+    const accessToken = await getAuthToken();
     
-    if (!user) return { success: false, error: new Error('Not authenticated') };
+    if (!accessToken) return { success: false, error: new Error('Not authenticated') };
 
-    const { data, error } = await supabase
-      .from('content_relevance_feedback')
-      .insert({
-        user_id: user.id,
-        content_id: validated.contentId,
-        content_type: validated.contentType,
-        feedback_type: validated.feedbackType,
-        star_rating: validated.starRating,
-        session_id: validated.sessionId,
-        trigger_context: validated.triggerContext,
-        feedback_text: validated.feedbackText,
-        feedback_reason: validated.feedbackReason,
-        timestamp: new Date().toISOString(),
-        context_data: validated.contextData || {}
-      });
+    // Route through content-feedback edge function (Auth0 token → service role write)
+    const { data: result, error } = await supabase.functions.invoke('content-feedback', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'SUBMIT_FEEDBACK',
+        feedbackData: {
+          content_id: validated.contentId,
+          content_type: validated.contentType,
+          feedback_type: validated.feedbackType,
+          star_rating: validated.starRating,
+          session_id: validated.sessionId,
+          trigger_context: validated.triggerContext,
+          feedback_text: validated.feedbackText,
+          feedback_reason: validated.feedbackReason,
+          context_data: validated.contextData || {}
+        }
+      }
+    });
 
     if (error) throw error;
 
@@ -109,7 +112,7 @@ export async function submitRelevanceFeedback(feedback: RelevanceFeedbackData) {
       );
     }
 
-    return { success: true, data };
+    return { success: true, data: result?.data };
   } catch (error) {
     if (import.meta.env.DEV) {
       console.error('Failed to submit relevance feedback:', error);

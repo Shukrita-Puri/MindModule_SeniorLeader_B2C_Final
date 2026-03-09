@@ -29,13 +29,7 @@ export async function logPracticeCompletion({
   contextData = {}
 }: PracticeCompletionParams): Promise<boolean> {
   try {
-    const user = (await supabase.auth.getUser()).data.user;
-    const userId = DEV_MODE ? DEV_USER.id : user?.id;
-    
-    if (!userId) {
-      console.warn('[PracticeCompletionTracker] No user ID available');
-      return false;
-    }
+    // Auth is handled by trackSanctuaryEvent via Auth0 token — no local gate needed
 
     // Determine time of day for context
     const hour = new Date().getHours();

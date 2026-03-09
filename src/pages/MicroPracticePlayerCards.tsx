@@ -1736,14 +1736,6 @@ const MicroPracticePlayerCards = () => {
     if (!practice) return;
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setShowRatingModal(true);
-        return;
-      }
-
       const practiceQueue = JSON.parse(
         localStorage.getItem("practiceQueue") || "null"
       );

@@ -895,9 +895,7 @@ const GuidedPracticePlayer = () => {
   const handlePracticeComplete = async () => {
     // Save practice session to database
     try {
-      const userId = DEV_MODE ? DEV_USER.id : (await supabase.auth.getUser()).data.user?.id;
-      
-      if (userId && practice) {
+      if (practice) {
         const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
         const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
         
