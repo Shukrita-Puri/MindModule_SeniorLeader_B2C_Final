@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       sanctuaryRes, ritualRes, tinyWinsRes, wearableRes,
       dialogueSessionsRes, calConnRes, behaviorRes, innerReadinessRes,
     ] = await Promise.all([
-      supabase.from("profiles").select("user_archetype, component_scores").eq("id", userId).single(),
+      supabase.from("profiles").select("user_archetype, component_scores, mental_fitness_baseline, growth_priority").eq("id", userId).maybeSingle(),
       supabase.from("daily_checkins").select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at").eq("user_id", userId).gte("checkin_date", thirtyStr).order("checkin_date", { ascending: true }),
       supabase.from("daily_themes").select("theme_phrase, theme_driver").eq("user_id", userId).gte("theme_date", thirtyStr),
       supabase.from("user_coach_insights").select("insight_content, created_at, insight_type").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
