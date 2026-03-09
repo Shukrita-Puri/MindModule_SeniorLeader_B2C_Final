@@ -189,6 +189,27 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
+    } else if (type === "fetch_messages") {
+      // Fetch all messages for a session (used for session restore)
+      const { data: messages, error } = await supabase
+        .from("dialogue_messages")
+        .select("sender_type, content, message_index, timestamp")
+        .eq("session_id", sessionId)
+        .order("message_index", { ascending: true });
+
+      if (error) {
+        console.error("[dialogue-data-persist] Fetch messages failed:", error);
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch messages" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, messages: messages || [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     } else {
       return new Response(
         JSON.stringify({ error: `Unknown type: ${type}` }),
