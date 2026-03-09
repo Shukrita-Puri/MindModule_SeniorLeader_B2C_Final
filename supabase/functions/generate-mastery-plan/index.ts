@@ -618,12 +618,37 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
       timePill = `In ${days} day${days > 1 ? 's' : ''}`;
     }
 
-    // Context description
-    const contextDescription = minutesUntil <= 60
-      ? `${event.title} in ${minutesUntil} minutes. Start preparing now with practice and mental rehearsal.`
-      : minutesUntil < 1440
-        ? `${event.title} in ${Math.floor(minutesUntil / 60)} hours. Prepare with targeted practice.`
-        : `${event.title} in ${Math.ceil(minutesUntil / 1440)} days. Start preparing now with practice and mental rehearsal.`;
+    // Context description — AI-generated reasoning for why this event was selected
+    const contextParts: string[] = [];
+
+    // Scenario-based reasoning
+    if (matchedScenario) {
+      contextParts.push(`Upcoming ${matchedScenario.id.replace(/-/g, ' ')} detected`);
+    } else if ((event.attendeesCount || 0) > 5) {
+      contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
+    } else if (event.isOrganizer) {
+      contextParts.push(`You're organizing this event`);
+    }
+
+    // Urgency context
+    if (minutesUntil <= 30) {
+      contextParts.push(`starting very soon — prepare now`);
+    } else if (minutesUntil <= 60) {
+      contextParts.push(`in ${minutesUntil} minutes`);
+    } else if (minutesUntil < 1440) {
+      contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+    } else {
+      contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
+    }
+
+    // Stakes indicators
+    if (!event.isRecurring && (event.attendeesCount || 0) > 3) {
+      contextParts.push(`non-recurring high-visibility event`);
+    }
+
+    const contextDescription = contextParts.length > 0
+      ? contextParts.join(' — ') + '. Prepare with targeted practice.'
+      : `${event.title}. Prepare with targeted practice.`;
 
     scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription });
   }
@@ -1248,14 +1273,41 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       });
     }
 
-    // Only emit preEventPlan if we have at least one module
+    // Enrich contextDescription with coach/commitment context if available
+    let enrichedContextDescription = topEvent.contextDescription;
+    const eventTitleLower = (topEvent.event.title || '').toLowerCase();
+    
+    // Check if any pending coach commitment mentions this event
+    const relevantCommitment = pendingCommitments.find((c: any) => {
+      const commitText = (c.commitment_text || '').toLowerCase();
+      return eventTitleLower.split(' ').some((word: string) => word.length > 3 && commitText.includes(word));
+    });
+    if (relevantCommitment) {
+      enrichedContextDescription = enrichedContextDescription.replace(
+        'Prepare with targeted practice.',
+        `You discussed this with your coach. Prepare with targeted practice.`
+      );
+    }
+
+    // Check for pattern observations related to this event type
+    if (scenario && req.patternInsight) {
+      const patternLower = (req.patternInsight || '').toLowerCase();
+      const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
+      if (scenarioKeywords.some(kw => patternLower.includes(kw))) {
+        enrichedContextDescription = enrichedContextDescription.replace(
+          'Prepare with targeted practice.',
+          `Your coach has noted a pattern here. Prepare with targeted practice.`
+        );
+      }
+    }
+
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
         eventType: scenario?.id || 'general',
         minutesUntil: topEvent.minutesUntil,
         timePill: topEvent.timePill,
-        contextDescription: topEvent.contextDescription,
+        contextDescription: enrichedContextDescription,
         modules: preEventModules,
         coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
         progressTracked: false
