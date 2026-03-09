@@ -28,7 +28,7 @@ interface ConnectionStatus {
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
-async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number }> {
+async function triggerCalendarSync(provider: string): Promise<{ success: boolean; eventCount?: number; reconnectRequired?: boolean }> {
   try {
     const token = await getAuthToken();
     if (!token) {
