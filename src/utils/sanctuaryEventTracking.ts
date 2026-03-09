@@ -106,11 +106,8 @@ export async function trackSanctuaryEvent(event: SanctuaryEventData) {
       if (import.meta.env.DEV) {
         console.error('Error tracking sanctuary event:', error);
       }
-      // Add to offline queue
+      // Add to in-memory offline queue (no localStorage backup — retry on reconnect)
       offlineQueue.push(eventWithUser);
-      // Store in localStorage as backup
-      const existing = JSON.parse(localStorage.getItem('sanctuaryEvents') || '[]');
-      localStorage.setItem('sanctuaryEvents', JSON.stringify([...existing, eventWithUser]));
     } else {
       if (import.meta.env.DEV) {
         console.log('Event tracked successfully');
