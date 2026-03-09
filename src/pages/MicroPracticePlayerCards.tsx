@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Clock, Sparkles, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
