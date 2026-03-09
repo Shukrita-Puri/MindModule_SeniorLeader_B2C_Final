@@ -67,13 +67,19 @@ function devResolveArchetype(er: number, fr: number, en: number) {
   return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
-const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
+const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Use prefetched data if available (avoids duplicate edge function call)
+    if (prefetchedData && prefetchedData.baselineArchetypeId) {
+      setData(prefetchedData);
+      setLoading(false);
+      return;
+    }
     if (userId) fetchData();
-  }, [userId]);
+  }, [userId, prefetchedData]);
 
   const fetchData = async () => {
     setLoading(true);
