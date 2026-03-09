@@ -181,8 +181,8 @@ serve(async (req) => {
     if (!accessToken) {
       console.error('[sync-calendar] No encrypted access token found');
       return new Response(
-        JSON.stringify({ error: 'Calendar access token not found. Please reconnect your calendar.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, reconnectRequired: true, reason: 'no_access_token', error: 'Calendar session expired. Please reconnect your calendar.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
