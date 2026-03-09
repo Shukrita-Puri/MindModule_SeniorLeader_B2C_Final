@@ -167,6 +167,8 @@ const ConnectedData = () => {
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (syncResult.skipped) {
+        toast.error(syncResult.error || 'Calendar is disconnected. Reconnect to sync.');
       } else if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
