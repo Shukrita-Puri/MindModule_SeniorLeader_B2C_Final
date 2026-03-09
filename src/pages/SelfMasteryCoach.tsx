@@ -371,7 +371,7 @@ const SelfMasteryCoach = () => {
 
       {/* Queue Progress */}
       {isInQueue && practiceQueue.length > 1 && messages.length === 0 && (
-        <div className="relative z-10 mx-4 mt-14">
+        <div className="relative z-10 mx-4 mt-2">
           <div className="bg-neutral-900/90 backdrop-blur-lg rounded-xl border border-white/10 overflow-hidden shadow-lg">
             <PracticeQueueProgress
               currentIndex={currentQueueIndex}
