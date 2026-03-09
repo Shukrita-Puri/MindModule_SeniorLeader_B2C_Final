@@ -1093,7 +1093,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ userId: req.userId }),
+      body: JSON.stringify({ userId: req.userId, timezoneOffset: req.timezoneOffset }),
     });
     if (outerRes.ok) {
       const outerData = await outerRes.json();
