@@ -386,7 +386,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCa
               <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
                 <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                    {data.coachStrength ? (
+                      <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                    )}
+                  </div>
                   {data.coachStrength ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
@@ -402,7 +409,14 @@ const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCa
               <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                    {data.coachFriction ? (
+                      <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                    )}
+                  </div>
                   {data.coachFriction ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />

@@ -780,8 +780,8 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Your Self Mastery Patterns — unified card */}
-        <LeadershipPatternsCard userId={user?.id} />
+        {/* Your Self Mastery Patterns — pass pre-fetched data to avoid duplicate edge call */}
+        <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} />
 
         {/* Card 2 — Your Momentum (moved up from Card 6) */}
         <LuxuryInsightCard>
