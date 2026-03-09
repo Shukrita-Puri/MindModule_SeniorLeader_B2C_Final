@@ -63,6 +63,7 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, refreshProfile } = useAuth();
+  const { loginWithRedirect } = useAuth0();
   const { recordStep } = useOnboardingProgress();
 
   const [calendarEnabled, setCalendarEnabled] = useState(false);
