@@ -93,7 +93,7 @@ export default function Stage7ContextConnection() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle Google Calendar toggle — explicit Auth0 /authorize redirect
+  // Handle Google Calendar toggle — Auth0-hosted OAuth via SDK
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
       setCalendarEnabled(false);
@@ -108,43 +108,31 @@ export default function Stage7ContextConnection() {
     setLoading(true);
 
     try {
-      const domain = getSanitisedAuth0Domain();
-      const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || "";
-      const audience = getSanitisedAuth0Audience();
       const redirectUri = getCalendarRedirectUri();
-      const state = generateRandomString(48);
-      const nonce = generateRandomString(32);
+      const returnTo = "/onboarding/context-connection?calendar_connected=true";
 
-      // Persist return-to so the callback handler routes back here
-      sessionStorage.setItem("auth0_calendar_state", state);
-      sessionStorage.setItem(
-        "auth0_return_to",
-        "/onboarding/context-connection?calendar_connected=true"
-      );
+      // Keep existing callback return behavior compatible with AuthCallback
+      sessionStorage.setItem("auth0_return_to", returnTo);
 
-      const params = new URLSearchParams({
-        client_id: clientId,
-        response_type: "code",
-        redirect_uri: redirectUri,
-        scope: "openid profile email offline_access",
+      console.log("[Stage7] Starting Auth0 calendar redirect", {
+        redirectUri,
         connection: "google-oauth2",
-        connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
-        state,
-        nonce,
       });
 
-      if (audience) {
-        params.set("audience", audience);
-      }
+      await loginWithRedirect({
+        authorizationParams: {
+          connection: "google-oauth2",
+          connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
+          scope: "openid profile email offline_access",
+          redirect_uri: redirectUri,
+        },
+        appState: { returnTo },
+      });
 
-      const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
-      console.log("[Stage7] Redirecting to Auth0 /authorize:", authorizeUrl);
-
-      await openOAuthUrl(authorizeUrl);
-      // Browser will redirect — loading state cleared on unmount
+      // Redirect should take over; keep loading until unmount/callback
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Stage7] Auth0 authorize redirect failed:", msg);
+      console.error("[Stage7] loginWithRedirect failed:", msg);
       toast.error("Failed to start calendar connection");
       setCalendarEnabled(false);
       setLoading(false);
