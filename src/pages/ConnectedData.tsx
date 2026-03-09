@@ -53,6 +53,14 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
       return { success: false };
     }
     const data = await res.json();
+    if (data.reconnectRequired) {
+      console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
+      return { success: false, reconnectRequired: true };
+    }
+    if (data.success === false) {
+      console.warn('[ConnectedData] Sync returned failure:', data.error);
+      return { success: false };
+    }
     console.log('[ConnectedData] ✅ Sync complete:', data.eventCount, 'events');
     return { success: true, eventCount: data.eventCount };
   } catch (err) {
