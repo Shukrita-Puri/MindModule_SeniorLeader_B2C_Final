@@ -84,6 +84,7 @@ async function requestCalendarAuthUrl(redirectPath: string): Promise<string | nu
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const { isAuthenticated, refreshProfile } = useAuth();
   const { recordStep } = useOnboardingProgress();
 
