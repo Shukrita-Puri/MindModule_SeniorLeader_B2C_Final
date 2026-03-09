@@ -1273,14 +1273,41 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       });
     }
 
-    // Only emit preEventPlan if we have at least one module
+    // Enrich contextDescription with coach/commitment context if available
+    let enrichedContextDescription = topEvent.contextDescription;
+    const eventTitleLower = (topEvent.event.title || '').toLowerCase();
+    
+    // Check if any pending coach commitment mentions this event
+    const relevantCommitment = pendingCommitments.find((c: any) => {
+      const commitText = (c.commitment_text || '').toLowerCase();
+      return eventTitleLower.split(' ').some((word: string) => word.length > 3 && commitText.includes(word));
+    });
+    if (relevantCommitment) {
+      enrichedContextDescription = enrichedContextDescription.replace(
+        'Prepare with targeted practice.',
+        `You discussed this with your coach. Prepare with targeted practice.`
+      );
+    }
+
+    // Check for pattern observations related to this event type
+    if (scenario && req.patternInsight) {
+      const patternLower = (req.patternInsight || '').toLowerCase();
+      const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
+      if (scenarioKeywords.some(kw => patternLower.includes(kw))) {
+        enrichedContextDescription = enrichedContextDescription.replace(
+          'Prepare with targeted practice.',
+          `Your coach has noted a pattern here. Prepare with targeted practice.`
+        );
+      }
+    }
+
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
         eventType: scenario?.id || 'general',
         minutesUntil: topEvent.minutesUntil,
         timePill: topEvent.timePill,
-        contextDescription: topEvent.contextDescription,
+        contextDescription: enrichedContextDescription,
         modules: preEventModules,
         coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
         progressTracked: false
