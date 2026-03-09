@@ -237,11 +237,11 @@ const CoachSplitView = ({
   // ════════════════════════════════════════════
   if (!hasMessages) {
     return (
-      <div className="flex flex-col h-full relative overflow-hidden">
+      <div className="flex flex-col h-full min-h-0 relative overflow-hidden">
         {/* Dark gradient background — no full-bleed photo */}
         <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
-        <div className="relative z-10 flex-1 flex flex-col">
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col">
           {/* Title + tagline + avatar + greeting — single centered block */}
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-5">
             <h1 className="text-3xl font-headline text-foreground tracking-tight">
