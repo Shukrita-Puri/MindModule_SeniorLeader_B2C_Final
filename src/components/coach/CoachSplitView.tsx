@@ -293,7 +293,7 @@ const CoachSplitView = ({
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/20 via-transparent to-transparent" />
 
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="relative z-10 flex-1 flex flex-col">
         {/* Top bar — coach identity */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-border/30 shrink-0">
           <CoachAvatar size="sm" />
