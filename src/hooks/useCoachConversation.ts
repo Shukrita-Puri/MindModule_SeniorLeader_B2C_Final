@@ -350,7 +350,8 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
     } catch (err) {
       console.error('Coach conversation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send message');
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      setError(isAbort ? 'Coach took too long to respond. Please hit Retry.' : (err instanceof Error ? err.message : 'Failed to send message'));
       // Remove the empty assistant message on error
       setMessages(prev => prev.filter(m => m.content !== ''));
     } finally {
