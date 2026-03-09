@@ -1159,6 +1159,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Filter out 3+ skipped types
   const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
 
+  // Observability: log calendar scoring summary
+  console.log(`[generate-mastery-plan] Calendar: ${req.calendarEvents?.length || 0} events fetched, ${scoredEvents.length} scored, ${filteredEvents.length} after suppression. Top event: ${filteredEvents[0]?.event.title || 'none'} (score: ${filteredEvents[0]?.score || 0})`);
+
   // 4. Build calendar pills (max 2)
   const calendarPills = filteredEvents.slice(0, 2).map(e => ({
     label: e.scenario ? `${e.scenario.contextLabel}` : e.event.title || 'Upcoming Event',
@@ -1167,14 +1170,16 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     timePill: e.timePill
   }));
 
-  // 5. Build pre-event plan from highest-scoring event
+  // 5. Build pre-event plan from highest-scoring event (threshold ≥ 50)
   let preEventPlan: any = null;
-  if (filteredEvents.length > 0) {
+  const JIT_THRESHOLD = 50;
+  if (filteredEvents.length > 0 && filteredEvents[0].score >= JIT_THRESHOLD) {
     const topEvent = filteredEvents[0];
     const scenario = topEvent.scenario;
     const preEventModules: any[] = [];
 
     if (scenario) {
+      // Scenario-matched: use scenario modules
       for (const spec of scenario.modules) {
         if (spec.type === 'prepare' || spec.type === 'integrate') {
           preEventModules.push({
@@ -1206,18 +1211,58 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           }
         }
       }
+    } else {
+      // No scenario match but high score: produce fallback pre-event pack
+      // 1. Regulate (gentle short grounding)
+      const regulateSpec: ModuleSpec = { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'composure' };
+      const regulateContent = selectContent(enrichedContent, regulateSpec, req, pendingCommitments);
+      if (regulateContent) {
+        preEventModules.push({
+          type: 'regulate',
+          contentId: regulateContent.id,
+          title: regulateContent.title,
+          contentType: regulateContent.content_type,
+          duration: regulateContent.duration,
+          focus: 'composure',
+          intensity: 'gentle',
+          isFavorite: req.favorites.includes(regulateContent.id),
+          reasoning: 'Center before your upcoming event'
+        });
+      }
+      // 2. Prepare (coach card)
+      preEventModules.push({
+        type: 'prepare',
+        contentId: 'coach-prepare',
+        title: 'Mental Rehearsal',
+        contentType: 'coach',
+        duration: 2,
+        focus: 'composure',
+        intensity: 'moderate',
+        isFavorite: false,
+        isCoachCard: true,
+        reasoning: 'Mental rehearsal for upcoming event'
+      });
     }
 
-    preEventPlan = {
-      eventTitle: topEvent.event.title,
-      eventType: scenario?.id || 'general',
-      minutesUntil: topEvent.minutesUntil,
-      timePill: topEvent.timePill,
-      contextDescription: topEvent.contextDescription,
-      modules: preEventModules,
-      coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
-      progressTracked: false
-    };
+    // Only emit preEventPlan if we have at least one module
+    if (preEventModules.length > 0) {
+      preEventPlan = {
+        eventTitle: topEvent.event.title,
+        eventType: scenario?.id || 'general',
+        minutesUntil: topEvent.minutesUntil,
+        timePill: topEvent.timePill,
+        contextDescription: topEvent.contextDescription,
+        modules: preEventModules,
+        coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
+        progressTracked: false
+      };
+      console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
+    } else {
+      console.log(`[generate-mastery-plan] preEventPlan skipped: no modules resolved for "${topEvent.event.title}"`);
+    }
+  } else {
+    const reason = filteredEvents.length === 0 ? 'no calendar events' : `top score ${filteredEvents[0]?.score || 0} < threshold ${JIT_THRESHOLD}`;
+    console.log(`[generate-mastery-plan] preEventPlan=null: ${reason}`);
   }
 
   // 6. Build time-of-day plan
