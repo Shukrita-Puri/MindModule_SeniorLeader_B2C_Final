@@ -2324,23 +2324,51 @@ serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(fullContext, flowType);
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-    });
+    const aiRequestBody = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 1024,
+    };
+
+    const models = ["google/gemini-2.5-flash", "google/gemini-3-flash-preview", "openai/gpt-5-mini"];
+    let response: Response | null = null;
+
+    for (const model of models) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        
+        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model, ...aiRequestBody }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeout);
+        
+        if (response.ok) {
+          console.log(`[self-mastery-coach] Using model: ${model}`);
+          break;
+        }
+        console.warn(`[self-mastery-coach] Model ${model} returned ${response.status}, trying next...`);
+        response = null;
+      } catch (err) {
+        console.warn(`[self-mastery-coach] Model ${model} failed:`, err instanceof Error ? err.message : err);
+        response = null;
+      }
+    }
+
+    if (!response || !response.ok) {
+      throw new Error("All AI models failed");
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
