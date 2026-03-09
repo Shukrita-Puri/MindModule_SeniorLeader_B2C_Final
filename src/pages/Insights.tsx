@@ -193,11 +193,11 @@ const Insights = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchInsightsData();
-      fetchTinyWinsInsights();
+      // Production: fetch consolidated data from state-patterns-insights
+      // DEV_MODE: use direct queries (the existing flow)
       fetchStatePatterns();
+      fetchTinyWinsInsights();
       fetchSemanticAnalysis();
-      fetchProfileBaseline();
     }
   }, [user?.id]);
 
