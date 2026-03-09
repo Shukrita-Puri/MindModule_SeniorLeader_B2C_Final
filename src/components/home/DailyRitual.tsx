@@ -643,8 +643,6 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                 </Button>
               </div>
             )}
-          </>
-        )}
       </div>
     </div>
   );
