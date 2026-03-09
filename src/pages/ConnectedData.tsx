@@ -16,8 +16,8 @@ import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapac
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-import googleCalendarLogo from '@/assets/google-calendar-logo.avif';
-import appleWatchLogo from '@/assets/apple-watch-logo.jpg';
+import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
+import appleWatchLogo from '@/assets/shared/apple-watch-logo.jpg';
 
 /* ─── Types ─── */
 

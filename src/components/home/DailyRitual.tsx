@@ -17,7 +17,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 
 // Background images for Coach cards
-import coachVisual from '@/assets/coach-visual-calm.jpeg';
+import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
 // Types from backend response
 interface PlanModule {

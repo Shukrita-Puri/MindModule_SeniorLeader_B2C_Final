@@ -6,9 +6,9 @@
 import type { SanctuaryContent } from '@/data/practicesAndSoundscapes';
 
 // Import category thumbnails
-import dialogueAcademicConfidence from '@/assets/dialogue-academic-confidence.jpg';
-import dialogueSocialNavigation from '@/assets/dialogue-social-navigation.jpg';
-import dialogueGrowthOpportunity from '@/assets/dialogue-growth-opportunity.jpg';
+import dialogueAcademicConfidence from '@/assets/dialogue/dialogue-academic-confidence.jpg';
+import dialogueSocialNavigation from '@/assets/dialogue/dialogue-social-navigation.jpg';
+import dialogueGrowthOpportunity from '@/assets/dialogue/dialogue-growth-opportunity.jpg';
 
 // Student event types from moment detection
 type StudentEventType = 'exam' | 'interview' | 'presentation' | 'networking' | 'competition' | 

@@ -21,30 +21,30 @@ import { DEV_MODE, DEV_USER } from "@/config/devMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSwipeHandler } from "@/hooks/useSwipeHandler";
-import phoenixResilienceHero from "@/assets/phoenix-resilience-hero.png";
-import courageFutureHero from "@/assets/courage-future-hero.png";
-import confidenceEvidenceHero from "@/assets/confidence-evidence-hero.png";
-import energyReframeHero from "@/assets/energy-reframe-hero.png";
-import energyCompletionHero from "@/assets/energy-completion-hero.png";
-import braveActionHero from "@/assets/brave-action-hero.png";
-import singleThreadFocusHero from "@/assets/single-thread-focus-hero.png";
-import firstMoveMomentumHero from "@/assets/first-move-momentum-hero.png";
-import depthSubtractionHero from "@/assets/depth-subtraction-hero.png";
-import eternalNowPresenceHero from "@/assets/eternal-now-presence-hero.png";
-import rhythmPulseHero from "@/assets/rhythm-pulse-hero.png";
-import masteryConstraintHero from "@/assets/mastery-constraint-hero.png";
-import wuWeiFlowHero from "@/assets/wu-wei-flow-hero.png";
-import mushinFlowHero from "@/assets/mushin-flow-hero.png";
-import jobsSimplicityHero from "@/assets/jobs-simplicity-hero.png";
-import ikigaiPurposeHero from "@/assets/ikigai-purpose-hero.png";
-import stoicReflectionHero from "@/assets/stoic-reflection-hero.png";
-import fudoshinHero from "@/assets/fudoshin-immovable-mind.jpg";
-import presenceGroundingHero from "@/assets/presence-grounding.jpg";
-import releaseExhaleHero from "@/assets/release-exhale.jpg";
-import clarityEyeStormHero from "@/assets/clarity-eye-of-storm.jpg";
-import stillnessGapHero from "@/assets/stillness-gap.jpg";
-import detachmentObserverHero from "@/assets/detachment-observer.jpg";
-import softnessReleaseHero from "@/assets/softness-release.jpg";
+import phoenixResilienceHero from "@/assets/recalibrate/power-up/phoenix-resilience-hero.png";
+import courageFutureHero from "@/assets/recalibrate/power-up/courage-future-hero.png";
+import confidenceEvidenceHero from "@/assets/recalibrate/power-up/confidence-evidence-hero.png";
+import energyReframeHero from "@/assets/recalibrate/power-up/energy-reframe-hero.png";
+import energyCompletionHero from "@/assets/recalibrate/power-up/energy-completion-hero.png";
+import braveActionHero from "@/assets/recalibrate/power-up/brave-action-hero.png";
+import singleThreadFocusHero from "@/assets/recalibrate/presence/single-thread-focus-hero.png";
+import firstMoveMomentumHero from "@/assets/recalibrate/presence/first-move-momentum-hero.png";
+import depthSubtractionHero from "@/assets/recalibrate/presence/depth-subtraction-hero.png";
+import eternalNowPresenceHero from "@/assets/recalibrate/presence/eternal-now-presence-hero.png";
+import rhythmPulseHero from "@/assets/recalibrate/power-up/rhythm-pulse-hero.png";
+import masteryConstraintHero from "@/assets/recalibrate/presence/mastery-constraint-hero.png";
+import wuWeiFlowHero from "@/assets/recalibrate/presence/wu-wei-flow-hero.png";
+import mushinFlowHero from "@/assets/recalibrate/presence/mushin-flow-hero.png";
+import jobsSimplicityHero from "@/assets/recalibrate/presence/jobs-simplicity-hero.png";
+import ikigaiPurposeHero from "@/assets/recalibrate/presence/ikigai-purpose-hero.png";
+import stoicReflectionHero from "@/assets/recalibrate/presence/stoic-reflection-hero.png";
+import fudoshinHero from "@/assets/recalibrate/presence/fudoshin-immovable-mind.jpg";
+import presenceGroundingHero from "@/assets/recalibrate/presence/presence-grounding.jpg";
+import releaseExhaleHero from "@/assets/recalibrate/pause/release-exhale.jpg";
+import clarityEyeStormHero from "@/assets/recalibrate/presence/clarity-eye-of-storm.jpg";
+import stillnessGapHero from "@/assets/recalibrate/pause/stillness-gap.jpg";
+import detachmentObserverHero from "@/assets/recalibrate/presence/detachment-observer.jpg";
+import softnessReleaseHero from "@/assets/recalibrate/pause/softness-release.jpg";
 
 // Buddhist Phoenix practice card content
 const BUDDHIST_PHOENIX_CARDS = [
@@ -1754,33 +1754,9 @@ const MicroPracticePlayerCards = () => {
       const todayRecommendedIds = JSON.parse(localStorage.getItem('todayRecommendedIds') || '[]');
       const isRecommendedPractice = todayRecommendedIds.includes(id);
       const shouldTrackRitual = isPartOfRitual || isRecommendedPractice;
-      
-      const userId = DEV_MODE ? DEV_USER.id : user.id;
 
-      // Track practice session
-      const { data, error } = await supabase
-        .from("practice_sessions")
-        .insert({
-          user_id: userId,
-          content_id: practice.id,
-          content_type: "micro",
-          category: practice.category,
-          duration_seconds: practice.duration * 60,
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          completed: true,
-          part_of_ritual: shouldTrackRitual,
-          metadata: { title: practice.title },
-        })
-        .select("id")
-        .single();
-
-      if (data) {
-        setSessionId(data.id);
-      }
-
-      // Track to sanctuary_events for Insights page
-      await trackSanctuaryEvent({
+      // Single consolidated tracking call (writes to both sanctuary_events + practice_sessions)
+      const result = await trackSanctuaryEvent({
         eventType: 'session_complete',
         contentId: practice.id,
         contentType: 'micro-practice',
@@ -1791,8 +1767,14 @@ const MicroPracticePlayerCards = () => {
         contextData: {
           timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
           dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
-        }
+        },
+        partOfRitual: shouldTrackRitual,
+        metadata: { title: practice.title }
       });
+
+      if (result.data?.practiceSessionId) {
+        setSessionId(result.data.practiceSessionId);
+      }
 
       // Update ritual completion if part of recommended plan or queue
       if (shouldTrackRitual) {

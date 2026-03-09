@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import mmLogo from '@/assets/mm-logo-icon.png';
+import mmLogo from '@/assets/brand/mm-logo-icon.png';
 import { 
   ChatCircle, 
   Compass, 

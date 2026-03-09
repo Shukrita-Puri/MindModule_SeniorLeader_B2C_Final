@@ -40,7 +40,7 @@ serve(async (req) => {
     };
     const mappedEventType = eventTypeMap[eventData.eventType] || eventData.eventType;
 
-    // Insert event
+    // Insert sanctuary event
     const { data: event, error: insertError } = await supabase
       .from('sanctuary_events')
       .insert({
@@ -62,9 +62,45 @@ serve(async (req) => {
       throw insertError;
     }
 
+    // Also write to practice_sessions for completed events (consolidates dual writes)
+    let practiceSessionId: string | null = null;
+    if (mappedEventType === 'completed') {
+      const durationSeconds = eventData.durationSeconds || eventData.duration || null;
+      const now = new Date().toISOString();
+      const startedAt = durationSeconds
+        ? new Date(Date.now() - durationSeconds * 1000).toISOString()
+        : now;
+
+      const { data: session, error: sessionError } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: userId,
+          content_id: eventData.contentId,
+          content_type: eventData.contentType === 'guided-practice' ? 'guided'
+            : eventData.contentType === 'micro-practice' ? 'micro'
+            : eventData.contentType,
+          category: eventData.category,
+          duration_seconds: durationSeconds,
+          started_at: startedAt,
+          completed_at: now,
+          completed: true,
+          part_of_ritual: eventData.partOfRitual || false,
+          metadata: eventData.metadata || {},
+        })
+        .select('id')
+        .single();
+
+      if (sessionError) {
+        console.error('[track-sanctuary-event] practice_sessions insert error:', sessionError);
+        // Non-fatal — sanctuary_events is the primary record
+      } else {
+        practiceSessionId = session?.id || null;
+      }
+    }
+
     console.log('[track-sanctuary-event] Event tracked:', mappedEventType, eventData.contentId);
 
-    return new Response(JSON.stringify({ success: true, event }), {
+    return new Response(JSON.stringify({ success: true, event, practiceSessionId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

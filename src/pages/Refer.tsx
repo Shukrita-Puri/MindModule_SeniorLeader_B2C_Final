@@ -7,8 +7,8 @@ import { ArrowLeft, Share2, Copy, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
-import giftBoxImg from '@/assets/referral-gift-box.png';
-import mmLogoMini from '@/assets/mm-logo-mini.png';
+import giftBoxImg from '@/assets/shared/referral-gift-box.png';
+import mmLogoMini from '@/assets/brand/mm-logo-mini.png';
 
 const APP_STORE_URL = 'https://apps.apple.com/app/mind-module/id123456789';
 
