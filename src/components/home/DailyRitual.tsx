@@ -341,9 +341,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const navigateToPractice = async (module: PlanModule) => {
-    const modules = activeView === 'preEvent' && plan?.preEventPlan
-      ? plan.preEventPlan.modules
-      : plan?.timeOfDayPlan?.modules || [];
+    const modules = plan?.timeOfDayPlan?.modules || [];
 
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
       id: m.contentId, title: m.title, contentType: m.contentType, category: m.contentType === 'coach' ? 'coach' : 'pause', duration: m.duration
