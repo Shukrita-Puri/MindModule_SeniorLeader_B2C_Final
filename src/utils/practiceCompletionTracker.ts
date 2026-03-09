@@ -4,8 +4,6 @@
  * Ensures all practice completions are logged to sanctuary_events for Insights page
  */
 
-import { supabase } from '@/integrations/supabase/client';
-import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { trackSanctuaryEvent } from './sanctuaryEventTracking';
 
 interface PracticeCompletionParams {
