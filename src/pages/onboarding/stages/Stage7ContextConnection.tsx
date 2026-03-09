@@ -101,7 +101,7 @@ export default function Stage7ContextConnection() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle Google Calendar toggle
+  // Handle Google Calendar toggle — initiates Auth0-hosted Google OAuth
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
       setCalendarEnabled(false);
@@ -118,27 +118,27 @@ export default function Stage7ContextConnection() {
       const token = await getAuthToken();
       if (!token) {
         toast.error("Authentication required to connect calendar");
+        setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("calendar-auth", {
-        body: {
-          action: "connect",
-          provider: "google",
-          redirectPath: "/onboarding/context-connection",
+      // Redirect to Auth0 authorize endpoint with Google connection + calendar scope.
+      // Auth0 brokers the Google OAuth and handles token exchange securely.
+      await loginWithRedirect({
+        authorizationParams: {
+          connection: "google-oauth2",
+          connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
+          redirect_uri: `${CANONICAL_APP_URL}/callback`,
         },
-        headers: { Authorization: `Bearer ${token}` },
+        appState: {
+          returnTo: "/onboarding/context-connection?calendar_connected=true",
+        },
       });
-
-      if (error) throw error;
-      if (data?.authUrl) {
-        await openOAuthUrl(data.authUrl);
-      }
+      // Browser will redirect — loading state cleared on unmount
     } catch (error) {
-      console.error("Error connecting calendar:", error);
+      console.error("[Stage7] Error initiating Auth0 Google connect:", error);
       toast.error("Failed to connect calendar");
       setCalendarEnabled(false);
-    } finally {
       setLoading(false);
     }
   };
