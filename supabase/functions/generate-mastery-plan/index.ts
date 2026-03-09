@@ -618,12 +618,37 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
       timePill = `In ${days} day${days > 1 ? 's' : ''}`;
     }
 
-    // Context description
-    const contextDescription = minutesUntil <= 60
-      ? `${event.title} in ${minutesUntil} minutes. Start preparing now with practice and mental rehearsal.`
-      : minutesUntil < 1440
-        ? `${event.title} in ${Math.floor(minutesUntil / 60)} hours. Prepare with targeted practice.`
-        : `${event.title} in ${Math.ceil(minutesUntil / 1440)} days. Start preparing now with practice and mental rehearsal.`;
+    // Context description — AI-generated reasoning for why this event was selected
+    const contextParts: string[] = [];
+
+    // Scenario-based reasoning
+    if (matchedScenario) {
+      contextParts.push(`Upcoming ${matchedScenario.id.replace(/-/g, ' ')} detected`);
+    } else if ((event.attendeesCount || 0) > 5) {
+      contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
+    } else if (event.isOrganizer) {
+      contextParts.push(`You're organizing this event`);
+    }
+
+    // Urgency context
+    if (minutesUntil <= 30) {
+      contextParts.push(`starting very soon — prepare now`);
+    } else if (minutesUntil <= 60) {
+      contextParts.push(`in ${minutesUntil} minutes`);
+    } else if (minutesUntil < 1440) {
+      contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+    } else {
+      contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
+    }
+
+    // Stakes indicators
+    if (!event.isRecurring && (event.attendeesCount || 0) > 3) {
+      contextParts.push(`non-recurring high-visibility event`);
+    }
+
+    const contextDescription = contextParts.length > 0
+      ? contextParts.join(' — ') + '. Prepare with targeted practice.'
+      : `${event.title}. Prepare with targeted practice.`;
 
     scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription });
   }

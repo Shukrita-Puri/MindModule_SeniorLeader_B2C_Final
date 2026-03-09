@@ -304,7 +304,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           onClick={handleStartPrep}
           className="w-full h-10 text-sm font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl"
         >
-          Start Pack
+          Start Your Just in Time Plan
         </Button>
         <button
           onClick={handleSnooze}
