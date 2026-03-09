@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -8,7 +9,7 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { CANONICAL_APP_URL } from "@/utils/authRedirect";
 
 /**
  * Opens a URL using Capacitor's in-app browser on native, or window.location.href on web.
