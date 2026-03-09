@@ -1,53 +1,63 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Fix Stage 7 Google Calendar Connection — Auth0 Only
 
-Two files need text-only changes (no layout or UI modifications).
+## Current Issues
+1. **Optimistic toggle**: Sets `calendarEnabled(true)` before the connect request succeeds (line 66) — false positive if redirect fails
+2. **Anonymous fallback**: Falls back to `userId` in body when no Auth0 token (line 80) — violates Auth0-only requirement
+3. **No on-load status check**: Doesn't query backend for existing connection on mount — returning users always see toggle OFF
+4. **Trusts URL param blindly**: OAuth callback sets connected based on `?calendar_connected=true` without backend verification
+5. **Unused import**: `supabase` client imported but should use `getAuthToken()` + `supabase.functions.invoke()` pattern consistently
 
----
+## Changes
 
-### File 1: `src/pages/Front.tsx`
+### Stage7ContextConnection.tsx
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+**On mount — check existing connection status:**
+- Add a `useEffect` that calls `check-calendar-status` edge function with Auth0 bearer token
+- If response shows `connected: true`, set `calendarEnabled(true)`
+- Silent failure (user just sees toggle OFF if check fails)
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+**OAuth callback — verify before trusting:**
+- When `?calendar_connected=true` is in URL, call `check-calendar-status` to confirm
+- Only set toggle ON if backend confirms connection exists
+- Show success toast only on confirmed connection
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+**Connect toggle — remove optimistic + anonymous fallback:**
+- Remove line that sets `calendarEnabled(true)` before the request
+- Remove `userId` body fallback (`...(!token && user?.id ? { userId: user.id } : {})`)
+- If no Auth0 token, show error toast and return (don't proceed)
+- Keep `calendarEnabled(false)` on error
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+**handleComplete — use verified state:**
+- `calendar_provider: calendarEnabled ? 'google' : null` already uses state — no change needed since state is now truth-verified
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+**Remove unused import:**
+- Remove `import { supabase } from "@/integrations/supabase/client"` — use `getAuthToken()` + fetch pattern for `check-calendar-status`, keep `supabase.functions.invoke` for `calendar-auth`
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+### No edge function changes needed
+- `calendar-auth` already accepts Auth0 bearer tokens and verifies via `/userinfo`
+- `check-calendar-status` already accepts Auth0 bearer tokens and returns connection status
+- Both use service_role for DB access — no RLS issues
 
----
+### Helper function addition
+Add a `checkCalendarStatus` async function inside the component that:
+```
+1. Gets Auth0 token via getAuthToken()
+2. Calls check-calendar-status edge function with Bearer token
+3. Returns { connected: boolean, provider: string | null }
+4. Returns { connected: false } on any error
+```
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+Used by both mount effect and callback effect.
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+## Files Changed
+- `src/pages/onboarding/stages/Stage7ContextConnection.tsx` — sole file modified
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+## Test Checklist
+- Connected user sees toggle ON on reload
+- Unconnected user sees toggle OFF
+- Connect success (after OAuth redirect) flips toggle ON
+- Failed connect remains OFF
+- Onboarding completion sends `calendar_provider: 'google'` only when verified connected
 
