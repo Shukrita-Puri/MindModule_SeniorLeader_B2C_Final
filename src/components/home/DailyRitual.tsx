@@ -398,9 +398,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const handleStartRitual = async () => {
-    const modules = activeView === 'preEvent' && plan?.preEventPlan
-      ? plan.preEventPlan.modules
-      : plan?.timeOfDayPlan?.modules || [];
+    const modules = plan?.timeOfDayPlan?.modules || [];
     if (modules.length === 0) return;
 
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
