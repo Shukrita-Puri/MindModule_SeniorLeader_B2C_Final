@@ -160,6 +160,8 @@ const ConnectedData = () => {
       if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
+        // Invalidate outer-readiness so it re-fetches with fresh calendar data
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         // Refresh status to show last_sync
         await fetchStatus();
       } else {
