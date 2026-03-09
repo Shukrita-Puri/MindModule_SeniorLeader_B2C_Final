@@ -43,7 +43,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, contentId, feedbackData } = await req.json() as RequestBody;
+    const body = await req.json() as RequestBody;
+    const { action, contentId, feedbackData, sessionId: reqSessionId, rating, qualitativeRating, feedbackText } = body;
     console.log(`[content-feedback] Action: ${action}, User: ${userId}`);
 
     switch (action) {
