@@ -137,7 +137,10 @@ export default function Stage7ContextConnection() {
                 if (syncData.reconnectRequired) {
                   console.warn("[Stage7] ⚠️ Calendar reconnect required:", syncData.reason);
                   toast.error("Calendar session expired. Please reconnect your calendar.");
-                } else if (syncData.success !== false) {
+                } else if (syncData.skipped) {
+                  console.warn("[Stage7] ⚠️ Sync skipped:", syncData.reason);
+                  toast.error(syncData.error || "Calendar is disconnected.");
+                } else if (syncData.success === true) {
                   console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
                   queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
                 } else {

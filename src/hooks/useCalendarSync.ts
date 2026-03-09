@@ -226,8 +226,9 @@ export function useCalendarSync(): UseCalendarSyncResult {
             // Background sync - don't await
             supabase.functions.invoke('sync-calendar', {
               body: { provider: connData.provider, userId: user.id }
-            }).then(() => {
-              if (!cancelled) fetchEvents();
+            }).then((res) => {
+              if (!cancelled && res.data?.success === true) fetchEvents();
+              if (res.data?.reconnectRequired) console.warn('[useCalendarSync] Background sync: reconnect required');
             }).catch(err => console.error('[useCalendarSync] Background sync failed:', err));
           }
         } else {
