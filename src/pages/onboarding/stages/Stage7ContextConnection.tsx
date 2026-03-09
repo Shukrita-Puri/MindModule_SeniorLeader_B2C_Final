@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -9,10 +8,27 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
+import { getSanitisedAuth0Domain, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 
+/** Generate a cryptographically random string for OAuth state/nonce. */
+function generateRandomString(length = 48): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, length);
+}
+
+/** Environment-safe redirect URI for Auth0 callback. */
+function getCalendarRedirectUri(): string {
+  if (isNativeApp()) {
+    return "app.mindmodule.me://callback";
+  }
+  return `${window.location.origin}/callback`;
+}
 
 /**
- * Opens a URL using Capacitor's in-app browser on native, or window.location.href on web.
+ * Opens a URL using Capacitor's in-app browser on native, or window.location on web.
  */
 async function openOAuthUrl(url: string) {
   if (isNativeApp()) {
@@ -63,7 +79,6 @@ export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, refreshProfile } = useAuth();
-  const { loginWithRedirect } = useAuth0();
   const { recordStep } = useOnboardingProgress();
 
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -90,8 +105,10 @@ export default function Stage7ContextConnection() {
 
       verifyConnection().then((status) => {
         if (status.connected) {
+          console.log("[Stage7] ✅ Calendar verified connected after callback");
           toast.success("Google Calendar connected successfully");
         } else {
+          console.warn("[Stage7] ⚠️ Calendar not verified after callback");
           toast.error("Calendar connection could not be verified");
         }
       });
@@ -101,7 +118,7 @@ export default function Stage7ContextConnection() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle Google Calendar toggle — initiates Auth0-hosted Google OAuth
+  // Handle Google Calendar toggle — explicit Auth0 /authorize redirect
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
       setCalendarEnabled(false);
@@ -114,26 +131,45 @@ export default function Stage7ContextConnection() {
     }
 
     setLoading(true);
-    console.log("[Stage7] Initiating Auth0 Google Calendar connect redirect…");
 
     try {
-      const redirectUri = `${window.location.origin}/callback`;
-      console.log("[Stage7] redirect_uri:", redirectUri);
+      const domain = getSanitisedAuth0Domain();
+      const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || "";
+      const audience = getSanitisedAuth0Audience();
+      const redirectUri = getCalendarRedirectUri();
+      const state = generateRandomString(48);
+      const nonce = generateRandomString(32);
 
-      await loginWithRedirect({
-        authorizationParams: {
-          connection: "google-oauth2",
-          connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
-          redirect_uri: redirectUri,
-        },
-        appState: {
-          returnTo: "/onboarding/context-connection?calendar_connected=true",
-        },
+      // Persist return-to so the callback handler routes back here
+      sessionStorage.setItem("auth0_calendar_state", state);
+      sessionStorage.setItem(
+        "auth0_return_to",
+        "/onboarding/context-connection?calendar_connected=true"
+      );
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri,
+        scope: "openid profile email offline_access",
+        connection: "google-oauth2",
+        connection_scope: "https://www.googleapis.com/auth/calendar.readonly",
+        state,
+        nonce,
       });
+
+      if (audience) {
+        params.set("audience", audience);
+      }
+
+      const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
+      console.log("[Stage7] Redirecting to Auth0 /authorize:", authorizeUrl);
+
+      await openOAuthUrl(authorizeUrl);
       // Browser will redirect — loading state cleared on unmount
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Stage7] loginWithRedirect failed:", msg);
+      console.error("[Stage7] Auth0 authorize redirect failed:", msg);
       toast.error("Failed to start calendar connection");
       setCalendarEnabled(false);
       setLoading(false);
