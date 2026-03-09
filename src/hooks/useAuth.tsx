@@ -30,6 +30,7 @@ interface AppUser {
   trial_ends_at?: string | null;
   subscription_current_period_end?: string | null;
   subscription_canceled_at?: string | null;
+  subscription_cancel_at?: string | null;
 }
 
 interface AuthContextType {
