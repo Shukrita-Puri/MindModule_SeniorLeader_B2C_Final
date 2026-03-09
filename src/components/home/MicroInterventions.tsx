@@ -25,7 +25,7 @@ import {
   type CalendarEvent,
   type MeetingGap
 } from '@/utils/historicalPatternEngine';
-import { analyzeEventPhysiologicalPattern } from '@/utils/historicalPhysiologicalTracking';
+
 import { getWearableContext, type WearableContext, getUserHRVBaseline } from '@/utils/wearableContextAnalyzer';
 import { getContentByStructuredTags, interventionToStructuredQuery, getFallbackContent } from '@/utils/interventionContentMatcher';
 import { useAuth } from '@/hooks/useAuth';
