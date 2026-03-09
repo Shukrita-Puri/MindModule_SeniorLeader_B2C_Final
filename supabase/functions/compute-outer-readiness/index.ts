@@ -107,8 +107,10 @@ async function getServerCalendarMetrics(
     return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
   }
 
-  // Fetch today's events (next 4 hours for metrics, but also check if ANY events exist for today)
+  // Fetch ALL of today's events (from start of day, not just future)
   const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
 
@@ -116,7 +118,7 @@ async function getServerCalendarMetrics(
     .from('calendar_events')
     .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
     .eq('user_id', userId)
-    .gte('start_time', now.toISOString())
+    .gte('start_time', startOfDay.toISOString())
     .lte('start_time', endOfDay.toISOString());
 
   if (error) {

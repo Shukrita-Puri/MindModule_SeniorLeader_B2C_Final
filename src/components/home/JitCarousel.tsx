@@ -176,40 +176,40 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
   return (
     <div className="space-y-3">
-      {/* Section header */}
+      {/* Section header — tooltip aligned with Time of Day section */}
       <div className="px-4 md:px-6 max-w-lg mx-auto">
         <div className="flex items-center justify-between py-1">
           <span className="text-[11px] font-medium tracking-widest uppercase text-muted-foreground/70 font-body">
             Just-in-Time
           </span>
-          <div className="flex items-center gap-2">
-            <MetricInfoModal
-              title="Just-in-Time Preparation"
-              description="A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice — regulation, alignment, and a coaching prompt — designed to bring your best self into the room."
-            />
-            <button
-              onClick={handleDismiss}
-              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Dismiss"
-            >
-              <X size={16} />
-            </button>
-          </div>
+          <MetricInfoModal
+            title="Just-in-Time Preparation"
+            description="A focused preparation sequence for the high-stakes moment ahead. Two or three minutes of targeted practice — regulation, alignment, and a coaching prompt — designed to bring your best self into the room."
+          />
         </div>
       </div>
 
-      {/* Event header with pills inline — same structure as time-of-day */}
+      {/* Event header with pills inline + X dismiss — same structure as time-of-day */}
       <div className="px-4 md:px-6 max-w-lg mx-auto space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-foreground font-body">
-            {preEventPlan.eventTitle || 'Upcoming Event'}
-          </span>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
-            {preEventPlan.timePill}
-          </span>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-            {eventTypeLabel}
-          </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-foreground font-body">
+              {preEventPlan.eventTitle || 'Upcoming Event'}
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
+              {preEventPlan.timePill}
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+              {eventTypeLabel}
+            </span>
+          </div>
+          <button
+            onClick={handleDismiss}
+            className="p-1 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         {/* Context description — AI-generated "why this event" reasoning */}
