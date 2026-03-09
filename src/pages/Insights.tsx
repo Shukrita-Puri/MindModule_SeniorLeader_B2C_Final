@@ -12,7 +12,7 @@ import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import InnerWorldBubbles from '@/components/insights/InnerWorldBubbles';
 import PsychologicalDimensionBubbles from '@/components/insights/PsychologicalDimensionBubbles';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
-import LeadershipPatternsCard from '@/components/insights/LeadershipPatternsCard';
+import LeadershipPatternsCard, { type LeadershipPatternsData } from '@/components/insights/LeadershipPatternsCard';
 import PerformanceRhythmCard from '@/components/insights/PerformanceRhythmCard';
 import PracticeEffectiveness from '@/components/insights/PracticeEffectiveness';
 // BaselineReferenceCard removed — archetype data now lives in LeadershipPatternsCard
@@ -75,6 +75,34 @@ interface StatePatternInsights {
   distribution: Record<string, number>;
   observation: string | null;
   checkInCount: number;
+  // New consolidated fields from edge function
+  weekData?: DayData[];
+  checkInStreak?: number;
+  profileBaseline?: ProfileBaseline;
+  practiceData?: PracticeData[];
+  // LeadershipPatternsCard fields
+  aiObservation?: string | null;
+  baselineArchetypeId?: string;
+  baselineArchetypeTitle?: string;
+  currentArchetypeId?: string | null;
+  currentArchetypeTitle?: string | null;
+  archetypeEvolved?: boolean;
+  archetypeLeanOn?: string;
+  archetypeWatchFor?: string;
+  baselineScores?: { recalibration: number; clarity: number; renewal: number };
+  currentScores?: { recalibration: number; clarity: number; renewal: number } | null;
+  scoreDeltas?: { recalibration: number; clarity: number; renewal: number } | null;
+  frictionPct?: number;
+  frictionLabel?: string;
+  trendDirection?: 'improving' | 'stable' | 'declining';
+  typicalState?: string | null;
+  recurringThemes?: { phrase: string; count: number }[];
+  coachStrength?: string | null;
+  coachFriction?: string | null;
+  coachSessionCount?: number;
+  hasWearable?: boolean;
+  hasCalendar?: boolean;
+  dataSourceNote?: string;
 }
 
 interface SemanticAnalysis {
@@ -165,56 +193,25 @@ const Insights = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchInsightsData();
-      fetchTinyWinsInsights();
+      // Production: fetch consolidated data from state-patterns-insights
+      // DEV_MODE: use direct queries (the existing flow)
       fetchStatePatterns();
+      fetchTinyWinsInsights();
       fetchSemanticAnalysis();
-      fetchProfileBaseline();
     }
   }, [user?.id]);
 
-  const fetchProfileBaseline = async () => {
-    if (!user?.id) return;
-    try {
-      // Use DEV_USER.id in DEV_MODE
-      const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('mental_fitness_baseline, component_scores, user_archetype, onboarding_completed_at, growth_priority')
-        .eq('id', effectiveUserId)
-        .maybeSingle();
-      
-      console.log('[Insights] Profile baseline fetched:', profile);
-      
-      if (profile) {
-        setProfileBaseline({
-          mentalFitnessBaseline: profile.mental_fitness_baseline || undefined,
-          componentScores: profile.component_scores as Record<string, number> | undefined,
-          userArchetype: profile.user_archetype || undefined,
-          onboardingCompletedAt: profile.onboarding_completed_at || undefined,
-          growthPriority: profile.growth_priority || undefined
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile baseline:', error);
-    }
-  };
-
-  const fetchInsightsData = async () => {
-    if (!user?.id) return;
+  // DEV_MODE only: direct database queries for insights data
+  const fetchInsightsDataDev = async () => {
+    if (!user?.id || !DEV_MODE) return;
     setLoading(true);
-
-    // Use DEV_USER.id in DEV_MODE for consistency
-    const effectiveUserId = DEV_MODE ? DEV_USER.id : user.id;
+    const effectiveUserId = DEV_USER.id;
 
     try {
-      // Get last 7 days
       const today = new Date();
       const sevenDaysAgo = subDays(today, 6);
 
-      // Fetch check-ins for last 7 days WITH timestamp for Energy Rhythm
-      const { data: checkIns, error: checkInsError } = await supabase
+      const { data: checkIns } = await supabase
         .from('daily_checkins')
         .select('checkin_date, energy_balance, outcome, created_at')
         .eq('user_id', effectiveUserId)
@@ -222,13 +219,6 @@ const Insights = () => {
         .lte('checkin_date', format(today, 'yyyy-MM-dd'))
         .order('checkin_date', { ascending: true });
 
-      if (checkInsError) {
-        console.error('[Insights] Error fetching check-ins:', checkInsError);
-      } else {
-        console.log('[Insights] Fetched check-ins:', checkIns?.length || 0, 'for user:', effectiveUserId);
-      }
-
-      // Store check-ins with timestamps for Energy Rhythm
       if (checkIns) {
         setCheckInsWithTimestamp(checkIns.map(c => ({
           date: c.checkin_date,
@@ -237,7 +227,6 @@ const Insights = () => {
         })));
       }
 
-      // Fetch practice sessions for last 7 days
       const { data: practices } = await supabase
         .from('sanctuary_events')
         .select('category, duration_seconds, event_type, created_at')
@@ -246,13 +235,11 @@ const Insights = () => {
         .gte('created_at', startOfDay(sevenDaysAgo).toISOString())
         .lte('created_at', endOfDay(today).toISOString());
 
-      // Build week data
       const days: DayData[] = [];
       for (let i = 6; i >= 0; i--) {
         const date = subDays(today, i);
         const dateStr = format(date, 'yyyy-MM-dd');
         const checkIn = checkIns?.find(c => c.checkin_date === dateStr);
-        
         days.push({
           date: dateStr,
           dayLabel: format(date, 'EEE'),
@@ -263,19 +250,14 @@ const Insights = () => {
       }
       setWeekData(days);
 
-      // Calculate check-in streak
       let streak = 0;
       for (let i = 0; i < days.length; i++) {
         const dayIndex = days.length - 1 - i;
-        if (days[dayIndex].checkInCompleted) {
-          streak++;
-        } else {
-          break;
-        }
+        if (days[dayIndex].checkInCompleted) streak++;
+        else break;
       }
       setCheckInStreak(streak);
 
-      // Aggregate practice data by category
       const categoryMap = new Map<string, { count: number; totalDuration: number }>();
       practices?.forEach(p => {
         const category = p.category || 'unknown';
@@ -285,7 +267,6 @@ const Insights = () => {
           totalDuration: existing.totalDuration + (p.duration_seconds || 0)
         });
       });
-
       const practiceStats: PracticeData[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
         category: category.charAt(0).toUpperCase() + category.slice(1).replace('-', ' '),
         count: data.count,
@@ -293,8 +274,23 @@ const Insights = () => {
       }));
       setPracticeData(practiceStats);
 
+      // Fetch profile baseline for DEV_MODE
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mental_fitness_baseline, component_scores, user_archetype, onboarding_completed_at, growth_priority')
+        .eq('id', effectiveUserId)
+        .maybeSingle();
+      if (profile) {
+        setProfileBaseline({
+          mentalFitnessBaseline: profile.mental_fitness_baseline || undefined,
+          componentScores: profile.component_scores as Record<string, number> | undefined,
+          userArchetype: profile.user_archetype || undefined,
+          onboardingCompletedAt: profile.onboarding_completed_at || undefined,
+          growthPriority: profile.growth_priority || undefined
+        });
+      }
     } catch (error) {
-      console.error('Error fetching insights:', error);
+      console.error('Error fetching DEV_MODE insights:', error);
     } finally {
       setLoading(false);
     }
@@ -398,9 +394,11 @@ const Insights = () => {
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
     setPatternsLoading(true);
+    setLoading(true);
     try {
-      // DEV_MODE: Direct database query
+      // DEV_MODE: Direct database queries + DEV data fetch
       if (DEV_MODE) {
+        await fetchInsightsDataDev();
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
@@ -428,22 +426,48 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
+        setLoading(false);
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use consolidated edge function response
       const accessToken = await getAuthToken();
       const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { days: 7 }
       });
       if (!error && data?.data) {
-        setStatePatterns(data.data);
+        const d = data.data;
+        setStatePatterns(d);
+        
+        // Populate weekData, checkInStreak, profileBaseline, practiceData from consolidated response
+        if (d.weekData) setWeekData(d.weekData);
+        if (typeof d.checkInStreak === 'number') setCheckInStreak(d.checkInStreak);
+        if (d.profileBaseline) setProfileBaseline(d.profileBaseline);
+        if (d.practiceData) setPracticeData(d.practiceData);
+        
+        // Populate checkInsWithTimestamp for Energy Rhythm (if weekData has the data)
+        if (d.weekData) {
+          setCheckInsWithTimestamp(d.weekData.filter((wd: DayData) => wd.checkInCompleted).map((wd: DayData) => ({
+            date: wd.date,
+            outcome: wd.outcome,
+            timestamp: wd.date + 'T09:00:00Z' // approximate for rhythm card
+          })));
+        }
+        
+        console.log('[Insights] Consolidated data loaded:', {
+          checkInCount: d.checkInCount,
+          weekDataLength: d.weekData?.length,
+          streak: d.checkInStreak,
+          hasProfile: !!d.profileBaseline,
+          practiceCount: d.practiceData?.length
+        });
       }
     } catch (error) {
       console.error('Error fetching state patterns:', error);
     } finally {
       setPatternsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -756,8 +780,8 @@ const Insights = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Your Self Mastery Patterns — unified card */}
-        <LeadershipPatternsCard userId={user?.id} />
+        {/* Your Self Mastery Patterns — pass pre-fetched data to avoid duplicate edge call */}
+        <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} />
 
         {/* Card 2 — Your Momentum (moved up from Card 6) */}
         <LuxuryInsightCard>

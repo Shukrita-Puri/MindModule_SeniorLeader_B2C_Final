@@ -15,34 +15,35 @@ interface DimensionScores {
   renewal: number;
 }
 
-interface LeadershipPatternsData {
-  aiObservation: string | null;
-  baselineArchetypeId: string;
-  baselineArchetypeTitle: string;
-  currentArchetypeId: string | null;
-  currentArchetypeTitle: string | null;
-  archetypeEvolved: boolean;
-  archetypeLeanOn: string;
-  archetypeWatchFor: string;
-  baselineScores: DimensionScores | null;
-  currentScores: DimensionScores | null;
-  scoreDeltas: DimensionScores | null;
-  frictionPct: number;
-  frictionLabel: string;
-  trendDirection: 'improving' | 'stable' | 'declining';
-  typicalState: string | null;
-  recurringThemes: { phrase: string; count: number }[];
-  coachStrength: string | null;
-  coachFriction: string | null;
-  checkInCount: number;
-  coachSessionCount: number;
-  hasWearable: boolean;
-  hasCalendar: boolean;
-  dataSourceNote: string;
+export interface LeadershipPatternsData {
+  aiObservation?: string | null;
+  baselineArchetypeId?: string;
+  baselineArchetypeTitle?: string;
+  currentArchetypeId?: string | null;
+  currentArchetypeTitle?: string | null;
+  archetypeEvolved?: boolean;
+  archetypeLeanOn?: string;
+  archetypeWatchFor?: string;
+  baselineScores?: DimensionScores | null;
+  currentScores?: DimensionScores | null;
+  scoreDeltas?: DimensionScores | null;
+  frictionPct?: number;
+  frictionLabel?: string;
+  trendDirection?: 'improving' | 'stable' | 'declining';
+  typicalState?: string | null;
+  recurringThemes?: { phrase: string; count: number }[];
+  coachStrength?: string | null;
+  coachFriction?: string | null;
+  checkInCount?: number;
+  coachSessionCount?: number;
+  hasWearable?: boolean;
+  hasCalendar?: boolean;
+  dataSourceNote?: string;
 }
 
 interface LeadershipPatternsCardProps {
   userId?: string;
+  prefetchedData?: LeadershipPatternsData | null;
 }
 
 const trendIcons = {
@@ -66,13 +67,19 @@ function devResolveArchetype(er: number, fr: number, en: number) {
   return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
-const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
+const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Use prefetched data if available (avoids duplicate edge function call)
+    if (prefetchedData && prefetchedData.baselineArchetypeId) {
+      setData(prefetchedData);
+      setLoading(false);
+      return;
+    }
     if (userId) fetchData();
-  }, [userId]);
+  }, [userId, prefetchedData]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -379,7 +386,14 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
               <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
                 <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                    {data.coachStrength ? (
+                      <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                    )}
+                  </div>
                   {data.coachStrength ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
@@ -395,7 +409,14 @@ const LeadershipPatternsCard = ({ userId }: LeadershipPatternsCardProps) => {
               <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                    {data.coachFriction ? (
+                      <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
+                    )}
+                  </div>
                   {data.coachFriction ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />

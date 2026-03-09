@@ -491,6 +491,57 @@ Deno.serve(async (req) => {
       dataSourceNote += " — connect your wearable and calendar for richer insights";
     }
 
+    // ── Build weekData (last 7 days with daily outcomes) ──
+    const sevenDaysAgoDate = new Date(now);
+    sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 6);
+    const weekData: Array<{ date: string; dayLabel: string; energyBalance: number | null; outcome: string | null; checkInCompleted: boolean }> = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgoDate);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayCheckIn = checkIns.find((c: any) => c.checkin_date === dateStr);
+      weekData.push({
+        date: dateStr,
+        dayLabel: dayNames[d.getDay()],
+        energyBalance: dayCheckIn?.energy_balance ?? null,
+        outcome: dayCheckIn?.outcome ?? null,
+        checkInCompleted: !!dayCheckIn,
+      });
+    }
+
+    // ── Check-in streak (consecutive days ending today) ──
+    let checkInStreak = 0;
+    for (let i = weekData.length - 1; i >= 0; i--) {
+      if (weekData[i].checkInCompleted) checkInStreak++;
+      else break;
+    }
+
+    // ── Profile baseline data ──
+    const profileBaseline = {
+      mentalFitnessBaseline: (profile as any)?.mental_fitness_baseline ?? undefined,
+      userArchetype: profile?.user_archetype ?? undefined,
+      growthPriority: (profile as any)?.growth_priority ?? undefined,
+      componentScores: cs ?? undefined,
+    };
+
+    // ── Practice data aggregation ──
+    const categoryMap = new Map<string, { count: number; totalDuration: number }>();
+    sanctuaryEvents.forEach((e: any) => {
+      if (e.event_type !== 'completed') return;
+      const cat = e.category || 'unknown';
+      const existing = categoryMap.get(cat) || { count: 0, totalDuration: 0 };
+      categoryMap.set(cat, {
+        count: existing.count + 1,
+        totalDuration: existing.totalDuration + ((e.context_data as any)?.duration_seconds || 0),
+      });
+    });
+    const practiceData = Array.from(categoryMap.entries()).map(([category, d]) => ({
+      category: category.charAt(0).toUpperCase() + category.slice(1).replace('-', ' '),
+      count: d.count,
+      totalDuration: Math.round(d.totalDuration / 60),
+    }));
+
     // ── Response ──
     const response = {
       data: {
@@ -519,6 +570,11 @@ Deno.serve(async (req) => {
         hasWearable,
         hasCalendar,
         dataSourceNote,
+        // New fields for consolidated Insights.tsx consumption
+        weekData,
+        checkInStreak,
+        profileBaseline,
+        practiceData,
       },
     };
 
