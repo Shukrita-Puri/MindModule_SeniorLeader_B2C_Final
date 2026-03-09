@@ -249,6 +249,7 @@ const ConnectedData = () => {
     if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       await fetchStatus();
     } else {
       toast.error('Sync failed. Please try again.');
