@@ -108,10 +108,38 @@ export default function Stage7ContextConnection() {
       searchParams.delete("calendar_connected");
       setSearchParams(searchParams, { replace: true });
 
-      verifyConnection().then((status) => {
+      verifyConnection().then(async (status) => {
         if (status.connected) {
           console.log("[Stage7] ✅ Calendar verified connected after callback");
           toast.success("Google Calendar connected successfully");
+          
+          // Trigger initial sync so calendar_events are populated before plan generation
+          try {
+            const token = await getAuthToken();
+            if (token) {
+              const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+              console.log("[Stage7] Triggering initial calendar sync...");
+              const syncRes = await fetch(
+                `https://${projectId}.supabase.co/functions/v1/sync-calendar`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ provider: status.provider || "google" }),
+                }
+              );
+              if (syncRes.ok) {
+                const syncData = await syncRes.json();
+                console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
+              } else {
+                console.warn("[Stage7] ⚠️ Initial sync failed:", syncRes.status);
+              }
+            }
+          } catch (syncErr) {
+            console.warn("[Stage7] ⚠️ Sync error (non-blocking):", syncErr);
+          }
         } else {
           console.warn("[Stage7] ⚠️ Calendar not verified after callback");
           toast.error("Calendar connection could not be verified");
