@@ -18,6 +18,8 @@ const MicroPracticePlayer = () => {
   const location = useLocation();
   
   const fromRitual = location.state?.fromRitual || false;
+  const fromCoach = location.state?.fromCoach || false;
+  const coachSessionId = location.state?.coachSessionId || sessionStorage.getItem('returnCoachSessionId') || undefined;
   useScrollToTop();
   const allContent = getAllContent();
   const practice = allContent.find(item => item.id === id && item.contentType === 'micro-practice');
