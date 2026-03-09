@@ -172,8 +172,8 @@ serve(async (req) => {
       } catch (decryptError) {
         console.error('[sync-calendar] Failed to decrypt access token:', decryptError);
         return new Response(
-          JSON.stringify({ error: 'Failed to decrypt calendar token. Please reconnect your calendar.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, reconnectRequired: true, reason: 'decrypt_failed', error: 'Calendar session expired. Please reconnect your calendar.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
