@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK';
+  action: 'GET_FEEDBACK' | 'SUBMIT_FEEDBACK' | 'UPDATE_SESSION_RATING';
   contentId?: string;
   feedbackData?: {
     content_id: string;
@@ -22,6 +22,10 @@ interface RequestBody {
     feedback_reason?: string;
     context_data?: Record<string, unknown>;
   };
+  sessionId?: string;
+  rating?: number;
+  qualitativeRating?: string;
+  feedbackText?: string;
 }
 
 serve(async (req) => {
