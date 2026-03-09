@@ -228,7 +228,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       // Get Auth0 token for self-mastery-coach
       const coachToken = await getAuthToken();
-      
+
+      const controller = new AbortController();
+      const connectTimeout = window.setTimeout(() => controller.abort(), 25000);
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/self-mastery-coach`, {
         method: 'POST',
         headers: {
@@ -244,6 +247,9 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           sessionId: currentSessionId,
           context, // Pass context to edge function
         }),
+        signal: controller.signal,
+      }).finally(() => {
+        window.clearTimeout(connectTimeout);
       });
 
       if (!response.ok) {
@@ -278,10 +284,19 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
       setMessages(prev => [...prev, assistantMessage]);
 
+      // Abort if the stream stalls (no chunks) to avoid infinite loading UI
+      let stallTimeoutId: number | null = null;
+      const resetStallTimeout = () => {
+        if (stallTimeoutId) window.clearTimeout(stallTimeoutId);
+        stallTimeoutId = window.setTimeout(() => controller.abort(), 15000);
+      };
+      resetStallTimeout();
+
       while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
+        resetStallTimeout();
         textBuffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -303,6 +318,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             const parsed = JSON.parse(jsonStr);
             const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (deltaContent) {
+              resetStallTimeout();
               assistantContent += deltaContent;
               setMessages(prev => {
                 const newMessages = [...prev];
@@ -323,14 +339,19 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
         }
       }
 
-      // Save assistant message
-      if (assistantContent) {
-        await saveMessage(currentSessionId, 'assistant', assistantContent, messages.length + 1);
+      if (stallTimeoutId) window.clearTimeout(stallTimeoutId);
+
+      if (!assistantContent.trim()) {
+        throw new Error('Coach took too long to respond. Please retry.');
       }
+
+      // Save assistant message
+      await saveMessage(currentSessionId, 'assistant', assistantContent, messages.length + 1);
 
     } catch (err) {
       console.error('Coach conversation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send message');
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      setError(isAbort ? 'Coach took too long to respond. Please hit Retry.' : (err instanceof Error ? err.message : 'Failed to send message'));
       // Remove the empty assistant message on error
       setMessages(prev => prev.filter(m => m.content !== ''));
     } finally {
