@@ -37,17 +37,21 @@ const Profile = () => {
 
   const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
   const isCanceled = !!user?.subscription_canceled_at;
+  const isPendingCancellation = !!user?.subscription_cancel_at && !isCanceled;
   const statusLabel = isCanceled ? 'Canceled' : isPaying ? 'Paid' : 'Free';
 
   let expiryLabel: string | null = null;
-  if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
+  if (isPendingCancellation && user?.subscription_cancel_at) {
+    expiryLabel = `Access until ${format(new Date(user.subscription_cancel_at), 'MMM d, yyyy')}`;
+  } else if (isCanceled) {
+    expiryLabel = 'Access ended';
+  } else if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
     expiryLabel = `Trial ends ${format(new Date(user.trial_ends_at), 'MMM d, yyyy')}`;
   } else if (user?.subscription_current_period_end) {
-    const dateStr = format(new Date(user.subscription_current_period_end), 'MMM d, yyyy');
-    expiryLabel = isCanceled ? `Access until ${dateStr}` : `Renews ${dateStr}`;
+    expiryLabel = `Renews ${format(new Date(user.subscription_current_period_end), 'MMM d, yyyy')}`;
   }
 
-  const hasBillingAccount = !!(user as any)?.stripe_customer_id || isPaying;
+  const hasBillingAccount = isPaying;
 
   const handleManageSubscription = async () => {
     if (!hasBillingAccount) {
