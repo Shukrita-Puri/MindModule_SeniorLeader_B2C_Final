@@ -8,6 +8,7 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
