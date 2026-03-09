@@ -31,14 +31,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Map event types: client sends 'session_complete', DB stores 'completed'
-    const eventTypeMap: Record<string, string> = {
-      'session_complete': 'completed',
-      'session_start': 'started',
-      'session_pause': 'paused',
-      'session_skip': 'skipped',
-    };
-    const mappedEventType = eventTypeMap[eventData.eventType] || eventData.eventType;
+    // Event type is passed through directly — DB constraint expects: session_complete, session_start, session_pause, session_skip
+    const mappedEventType = eventData.eventType;
 
     // Insert sanctuary event
     const { data: event, error: insertError } = await supabase
