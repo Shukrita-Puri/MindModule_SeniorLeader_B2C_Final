@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -73,6 +74,7 @@ function invalidatePlanCache() {
 }
 
 const ConnectedData = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -158,6 +160,8 @@ const ConnectedData = () => {
       if (syncResult.success) {
         toast.success(`Synced ${syncResult.eventCount ?? 0} calendar events`);
         invalidatePlanCache();
+        // Invalidate outer-readiness so it re-fetches with fresh calendar data
+        queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
         // Refresh status to show last_sync
         await fetchStatus();
       } else {
@@ -245,6 +249,7 @@ const ConnectedData = () => {
     if (result.success) {
       toast.success(`Synced ${result.eventCount ?? 0} events`);
       invalidatePlanCache();
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       await fetchStatus();
     } else {
       toast.error('Sync failed. Please try again.');

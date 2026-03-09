@@ -19,18 +19,115 @@ interface OuterReadinessResult {
   watchFor: string;
   driver: ThemeDriver;
   dataSources: string[];
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
 }
 
 interface ComputeRequest {
   innerReadinessTier: EnergyTier;
   innerReadinessScore: number;
-  calendarLoad: CalendarLevel | null;
-  calendarPressure: CalendarLevel | null;
-  archetype: string | null;
+  calendarLoad?: CalendarLevel | null;   // legacy client field, ignored if server can query
+  calendarPressure?: CalendarLevel | null; // legacy client field, ignored if server can query
+  archetype?: string | null;
   clarityLevel: number | null;
   confidenceLevel: number | null;
   checkInOutcome: string | null;
   timezoneOffset?: number;
+}
+
+// ==================== SERVER-SIDE CALENDAR METRICS ====================
+interface CalendarMetricsResult {
+  load: CalendarLevel;
+  pressure: CalendarLevel;
+  eventCount: number;
+  state: 'active' | 'connected_no_events' | 'not_connected';
+}
+
+function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
+  const now = new Date();
+  const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+  const upcoming = events.filter(e => {
+    const start = new Date(e.start_time);
+    return start >= now && start <= fourHoursLater;
+  });
+
+  // Load
+  const count = upcoming.length;
+  let load: CalendarLevel = 'low';
+  if (count >= 5) load = 'high';
+  else if (count >= 3) load = 'medium';
+
+  // Pressure
+  let totalPressure = 0;
+  for (const event of upcoming) {
+    let p = 0;
+    if (event.is_organizer) p += 2;
+    const att = event.attendees_count || 0;
+    if (att > 5) p += 2; else if (att > 2) p += 1;
+    const start = new Date(event.start_time);
+    const end = new Date(event.end_time);
+    const dur = (end.getTime() - start.getTime()) / 60000;
+    if (dur > 60) p += 2; else if (dur >= 30) p += 1;
+    if (!event.is_recurring) p += 1;
+    const hr = start.getHours();
+    if ((hr >= 9 && hr < 12) || (hr >= 14 && hr < 16)) p += 1;
+    totalPressure += p;
+  }
+
+  // Back-to-back
+  const sorted = [...upcoming].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+    if (gap < 15) totalPressure += 1;
+  }
+
+  let pressure: CalendarLevel = 'low';
+  if (totalPressure >= 6) pressure = 'high';
+  else if (totalPressure >= 3) pressure = 'medium';
+
+  return { load, pressure };
+}
+
+async function getServerCalendarMetrics(
+  db: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<CalendarMetricsResult> {
+  // Check connection
+  const { data: conn } = await db
+    .from('calendar_connections')
+    .select('is_active, last_sync')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!conn) {
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
+  }
+
+  // Fetch today's events (next 4 hours for metrics, but also check if ANY events exist for today)
+  const now = new Date();
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const { data: events, error } = await db
+    .from('calendar_events')
+    .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
+    .eq('user_id', userId)
+    .gte('start_time', now.toISOString())
+    .lte('start_time', endOfDay.toISOString());
+
+  if (error) {
+    console.error('[compute-outer-readiness] Calendar events query error:', error);
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
+  }
+
+  const eventList = events || [];
+  if (eventList.length === 0) {
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
+  }
+
+  const metrics = computeCalendarMetrics(eventList);
+  return { ...metrics, eventCount: eventList.length, state: 'active' };
 }
 
 // ==================== TIME HELPERS ====================
@@ -552,13 +649,14 @@ function getPatternOverride(
 
 // ==================== DATA SOURCES BUILDER ====================
 function buildDataSources(
-  hasCalendar: boolean,
+  calendarState: 'active' | 'connected_no_events' | 'not_connected',
   archetype: string | null,
   _checkInOutcome: string | null,
 ): string[] {
   const sources: string[] = [];
   sources.push('inner readiness score');
-  if (hasCalendar) sources.push('calendar');
+  if (calendarState === 'active') sources.push('calendar');
+  else if (calendarState === 'connected_no_events') sources.push('calendar (no upcoming events)');
   if (archetype) sources.push('archetype');
   return sources;
 }
@@ -590,9 +688,6 @@ serve(async (req) => {
     const {
       innerReadinessTier,
       innerReadinessScore,
-      calendarLoad,
-      calendarPressure,
-      archetype,
       clarityLevel,
       confidenceLevel,
       checkInOutcome,
@@ -610,6 +705,26 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const db = createClient(supabaseUrl, supabaseKey);
+
+    // ── Server-side calendar metrics (replaces client-sent load/pressure) ──
+    const calendarResult = await getServerCalendarMetrics(db, userId);
+    const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
+    const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
+
+    console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
+      userId: userId.substring(0, 12) + '...',
+      tier: safeTier,
+      score: innerReadinessScore,
+      clarity: clarityLevel,
+      confidence: confidenceLevel,
+      checkInOutcome,
+      calendarState: calendarResult.state,
+      calendarEventCount: calendarResult.eventCount,
+      calendarLoad,
+      calendarPressure,
+      hour,
+      dayOfWeek,
+    }));
 
     // Change 1: Add created_at to coach insights query, add clarity_level + confidence_level to check-ins
     const [coachRes, checkInRes, profileRes] = await Promise.all([
@@ -637,15 +752,24 @@ serve(async (req) => {
     // Server-side archetype fetch (bypasses RLS via service role)
     const serverArchetype = profileRes.data?.user_archetype || null;
     
-    const strengthInsight = coachInsights.find((i: any) => i.insight_type === 'strength');
-    const growthInsight = coachInsights.find((i: any) => i.insight_type === 'growth_area');
+    const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
+    const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
     const coachStrength = strengthInsight?.insight_content || null;
     const coachGrowth = growthInsight?.insight_content || null;
     // Use the most recent created_at from either insight for recency check
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
-    const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
+    const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
+
+    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
+    console.log('[compute-outer-readiness] THEME:', JSON.stringify({
+      phrase: theme.phrase,
+      driver: theme.driver,
+      hasCalendar,
+      calendarState: calendarResult.state,
+      fallbackReason: !hasCalendar ? (calendarResult.state === 'not_connected' ? 'no_calendar_connection' : calendarResult.state === 'connected_no_events' ? 'connected_no_upcoming_events' : 'unknown') : null,
+    }));
     
     // Change 4: "Strength without clarity" override — independent signals
     // Trigger when clarity ≤ 2 OR confidence ≤ 2 (not averaged) for strong/peak tier
@@ -667,8 +791,7 @@ serve(async (req) => {
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
-    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
-    const dataSources = buildDataSources(hasCalendar, serverArchetype, checkInOutcome);
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome);
 
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
@@ -698,7 +821,15 @@ serve(async (req) => {
       watchFor,
       driver: theme.driver,
       dataSources,
+      calendarState: calendarResult.state,
     };
+
+    console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
+      phrase: finalPhrase,
+      driver: theme.driver,
+      dataSources,
+      calendarState: calendarResult.state,
+    }));
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

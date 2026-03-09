@@ -8,6 +8,7 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
@@ -83,6 +84,7 @@ async function requestCalendarAuthUrl(redirectPath: string): Promise<string | nu
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const { isAuthenticated, refreshProfile } = useAuth();
   const { recordStep } = useOnboardingProgress();
 
@@ -133,6 +135,8 @@ export default function Stage7ContextConnection() {
               if (syncRes.ok) {
                 const syncData = await syncRes.json();
                 console.log("[Stage7] ✅ Initial sync complete:", syncData.eventCount, "events");
+                // Invalidate outer-readiness cache so brief uses fresh calendar data
+                queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
               } else {
                 console.warn("[Stage7] ⚠️ Initial sync failed:", syncRes.status);
               }

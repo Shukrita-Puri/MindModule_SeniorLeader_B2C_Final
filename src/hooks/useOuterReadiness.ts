@@ -19,6 +19,7 @@ export interface OuterReadinessData {
   watchFor: string;
   driver: string;
   dataSources: string[];
+  calendarState?: 'active' | 'connected_no_events' | 'not_connected';
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {
@@ -46,12 +47,11 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Calendar load/pressure now computed server-side — no need to send from client
   const res = await supabase.functions.invoke('compute-outer-readiness', {
     body: {
       innerReadinessTier: energyState.energyTier,
       innerReadinessScore: energyState.overallBalance ?? 50,
-      calendarLoad: energyState.calendarLoad || null,
-      calendarPressure: energyState.calendarPressure || null,
       clarityLevel: checkin?.clarity_level ?? null,
       confidenceLevel: checkin?.confidence_level ?? null,
       checkInOutcome: energyState.checkInOutcome || null,
@@ -66,7 +66,15 @@ export async function fetchOuterReadiness(userId: string | undefined): Promise<O
     return null;
   }
 
-  return res.data as OuterReadinessData;
+  const data = res.data as OuterReadinessData;
+  console.log('[useOuterReadiness] Brief received:', {
+    phrase: data.phrase,
+    driver: data.driver,
+    calendarState: data.calendarState,
+    dataSources: data.dataSources,
+  });
+
+  return data;
 }
 
 export function useOuterReadiness() {
