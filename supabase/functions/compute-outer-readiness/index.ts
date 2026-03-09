@@ -688,9 +688,6 @@ serve(async (req) => {
     const {
       innerReadinessTier,
       innerReadinessScore,
-      calendarLoad,
-      calendarPressure,
-      archetype,
       clarityLevel,
       confidenceLevel,
       checkInOutcome,
@@ -708,6 +705,26 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const db = createClient(supabaseUrl, supabaseKey);
+
+    // ── Server-side calendar metrics (replaces client-sent load/pressure) ──
+    const calendarResult = await getServerCalendarMetrics(db, userId);
+    const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
+    const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
+
+    console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
+      userId: userId.substring(0, 12) + '...',
+      tier: safeTier,
+      score: innerReadinessScore,
+      clarity: clarityLevel,
+      confidence: confidenceLevel,
+      checkInOutcome,
+      calendarState: calendarResult.state,
+      calendarEventCount: calendarResult.eventCount,
+      calendarLoad,
+      calendarPressure,
+      hour,
+      dayOfWeek,
+    }));
 
     // Change 1: Add created_at to coach insights query, add clarity_level + confidence_level to check-ins
     const [coachRes, checkInRes, profileRes] = await Promise.all([
@@ -735,15 +752,24 @@ serve(async (req) => {
     // Server-side archetype fetch (bypasses RLS via service role)
     const serverArchetype = profileRes.data?.user_archetype || null;
     
-    const strengthInsight = coachInsights.find((i: any) => i.insight_type === 'strength');
-    const growthInsight = coachInsights.find((i: any) => i.insight_type === 'growth_area');
+    const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
+    const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
     const coachStrength = strengthInsight?.insight_content || null;
     const coachGrowth = growthInsight?.insight_content || null;
     // Use the most recent created_at from either insight for recency check
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
-    const patternOverride = getPatternOverride(recentCheckIns as any[], checkInOutcome || null);
+    const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
+
+    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
+    console.log('[compute-outer-readiness] THEME:', JSON.stringify({
+      phrase: theme.phrase,
+      driver: theme.driver,
+      hasCalendar,
+      calendarState: calendarResult.state,
+      fallbackReason: !hasCalendar ? (calendarResult.state === 'not_connected' ? 'no_calendar_connection' : calendarResult.state === 'connected_no_events' ? 'connected_no_upcoming_events' : 'unknown') : null,
+    }));
     
     // Change 4: "Strength without clarity" override — independent signals
     // Trigger when clarity ≤ 2 OR confidence ≤ 2 (not averaged) for strong/peak tier
@@ -765,8 +791,7 @@ serve(async (req) => {
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
-    const hasCalendar = calendarLoad !== null && calendarPressure !== null;
-    const dataSources = buildDataSources(hasCalendar, serverArchetype, checkInOutcome);
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome);
 
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
@@ -796,7 +821,15 @@ serve(async (req) => {
       watchFor,
       driver: theme.driver,
       dataSources,
+      calendarState: calendarResult.state,
     };
+
+    console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
+      phrase: finalPhrase,
+      driver: theme.driver,
+      dataSources,
+      calendarState: calendarResult.state,
+    }));
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
