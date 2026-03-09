@@ -91,7 +91,7 @@ export default function Stage7ContextConnection() {
       // Normal mount — check existing status
       verifyConnection();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [verifyConnection, searchParams, setSearchParams]);
 
   // Handle Google Calendar toggle — Auth0-hosted OAuth via SDK
   const handleCalendarToggle = async (checked: boolean) => {
