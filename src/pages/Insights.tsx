@@ -75,6 +75,34 @@ interface StatePatternInsights {
   distribution: Record<string, number>;
   observation: string | null;
   checkInCount: number;
+  // New consolidated fields from edge function
+  weekData?: DayData[];
+  checkInStreak?: number;
+  profileBaseline?: ProfileBaseline;
+  practiceData?: PracticeData[];
+  // LeadershipPatternsCard fields
+  aiObservation?: string | null;
+  baselineArchetypeId?: string;
+  baselineArchetypeTitle?: string;
+  currentArchetypeId?: string | null;
+  currentArchetypeTitle?: string | null;
+  archetypeEvolved?: boolean;
+  archetypeLeanOn?: string;
+  archetypeWatchFor?: string;
+  baselineScores?: { recalibration: number; clarity: number; renewal: number };
+  currentScores?: { recalibration: number; clarity: number; renewal: number } | null;
+  scoreDeltas?: { recalibration: number; clarity: number; renewal: number } | null;
+  frictionPct?: number;
+  frictionLabel?: string;
+  trendDirection?: 'improving' | 'stable' | 'declining';
+  typicalState?: string | null;
+  recurringThemes?: { phrase: string; count: number }[];
+  coachStrength?: string | null;
+  coachFriction?: string | null;
+  coachSessionCount?: number;
+  hasWearable?: boolean;
+  hasCalendar?: boolean;
+  dataSourceNote?: string;
 }
 
 interface SemanticAnalysis {
