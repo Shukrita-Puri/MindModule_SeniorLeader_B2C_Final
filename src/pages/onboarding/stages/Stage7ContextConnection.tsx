@@ -51,6 +51,7 @@ async function checkCalendarStatus(): Promise<{ connected: boolean; provider: st
 
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
+  const { loginWithRedirect } = useAuth0();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, refreshProfile } = useAuth();
   const { recordStep } = useOnboardingProgress();
