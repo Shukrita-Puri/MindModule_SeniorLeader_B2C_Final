@@ -313,6 +313,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
       const planResponse = planData as MasteryPlanResponse;
       setPlan(planResponse);
+      onPreEventPlanReady?.(planResponse.preEventPlan || null);
 
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
