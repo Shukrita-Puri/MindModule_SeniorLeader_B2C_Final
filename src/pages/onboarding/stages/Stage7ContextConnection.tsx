@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -9,14 +8,6 @@ import { requestHRVPermission, getHRV } from "@/services/healthkit";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
-
-/** Environment-safe redirect URI for Auth0 callback. */
-function getCalendarRedirectUri(): string {
-  if (isNativeApp()) {
-    return "app.mindmodule.me://callback";
-  }
-  return `${window.location.origin}/callback`;
-}
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
@@ -49,9 +40,48 @@ async function checkCalendarStatus(): Promise<{ connected: boolean; provider: st
   }
 }
 
+/** Request a Google OAuth URL from the calendar-auth edge function. */
+async function requestCalendarAuthUrl(redirectPath: string): Promise<string | null> {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("[Stage7] No auth token available for calendar connect");
+      return null;
+    }
+
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/calendar-auth`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "connect",
+          provider: "google",
+          redirectPath,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("[Stage7] calendar-auth connect failed:", res.status, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.authUrl || null;
+  } catch (err) {
+    console.error("[Stage7] calendar-auth connect error:", err);
+    return null;
+  }
+}
+
 export default function Stage7ContextConnection() {
   const navigate = useNavigate();
-  const { loginWithRedirect } = useAuth0();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, refreshProfile } = useAuth();
   const { recordStep } = useOnboardingProgress();
@@ -93,7 +123,7 @@ export default function Stage7ContextConnection() {
     }
   }, [verifyConnection, searchParams, setSearchParams]);
 
-  // Handle Google Calendar toggle — Auth0-hosted OAuth via SDK
+  // Handle Google Calendar toggle — uses calendar-auth edge function (no re-auth)
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
       setCalendarEnabled(false);
@@ -108,32 +138,26 @@ export default function Stage7ContextConnection() {
     setLoading(true);
 
     try {
-      const redirectUri = getCalendarRedirectUri();
-      const returnTo = "/onboarding/context-connection?calendar_connected=true";
+      console.log("[Stage7] Starting Google Calendar connect via calendar-auth edge function");
 
-      // Keep existing callback return behavior compatible with AuthCallback
-      sessionStorage.setItem("auth0_return_to", returnTo);
+      const authUrl = await requestCalendarAuthUrl("/onboarding/context-connection");
 
-      console.log("[Stage7] Starting Auth0 calendar redirect", {
-        redirectUri,
-        connection: "google-oauth2",
-      });
+      if (!authUrl) {
+        toast.error("Failed to start calendar connection");
+        setLoading(false);
+        return;
+      }
 
-      await loginWithRedirect({
-        authorizationParams: {
-          connection: "google-oauth2",
-          scope: "openid profile email offline_access https://www.googleapis.com/auth/calendar.readonly",
-          prompt: "consent",
-          access_type: "offline",
-          redirect_uri: redirectUri,
-        },
-        appState: { returnTo },
-      });
+      console.log("[Stage7] Redirecting to Google OAuth (via edge function URL)");
 
-      // Redirect should take over; keep loading until unmount/callback
+      // Redirect to Google consent — the edge function callback will redirect
+      // back to /onboarding/context-connection?calendar_connected=true
+      window.location.href = authUrl;
+
+      // Keep loading until redirect completes
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.error("[Stage7] loginWithRedirect failed:", msg);
+      console.error("[Stage7] Calendar connect failed:", msg);
       toast.error("Failed to start calendar connection");
       setCalendarEnabled(false);
       setLoading(false);
