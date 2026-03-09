@@ -339,20 +339,9 @@ const PerformancePreparationInterventions = () => {
         const eventStart = new Date(event.startTime);
         const recommendedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
         
-        const physAnalysis = analyzeEventPhysiologicalPattern(
-          event.title,
-          event.eventType || 'meeting'
-        );
-        
-        let reasoning = 'Get into the zone for tough conversations. This practice will help you stay grounded and present.';
-        
-        if (physAnalysis.hasPattern && physAnalysis.elevated) {
-          reasoning = `Past ${event.title} meetings showed elevated stress (HRV: ${physAnalysis.avgHRV}). ${
-            physAnalysis.trend === 'improving' 
-              ? 'Your pattern is improving, but a grounding practice will maintain progress.' 
-              : 'This pre-emptive practice will help you manage stress proactively.'
-          }`;
-        }
+        // Pattern analysis moved server-side (async). Use default reasoning for sync context.
+        // Historical patterns still stored and available via async queries elsewhere.
+        const reasoning = 'Get into the zone for tough conversations. This practice will help you stay grounded and present.';
         
         interventions.push({
           id: `highstakes-${index}`,
