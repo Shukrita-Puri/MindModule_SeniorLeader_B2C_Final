@@ -157,7 +157,6 @@ type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
