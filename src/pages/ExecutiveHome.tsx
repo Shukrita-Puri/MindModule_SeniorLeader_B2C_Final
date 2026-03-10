@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
-import CoachAccessButton from "@/components/navigation/CoachAccessButton";
+import appLogo from "@/assets/brand/app-logo.png";
 import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
 import DailyRitual from "@/components/home/DailyRitual";
@@ -165,7 +165,10 @@ const ExecutiveHome = () => {
             
             <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
               <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
-              <CoachAccessButton />
+              <div className="flex items-center gap-2">
+                <img src={appLogo} alt="Mind Module" className="h-8 w-8 rounded-lg" />
+                <span className="text-[10px] font-medium tracking-[0.25em] uppercase text-foreground/70 font-body">Executive Edition</span>
+              </div>
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
