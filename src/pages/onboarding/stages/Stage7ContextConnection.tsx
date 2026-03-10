@@ -218,6 +218,10 @@ export default function Stage7ContextConnection() {
         } catch (hrvErr) {
           console.error("Failed to fetch HRV:", hrvErr);
         }
+        // Persist HealthKit data to backend
+        syncHealthKitToBackend().then((ok) => {
+          if (ok) console.log("[Stage7] HealthKit data synced to backend");
+        });
       } catch (err) {
         console.error("HealthKit permission denied ❌", err);
         toast.error("HealthKit permissions are required for Apple Watch integration");
