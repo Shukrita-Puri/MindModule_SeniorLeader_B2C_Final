@@ -218,7 +218,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             name: profile.display_name || profile.auth_name || profile.full_name || payload.name,
             picture: payload.picture,
             subscription_status: profile.subscription_status || 'none',
-            subscription_plan: profile.subscription_plan || 'monthly',
+            subscription_plan: profile.subscription_plan || undefined,
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
             user_archetype: profile.user_archetype,
