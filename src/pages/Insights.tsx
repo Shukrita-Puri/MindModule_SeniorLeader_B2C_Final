@@ -222,7 +222,7 @@ const Insights = () => {
   // DEV_MODE only: direct database queries for insights data
   const fetchInsightsDataDev = async () => {
     if (!user?.id || !DEV_MODE) return;
-    setLoading(true);
+    setPatternsLoading(true);
     const effectiveUserId = DEV_USER.id;
 
     try {
