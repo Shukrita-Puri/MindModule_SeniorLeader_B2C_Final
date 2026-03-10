@@ -181,8 +181,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email: payload.email,
       name: payload.name || payload.nickname,
       picture: payload.picture,
-      subscription_status: 'trial',
-      subscription_plan: 'monthly',
+      subscription_status: 'none',
+      subscription_plan: undefined,
     };
     setAppUser(nativeUser);
     setNativeAuthed(true);
