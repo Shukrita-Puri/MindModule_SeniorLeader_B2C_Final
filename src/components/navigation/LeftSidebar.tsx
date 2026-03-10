@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import mmLogo from '@/assets/brand/mm-logo-icon.png';
+import appLogo from '@/assets/app-logo-5.png';
 import { 
   ChatCircle, 
   Compass, 
@@ -71,10 +71,9 @@ const LeftSidebar = () => {
           "flex items-center transition-all duration-200",
           isCollapsed ? "justify-center" : "px-3"
         )}>
-          {isCollapsed ? (
-            <img src={mmLogo} alt="Mind Module" className="w-7 h-7 object-contain" />
-          ) : (
-            <div className="flex flex-col">
+          <img src={appLogo} alt="Mind Module" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+          {!hideLabels && (
+            <div className="flex flex-col ml-2">
               <span className="font-headline text-base font-semibold tracking-widest text-foreground">
                 MIND MODULE
               </span>
