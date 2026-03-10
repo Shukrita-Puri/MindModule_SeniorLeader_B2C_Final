@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodayRitual, upsertRitual, updateRitualCompletion } from '@/utils/dailyRituals';
 import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
+import { useCoachAccess } from '@/hooks/useCoachAccess';
+import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 interface PracticeStep {
   title: string;
