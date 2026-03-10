@@ -2728,6 +2728,8 @@ export type Database = {
           archetype_title: string | null
           auth_name: string | null
           avatar_url: string | null
+          beta_expires_at: string | null
+          beta_user: boolean | null
           biggest_pressure: string | null
           component_scores: Json | null
           created_at: string | null
@@ -2782,6 +2784,8 @@ export type Database = {
           archetype_title?: string | null
           auth_name?: string | null
           avatar_url?: string | null
+          beta_expires_at?: string | null
+          beta_user?: boolean | null
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
@@ -2836,6 +2840,8 @@ export type Database = {
           archetype_title?: string | null
           auth_name?: string | null
           avatar_url?: string | null
+          beta_expires_at?: string | null
+          beta_user?: boolean | null
           biggest_pressure?: string | null
           component_scores?: Json | null
           created_at?: string | null
@@ -3872,6 +3878,7 @@ export type Database = {
         Returns: undefined
       }
       credit_referrer_atomic: { Args: { p_referrer_id: string }; Returns: Json }
+      enforce_trial_expiry: { Args: { p_user_id: string }; Returns: undefined }
       extend_subscription: {
         Args: { p_months: number; p_user_id: string }
         Returns: undefined
