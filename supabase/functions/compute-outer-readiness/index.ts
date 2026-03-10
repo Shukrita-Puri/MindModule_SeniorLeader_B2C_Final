@@ -94,45 +94,56 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
 async function getServerCalendarMetrics(
   db: ReturnType<typeof createClient>,
   userId: string,
+  timezoneOffset: number = 0,
 ): Promise<CalendarMetricsResult> {
-  // Check connection
-  const { data: conn } = await db
-    .from('calendar_connections')
-    .select('is_active, last_sync')
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (!conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
-  }
-
-  // Fetch ALL of today's events (from start of day, not just future)
+  // Compute user-local start/end of day using timezone offset
+  // timezoneOffset is minutes (e.g. -300 for UTC-5). getUserTime: now - offset*60000
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
+  const userNow = new Date(now.getTime() - timezoneOffset * 60000);
+  // Build start/end of user's local day in UTC
+  const userStartOfDay = new Date(Date.UTC(
+    userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 0, 0, 0, 0
+  ));
+  const userEndOfDay = new Date(Date.UTC(
+    userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 23, 59, 59, 999
+  ));
+  // Convert back to real UTC by adding the offset back
+  const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
+  const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
 
+  // Query saved calendar events for user's local "today" — regardless of connection status
   const { data: events, error } = await db
     .from('calendar_events')
     .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
     .eq('user_id', userId)
-    .gte('start_time', startOfDay.toISOString())
-    .lte('start_time', endOfDay.toISOString());
+    .gte('start_time', startUTC.toISOString())
+    .lte('start_time', endUTC.toISOString());
 
   if (error) {
     console.error('[compute-outer-readiness] Calendar events query error:', error);
+  }
+
+  const eventList = (events || []);
+
+  // If we have saved events, use them — connection status only affects labeling
+  if (eventList.length > 0) {
+    const metrics = computeCalendarMetrics(eventList);
+    return { ...metrics, eventCount: eventList.length, state: 'active' };
+  }
+
+  // No events found — check connection status for proper labeling
+  const { data: conn } = await db
+    .from('calendar_connections')
+    .select('is_active')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (conn) {
     return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
   }
 
-  const eventList = events || [];
-  if (eventList.length === 0) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
-  }
-
-  const metrics = computeCalendarMetrics(eventList);
-  return { ...metrics, eventCount: eventList.length, state: 'active' };
+  return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
 }
 
 // ==================== TIME HELPERS ====================
@@ -712,7 +723,7 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // ── Server-side calendar metrics (replaces client-sent load/pressure) ──
-    const calendarResult = await getServerCalendarMetrics(db, userId);
+    const calendarResult = await getServerCalendarMetrics(db, userId, timezoneOffset);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
 
