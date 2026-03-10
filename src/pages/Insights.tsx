@@ -412,7 +412,7 @@ const Insights = () => {
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
     setPatternsLoading(true);
-    setLoading_patterns(true);
+    
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
       if (DEV_MODE) {
