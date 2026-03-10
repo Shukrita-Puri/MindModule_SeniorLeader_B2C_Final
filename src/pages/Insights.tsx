@@ -484,7 +484,7 @@ const Insights = () => {
       console.error('Error fetching state patterns:', error);
     } finally {
       setPatternsLoading(false);
-      setLoading(false);
+      
     }
   };
 
