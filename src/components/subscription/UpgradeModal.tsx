@@ -1,6 +1,7 @@
-import { Check, X, MessageSquare } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import appLogo from "@/assets/app-logo-4.png";
 
 interface UpgradeModalProps {
   sessionsRemaining: number;
