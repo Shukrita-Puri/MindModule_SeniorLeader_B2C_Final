@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { CancellationFlow } from '@/components/subscription/CancellationFlow';
 
 const tierLabels: Record<string, string> = {
-  none: '7 Day Trial',
+  none: 'Free',
   trial: '7 Day Trial',
   monthly_pro: 'Monthly Pro',
   annual_pro: 'Annual Pro',
@@ -33,28 +33,32 @@ const Profile = () => {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || 'U';
 
-  const planLabel = tierLabels[user?.subscription_tier || ''] || '7 Day Trial';
+  const planLabel = tierLabels[user?.subscription_tier || ''] || 'Free';
 
   const isPaying = ['monthly_pro', 'annual_pro'].includes(user?.subscription_tier || '');
+  const isTrialing = user?.subscription_status === 'trialing' || user?.subscription_tier === 'trial';
   const isCanceled = !!user?.subscription_canceled_at;
   const isPendingCancellation = !!user?.subscription_cancel_at && !isCanceled;
-  const statusLabel = isCanceled ? 'Canceled' : isPaying ? 'Paid' : 'Free';
+  const hasStripeAccount = !!user?.stripe_customer_id;
+  const isBetaUser = user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date();
+
+  const statusLabel = isBetaUser ? 'Beta' : isCanceled ? 'Canceled' : isPaying ? 'Paid' : isTrialing ? 'Trial' : 'Free';
 
   let expiryLabel: string | null = null;
-  if (isPendingCancellation && user?.subscription_cancel_at) {
+  if (isBetaUser && user?.beta_expires_at) {
+    expiryLabel = `Beta access until ${format(new Date(user.beta_expires_at), 'MMM d, yyyy')}`;
+  } else if (isPendingCancellation && user?.subscription_cancel_at) {
     expiryLabel = `Access until ${format(new Date(user.subscription_cancel_at), 'MMM d, yyyy')}`;
   } else if (isCanceled) {
     expiryLabel = 'Access ended';
   } else if (user?.subscription_tier === 'trial' && user.trial_ends_at) {
     expiryLabel = `Trial ends ${format(new Date(user.trial_ends_at), 'MMM d, yyyy')}`;
-  } else if (user?.subscription_current_period_end) {
+  } else if (user?.subscription_current_period_end && isPaying) {
     expiryLabel = `Renews ${format(new Date(user.subscription_current_period_end), 'MMM d, yyyy')}`;
   }
 
-  const hasBillingAccount = isPaying;
-
-  const handleManageSubscription = async () => {
-    if (!hasBillingAccount) {
+  const handleManageBilling = async () => {
+    if (!hasStripeAccount) {
       navigate('/onboarding/payment');
       return;
     }
@@ -205,15 +209,32 @@ const Profile = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Change Plan
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={hasBillingAccount ? handleManageSubscription : () => navigate('/onboarding/payment')}>
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Manage Billing
-                    </DropdownMenuItem>
-                    {!isCanceled && !isPendingCancellation && (
+                    {/* Upgrade Plan — shown when not paying */}
+                    {!isPaying && !isBetaUser && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Change Plan — shown when paying */}
+                    {isPaying && (
+                      <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Change Plan
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Manage Billing — shown when Stripe account exists */}
+                    {hasStripeAccount && (
+                      <DropdownMenuItem onClick={handleManageBilling} disabled={managingPortal}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        {managingPortal ? 'Opening…' : 'Manage Billing'}
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Cancel Plan — shown when active and not already canceled */}
+                    {(isPaying || isTrialing) && !isCanceled && !isPendingCancellation && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
@@ -248,11 +269,11 @@ const Profile = () => {
             <CardDescription>Manage your account preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Upgrade Plan / Manage Plan */}
+            {/* Manage Plan button */}
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
-              onClick={isPaying ? handleManageSubscription : () => navigate('/onboarding/payment')}
+              onClick={isPaying ? handleManageBilling : () => navigate('/onboarding/payment')}
               disabled={managingPortal}
             >
               {isPaying ? (

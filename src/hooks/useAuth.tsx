@@ -217,7 +217,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: profile.email,
             name: profile.display_name || profile.auth_name || profile.full_name || payload.name,
             picture: payload.picture,
-            subscription_status: profile.subscription_status || 'trial',
+            subscription_status: profile.subscription_status || 'none',
             subscription_plan: profile.subscription_plan || 'monthly',
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
@@ -227,6 +227,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             subscription_current_period_end: profile.subscription_current_period_end || null,
             subscription_canceled_at: profile.subscription_canceled_at || null,
             subscription_cancel_at: profile.subscription_cancel_at || null,
+            beta_user: profile.beta_user || false,
+            beta_expires_at: profile.beta_expires_at || null,
+            stripe_customer_id: profile.stripe_customer_id || null,
           });
         } else {
           console.warn('[useAuth] Native profile sync failed:', response.status);
