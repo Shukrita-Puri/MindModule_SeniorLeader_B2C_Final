@@ -397,16 +397,20 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         return;
       }
 
-      // Production: call edge function
+      // Production: call edge function with timeout
       const accessToken = await getAuthToken();
       if (!accessToken) {
         console.warn('[PerformanceRhythmCard] No auth token available');
         setLoading(false);
         return;
       }
-      const { data: result, error } = await supabase.functions.invoke('performance-rhythm-insights', {
+      const fetchPromise = supabase.functions.invoke('performance-rhythm-insights', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout after 15s')), 15000)
+      );
+      const { data: result, error } = await Promise.race([fetchPromise, timeoutPromise]);
       if (!error && result) {
         setData(result as PerformanceRhythmData);
       }
