@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { isNativeApp } from "@/utils/healthKitCapacitor";
 import { requestHRVPermission, getHRV } from "@/services/healthkit";
+import { syncHealthKitToBackend } from "@/services/wearableSyncService";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";

@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.track-referral-signup]
 verify_jwt = false
+
+[functions.persist-wearable-data]
+verify_jwt = false
