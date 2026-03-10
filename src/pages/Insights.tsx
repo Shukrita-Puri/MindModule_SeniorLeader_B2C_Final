@@ -890,6 +890,7 @@ const Insights = () => {
         <PerformanceRhythmCard userId={user?.id} />
 
         {/* Card 5 — Your Mind Map */}
+        <div ref={mindMapRef}>
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
