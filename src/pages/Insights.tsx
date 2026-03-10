@@ -190,13 +190,32 @@ const Insights = () => {
     return totalPoints >= 3;
   }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
 
+  // Lazy-load Mind Map via IntersectionObserver
+  const mindMapRef = useRef<HTMLDivElement>(null);
+  const mindMapFetchedRef = useRef(false);
+
+  const fetchSemanticAnalysisLazy = useCallback(() => {
+    if (!mindMapFetchedRef.current && user?.id) {
+      mindMapFetchedRef.current = true;
+      fetchSemanticAnalysis();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!mindMapRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) fetchSemanticAnalysisLazy(); },
+      { rootMargin: '200px' }
+    );
+    observer.observe(mindMapRef.current);
+    return () => observer.disconnect();
+  }, [fetchSemanticAnalysisLazy]);
+
   useEffect(() => {
     if (user?.id) {
-      // Production: fetch consolidated data from state-patterns-insights
-      // DEV_MODE: use direct queries (the existing flow)
+      // Fire above-fold fetches immediately; Mind Map deferred via IntersectionObserver
       fetchStatePatterns();
       fetchTinyWinsInsights();
-      fetchSemanticAnalysis();
     }
   }, [user?.id]);
 
