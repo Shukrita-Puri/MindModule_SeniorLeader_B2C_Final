@@ -723,7 +723,7 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // ── Server-side calendar metrics (replaces client-sent load/pressure) ──
-    const calendarResult = await getServerCalendarMetrics(db, userId);
+    const calendarResult = await getServerCalendarMetrics(db, userId, timezoneOffset);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
 
