@@ -72,9 +72,12 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // Determine the paid tier from the plan metadata
+        const paidTier = plan === 'annual' ? 'annual_pro' : 'monthly_pro';
+
         await supabase.from('profiles').update({
           subscription_status: 'trialing',
-          subscription_tier: 'trial',
+          subscription_tier: paidTier,
           subscription_currency: currency || 'USD',
           stripe_subscription_id: session.subscription as string,
           trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
         await supabase.from('subscription_events').insert({
           user_id: userId,
           event_type: 'trial_started',
-          to_tier: 'trial',
+          to_tier: paidTier,
           stripe_event_id: event.id,
           stripe_event_type: event.type,
           metadata: { plan, currency }
