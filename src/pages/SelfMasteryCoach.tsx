@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTodayRitual, upsertRitual, updateRitualCompletion } from '@/utils/dailyRituals';
 import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
+import { useCoachAccess } from '@/hooks/useCoachAccess';
+import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 interface PracticeStep {
   title: string;
@@ -64,6 +66,21 @@ const SelfMasteryCoach = () => {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Coach access gate
+  const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
+
+  // Check access on mount
+  useEffect(() => {
+    checkAccess().then(result => {
+      if (!result.canStart) {
+        setShowUpgradeModal(true);
+      } else if (result.showWarning && result.sessionsRemaining) {
+        toast.info(`You have ${result.sessionsRemaining} coaching session${result.sessionsRemaining === 1 ? '' : 's'} remaining in your trial.`);
+      }
+    });
+  }, []);
 
   // Queue state
   const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
@@ -358,6 +375,19 @@ const SelfMasteryCoach = () => {
     setIsVoiceMode(!isVoiceMode);
     // Voice mode implementation will be added in future
   };
+
+  // Show upgrade modal if access denied
+  if (showUpgradeModal) {
+    return (
+      <UpgradeModal
+        sessionsRemaining={accessResult?.sessionsRemaining ?? 0}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          navigate('/executive-home');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="relative flex flex-col h-screen bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30 dark:bg-background animate-page-enter overflow-hidden">

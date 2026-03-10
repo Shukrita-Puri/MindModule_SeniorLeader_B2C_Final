@@ -2,6 +2,7 @@
  * Check Coach Access Edge Function
  * 
  * Auth0 JWT verification → checks subscription tier and dialogue session count.
+ * Also enforces trial expiry server-side and respects beta access.
  * Returns: { canStart, unlimited, sessionsRemaining, showWarning }
  */
 
@@ -26,17 +27,32 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get subscription tier
+    // Enforce trial expiry server-side
+    await supabase.rpc('enforce_trial_expiry', { p_user_id: userId });
+
+    // Get subscription tier + beta fields
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_tier, subscription_status')
+      .select('subscription_tier, subscription_status, beta_user, beta_expires_at')
       .eq('id', userId)
       .single();
 
     const tier = profile?.subscription_tier || 'none';
+    const status = profile?.subscription_status || 'none';
+
+    // Beta users: unlimited access if beta is still valid
+    if (profile?.beta_user && profile?.beta_expires_at) {
+      const betaValid = new Date(profile.beta_expires_at) > new Date();
+      if (betaValid) {
+        return new Response(
+          JSON.stringify({ canStart: true, unlimited: true, beta: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Pro users: unlimited
-    if (tier === 'monthly_pro' || tier === 'annual_pro') {
+    if ((tier === 'monthly_pro' || tier === 'annual_pro') && (status === 'active' || status === 'trialing')) {
       return new Response(
         JSON.stringify({ canStart: true, unlimited: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -44,7 +60,7 @@ Deno.serve(async (req) => {
     }
 
     // Trial users: 10 session limit
-    if (tier === 'trial') {
+    if (tier === 'trial' && status === 'trialing') {
       const { count } = await supabase
         .from('dialogue_sessions')
         .select('id', { count: 'exact', head: true })

@@ -3,11 +3,13 @@
  * 
  * Auth0 JWT verification → cancels subscription at period end via Stripe API.
  * Saves cancellation feedback.
+ * Uses environment-based Stripe mode selection via _shared/stripe-config.ts.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0?target=deno";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { getStripeConfig } from "../_shared/stripe-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,10 +25,10 @@ Deno.serve(async (req) => {
     const userId = await verifyAuth0JWT(req.headers.get('Authorization'));
     const { reason, reasonDetails, immediate } = await req.json();
 
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeKey) throw new Error('Stripe not configured');
+    const stripeConfig = getStripeConfig();
+    if (!stripeConfig.secretKey) throw new Error('Stripe not configured');
 
-    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+    const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

@@ -21,7 +21,7 @@ interface AppUser {
   email: string;
   name?: string;
   picture?: string;
-  subscription_status?: 'active' | 'inactive' | 'trial';
+  subscription_status?: 'active' | 'inactive' | 'trial' | 'trialing' | 'canceled' | 'past_due' | 'none';
   subscription_plan?: 'monthly' | 'annual';
   onboarding_completed?: boolean;
   onboarding_completed_at?: string | null;
@@ -31,6 +31,9 @@ interface AppUser {
   subscription_current_period_end?: string | null;
   subscription_canceled_at?: string | null;
   subscription_cancel_at?: string | null;
+  beta_user?: boolean;
+  beta_expires_at?: string | null;
+  stripe_customer_id?: string | null;
 }
 
 interface AuthContextType {
@@ -214,7 +217,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: profile.email,
             name: profile.display_name || profile.auth_name || profile.full_name || payload.name,
             picture: payload.picture,
-            subscription_status: profile.subscription_status || 'trial',
+            subscription_status: profile.subscription_status || 'none',
             subscription_plan: profile.subscription_plan || 'monthly',
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
@@ -224,6 +227,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             subscription_current_period_end: profile.subscription_current_period_end || null,
             subscription_canceled_at: profile.subscription_canceled_at || null,
             subscription_cancel_at: profile.subscription_cancel_at || null,
+            beta_user: profile.beta_user || false,
+            beta_expires_at: profile.beta_expires_at || null,
+            stripe_customer_id: profile.stripe_customer_id || null,
           });
         } else {
           console.warn('[useAuth] Native profile sync failed:', response.status);
@@ -312,7 +318,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: profile.email,
             name: profile.display_name || profile.auth_name || profile.full_name || auth0User.name,
             picture: auth0User.picture,
-            subscription_status: profile.subscription_status || 'trial',
+            subscription_status: profile.subscription_status || 'none',
             subscription_plan: profile.subscription_plan || 'monthly',
             onboarding_completed: !!profile.onboarding_completed_at,
             onboarding_completed_at: profile.onboarding_completed_at || null,
@@ -322,6 +328,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             subscription_current_period_end: profile.subscription_current_period_end || null,
             subscription_canceled_at: profile.subscription_canceled_at || null,
             subscription_cancel_at: profile.subscription_cancel_at || null,
+            beta_user: profile.beta_user || false,
+            beta_expires_at: profile.beta_expires_at || null,
+            stripe_customer_id: profile.stripe_customer_id || null,
           };
           setAppUser(mappedUser);
         } else {
@@ -406,6 +415,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           subscription_current_period_end: profile.subscription_current_period_end || prev.subscription_current_period_end,
           subscription_canceled_at: profile.subscription_canceled_at || prev.subscription_canceled_at,
           subscription_cancel_at: profile.subscription_cancel_at || prev.subscription_cancel_at,
+          beta_user: profile.beta_user ?? prev.beta_user,
+          beta_expires_at: profile.beta_expires_at || prev.beta_expires_at,
+          stripe_customer_id: profile.stripe_customer_id || prev.stripe_customer_id,
         } : prev);
       } else {
         console.warn('[useAuth] Profile refresh failed:', response.status);

@@ -117,7 +117,7 @@ const router = createBrowserRouter([
       },
       {
         path: "profile",
-        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><SubscriptionGuard><Profile /></SubscriptionGuard></OnboardingGuard></ProtectedRoute></Suspense>,
+        element: <Suspense fallback={<LoadingFallback />}><ProtectedRoute><OnboardingGuard><Profile /></OnboardingGuard></ProtectedRoute></Suspense>,
       },
       {
         path: "connected-data",

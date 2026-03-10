@@ -5,6 +5,8 @@
  * Handles: checkout.session.completed, customer.subscription.updated,
  * invoice.payment_succeeded, invoice.payment_failed, customer.subscription.deleted
  * 
+ * Uses environment-based Stripe mode selection via _shared/stripe-config.ts.
+ * 
  * Payment-only referral attribution:
  *   Signup attribution: handled here on checkout.session.completed (code from metadata or custom_fields)
  *   Conversion credit: handled here on subscription.updated → active
@@ -12,17 +14,17 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0?target=deno";
+import { getStripeConfig } from "../_shared/stripe-config.ts";
 
 Deno.serve(async (req) => {
-  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+  const stripeConfig = getStripeConfig();
 
-  if (!stripeKey || !webhookSecret) {
-    console.error('[stripe-webhook] Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET');
+  if (!stripeConfig.secretKey || !stripeConfig.webhookSecret) {
+    console.error('[stripe-webhook] Missing Stripe secret key or webhook secret');
     return new Response('Webhook not configured', { status: 500 });
   }
 
-  const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+  const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
 
   const signature = req.headers.get('stripe-signature');
   if (!signature) {
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(body, signature, stripeConfig.webhookSecret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[stripe-webhook] Signature verification failed:', msg);
@@ -45,7 +47,7 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  console.log(`[stripe-webhook] Processing: ${event.type}`);
+  console.log(`[stripe-webhook] Processing: ${event.type} (${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'})`);
 
   try {
     switch (event.type) {
@@ -57,6 +59,18 @@ Deno.serve(async (req) => {
         const currency = session.metadata?.currency;
 
         if (!userId) { console.warn('[stripe-webhook] No userId in metadata'); break; }
+
+        // Idempotency: check if this event was already processed
+        const { data: existingEvent } = await supabase
+          .from('subscription_events')
+          .select('id')
+          .eq('stripe_event_id', event.id)
+          .maybeSingle();
+
+        if (existingEvent) {
+          console.log(`[stripe-webhook] Event ${event.id} already processed, skipping`);
+          break;
+        }
 
         await supabase.from('profiles').update({
           subscription_status: 'trialing',
@@ -148,6 +162,18 @@ Deno.serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const userId = subscription.metadata?.userId;
         if (!userId) break;
+
+        // Idempotency check
+        const { data: existingSubEvent } = await supabase
+          .from('subscription_events')
+          .select('id')
+          .eq('stripe_event_id', event.id)
+          .maybeSingle();
+
+        if (existingSubEvent) {
+          console.log(`[stripe-webhook] Event ${event.id} already processed, skipping`);
+          break;
+        }
 
         // Check if trial converted to active
         if (subscription.status === 'active') {
@@ -250,6 +276,17 @@ Deno.serve(async (req) => {
             // Non-critical — log but don't fail the webhook
             console.warn('[stripe-webhook] Referral credit check failed:', refErr);
           }
+        } else if (subscription.status === 'trialing') {
+          // Update period dates during trial too
+          await supabase.from('profiles').update({
+            subscription_status: 'trialing',
+            subscription_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          }).eq('id', userId);
+        } else if (subscription.status === 'past_due') {
+          await supabase.from('profiles').update({
+            subscription_status: 'past_due',
+          }).eq('id', userId);
         }
         break;
       }
@@ -261,6 +298,12 @@ Deno.serve(async (req) => {
         const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
         const userId = sub.metadata?.userId;
         if (!userId) break;
+
+        // Update period end on successful payment (handles renewals)
+        await supabase.from('profiles').update({
+          subscription_current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+          subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+        }).eq('id', userId);
 
         await supabase.from('subscription_events').insert({
           user_id: userId,
