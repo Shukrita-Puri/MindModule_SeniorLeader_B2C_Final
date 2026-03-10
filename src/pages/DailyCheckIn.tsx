@@ -69,8 +69,8 @@ const DailyCheckIn = () => {
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
   const [checkedInMessage, setCheckedInMessage] = useState('');
 
-  // Check if user has active subscription
-  const hasActiveSubscription = user?.subscription_status === 'active';
+  // Check if user has active or trialing subscription
+  const hasActiveSubscription = user?.subscription_status === 'active' || user?.subscription_status === 'trialing';
 
   // Check if user already checked in for this time window
   useEffect(() => {
