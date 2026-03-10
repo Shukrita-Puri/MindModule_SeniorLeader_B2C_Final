@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { isNativeApp } from "@/utils/healthKitCapacitor";
 import { requestHRVPermission, getHRV } from "@/services/healthkit";
+import { syncHealthKitToBackend } from "@/services/wearableSyncService";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
@@ -217,6 +218,10 @@ export default function Stage7ContextConnection() {
         } catch (hrvErr) {
           console.error("Failed to fetch HRV:", hrvErr);
         }
+        // Persist HealthKit data to backend
+        syncHealthKitToBackend().then((ok) => {
+          if (ok) console.log("[Stage7] HealthKit data synced to backend");
+        });
       } catch (err) {
         console.error("HealthKit permission denied ❌", err);
         toast.error("HealthKit permissions are required for Apple Watch integration");
