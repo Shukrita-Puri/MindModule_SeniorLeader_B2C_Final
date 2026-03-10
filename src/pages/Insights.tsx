@@ -681,12 +681,15 @@ const Insights = () => {
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use edge function with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'analyze' }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('insights-semantic-analysis', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7, action: 'analyze' }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         setSemanticAnalysis(data.data);
       }
