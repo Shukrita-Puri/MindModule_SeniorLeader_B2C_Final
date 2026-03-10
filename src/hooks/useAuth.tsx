@@ -346,8 +346,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: auth0User.email!,
             name: auth0User.name,
             picture: auth0User.picture,
-            subscription_status: 'trial',
-            subscription_plan: 'monthly',
+            subscription_status: 'none',
+            subscription_plan: undefined,
             onboarding_completed_at: null,
             subscription_tier: 'none',
           });
