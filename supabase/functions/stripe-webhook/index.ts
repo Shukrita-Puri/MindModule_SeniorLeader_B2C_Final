@@ -13,7 +13,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.14.0?target=deno";
+import Stripe from "https://esm.sh/stripe@14.14.0";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
 
 Deno.serve(async (req) => {
