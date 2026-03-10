@@ -450,12 +450,15 @@ const Insights = () => {
         return;
       }
 
-      // Production: Use consolidated edge function response
+      // Production: Use consolidated edge function response with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7 }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('state-patterns-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7 }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         const d = data.data;
         setStatePatterns(d);
