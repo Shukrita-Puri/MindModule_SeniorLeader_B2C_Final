@@ -934,6 +934,7 @@ const Insights = () => {
             )}
           </CardContent>
         </LuxuryInsightCard>
+        </div>
       </div>
     </div>
   );
