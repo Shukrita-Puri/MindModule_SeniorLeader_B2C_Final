@@ -23,11 +23,17 @@ function hasValidAccess(user: any): boolean {
   }
 
   const status = user.subscription_status;
+  const tier = user.subscription_tier;
   
-  // Active or trialing subscriptions
-  if (status === 'trialing' || status === 'active') {
-    // For trials, also check trial_ends_at hasn't expired
-    if (status === 'trialing' && user.trial_ends_at) {
+  // Active subscriptions — always allowed
+  if (status === 'active') return true;
+
+  // Trialing subscriptions
+  if (status === 'trialing') {
+    // Paid-tier users in Stripe billing trial get full access (no expiry check)
+    if (tier === 'monthly_pro' || tier === 'annual_pro') return true;
+    // App-level free trial — check trial_ends_at
+    if (user.trial_ends_at) {
       return new Date(user.trial_ends_at) > new Date();
     }
     return true;
