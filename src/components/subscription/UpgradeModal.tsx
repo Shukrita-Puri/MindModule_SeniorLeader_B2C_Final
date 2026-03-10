@@ -62,7 +62,7 @@ export function UpgradeModal({ sessionsRemaining, onClose }: UpgradeModalProps) 
             variant="critical"
             onClick={() => navigate('/onboarding/payment')}
           >
-            Upgrade to Pro — $29/mo
+            Upgrade to Mind Module- Pro
           </Button>
           {sessionsRemaining > 0 && (
             <Button variant="ghost" className="w-full" onClick={onClose}>
