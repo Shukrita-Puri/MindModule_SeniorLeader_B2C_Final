@@ -21,7 +21,7 @@ interface AppUser {
   email: string;
   name?: string;
   picture?: string;
-  subscription_status?: 'active' | 'inactive' | 'trial';
+  subscription_status?: 'active' | 'inactive' | 'trial' | 'trialing' | 'canceled' | 'past_due' | 'none';
   subscription_plan?: 'monthly' | 'annual';
   onboarding_completed?: boolean;
   onboarding_completed_at?: string | null;
@@ -31,6 +31,9 @@ interface AppUser {
   subscription_current_period_end?: string | null;
   subscription_canceled_at?: string | null;
   subscription_cancel_at?: string | null;
+  beta_user?: boolean;
+  beta_expires_at?: string | null;
+  stripe_customer_id?: string | null;
 }
 
 interface AuthContextType {
