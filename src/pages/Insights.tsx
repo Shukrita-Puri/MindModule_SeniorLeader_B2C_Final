@@ -444,7 +444,6 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
-        setLoading(false);
         return;
       }
 
