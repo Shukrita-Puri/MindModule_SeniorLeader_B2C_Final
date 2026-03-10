@@ -66,6 +66,21 @@ const SelfMasteryCoach = () => {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Coach access gate
+  const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
+
+  // Check access on mount
+  useEffect(() => {
+    checkAccess().then(result => {
+      if (!result.canStart) {
+        setShowUpgradeModal(true);
+      } else if (result.showWarning && result.sessionsRemaining) {
+        toast.info(`You have ${result.sessionsRemaining} coaching session${result.sessionsRemaining === 1 ? '' : 's'} remaining in your trial.`);
+      }
+    });
+  }, []);
 
   // Queue state
   const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
