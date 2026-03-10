@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
@@ -157,7 +157,6 @@ type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
@@ -191,20 +190,39 @@ const Insights = () => {
     return totalPoints >= 3;
   }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
 
+  // Lazy-load Mind Map via IntersectionObserver
+  const mindMapRef = useRef<HTMLDivElement>(null);
+  const mindMapFetchedRef = useRef(false);
+
+  const fetchSemanticAnalysisLazy = useCallback(() => {
+    if (!mindMapFetchedRef.current && user?.id) {
+      mindMapFetchedRef.current = true;
+      fetchSemanticAnalysis();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!mindMapRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) fetchSemanticAnalysisLazy(); },
+      { rootMargin: '200px' }
+    );
+    observer.observe(mindMapRef.current);
+    return () => observer.disconnect();
+  }, [fetchSemanticAnalysisLazy]);
+
   useEffect(() => {
     if (user?.id) {
-      // Production: fetch consolidated data from state-patterns-insights
-      // DEV_MODE: use direct queries (the existing flow)
+      // Fire above-fold fetches immediately; Mind Map deferred via IntersectionObserver
       fetchStatePatterns();
       fetchTinyWinsInsights();
-      fetchSemanticAnalysis();
     }
   }, [user?.id]);
 
   // DEV_MODE only: direct database queries for insights data
   const fetchInsightsDataDev = async () => {
     if (!user?.id || !DEV_MODE) return;
-    setLoading(true);
+    setPatternsLoading(true);
     const effectiveUserId = DEV_USER.id;
 
     try {
@@ -292,7 +310,7 @@ const Insights = () => {
     } catch (error) {
       console.error('Error fetching DEV_MODE insights:', error);
     } finally {
-      setLoading(false);
+      setPatternsLoading(false);
     }
   };
 
@@ -371,12 +389,15 @@ const Insights = () => {
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use edge function with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 14 }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('tiny-wins-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 14 }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         setTinyWinsInsights(data.data);
         // BUG 2 fix: Populate tinyWinsContent from EF response
@@ -394,7 +415,7 @@ const Insights = () => {
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
     setPatternsLoading(true);
-    setLoading(true);
+    
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
       if (DEV_MODE) {
@@ -426,16 +447,18 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
-        setLoading(false);
         return;
       }
 
-      // Production: Use consolidated edge function response
+      // Production: Use consolidated edge function response with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7 }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('state-patterns-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7 }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         const d = data.data;
         setStatePatterns(d);
@@ -467,7 +490,7 @@ const Insights = () => {
       console.error('Error fetching state patterns:', error);
     } finally {
       setPatternsLoading(false);
-      setLoading(false);
+      
     }
   };
 
@@ -658,12 +681,15 @@ const Insights = () => {
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use edge function with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'analyze' }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('insights-semantic-analysis', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7, action: 'analyze' }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         setSemanticAnalysis(data.data);
       }
@@ -747,13 +773,6 @@ const Insights = () => {
     return null;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   const winsProgressMessage = getWinsProgressMessage();
 
@@ -880,6 +899,7 @@ const Insights = () => {
         <PerformanceRhythmCard userId={user?.id} />
 
         {/* Card 5 — Your Mind Map */}
+        <div ref={mindMapRef}>
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -923,6 +943,7 @@ const Insights = () => {
             )}
           </CardContent>
         </LuxuryInsightCard>
+        </div>
       </div>
     </div>
   );

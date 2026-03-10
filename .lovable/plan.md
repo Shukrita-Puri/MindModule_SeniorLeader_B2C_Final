@@ -1,63 +1,53 @@
 
 
-## Diagnosis: Insights Page Performance Issues
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Root Cause
+Two files need text-only changes (no layout or UI modifications).
 
-The Insights page fires **4 parallel edge function calls** on load, each requiring a cold-start:
+---
 
-1. `state-patterns-insights` (from `Insights.tsx` → `fetchStatePatterns`)
-2. `tiny-wins-insights` (from `Insights.tsx` → `fetchTinyWinsInsights`)
-3. `insights-semantic-analysis` (from `Insights.tsx` → `fetchSemanticAnalysis`)
-4. `performance-rhythm-insights` (from `PerformanceRhythmCard` component, independently)
+### File 1: `src/pages/Front.tsx`
 
-Each edge function has a cold-start of ~35-50ms server-side, but from mobile web with slower network, the total waterfall (auth token acquisition + 4 HTTPS round-trips to separate Deno isolates) can easily exceed 10-15 seconds. On poor mobile connections, functions can timeout entirely, leaving the page stuck on the `<Loader2>` spinner forever.
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-Additionally:
-- The main `loading` state blocks the **entire page** behind a full-screen spinner — nothing renders until `fetchStatePatterns` completes
-- Each auth token call (`getAuthToken()`) is called independently in each fetch function rather than being acquired once
-- `PerformanceRhythmCard` in DEV_MODE makes **8 sequential/parallel DB queries** including a follow-up query for dialogue messages
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-### Plan
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-#### 1. Progressive rendering — remove full-screen loading gate (`Insights.tsx`)
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-**Current**: Lines 750-756 show a full-screen `Loader2` spinner until `loading` (tied to `fetchStatePatterns`) resolves. Nothing is visible.
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**Fix**: Remove the top-level loading gate. Let each card show its own loading state independently (they already have internal spinners). Render the page shell, header, and card containers immediately. Each card loads progressively as its data arrives.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-- Remove `const [loading, setLoading] = useState(true)` and the full-screen spinner block (lines 750-756)
-- Remove `setLoading(true)` / `setLoading(false)` from `fetchStatePatterns`
-- Each section already handles its own `winsLoading`, `patternsLoading`, `semanticLoading` states
+---
 
-#### 2. Single auth token acquisition (`Insights.tsx`)
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**Current**: `getAuthToken()` is called 3 times independently (once per edge function call), plus once more in `PerformanceRhythmCard`.
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-**Fix**: Acquire the token once at the start of `useEffect`, then pass it to each fetch function. This eliminates 3 redundant token checks.
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-#### 3. Lazy-load below-fold cards (`Insights.tsx`)
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-**Current**: All 4 edge functions fire simultaneously on mount.
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-**Fix**: 
-- Fire `state-patterns-insights` and `tiny-wins-insights` immediately (above-fold cards)
-- Defer `insights-semantic-analysis` (Mind Map, bottom of page) — only fetch when user scrolls near it, using `IntersectionObserver`
-- `PerformanceRhythmCard` already loads independently — add a small delay or intersection trigger
+---
 
-#### 4. Add timeout + error handling for edge functions
-
-**Current**: No timeout on edge function calls. If a function hangs, the card spinner spins forever.
-
-**Fix**: Wrap each `supabase.functions.invoke` in a `Promise.race` with a 15-second timeout. On timeout, show a "Could not load" message instead of infinite spinner.
-
-### Files to Change
-
-- `src/pages/Insights.tsx` — Remove loading gate, single token, lazy-load Mind Map
-- `src/components/insights/PerformanceRhythmCard.tsx` — Add timeout wrapper
-
-### Impact
-
-- **Desktop**: Page shell visible immediately; cards load progressively in ~1-3s
-- **Mobile web**: Page visible instantly; cards load as connections complete; timeout prevents infinite hang
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
