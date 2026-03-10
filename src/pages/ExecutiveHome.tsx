@@ -163,12 +163,8 @@ const ExecutiveHome = () => {
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
             </div>
             
-            <header className="relative z-40 flex items-center justify-between px-3 md:px-4 py-3 w-full pointer-events-auto">
+            <header className="relative z-40 flex items-center px-3 md:px-4 py-3 w-full pointer-events-auto">
               <SidebarTrigger className="h-9 w-9 rounded-full text-white bg-black/70 backdrop-blur-sm border border-white/10 hover:bg-black/80 shadow-lg shadow-black/20" />
-              <div className="flex items-center gap-2">
-                <img src={appLogo} alt="Mind Module" className="h-8 w-8 rounded-lg" />
-                <span className="text-[10px] font-medium tracking-[0.25em] uppercase text-foreground/70 font-body">Executive Edition</span>
-              </div>
             </header>
             
             <div className="relative z-10 pt-6 pb-16 max-w-lg mx-auto text-center">
