@@ -5,13 +5,13 @@
  * creates a Stripe Checkout Session with 7-day trial.
  * Accepts optional referralCode — validates and stores in Stripe session metadata.
  * 
- * Payment-only attribution: The stripe-webhook reads metadata.referralCode
- * on checkout.session.completed to create referral_conversions records.
+ * Uses environment-based Stripe mode selection via _shared/stripe-config.ts.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0?target=deno";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
+import { getStripeConfig } from "../_shared/stripe-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,12 +29,12 @@ Deno.serve(async (req) => {
 
     const { plan, currency, referralCode } = await req.json();
 
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeKey) {
-      throw new Error('Stripe is not configured. Please add STRIPE_SECRET_KEY.');
+    const stripeConfig = getStripeConfig();
+    if (!stripeConfig.secretKey) {
+      throw new Error('Stripe is not configured. Please add the Stripe secret key.');
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+    const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -94,21 +94,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Price IDs from secrets
-    const priceIds: Record<string, Record<string, string>> = {
-      GBP: {
-        monthly: Deno.env.get('STRIPE_PRICE_GBP_MONTHLY') || '',
-        annual: Deno.env.get('STRIPE_PRICE_GBP_ANNUAL') || ''
-      },
-      USD: {
-        monthly: Deno.env.get('STRIPE_PRICE_USD_MONTHLY') || '',
-        annual: Deno.env.get('STRIPE_PRICE_USD_ANNUAL') || ''
-      }
-    };
-
+    // Price IDs from environment-based config
     const selectedCurrency = currency === 'GBP' ? 'GBP' : 'USD';
     const selectedPlan = plan === 'monthly' ? 'monthly' : 'annual';
-    const priceId = priceIds[selectedCurrency][selectedPlan];
+    const priceId = stripeConfig.priceIds[selectedCurrency][selectedPlan];
 
     if (!priceId) {
       throw new Error(`Price ID not configured for ${selectedCurrency} ${selectedPlan}`);
@@ -150,7 +139,7 @@ Deno.serve(async (req) => {
       metadata: sessionMetadata,
     });
 
-    console.log(`[create-checkout-session] Session created for user ${userId}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}`);
+    console.log(`[create-checkout-session] Session created for user ${userId}, plan: ${selectedPlan}, currency: ${selectedCurrency}${validatedReferralCode ? `, referral: ${validatedReferralCode}` : ''}, mode: ${stripeConfig.isLiveMode ? 'LIVE' : 'TEST'}`);
 
     return new Response(
       JSON.stringify({ sessionId: session.id, checkoutUrl: session.url }),

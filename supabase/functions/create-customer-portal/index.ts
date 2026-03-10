@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.14.0?target=deno";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { getStripeConfig } from "../_shared/stripe-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,16 +38,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      console.error("[create-customer-portal] STRIPE_SECRET_KEY not configured");
+    const stripeConfig = getStripeConfig();
+    if (!stripeConfig.secretKey) {
+      console.error("[create-customer-portal] Stripe secret key not configured");
       return new Response(
         JSON.stringify({ error: "Billing service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+    const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2023-10-16" });
     const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://wwwmindmoduleme.lovable.app";
 
     const session = await stripe.billingPortal.sessions.create({
