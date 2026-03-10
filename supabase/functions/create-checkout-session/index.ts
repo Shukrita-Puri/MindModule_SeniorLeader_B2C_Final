@@ -44,12 +44,39 @@ Deno.serve(async (req) => {
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('email, stripe_customer_id')
+      .select('email, stripe_customer_id, subscription_status, stripe_subscription_id')
       .eq('id', userId)
       .single();
 
     if (profileError || !profile) {
       throw new Error('User profile not found');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DUPLICATE SUBSCRIPTION GUARD
+    // If user already has an active/trialing subscription, redirect to billing portal
+    // ═══════════════════════════════════════════════════════════
+    if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
+      console.log(`[create-checkout-session] User ${userId} already has subscription (${profile.subscription_status}), redirecting to portal`);
+
+      if (profile.stripe_customer_id) {
+        const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
+        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://wwwmindmoduleme.lovable.app';
+        const portalSession = await portalStripe.billingPortal.sessions.create({
+          customer: profile.stripe_customer_id,
+          return_url: `${frontendUrl}/profile`,
+        });
+
+        return new Response(
+          JSON.stringify({ alreadySubscribed: true, portalUrl: portalSession.url }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: 'You already have an active subscription.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get or create Stripe customer

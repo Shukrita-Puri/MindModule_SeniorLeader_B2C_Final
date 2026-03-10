@@ -72,6 +72,22 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // Duplicate subscription guard: skip if profile already has this subscription
+        const subId = session.subscription as string;
+        if (subId) {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('stripe_subscription_id, subscription_status')
+            .eq('id', userId)
+            .single();
+
+          if (existingProfile?.stripe_subscription_id === subId &&
+              (existingProfile.subscription_status === 'active' || existingProfile.subscription_status === 'trialing')) {
+            console.log(`[stripe-webhook] Profile already has subscription ${subId}, skipping duplicate`);
+            break;
+          }
+        }
+
         // Determine the paid tier from the plan metadata
         const paidTier = plan === 'annual' ? 'annual_pro' : 'monthly_pro';
 
