@@ -376,6 +376,19 @@ const SelfMasteryCoach = () => {
     // Voice mode implementation will be added in future
   };
 
+  // Show upgrade modal if access denied
+  if (showUpgradeModal) {
+    return (
+      <UpgradeModal
+        sessionsRemaining={accessResult?.sessionsRemaining ?? 0}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          navigate('/executive-home');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="relative flex flex-col h-screen bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30 dark:bg-background animate-page-enter overflow-hidden">
       {/* Header Navigation */}
