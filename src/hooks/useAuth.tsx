@@ -412,6 +412,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           subscription_current_period_end: profile.subscription_current_period_end || prev.subscription_current_period_end,
           subscription_canceled_at: profile.subscription_canceled_at || prev.subscription_canceled_at,
           subscription_cancel_at: profile.subscription_cancel_at || prev.subscription_cancel_at,
+          beta_user: profile.beta_user ?? prev.beta_user,
+          beta_expires_at: profile.beta_expires_at || prev.beta_expires_at,
+          stripe_customer_id: profile.stripe_customer_id || prev.stripe_customer_id,
         } : prev);
       } else {
         console.warn('[useAuth] Profile refresh failed:', response.status);
