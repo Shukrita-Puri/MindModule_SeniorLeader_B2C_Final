@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import LeftSidebar from "@/components/navigation/LeftSidebar";
+import CoachAccessButton from "@/components/navigation/CoachAccessButton";
 
 import TodayStateCard from "@/components/home/TodayStateCard";
 import StrategicIntentionCard from "@/components/home/StrategicIntentionCard";
