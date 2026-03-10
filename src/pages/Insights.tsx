@@ -389,12 +389,15 @@ const Insights = () => {
         return;
       }
 
-      // Production: Use edge function
+      // Production: Use edge function with timeout
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 14 }
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('tiny-wins-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 14 }
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
+      ]);
       if (!error && data?.data) {
         setTinyWinsInsights(data.data);
         // BUG 2 fix: Populate tinyWinsContent from EF response
