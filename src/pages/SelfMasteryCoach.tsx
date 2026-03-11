@@ -70,12 +70,25 @@ const SelfMasteryCoach = () => {
 
   // Coach access gate
   const { accessResult, checking: checkingAccess, checkAccess } = useCoachAccess();
+  const hasValidBetaAccess = Boolean(
+    user?.beta_user &&
+    user?.beta_expires_at &&
+    new Date(user.beta_expires_at) > new Date()
+  );
 
   // Check access on mount
   useEffect(() => {
+    if (hasValidBetaAccess) {
+      setShowUpgradeModal(false);
+      return;
+    }
+
     checkAccess().then(result => {
       // Beta and unlimited users skip all trial-limit UI
-      if (result.unlimited || result.beta) return;
+      if (result.unlimited || result.beta) {
+        setShowUpgradeModal(false);
+        return;
+      }
 
       if (!result.canStart) {
         setShowUpgradeModal(true);
@@ -83,7 +96,7 @@ const SelfMasteryCoach = () => {
         toast.info(`You have ${result.sessionsRemaining} coaching session${result.sessionsRemaining === 1 ? '' : 's'} remaining in your trial.`);
       }
     });
-  }, []);
+  }, [checkAccess, hasValidBetaAccess]);
 
   // Queue state
   const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
@@ -380,7 +393,7 @@ const SelfMasteryCoach = () => {
   };
 
   // Show upgrade modal if access denied
-  if (showUpgradeModal) {
+  if (showUpgradeModal && !hasValidBetaAccess && !checkingAccess) {
     return (
       <UpgradeModal
         sessionsRemaining={accessResult?.sessionsRemaining ?? 0}
