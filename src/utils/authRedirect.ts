@@ -1,5 +1,5 @@
 // Canonical app URL for Auth0 authentication
-export const CANONICAL_APP_URL = 'https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app';
+export const CANONICAL_APP_URL = 'https://app.mindmodule.me';
 
 /**
  * Detects if the device is a mobile device using userAgent

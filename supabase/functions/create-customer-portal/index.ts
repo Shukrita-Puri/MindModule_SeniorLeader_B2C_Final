@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2023-10-16" });
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://wwwmindmoduleme.lovable.app";
+    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://app.mindmodule.me";
 
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,

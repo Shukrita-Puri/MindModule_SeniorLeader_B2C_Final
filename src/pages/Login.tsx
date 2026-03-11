@@ -73,7 +73,7 @@ const Login = () => {
             Auth0 cannot load inside an iframe. Please open the app in a new tab to sign in.
           </p>
           <a
-            href="https://id-preview--eb63fb97-dcc8-4fc5-8148-517646438c6d.lovable.app/login"
+            href="https://app.mindmodule.me/login"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition"

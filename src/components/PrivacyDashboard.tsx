@@ -130,7 +130,7 @@ const PrivacyDashboard = () => {
   };
 
   const handleCopyReferralLink = () => {
-    const referralLink = `https://mindmodule.me/ref/${user?.id || 'demo'}`;
+    const referralLink = `https://app.mindmodule.me/ref/${user?.id || 'demo'}`;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     toast.success("Referral link copied to clipboard");
@@ -333,7 +333,7 @@ const PrivacyDashboard = () => {
                 <Label className="text-muted-foreground">Your Referral Link</Label>
                 <div className="flex gap-2">
                   <Input 
-                    value={`https://mindmodule.me/ref/${user?.id || 'demo'}`}
+                    value={`https://app.mindmodule.me/ref/${user?.id || 'demo'}`}
                     readOnly 
                     className="bg-muted/30"
                   />
