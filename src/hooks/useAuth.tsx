@@ -427,13 +427,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Shared federated logout helper — clears Auth0 session cookie + IdP session
-  const signOutFederated = async () => {
-    // 1. Activate logout guard BEFORE anything else — prevents auto-login race
+  // Shared cleanup for all logout paths
+  const cleanupLocalState = () => {
     activateLogoutGuard();
     clearTokenCache();
-
-    // 2. Clear all native auth state
     syncAttempted.current = false;
     nativeHydrationAttempted.current = false;
     setNativeAuthed(false);
@@ -442,24 +439,25 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     clearNativeLoginInProgress();
     setAppUser(null);
     delete window.__auth0Client;
+  };
 
-    // 3. On native iOS, do a local-only logout then hit Auth0 /v2/logout
-    //    to clear the server-side session cookie without a Safari redirect.
+  // Normal sign-out: clears app + Auth0 session only, does NOT sign out of Google
+  const signOut = async () => {
+    cleanupLocalState();
+
+    // Native iOS: local logout + clear Auth0 server session (no IdP logout)
     if (isNativeiOS()) {
       try {
         await logout({ openUrl: false });
       } catch (e) {
         console.warn('[useAuth] Native logout cleanup error (non-fatal):', e);
       }
-
-      // Clear Auth0 server session via /v2/logout in a background browser call
       try {
         const domain = getSanitisedAuth0Domain();
         const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
         const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
         const { Browser } = await import('@capacitor/browser');
         await Browser.open({ url: logoutUrl, presentationStyle: 'popover' });
-        // Give Auth0 a moment to clear the session, then close
         setTimeout(async () => {
           try { await Browser.close(); } catch { /* ignore */ }
         }, 1500);
@@ -469,16 +467,30 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // 4. Web: federated logout — clears Auth0 session cookie + IdP session
-    await logout({ 
-      logoutParams: { 
+    // Web: logout from Auth0 only (no federated flag = Google session preserved)
+    await logout({
+      logoutParams: {
         returnTo: window.location.origin,
-        federated: true,
-      } 
+      },
     });
   };
 
-  const signOut = signOutFederated;
+  // Federated logout — also signs out of upstream IdP (Google). Used only for security cases.
+  const signOutFederated = async () => {
+    cleanupLocalState();
+
+    if (isNativeiOS()) {
+      try { await logout({ openUrl: false }); } catch { /* ignore */ }
+      return;
+    }
+
+    await logout({
+      logoutParams: {
+        returnTo: window.location.origin,
+        federated: true,
+      },
+    });
+  };
 
   const effectiveAuthenticated = isAuthenticated || nativeAuthed;
 
