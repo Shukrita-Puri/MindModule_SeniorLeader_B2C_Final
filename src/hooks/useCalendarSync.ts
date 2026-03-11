@@ -20,7 +20,7 @@ interface UseCalendarSyncResult {
   error: string | null;
 }
 
-const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export function useCalendarSync(): UseCalendarSyncResult {
   const { user } = useAuth();
