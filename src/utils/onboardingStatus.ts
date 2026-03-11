@@ -126,9 +126,12 @@ async function getResumeRouteFromDB(): Promise<string | null> {
     console.log('[onboardingStatus] DB progress found, current_step:', data.current_step);
 
     // Walk backwards from the end to find the latest incomplete step
+    // Check if user has valid beta access (payment not required)
+    const isBetaValid = data.beta_user && data.beta_expires_at && new Date(data.beta_expires_at) > new Date();
+
     if (data.completed_at) return '/daily-check-in';
-    if (!data.context_connection_at && data.payment_at) return '/onboarding/context-connection';
-    if (!data.payment_at && data.results_at) return '/onboarding/payment';
+    if (!data.context_connection_at && (data.payment_at || isBetaValid)) return '/onboarding/context-connection';
+    if (!data.payment_at && !isBetaValid && data.results_at) return '/onboarding/payment';
     if (!data.results_at && data.signup_step_at) return '/onboarding/results';
     if (!data.signup_step_at && data.growth_intention_at) return '/onboarding/signup-step';
     if (!data.growth_intention_at && data.mental_clarity_at) return '/onboarding/growth-intention';
