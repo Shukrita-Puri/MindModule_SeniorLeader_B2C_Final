@@ -10,13 +10,20 @@ interface SubscriptionUser {
   trial_ends_at?: string | null;
   subscription_current_period_end?: string | null;
   subscription_canceled_at?: string | null;
+  beta_user?: boolean;
+  beta_expires_at?: string | null;
 }
 
 /**
- * Check if a user has a valid (non-expired) subscription.
+ * Check if a user has valid access — either via subscription or beta.
  */
 export function hasValidSubscription(user: SubscriptionUser | null): boolean {
   if (!user) return false;
+
+  // Beta access check
+  if (user.beta_user && user.beta_expires_at && new Date(user.beta_expires_at) > new Date()) {
+    return true;
+  }
 
   const tier = user.subscription_tier;
   if (!tier || tier === 'none') return false;
