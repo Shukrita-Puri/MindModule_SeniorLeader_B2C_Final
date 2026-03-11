@@ -333,7 +333,7 @@ const PrivacyDashboard = () => {
                 <Label className="text-muted-foreground">Your Referral Link</Label>
                 <div className="flex gap-2">
                   <Input 
-                    value={`https://mindmodule.me/ref/${user?.id || 'demo'}`}
+                    value={`https://app.mindmodule.me/ref/${user?.id || 'demo'}`}
                     readOnly 
                     className="bg-muted/30"
                   />

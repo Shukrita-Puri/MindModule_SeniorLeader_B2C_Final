@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       throw new Error(`Price ID not configured for ${selectedCurrency} ${selectedPlan}`);
     }
 
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://wwwmindmoduleme.lovable.app';
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
 
     // Build metadata (include referral code if validated)
     const sessionMetadata: Record<string, string> = {
