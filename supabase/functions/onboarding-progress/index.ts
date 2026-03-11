@@ -24,13 +24,26 @@ Deno.serve(async (req) => {
     );
 
     if (action === "GET") {
-      const { data, error } = await supabaseAdmin
-        .from("onboarding_progress")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Fetch onboarding progress and beta fields in parallel
+      const [progressResult, profileResult] = await Promise.all([
+        supabaseAdmin
+          .from("onboarding_progress")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("profiles")
+          .select("beta_user, beta_expires_at")
+          .eq("id", userId)
+          .maybeSingle(),
+      ]);
 
-      if (error) throw error;
+      if (progressResult.error) throw progressResult.error;
+
+      // Merge beta fields into progress data so client can check beta status
+      const data = progressResult.data
+        ? { ...progressResult.data, beta_user: profileResult.data?.beta_user, beta_expires_at: profileResult.data?.beta_expires_at }
+        : null;
 
       return new Response(
         JSON.stringify({ success: true, data }),

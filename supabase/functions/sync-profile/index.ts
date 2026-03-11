@@ -117,22 +117,28 @@ Deno.serve(async (req) => {
     // Only set display_name on initial profile creation
     if (isNewProfile) {
       upsertData.display_name = name;
+    }
 
-      // Check if this email is in the beta_invites list
-      if (email) {
-        const { data: invite } = await supabaseAdmin
-          .from("beta_invites")
-          .select("id, beta_expires_at")
-          .eq("email", email.toLowerCase())
-          .eq("status", "invited")
-          .single();
+    // Beta invite lookup — runs on EVERY sync, not just new profiles.
+    // Matches both 'invited' and 'activated' status so that returning
+    // users whose profile already exists still get beta fields populated.
+    if (email) {
+      const { data: invite } = await supabaseAdmin
+        .from("beta_invites")
+        .select("id, beta_expires_at, status")
+        .eq("email", email.toLowerCase())
+        .in("status", ["invited", "activated"])
+        .order("beta_expires_at", { ascending: false })
+        .limit(1)
+        .single();
 
-        if (invite && new Date(invite.beta_expires_at) > new Date()) {
-          upsertData.beta_user = true;
-          upsertData.beta_expires_at = invite.beta_expires_at;
-          console.log("[sync-profile] 🎉 Beta invite found for:", email);
+      if (invite && new Date(invite.beta_expires_at) > new Date()) {
+        upsertData.beta_user = true;
+        upsertData.beta_expires_at = invite.beta_expires_at;
+        console.log("[sync-profile] 🎉 Beta invite applied for:", email, "status:", invite.status);
 
-          // Mark invite as activated (fire-and-forget)
+        // Mark invite as activated if it was still in 'invited' state
+        if (invite.status === "invited") {
           supabaseAdmin
             .from("beta_invites")
             .update({ status: "activated" })
