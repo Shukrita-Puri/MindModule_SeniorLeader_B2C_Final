@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
+import { openUrl } from '@/utils/openUrl';
 
 interface CalendarConnectionSettingsProps {
   compact?: boolean;
