@@ -125,6 +125,33 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_invites: {
+        Row: {
+          beta_expires_at: string
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          status: string
+        }
+        Insert: {
+          beta_expires_at: string
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          status?: string
+        }
+        Update: {
+          beta_expires_at?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       calendar_connections: {
         Row: {
           access_token_enc: string | null
