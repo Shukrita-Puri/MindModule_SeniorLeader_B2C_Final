@@ -146,8 +146,7 @@ const CalendarConnectionSettings = ({
       
       if (error) throw error;
       if (data.authUrl) {
-        // Redirect to OAuth URL
-        window.location.href = data.authUrl;
+        await openUrl(data.authUrl);
       }
     } catch (error) {
       console.error('Error connecting calendar:', error);

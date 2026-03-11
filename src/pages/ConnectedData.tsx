@@ -218,7 +218,7 @@ const ConnectedData = () => {
       if (!res.ok) throw new Error(`calendar-auth failed: ${res.status}`);
       const data = await res.json();
       if (data?.authUrl) {
-        window.location.href = data.authUrl;
+        await openUrl(data.authUrl);
       }
     } catch (err) {
       console.error('Error connecting calendar:', err);

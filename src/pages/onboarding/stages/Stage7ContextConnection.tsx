@@ -195,7 +195,7 @@ export default function Stage7ContextConnection() {
 
       // Redirect to Google consent — the edge function callback will redirect
       // back to /onboarding/context-connection?calendar_connected=true
-      window.location.href = authUrl;
+      await openUrl(authUrl);
 
       // Keep loading until redirect completes
     } catch (error: unknown) {
