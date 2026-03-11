@@ -52,8 +52,16 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Add computed expired flag for admin visibility
+      const now = new Date();
+      const enriched = (data || []).map((invite: any) => ({
+        ...invite,
+        is_expired: new Date(invite.beta_expires_at) < now,
+      }));
+
       return new Response(
-        JSON.stringify({ invites: data }),
+        JSON.stringify({ invites: enriched }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
