@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
       if (profile.stripe_customer_id) {
         const portalStripe = new Stripe(stripeConfig.secretKey, { apiVersion: '2023-10-16' });
-        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://wwwmindmoduleme.lovable.app';
+        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.mindmodule.me';
         const portalSession = await portalStripe.billingPortal.sessions.create({
           customer: profile.stripe_customer_id,
           return_url: `${frontendUrl}/profile`,
