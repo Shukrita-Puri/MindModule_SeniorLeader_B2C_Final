@@ -74,6 +74,9 @@ const SelfMasteryCoach = () => {
   // Check access on mount
   useEffect(() => {
     checkAccess().then(result => {
+      // Beta and unlimited users skip all trial-limit UI
+      if (result.unlimited || result.beta) return;
+
       if (!result.canStart) {
         setShowUpgradeModal(true);
       } else if (result.showWarning && result.sessionsRemaining) {
