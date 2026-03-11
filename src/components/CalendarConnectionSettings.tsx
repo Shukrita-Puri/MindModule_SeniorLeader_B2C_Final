@@ -66,6 +66,65 @@ const CalendarConnectionSettings = ({
   useEffect(() => {
     checkConnection();
   }, [user]);
+
+  // Handle post-OAuth callback: ?calendar_connected=true
+  useEffect(() => {
+    const calendarCallback = searchParams.get('calendar_connected');
+    if (calendarCallback !== 'true') return;
+
+    // Clean URL param immediately
+    searchParams.delete('calendar_connected');
+    setSearchParams(searchParams, { replace: true });
+
+    console.log('[CalendarConnectionSettings] Post-OAuth callback detected, triggering sync...');
+    setLoading(true);
+
+    const runPostConnectSync = async () => {
+      // Small delay to let connection row settle
+      await new Promise(r => setTimeout(r, 500));
+
+      // Verify connection with backend
+      try {
+        const status = await fetchCalendarStatus();
+        if (!status.connected) {
+          console.warn('[CalendarConnectionSettings] Calendar not verified as connected after OAuth');
+          toast.error('Calendar connection could not be verified');
+          setLoading(false);
+          return;
+        }
+
+        setConnected(true);
+        setProvider(status.provider);
+        setLastSync(status.last_sync ?? status.updated_at);
+        toast.success('Google Calendar connected!');
+
+        // Trigger initial sync
+        const token = await getAccessTokenSilently();
+        if (token) {
+          const { error: syncError } = await supabase.functions.invoke('sync-calendar', {
+            body: { provider: status.provider || 'google' },
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (syncError) {
+            console.warn('[CalendarConnectionSettings] Initial sync error:', syncError);
+            toast.error('Calendar connected but initial sync failed. Try "Sync Now".');
+          } else {
+            toast.success('Calendar events synced');
+          }
+        }
+      } catch (err) {
+        console.error('[CalendarConnectionSettings] Post-OAuth sync error:', err);
+        toast.error('Calendar connected but sync failed. Try "Sync Now".');
+      } finally {
+        setLoading(false);
+        // Refresh status
+        await checkConnection();
+      }
+    };
+
+    runPostConnectSync();
+  }, [searchParams]);
   const handleConnect = async (selectedProvider: 'google' | 'outlook') => {
     setLoading(true);
     try {
