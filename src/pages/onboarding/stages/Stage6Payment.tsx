@@ -13,6 +13,16 @@ export default function Stage6Payment() {
   const { user } = useAuth();
   const currentTier = user?.subscription_tier || 'none';
 
+  // Beta bypass: valid beta users skip payment entirely
+  const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
+  useEffect(() => {
+    if (isBetaValid) {
+      console.log('[Stage6Payment] Beta user detected, skipping payment');
+      recordStep('payment', { skipped: true, reason: 'beta_user' });
+      navigate('/onboarding/context-connection', { replace: true });
+    }
+  }, [isBetaValid]);
+
   // Determine which plans are available (hide the one user is already on)
   const availablePlans = useMemo(() => {
     const plans: ('monthly' | 'annual')[] = [];

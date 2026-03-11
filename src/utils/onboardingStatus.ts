@@ -222,8 +222,9 @@ export async function validateStageAccess(targetPath: string): Promise<string | 
       if (targetPath === '/onboarding/payment' && !data?.results_at && !data?.completed_at) {
         return await getResumeRoute();
       }
-      // Gate: context-connection requires payment (or skip)
-      if (targetPath === '/onboarding/context-connection' && !data?.payment_at) {
+      // Gate: context-connection requires payment (or beta access)
+      const isBetaValid = data?.beta_user && data?.beta_expires_at && new Date(data.beta_expires_at) > new Date();
+      if (targetPath === '/onboarding/context-connection' && !data?.payment_at && !isBetaValid) {
         return await getResumeRoute();
       }
     } catch {
