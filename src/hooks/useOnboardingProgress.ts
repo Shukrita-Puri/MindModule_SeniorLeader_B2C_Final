@@ -7,6 +7,8 @@ interface StepMetadata {
   context_calendar_enabled?: boolean;
   context_watch_enabled?: boolean;
   completed?: boolean;
+  skipped?: boolean;
+  reason?: string;
 }
 
 /**
