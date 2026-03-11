@@ -117,6 +117,31 @@ Deno.serve(async (req) => {
     // Only set display_name on initial profile creation
     if (isNewProfile) {
       upsertData.display_name = name;
+
+      // Check if this email is in the beta_invites list
+      if (email) {
+        const { data: invite } = await supabaseAdmin
+          .from("beta_invites")
+          .select("id, beta_expires_at")
+          .eq("email", email.toLowerCase())
+          .eq("status", "invited")
+          .single();
+
+        if (invite && new Date(invite.beta_expires_at) > new Date()) {
+          upsertData.beta_user = true;
+          upsertData.beta_expires_at = invite.beta_expires_at;
+          console.log("[sync-profile] 🎉 Beta invite found for:", email);
+
+          // Mark invite as activated (fire-and-forget)
+          supabaseAdmin
+            .from("beta_invites")
+            .update({ status: "activated" })
+            .eq("id", invite.id)
+            .then(({ error: updateErr }) => {
+              if (updateErr) console.warn("[sync-profile] Failed to update beta_invites status:", updateErr);
+            });
+        }
+      }
     }
 
     const { data, error } = await supabaseAdmin
