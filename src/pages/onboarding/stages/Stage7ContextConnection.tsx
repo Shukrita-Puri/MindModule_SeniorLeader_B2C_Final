@@ -10,6 +10,7 @@ import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
+import { openUrl } from "@/utils/openUrl";
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
@@ -194,7 +195,7 @@ export default function Stage7ContextConnection() {
 
       // Redirect to Google consent — the edge function callback will redirect
       // back to /onboarding/context-connection?calendar_connected=true
-      window.location.href = authUrl;
+      await openUrl(authUrl);
 
       // Keep loading until redirect completes
     } catch (error: unknown) {

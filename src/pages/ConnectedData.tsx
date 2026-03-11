@@ -14,6 +14,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
+import { openUrl } from '@/utils/openUrl';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -217,7 +218,7 @@ const ConnectedData = () => {
       if (!res.ok) throw new Error(`calendar-auth failed: ${res.status}`);
       const data = await res.json();
       if (data?.authUrl) {
-        window.location.href = data.authUrl;
+        await openUrl(data.authUrl);
       }
     } catch (err) {
       console.error('Error connecting calendar:', err);
