@@ -20,6 +20,7 @@ const CalendarConnectionSettings = ({
   const [connected, setConnected] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const { user } = useAuth();
   const getAccessTokenSilently = getAuthToken;
