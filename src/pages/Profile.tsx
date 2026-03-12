@@ -29,6 +29,7 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
+  const [showDeleteLocal, setShowDeleteLocal] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
