@@ -427,6 +427,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           beta_user: profile.beta_user ?? prev.beta_user,
           beta_expires_at: profile.beta_expires_at ?? prev.beta_expires_at,
           stripe_customer_id: profile.stripe_customer_id ?? prev.stripe_customer_id,
+          founding_member: profile.founding_member ?? prev.founding_member,
+          referral_code: profile.referral_code ?? prev.referral_code,
+          referral_rewards_balance: profile.referral_rewards_balance ?? prev.referral_rewards_balance,
         } : prev);
       } else {
         console.warn('[useAuth] Profile refresh failed:', response.status);
