@@ -51,6 +51,12 @@ export async function syncHealthKitToBackend(): Promise<boolean> {
 
     if (res.ok) {
       console.log('[WearableSync] ✅ HealthKit data persisted for', today);
+      // Write-through to local device storage
+      saveWearableDataLocally({
+        hrv: data.hrv,
+        syncedAt: new Date().toISOString(),
+        summaryDate: today,
+      });
       return true;
     } else {
       console.warn('[WearableSync] ⚠️ Persist failed:', res.status);

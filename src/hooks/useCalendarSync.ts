@@ -226,6 +226,15 @@ export function useCalendarSync(): UseCalendarSyncResult {
               };
             });
             setEvents(transformedEvents);
+            // Write-through to local device storage
+            saveCalendarEventsLocally(transformedEvents.map(e => ({
+              id: e.id,
+              title: e.title,
+              startTime: e.startTime.toISOString(),
+              endTime: e.endTime.toISOString(),
+              isHighStakes: e.isHighStakes,
+              eventType: e.eventType,
+            })));
             console.log('[useCalendarSync] Fetched', transformedEvents.length, 'events');
           }
           
