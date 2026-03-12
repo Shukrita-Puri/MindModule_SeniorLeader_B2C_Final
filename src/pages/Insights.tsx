@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
@@ -154,22 +154,36 @@ interface ProfileBaseline {
 // Insights tier based on check-in count
 type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 
+// Helper: wrap a promise with a timeout to prevent infinite loading on mobile
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`[Insights] ${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  // Removed page-level `loading` gate — each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
   const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
   const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string }>>([]);
-  const [winsLoading, setWinsLoading] = useState(false);
+  const [winsLoading, setWinsLoading] = useState(true);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
-  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [patternsLoading, setPatternsLoading] = useState(true);
   const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
-  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [semanticLoading, setSemanticLoading] = useState(true);
   const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(null);
+  const [patternsError, setPatternsError] = useState(false);
+  const [winsError, setWinsError] = useState(false);
+  const [semanticError, setSemanticError] = useState(false);
+  const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
   const checkInCount = statePatterns?.checkInCount || 0;
@@ -192,9 +206,9 @@ const Insights = () => {
   }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
 
   useEffect(() => {
-    if (user?.id) {
-      // Production: fetch consolidated data from state-patterns-insights
-      // DEV_MODE: use direct queries (the existing flow)
+    if (user?.id && !fetchedRef.current) {
+      fetchedRef.current = true;
+      // Fire all three fetches in parallel — each manages its own loading/error state
       fetchStatePatterns();
       fetchTinyWinsInsights();
       fetchSemanticAnalysis();
@@ -204,7 +218,7 @@ const Insights = () => {
   // DEV_MODE only: direct database queries for insights data
   const fetchInsightsDataDev = async () => {
     if (!user?.id || !DEV_MODE) return;
-    setLoading(true);
+    setPatternsLoading(true);
     const effectiveUserId = DEV_USER.id;
 
     try {
@@ -292,7 +306,7 @@ const Insights = () => {
     } catch (error) {
       console.error('Error fetching DEV_MODE insights:', error);
     } finally {
-      setLoading(false);
+      setPatternsLoading(false);
     }
   };
 
@@ -373,10 +387,14 @@ const Insights = () => {
 
       // Production: Use edge function
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 14 }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('tiny-wins-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 14 }
+        }),
+        15000,
+        'tiny-wins-insights'
+      );
       if (!error && data?.data) {
         setTinyWinsInsights(data.data);
         // BUG 2 fix: Populate tinyWinsContent from EF response
@@ -386,6 +404,7 @@ const Insights = () => {
       }
     } catch (error) {
       console.error('Error fetching tiny wins insights:', error);
+      setWinsError(true);
     } finally {
       setWinsLoading(false);
     }
@@ -394,7 +413,7 @@ const Insights = () => {
   const fetchStatePatterns = async () => {
     if (!user?.id) return;
     setPatternsLoading(true);
-    setLoading(true);
+    // patternsLoading already set above
     try {
       // DEV_MODE: Direct database queries + DEV data fetch
       if (DEV_MODE) {
@@ -426,16 +445,20 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
-        setLoading(false);
+        // patternsLoading already set above
         return;
       }
 
       // Production: Use consolidated edge function response
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7 }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('state-patterns-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7 }
+        }),
+        15000,
+        'state-patterns-insights'
+      );
       if (!error && data?.data) {
         const d = data.data;
         setStatePatterns(d);
@@ -465,9 +488,9 @@ const Insights = () => {
       }
     } catch (error) {
       console.error('Error fetching state patterns:', error);
+      setPatternsError(true);
     } finally {
       setPatternsLoading(false);
-      setLoading(false);
     }
   };
 
@@ -660,15 +683,20 @@ const Insights = () => {
 
       // Production: Use edge function
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'analyze' }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('insights-semantic-analysis', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7, action: 'analyze' }
+        }),
+        15000,
+        'insights-semantic-analysis'
+      );
       if (!error && data?.data) {
         setSemanticAnalysis(data.data);
       }
     } catch (error) {
       console.error('Error fetching semantic analysis:', error);
+      setSemanticError(true);
     } finally {
       setSemanticLoading(false);
     }
@@ -747,13 +775,7 @@ const Insights = () => {
     return null;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // No page-level loading gate — page shell renders immediately, each card shows its own spinner
 
   const winsProgressMessage = getWinsProgressMessage();
 
@@ -798,6 +820,10 @@ const Insights = () => {
             {winsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : winsError ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted-foreground">Unable to load momentum data right now.</p>
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
@@ -894,6 +920,10 @@ const Insights = () => {
             {semanticLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : semanticError ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted-foreground">Unable to load mind map data right now.</p>
               </div>
             ) : !mindMapReady ? (
               <div className="py-8 text-center">
