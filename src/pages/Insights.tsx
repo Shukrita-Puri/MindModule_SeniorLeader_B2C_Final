@@ -154,22 +154,36 @@ interface ProfileBaseline {
 // Insights tier based on check-in count
 type InsightsTier = 'baseline' | 'early' | 'summary' | 'deepening' | 'full';
 
+// Helper: wrap a promise with a timeout to prevent infinite loading on mobile
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`[Insights] ${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 const Insights = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  // Removed page-level `loading` gate — each section manages its own loading
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [practiceData, setPracticeData] = useState<PracticeData[]>([]);
   const [checkInStreak, setCheckInStreak] = useState(0);
   const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
   const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string }>>([]);
-  const [winsLoading, setWinsLoading] = useState(false);
+  const [winsLoading, setWinsLoading] = useState(true);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
-  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [patternsLoading, setPatternsLoading] = useState(true);
   const [semanticAnalysis, setSemanticAnalysis] = useState<SemanticAnalysis | null>(null);
-  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [semanticLoading, setSemanticLoading] = useState(true);
   const [profileBaseline, setProfileBaseline] = useState<ProfileBaseline | null>(null);
+  const [patternsError, setPatternsError] = useState(false);
+  const [winsError, setWinsError] = useState(false);
+  const [semanticError, setSemanticError] = useState(false);
+  const fetchedRef = useRef(false);
 
   // Calculate check-in count from state patterns
   const checkInCount = statePatterns?.checkInCount || 0;
@@ -192,9 +206,9 @@ const Insights = () => {
   }, [semanticAnalysis, checkInCount, tinyWinsInsights]);
 
   useEffect(() => {
-    if (user?.id) {
-      // Production: fetch consolidated data from state-patterns-insights
-      // DEV_MODE: use direct queries (the existing flow)
+    if (user?.id && !fetchedRef.current) {
+      fetchedRef.current = true;
+      // Fire all three fetches in parallel — each manages its own loading/error state
       fetchStatePatterns();
       fetchTinyWinsInsights();
       fetchSemanticAnalysis();
