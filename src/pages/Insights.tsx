@@ -684,6 +684,7 @@ const Insights = () => {
       }
     } catch (error) {
       console.error('Error fetching semantic analysis:', error);
+      setSemanticError(true);
     } finally {
       setSemanticLoading(false);
     }
