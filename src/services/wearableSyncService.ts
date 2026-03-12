@@ -15,15 +15,9 @@ export async function syncHealthKitToBackend(): Promise<boolean> {
   try {
     const data = await queryHealthKitData();
 
-    // Skip if all values are null (no data available)
-    if (
-      data.hrv === null &&
-      data.restingHeartRate === null &&
-      data.steps === null &&
-      data.activeEnergy === null &&
-      data.sleepEfficiency === null
-    ) {
-      console.log('[WearableSync] No HealthKit data available, skipping');
+    // Skip if no HRV data available
+    if (data.hrv === null) {
+      console.log('[WearableSync] No HealthKit HRV data available, skipping');
       return false;
     }
 
