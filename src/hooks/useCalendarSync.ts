@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
+import { saveCalendarEventsLocally, type LocalCalendarEvent } from '@/services/localDataStore';
 
 interface CalendarConnection {
   id: string;
