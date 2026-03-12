@@ -21,10 +21,17 @@ export const TouchOptimized = ({
 }: TouchOptimizedProps) => {
   const [isPressed, setIsPressed] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const touchMoved = useRef(false);
+
+  const MOVE_THRESHOLD = 10; // pixels — beyond this, treat as swipe not tap
 
   const handleTouchStart = (e: TouchEvent) => {
     if (disabled) return;
     
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    touchMoved.current = false;
     setIsPressed(true);
     
     if (haptic && navigator.vibrate) {
@@ -33,12 +40,29 @@ export const TouchOptimized = ({
 
     if (onLongPress) {
       const timer = setTimeout(() => {
-        onLongPress();
-        if (haptic && navigator.vibrate) {
-          navigator.vibrate([50, 50, 50]);
+        if (!touchMoved.current) {
+          onLongPress();
+          if (haptic && navigator.vibrate) {
+            navigator.vibrate([50, 50, 50]);
+          }
         }
       }, 500);
       setLongPressTimer(timer);
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (disabled || !touchStartPos.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+    if (dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) {
+      touchMoved.current = true;
+      // Cancel long press if finger moved
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
     }
   };
 
@@ -52,9 +76,12 @@ export const TouchOptimized = ({
       setLongPressTimer(null);
     }
 
-    if (onTap) {
+    // Only fire tap if finger didn't move significantly (not a swipe/scroll)
+    if (onTap && !touchMoved.current) {
       onTap();
     }
+
+    touchStartPos.current = null;
   };
 
   const handleTouchCancel = () => {
