@@ -120,6 +120,7 @@ export const TouchOptimized = ({
         className
       )}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
       onClick={handleClick}
