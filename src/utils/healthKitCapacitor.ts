@@ -30,13 +30,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
     const { Health } = await import('@capgo/capacitor-health');
 
     await Health.requestAuthorization({
-      read: [
-        'heartRateVariability',
-        'restingHeartRate',
-        'sleep',
-        'calories',
-        'steps',
-      ],
+      read: ['heartRateVariability'],
       write: [],
     });
 
