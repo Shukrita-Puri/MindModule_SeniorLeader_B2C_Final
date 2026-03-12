@@ -6,12 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle } from 'lucide-react';
+import { ArrowLeft, User, Mail, Shield, CreditCard, Pencil, Calendar, ExternalLink, Database, Lock, Gift, LogOut, Sparkles, MoreVertical, XCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { CancellationFlow } from '@/components/subscription/CancellationFlow';
+import { clearAllLocalData, getLocalDataSummary } from '@/services/localDataStore';
 
 const tierLabels: Record<string, string> = {
   none: 'Free',
@@ -28,6 +29,7 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [showCancelFlow, setShowCancelFlow] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
+  const [showDeleteLocal, setShowDeleteLocal] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -134,6 +136,12 @@ const Profile = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/signup');
+  };
+
+  const handleDeleteLocalData = () => {
+    clearAllLocalData();
+    setShowDeleteLocal(false);
+    toast.success('Local data cleared from this device');
   };
 
   return (
@@ -319,6 +327,16 @@ const Profile = () => {
               Refer a Friend
             </Button>
 
+            {/* Delete Local Data */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => setShowDeleteLocal(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Local Data
+            </Button>
+
             {/* Sign Out */}
             {user && (
               <Button
@@ -368,6 +386,24 @@ const Profile = () => {
           }}
         />
       )}
+
+      {/* Delete Local Data Confirmation */}
+      <Dialog open={showDeleteLocal} onOpenChange={setShowDeleteLocal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Local Data</DialogTitle>
+            <DialogDescription>
+              This will remove locally stored calendar and wearable data from this device only. Your connected accounts and cloud data will not be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteLocal(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteLocalData}>
+              Delete Local Data
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

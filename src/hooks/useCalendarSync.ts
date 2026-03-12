@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { type CalendarEvent } from '@/utils/historicalPatternEngine';
+import { saveCalendarEventsLocally, type LocalCalendarEvent } from '@/services/localDataStore';
 
 interface CalendarConnection {
   id: string;
@@ -99,6 +100,15 @@ export function useCalendarSync(): UseCalendarSyncResult {
       });
 
       setEvents(transformedEvents);
+      // Write-through to local device storage
+      saveCalendarEventsLocally(transformedEvents.map(e => ({
+        id: e.id,
+        title: e.title,
+        startTime: e.startTime.toISOString(),
+        endTime: e.endTime.toISOString(),
+        isHighStakes: e.isHighStakes,
+        eventType: e.eventType,
+      })));
       console.log('[useCalendarSync] Fetched', transformedEvents.length, 'events from database');
     } catch (err) {
       console.error('[useCalendarSync] Error fetching events:', err);
@@ -216,6 +226,15 @@ export function useCalendarSync(): UseCalendarSyncResult {
               };
             });
             setEvents(transformedEvents);
+            // Write-through to local device storage
+            saveCalendarEventsLocally(transformedEvents.map(e => ({
+              id: e.id,
+              title: e.title,
+              startTime: e.startTime.toISOString(),
+              endTime: e.endTime.toISOString(),
+              isHighStakes: e.isHighStakes,
+              eventType: e.eventType,
+            })));
             console.log('[useCalendarSync] Fetched', transformedEvents.length, 'events');
           }
           
