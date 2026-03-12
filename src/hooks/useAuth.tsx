@@ -34,6 +34,9 @@ interface AppUser {
   beta_user?: boolean;
   beta_expires_at?: string | null;
   stripe_customer_id?: string | null;
+  founding_member?: boolean;
+  referral_code?: string | null;
+  referral_rewards_balance?: number;
 }
 
 interface AuthContextType {
