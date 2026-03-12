@@ -233,6 +233,7 @@ export function useCalendarSync(): UseCalendarSyncResult {
           }
         } else {
           setHasCalendar(false);
+          setEvents([]); // Clear stale events when no active connection
         }
       } catch (err) {
         console.error('[useCalendarSync] Init error:', err);
