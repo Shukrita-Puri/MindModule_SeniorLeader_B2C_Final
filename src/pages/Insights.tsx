@@ -440,7 +440,7 @@ const Insights = () => {
           checkInCount: checkins?.length || 0
         });
         setPatternsLoading(false);
-        setLoading(false);
+        // patternsLoading already set above
         return;
       }
 
