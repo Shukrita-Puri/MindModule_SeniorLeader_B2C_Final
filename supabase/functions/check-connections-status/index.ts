@@ -17,19 +17,22 @@ Deno.serve(async (req) => {
     if (authResult.errorResponse) return authResult.errorResponse;
     const userId = authResult.userId;
 
+    console.log("[check-connections-status] Authenticated userId:", userId);
+
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     // Check calendar connection
-    const { data: calendarConn } = await db
+    const { data: calendarConn, error: calError } = await db
       .from("calendar_connections")
       .select("id, provider, is_active, last_sync")
       .eq("user_id", userId)
       .eq("is_active", true)
-      .limit(1)
-      .single();
+      .maybeSingle();
+
+    console.log("[check-connections-status] Calendar query result:", JSON.stringify({ calendarConn, calError }));
 
     // Check Oura connection
     const { data: ouraConn } = await db
