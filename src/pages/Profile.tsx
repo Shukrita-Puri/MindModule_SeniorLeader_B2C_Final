@@ -327,6 +327,16 @@ const Profile = () => {
               Refer a Friend
             </Button>
 
+            {/* Delete Local Data */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => setShowDeleteLocal(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Local Data
+            </Button>
+
             {/* Sign Out */}
             {user && (
               <Button
