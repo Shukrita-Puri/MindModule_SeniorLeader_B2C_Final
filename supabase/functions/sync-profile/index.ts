@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         onConflict: "id",
         ignoreDuplicates: false,
       })
-      .select("id, email, display_name, auth_name, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id")
+      .select("id, email, display_name, auth_name, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, founding_member_granted_at")
       .single();
 
     if (error) {
@@ -167,12 +167,50 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Founding Member: attempt assignment for eligible beta users
+    if (data.beta_user && data.beta_expires_at && new Date(data.beta_expires_at) > new Date() && !data.founding_member) {
+      try {
+        const { data: fmResult } = await supabaseAdmin.rpc("try_assign_founding_member", {
+          p_user_id: data.id,
+        });
+        if (fmResult === true) {
+          data.founding_member = true;
+          data.founding_member_granted_at = new Date().toISOString();
+          console.log("[sync-profile] 🏅 Founding Member assigned to beta user:", data.id);
+        }
+      } catch (fmErr) {
+        console.warn("[sync-profile] Founding Member assignment failed (non-critical):", fmErr);
+      }
+    }
+
+    // Fetch referral data for UI consumption
+    let referralCode: string | null = null;
+    let referralRewardsBalance: number = 0;
+    try {
+      const { data: referralData } = await supabaseAdmin
+        .from("user_referrals")
+        .select("referral_code, credited_months")
+        .eq("user_id", data.id)
+        .maybeSingle();
+
+      if (referralData) {
+        referralCode = referralData.referral_code;
+        referralRewardsBalance = referralData.credited_months || 0;
+      }
+    } catch (refErr) {
+      console.warn("[sync-profile] Referral data fetch failed (non-critical):", refErr);
+    }
+
     console.log("[sync-profile] ✅ Profile synced for:", userId, "isNew:", isNewProfile);
 
     return new Response(
       JSON.stringify({
         synced: true,
-        profile: data,
+        profile: {
+          ...data,
+          referral_code: referralCode,
+          referral_rewards_balance: referralRewardsBalance,
+        },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
