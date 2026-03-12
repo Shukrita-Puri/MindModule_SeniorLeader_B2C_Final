@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         onConflict: "id",
         ignoreDuplicates: false,
       })
-      .select("id, email, display_name, auth_name, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id")
+      .select("id, email, display_name, auth_name, full_name, subscription_status, subscription_plan, onboarding_completed_at, mental_fitness_baseline, user_archetype, subscription_tier, trial_ends_at, subscription_current_period_start, subscription_current_period_end, subscription_canceled_at, subscription_cancel_at, beta_user, beta_expires_at, stripe_customer_id, founding_member, founding_member_granted_at")
       .single();
 
     if (error) {

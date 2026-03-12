@@ -230,31 +230,17 @@ Deno.serve(async (req) => {
               .eq('referee_id', userId)
               .maybeSingle();
 
-            if (conversion && conversion.referrer_id && !conversion.converted_to_pro_at) {
-              // Mark conversion as completed
-              await supabase
-                .from('referral_conversions')
-                .update({
-                  converted_to_pro_at: new Date().toISOString(),
-                  credited_to_referrer: true,
-                  credited_at: new Date().toISOString(),
-                })
-                .eq('id', conversion.id);
-
-              // Atomic increment: ONLY total_conversions (signups already done in Stage 1)
-              await supabase.rpc('increment_referral_stats', {
-                p_referrer_id: conversion.referrer_id,
-                p_increment_signups: false,
-                p_increment_conversions: true,
-              });
-
-              // Atomic credit referrer (handles 6-month cap + 90-day reset)
+          if (conversion && conversion.referrer_id && !conversion.converted_to_pro_at) {
+              // Atomic credit referrer FIRST (handles 6-month cap + 90-day reset)
+              // Do this before marking conversion so we don't mark credited if credit fails
               const { data: creditResult } = await supabase.rpc('credit_referrer_atomic', {
                 p_referrer_id: conversion.referrer_id,
               });
 
+              let rewardGranted = false;
+
               if (creditResult?.credited) {
-                // Also extend subscription_current_period_end by 1 month
+                // Extend subscription_current_period_end by 1 month
                 await supabase.rpc('extend_subscription', {
                   p_user_id: conversion.referrer_id,
                   p_months: 1,
@@ -286,9 +272,39 @@ Deno.serve(async (req) => {
                   }
                 }
 
+                rewardGranted = true;
                 console.log(`[stripe-webhook] ✅ Referral conversion credited: ${conversion.referral_code} → ${conversion.referrer_id} (${creditResult.new_credited}/6 months)`);
               } else {
                 console.log(`[stripe-webhook] Referral credit skipped: ${creditResult?.reason || 'unknown'}`);
+              }
+
+              // NOW mark conversion as completed (after reward is secured)
+              await supabase
+                .from('referral_conversions')
+                .update({
+                  converted_to_pro_at: new Date().toISOString(),
+                  credited_to_referrer: rewardGranted,
+                  credited_at: rewardGranted ? new Date().toISOString() : null,
+                })
+                .eq('id', conversion.id);
+
+              // Atomic increment: ONLY total_conversions (signups already done in Stage 1)
+              await supabase.rpc('increment_referral_stats', {
+                p_referrer_id: conversion.referrer_id,
+                p_increment_signups: false,
+                p_increment_conversions: true,
+              });
+
+              // Founding Member: attempt assignment for referrer on successful conversion
+              try {
+                const { data: fmResult } = await supabase.rpc('try_assign_founding_member', {
+                  p_user_id: conversion.referrer_id,
+                });
+                if (fmResult === true) {
+                  console.log(`[stripe-webhook] 🏅 Founding Member assigned to referrer ${conversion.referrer_id}`);
+                }
+              } catch (fmErr) {
+                console.warn('[stripe-webhook] Founding Member assignment failed (non-critical):', fmErr);
               }
             }
           } catch (refErr) {
