@@ -306,7 +306,7 @@ const Insights = () => {
     } catch (error) {
       console.error('Error fetching DEV_MODE insights:', error);
     } finally {
-      setLoading(false);
+      setPatternsLoading(false);
     }
   };
 
