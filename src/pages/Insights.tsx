@@ -480,9 +480,9 @@ const Insights = () => {
       }
     } catch (error) {
       console.error('Error fetching state patterns:', error);
+      setPatternsError(true);
     } finally {
       setPatternsLoading(false);
-      // patternsLoading handled above
     }
   };
 
