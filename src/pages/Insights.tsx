@@ -821,6 +821,10 @@ const Insights = () => {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : winsError ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted-foreground">Unable to load momentum data right now.</p>
+              </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
                 {/* AI observation — only show at 10+ wins */}
