@@ -222,13 +222,16 @@ serve(async (req) => {
         throw new Error('Encryption key not configured');
       }
 
-      const { ivB64, ctB64: accessTokenEnc } = await encryptJson({ token: tokens.access_token }, encKeyB64);
+      // Encrypt access token (with its own IV)
+      const { ivB64: accessIv, ctB64: accessTokenEnc } = await encryptJson({ token: tokens.access_token }, encKeyB64);
       
-      // Only encrypt refresh token if present
+      // Encrypt refresh token separately (with its own IV) — only if present
       let refreshTokenEnc: string | null = null;
+      let refreshIv: string | null = null;
       if (tokens.refresh_token) {
-        const { ctB64 } = await encryptJson({ token: tokens.refresh_token }, encKeyB64);
+        const { ivB64: rIv, ctB64 } = await encryptJson({ token: tokens.refresh_token }, encKeyB64);
         refreshTokenEnc = ctB64;
+        refreshIv = rIv;
       }
 
       const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
@@ -236,23 +239,33 @@ serve(async (req) => {
       // Check if connection exists
       const { data: existingConn } = await supabaseAdmin
         .from('calendar_connections')
-        .select('id')
+        .select('id, refresh_token_enc, refresh_token_iv')
         .eq('user_id', validUserId)
         .eq('provider', validProvider)
         .maybeSingle();
 
       if (existingConn) {
+        const updatePayload: Record<string, unknown> = {
+          access_token_enc: accessTokenEnc,
+          token_iv: accessIv,
+          token_enc_v: 1,
+          token_expires_at: tokenExpiresAt,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Only overwrite refresh token if Google returned a new one
+        if (refreshTokenEnc && refreshIv) {
+          updatePayload.refresh_token_enc = refreshTokenEnc;
+          updatePayload.refresh_token_iv = refreshIv;
+          console.log('[calendar-auth] Stored new refresh token for user:', validUserId);
+        } else {
+          console.log('[calendar-auth] Preserved existing refresh token for user:', validUserId);
+        }
+
         const { error: updateError } = await supabaseAdmin
           .from('calendar_connections')
-          .update({
-            access_token_enc: accessTokenEnc,
-            refresh_token_enc: refreshTokenEnc,
-            token_iv: ivB64,
-            token_enc_v: 1,
-            token_expires_at: tokenExpiresAt,
-            is_active: true,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updatePayload)
           .eq('id', existingConn.id);
 
         if (updateError) throw new Error(updateError.message || 'Failed to update connection');
@@ -265,7 +278,8 @@ serve(async (req) => {
             provider: validProvider,
             access_token_enc: accessTokenEnc,
             refresh_token_enc: refreshTokenEnc,
-            token_iv: ivB64,
+            token_iv: accessIv,
+            refresh_token_iv: refreshIv,
             token_enc_v: 1,
             token_expires_at: tokenExpiresAt,
             is_active: true,
@@ -297,6 +311,7 @@ serve(async (req) => {
           access_token_enc: null,
           refresh_token_enc: null,
           token_iv: null,
+          refresh_token_iv: null,
           token_expires_at: null,
         })
         .eq('user_id', authenticatedUserId)
