@@ -1,5 +1,5 @@
 
-import { ReactNode, TouchEvent, MouseEvent, useState } from 'react';
+import { ReactNode, TouchEvent, MouseEvent, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TouchOptimizedProps {
