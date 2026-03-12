@@ -4,6 +4,7 @@
  */
 import { isNativeApp, queryHealthKitData, type HealthKitWearableData } from '@/utils/healthKitCapacitor';
 import { getAuthToken } from '@/services/authTokenService';
+import { saveWearableDataLocally } from '@/services/localDataStore';
 
 /**
  * Query HealthKit and persist the summary to wearable_data via edge function.
