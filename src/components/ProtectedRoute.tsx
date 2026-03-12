@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Loader2 } from "lucide-react";
 import { DEV_MODE } from "@/config/devMode";
-import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted } from "@/utils/nativeAuth";
+import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { isLogoutGuardActive } from "@/utils/logoutGuard";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
