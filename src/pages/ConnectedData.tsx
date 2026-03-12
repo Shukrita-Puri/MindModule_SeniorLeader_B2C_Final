@@ -93,9 +93,13 @@ const ConnectedData = () => {
   const [syncing, setSyncing] = useState(false);
 
   // Fetch connection status from backend
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const token = await getAuthToken();
+      if (!token) {
+        console.warn('[ConnectedData] No auth token available, skipping status fetch');
+        return;
+      }
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/check-connections-status`,
@@ -108,18 +112,26 @@ const ConnectedData = () => {
         }
       );
       if (res.ok) {
-        setStatus(await res.json());
+        const data = await res.json();
+        console.log('[ConnectedData] Connection status:', JSON.stringify(data));
+        setStatus(data);
+      } else {
+        console.error('[ConnectedData] Status fetch failed:', res.status);
       }
     } catch (err) {
       console.error('[ConnectedData] Failed to fetch status:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchStatus();
-  }, []);
+    if (user?.id) {
+      fetchStatus();
+    } else {
+      setLoading(false);
+    }
+  }, [user?.id, fetchStatus]);
 
   // Handle post-OAuth callback: ?calendar_connected=true
   useEffect(() => {
