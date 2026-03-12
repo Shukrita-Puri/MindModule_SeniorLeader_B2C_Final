@@ -2766,6 +2766,8 @@ export type Database = {
           energy_regulation_response: string | null
           energy_renewal_response: string | null
           focus_recovery_response: string | null
+          founding_member: boolean | null
+          founding_member_granted_at: string | null
           full_name: string | null
           growth_priority: string | null
           id: string
@@ -2822,6 +2824,8 @@ export type Database = {
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
           focus_recovery_response?: string | null
+          founding_member?: boolean | null
+          founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
           id: string
@@ -2878,6 +2882,8 @@ export type Database = {
           energy_regulation_response?: string | null
           energy_renewal_response?: string | null
           focus_recovery_response?: string | null
+          founding_member?: boolean | null
+          founding_member_granted_at?: string | null
           full_name?: string | null
           growth_priority?: string | null
           id?: string
@@ -3958,6 +3964,10 @@ export type Database = {
       store_calendar_refresh_token: {
         Args: { _connection_id: string; _token: string }
         Returns: undefined
+      }
+      try_assign_founding_member: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
