@@ -138,6 +138,12 @@ const Profile = () => {
     navigate('/signup');
   };
 
+  const handleDeleteLocalData = () => {
+    clearAllLocalData();
+    setShowDeleteLocal(false);
+    toast.success('Local data cleared from this device');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
