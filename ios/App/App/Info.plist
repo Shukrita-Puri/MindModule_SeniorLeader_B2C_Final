@@ -36,9 +36,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>MindModule uses your health data (HRV, heart rate, sleep) to calculate your daily readiness score and provide personalized recommendations.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>MindModule may save wellness insights back to Apple Health.</string>
+	<string>Mind Module reads your Heart Rate Variability (HRV) data to provide performance context and wellness insights.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
