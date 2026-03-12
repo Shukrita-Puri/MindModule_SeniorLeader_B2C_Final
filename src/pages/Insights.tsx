@@ -400,6 +400,7 @@ const Insights = () => {
       }
     } catch (error) {
       console.error('Error fetching tiny wins insights:', error);
+      setWinsError(true);
     } finally {
       setWinsLoading(false);
     }
