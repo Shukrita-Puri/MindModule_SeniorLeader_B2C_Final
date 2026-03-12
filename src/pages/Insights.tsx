@@ -387,10 +387,14 @@ const Insights = () => {
 
       // Production: Use edge function
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('tiny-wins-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 14 }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('tiny-wins-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 14 }
+        }),
+        15000,
+        'tiny-wins-insights'
+      );
       if (!error && data?.data) {
         setTinyWinsInsights(data.data);
         // BUG 2 fix: Populate tinyWinsContent from EF response
