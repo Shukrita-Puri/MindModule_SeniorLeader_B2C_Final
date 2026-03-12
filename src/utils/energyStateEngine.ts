@@ -169,20 +169,30 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   // 1. Read ephemeral signal data
   const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
 
-  // Fetch calendar events from DB (sensitive scheduling data — server-side only)
+  // Fetch calendar events from DB only if connection is active
   let calendarData: any[] = [];
   const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
   if (effectiveUserId) {
     try {
-      const now = new Date();
-      const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-      const { data: events } = await supabase
-        .from('calendar_events')
-        .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+      // Gate on active connection — stale events must not power active behavior
+      const { data: conn } = await supabase
+        .from('calendar_connections')
+        .select('is_active')
         .eq('user_id', effectiveUserId)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', fourHoursLater.toISOString());
-      calendarData = events || [];
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (conn) {
+        const now = new Date();
+        const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+        const { data: events } = await supabase
+          .from('calendar_events')
+          .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+          .eq('user_id', effectiveUserId)
+          .gte('start_time', now.toISOString())
+          .lte('start_time', fourHoursLater.toISOString());
+        calendarData = events || [];
+      }
     } catch (err) {
       console.warn('[energyStateEngine] Calendar fetch failed, using empty:', err);
     }

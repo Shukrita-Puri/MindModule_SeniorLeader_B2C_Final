@@ -247,6 +247,7 @@ const ConnectedData = () => {
       if (!res.ok) throw new Error('Disconnect failed');
       setStatus(prev => prev ? { ...prev, calendar: { connected: false, provider: null, lastSync: null } } : prev);
       invalidatePlanCache();
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       toast.success('Google Calendar disconnected');
     } catch {
       toast.error('Failed to disconnect calendar');

@@ -532,6 +532,17 @@ async function detectCalendarStateCorrelations(userId: string): Promise<Predicti
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
     
+    // Check calendar connection status before using calendar data
+    const { data: calConn } = await supabase
+      .from('calendar_connections')
+      .select('is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    // If calendar is disconnected, skip calendar-state correlations entirely
+    if (!calConn) return undefined;
+
     // Fetch check-ins and calendar events
     const [checkInsResult, calendarResult] = await Promise.all([
       supabase

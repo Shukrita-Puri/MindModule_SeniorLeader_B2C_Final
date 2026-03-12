@@ -936,19 +936,31 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
 
   // 0. Server-side upstream queries — ALL signals derived here (trust gap closed)
-  // Calendar events — next 48h
+  // Calendar events — next 48h (only if connection is active)
   let rawCalendarEvents: any[] = [];
   try {
-    const now = new Date();
-    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    const { data: events } = await supabaseClient
-      .from('calendar_events')
-      .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+    // Gate on active connection — stale events must not power plan after disconnect
+    const { data: calConn } = await supabaseClient
+      .from('calendar_connections')
+      .select('is_active')
       .eq('user_id', req.userId)
-      .gte('start_time', now.toISOString())
-      .lte('start_time', in48h.toISOString());
-    rawCalendarEvents = events || [];
-    console.log(`[generate-mastery-plan] calendar_events query: ${rawCalendarEvents.length} events in next 48h for user ${req.userId}`);
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (calConn) {
+      const now = new Date();
+      const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      const { data: events } = await supabaseClient
+        .from('calendar_events')
+        .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+        .eq('user_id', req.userId)
+        .gte('start_time', now.toISOString())
+        .lte('start_time', in48h.toISOString());
+      rawCalendarEvents = events || [];
+      console.log(`[generate-mastery-plan] calendar_events query: ${rawCalendarEvents.length} events in next 48h for user ${req.userId}`);
+    } else {
+      console.log(`[generate-mastery-plan] calendar not connected, skipping calendar_events for user ${req.userId}`);
+    }
     req.calendarEvents = rawCalendarEvents.map((e: any) => ({
       id: e.id, title: e.title, startTime: e.start_time, endTime: e.end_time,
       isOrganizer: e.is_organizer, attendeesCount: e.attendees_count, isRecurring: e.is_recurring
