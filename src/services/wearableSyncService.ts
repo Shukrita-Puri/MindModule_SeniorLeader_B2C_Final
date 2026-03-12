@@ -15,15 +15,9 @@ export async function syncHealthKitToBackend(): Promise<boolean> {
   try {
     const data = await queryHealthKitData();
 
-    // Skip if all values are null (no data available)
-    if (
-      data.hrv === null &&
-      data.restingHeartRate === null &&
-      data.steps === null &&
-      data.activeEnergy === null &&
-      data.sleepEfficiency === null
-    ) {
-      console.log('[WearableSync] No HealthKit data available, skipping');
+    // Skip if no HRV data available
+    if (data.hrv === null) {
+      console.log('[WearableSync] No HealthKit HRV data available, skipping');
       return false;
     }
 
@@ -47,13 +41,7 @@ export async function syncHealthKitToBackend(): Promise<boolean> {
         body: JSON.stringify({
           summary_date: today,
           hrv: data.hrv,
-          resting_heart_rate: data.restingHeartRate,
-          steps: data.steps,
-          active_calories: data.activeEnergy,
-          // sleepEfficiency from HealthKit doesn't map directly to sleep_score or total_sleep_minutes
-          // Store it in raw_data for now
           raw_data: {
-            sleep_efficiency: data.sleepEfficiency,
             synced_at: new Date().toISOString(),
           },
         }),

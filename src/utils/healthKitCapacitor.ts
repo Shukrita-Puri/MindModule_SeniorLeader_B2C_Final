@@ -6,10 +6,6 @@
 
 export interface HealthKitWearableData {
   hrv: number | null;
-  restingHeartRate: number | null;
-  sleepEfficiency: number | null;
-  activeEnergy: number | null;
-  steps: number | null;
 }
 
 import { Capacitor } from '@capacitor/core';
@@ -34,13 +30,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
     const { Health } = await import('@capgo/capacitor-health');
 
     await Health.requestAuthorization({
-      read: [
-        'heartRateVariability',
-        'restingHeartRate',
-        'sleep',
-        'calories',
-        'steps',
-      ],
+      read: ['heartRateVariability'],
       write: [],
     });
 
@@ -57,13 +47,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
  * Returns null values for any metric that cannot be read.
  */
 export async function queryHealthKitData(): Promise<HealthKitWearableData> {
-  const empty: HealthKitWearableData = {
-    hrv: null,
-    restingHeartRate: null,
-    sleepEfficiency: null,
-    activeEnergy: null,
-    steps: null,
-  };
+  const empty: HealthKitWearableData = { hrv: null };
 
   if (!isNativeApp()) return empty;
 
@@ -71,28 +55,19 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     const { Health } = await import('@capgo/capacitor-health');
     const now = new Date();
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const opts = { startDate: dayAgo.toISOString(), endDate: now.toISOString(), bucket: 'day' as const };
 
-    const [hrvRes, rhrRes, sleepRes, energyRes, stepsRes] = await Promise.allSettled([
-      Health.queryAggregated({ ...opts, dataType: 'heartRateVariability' }),
-      Health.queryAggregated({ ...opts, dataType: 'restingHeartRate' }),
-      Health.queryAggregated({ ...opts, dataType: 'sleep' }),
-      Health.queryAggregated({ ...opts, dataType: 'calories' }),
-      Health.queryAggregated({ ...opts, dataType: 'steps' }),
-    ]);
+    const hrvRes = await Health.queryAggregated({
+      startDate: dayAgo.toISOString(),
+      endDate: now.toISOString(),
+      bucket: 'day',
+      dataType: 'heartRateVariability',
+    });
 
-    const val = (r: PromiseSettledResult<any>) =>
-      r.status === 'fulfilled' && r.value?.samples?.length
-        ? Number(r.value.samples[0].value)
-        : null;
+    const hrv = hrvRes?.samples?.length
+      ? Number(hrvRes.samples[0].value)
+      : null;
 
-    return {
-      hrv: val(hrvRes),
-      restingHeartRate: val(rhrRes),
-      sleepEfficiency: val(sleepRes),
-      activeEnergy: val(energyRes),
-      steps: val(stepsRes),
-    };
+    return { hrv };
   } catch (error) {
     console.error('[HealthKit] Query failed:', error);
     return empty;
