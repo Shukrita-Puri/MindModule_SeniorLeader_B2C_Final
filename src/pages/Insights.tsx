@@ -683,10 +683,14 @@ const Insights = () => {
 
       // Production: Use edge function
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('insights-semantic-analysis', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7, action: 'analyze' }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('insights-semantic-analysis', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7, action: 'analyze' }
+        }),
+        15000,
+        'insights-semantic-analysis'
+      );
       if (!error && data?.data) {
         setSemanticAnalysis(data.data);
       }
