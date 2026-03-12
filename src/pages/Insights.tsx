@@ -761,13 +761,7 @@ const Insights = () => {
     return null;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // No page-level loading gate — page shell renders immediately, each card shows its own spinner
 
   const winsProgressMessage = getWinsProgressMessage();
 
