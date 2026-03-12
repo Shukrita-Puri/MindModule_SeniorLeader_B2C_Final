@@ -6,10 +6,6 @@
 
 export interface HealthKitWearableData {
   hrv: number | null;
-  restingHeartRate: number | null;
-  sleepEfficiency: number | null;
-  activeEnergy: number | null;
-  steps: number | null;
 }
 
 import { Capacitor } from '@capacitor/core';
