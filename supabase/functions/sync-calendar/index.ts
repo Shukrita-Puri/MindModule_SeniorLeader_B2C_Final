@@ -96,7 +96,7 @@ serve(async (req) => {
     // Load connection — only active
     const { data: connection, error: connErr } = await serviceClient
       .from('calendar_connections')
-      .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, token_enc_v')
+      .select('id, user_id, provider, is_active, last_sync, token_expires_at, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_enc_v')
       .eq('user_id', userId)
       .eq('provider', provider)
       .eq('is_active', true)
@@ -114,37 +114,31 @@ serve(async (req) => {
       return jsonOk({ success: false, reconnectRequired: false, reason: 'config_error', error: 'Server configuration error.' });
     }
 
-    // Decrypt access token
+    // Decrypt access token using token_iv (access token IV)
     let accessToken: string | null = null;
     if (connection.access_token_enc && connection.token_iv) {
       try {
         const dec = await decryptJson(connection.access_token_enc, connection.token_iv, encKeyB64) as { token: string };
         accessToken = dec.token;
       } catch (e) {
-        console.error('[sync-calendar] reconnect_required:decrypt_failed', e);
-        await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-        return jsonOk({ success: false, reconnectRequired: true, reason: 'decrypt_failed', error: 'Calendar session expired. Please reconnect your calendar.' });
+        console.error('[sync-calendar] access_token_decrypt_failed — will attempt refresh', e);
       }
     }
 
-    if (!accessToken) {
-      console.error('[sync-calendar] reconnect_required:no_access_token');
-      await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
-      return jsonOk({ success: false, reconnectRequired: true, reason: 'no_access_token', error: 'Calendar session expired. Please reconnect your calendar.' });
-    }
-
-    // Proactive token refresh: refresh if within 5 min of expiry or already expired
+    // Proactive token refresh: refresh if within 5 min of expiry, already expired, or access token decrypt failed
     const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
     const now = new Date();
+    const needsRefresh = !accessToken || (expiresAt && now.getTime() >= expiresAt.getTime() - REFRESH_BUFFER_MS);
 
-    if (expiresAt && now.getTime() >= expiresAt.getTime() - REFRESH_BUFFER_MS) {
-      console.log('[sync-calendar] token_near_expiry_refresh_start — expires:', expiresAt.toISOString());
+    if (needsRefresh) {
+      console.log('[sync-calendar] token_refresh_start — expires:', expiresAt?.toISOString(), 'has_access:', !!accessToken);
 
-      // Decrypt refresh token
+      // Decrypt refresh token using refresh_token_iv, falling back to token_iv for legacy rows
       let refreshToken: string | null = null;
-      if (connection.refresh_token_enc && connection.token_iv) {
+      const refreshIv = connection.refresh_token_iv || connection.token_iv;
+      if (connection.refresh_token_enc && refreshIv) {
         try {
-          const dec = await decryptJson(connection.refresh_token_enc, connection.token_iv, encKeyB64) as { token: string | null };
+          const dec = await decryptJson(connection.refresh_token_enc, refreshIv, encKeyB64) as { token: string | null };
           refreshToken = dec.token;
         } catch {
           console.error('[sync-calendar] reconnect_required:refresh_decrypt_failed');
@@ -180,18 +174,20 @@ serve(async (req) => {
         accessToken = refreshData.access_token;
         const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
 
-        // Encrypt and persist new access token
-        const { ivB64, ctB64: newAccessEnc } = await encryptJson({ token: accessToken }, encKeyB64);
+        // Encrypt and persist new access token (with its own IV)
+        const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: accessToken }, encKeyB64);
         
-        // If Google returns a rotated refresh token, persist it too
         const updatePayload: Record<string, unknown> = {
           access_token_enc: newAccessEnc,
-          token_iv: ivB64,
+          token_iv: newAccessIv,
           token_expires_at: newExpiresAt,
         };
+
+        // Only rotate refresh token if Google returns a new one — preserve existing otherwise
         if (refreshData.refresh_token) {
-          const { ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
+          const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
           updatePayload.refresh_token_enc = newRefreshEnc;
+          updatePayload.refresh_token_iv = newRefreshIv;
           console.log('[sync-calendar] token_refresh_success — rotated refresh token');
         } else {
           console.log('[sync-calendar] token_refresh_success — kept existing refresh token');
@@ -199,6 +195,12 @@ serve(async (req) => {
 
         await serviceClient.from('calendar_connections').update(updatePayload).eq('id', connection.id);
       }
+    }
+
+    if (!accessToken) {
+      console.error('[sync-calendar] reconnect_required:no_access_token after refresh attempt');
+      await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', connection.id);
+      return jsonOk({ success: false, reconnectRequired: true, reason: 'no_access_token', error: 'Calendar session expired. Please reconnect your calendar.' });
     }
 
     // Fetch calendar events

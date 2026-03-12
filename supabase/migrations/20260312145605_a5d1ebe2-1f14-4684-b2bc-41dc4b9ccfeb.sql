@@ -1,0 +1,1 @@
+ALTER TABLE public.calendar_connections ADD COLUMN IF NOT EXISTS refresh_token_iv text;

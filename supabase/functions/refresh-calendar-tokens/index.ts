@@ -73,7 +73,7 @@ serve(async (req) => {
 
     const { data: connections, error: connErr } = await serviceClient
       .from('calendar_connections')
-      .select('id, user_id, provider, token_expires_at, access_token_enc, refresh_token_enc, token_iv, token_enc_v')
+      .select('id, user_id, provider, token_expires_at, access_token_enc, refresh_token_enc, token_iv, refresh_token_iv, token_enc_v')
       .eq('is_active', true)
       .lte('token_expires_at', cutoff);
 
@@ -101,8 +101,8 @@ serve(async (req) => {
       try {
         console.log('[refresh-calendar-tokens] token_near_expiry_refresh_start user:', conn.user_id, 'provider:', conn.provider, 'expires:', conn.token_expires_at);
 
-        // Decrypt refresh token
-        if (!conn.refresh_token_enc || !conn.token_iv) {
+        // Decrypt refresh token — use refresh_token_iv if available, fall back to token_iv for legacy rows
+        if (!conn.refresh_token_enc) {
           console.warn('[refresh-calendar-tokens] reconnect_required:no_refresh_token user:', conn.user_id);
           await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
           reconnectCount++;
@@ -110,9 +110,18 @@ serve(async (req) => {
           continue;
         }
 
+        const refreshIv = conn.refresh_token_iv || conn.token_iv;
+        if (!refreshIv) {
+          console.warn('[refresh-calendar-tokens] reconnect_required:no_iv user:', conn.user_id);
+          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+          reconnectCount++;
+          details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'no_iv' });
+          continue;
+        }
+
         let refreshToken: string | null = null;
         try {
-          const dec = await decryptJson(conn.refresh_token_enc, conn.token_iv, encKeyB64) as { token: string | null };
+          const dec = await decryptJson(conn.refresh_token_enc, refreshIv, encKeyB64) as { token: string | null };
           refreshToken = dec.token;
         } catch (e) {
           console.error('[refresh-calendar-tokens] reconnect_required:refresh_decrypt_failed user:', conn.user_id, e);
@@ -153,22 +162,24 @@ serve(async (req) => {
             continue;
           }
 
-          // Encrypt new access token
+          // Encrypt new access token (gets its own IV)
           const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
-          const { ivB64, ctB64: newAccessEnc } = await encryptJson({ token: refreshData.access_token }, encKeyB64);
+          const { ivB64: newAccessIv, ctB64: newAccessEnc } = await encryptJson({ token: refreshData.access_token }, encKeyB64);
 
           const updatePayload: Record<string, unknown> = {
             access_token_enc: newAccessEnc,
-            token_iv: ivB64,
+            token_iv: newAccessIv,
             token_expires_at: newExpiresAt,
           };
 
-          // Rotate refresh token if Google returns a new one
+          // Only rotate refresh token if Google returns a new one
           if (refreshData.refresh_token) {
-            const { ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
+            const { ivB64: newRefreshIv, ctB64: newRefreshEnc } = await encryptJson({ token: refreshData.refresh_token }, encKeyB64);
             updatePayload.refresh_token_enc = newRefreshEnc;
+            updatePayload.refresh_token_iv = newRefreshIv;
             console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '— rotated refresh token');
           } else {
+            // Preserve existing refresh token and its IV — do NOT overwrite
             console.log('[refresh-calendar-tokens] token_refresh_success user:', conn.user_id, '— kept existing refresh token');
           }
 
