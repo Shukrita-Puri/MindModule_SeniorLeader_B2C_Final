@@ -386,6 +386,24 @@ const Profile = () => {
           }}
         />
       )}
+
+      {/* Delete Local Data Confirmation */}
+      <Dialog open={showDeleteLocal} onOpenChange={setShowDeleteLocal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Local Data</DialogTitle>
+            <DialogDescription>
+              This will remove locally stored calendar and wearable data from this device only. Your connected accounts and cloud data will not be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteLocal(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteLocalData}>
+              Delete Local Data
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
