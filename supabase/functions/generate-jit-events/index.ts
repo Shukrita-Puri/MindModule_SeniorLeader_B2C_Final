@@ -132,15 +132,26 @@ serve(async (req) => {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Check calendar connection status first
+    const { data: calConn } = await supabase
+      .from('calendar_connections')
+      .select('is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle();
+
     // Parallel queries (includes coach_tools_offered for pending tool boost)
+    // Calendar events only queried if connection is active
     const [eventsRes, skipRes, scenariosRes, pendingToolsRes] = await Promise.all([
-      supabase
-        .from('calendar_events')
-        .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
-        .eq('user_id', userId)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', in48h.toISOString())
-        .order('start_time', { ascending: true }),
+      calConn
+        ? supabase
+            .from('calendar_events')
+            .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+            .eq('user_id', userId)
+            .gte('start_time', now.toISOString())
+            .lte('start_time', in48h.toISOString())
+            .order('start_time', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       supabase
         .from('jit_preferences')
         .select('event_type, created_at')

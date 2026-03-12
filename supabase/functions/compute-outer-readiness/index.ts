@@ -111,7 +111,19 @@ async function getServerCalendarMetrics(
   const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
   const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
 
-  // Query saved calendar events for user's local "today" — regardless of connection status
+  // Check connection status first — stale events must not power active behavior after disconnect
+  const { data: conn } = await db
+    .from('calendar_connections')
+    .select('is_active')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!conn) {
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
+  }
+
+  // Connection is active — query today's calendar events
   const { data: events, error } = await db
     .from('calendar_events')
     .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
@@ -125,25 +137,12 @@ async function getServerCalendarMetrics(
 
   const eventList = (events || []);
 
-  // If we have saved events, use them — connection status only affects labeling
   if (eventList.length > 0) {
     const metrics = computeCalendarMetrics(eventList);
     return { ...metrics, eventCount: eventList.length, state: 'active' };
   }
 
-  // No events found — check connection status for proper labeling
-  const { data: conn } = await db
-    .from('calendar_connections')
-    .select('is_active')
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
-  }
-
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
+  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events' };
 }
 
 // ==================== TIME HELPERS ====================
