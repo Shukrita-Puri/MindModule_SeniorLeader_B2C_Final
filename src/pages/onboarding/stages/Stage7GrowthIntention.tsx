@@ -25,6 +25,7 @@ export default function Stage7GrowthIntention() {
     saveResponse("pressure_context_tag", derivedPressure);
     saveResponse("practice_priority_tag", goal);
     saveResponse("growth_intention_response", goal);
+    saveResponse("growth_intention", goal);
     navigate("/onboarding/signup-step");
   };
 

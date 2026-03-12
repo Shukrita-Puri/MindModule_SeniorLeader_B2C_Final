@@ -24,7 +24,7 @@ const Auth0Front = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && isAuthenticated && user?.onboarding_completed_at) {
+    if (!loading && isAuthenticated && user?.onboarding_completed_at && hasValidSubscription(user as any)) {
       navigate('/daily-check-in', { replace: true });
     }
   }, [loading, isAuthenticated, user, navigate]);
