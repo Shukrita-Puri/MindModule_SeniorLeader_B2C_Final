@@ -337,6 +337,9 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             beta_user: profile.beta_user || false,
             beta_expires_at: profile.beta_expires_at || null,
             stripe_customer_id: profile.stripe_customer_id || null,
+            founding_member: profile.founding_member || false,
+            referral_code: profile.referral_code || null,
+            referral_rewards_balance: profile.referral_rewards_balance || 0,
           };
           setAppUser(mappedUser);
         } else {
