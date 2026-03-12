@@ -447,10 +447,14 @@ const Insights = () => {
 
       // Production: Use consolidated edge function response
       const accessToken = await getAuthToken();
-      const { data, error } = await supabase.functions.invoke('state-patterns-insights', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: { days: 7 }
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('state-patterns-insights', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { days: 7 }
+        }),
+        15000,
+        'state-patterns-insights'
+      );
       if (!error && data?.data) {
         const d = data.data;
         setStatePatterns(d);
