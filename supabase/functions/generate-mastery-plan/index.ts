@@ -1377,6 +1377,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const todModules: any[] = [];
   const moduleOrder: ('regulate' | 'align' | 'prepare' | 'integrate')[] = ['regulate', 'align', 'prepare', 'integrate'];
 
+  // Filter out content already used in JIT plan — computed once, used by all modules
+  const todCandidates = jitContentIds.size > 0
+    ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
+    : enrichedContent;
+
   for (const moduleType of moduleOrder) {
     if (todModules.length >= maxModules) break;
     const spec = moduleMapping[moduleType];
@@ -1405,10 +1410,6 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         });
       }
     } else {
-      // Filter out content already used in JIT plan
-      const todCandidates = jitContentIds.size > 0
-        ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
-        : enrichedContent;
       const selected = selectContent(todCandidates, spec, req, pendingCommitments);
       if (selected) {
         todModules.push({
@@ -1427,7 +1428,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       } else if (timeOfDay === 'evening') {
         // Fallback: try to find ANY real content from DB for this module type
         const fallbackCategory = moduleType === 'regulate' ? 'somatic' : 'mindset';
-        const fallbackItem = enrichedContent.find((c: any) => c.category === fallbackCategory);
+        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory);
         if (fallbackItem) {
           todModules.push({
             type: moduleType,
