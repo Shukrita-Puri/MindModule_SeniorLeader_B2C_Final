@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import {
   DropdownMenu,
   DropdownMenuContent,
