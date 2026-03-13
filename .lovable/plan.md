@@ -1,53 +1,29 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+## Root Cause: Duplicate Practices Between JIT and ToD Plans
 
-Two files need text-only changes (no layout or UI modifications).
+### The Bug
 
----
+The deduplication code at lines 1336-1347 correctly collects JIT content IDs, and the main ToD selection path at lines 1409-1411 correctly filters them out. **However, there is a fallback path that bypasses this filter entirely.**
 
-### File 1: `src/pages/Front.tsx`
+At lines 1427-1431, when `selectContent` returns `null` for an evening ToD module (because the filtered pool is too small), the code falls back to searching the **original unfiltered `enrichedContent`** list:
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+```typescript
+// Line 1430 — BUG: uses enrichedContent, not todCandidates
+const fallbackItem = enrichedContent.find((c: any) => c.category === fallbackCategory);
+```
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+This means: if "Resilience Through Brave Action" was selected for the JIT plan, removed from `todCandidates`, and then `selectContent(todCandidates, ...)` returns `null` (because no other mindset micro-practices remain), the evening fallback grabs it right back from the unfiltered list.
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+Additionally, `todCandidates` is currently scoped inside the `else` block (line 1407), making it unavailable to the fallback branch.
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+### Fix
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+**File: `supabase/functions/generate-mastery-plan/index.ts`**
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+1. **Move `todCandidates` computation outside the per-module loop** (before line 1380), so it's available to both the main selection path and the evening fallback.
 
----
+2. **Change the evening fallback** (line 1430) to use `todCandidates` instead of `enrichedContent`.
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+This is a 2-line structural change in the edge function. The deduplication logic itself is correct — it just has this one bypass path.
 
