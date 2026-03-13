@@ -136,13 +136,26 @@ const ConnectedData = () => {
 
   // Auto-sync stale wearable data when opening Connected Data on native
   useEffect(() => {
-    if (!status?.appleWatch.connected || !isNativeApp()) return;
-    const lastSyncTime = status.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
+    // Consider connected if backend says so OR local permission flag is set
+    const isConnected = status?.appleWatch.connected || isHealthKitPermissionGranted();
+    if (!isConnected || !isNativeApp()) return;
+    const lastSyncTime = status?.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
     const STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
     if (Date.now() - lastSyncTime > STALE_MS) {
       console.log('[ConnectedData] Wearable data stale, auto-syncing...');
-      syncHealthKitToBackend().then((ok) => {
-        if (ok) fetchStatus();
+      syncHealthKitToBackend().then((result) => {
+        if (result.permissionGranted) {
+          // Update local status to show connected even without data
+          setStatus(prev => prev ? {
+            ...prev,
+            appleWatch: {
+              connected: true,
+              lastSync: prev.appleWatch.lastSync,
+              hasData: result.hasData,
+            },
+          } : prev);
+        }
+        if (result.hasData && result.success) fetchStatus();
       }).catch(() => {});
     }
   }, [status?.appleWatch.connected, status?.appleWatch.lastSync, fetchStatus]);
