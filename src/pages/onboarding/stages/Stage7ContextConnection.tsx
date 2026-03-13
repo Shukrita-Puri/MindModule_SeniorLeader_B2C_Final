@@ -373,6 +373,7 @@ export default function Stage7ContextConnection() {
         </div>
 
       </div>
+      </div>
     </div>
   );
 }
