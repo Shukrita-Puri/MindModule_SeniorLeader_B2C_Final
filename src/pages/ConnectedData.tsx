@@ -26,7 +26,7 @@ import appleWatchLogo from '@/assets/shared/apple-watch-logo.jpg';
 
 interface ConnectionStatus {
   calendar: { connected: boolean; provider: string | null; lastSync: string | null };
-  appleWatch: { connected: boolean; lastSync: string | null };
+  appleWatch: { connected: boolean; lastSync: string | null; hasData?: boolean };
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
