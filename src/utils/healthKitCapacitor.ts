@@ -60,7 +60,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
     const hrvRes = await (Health as any).readSamples({
       dataType: 'heartRateVariability',
-      startDate: dayAgo.toISOString(),
+      startDate: sevenDaysAgo.toISOString(),
       endDate: now.toISOString(),
       limit: 50,
     });
