@@ -147,17 +147,10 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 safe-area-top bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/executive-home')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-headline font-semibold">Profile</h1>
-        </div>
-      </div>
+      <UnifiedTopBar hideCoach backPath="/executive-home" />
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+        <h1 className="text-xl font-headline font-semibold">Profile</h1>
         {/* Profile Card */}
         <Card>
           <CardContent className="pt-6">

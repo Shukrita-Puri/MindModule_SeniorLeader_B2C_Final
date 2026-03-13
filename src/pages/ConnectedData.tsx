@@ -437,17 +437,10 @@ const ConnectedData = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 safe-area-top bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-headline font-semibold">Connected Data</h1>
-        </div>
-      </div>
+      <UnifiedTopBar hideCoach backPath="/profile" />
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
+      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-4">
+        <h1 className="text-xl font-headline font-semibold">Connected Data Sources</h1>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

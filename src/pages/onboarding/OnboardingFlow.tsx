@@ -112,17 +112,7 @@ export default function OnboardingFlow() {
       
       {/* Fixed Top Bar with Back Arrow */}
       {showBackButton && (
-        <div className="fixed top-0 left-0 right-0 z-50 safe-area-top bg-white/85 backdrop-blur-[30px] border-b border-black/[0.08]">
-          <div className="flex items-center px-4 py-2">
-            <button 
-              onClick={() => navigate(getBackPath())}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft size={20} />
-              <span className="text-sm">Back</span>
-            </button>
-          </div>
-        </div>
+        <UnifiedTopBar hideCoach onBack={() => navigate(getBackPath())} />
       )}
       
       <div className="relative z-10">

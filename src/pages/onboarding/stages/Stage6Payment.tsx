@@ -159,9 +159,7 @@ export default function Stage6Payment() {
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft size={16} />
-        </button>
+        <div /> {/* spacer — back button provided by parent OnboardingFlow */}
         {availablePlans.length > 1 ? (
           <div className="bg-muted rounded-full p-1 flex">
             {availablePlans.includes('annual') && (
