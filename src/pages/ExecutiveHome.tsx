@@ -101,7 +101,38 @@ const ExecutiveHome = () => {
     return 'evening';
   };
   // Memoize video URL to prevent remount on every render
-  const heroVideoUrl = useMemo(() => getHeroVideo(), [energyState?.energyTier]);
+  const heroVideoUrl = useMemo(() => {
+    const timeOfDay = getTimeOfDay();
+    const tier = energyState?.energyTier || 'default';
+    const videoMap: Record<string, Record<string, string>> = {
+      depleted: {
+        morning: '/all-visuals/videos/depleted-morning.mp4',
+        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
+        evening: '/all-visuals/videos/depleted-evening.mp4',
+      },
+      managing: {
+        morning: '/all-visuals/videos/managing-morning.mp4',
+        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
+        evening: '/all-visuals/videos/managing-evening.mp4',
+      },
+      strong: {
+        morning: '/all-visuals/videos/strong-morning.mp4',
+        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
+        evening: '/all-visuals/videos/strong-evening.mp4',
+      },
+      peak: {
+        morning: '/all-visuals/videos/peak-morning.mp4',
+        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
+        evening: '/all-visuals/videos/peak-evening.mp4',
+      },
+      default: {
+        morning: '/all-visuals/videos/default-morning.mp4',
+        afternoon: '/all-visuals/videos/default-afternoon.mp4',
+        evening: '/all-visuals/videos/default-evening.mp4',
+      },
+    };
+    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
+  }, [energyState?.energyTier]);
   
   // Use ref to track if video has already faded in
   const videoFadedIn = useRef(false);
