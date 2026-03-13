@@ -6,6 +6,8 @@
 
 export interface HealthKitWearableData {
   hrv: number | null;
+  /** ISO date string of the latest HRV sample, or null */
+  latestSampleDate: string | null;
   /** True when HealthKit query succeeded (permission granted), regardless of sample count */
   permissionGranted: boolean;
 }
