@@ -134,6 +134,19 @@ const ConnectedData = () => {
     }
   }, [user?.id, fetchStatus]);
 
+  // Auto-sync stale wearable data when opening Connected Data on native
+  useEffect(() => {
+    if (!status?.appleWatch.connected || !isNativeApp()) return;
+    const lastSyncTime = status.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
+    const STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
+    if (Date.now() - lastSyncTime > STALE_MS) {
+      console.log('[ConnectedData] Wearable data stale, auto-syncing...');
+      syncHealthKitToBackend().then((ok) => {
+        if (ok) fetchStatus();
+      }).catch(() => {});
+    }
+  }, [status?.appleWatch.connected, status?.appleWatch.lastSync, fetchStatus]);
+
   // Handle post-OAuth callback: ?calendar_connected=true
   useEffect(() => {
     const calendarCallback = searchParams.get('calendar_connected');
