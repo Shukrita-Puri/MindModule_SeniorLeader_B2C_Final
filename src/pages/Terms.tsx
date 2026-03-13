@@ -1,10 +1,12 @@
+import { useNavigate } from 'react-router-dom';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 
 const Terms = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      <UnifiedTopBar />
-      <div className="container max-w-4xl mx-auto px-4 py-12">
+      <UnifiedTopBar hideCoach />
+      <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
         <h1 className="text-4xl font-headline text-foreground mb-2">Terms of Use</h1>
         <p className="text-muted-foreground mb-8">Effective Date: March 11, 2026</p>
         
@@ -332,10 +334,16 @@ const Terms = () => {
             </p>
           </section>
 
-          <div className="pt-8 mt-8 border-t border-border">
+          <div className="pt-8 mt-8 border-t border-border flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Last Updated: March 11, 2026
             </p>
+            <button
+              onClick={() => navigate('/privacy')}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy →
+            </button>
           </div>
         </div>
       </div>

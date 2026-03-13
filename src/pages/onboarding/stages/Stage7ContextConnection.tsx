@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -11,6 +11,8 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@/utils/openUrl";
+import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
+import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
@@ -295,6 +297,7 @@ export default function Stage7ContextConnection() {
           {/* Google Calendar */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
+              <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
                 <span className="font-medium">Google Calendar</span>
                 <span className="text-xs text-muted-foreground">
@@ -313,11 +316,12 @@ export default function Stage7ContextConnection() {
             />
           </div>
 
-          {/* Apple Watch */}
+          {/* Apple Health */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
+              <img src={appleHealthIcon} alt="Apple Health" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
-                <span className="font-medium">Apple Watch</span>
+                <span className="font-medium">Apple Health</span>
                 <span className="text-xs text-muted-foreground">
                   {isNativeApp() ? "HealthKit integration" : "Available in mobile app"}
                 </span>
@@ -349,10 +353,21 @@ export default function Stage7ContextConnection() {
           </button>
         </div>
 
-        {/* Subtle footer */}
-        <p className="text-center text-xs text-muted-foreground/60">
-          You can change this anytime in settings
-        </p>
+        {/* Subtle footer with legal links */}
+        <div className="text-center space-y-2">
+          <p className="text-xs text-muted-foreground/60">
+            You can change this anytime in settings
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-muted-foreground/40 text-xs">·</span>
+            <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Terms of Use
+            </Link>
+          </div>
+        </div>
 
       </div>
     </div>

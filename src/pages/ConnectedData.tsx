@@ -517,14 +517,24 @@ const ConnectedData = () => {
           ))
         )}
 
-        {/* Privacy Policy Link */}
-        <Button
-          variant="link"
-          className="text-sm text-muted-foreground px-0"
-          onClick={() => navigate('/privacy')}
-        >
-          Privacy Policy →
-        </Button>
+        {/* Legal Links */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="link"
+            className="text-sm text-muted-foreground px-0"
+            onClick={() => navigate('/privacy')}
+          >
+            Privacy Policy
+          </Button>
+          <span className="text-muted-foreground/40">·</span>
+          <Button
+            variant="link"
+            className="text-sm text-muted-foreground px-0"
+            onClick={() => navigate('/terms')}
+          >
+            Terms of Use
+          </Button>
+        </div>
       </div>
     </div>
   );

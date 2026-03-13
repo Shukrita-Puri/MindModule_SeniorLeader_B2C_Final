@@ -398,7 +398,7 @@ const Profile = () => {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteLocal(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteLocalData}>
+            <Button className="bg-saffron hover:bg-saffron/90 text-primary-foreground" onClick={handleDeleteLocalData}>
               Delete Local Data
             </Button>
           </DialogFooter>

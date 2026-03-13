@@ -7,9 +7,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface UnifiedTopBarProps {
   backPath?: string;
   onBack?: () => void;
+  hideCoach?: boolean;
 }
 
-const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
+const UnifiedTopBar = ({ backPath, onBack, hideCoach }: UnifiedTopBarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isCoachPage = location.pathname === '/coach';
@@ -33,7 +34,7 @@ const UnifiedTopBar = ({ backPath, onBack }: UnifiedTopBarProps) => {
         </Button>
 
         {/* Right: Coach Button (hidden on coach page) */}
-        {!isCoachPage && (
+        {!isCoachPage && !hideCoach && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 

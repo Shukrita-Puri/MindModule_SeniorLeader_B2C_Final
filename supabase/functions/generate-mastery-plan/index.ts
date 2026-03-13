@@ -1333,6 +1333,19 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     console.log(`[generate-mastery-plan] preEventPlan=null: ${reason}`);
   }
 
+  // Collect JIT content IDs to exclude from ToD plan (prevent duplicate practices)
+  const jitContentIds = new Set<string>();
+  if (preEventPlan?.modules) {
+    for (const m of preEventPlan.modules) {
+      if (m.contentId && !m.isCoachCard) {
+        jitContentIds.add(m.contentId);
+      }
+    }
+  }
+  if (jitContentIds.size > 0) {
+    console.log(`[generate-mastery-plan] Excluding ${jitContentIds.size} JIT content IDs from ToD selection: ${[...jitContentIds].join(', ')}`);
+  }
+
   // 6. Build time-of-day plan
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const moduleMapping = getModulesFromTheme(req.outerReadinessPhrase);
@@ -1392,7 +1405,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         });
       }
     } else {
-      const selected = selectContent(enrichedContent, spec, req, pendingCommitments);
+      // Filter out content already used in JIT plan
+      const todCandidates = jitContentIds.size > 0
+        ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
+        : enrichedContent;
+      const selected = selectContent(todCandidates, spec, req, pendingCommitments);
       if (selected) {
         todModules.push({
           type: moduleType,
