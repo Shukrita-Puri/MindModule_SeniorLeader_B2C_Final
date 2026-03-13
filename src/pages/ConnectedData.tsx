@@ -420,6 +420,9 @@ const ConnectedData = () => {
       logo: <img src={appleWatchLogo} alt="Apple Watch" className="h-8 w-8 rounded" />,
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
+      statusNote: (status?.appleWatch.connected && !status?.appleWatch.lastSync && status?.appleWatch.hasData === false)
+        ? 'Connected · Waiting for HRV data'
+        : undefined,
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
       onSync: handleSyncAppleWatch,
