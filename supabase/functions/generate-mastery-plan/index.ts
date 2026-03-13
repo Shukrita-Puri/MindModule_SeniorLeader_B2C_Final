@@ -1405,7 +1405,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         });
       }
     } else {
-      const selected = selectContent(enrichedContent, spec, req, pendingCommitments);
+      // Filter out content already used in JIT plan
+      const todCandidates = jitContentIds.size > 0
+        ? enrichedContent.filter((c: any) => !jitContentIds.has(c.id))
+        : enrichedContent;
+      const selected = selectContent(todCandidates, spec, req, pendingCommitments);
       if (selected) {
         todModules.push({
           type: moduleType,

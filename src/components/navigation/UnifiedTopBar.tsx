@@ -34,7 +34,7 @@ const UnifiedTopBar = ({ backPath, onBack, hideCoach }: UnifiedTopBarProps) => {
         </Button>
 
         {/* Right: Coach Button (hidden on coach page) */}
-        {!isCoachPage && (
+        {!isCoachPage && !hideCoach && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 

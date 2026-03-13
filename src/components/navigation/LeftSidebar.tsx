@@ -66,7 +66,7 @@ const LeftSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       {/* Header */}
-      <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border">
+      <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border safe-area-top">
         <div className={cn(
           "flex items-center transition-all duration-200",
           isCollapsed ? "justify-center" : "px-3"

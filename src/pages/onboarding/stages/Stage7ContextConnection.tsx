@@ -353,10 +353,21 @@ export default function Stage7ContextConnection() {
           </button>
         </div>
 
-        {/* Subtle footer */}
-        <p className="text-center text-xs text-muted-foreground/60">
-          You can change this anytime in settings
-        </p>
+        {/* Subtle footer with legal links */}
+        <div className="text-center space-y-2">
+          <p className="text-xs text-muted-foreground/60">
+            You can change this anytime in settings
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-muted-foreground/40 text-xs">·</span>
+            <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Terms of Use
+            </Link>
+          </div>
+        </div>
 
       </div>
     </div>

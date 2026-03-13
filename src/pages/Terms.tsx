@@ -334,10 +334,16 @@ const Terms = () => {
             </p>
           </section>
 
-          <div className="pt-8 mt-8 border-t border-border">
+          <div className="pt-8 mt-8 border-t border-border flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Last Updated: March 11, 2026
             </p>
+            <button
+              onClick={() => navigate('/privacy')}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy →
+            </button>
           </div>
         </div>
       </div>
