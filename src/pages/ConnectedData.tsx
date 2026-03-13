@@ -14,7 +14,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
-import { syncHealthKitToBackend } from '@/services/wearableSyncService';
+import { syncHealthKitToBackend, markHealthKitPermissionGranted, clearHealthKitPermission, isHealthKitPermissionGranted } from '@/services/wearableSyncService';
 import { openUrl } from '@/utils/openUrl';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
