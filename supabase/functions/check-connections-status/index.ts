@@ -45,11 +45,14 @@ Deno.serve(async (req) => {
 
     // Check Apple Watch — look for recent wearable data (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: wearableCount } = await db
+    const { data: latestWearable } = await db
       .from("wearable_data")
-      .select("id", { count: "exact", head: true })
+      .select("id, updated_at")
       .eq("user_id", userId)
-      .gte("created_at", sevenDaysAgo);
+      .gte("created_at", sevenDaysAgo)
+      .order("summary_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     const result = {
       calendar: {
@@ -62,8 +65,8 @@ Deno.serve(async (req) => {
         lastSync: ouraConn?.last_sync || null,
       },
       appleWatch: {
-        connected: (wearableCount || 0) > 0,
-        lastSync: null, // No dedicated last_sync for wearable
+        connected: !!latestWearable,
+        lastSync: latestWearable?.updated_at || null,
       },
     };
 

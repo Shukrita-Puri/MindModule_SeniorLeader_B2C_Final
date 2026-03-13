@@ -14,6 +14,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
+import { syncHealthKitToBackend } from '@/services/wearableSyncService';
 import { openUrl } from '@/utils/openUrl';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -132,6 +133,19 @@ const ConnectedData = () => {
       setLoading(false);
     }
   }, [user?.id, fetchStatus]);
+
+  // Auto-sync stale wearable data when opening Connected Data on native
+  useEffect(() => {
+    if (!status?.appleWatch.connected || !isNativeApp()) return;
+    const lastSyncTime = status.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
+    const STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
+    if (Date.now() - lastSyncTime > STALE_MS) {
+      console.log('[ConnectedData] Wearable data stale, auto-syncing...');
+      syncHealthKitToBackend().then((ok) => {
+        if (ok) fetchStatus();
+      }).catch(() => {});
+    }
+  }, [status?.appleWatch.connected, status?.appleWatch.lastSync, fetchStatus]);
 
   // Handle post-OAuth callback: ?calendar_connected=true
   useEffect(() => {
@@ -297,7 +311,13 @@ const ConnectedData = () => {
       const granted = await requestHealthKitPermissions();
       if (granted) {
         toast.success('Apple Health connected');
-        setStatus(prev => prev ? { ...prev, appleWatch: { connected: true, lastSync: new Date().toISOString() } } : prev);
+        // Immediately sync HealthKit data to backend
+        const synced = await syncHealthKitToBackend();
+        if (synced) {
+          toast.success('Apple Watch data synced');
+        }
+        // Refresh status from backend to get real lastSync
+        await fetchStatus();
       } else {
         toast.error('Health permissions were denied');
       }
@@ -305,6 +325,30 @@ const ConnectedData = () => {
       toast.error('Failed to connect Apple Health');
     } finally {
       setConnecting(null);
+    }
+  };
+
+  const handleSyncAppleWatch = async () => {
+    if (!isNativeApp()) return;
+    setSyncing(true);
+    try {
+      const granted = await requestHealthKitPermissions();
+      if (!granted) {
+        toast.error('HealthKit permission not granted');
+        setSyncing(false);
+        return;
+      }
+      const ok = await syncHealthKitToBackend();
+      if (ok) {
+        toast.success('Apple Watch data synced');
+        await fetchStatus();
+      } else {
+        toast.error('No new Apple Watch data available');
+      }
+    } catch {
+      toast.error('Apple Watch sync failed');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -342,7 +386,8 @@ const ConnectedData = () => {
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
-      canSync: false,
+      onSync: handleSyncAppleWatch,
+      canSync: isNativeApp(),
     },
   ];
 
@@ -378,7 +423,7 @@ const ConnectedData = () => {
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
                     )}
-                    {syncing && conn.id === 'google-calendar' && (
+                    {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-watch') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
                       </p>
