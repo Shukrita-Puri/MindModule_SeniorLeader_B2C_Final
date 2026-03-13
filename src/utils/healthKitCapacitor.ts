@@ -6,6 +6,8 @@
 
 export interface HealthKitWearableData {
   hrv: number | null;
+  /** True when HealthKit query succeeded (permission granted), regardless of sample count */
+  permissionGranted: boolean;
 }
 
 import { Capacitor } from '@capacitor/core';
@@ -47,18 +49,18 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
  * Returns null values for any metric that cannot be read.
  */
 export async function queryHealthKitData(): Promise<HealthKitWearableData> {
-  const empty: HealthKitWearableData = { hrv: null };
+  const empty: HealthKitWearableData = { hrv: null, permissionGranted: false };
 
   if (!isNativeApp()) return empty;
 
   try {
     const { Health } = await import('@capgo/capacitor-health');
     const now = new Date();
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const hrvRes = await (Health as any).readSamples({
       dataType: 'heartRateVariability',
-      startDate: dayAgo.toISOString(),
+      startDate: sevenDaysAgo.toISOString(),
       endDate: now.toISOString(),
       limit: 50,
     });
@@ -75,9 +77,9 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     }
     console.log(`[HealthKit] HRV readSamples returned ${samples.length} sample(s), latest: ${hrv}`);
 
-    return { hrv };
+    return { hrv, permissionGranted: true };
   } catch (error) {
     console.error('[HealthKit] Query failed:', error);
-    return empty;
+    return { hrv: null, permissionGranted: false };
   }
 }

@@ -5,11 +5,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { isNativeApp, requestHealthKitPermissions } from '@/utils/healthKitCapacitor';
-import { syncHealthKitToBackend } from '@/services/wearableSyncService';
+import { syncHealthKitToBackend, isHealthKitPermissionGranted } from '@/services/wearableSyncService';
 import { supabase } from '@/integrations/supabase/client';
 
 interface WearableSyncState {
+  /** True when HealthKit permission is granted (even without data) */
   hasWearable: boolean;
+  /** True when actual HRV data exists */
+  hasData: boolean;
   isSyncing: boolean;
   lastSync: Date | null;
   hrv: number | null;
@@ -21,7 +24,8 @@ const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours — same as calendar
 
 export function useWearableSync(): WearableSyncState {
   const { user } = useAuth();
-  const [hasWearable, setHasWearable] = useState(false);
+  const [hasWearable, setHasWearable] = useState(() => isHealthKitPermissionGranted());
+  const [hasData, setHasData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [hrv, setHrv] = useState<number | null>(null);
@@ -48,8 +52,13 @@ export function useWearableSync(): WearableSyncState {
 
       if (data) {
         setHasWearable(true);
+        setHasData(true);
         setHrv(data.hrv ? Number(data.hrv) : null);
         setLastSync(data.updated_at ? new Date(data.updated_at) : null);
+      } else if (isHealthKitPermissionGranted()) {
+        // Permission granted but no DB rows yet
+        setHasWearable(true);
+        setHasData(false);
       }
     } catch (err) {
       console.warn('[useWearableSync] fetch error:', err);
@@ -64,7 +73,6 @@ export function useWearableSync(): WearableSyncState {
     setError(null);
 
     try {
-      // Re-check permissions
       const granted = await requestHealthKitPermissions();
       if (!granted) {
         setError('HealthKit permission not granted');
@@ -72,13 +80,22 @@ export function useWearableSync(): WearableSyncState {
         return false;
       }
 
-      const ok = await syncHealthKitToBackend();
-      if (ok) {
-        // Refresh from DB to get the persisted values
+      const result = await syncHealthKitToBackend();
+
+      if (result.permissionGranted) {
+        setHasWearable(true);
+      }
+
+      if (result.hasData && result.success) {
         await fetchLatestFromDB();
         return true;
+      } else if (result.permissionGranted && !result.hasData) {
+        // Connected but no HRV samples yet — not an error
+        setHasWearable(true);
+        setHasData(false);
+        return true; // Connection itself succeeded
       } else {
-        setError('No new HealthKit data available');
+        setError('Sync failed');
         return false;
       }
     } catch (err) {
@@ -90,18 +107,14 @@ export function useWearableSync(): WearableSyncState {
     }
   }, [fetchLatestFromDB]);
 
-  // Initial load: fetch DB state, auto-sync if stale
+  // Initial load
   useEffect(() => {
     if (!user?.id || initRef.current) return;
     initRef.current = true;
-
-    const init = async () => {
-      await fetchLatestFromDB();
-    };
-    init();
+    fetchLatestFromDB();
   }, [user?.id, fetchLatestFromDB]);
 
-  // After initial DB fetch, auto-sync if stale and native
+  // Auto-sync if stale and native
   useEffect(() => {
     if (!hasWearable || !isNativeApp()) return;
     if (!lastSync || Date.now() - lastSync.getTime() > STALE_THRESHOLD_MS) {
@@ -110,5 +123,5 @@ export function useWearableSync(): WearableSyncState {
     }
   }, [hasWearable, lastSync, triggerSync]);
 
-  return { hasWearable, isSyncing, lastSync, hrv, error, triggerSync };
+  return { hasWearable, hasData, isSyncing, lastSync, hrv, error, triggerSync };
 }

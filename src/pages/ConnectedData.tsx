@@ -14,7 +14,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
-import { syncHealthKitToBackend } from '@/services/wearableSyncService';
+import { syncHealthKitToBackend, markHealthKitPermissionGranted, clearHealthKitPermission, isHealthKitPermissionGranted } from '@/services/wearableSyncService';
 import { openUrl } from '@/utils/openUrl';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ import appleWatchLogo from '@/assets/shared/apple-watch-logo.jpg';
 
 interface ConnectionStatus {
   calendar: { connected: boolean; provider: string | null; lastSync: string | null };
-  appleWatch: { connected: boolean; lastSync: string | null };
+  appleWatch: { connected: boolean; lastSync: string | null; hasData?: boolean };
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
@@ -114,6 +114,14 @@ const ConnectedData = () => {
       );
       if (res.ok) {
         const data = await res.json();
+        // Merge: if backend says not connected but local permission flag is set, show connected
+        if (!data.appleWatch?.connected && isHealthKitPermissionGranted()) {
+          data.appleWatch = {
+            ...data.appleWatch,
+            connected: true,
+            hasData: false,
+          };
+        }
         console.log('[ConnectedData] Connection status:', JSON.stringify(data));
         setStatus(data);
       } else {
@@ -136,13 +144,26 @@ const ConnectedData = () => {
 
   // Auto-sync stale wearable data when opening Connected Data on native
   useEffect(() => {
-    if (!status?.appleWatch.connected || !isNativeApp()) return;
-    const lastSyncTime = status.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
+    // Consider connected if backend says so OR local permission flag is set
+    const isConnected = status?.appleWatch.connected || isHealthKitPermissionGranted();
+    if (!isConnected || !isNativeApp()) return;
+    const lastSyncTime = status?.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
     const STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
     if (Date.now() - lastSyncTime > STALE_MS) {
       console.log('[ConnectedData] Wearable data stale, auto-syncing...');
-      syncHealthKitToBackend().then((ok) => {
-        if (ok) fetchStatus();
+      syncHealthKitToBackend().then((result) => {
+        if (result.permissionGranted) {
+          // Update local status to show connected even without data
+          setStatus(prev => prev ? {
+            ...prev,
+            appleWatch: {
+              connected: true,
+              lastSync: prev.appleWatch.lastSync,
+              hasData: result.hasData,
+            },
+          } : prev);
+        }
+        if (result.hasData && result.success) fetchStatus();
       }).catch(() => {});
     }
   }, [status?.appleWatch.connected, status?.appleWatch.lastSync, fetchStatus]);
@@ -310,13 +331,25 @@ const ConnectedData = () => {
     try {
       const granted = await requestHealthKitPermissions();
       if (granted) {
+        markHealthKitPermissionGranted();
         toast.success('Apple Health connected');
-        // Immediately sync HealthKit data to backend
-        const synced = await syncHealthKitToBackend();
-        if (synced) {
+        // Sync HealthKit data to backend
+        const result = await syncHealthKitToBackend();
+        if (result.hasData && result.success) {
           toast.success('Apple Watch data synced');
+        } else if (result.permissionGranted && !result.hasData) {
+          toast.info('Connected! HRV data will appear once available from Apple Health.');
         }
-        // Refresh status from backend to get real lastSync
+        // Update local status immediately
+        setStatus(prev => prev ? {
+          ...prev,
+          appleWatch: {
+            connected: true,
+            lastSync: prev?.appleWatch.lastSync ?? null,
+            hasData: result.hasData,
+          },
+        } : prev);
+        // Refresh from backend
         await fetchStatus();
       } else {
         toast.error('Health permissions were denied');
@@ -338,12 +371,14 @@ const ConnectedData = () => {
         setSyncing(false);
         return;
       }
-      const ok = await syncHealthKitToBackend();
-      if (ok) {
+      const result = await syncHealthKitToBackend();
+      if (result.hasData && result.success) {
         toast.success('Apple Watch data synced');
         await fetchStatus();
+      } else if (result.permissionGranted && !result.hasData) {
+        toast.info('No HRV data available yet from Apple Health');
       } else {
-        toast.error('No new Apple Watch data available');
+        toast.error('Apple Watch sync failed');
       }
     } catch {
       toast.error('Apple Watch sync failed');
@@ -355,7 +390,8 @@ const ConnectedData = () => {
   const handleDisconnectAppleWatch = () => {
     try {
       localStorage.removeItem('contextConnections');
-      setStatus(prev => prev ? { ...prev, appleWatch: { connected: false, lastSync: null } } : prev);
+      clearHealthKitPermission();
+      setStatus(prev => prev ? { ...prev, appleWatch: { connected: false, lastSync: null, hasData: false } } : prev);
       toast.success('Apple Watch disconnected');
     } catch {
       toast.error('Failed to disconnect Apple Watch');
@@ -372,6 +408,7 @@ const ConnectedData = () => {
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      statusNote: undefined as string | undefined,
       onConnect: handleConnectCalendar,
       onDisconnect: handleDisconnectCalendar,
       onSync: handleSyncNow,
@@ -384,6 +421,9 @@ const ConnectedData = () => {
       logo: <img src={appleWatchLogo} alt="Apple Watch" className="h-8 w-8 rounded" />,
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
+      statusNote: (status?.appleWatch.connected && !status?.appleWatch.lastSync && status?.appleWatch.hasData === false)
+        ? 'Connected · Waiting for HRV data'
+        : undefined,
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
       onSync: handleSyncAppleWatch,
@@ -422,6 +462,9 @@ const ConnectedData = () => {
                     <p className="text-sm text-muted-foreground truncate">{conn.description}</p>
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
+                    )}
+                    {conn.connected && !conn.lastSync && conn.statusNote && (
+                      <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
                     )}
                     {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-watch') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
