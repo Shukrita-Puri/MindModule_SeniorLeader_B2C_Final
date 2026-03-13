@@ -21,10 +21,12 @@ export async function getHRV(days = 7) {
   const now = new Date();
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-  return Health.queryAggregated({
+  const res = await (Health as any).readSamples({
     dataType: 'heartRateVariability',
     startDate: startDate.toISOString(),
     endDate: now.toISOString(),
-    bucket: 'day',
+    limit: 100,
   });
+
+  return { samples: res?.samples ?? res?.data ?? [] };
 }

@@ -56,16 +56,24 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     const now = new Date();
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const hrvRes = await Health.queryAggregated({
+    const hrvRes = await (Health as any).readSamples({
+      dataType: 'heartRateVariability',
       startDate: dayAgo.toISOString(),
       endDate: now.toISOString(),
-      bucket: 'day',
-      dataType: 'heartRateVariability',
+      limit: 50,
     });
 
-    const hrv = hrvRes?.samples?.length
-      ? Number(hrvRes.samples[0].value)
-      : null;
+    const samples = hrvRes?.samples ?? hrvRes?.data ?? [];
+    let hrv: number | null = null;
+    if (Array.isArray(samples) && samples.length > 0) {
+      // Pick the most recent sample
+      const sorted = [...samples].sort(
+        (a: any, b: any) => new Date(b.endDate ?? b.date ?? 0).getTime() - new Date(a.endDate ?? a.date ?? 0).getTime()
+      );
+      hrv = Number(sorted[0].value);
+      if (isNaN(hrv)) hrv = null;
+    }
+    console.log(`[HealthKit] HRV readSamples returned ${samples.length} sample(s), latest: ${hrv}`);
 
     return { hrv };
   } catch (error) {
