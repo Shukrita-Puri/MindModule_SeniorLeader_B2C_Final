@@ -69,7 +69,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary_date: today,
+          summary_date: summaryDate,
           hrv: data.hrv,
           raw_data: {
             synced_at: new Date().toISOString(),
