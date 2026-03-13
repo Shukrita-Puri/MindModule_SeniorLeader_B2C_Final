@@ -55,7 +55,9 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       return { success: false, permissionGranted: data.permissionGranted, hasData: true };
     }
 
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const summaryDate = data.latestSampleDate
+      ? data.latestSampleDate.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
     const res = await fetch(
