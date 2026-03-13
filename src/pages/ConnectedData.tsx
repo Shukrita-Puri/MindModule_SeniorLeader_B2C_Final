@@ -425,7 +425,7 @@ const ConnectedData = () => {
         const aw = status?.appleWatch;
         if (!aw?.connected) return undefined;
         if (aw.lastSync) return undefined; // lastSync line renders separately
-        return 'Connected · No HRV data available yet';
+        return 'Connected · No HRV data yet. Verify HRV data exists in the Health app.';
       })(),
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,

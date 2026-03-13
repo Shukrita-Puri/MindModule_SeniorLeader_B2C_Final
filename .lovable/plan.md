@@ -1,47 +1,53 @@
 
 
-## Root Cause Analysis: "No HRV Data Available Yet"
+## Copy Updates — Front Page + Onboarding Welcome
 
-### The Problem
+Two files need text-only changes (no layout or UI modifications).
 
-The `wearable_data` table is **completely empty** and `persist-wearable-data` has **zero logs** — meaning the edge function has never been called. The data pipeline is breaking before it reaches the backend.
+---
 
-### Root Cause Chain
+### File 1: `src/pages/Front.tsx`
 
-1. **On simulator** (your screenshot says "Simulator Screenshot - iPhone 17 Pro"): `Capacitor.isNativePlatform()` returns `true`, so the HealthKit code runs. However, **iOS Simulator has no paired Apple Watch and no HRV data in HealthKit** unless you manually add samples via the Health app. The `readSamples` call returns 0 samples → `hrv === null` → sync service returns `{ hasData: false }` → "No HRV data available yet".
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-2. **On a real device**: The same flow *should* work if the Apple Watch is paired and has HRV readings. But two issues could prevent it:
-   - The `@capgo/capacitor-health` plugin's `readSamples` may return data in a different shape than expected (the code tries `hrvRes?.samples ?? hrvRes?.data ?? []` but the actual plugin may use a different key)
-   - The `dataType: 'heartRateVariability'` string may not match the plugin's expected identifier (some Capacitor Health plugins use `'heart_rate.variability.sdnn'` or the full HK identifier)
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-3. **No diagnostic logging**: When `readSamples` returns empty, there's no log of the raw response shape, making it impossible to tell if it's "no data exists" vs "data exists but parsing failed".
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-### Fix Plan
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-| File | Change |
-|------|--------|
-| `src/utils/healthKitCapacitor.ts` | Add raw response logging to diagnose exact plugin response shape. Log the full `hrvRes` object before parsing. Add a fallback check for alternative response keys (`results`, `resultData`). |
-| `src/services/wearableSyncService.ts` | Add logging around the persist call: log when skipping (no data), when calling persist, and the response status. |
-| `src/pages/ConnectedData.tsx` | Update the status note for the "connected but no data" state to distinguish simulator vs real device, and show "Open Health app to verify HRV data exists" hint. |
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-### Key Diagnostic Addition
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-In `queryHealthKitData()`, before parsing:
-```typescript
-console.log('[HealthKit] Raw readSamples response keys:', Object.keys(hrvRes));
-console.log('[HealthKit] Raw readSamples response:', JSON.stringify(hrvRes).slice(0, 500));
-```
+---
 
-This will immediately reveal whether the plugin is returning data in an unexpected shape.
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-### Simulator Workaround
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-For testing on simulator, users can manually add HRV data:
-1. Open the Health app on simulator
-2. Browse → Heart → Heart Rate Variability
-3. Add Data manually
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-### Summary
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-The most likely root cause is that **no actual HRV samples exist in HealthKit on the simulator**. On a real device with Apple Watch, the pipeline should work but needs better diagnostic logging to confirm the plugin response shape. The fix adds logging at every stage so the exact failure point is visible in device console logs.
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

@@ -45,9 +45,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
     // Permission granted but no HRV samples — still a successful connection
     if (data.hrv === null) {
-      console.log('[WearableSync] HealthKit accessible, no HRV samples in window');
+      console.log('[WearableSync] HealthKit accessible, no HRV samples in window. permissionGranted:', data.permissionGranted, 'latestSampleDate:', data.latestSampleDate);
       return { success: true, permissionGranted: data.permissionGranted, hasData: false };
     }
+
+    console.log('[WearableSync] HRV data found:', data.hrv, 'sampleDate:', data.latestSampleDate, '— proceeding to persist');
 
     const token = await getAuthToken();
     if (!token) {

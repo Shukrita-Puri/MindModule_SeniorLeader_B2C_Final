@@ -67,7 +67,11 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       limit: 50,
     });
 
-    const samples = hrvRes?.samples ?? hrvRes?.data ?? [];
+    // Diagnostic logging — reveals exact plugin response shape
+    console.log('[HealthKit] Raw readSamples response keys:', hrvRes ? Object.keys(hrvRes) : 'null/undefined');
+    console.log('[HealthKit] Raw readSamples response:', JSON.stringify(hrvRes).slice(0, 500));
+
+    const samples = hrvRes?.samples ?? hrvRes?.data ?? hrvRes?.results ?? hrvRes?.resultData ?? [];
     let hrv: number | null = null;
     let latestSampleDate: string | null = null;
     if (Array.isArray(samples) && samples.length > 0) {
