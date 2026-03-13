@@ -55,7 +55,9 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       return { success: false, permissionGranted: data.permissionGranted, hasData: true };
     }
 
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const summaryDate = data.latestSampleDate
+      ? data.latestSampleDate.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
     const res = await fetch(
@@ -67,7 +69,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary_date: today,
+          summary_date: summaryDate,
           hrv: data.hrv,
           raw_data: {
             synced_at: new Date().toISOString(),
@@ -77,11 +79,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     );
 
     if (res.ok) {
-      console.log('[WearableSync] ✅ HealthKit data persisted for', today);
+      console.log('[WearableSync] ✅ HealthKit data persisted for', summaryDate);
       saveWearableDataLocally({
         hrv: data.hrv,
         syncedAt: new Date().toISOString(),
-        summaryDate: today,
+        summaryDate,
       });
       return { success: true, permissionGranted: true, hasData: true };
     } else {

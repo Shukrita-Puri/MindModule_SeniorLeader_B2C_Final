@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
-import appleWatchLogo from '@/assets/shared/apple-watch-logo.jpg';
+import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 
 /* ─── Types ─── */
 
@@ -415,15 +415,19 @@ const ConnectedData = () => {
       canSync: true,
     },
     {
-      id: 'apple-watch',
-      name: 'Apple Watch',
-      description: 'Connect via Apple Health for HRV and sleep data',
-      logo: <img src={appleWatchLogo} alt="Apple Watch" className="h-8 w-8 rounded" />,
+      id: 'apple-health',
+      name: 'Apple Health',
+      description: 'Connect Apple Health for HRV data',
+      logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: status?.appleWatch.connected ?? false,
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
-      statusNote: (status?.appleWatch.connected && !status?.appleWatch.lastSync && status?.appleWatch.hasData === false)
-        ? 'Connected · Waiting for HRV data'
-        : undefined,
+      statusNote: (() => {
+        const aw = status?.appleWatch;
+        if (!aw?.connected) return undefined;
+        if (aw.lastSync) return undefined; // lastSync line renders separately
+        if (aw.hasData === false) return 'Connected · No HRV data available yet';
+        return 'Connected · Waiting for HRV data';
+      })(),
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
       onSync: handleSyncAppleWatch,

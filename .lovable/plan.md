@@ -1,81 +1,53 @@
 
 
-## Fix Apple Health HRV Integration and UI
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Summary
+Two files need text-only changes (no layout or UI modifications).
 
-The integration pipeline is mostly correct. The core issues are:
+---
 
-1. **Icon**: Still using an Apple Watch black square instead of the Apple Health heart icon
-2. **UI labeling**: Says "Apple Watch" instead of "Apple Health"
-3. **Status states**: Only shows "Connected - Waiting for HRV data" or last sync time; missing intermediate states like "Syncing..." (already partially there), "No HRV data found", or "Permission denied"
-4. **Query window**: 7-day window in `healthKitCapacitor.ts` is reasonable but could be expanded to 30 days for initial query to match the user's request
-5. **Backend connection detection**: `check-connections-status` only checks for `wearable_data` rows created in the last 7 days -- if permission is granted but no data exists, backend returns `connected: false`; the frontend merges with localStorage but the status note logic could be richer
+### File 1: `src/pages/Front.tsx`
 
-### What is already working correctly
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-- `NSHealthShareUsageDescription` is in Info.plist
-- `requestAuthorization` uses `heartRateVariability` (correct)
-- `readSamples` is used (not `queryAggregated`)
-- Permission granted vs data availability is distinguished in `WearableSyncResult`
-- Sync pipeline to `persist-wearable-data` edge function works
-- `useWearableSync` hook has staleness checking and auto-sync
-- `ConnectedData.tsx` has auto-sync on stale data and manual sync
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-### Changes
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-#### 1. Replace Apple Watch icon with Apple Health icon
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-- Copy the uploaded Apple Health icon (`download_3.png`) to `src/assets/shared/apple-health-icon.png`
-- Update import in `ConnectedData.tsx` from `apple-watch-logo.jpg` to `apple-health-icon.png`
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-#### 2. Rename "Apple Watch" to "Apple Health" in UI
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-In `ConnectedData.tsx`, update the connection entry:
-- `name: 'Apple Health'`
-- `description: 'Connect Apple Health for HRV data'`
+---
 
-#### 3. Improve status states in ConnectedData
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-Replace the simple `statusNote` logic with richer state handling:
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-```text
-syncing        → "Syncing…" (already handled via separate syncing indicator)
-connected+data → "Last synced Mar 13, 6:52 PM" (already works)
-connected+noData → "Connected · No HRV data available yet"
-permission denied → handled by toast on connect failure
-```
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-Update `statusNote` derivation to also show when connected with data but no lastSync timestamp, and add a help hint when no HRV data is found.
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-#### 4. Expand HRV query window to 30 days
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-In `src/utils/healthKitCapacitor.ts`, change the `readSamples` date range from 7 days to 30 days. This reduces false "no data" results when the user has HRV readings but not from the recent week.
+---
 
-#### 5. Persist wearable data for all available samples (not just today)
-
-Currently `syncHealthKitToBackend` only sends `summary_date: today`. If the latest HRV sample is from 3 days ago, the data still gets tagged as today's. Fix: use the actual sample date from the HRV reading.
-
-In `src/utils/healthKitCapacitor.ts`, also return the timestamp of the latest sample so `wearableSyncService` can use the correct `summary_date`.
-
-#### 6. Update `HealthKitWearableData` interface
-
-Add `latestSampleDate: string | null` to the return type so the sync service can persist with the correct date.
-
-### Files to change
-
-| File | Change |
-|------|--------|
-| `src/assets/shared/apple-health-icon.png` | Copy uploaded icon |
-| `src/pages/ConnectedData.tsx` | Swap icon, rename to "Apple Health", improve status states |
-| `src/utils/healthKitCapacitor.ts` | Expand window to 30 days, return sample date |
-| `src/services/wearableSyncService.ts` | Use actual sample date for `summary_date` |
-
-### Not changing
-
-- Database schema (existing `wearable_data` table works fine)
-- Edge functions (persist-wearable-data and check-connections-status work correctly)
-- Permission flow (already correct)
-- `useWearableSync` hook (already handles staleness)
-- Background sync (Capacitor/web limitation; the existing auto-sync-on-open pattern is the right approach)
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
