@@ -1428,7 +1428,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       } else if (timeOfDay === 'evening') {
         // Fallback: try to find ANY real content from DB for this module type
         const fallbackCategory = moduleType === 'regulate' ? 'somatic' : 'mindset';
-        const fallbackItem = enrichedContent.find((c: any) => c.category === fallbackCategory);
+        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory);
         if (fallbackItem) {
           todModules.push({
             type: moduleType,
