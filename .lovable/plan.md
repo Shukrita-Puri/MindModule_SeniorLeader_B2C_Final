@@ -1,45 +1,53 @@
 
 
-## Root Cause Analysis and Fix Plan
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Three Issues Found
+Two files need text-only changes (no layout or UI modifications).
 
-**Issue 1: "Connected · Waiting for HRV data" shown incorrectly**
+---
 
-The `check-connections-status` edge function only marks Apple Watch as connected if a `wearable_data` row exists from the last 7 days. On web preview (non-native), the local permission flag forces `connected: true` but `lastSync` stays null and `hasData` stays false, triggering the "Waiting for HRV data" message at line 424-429 of `ConnectedData.tsx`.
+### File 1: `src/pages/Front.tsx`
 
-The real problem is that on non-native platforms, the status merging logic always shows the waiting state. The fix: when the backend returns `lastSync` data (meaning DB rows exist), that should be respected even when the local permission flag is the connection source.
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**Issue 2: Wearable HRV data is NOT being used in Inner Readiness scoring (critical bug)**
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-`src/utils/energyStateEngine.ts` line 170 reads:
-```
-localStorage.getItem('wearableData')
-```
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-But `wearableSyncService.ts` saves to `local_wearable_data` (via `localDataStore.ts`). These keys don't match. The engine always reads `{}`, so `hasWearable` is always `false`, and the wearable signal is never passed to `compute-inner-readiness`.
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-Additionally, the engine expects `{ hrv, readiness, baseline }` shape but `localDataStore` saves `{ entries: [...] }` — the data shape is also incompatible.
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**Fix**: Update `energyStateEngine.ts` to read from the correct localStorage key AND parse the entries array to extract the latest HRV. Also attempt to fetch from the DB (like `useWearableSync` does) as a more reliable source. Include the user's HRV baseline from the DB.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-**Issue 3: "Based on" label missing wearable**
+---
 
-`TodayStateCard.tsx` already correctly maps `dataSources` — when `'wearable'` is in the array it shows "wearable score". This is working code; it just never fires because Issue 2 means the wearable signal is never included. Fixing Issue 2 automatically fixes this.
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-### Changes
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-| File | Change |
-|------|--------|
-| `src/utils/energyStateEngine.ts` | Fix wearable data retrieval: read from correct localStorage key (`local_wearable_data`), parse entries array for latest HRV, and also query `wearable_data` DB table for HRV + baseline when userId is available |
-| `src/pages/ConnectedData.tsx` | Fix statusNote logic: when backend returns `lastSync`, don't show "Waiting for HRV data". Only show waiting state when genuinely no data exists anywhere |
-| `src/assets/shared/apple-health-icon.png` | Replace with the uploaded cropped icon (logo only, larger heart) |
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-### Technical Detail
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-For the wearable data fix in `energyStateEngine.ts`, the new flow will be:
-1. Try DB first: query `wearable_data` for latest HRV + compute 7-day baseline (reuse `getUserHRVBaseline` from `wearableContextAnalyzer.ts`)
-2. Fall back to `local_wearable_data` localStorage key, parse entries array, pick latest
-3. Pass `wearableHRV` and `wearableBaseline` to `compute-inner-readiness`
-4. The edge function already handles wearable weighting correctly (25-35% weight depending on divergence) — no backend changes needed
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
