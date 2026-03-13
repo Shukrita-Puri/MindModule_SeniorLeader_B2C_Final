@@ -80,6 +80,6 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     return { hrv, permissionGranted: true };
   } catch (error) {
     console.error('[HealthKit] Query failed:', error);
-    return empty;
+    return { hrv: null, permissionGranted: false };
   }
 }
