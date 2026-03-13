@@ -320,7 +320,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       calendarDensity,
       calendarLoad,
       calendarPressure,
-      wearableFunction: hasWearable ? (wearableData.readiness >= 75 ? 'high' : wearableData.readiness >= 50 ? 'medium' : 'low') : undefined,
+      wearableFunction: hasWearable ? (wearableReadiness >= 75 ? 'high' : wearableReadiness >= 50 ? 'medium' : 'low') : undefined,
       energyTier: result.tier,
       timeOfDay: result.timeOfDay,
       recommendation: {
