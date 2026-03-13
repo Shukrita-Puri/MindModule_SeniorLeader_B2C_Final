@@ -316,11 +316,12 @@ export default function Stage7ContextConnection() {
             />
           </div>
 
-          {/* Apple Watch */}
+          {/* Apple Health */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
+              <img src={appleHealthIcon} alt="Apple Health" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
-                <span className="font-medium">Apple Watch</span>
+                <span className="font-medium">Apple Health</span>
                 <span className="text-xs text-muted-foreground">
                   {isNativeApp() ? "HealthKit integration" : "Available in mobile app"}
                 </span>
