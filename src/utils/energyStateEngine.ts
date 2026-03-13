@@ -168,8 +168,49 @@ async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | nu
 }
 
 export async function computeEnergyState(userId?: string): Promise<CurrentEnergyState> {
-  // 1. Read ephemeral signal data
-  const wearableData = JSON.parse(localStorage.getItem('wearableData') || '{}');
+  // 1. Read wearable data — try DB first, fall back to local storage
+  const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
+  let wearableHRV: number | null = null;
+  let wearableBaseline: number | null = null;
+  let wearableReadiness: number = 0;
+
+  // Try DB for latest HRV + baseline
+  if (effectiveUserId) {
+    try {
+      const [latestRow, baseline] = await Promise.all([
+        supabase
+          .from('wearable_data')
+          .select('hrv, updated_at')
+          .eq('user_id', effectiveUserId)
+          .not('hrv', 'is', null)
+          .order('summary_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        getUserHRVBaseline(effectiveUserId),
+      ]);
+      if (latestRow.data?.hrv) {
+        wearableHRV = Number(latestRow.data.hrv);
+        wearableBaseline = baseline;
+        wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
+      }
+    } catch (err) {
+      console.warn('[energyStateEngine] DB wearable fetch failed:', err);
+    }
+  }
+
+  // Fall back to local storage if DB had nothing
+  if (wearableHRV === null) {
+    const localEntries = getLocalWearableData();
+    if (localEntries.length > 0) {
+      const latest = localEntries[localEntries.length - 1];
+      if (latest.hrv !== null) {
+        wearableHRV = latest.hrv;
+        wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
+      }
+    }
+  }
+
+  const hasWearable = wearableHRV !== null && wearableHRV > 0;
 
   // Fetch calendar events from DB only if connection is active
   let calendarData: any[] = [];
