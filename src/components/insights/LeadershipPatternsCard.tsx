@@ -44,6 +44,8 @@ export interface LeadershipPatternsData {
 interface LeadershipPatternsCardProps {
   userId?: string;
   prefetchedData?: LeadershipPatternsData | null;
+  /** When true, the card will wait for parent data instead of fetching on its own */
+  parentLoading?: boolean;
 }
 
 const trendIcons = {
