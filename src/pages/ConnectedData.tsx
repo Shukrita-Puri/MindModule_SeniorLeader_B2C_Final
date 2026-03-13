@@ -373,7 +373,8 @@ const ConnectedData = () => {
       lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
       onConnect: handleConnectAppleWatch,
       onDisconnect: handleDisconnectAppleWatch,
-      canSync: false,
+      onSync: handleSyncAppleWatch,
+      canSync: isNativeApp(),
     },
   ];
 
