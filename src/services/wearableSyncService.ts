@@ -6,26 +6,53 @@ import { isNativeApp, queryHealthKitData, type HealthKitWearableData } from '@/u
 import { getAuthToken } from '@/services/authTokenService';
 import { saveWearableDataLocally } from '@/services/localDataStore';
 
+const WEARABLE_PERMISSION_KEY = 'healthkit_permission_granted';
+
+/** Mark HealthKit permission as granted in local storage */
+export function markHealthKitPermissionGranted(): void {
+  try { localStorage.setItem(WEARABLE_PERMISSION_KEY, 'true'); } catch {}
+}
+
+/** Check if HealthKit permission was previously granted */
+export function isHealthKitPermissionGranted(): boolean {
+  try { return localStorage.getItem(WEARABLE_PERMISSION_KEY) === 'true'; } catch { return false; }
+}
+
+/** Clear HealthKit permission flag (for disconnect) */
+export function clearHealthKitPermission(): void {
+  try { localStorage.removeItem(WEARABLE_PERMISSION_KEY); } catch {}
+}
+
+export interface WearableSyncResult {
+  success: boolean;
+  permissionGranted: boolean;
+  hasData: boolean;
+}
+
 /**
  * Query HealthKit and persist the summary to wearable_data via edge function.
- * Safe to call on any platform — returns early on web.
+ * Returns structured result distinguishing permission state from data availability.
  */
-export async function syncHealthKitToBackend(): Promise<boolean> {
-  if (!isNativeApp()) return false;
+export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
+  if (!isNativeApp()) return { success: false, permissionGranted: false, hasData: false };
 
   try {
     const data = await queryHealthKitData();
 
-    // Skip if no HRV data available
+    if (data.permissionGranted) {
+      markHealthKitPermissionGranted();
+    }
+
+    // Permission granted but no HRV samples — still a successful connection
     if (data.hrv === null) {
-      console.log('[WearableSync] No HealthKit HRV data available, skipping');
-      return false;
+      console.log('[WearableSync] HealthKit accessible, no HRV samples in window');
+      return { success: true, permissionGranted: data.permissionGranted, hasData: false };
     }
 
     const token = await getAuthToken();
     if (!token) {
       console.warn('[WearableSync] No auth token, skipping persist');
-      return false;
+      return { success: false, permissionGranted: data.permissionGranted, hasData: true };
     }
 
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -51,19 +78,18 @@ export async function syncHealthKitToBackend(): Promise<boolean> {
 
     if (res.ok) {
       console.log('[WearableSync] ✅ HealthKit data persisted for', today);
-      // Write-through to local device storage
       saveWearableDataLocally({
         hrv: data.hrv,
         syncedAt: new Date().toISOString(),
         summaryDate: today,
       });
-      return true;
+      return { success: true, permissionGranted: true, hasData: true };
     } else {
       console.warn('[WearableSync] ⚠️ Persist failed:', res.status);
-      return false;
+      return { success: false, permissionGranted: true, hasData: true };
     }
   } catch (err) {
     console.warn('[WearableSync] ⚠️ Error:', err);
-    return false;
+    return { success: false, permissionGranted: false, hasData: false };
   }
 }
