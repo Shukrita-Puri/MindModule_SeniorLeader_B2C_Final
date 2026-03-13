@@ -77,7 +77,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     }
     console.log(`[HealthKit] HRV readSamples returned ${samples.length} sample(s), latest: ${hrv}`);
 
-    return { hrv };
+    return { hrv, permissionGranted: true };
   } catch (error) {
     console.error('[HealthKit] Query failed:', error);
     return empty;
