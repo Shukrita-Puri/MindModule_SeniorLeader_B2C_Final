@@ -408,6 +408,7 @@ const ConnectedData = () => {
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      statusNote: undefined as string | undefined,
       onConnect: handleConnectCalendar,
       onDisconnect: handleDisconnectCalendar,
       onSync: handleSyncNow,
