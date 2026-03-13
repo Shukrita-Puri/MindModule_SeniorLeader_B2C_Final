@@ -79,11 +79,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     );
 
     if (res.ok) {
-      console.log('[WearableSync] ✅ HealthKit data persisted for', today);
+      console.log('[WearableSync] ✅ HealthKit data persisted for', summaryDate);
       saveWearableDataLocally({
         hrv: data.hrv,
         syncedAt: new Date().toISOString(),
-        summaryDate: today,
+        summaryDate,
       });
       return { success: true, permissionGranted: true, hasData: true };
     } else {
