@@ -69,7 +69,7 @@ function devResolveArchetype(er: number, fr: number, en: number) {
   return { id: "adaptive-navigator", title: "The Adaptive Navigator", leanOn: "Flexibility — you read the field and adjust in real time.", watchFor: "Adapting constantly without anchoring can be depleting." };
 }
 
-const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCardProps) => {
+const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: LeadershipPatternsCardProps) => {
   const [data, setData] = useState<LeadershipPatternsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,8 +80,15 @@ const LeadershipPatternsCard = ({ userId, prefetchedData }: LeadershipPatternsCa
       setLoading(false);
       return;
     }
-    if (userId) fetchData();
-  }, [userId, prefetchedData]);
+    // If parent is still loading, wait — don't fire our own request
+    if (parentLoading) return;
+    // Only self-fetch if no parent is providing data (standalone usage)
+    if (userId && prefetchedData === undefined) fetchData();
+    // If parent finished loading but data is empty/null, stop loading
+    if (prefetchedData === null && !parentLoading) {
+      setLoading(false);
+    }
+  }, [userId, prefetchedData, parentLoading]);
 
   const fetchData = async () => {
     setLoading(true);
