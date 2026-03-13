@@ -51,35 +51,37 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
  * Returns null values for any metric that cannot be read.
  */
 export async function queryHealthKitData(): Promise<HealthKitWearableData> {
-  const empty: HealthKitWearableData = { hrv: null, permissionGranted: false };
+  const empty: HealthKitWearableData = { hrv: null, latestSampleDate: null, permissionGranted: false };
 
   if (!isNativeApp()) return empty;
 
   try {
     const { Health } = await import('@capgo/capacitor-health');
     const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const hrvRes = await (Health as any).readSamples({
       dataType: 'heartRateVariability',
-      startDate: sevenDaysAgo.toISOString(),
+      startDate: thirtyDaysAgo.toISOString(),
       endDate: now.toISOString(),
       limit: 50,
     });
 
     const samples = hrvRes?.samples ?? hrvRes?.data ?? [];
     let hrv: number | null = null;
+    let latestSampleDate: string | null = null;
     if (Array.isArray(samples) && samples.length > 0) {
-      // Pick the most recent sample
       const sorted = [...samples].sort(
         (a: any, b: any) => new Date(b.endDate ?? b.date ?? 0).getTime() - new Date(a.endDate ?? a.date ?? 0).getTime()
       );
       hrv = Number(sorted[0].value);
       if (isNaN(hrv)) hrv = null;
+      const sampleDate = sorted[0].endDate ?? sorted[0].date;
+      if (sampleDate) latestSampleDate = new Date(sampleDate).toISOString();
     }
     console.log(`[HealthKit] HRV readSamples returned ${samples.length} sample(s), latest: ${hrv}`);
 
-    return { hrv, permissionGranted: true };
+    return { hrv, latestSampleDate, permissionGranted: true };
   } catch (error) {
     console.error('[HealthKit] Query failed:', error);
     return { hrv: null, permissionGranted: false };
