@@ -95,14 +95,25 @@ function outcomeTier(outcome: string): "peak" | "managing" | "depleted" {
 }
 
 // ──────────────────────────────────────────────
+// Step timer helper
+// ──────────────────────────────────────────────
+function stepTimer(label: string, startMs: number): void {
+  console.log(`[state-patterns-insights] ⏱ ${label}: ${Date.now() - startMs}ms`);
+}
+
+// ──────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const t0 = Date.now();
+
   try {
     // Auth — shared JWT verification
+    const tAuth = Date.now();
     const userId = await verifyAuth0JWT(req.headers.get("authorization"));
+    stepTimer("auth", tAuth);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -114,6 +125,7 @@ Deno.serve(async (req) => {
     const thirtyStr = thirtyDaysAgo.toISOString().split("T")[0];
 
     // ── Parallel queries ──
+    const tQueries = Date.now();
     const [
       profileRes, checkInsRes, themesRes, coachInsightsRes,
       sanctuaryRes, ritualRes, tinyWinsRes, wearableRes,
@@ -122,7 +134,7 @@ Deno.serve(async (req) => {
       supabase.from("profiles").select("user_archetype, component_scores, mental_fitness_baseline, growth_priority").eq("id", userId).maybeSingle(),
       supabase.from("daily_checkins").select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at").eq("user_id", userId).gte("checkin_date", thirtyStr).order("checkin_date", { ascending: true }),
       supabase.from("daily_themes").select("theme_phrase, theme_driver").eq("user_id", userId).gte("theme_date", thirtyStr),
-      supabase.from("user_coach_insights").select("insight_content, created_at, insight_type").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
+      supabase.from("user_coach_insights").select("insight_content, created_at, insight_type, is_active").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
       supabase.from("sanctuary_events").select("category, event_type, timestamp, context_data").eq("user_id", userId).gte("timestamp", thirtyDaysAgo.toISOString()),
       supabase.from("daily_ritual_completions").select("session_period, completion_status, ritual_date").eq("user_id", userId).gte("ritual_date", thirtyStr),
       supabase.from("tiny_wins").select("win_date").eq("user_id", userId).gte("win_date", thirtyStr),
@@ -132,6 +144,7 @@ Deno.serve(async (req) => {
       supabase.from("behavior_logs").select("behavior_type, created_at").eq("user_id", userId).gte("created_at", thirtyDaysAgo.toISOString()),
       supabase.from("inner_readiness_scores").select("composite_score, energy_tier, full_context_statement, divergence_flag, layers_active, score_date").eq("user_id", userId).gte("score_date", thirtyStr).order("score_date", { ascending: true }),
     ]);
+    stepTimer("parallel-queries", tQueries);
 
     const profile = profileRes.data;
     const checkIns = checkInsRes.data || [];
@@ -150,13 +163,52 @@ Deno.serve(async (req) => {
     const totalCheckins = checkIns.length;
     const coachSessionCount = dialogueSessions.length;
 
-    // ── Coach dialogue messages (if sessions exist) ──
+    // ── Coach dialogue messages + explicit insight queries (parallel) ──
+    const tCoachQueries = Date.now();
     let dialogueMessages: { content: string }[] = [];
+
+    // Build all secondary queries in parallel
+    const secondaryQueries: Promise<any>[] = [];
+
+    // Dialogue messages query
     if (coachSessionCount > 0) {
       const sessionIds = dialogueSessions.map((s: any) => s.id);
-      const { data: msgs } = await supabase.from("dialogue_messages").select("content").in("session_id", sessionIds);
-      dialogueMessages = (msgs || []).map((m: any) => ({ content: m.content || "" }));
+      secondaryQueries.push(
+        supabase.from("dialogue_messages").select("content").in("session_id", sessionIds)
+          .then(({ data }) => { dialogueMessages = (data || []).map((m: any) => ({ content: m.content || "" })); })
+      );
     }
+
+    // Explicit coach insight queries (strength + growth_area)
+    let explicitStrength: string | null = null;
+    let explicitGrowth: string | null = null;
+
+    secondaryQueries.push(
+      supabase.from("user_coach_insights")
+        .select("insight_content")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .eq("insight_type", "strength")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => { explicitStrength = data?.insight_content?.substring(0, 120) || null; })
+    );
+
+    secondaryQueries.push(
+      supabase.from("user_coach_insights")
+        .select("insight_content")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .eq("insight_type", "growth_area")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => { explicitGrowth = data?.insight_content?.substring(0, 120) || null; })
+    );
+
+    await Promise.all(secondaryQueries);
+    stepTimer("coach-queries", tCoachQueries);
 
     // ── Baseline scores & archetype ──
     const cs = profile?.component_scores as any;
@@ -195,11 +247,10 @@ Deno.serve(async (req) => {
       const priorLowDates = new Set(priorCheckins7.filter((c: any) => ["drained", "overwhelmed", "scattered"].includes(c.outcome?.toLowerCase() || "")).map((c: any) => c.checkin_date));
       const recentFriction = recentDates.size > 0 ? (recentLowDates.size / recentDates.size) * 100 : 0;
       const priorFriction = priorDates.size > 0 ? (priorLowDates.size / priorDates.size) * 100 : 0;
-      const diff = priorFriction - recentFriction; // positive = improving (less friction now)
+      const diff = priorFriction - recentFriction;
       if (diff >= 10) trendDirection = "improving";
       else if (diff <= -10) trendDirection = "declining";
     } else {
-      // Fallback to energy_balance trend
       const ebRecent = checkIns.filter((c: any) => c.checkin_date >= sevenStr && c.energy_balance != null);
       const ebPrior = checkIns.filter((c: any) => c.checkin_date >= fourteenStr && c.checkin_date < sevenStr && c.energy_balance != null);
       if (ebRecent.length > 0 && ebPrior.length > 0) {
@@ -221,31 +272,10 @@ Deno.serve(async (req) => {
     themes.forEach((t: any) => { if (t.theme_phrase) themeCounts.set(t.theme_phrase, (themeCounts.get(t.theme_phrase) || 0) + 1); });
     const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
 
-    // ── Coach insights (prioritize explicit strength/growth_area types) ──
-    // First: explicit insight_type queries
-    const [explicitStrengthRes, explicitGrowthRes] = await Promise.all([
-      supabase.from("user_coach_insights")
-        .select("insight_content")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .eq("insight_type", "strength")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase.from("user_coach_insights")
-        .select("insight_content")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .eq("insight_type", "growth_area")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+    // ── Coach insights (use explicit types first, fallback to keyword scan) ──
+    let coachStrength: string | null = explicitStrength;
+    let coachFriction: string | null = explicitGrowth;
 
-    let coachStrength: string | null = explicitStrengthRes.data?.insight_content?.substring(0, 120) || null;
-    let coachFriction: string | null = explicitGrowthRes.data?.insight_content?.substring(0, 120) || null;
-
-    // Fallback: keyword extraction from all insights (legacy data)
     if (!coachStrength || !coachFriction) {
       const strengthKw = /strength|strong|excel|composure|resilient|clarity|conviction|grounded|held|showed up|brought|capacity|resource/i;
       const frictionKw = /struggle|challenge|pattern|watch for|friction|tendency|recurring|avoidance|escalated|reactive|lost|slipping|cost/i;
@@ -266,7 +296,6 @@ Deno.serve(async (req) => {
     // ──────────────────────────────────────────
 
     // --- Recalibration signals ---
-    // Pause practices in low state
     const pauseInLow = sanctuaryEvents.filter((e: any) => {
       if (e.category !== "pause") return false;
       const eDate = e.timestamp?.split("T")[0];
@@ -275,12 +304,10 @@ Deno.serve(async (req) => {
     }).length;
     const pauseScore = Math.min(100, pauseInLow * 5);
 
-    // Pre-event sessions
     const preEventSessions = ritualCompletions.filter((r: any) => r.session_period === "pre-event" && r.completion_status === "full").length;
     const preEventScore = Math.min(100, preEventSessions * 5);
 
-    // HRV trend
-    let hrvTrendScore = 50; // neutral
+    let hrvTrendScore = 50;
     const hrvData = wearableData.filter((d: any) => d.hrv != null);
     if (hrvData.length >= 14) {
       const hrvRecent = hrvData.filter((d: any) => d.summary_date >= sevenStr);
@@ -294,14 +321,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Coach regulation score
     const coachRegScore = scanKeywords(dialogueMessages, REG_POSITIVE, REG_NEGATIVE);
 
-    // Felt state (energy_balance last 7 days)
     const recentEB = checkIns.filter((c: any) => c.checkin_date >= sevenStr && c.energy_balance != null).map((c: any) => c.energy_balance as number);
     const feltER = recentEB.length > 0 ? Math.round(recentEB.reduce((s, v) => s + v, 0) / recentEB.length) : 50;
 
-    // Consecutive low penalty
     let consecutiveLow = 0;
     let maxConsecutiveLow = 0;
     for (const c of checkIns) {
@@ -323,27 +347,21 @@ Deno.serve(async (req) => {
     evolvedER = Math.max(0, Math.min(100, Math.round(evolvedER)));
 
     // --- Clarity signals ---
-    // Flow practices under high calendar load
     const flowUnderLoad = sanctuaryEvents.filter((e: any) => {
       if (e.category !== "flow") return false;
-      // Approximate: just count flow practices (calendar pressure would require joining calendar_events)
       return true;
     }).length;
     const flowScore = Math.min(100, flowUnderLoad * 5);
 
-    // Coach clarity score
     const coachClarityScore = scanKeywords(dialogueMessages, CLARITY_POSITIVE, CLARITY_NEGATIVE);
 
-    // Clarity theme recurrence penalty
     const clarityThemePatterns = /clarity before stakes|focus or fragment|reclaim your attention/i;
     const clarityThemeCount = themes.filter((t: any) => clarityThemePatterns.test(t.theme_phrase || "")).length;
     const clarityThemePenalty = (totalCheckins >= 10 && clarityThemeCount >= 5) ? -5 : 0;
 
-    // Scattered cause-effect penalty
     const scatteredCount = checkIns.filter((c: any) => c.outcome?.toLowerCase() === "scattered").length;
     const scatteredPenalty = (behaviorLogs.length >= 5 && scatteredCount >= 5) ? -10 : 0;
 
-    // Felt state (clarity_level last 7 days)
     const recentCL = checkIns.filter((c: any) => c.checkin_date >= sevenStr && c.clarity_level != null).map((c: any) => c.clarity_level as number);
     const feltCL = recentCL.length > 0 ? Math.round(recentCL.reduce((s, v) => s + v, 0) / recentCL.length) : 50;
 
@@ -359,7 +377,6 @@ Deno.serve(async (req) => {
     evolvedFR = Math.max(0, Math.min(100, Math.round(evolvedFR)));
 
     // --- Renewal signals ---
-    // Renergise practices in depleted state
     const renergiseInDepleted = sanctuaryEvents.filter((e: any) => {
       if (e.category !== "renergise") return false;
       const eDate = e.timestamp?.split("T")[0];
@@ -368,7 +385,6 @@ Deno.serve(async (req) => {
     }).length;
     const renergiseScore = Math.min(100, renergiseInDepleted * 5);
 
-    // Evening session completion rate
     const eveningSessions = ritualCompletions.filter((r: any) => r.session_period === "evening");
     const eveningFull = eveningSessions.filter((r: any) => r.completion_status === "full").length;
     let eveningScore = 50;
@@ -378,17 +394,13 @@ Deno.serve(async (req) => {
       else if (rate < 0.3) eveningScore = 42;
     }
 
-    // Tiny wins frequency
     const tinyWinCount = tinyWins.length;
-    const tinyWinScore = Math.min(10, tinyWinCount) * 10; // 0-100
+    const tinyWinScore = Math.min(10, tinyWinCount) * 10;
 
-    // HRV recovery rate (simplified: same as trend for now)
     const hrvRecoveryScore = hrvTrendScore;
 
-    // Coach renewal score
     const coachRenewalScore = scanKeywords(dialogueMessages, RENEWAL_POSITIVE, RENEWAL_NEGATIVE);
 
-    // Felt state (confidence_level last 7 days)
     const recentCF = checkIns.filter((c: any) => c.checkin_date >= sevenStr && c.confidence_level != null).map((c: any) => c.confidence_level as number);
     const feltCF = recentCF.length > 0 ? Math.round(recentCF.reduce((s, v) => s + v, 0) / recentCF.length) : 50;
 
@@ -423,12 +435,17 @@ Deno.serve(async (req) => {
       archetypeEvolved = baselineArch.id !== currentArch.id;
     }
 
-    // ── AI Observation ──
+    // ── AI Observation (with strict timeout) ──
+    const tAI = Date.now();
     let aiObservation: string | null = null;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const AI_TIMEOUT_MS = 6000; // 6 second hard cap
 
     if (LOVABLE_API_KEY && totalCheckins >= 3) {
       try {
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+
         const themesStr = recurringThemes.map((t) => `"${t.phrase}" (${t.count}×)`).join(", ");
         const coachExcerpts = [coachStrength, coachFriction].filter(Boolean).join(" | ");
         const dimensionDeltaStr = scoreDeltas
@@ -439,6 +456,7 @@ Deno.serve(async (req) => {
         const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          signal: abortController.signal,
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
@@ -463,6 +481,8 @@ Deno.serve(async (req) => {
           }),
         });
 
+        clearTimeout(timeoutId);
+
         if (aiRes.ok) {
           const aiData = await aiRes.json();
           const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
@@ -471,9 +491,14 @@ Deno.serve(async (req) => {
             aiObservation = parsed.observation || null;
           }
         }
+        stepTimer("ai-observation (success)", tAI);
       } catch (aiErr) {
-        console.error("AI observation error:", aiErr);
+        const isAbort = aiErr instanceof DOMException && aiErr.name === "AbortError";
+        console.warn(`[state-patterns-insights] AI observation ${isAbort ? "timed out" : "failed"}:`, isAbort ? `>${AI_TIMEOUT_MS}ms` : aiErr);
+        stepTimer(`ai-observation (${isAbort ? "timeout" : "error"})`, tAI);
       }
+    } else {
+      stepTimer("ai-observation (skipped)", tAI);
     }
 
     // Fallback observation
@@ -542,6 +567,8 @@ Deno.serve(async (req) => {
       totalDuration: Math.round(d.totalDuration / 60),
     }));
 
+    stepTimer("total", t0);
+
     // ── Response ──
     const response = {
       data: {
@@ -570,7 +597,6 @@ Deno.serve(async (req) => {
         hasWearable,
         hasCalendar,
         dataSourceNote,
-        // New fields for consolidated Insights.tsx consumption
         weekData,
         checkInStreak,
         profileBaseline,
@@ -582,6 +608,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    stepTimer("total (error)", t0);
     console.error("state-patterns-insights error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
