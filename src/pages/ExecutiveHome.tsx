@@ -100,42 +100,18 @@ const ExecutiveHome = () => {
     if (hour >= 12 && hour < 18) return 'afternoon';
     return 'evening';
   };
+  // Memoize video URL to prevent remount on every render
+  const heroVideoUrl = useMemo(() => getHeroVideo(), [energyState?.energyTier]);
   
-  // Get looping video based on energy state AND time of day
-  const getHeroVideo = () => {
-    const timeOfDay = getTimeOfDay();
-    const tier = energyState?.energyTier || 'default';
-    
-    const videoMap: Record<string, Record<string, string>> = {
-      depleted: {
-        morning: '/all-visuals/videos/depleted-morning.mp4',
-        afternoon: '/all-visuals/videos/depleted-afternoon.mp4',
-        evening: '/all-visuals/videos/depleted-evening.mp4',
-      },
-      managing: {
-        morning: '/all-visuals/videos/managing-morning.mp4',
-        afternoon: '/all-visuals/videos/managing-afternoon.mp4',
-        evening: '/all-visuals/videos/managing-evening.mp4',
-      },
-      strong: {
-        morning: '/all-visuals/videos/strong-morning.mp4',
-        afternoon: '/all-visuals/videos/strong-afternoon.mp4',
-        evening: '/all-visuals/videos/strong-evening.mp4',
-      },
-      peak: {
-        morning: '/all-visuals/videos/peak-morning.mp4',
-        afternoon: '/all-visuals/videos/peak-afternoon.mp4',
-        evening: '/all-visuals/videos/peak-evening.mp4',
-      },
-      default: {
-        morning: '/all-visuals/videos/default-morning.mp4',
-        afternoon: '/all-visuals/videos/default-afternoon.mp4',
-        evening: '/all-visuals/videos/default-evening.mp4',
-      },
-    };
-    
-    return videoMap[tier]?.[timeOfDay] || videoMap.default[timeOfDay];
-  };
+  // Use ref to track if video has already faded in
+  const videoFadedIn = useRef(false);
+  
+  const handleVideoCanPlay = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (!videoFadedIn.current) {
+      (e.currentTarget as HTMLVideoElement).style.opacity = '0.4';
+      videoFadedIn.current = true;
+    }
+  }, []);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -146,19 +122,17 @@ const ExecutiveHome = () => {
           {/* Immersive Hero Visual */}
           <div className="relative">
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-              <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()} transition-opacity duration-700`} />
+              <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
               <video 
-                key={getHeroVideo()}
-                src={getHeroVideo()}
+                key={heroVideoUrl}
+                src={heroVideoUrl}
                 autoPlay
                 loop
                 muted
                 playsInline
                 preload="auto"
-                onCanPlay={(e) => {
-                  (e.currentTarget as HTMLVideoElement).style.opacity = '0.4';
-                }}
-                className="w-full h-full object-cover video-warm-luxury transition-opacity duration-1000 ease-out"
+                onCanPlay={handleVideoCanPlay}
+                className="w-full h-full object-cover video-warm-luxury"
                 style={{ opacity: 0 }}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/50 to-background pointer-events-none" />
