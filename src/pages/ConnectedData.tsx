@@ -382,7 +382,8 @@ const ConnectedData = () => {
   const handleDisconnectAppleWatch = () => {
     try {
       localStorage.removeItem('contextConnections');
-      setStatus(prev => prev ? { ...prev, appleWatch: { connected: false, lastSync: null } } : prev);
+      clearHealthKitPermission();
+      setStatus(prev => prev ? { ...prev, appleWatch: { connected: false, lastSync: null, hasData: false } } : prev);
       toast.success('Apple Watch disconnected');
     } catch {
       toast.error('Failed to disconnect Apple Watch');
