@@ -49,7 +49,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
  * Returns null values for any metric that cannot be read.
  */
 export async function queryHealthKitData(): Promise<HealthKitWearableData> {
-  const empty: HealthKitWearableData = { hrv: null };
+  const empty: HealthKitWearableData = { hrv: null, permissionGranted: false };
 
   if (!isNativeApp()) return empty;
 
