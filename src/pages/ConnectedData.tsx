@@ -298,7 +298,13 @@ const ConnectedData = () => {
       const granted = await requestHealthKitPermissions();
       if (granted) {
         toast.success('Apple Health connected');
-        setStatus(prev => prev ? { ...prev, appleWatch: { connected: true, lastSync: new Date().toISOString() } } : prev);
+        // Immediately sync HealthKit data to backend
+        const synced = await syncHealthKitToBackend();
+        if (synced) {
+          toast.success('Apple Watch data synced');
+        }
+        // Refresh status from backend to get real lastSync
+        await fetchStatus();
       } else {
         toast.error('Health permissions were denied');
       }
@@ -306,6 +312,30 @@ const ConnectedData = () => {
       toast.error('Failed to connect Apple Health');
     } finally {
       setConnecting(null);
+    }
+  };
+
+  const handleSyncAppleWatch = async () => {
+    if (!isNativeApp()) return;
+    setSyncing(true);
+    try {
+      const granted = await requestHealthKitPermissions();
+      if (!granted) {
+        toast.error('HealthKit permission not granted');
+        setSyncing(false);
+        return;
+      }
+      const ok = await syncHealthKitToBackend();
+      if (ok) {
+        toast.success('Apple Watch data synced');
+        await fetchStatus();
+      } else {
+        toast.error('No new Apple Watch data available');
+      }
+    } catch {
+      toast.error('Apple Watch sync failed');
+    } finally {
+      setSyncing(false);
     }
   };
 
