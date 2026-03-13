@@ -1,10 +1,12 @@
+import { useNavigate } from 'react-router-dom';
 import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 
 const Privacy = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      <UnifiedTopBar />
-      <div className="container max-w-4xl mx-auto px-4 py-12">
+      <UnifiedTopBar hideCoach />
+      <div className="container max-w-4xl mx-auto px-4 pt-20 pb-12">
         <h1 className="text-4xl font-headline text-foreground mb-2">Privacy Policy</h1>
         <p className="text-muted-foreground mb-8">Effective Date: March 11, 2026</p>
         
