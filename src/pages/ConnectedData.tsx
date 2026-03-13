@@ -363,12 +363,14 @@ const ConnectedData = () => {
         setSyncing(false);
         return;
       }
-      const ok = await syncHealthKitToBackend();
-      if (ok) {
+      const result = await syncHealthKitToBackend();
+      if (result.hasData && result.success) {
         toast.success('Apple Watch data synced');
         await fetchStatus();
+      } else if (result.permissionGranted && !result.hasData) {
+        toast.info('No HRV data available yet from Apple Health');
       } else {
-        toast.error('No new Apple Watch data available');
+        toast.error('Apple Watch sync failed');
       }
     } catch {
       toast.error('Apple Watch sync failed');
