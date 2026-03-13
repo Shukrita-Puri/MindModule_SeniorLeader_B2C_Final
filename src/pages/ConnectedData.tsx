@@ -114,6 +114,14 @@ const ConnectedData = () => {
       );
       if (res.ok) {
         const data = await res.json();
+        // Merge: if backend says not connected but local permission flag is set, show connected
+        if (!data.appleWatch?.connected && isHealthKitPermissionGranted()) {
+          data.appleWatch = {
+            ...data.appleWatch,
+            connected: true,
+            hasData: false,
+          };
+        }
         console.log('[ConnectedData] Connection status:', JSON.stringify(data));
         setStatus(data);
       } else {
