@@ -214,7 +214,6 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
 
   // Fetch calendar events from DB only if connection is active
   let calendarData: any[] = [];
-  const effectiveUserId = DEV_MODE ? DEV_USER.id : userId;
   if (effectiveUserId) {
     try {
       // Gate on active connection — stale events must not power active behavior
