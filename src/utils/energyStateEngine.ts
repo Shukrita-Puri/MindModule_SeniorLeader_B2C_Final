@@ -240,7 +240,6 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     }
   }
 
-  const hasWearable = (wearableData.readiness > 0 || wearableData.hrv > 0);
   const hasCalendar = calendarData.length > 0;
 
   // 2. Fetch check-in data from DB (sole source of truth — no localStorage)
