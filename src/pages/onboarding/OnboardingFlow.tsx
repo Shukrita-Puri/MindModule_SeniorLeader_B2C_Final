@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import { initializeSession, getSession, updateSession } from "@/utils/onboardingStorage";
 import { getResumeRoute, validateStageAccess } from "@/utils/onboardingStatus";
 
