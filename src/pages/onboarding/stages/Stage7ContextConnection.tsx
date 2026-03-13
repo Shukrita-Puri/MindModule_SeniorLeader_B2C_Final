@@ -297,6 +297,7 @@ export default function Stage7ContextConnection() {
           {/* Google Calendar */}
           <div className="flex items-center justify-between p-4 rounded-2xl bg-white/65 backdrop-blur-[30px] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3">
+              <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
                 <span className="font-medium">Google Calendar</span>
                 <span className="text-xs text-muted-foreground">
