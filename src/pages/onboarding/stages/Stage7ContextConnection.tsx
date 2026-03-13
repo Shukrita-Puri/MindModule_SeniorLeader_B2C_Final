@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -11,6 +11,8 @@ import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@/utils/openUrl";
+import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
+import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 
 /** Backend-verified calendar connection status. */
 async function checkCalendarStatus(): Promise<{ connected: boolean; provider: string | null }> {
