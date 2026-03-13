@@ -56,7 +56,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
   try {
     const { Health } = await import('@capgo/capacitor-health');
     const now = new Date();
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const hrvRes = await (Health as any).readSamples({
       dataType: 'heartRateVariability',
