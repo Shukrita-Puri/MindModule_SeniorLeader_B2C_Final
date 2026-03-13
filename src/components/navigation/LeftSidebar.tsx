@@ -66,9 +66,9 @@ const LeftSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       {/* Header */}
-      <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border safe-area-top">
+      <SidebarHeader className="min-h-[4rem] flex items-center justify-center border-b border-sidebar-border pt-[env(safe-area-inset-top,0px)]">
         <div className={cn(
-          "flex items-center transition-all duration-200",
+          "flex items-center transition-all duration-200 pt-4 md:pt-0",
           isCollapsed ? "justify-center" : "px-3"
         )}>
           <img src={appLogo} alt="Mind Module" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />

@@ -7,7 +7,7 @@
  * + Just-in-time interventions when triggered (JitCarousel)
  */
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
