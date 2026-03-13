@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -278,7 +279,9 @@ export default function Stage7ContextConnection() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background">
+      <UnifiedTopBar hideCoach />
+      <div className="flex items-center justify-center p-6 pt-16 min-h-[calc(100vh-4rem)]">
       <div className="w-full max-w-sm space-y-10">
 
         {/* Header */}
@@ -369,6 +372,7 @@ export default function Stage7ContextConnection() {
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );

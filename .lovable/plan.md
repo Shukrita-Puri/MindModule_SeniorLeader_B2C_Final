@@ -1,68 +1,53 @@
 
 
-## Consistent Top Navigation Across All Pages
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Current State (Inconsistent)
+Two files need text-only changes (no layout or UI modifications).
 
-There are **4 different back button styles** across the app:
+---
 
-1. **`FloatingNavigation`** — Dark circular buttons (`bg-black/70`, `h-10 w-10 rounded-full`). Used on feature pages: DailyCheckIn, Recalibrate, Insights, CheckInDetail, Coach.
-2. **`UnifiedTopBar`** — Glass variant (`variant="glass"`, fixed bar with blur). Used on Privacy, Terms.
-3. **Custom sticky headers** — Ghost icon button with title inline (`variant="ghost" size="icon"`). Used on Profile, ConnectedData, Refer.
-4. **Custom inline buttons** — Small rounded border circles (`w-8 h-8 rounded-full border`). Used on Onboarding Payment, OnboardingFlow.
+### File 1: `src/pages/Front.tsx`
 
-Page titles sit inside the top bar on Profile, ConnectedData, and Refer — but not on Privacy/Terms.
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-### Target Design
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-| Page Type | Back Button | Coach Icon | Title Location |
-|-----------|------------|------------|----------------|
-| **Executive Home** | No | Sidebar + Coach (as-is) | N/A |
-| **Feature pages** (DailyCheckIn, Recalibrate, Insights, CheckInDetail) | FloatingNavigation dark circle | Yes (coach icon) | Below nav |
-| **Coach** | FloatingNavigation dark circle | No | Below nav |
-| **Sub pages** (Profile, ConnectedData, Privacy, Terms, Refer) | `UnifiedTopBar` with `hideCoach` | No | Below top bar, in page content |
-| **Onboarding pages** (OnboardingFlow, Payment, Results, ContextConnection) | `UnifiedTopBar` with `hideCoach` | No | Below top bar, in page content |
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-### Changes
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-**1. `src/pages/Profile.tsx`**
-- Replace custom sticky header with `<UnifiedTopBar hideCoach backPath="/executive-home" />`
-- Remove the `ArrowLeft` + title from the sticky div
-- Move "Profile" title into page content below with proper `pt-16` spacing
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**2. `src/pages/ConnectedData.tsx`**
-- Replace custom sticky header with `<UnifiedTopBar hideCoach backPath="/profile" />`
-- Remove `ArrowLeft` + title from sticky div
-- Move "Connected Data" title into page content below with `pt-16` spacing
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-**3. `src/pages/Refer.tsx`**
-- Replace custom sticky header with `<UnifiedTopBar hideCoach />`
-- Remove the inline back button + title + subtitle
-- Move "Refer Friends" title and subtitle into page content below with `pt-16` spacing
+---
 
-**4. `src/pages/Privacy.tsx`**
-- Already uses `UnifiedTopBar hideCoach` — good
-- Verify `pt-20` provides proper spacing below fixed bar (already done)
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**5. `src/pages/Terms.tsx`**
-- Already uses `UnifiedTopBar hideCoach` — good
-- Same as Privacy
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-**6. `src/pages/onboarding/OnboardingFlow.tsx`**
-- Replace custom back button (`<button>` with `ArrowLeft` + "Back" text) with `<UnifiedTopBar hideCoach />`
-- The `onBack` prop handles the custom `getBackPath()` logic
-- Adjust content padding to account for the fixed top bar
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-**7. `src/pages/onboarding/stages/Stage6Payment.tsx`**
-- Remove the two inline back buttons (lines 150 and 167)
-- The parent `OnboardingFlow` already provides the back button via `UnifiedTopBar`
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-**8. `src/pages/onboarding/stages/Stage7ContextConnection.tsx`**
-- This page renders outside the OnboardingFlow layout (standalone `min-h-screen`)
-- Add `<UnifiedTopBar hideCoach />` at the top
-- Adjust content padding
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-### Summary
+---
 
-All sub-pages and onboarding pages will use `UnifiedTopBar` with `hideCoach` for a single, consistent back-button-only top bar. Feature pages keep `FloatingNavigation` with the coach icon. No titles in the top bar — all page titles live in the content area below.
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

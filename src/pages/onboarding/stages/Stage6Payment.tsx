@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Shield, ArrowLeft } from "lucide-react";
+import { Check, X, Shield } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { useAuth } from "@/hooks/useAuth";
@@ -146,11 +146,6 @@ export default function Stage6Payment() {
   if (availablePlans.length === 0) {
     return (
       <div className="max-w-md mx-auto py-6 px-4 animate-fade-in text-center">
-        <div className="flex items-center mb-6">
-          <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft size={16} />
-          </button>
-        </div>
         <div className="py-12">
           <p className="text-lg font-medium mb-2">You're on the best plan!</p>
           <p className="text-sm text-muted-foreground mb-6">You already have the highest tier subscription.</p>
@@ -164,9 +159,7 @@ export default function Stage6Payment() {
     <div className="max-w-md mx-auto py-6 px-4 animate-fade-in">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft size={16} />
-        </button>
+        <div /> {/* spacer — back button provided by parent OnboardingFlow */}
         {availablePlans.length > 1 ? (
           <div className="bg-muted rounded-full p-1 flex">
             {availablePlans.includes('annual') && (

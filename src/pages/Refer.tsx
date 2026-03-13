@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Share2, Copy, Check, Loader2 } from 'lucide-react';
+import { Share2, Copy, Check, Loader2 } from 'lucide-react';
+import UnifiedTopBar from '@/components/navigation/UnifiedTopBar';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/services/authTokenService';
 import { toast } from 'sonner';
@@ -97,20 +98,13 @@ const Refer = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 safe-area-top bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-headline font-semibold text-foreground">Refer Friends</h1>
-            <p className="text-sm text-muted-foreground font-body">Share the mental edge</p>
-          </div>
-        </div>
-      </div>
+      <UnifiedTopBar hideCoach />
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 pt-16 pb-8 space-y-6">
+        <div>
+          <h1 className="text-xl font-headline font-semibold text-foreground">Refer Friends</h1>
+          <p className="text-sm text-muted-foreground font-body">Share the mental edge</p>
+        </div>
         {/* Hero Section */}
         <div className="relative rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-gold/5 to-background overflow-hidden shadow-[0_8px_32px_rgba(245,158,11,0.08)]">
           {/* Gift box image */}
