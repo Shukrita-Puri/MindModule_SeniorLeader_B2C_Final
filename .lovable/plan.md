@@ -1,53 +1,29 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+## Fix: Sidebar Logo Covered by Notch + Pulsating Overlay on Homepage
 
-Two files need text-only changes (no layout or UI modifications).
+### Issue 1: Sidebar Logo Still Covered
 
----
+**Root cause**: The `SidebarHeader` has `h-16` (fixed height) combined with `safe-area-top`. The fixed height constrains the element, so when safe-area padding is added, the content gets compressed rather than pushing down. On mobile, the sidebar renders as a Sheet overlay, and `h-16` doesn't leave room for the notch inset.
 
-### File 1: `src/pages/Front.tsx`
+**Fix in `src/components/navigation/LeftSidebar.tsx`**:
+- Change `h-16` to `min-h-[4rem]` so the header can grow when safe-area padding is applied
+- Add explicit top padding `pt-[env(safe-area-inset-top,0px)]` plus extra spacing (`pt-12` on mobile) to push the logo and text well below the Dynamic Island/notch area
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+### Issue 2: Pulsating Foggy Colour on Homepage
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+**Root cause**: In `ExecutiveHome.tsx`, the hero video uses `key={getHeroVideo()}`. When `energyState` loads asynchronously, `getHeroVideo()` changes from the `default` tier video to the actual tier video. This causes the `<video>` element to **unmount and remount** — resetting opacity from 0.4 back to 0, then fading back to 0.4 via `transition-opacity duration-1000`. Combined with the gradient overlay (`from-background/10 via-background/50 to-background`) and the `transition-opacity duration-700` on the gradient div, this creates a visible flash/pulse effect each time the energy state data updates.
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+Additionally, the `TodayStateCard` registers its own observer on the same `['energy-state']` query with `staleTime: 0` and `refetchOnWindowFocus: true`, which can trigger additional re-renders and video remounts.
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+**Fix in `src/pages/ExecutiveHome.tsx`**:
+- Memoize the video URL so it doesn't change on every render: use `useMemo` for the hero video URL, only recomputing when `energyState?.energyTier` actually changes
+- Remove `transition-opacity` from the gradient overlay div (it doesn't need to animate)
+- Set the video's initial opacity to `0.4` directly (no fade-in transition) to prevent flash on remount, or better: use a `ref` to set opacity once and not reset on key change
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
-
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
-
----
-
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
-
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
-
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
-
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
-
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
-
----
-
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+**Files to change**:
+| File | Change |
+|------|--------|
+| `src/components/navigation/LeftSidebar.tsx` | Replace `h-16` with `min-h-[4rem]`, add generous top padding for mobile safe area |
+| `src/pages/ExecutiveHome.tsx` | Memoize video URL, remove transition-opacity from gradient, stabilize video opacity |
 
