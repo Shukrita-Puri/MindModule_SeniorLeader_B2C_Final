@@ -462,6 +462,9 @@ const ConnectedData = () => {
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
                     )}
+                    {conn.connected && !conn.lastSync && conn.statusNote && (
+                      <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
+                    )}
                     {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-watch') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
