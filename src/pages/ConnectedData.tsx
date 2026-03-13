@@ -323,13 +323,25 @@ const ConnectedData = () => {
     try {
       const granted = await requestHealthKitPermissions();
       if (granted) {
+        markHealthKitPermissionGranted();
         toast.success('Apple Health connected');
-        // Immediately sync HealthKit data to backend
-        const synced = await syncHealthKitToBackend();
-        if (synced) {
+        // Sync HealthKit data to backend
+        const result = await syncHealthKitToBackend();
+        if (result.hasData && result.success) {
           toast.success('Apple Watch data synced');
+        } else if (result.permissionGranted && !result.hasData) {
+          toast.info('Connected! HRV data will appear once available from Apple Health.');
         }
-        // Refresh status from backend to get real lastSync
+        // Update local status immediately
+        setStatus(prev => prev ? {
+          ...prev,
+          appleWatch: {
+            connected: true,
+            lastSync: prev?.appleWatch.lastSync ?? null,
+            hasData: result.hasData,
+          },
+        } : prev);
+        // Refresh from backend
         await fetchStatus();
       } else {
         toast.error('Health permissions were denied');
