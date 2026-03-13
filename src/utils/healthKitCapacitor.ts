@@ -6,6 +6,8 @@
 
 export interface HealthKitWearableData {
   hrv: number | null;
+  /** True when HealthKit query succeeded (permission granted), regardless of sample count */
+  permissionGranted: boolean;
 }
 
 import { Capacitor } from '@capacitor/core';
