@@ -283,6 +283,11 @@ const Profile = () => {
                   <ExternalLink className="h-4 w-4" />
                   {managingPortal ? 'Opening…' : 'Manage Plan'}
                 </>
+              ) : isBetaUser ? (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Upgrade Plan
+                </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
