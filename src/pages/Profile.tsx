@@ -211,8 +211,8 @@ const Profile = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {/* Upgrade Plan — shown when not paying */}
-                    {!isPaying && !isBetaUser && (
+                    {/* Upgrade Plan — shown when not paying (including beta users as optional) */}
+                    {!isPaying && (
                       <DropdownMenuItem onClick={() => navigate('/onboarding/payment')}>
                         <Sparkles className="h-4 w-4 mr-2" />
                         Upgrade Plan
@@ -235,8 +235,8 @@ const Profile = () => {
                       </DropdownMenuItem>
                     )}
 
-                    {/* Cancel Plan — shown when active and not already canceled */}
-                    {(isPaying || isTrialing) && !isCanceled && !isPendingCancellation && (
+                    {/* Cancel Plan — only for paying/trialing users with Stripe, not pure beta */}
+                    {(isPaying || (isTrialing && hasStripeAccount)) && !isCanceled && !isPendingCancellation && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
