@@ -151,17 +151,15 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         </div>
         
         {/* Privacy Trust Badge */}
-        <div className="flex flex-row items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground pt-2 sm:pt-8 border-t border-gold/10 w-full">
-          <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
-          <span className="font-body tracking-wide">Privacy by Design</span>
+        <div className="flex flex-col items-center gap-1 pt-2 sm:pt-6 border-t border-gold/10 w-full">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" />
+            <span className="font-body tracking-wide">Privacy by Design</span>
+          </div>
+          <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-body tracking-wide">
+            Local &amp; End-to-End Encrypted
+          </span>
         </div>
-      </div>
-      
-      {/* Enhanced Privacy Footer */}
-      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 text-center pb-[env(safe-area-inset-bottom)]">
-        <a href="/privacy" className="text-xs font-body text-gold/70 hover:text-gold transition-all duration-300 hover:tracking-wide">
-          Privacy Policy →
-        </a>
       </div>
       
     </div>;
