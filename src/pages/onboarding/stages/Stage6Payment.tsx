@@ -13,15 +13,16 @@ export default function Stage6Payment() {
   const { user } = useAuth();
   const currentTier = user?.subscription_tier || 'none';
 
-  // Beta bypass: valid beta users skip payment entirely
+  // Beta bypass: only auto-skip during initial onboarding, not when revisiting to upgrade
   const isBetaValid = !!(user?.beta_user && user?.beta_expires_at && new Date(user.beta_expires_at) > new Date());
+  const isUpgradeVisit = !!user?.onboarding_completed_at;
   useEffect(() => {
-    if (isBetaValid) {
-      console.log('[Stage6Payment] Beta user detected, skipping payment');
+    if (isBetaValid && !isUpgradeVisit) {
+      console.log('[Stage6Payment] Beta user in initial onboarding, skipping payment');
       recordStep('payment', { skipped: true, reason: 'beta_user' });
       navigate('/onboarding/context-connection', { replace: true });
     }
-  }, [isBetaValid]);
+  }, [isBetaValid, isUpgradeVisit]);
 
   // Determine which plans are available (hide the one user is already on)
   const availablePlans = useMemo(() => {
