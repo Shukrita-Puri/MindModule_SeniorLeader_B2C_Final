@@ -91,8 +91,7 @@ export default function Stage6Payment() {
       if (data.checkoutUrl) {
         // Clear referral code from localStorage after successful handoff to Stripe
         localStorage.removeItem('referral_code');
-        window.location.href = data.checkoutUrl;
-        return;
+        await openUrl(data.checkoutUrl);
       }
       throw new Error('No checkout URL returned');
     } catch (err: any) {
