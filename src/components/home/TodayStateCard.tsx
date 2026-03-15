@@ -32,7 +32,7 @@ const TodayStateCard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data: energyState, isLoading } = useQuery({
+  const { data: energyState, isLoading, isRefetching } = useQuery({
     queryKey: ['energy-state', user?.id],
     queryFn: async () => {
       return await computeEnergyState(user?.id);
@@ -41,7 +41,8 @@ const TodayStateCard = () => {
     refetchInterval: 5 * 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30_000, // 30s stale time prevents rapid refetch flicker
+    placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
   });
 
   if (isLoading || !energyState) {
