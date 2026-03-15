@@ -125,7 +125,7 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         
         {/* Tagline */}
         <h2 className="text-xl sm:text-3xl lg:text-4xl font-editorial italic text-primary font-medium tracking-wide leading-snug">
-          A New Inner Operating System for Leaders.
+          World's First Proactive Mental Performance OS.
         </h2>
         
         {/* Gold Divider */}
@@ -133,10 +133,10 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         
         {/* Description */}
         <p className="text-[11px] sm:text-base lg:text-lg text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
-          It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive.
+          Always One Step Ahead. Always Based on Your Context. All in One App.
         </p>
         <p className="text-sm sm:text-xl lg:text-2xl font-bold text-muted-foreground font-body mt-1">
-          Built by leaders. For leaders.
+          Built for Leaders. By Leaders.
         </p>
         
         {/* CTA Buttons */}
