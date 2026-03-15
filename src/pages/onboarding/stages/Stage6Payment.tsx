@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, X, Shield } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
 import { useAuth } from "@/hooks/useAuth";
@@ -286,10 +286,15 @@ export default function Stage6Payment() {
         30+ touchpoints/month — <span className="text-xl font-bold not-italic text-saffron">under {p.perSession} each</span> vs {currency === 'GBP' ? '£400' : '$400'}/per session of executive coaching.
       </p>
 
-      {/* Trust */}
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <Shield size={14} />
-        <span>Privacy by Design</span>
+      {/* Legal links */}
+      <div className="flex items-center justify-center gap-3 mt-2">
+        <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Privacy Policy
+        </a>
+        <span className="text-muted-foreground/40 text-xs">·</span>
+        <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Terms of Use
+        </a>
       </div>
     </div>
   );
