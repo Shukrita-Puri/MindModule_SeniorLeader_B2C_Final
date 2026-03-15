@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
