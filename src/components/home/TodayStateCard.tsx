@@ -32,7 +32,7 @@ const TodayStateCard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data: energyState, isLoading } = useQuery({
+  const { data: energyState, isLoading, isRefetching } = useQuery({
     queryKey: ['energy-state', user?.id],
     queryFn: async () => {
       return await computeEnergyState(user?.id);
@@ -41,18 +41,22 @@ const TodayStateCard = () => {
     refetchInterval: 5 * 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 30_000, // 30s stale time prevents rapid refetch flicker
+    placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
   });
 
-  if (isLoading || !energyState) {
+  // Only show skeleton on initial load, not on background refetch
+  if (isLoading && !energyState) {
     return (
-      <div className="animate-pulse py-4">
+      <div className="py-4">
         <div className="h-12 bg-muted/30 rounded-lg w-24 mb-3" />
         <div className="h-5 bg-muted/30 rounded-lg w-32 mb-4" />
         <div className="h-4 bg-muted/30 rounded-lg w-full" />
       </div>
     );
   }
+  
+  if (!energyState) return null;
 
   // Clean dashes from context statement
   const cleanText = (text: string) => text.replace(/ - /g, ' ').replace(/—/g, ' ').replace(/ – /g, ' ');

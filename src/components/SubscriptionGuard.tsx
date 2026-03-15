@@ -50,8 +50,8 @@ function hasValidAccess(user: any): boolean {
 export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
-  // Still loading — show nothing to prevent flash
-  if (loading) return null;
+  // Still loading — render children with opacity 0 to prevent layout shift and blank flash
+  if (loading) return <div className="opacity-0">{children}</div>;
 
   // No user — let ProtectedRoute handle redirect
   if (!user) return <>{children}</>;

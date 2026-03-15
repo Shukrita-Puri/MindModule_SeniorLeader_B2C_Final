@@ -466,8 +466,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     return (
       <div className="px-4 py-5">
         <div className="space-y-3">
-          <div className="h-4 bg-muted/30 animate-pulse rounded-lg" />
-          <div className="h-4 bg-muted/30 animate-pulse rounded-lg w-3/4" />
+          <div className="h-4 bg-muted/30 rounded-lg" />
+          <div className="h-4 bg-muted/30 rounded-lg w-3/4" />
         </div>
       </div>
     );
