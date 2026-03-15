@@ -23,11 +23,13 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLName</key>
 			<string>com.moonshot.mindmoduleapp</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.moonshot.mindmoduleapp</string>
+				<string>app.mindmodule.me</string>
 			</array>
 		</dict>
 	</array>
