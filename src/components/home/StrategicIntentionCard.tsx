@@ -12,15 +12,18 @@ import { cn } from '@/lib/utils';
 const StrategicIntentionCard = () => {
   const { data: brief, isLoading } = useOuterReadiness();
 
-  if (isLoading || !brief) {
+  // Only show skeleton on initial load, not background refetches
+  if (isLoading && !brief) {
     return (
-      <div className="animate-pulse p-5 md:p-6">
+      <div className="p-5 md:p-6">
         <div className="h-4 bg-muted/50 rounded w-24 mb-3" />
         <div className="h-6 bg-muted/50 rounded w-48 mb-2" />
         <div className="h-4 bg-muted/50 rounded w-full" />
       </div>
     );
   }
+
+  if (!brief) return null;
 
   return (
     <div className={cn(

@@ -88,5 +88,6 @@ export function useOuterReadiness() {
     staleTime: 5 * 60 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    placeholderData: (prev) => prev, // Keep previous data during refetch to avoid skeleton flash
   });
 }
