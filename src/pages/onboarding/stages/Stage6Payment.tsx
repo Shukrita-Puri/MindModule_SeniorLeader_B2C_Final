@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
 import { getAuthHeaders } from "@/services/authTokenService";
+import { openUrl } from "@/utils/openUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -85,14 +86,12 @@ export default function Stage6Payment() {
       if (data.error) throw new Error(data.error);
       if (data.alreadySubscribed && data.portalUrl) {
         toast.info('You already have an active subscription. Redirecting to billing portal.');
-        window.location.href = data.portalUrl;
-        return;
+        await openUrl(data.portalUrl);
       }
       if (data.checkoutUrl) {
         // Clear referral code from localStorage after successful handoff to Stripe
         localStorage.removeItem('referral_code');
-        window.location.href = data.checkoutUrl;
-        return;
+        await openUrl(data.checkoutUrl);
       }
       throw new Error('No checkout URL returned');
     } catch (err: any) {
