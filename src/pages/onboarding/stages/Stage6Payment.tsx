@@ -86,8 +86,7 @@ export default function Stage6Payment() {
       if (data.error) throw new Error(data.error);
       if (data.alreadySubscribed && data.portalUrl) {
         toast.info('You already have an active subscription. Redirecting to billing portal.');
-        window.location.href = data.portalUrl;
-        return;
+        await openUrl(data.portalUrl);
       }
       if (data.checkoutUrl) {
         // Clear referral code from localStorage after successful handoff to Stripe
