@@ -39,6 +39,8 @@
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Mind Module reads your Heart Rate Variability (HRV) data to provide performance context and wellness insights.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Mind Module may write selected health data when needed to support wellness and performance features.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -66,5 +68,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
 </dict>
 </plist>
