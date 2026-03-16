@@ -103,20 +103,13 @@ const TodayStateCard = () => {
 
       <div className="mb-4" />
 
-      {/* Data Sources + CTA - clickable for navigation */}
-      <div 
-        className="flex items-center justify-between cursor-pointer group"
-        onClick={() => navigate('/insights')}
-      >
+      {/* Data Sources */}
+      <div className="flex items-center">
         <span className="text-[10px] text-muted-foreground/50 font-body whitespace-nowrap">
           Based on {(energyState.dataSources || ['check-in']).map(s => 
             s === 'circadian' ? 'circadian score' : s === 'wearable' ? 'wearable score' : 'self check-in'
           ).join(', ')}
         </span>
-        <div className="flex items-center text-[10px] text-foreground font-medium group-hover:underline font-body whitespace-nowrap ml-2">
-          <span>View insights</span>
-          <ChevronRight size={12} className="ml-0.5" />
-        </div>
       </div>
     </div>
   );

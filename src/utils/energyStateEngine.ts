@@ -287,6 +287,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
         hasCheckIn,
         hasWearable,
         timezoneOffset: new Date().getTimezoneOffset(),
+        hrvPatternContext: hasWearable ? hrvPatternContext : null,
       },
     });
 

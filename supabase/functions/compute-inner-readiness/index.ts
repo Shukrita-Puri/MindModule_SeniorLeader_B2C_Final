@@ -142,8 +142,7 @@ const TIER_FALLBACK_STATEMENTS: Record<string, Record<string, string>> = {
   },
 };
 
-// Layer 2: C+C Modifiers (appended when avg C+C ≤ 2.5 or ≥ 4.5)
-// ==================== LAYER 2: C×C INDEPENDENT SIGNAL MODIFIER ====================
+// Layer 2: C+C Modifiers
 function getCCModifier(
   outcome: string,
   clarity: number,
@@ -157,51 +156,39 @@ function getCCModifier(
   const confidenceMid = confidence === 3;
   const confidenceHigh = confidence >= 4;
 
-  // PATTERN 1: Low clarity + High confidence + Evening (Rule 2: time mentioned)
   if (clarityLow && confidenceHigh && timeOfDay === 'evening') {
     return "High confidence without clarity this late in the day. The urgency you feel is disconnected from your sense of direction.";
   }
-  // PATTERN 2: Low clarity + High confidence (NOT evening)
   if (clarityLow && confidenceHigh) {
     return "Low clarity with high confidence. You're certain about an unclear path.";
   }
-  // PATTERN 3: High clarity + Low confidence + Morning (Rule 3: time mentioned)
   if (clarityHigh && confidenceLow && timeOfDay === 'morning') {
     return "High clarity with low confidence. The path is clear, but the doubt is about execution. Morning clarity is typically your most reliable signal.";
   }
-  // PATTERN 4: High clarity + Low confidence (NOT morning)
   if (clarityHigh && confidenceLow) {
     return "High clarity with low confidence. The path is clear, but the doubt is about execution, not direction.";
   }
-  // PATTERN 5: Low clarity + Evening (any confidence except high — handled above) (Rule 1: time mentioned)
   if (clarityLow && timeOfDay === 'evening') {
     return "Clarity is low this late in the day. Your sense of direction is fragmented when decision-making is already impaired.";
   }
-  // PATTERN 6: Low clarity + Low confidence (NOT evening)
   if (clarityLow && confidenceLow) {
     return "Low clarity and low confidence. Both your sense of direction and your trust in execution are wavering.";
   }
-  // PATTERN 7: Low clarity only (mid confidence, NOT evening)
   if (clarityLow && confidenceMid) {
     return "Low clarity. Your sense of direction is unclear right now.";
   }
-  // PATTERN 8: Both high
   if (clarityHigh && confidenceHigh) {
     return "High clarity and high confidence. Both your sense of direction and your trust in execution are aligned.";
   }
-  // PATTERN 9: High clarity + Mid confidence
   if (clarityHigh && confidenceMid) {
     return "High clarity with moderate confidence. The path is clear, execution certainty is holding.";
   }
-  // PATTERN 10: Mid clarity + High confidence
   if (clarityMid && confidenceHigh) {
     return "Moderate clarity with high confidence. You trust your execution more than your current sense of direction.";
   }
-  // PATTERN 11: Mid clarity + Low confidence
   if (clarityMid && confidenceLow) {
     return "Moderate clarity with low confidence. The uncertainty is about execution, not direction.";
   }
-  // PATTERN 12: Both mid-range (outcome-dependent)
   if (clarityMid && confidenceMid) {
     const midModifiers: Record<string, string> = {
       focused: "Strong energy with moderate clarity and confidence. Your internal compass is neither sharp nor lost.",
@@ -209,10 +196,59 @@ function getCCModifier(
       drained: "Low energy with moderate clarity. Your sense of direction is holding despite depletion.",
       overwhelmed: "Under pressure with moderate clarity. The load is real but your internal compass is still functioning.",
     };
-    return midModifiers[outcome] || null; // steady returns null — Layer 1 sufficient
+    return midModifiers[outcome] || null;
   }
 
   return null;
+}
+
+// ==================== LAYER 3: ALWAYS-ON HRV CONTEXT ====================
+interface HRVPatternContext {
+  weekdayAvg: number | null;
+  weekendAvg: number | null;
+  dayOfWeekAvgs: Record<string, number>;
+  morningAvg: number | null;
+  afternoonAvg: number | null;
+  eveningAvg: number | null;
+  baseline30d: number | null;
+  totalSamples: number;
+  patternObservations: string[];
+}
+
+function getLayer3Text(
+  divergenceFlag: DivergenceFlag,
+  hrvDeviation: number | null,
+  patternContext: HRVPatternContext | null
+): string | null {
+  const parts: string[] = [];
+
+  // === Core HRV deviation message (always shows when wearable active) ===
+  if (hrvDeviation !== null) {
+    const absDeviation = Math.abs(hrvDeviation);
+
+    if (divergenceFlag === 'MASKED_HIGH') {
+      parts.push(`Your HRV is reading ${absDeviation}% below your baseline — your physiological load is higher than your felt state suggests.`);
+    } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
+      parts.push(`Your HRV is reading ${absDeviation}% above your baseline — your body is more recovered than you currently feel.`);
+    } else if (absDeviation < 5) {
+      // Aligned + minimal deviation
+      parts.push("Your HRV is steady at baseline — your body and mind are reading the same signal.");
+    } else if (hrvDeviation > 0) {
+      // Aligned + moderately above
+      parts.push(`Your HRV is tracking ${absDeviation}% above your 30-day baseline — your physiological state is consistent with how you feel.`);
+    } else {
+      // Aligned + moderately below
+      parts.push(`Your HRV is tracking ${absDeviation}% below your 30-day baseline — a slight physiological dip, worth noting.`);
+    }
+  }
+
+  // === Pattern observations (educational, from 30-day analysis) ===
+  if (patternContext && patternContext.patternObservations.length > 0) {
+    // Show the first (most significant) pattern
+    parts.push(patternContext.patternObservations[0] + '.');
+  }
+
+  return parts.length > 0 ? parts.join(' ') : null;
 }
 
 function assembleContextStatement(
@@ -223,7 +259,8 @@ function assembleContextStatement(
   clarity: number,
   confidence: number,
   divergenceFlag: DivergenceFlag,
-  hrvDeviation: number | null
+  hrvDeviation: number | null,
+  patternContext: HRVPatternContext | null
 ): { text: string; layersActive: string[] } {
   const parts: string[] = [];
   const layersActive: string[] = ['base'];
@@ -244,13 +281,11 @@ function assembleContextStatement(
     }
   }
 
-  // Layer 3: Divergence overlay
-  if (divergenceFlag === 'MASKED_HIGH' && hrvDeviation !== null) {
-    parts.push(`Your HRV is reading ${Math.abs(hrvDeviation)}% below your baseline — your physiological load is higher than your felt state suggests.`);
-    layersActive.push('divergence');
-  } else if (divergenceFlag === 'RECOVERY_UNDERWAY' && hrvDeviation !== null) {
-    parts.push(`Your HRV is reading ${Math.abs(hrvDeviation)}% above your baseline — your body is more recovered than you currently feel.`);
-    layersActive.push('divergence');
+  // Layer 3: Always-on HRV context (fires even when ALIGNED)
+  const layer3 = getLayer3Text(divergenceFlag, hrvDeviation, patternContext);
+  if (layer3) {
+    parts.push(layer3);
+    layersActive.push('wearable');
   }
 
   return { text: parts.join(' '), layersActive };
@@ -266,7 +301,8 @@ interface ComputeRequest {
   wearableBaseline: number | null;
   hasCheckIn: boolean;
   hasWearable: boolean;
-  timezoneOffset?: number; // minutes offset from UTC (e.g. -300 for EST)
+  timezoneOffset?: number;
+  hrvPatternContext?: HRVPatternContext | null;
 }
 
 serve(async (req) => {
@@ -281,6 +317,7 @@ serve(async (req) => {
       hasCheckIn,
       hasWearable,
       timezoneOffset = 0,
+      hrvPatternContext = null,
     } = body;
 
     const clarity = body.clarityLevel ?? 3;
@@ -335,10 +372,11 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // Assemble context statement
+    // Assemble context statement (now with always-on Layer 3)
     const { text: contextStatement, layersActive } = assembleContextStatement(
       checkInOutcome, hasCheckIn, timeOfDay, tier,
-      clarity, confidence, divergenceFlag, hrvDeviation
+      clarity, confidence, divergenceFlag, hrvDeviation,
+      hrvPatternContext ?? null
     );
 
     // Data sources

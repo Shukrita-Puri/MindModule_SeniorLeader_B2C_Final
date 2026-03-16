@@ -20,7 +20,7 @@ interface WearableSyncState {
   triggerSync: () => Promise<boolean>;
 }
 
-const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours — same as calendar
+const STALE_THRESHOLD_MS = 1 * 60 * 60 * 1000; // 1 hour — more responsive sync
 
 export function useWearableSync(): WearableSyncState {
   const { user } = useAuth();
