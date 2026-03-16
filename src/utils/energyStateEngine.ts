@@ -174,10 +174,12 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   let wearableBaseline: number | null = null;
   let wearableReadiness: number = 0;
 
-  // Try DB for latest HRV + baseline
+  let hrvPatternContext: any = null;
+
+  // Try DB for latest HRV + baseline + patterns
   if (effectiveUserId) {
     try {
-      const [latestRow, baseline] = await Promise.all([
+      const [latestRow, baseline, patterns] = await Promise.all([
         supabase
           .from('wearable_data')
           .select('hrv, updated_at')
@@ -187,12 +189,14 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
           .limit(1)
           .maybeSingle(),
         getUserHRVBaseline(effectiveUserId),
+        computeHRVPatternContext(effectiveUserId),
       ]);
       if (latestRow.data?.hrv) {
         wearableHRV = Number(latestRow.data.hrv);
         wearableBaseline = baseline;
         wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
       }
+      hrvPatternContext = patterns;
     } catch (err) {
       console.warn('[energyStateEngine] DB wearable fetch failed:', err);
     }
