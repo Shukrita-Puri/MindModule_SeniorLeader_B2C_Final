@@ -10,7 +10,7 @@ import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type Mast
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
 import { getLocalWearableData } from '@/services/localDataStore';
-import { getUserHRVBaseline } from '@/utils/wearableContextAnalyzer';
+import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
 
 // ==================== RETRY GUARDRAIL ====================
 const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
