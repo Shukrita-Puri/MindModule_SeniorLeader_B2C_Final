@@ -29,7 +29,6 @@ const getStateLabel = (tier: string): string => {
 };
 
 const TodayStateCard = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const { data: energyState, isLoading, isRefetching } = useQuery({
