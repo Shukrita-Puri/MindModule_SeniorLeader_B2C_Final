@@ -214,20 +214,20 @@ export function classifyActivityReadiness(
 }
 
 /**
- * Calculate user's 7-day rolling HRV baseline
+ * Calculate user's 30-day rolling HRV baseline
  */
 export async function getUserHRVBaseline(userId: string): Promise<number | null> {
   if (!userId) return null;
   
   try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const { data, error } = await supabase
       .from('wearable_data')
       .select('hrv')
       .eq('user_id', userId)
-      .gte('summary_date', sevenDaysAgo.toISOString().split('T')[0])
+      .gte('summary_date', thirtyDaysAgo.toISOString().split('T')[0])
       .not('hrv', 'is', null);
     
     if (error || !data || data.length === 0) return null;
@@ -236,6 +236,169 @@ export async function getUserHRVBaseline(userId: string): Promise<number | null>
     return Math.round(sum / data.length);
   } catch (error) {
     console.log('Could not calculate HRV baseline:', error);
+    return null;
+  }
+}
+
+/**
+ * Compute HRV pattern context from 30-day history for Inner Readiness Layer 3.
+ * Detects day-of-week and time-of-day patterns, plus divergence from check-in data.
+ */
+export interface HRVPatternContext {
+  weekdayAvg: number | null;
+  weekendAvg: number | null;
+  dayOfWeekAvgs: Record<string, number>; // e.g. { Mon: 45, Tue: 52 ... }
+  morningAvg: number | null;
+  afternoonAvg: number | null;
+  eveningAvg: number | null;
+  baseline30d: number | null;
+  totalSamples: number;
+  /** Detected recurring patterns like "3 Mondays with low HRV while reporting strong" */
+  patternObservations: string[];
+}
+
+export async function computeHRVPatternContext(userId: string): Promise<HRVPatternContext | null> {
+  if (!userId) return null;
+
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoff = thirtyDaysAgo.toISOString().split('T')[0];
+
+    // Fetch wearable data + check-ins in parallel
+    const [wearableResult, checkinResult] = await Promise.all([
+      supabase
+        .from('wearable_data')
+        .select('hrv, summary_date, hrv_samples')
+        .eq('user_id', userId)
+        .gte('summary_date', cutoff)
+        .not('hrv', 'is', null)
+        .order('summary_date', { ascending: true }),
+      supabase
+        .from('daily_checkins')
+        .select('checkin_date, outcome')
+        .eq('user_id', userId)
+        .gte('checkin_date', cutoff),
+    ]);
+
+    const wearableRows = wearableResult.data || [];
+    const checkinRows = checkinResult.data || [];
+
+    if (wearableRows.length === 0) return null;
+
+    // Build check-in lookup by date
+    const checkinByDate: Record<string, string> = {};
+    for (const c of checkinRows) {
+      checkinByDate[c.checkin_date] = c.outcome;
+    }
+
+    // Day-of-week aggregation
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayBuckets: Record<string, number[]> = {};
+    const weekdayValues: number[] = [];
+    const weekendValues: number[] = [];
+    const morningValues: number[] = [];
+    const afternoonValues: number[] = [];
+    const eveningValues: number[] = [];
+    let total = 0;
+    let sum = 0;
+
+    for (const row of wearableRows) {
+      const hrv = Number(row.hrv);
+      if (isNaN(hrv) || hrv <= 0) continue;
+
+      const dt = new Date(row.summary_date + 'T12:00:00Z');
+      const dayIdx = dt.getDay();
+      const dayName = dayNames[dayIdx];
+
+      if (!dayBuckets[dayName]) dayBuckets[dayName] = [];
+      dayBuckets[dayName].push(hrv);
+
+      if (dayIdx === 0 || dayIdx === 6) weekendValues.push(hrv);
+      else weekdayValues.push(hrv);
+
+      sum += hrv;
+      total++;
+
+      // Time-of-day from hrv_samples if available
+      const samples = row.hrv_samples as any[];
+      if (Array.isArray(samples)) {
+        for (const s of samples) {
+          const h = s.hour;
+          if (h >= 6 && h < 12) morningValues.push(s.value);
+          else if (h >= 12 && h < 18) afternoonValues.push(s.value);
+          else eveningValues.push(s.value);
+        }
+      }
+    }
+
+    const avg = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+    const dayOfWeekAvgs: Record<string, number> = {};
+    for (const [day, vals] of Object.entries(dayBuckets)) {
+      dayOfWeekAvgs[day] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    }
+
+    const baseline30d = total > 0 ? Math.round(sum / total) : null;
+
+    // Pattern detection: find days where HRV is consistently low but check-in says strong/focused
+    const patternObservations: string[] = [];
+
+    if (baseline30d && total >= 7) {
+      for (const [day, vals] of Object.entries(dayBuckets)) {
+        if (vals.length < 3) continue;
+        const dayAvg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const deviationPct = ((dayAvg - baseline30d) / baseline30d) * 100;
+
+        if (Math.abs(deviationPct) >= 10) {
+          // Check if check-in outcome contradicts HRV on this day
+          const contradictions = wearableRows.filter(r => {
+            const dt = new Date(r.summary_date + 'T12:00:00Z');
+            return dayNames[dt.getDay()] === day && checkinByDate[r.summary_date];
+          }).filter(r => {
+            const outcome = checkinByDate[r.summary_date];
+            const hrv = Number(r.hrv);
+            // Low HRV but positive outcome
+            if (hrv < baseline30d * 0.85 && (outcome === 'focused' || outcome === 'steady')) return true;
+            // High HRV but negative outcome
+            if (hrv > baseline30d * 1.15 && (outcome === 'drained' || outcome === 'overwhelmed')) return true;
+            return false;
+          });
+
+          if (contradictions.length >= 2) {
+            const direction = deviationPct < 0 ? 'lower' : 'higher';
+            patternObservations.push(
+              `${contradictions.length} ${day}s this month show ${direction} HRV while you reported feeling ${contradictions.length > 0 ? checkinByDate[contradictions[0].summary_date] : 'strong'}`
+            );
+          }
+        }
+      }
+
+      // Weekday vs weekend pattern
+      const wdAvg = avg(weekdayValues);
+      const weAvg = avg(weekendValues);
+      if (wdAvg && weAvg && Math.abs(wdAvg - weAvg) > baseline30d * 0.15) {
+        if (wdAvg < weAvg) {
+          patternObservations.push('Your weekday HRV runs notably lower than weekends — your work week carries measurable physiological load');
+        } else {
+          patternObservations.push('Your weekend HRV runs lower than weekdays — your recovery pattern may be disrupted');
+        }
+      }
+    }
+
+    return {
+      weekdayAvg: avg(weekdayValues),
+      weekendAvg: avg(weekendValues),
+      dayOfWeekAvgs,
+      morningAvg: avg(morningValues),
+      afternoonAvg: avg(afternoonValues),
+      eveningAvg: avg(eveningValues),
+      baseline30d,
+      totalSamples: total,
+      patternObservations,
+    };
+  } catch (error) {
+    console.warn('[wearableContextAnalyzer] HRV pattern computation failed:', error);
     return null;
   }
 }
