@@ -18,6 +18,79 @@ Deno.serve(async (req) => {
     const userId = authResult.userId;
 
     const body = await req.json();
+
+    const db = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // ===== BULK FORMAT: { samples: [{ summary_date, hrv, hrv_samples }] } =====
+    if (body.samples && Array.isArray(body.samples)) {
+      const results = { inserted: 0, updated: 0, errors: 0 };
+
+      for (const sample of body.samples) {
+        if (!sample.summary_date || sample.hrv == null) {
+          results.errors++;
+          continue;
+        }
+
+        const row: Record<string, unknown> = {
+          user_id: userId,
+          summary_date: sample.summary_date,
+          source: "apple-healthkit",
+          hrv: sample.hrv,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Populate hrv_samples JSONB if provided
+        if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) {
+          row.hrv_samples = sample.hrv_samples;
+        }
+
+        // Preserve any raw_data from the request
+        if (body.raw_data) {
+          row.raw_data = body.raw_data;
+        }
+
+        // Check if row exists
+        const { data: existing } = await db
+          .from("wearable_data")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("summary_date", sample.summary_date)
+          .eq("source", "apple-healthkit")
+          .maybeSingle();
+
+        let error;
+        if (existing?.id) {
+          const result = await db
+            .from("wearable_data")
+            .update(row)
+            .eq("id", existing.id);
+          error = result.error;
+          if (!error) results.updated++;
+        } else {
+          const result = await db
+            .from("wearable_data")
+            .insert(row);
+          error = result.error;
+          if (!error) results.inserted++;
+        }
+
+        if (error) {
+          console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
+          results.errors++;
+        }
+      }
+
+      console.log("[persist-wearable-data] Bulk result:", results);
+      return new Response(
+        JSON.stringify({ success: true, ...results }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LEGACY SINGLE FORMAT: { summary_date, hrv, ... } =====
     const {
       summary_date,
       hrv = null,
@@ -38,13 +111,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const db = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Upsert keyed by (user_id, summary_date) — use source as tiebreaker
-    // First check if row exists
+    // Check if row exists
     const { data: existing } = await db
       .from("wearable_data")
       .select("id")
@@ -53,7 +120,7 @@ Deno.serve(async (req) => {
       .eq("source", "apple-healthkit")
       .maybeSingle();
 
-    const row = {
+    const row: Record<string, unknown> = {
       user_id: userId,
       summary_date,
       source: "apple-healthkit",
