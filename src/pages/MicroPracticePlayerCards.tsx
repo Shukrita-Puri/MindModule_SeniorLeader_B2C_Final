@@ -1739,6 +1739,7 @@ const MicroPracticePlayerCards = () => {
   const location = useLocation();
   const category = location.state?.category || 'power-up'; // Default to power-up if no category
   const fromRitual = location.state?.fromRitual || false;
+  const fromIntervention = location.state?.fromIntervention || false;
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
@@ -1956,7 +1957,7 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+      const returnPath = (fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
   };
@@ -2005,7 +2006,7 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+      const returnPath = (fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
   };
@@ -2099,7 +2100,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath={fromRitual ? '/executive-home' : `/recalibrate/${category}`} transparent />
+      <TopNavigation backPath={(fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`} transparent />
 
       {/* Practice Queue Progress - only show when multiple practices in queue */}
       {isInQueue && practice && practiceQueue.length > 1 && (
