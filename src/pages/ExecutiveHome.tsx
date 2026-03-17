@@ -26,11 +26,11 @@ import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
-  depleted: 'from-blue-900/30 via-slate-800/20 to-background',
-  managing: 'from-amber-900/25 via-stone-800/15 to-background',
-  strong: 'from-emerald-900/25 via-teal-800/15 to-background',
-  peak: 'from-violet-900/25 via-purple-800/15 to-background',
-  default: 'from-stone-800/20 via-stone-700/10 to-background',
+  depleted: 'from-blue-900/50 via-slate-800/35 to-background',
+  managing: 'from-amber-900/45 via-stone-800/30 to-background',
+  strong: 'from-emerald-900/45 via-teal-800/30 to-background',
+  peak: 'from-violet-900/45 via-purple-800/30 to-background',
+  default: 'from-stone-800/40 via-stone-700/25 to-background',
 };
 
 interface PreEventPlan {
