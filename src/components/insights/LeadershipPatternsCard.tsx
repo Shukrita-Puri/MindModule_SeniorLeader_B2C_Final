@@ -393,19 +393,30 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 Your Inner Edge
               </p>
 
-              {/* Lean On */}
+              {/* Core Strengths */}
               <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
                 <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
-                    {data.coachStrength ? (
+                    {data.coreStrengths && data.coreStrengths.length > 0 ? (
+                      <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your data</span>
+                    ) : data.coachStrength ? (
                       <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
                   </div>
-                  {data.coachStrength ? (
+                  {data.coreStrengths && data.coreStrengths.length > 0 ? (
+                    <ul className="space-y-1">
+                      {data.coreStrengths.map((s, i) => (
+                        <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                          <ArrowRight className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : data.coachStrength ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-emerald-500 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-muted-foreground italic">"{data.coachStrength}"</p>
@@ -416,19 +427,30 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 </div>
               </div>
 
-              {/* Watch For */}
+              {/* Growth Edges */}
               <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
-                    {data.coachFriction ? (
+                    {data.growthEdges && data.growthEdges.length > 0 ? (
+                      <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your data</span>
+                    ) : data.coachFriction ? (
                       <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
                       <span className="text-[9px] text-muted-foreground/50 font-medium tracking-wider uppercase">Based on your archetype</span>
                     )}
                   </div>
-                  {data.coachFriction ? (
+                  {data.growthEdges && data.growthEdges.length > 0 ? (
+                    <ul className="space-y-1">
+                      {data.growthEdges.map((e, i) => (
+                        <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                          <ArrowRight className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <span>{e}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : data.coachFriction ? (
                     <div className="flex items-start gap-1.5">
                       <MessageSquare className="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-muted-foreground italic">"{data.coachFriction}"</p>
