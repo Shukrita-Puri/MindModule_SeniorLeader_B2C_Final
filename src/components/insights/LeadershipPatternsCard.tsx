@@ -396,7 +396,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Lean On</p>
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Core Strengths</p>
                     {data.coachStrength ? (
                       <span className="text-[9px] text-emerald-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
