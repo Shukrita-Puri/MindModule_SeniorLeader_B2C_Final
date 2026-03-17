@@ -204,17 +204,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     }
   }
 
-  // Fall back to local storage if DB had nothing
-  if (wearableHRV === null) {
-    const localEntries = getLocalWearableData();
-    if (localEntries.length > 0) {
-      const latest = localEntries[localEntries.length - 1];
-      if (latest.hrv !== null) {
-        wearableHRV = latest.hrv;
-        wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
-      }
-    }
-  }
+  // Diagnostic: log wearable data source for cross-device debugging
+  console.log('[energyStateEngine] Wearable source:', wearableHRV !== null ? 'DB' : 'NONE (no fallback)', '| HRV:', wearableHRV);
 
   const hasWearable = wearableHRV !== null && wearableHRV > 0;
 
