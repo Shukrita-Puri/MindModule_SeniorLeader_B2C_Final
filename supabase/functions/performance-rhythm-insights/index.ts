@@ -80,7 +80,7 @@ serve(async (req) => {
     const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
     // Fetch all data in parallel
-    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] =
+    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes] =
       await Promise.all([
         sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
@@ -95,6 +95,8 @@ serve(async (req) => {
         sb.from("daily_ritual_completions").select("ritual_date, completion_status, session_period")
           .eq("user_id", userId).gte("ritual_date", thirtyDaysAgoStr),
         sb.from("dialogue_sessions").select("id")
+          .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
+        sb.from("jit_preferences").select("event_title, action, event_start_time")
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
       ]);
 
