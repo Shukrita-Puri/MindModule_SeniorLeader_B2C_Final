@@ -80,7 +80,7 @@ serve(async (req) => {
     const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
     // Fetch all data in parallel
-    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] =
+    const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes] =
       await Promise.all([
         sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
@@ -96,6 +96,8 @@ serve(async (req) => {
           .eq("user_id", userId).gte("ritual_date", thirtyDaysAgoStr),
         sb.from("dialogue_sessions").select("id")
           .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
+        sb.from("jit_preferences").select("event_title, action, event_start_time")
+          .eq("user_id", userId).gte("created_at", thirtyDaysAgoIso),
       ]);
 
     const checkIns = checkInsRes.data || [];
@@ -104,6 +106,7 @@ serve(async (req) => {
     const behaviorLogs = behaviorRes.data || [];
     const readinessScores = readinessRes.data || [];
     const rituals = ritualsRes.data || [];
+    const jitPrefs = jitRes.data || [];
 
     // BUG 1 fix: Scope dialogue_messages by user's session IDs
     const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
@@ -243,13 +246,69 @@ serve(async (req) => {
       if (patterns[0]) {
         const p = patterns[0];
         causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
+    }
+
+    // ── CAUSE-EFFECT: Calendar event → outcome correlation ──
+    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
+      const etOutcomes = new Map<string, string[]>();
+      for (const ev of calendarEvents) {
+        if (!ev.title) continue;
+        const tl = ev.title.toLowerCase();
+        const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+          EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
+        );
+        if (!et) continue;
+        const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
+        const nextCI = checkIns.find(c => c.checkin_date === nextDate);
+        if (nextCI?.outcome) {
+          if (!etOutcomes.has(et)) etOutcomes.set(et, []);
+          etOutcomes.get(et)!.push(nextCI.outcome);
+        }
       }
+      let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
+      etOutcomes.forEach((outcomes, et) => {
+        if (outcomes.length < 2) return;
+        const freq = new Map<string, number>();
+        outcomes.forEach(o => freq.set(o, (freq.get(o) || 0) + 1));
+        freq.forEach((cnt, outcome) => {
+          const pct = cnt / outcomes.length;
+          if (pct >= 0.5 && (!bestCalCE || pct > bestCalCE.pct)) {
+            bestCalCE = { et, outcome, pct, count: outcomes.length };
+          }
+        });
+      });
+      if (bestCalCE) {
+        const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
+        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' the next day — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+      }
+    }
+
+    // ── CAUSE-EFFECT: JIT completion → outcome correlation ──
+    if (!causeEffectInsight && jitPrefs.length >= 3 && checkIns.length >= 5) {
+      const jitCompleted = jitPrefs.filter(j => j.action === 'completed' || j.action === 'accepted');
+      const jitSkipped = jitPrefs.filter(j => j.action === 'skipped' || j.action === 'dismissed');
+      if (jitCompleted.length >= 2) {
+        const completedOutcomes: string[] = [];
+        for (const j of jitCompleted) {
+          if (!j.event_start_time) continue;
+          const evDate = new Date(j.event_start_time).toISOString().split("T")[0];
+          const ci = checkIns.find(c => c.checkin_date === evDate);
+          if (ci?.outcome) completedOutcomes.push(ci.outcome);
+        }
+        const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
+        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.6) {
+          causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
+        }
+      }
+    }
     }
 
     // ── HOW YOU SHOW UP (1A) ──
     let presenceScore: number | null = null;
     let presenceLabel: string | null = null;
     let presenceInsight: string | null = null;
+    let presenceActions: string[] = [];
 
     const highStakesEvents = calendarEvents.filter(e =>
       e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
@@ -301,6 +360,32 @@ serve(async (req) => {
       ];
       signals.sort((a, b) => b.s - a.s);
       presenceInsight = signals[0].s > 0 ? signals[0].t : "Building pattern data — presence insights strengthen after more high-stakes moments.";
+
+      // Build presenceActions — actionable bullets from the top 2 non-zero signals
+      presenceActions = signals
+        .filter(sig => sig.s > 0)
+        .slice(0, 2)
+        .map(sig => sig.t);
+
+      // Add JIT-specific action if data available
+      const jitBeforeHighStakes = jitPrefs.filter(j => 
+        (j.action === 'completed' || j.action === 'accepted') && j.event_start_time
+      ).length;
+      if (jitBeforeHighStakes >= 2 && highStakesEvents.length > 0) {
+        presenceActions.push(
+          `You completed JIT prep before ${jitBeforeHighStakes} high-stakes events — this preparation pattern correlates with stronger presence.`
+        );
+      }
+
+      // Add depleted recovery suggestion if depleted > 50% of high-stakes
+      if (depletedHighStakes > highStakesEvents.length * 0.5 && highStakesEvents.length >= 2) {
+        presenceActions.push(
+          `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments — consider scheduling recovery blocks before these events.`
+        );
+      }
+
+      // Cap at 3 actions
+      presenceActions = presenceActions.slice(0, 3);
     }
 
     // ── DATA SOURCE NOTE ──
@@ -316,6 +401,7 @@ serve(async (req) => {
       presenceScore,
       presenceLabel,
       presenceInsight,
+      presenceActions: presenceActions.length > 0 ? presenceActions : null,
       calendarInsight,
       causeEffectInsight,
       grid,

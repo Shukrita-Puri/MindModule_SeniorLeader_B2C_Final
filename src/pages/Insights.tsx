@@ -390,7 +390,7 @@ const Insights = () => {
       const { data, error } = await withTimeout(
         supabase.functions.invoke('tiny-wins-insights', {
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { days: 14 }
+          body: { days: 30 }
         }),
         15000,
         'tiny-wins-insights'
@@ -789,7 +789,7 @@ const Insights = () => {
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-              Your Inner World
+              Inner World Insights
             </h1>
             <p className="text-lg font-subheadline italic text-muted-foreground">
               Patterns. Progress. Presence.
@@ -812,7 +812,7 @@ const Insights = () => {
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
                 title="Your Momentum"
-                explanation="The wins you've logged over the past two weeks — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
+                explanation="The wins you've logged over the past 30 days — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
@@ -889,13 +889,16 @@ const Insights = () => {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground/60">
-                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 2 weeks
+                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
                 </p>
               </div>
             ) : (
-              <div className="py-4">
+              <div className="py-4 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {winsProgressMessage || 'Complete your evening Integrate flow with the Coach to capture wins.'}
+                  {winsProgressMessage || 'Share your wins during evening coach sessions to build your momentum map.'}
+                </p>
+                <p className="text-xs text-muted-foreground/60">
+                  The coach captures patterns you might miss — speak to them about your daily wins to unlock this feature.
                 </p>
               </div>
             )}
