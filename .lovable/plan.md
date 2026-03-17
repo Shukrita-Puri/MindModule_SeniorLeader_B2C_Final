@@ -1,53 +1,67 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Plan: Layer HRV Data into Coach Intelligence
 
-Two files need text-only changes (no layout or UI modifications).
+## The Gap
 
----
+The coach already has **all the scaffolding** for HRV intelligence — the type (`hrvData`), the rendering code, the divergence detection function, and detailed system prompt instructions on how to use HRV. But **`buildServerContext` never queries `wearable_data`**. The `hrvData` field is always `undefined`. All the HRV logic is dead code.
 
-### File 1: `src/pages/Front.tsx`
+Additionally, the `physiological_events` table already stores HRV correlated with specific calendar events (e.g., "board meeting" + HRV 34ms), but the coach never reads it — so it can't say "last time you had a board meeting your HRV spiked."
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+## What to Add
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+### 1. Fetch HRV data in `buildServerContext` (wire up existing dead code)
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+Add a 14th parallel query to the existing `Promise.all` block that fetches from `wearable_data`:
+- **Today's HRV** (latest row for today or yesterday)
+- **30-day baseline** (average HRV across last 30 days)
+- **7-day trend** (daily HRV values to detect rising/falling)
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+Then populate `context.hrvData` with `currentHRV`, `baselineHRV`, `hrvDelta`, `hrvDeltaPct`, and `hrvTrend` (rising/falling/stable based on 7-day linear direction).
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+This immediately activates all the existing divergence detection, rendering, and system prompt logic.
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+### 2. Fetch upcoming calendar + historical HRV correlation from `physiological_events`
 
----
+Add a 15th parallel query that:
+- Gets today's upcoming calendar events (next 12 hours) from `calendar_events`
+- Cross-references with `physiological_events` to find past HRV readings for similar event types
+- Produces a structure like: `{ eventTitle: "Board Meeting", minutesUntil: 90, pastHRV: { avg: 38, count: 4, trend: "elevated" } }`
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+This enables the coach to proactively say: *"You have a board meeting in 90 minutes. Across your last 4 board meetings, your HRV averaged 38ms — that's sympathetic activation. Want to prepare for that?"*
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+### 3. Add to dynamic prompt builder
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+Extend the context rendering (the `buildDynamicPrompt` function) to include the new event-HRV correlation section:
+```
+## Upcoming Event HRV Pattern
+- "Board Meeting" in 90 minutes
+- Past HRV for similar events: avg 38ms across 4 occurrences (elevated stress)
+- Consider proactively offering preparation support.
+```
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+### 4. Enhance system prompt with proactive opener guidance
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+Add a small section to the system prompt (after the existing WEARABLE DATA section) instructing the coach to use HRV + calendar correlation data for **conversation openers** — not just mid-conversation references. Something like:
 
----
+> When upcoming event HRV patterns are available, you may open with a proactive observation: "I noticed you have [event] coming up in [time]. In past sessions around similar events, your HRV has been [pattern]. Would it be helpful to [prepare/unpack/ground] before that?"
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+## Files to Change
+
+1. **`supabase/functions/self-mastery-coach/index.ts`**
+   - Add `wearable_data` query (today + 30-day baseline + 7-day trend) to `Promise.all` in `buildServerContext`
+   - Add `fetchUpcomingEventHRV` helper that joins `calendar_events` + `physiological_events`
+   - Populate `context.hrvData` from query results
+   - Add new `upcomingEventHRV` field to `CoachContext` type
+   - Extend `buildDynamicPrompt` to render the event-HRV correlation section
+   - Add proactive opener guidance to system prompt
+
+No other files need changing — all client-side and downstream plumbing already exists.
+
+## Outcome
+
+- The coach will reference actual HRV numbers in conversation (divergence detection, trends)
+- The coach can proactively open conversations with HRV + calendar pattern observations
+- All data comes from the DB (canonical source), no localStorage involved
+- Users without wearable data are unaffected (all sections are conditional on data presence)
 
