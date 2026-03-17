@@ -42,6 +42,11 @@ interface PreEventPlan {
   modules: PreEventModule[];
   coachCard: any;
   progressTracked: boolean;
+  hrvCorrelation?: {
+    eventType: string;
+    avgDeviation: number;
+    historicalCount: number;
+  } | null;
 }
 
 interface JitCarouselProps {
