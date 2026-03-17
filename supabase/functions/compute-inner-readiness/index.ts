@@ -393,11 +393,11 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // Assemble context statement (now with always-on Layer 3)
+    // Assemble context statement (now with always-on Layer 3 + confidence-aware text)
     const { text: contextStatement, layersActive } = assembleContextStatement(
       checkInOutcome, hasCheckIn, timeOfDay, tier,
       clarity, confidence, divergenceFlag, hrvDeviation,
-      hrvPatternContext ?? null
+      hrvPatternContext ?? null, bConf, sampleDays
     );
 
     // Data sources
