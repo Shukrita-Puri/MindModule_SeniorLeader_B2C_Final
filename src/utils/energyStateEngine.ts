@@ -120,6 +120,7 @@ export interface CurrentEnergyState {
   hrvDeviation?: number | null;
   tierLabel?: string;
   layersActive?: string[];
+  layer3Statement?: string | null;
 }
 
 // Fetch today's check-in from DB to get clarity/confidence
