@@ -74,6 +74,7 @@ interface MasteryPlanResponse {
     coachCard: CoachCardData | null;
     totalDuration: number;
     progressTracked: boolean;
+    calendarMessage?: string;
   };
   calendarPills: CalendarPill[];
   preEventPlan: PreEventPlan | null;
@@ -82,6 +83,12 @@ interface MasteryPlanResponse {
     scenarioId: string | null;
     durationCeiling: number;
     maxModules: number;
+    calendarContext?: {
+      todayLoad: string;
+      upcomingLoad: string;
+      todayMeetingCount: number;
+      todayMeetingHours: number;
+    };
   };
 }
 

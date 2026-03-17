@@ -1697,7 +1697,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       modules: todModules,
       coachCard: todCoachCard,
       totalDuration,
-      progressTracked: true
+      progressTracked: true,
+      calendarMessage: calendarMessage || undefined
     },
     calendarPills,
     preEventPlan,
@@ -1705,7 +1706,10 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       generatedAt: new Date().toISOString(),
       scenarioId: filteredEvents[0]?.scenario?.id || null,
       durationCeiling: maxDuration,
-      maxModules
+      maxModules,
+      calendarContext: calendarContext.todayMeetingCount > 0 || calendarContext.upcomingMeetingCount > 0
+        ? { todayLoad: calendarContext.todayLoad, upcomingLoad: calendarContext.upcomingLoad, todayMeetingCount: calendarContext.todayMeetingCount, todayMeetingHours: calendarContext.todayMeetingHours }
+        : undefined
     }
   };
 }
