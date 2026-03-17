@@ -360,20 +360,29 @@ serve(async (req) => {
       divergenceFlag = getDivergenceFlag(feltScore, wearableScore);
     }
 
-    // Compute final score based on weighting mode
+    // Compute final score based on weighting mode + baseline confidence
+    // Scale wearable weight by confidence: low=15%, medium=25%, high=full (25-35%)
+    const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
+
     let score: number;
     if (!hasWearable) {
       // Mode 1: No wearable
       score = Math.round(feltScore * 0.55 + irScore * 0.30 + circadianScore * 0.15);
     } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High
-      score = Math.round(feltScore * 0.30 + irScore * 0.25 + wearableScore * 0.35 + circadianScore * 0.10);
+      // Mode 3: Masked High — scale wearable weight by confidence
+      const wW = 0.35 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10; // circadian stays 0.10
+      score = Math.round(feltScore * (remainder * 0.55) + irScore * (remainder * 0.45) + wearableScore * wW + circadianScore * 0.10);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
       // Mode 4: Recovery Underway
-      score = Math.round(feltScore * 0.35 + irScore * 0.25 + wearableScore * 0.30 + circadianScore * 0.10);
+      const wW = 0.30 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10;
+      score = Math.round(feltScore * (remainder * 0.58) + irScore * (remainder * 0.42) + wearableScore * wW + circadianScore * 0.10);
     } else {
       // Mode 2: Aligned
-      score = Math.round(feltScore * 0.40 + irScore * 0.25 + wearableScore * 0.25 + circadianScore * 0.10);
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10;
+      score = Math.round(feltScore * (remainder * 0.62) + irScore * (remainder * 0.38) + wearableScore * wW + circadianScore * 0.10);
     }
 
     // Clamp score
