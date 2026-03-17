@@ -961,18 +961,19 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
           historicalCount: correlation.count,
         };
 
+        const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
         if (avgDev > 20) {
           score += 25;
-          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${evtType} meetings — your system responds strongly to these. Preparation significantly reduces physiological activation.`;
+          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds strongly to these. Preparation significantly reduces physiological activation.`;
         } else if (avgDev > 15) {
           score += 20;
-          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${evtType} meetings — your system responds to these. Grounding before the meeting helps.`;
+          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds to these. Grounding before the meeting helps.`;
         } else if (avgDev > 10) {
           score += 12;
-          hrvContextPart = `Your HRV tends to elevate during ${evtType} meetings (${Math.abs(avgDev)}% above baseline). Brief preparation recommended.`;
+          hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline). Brief preparation recommended.`;
         } else if (avgDev < -10) {
           score -= 5;
-          hrvContextPart = `Your HRV typically remains stable during ${evtType} meetings — lower physiological demand detected.`;
+          hrvContextPart = `Your HRV typically remains stable during ${canonicalLabel.toLowerCase()} events — lower physiological demand detected.`;
         }
       }
     }
