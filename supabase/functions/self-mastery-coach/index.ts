@@ -1411,6 +1411,8 @@ async function buildServerContext(
     consecutiveResult,
     practiceEffectivenessResult,
     calendarCorrelationsResult,
+    wearableHRVResult,
+    upcomingEventHRVResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -1493,6 +1495,10 @@ async function buildServerContext(
     fetchPracticeEffectiveness(supabase, userId),
     // 13. Calendar-state correlations
     fetchCalendarStateCorrelations(supabase, userId),
+    // 14. Wearable HRV data (today/yesterday + 30-day baseline + 7-day trend)
+    fetchWearableHRV(supabase, userId),
+    // 15. Upcoming event HRV correlations (calendar × physiological_events)
+    fetchUpcomingEventHRV(supabase, userId),
   ]);
 
   // --- Populate context from server results ---
