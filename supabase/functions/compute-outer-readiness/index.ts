@@ -531,7 +531,44 @@ const tierFallbacks: Record<EnergyTier, { leanOn: string; watchFor: string }> = 
   peak: { leanOn: "Your full readiness. You are at your most resourced, present, and capable.", watchFor: "Treating peak state as the norm and spending it without protecting what sustains it." },
 };
 
+// ==================== COACH INSIGHT AGE TIERS ====================
+type CoachInsightTier = 'recent' | 'grace' | 'contextual' | 'historical' | 'archived';
+
+function getCoachInsightTier(daysOld: number): CoachInsightTier {
+  if (daysOld <= 3) return 'recent';
+  if (daysOld <= 7) return 'grace';
+  if (daysOld <= 14) return 'contextual';
+  if (daysOld <= 30) return 'historical';
+  return 'archived';
+}
+
+function detectCCContradiction(
+  coachStrength: string,
+  coachGrowth: string,
+  clarity: number | null,
+  confidence: number | null,
+): boolean {
+  const combined = (coachStrength + ' ' + coachGrowth).toLowerCase();
+  const mentionsClarity = combined.includes('clarity') || combined.includes('clear') || combined.includes('direction') || combined.includes('focus');
+  const mentionsConfidence = combined.includes('confidence') || combined.includes('conviction') || combined.includes('certainty') || combined.includes('trust in');
+
+  if (mentionsClarity && (clarity ?? 3) <= 2) return true;
+  if (mentionsConfidence && (confidence ?? 3) <= 2) return true;
+  return false;
+}
+
+// Feature flag for Phase 2 wearable recovery override
+const ENABLE_WEARABLE_RECOVERY_TRIGGER = false;
+
 // ==================== LEAN ON / WATCH FOR — PRIORITY CASCADE ====================
+interface LeanOnWatchForResult {
+  leanOn: string;
+  watchFor: string;
+  source: string;
+  coachInsightAge?: number;
+  coachInsightLabel?: string;
+}
+
 function getLeanOnWatchFor(
   tier: EnergyTier,
   archetype: string | null,
@@ -542,71 +579,95 @@ function getLeanOnWatchFor(
   coachInsightCreatedAt: string | null,
   hour: number,
   dayOfWeek: number,
-): { leanOn: string; watchFor: string } {
+): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
 
-  // ── Priority 0: Sunday evening (after 9pm on Sunday) — always wins ──
+  // Compute coach insight age + tier
+  let coachDaysOld = 0;
+  let coachTier: CoachInsightTier = 'archived';
+  const hasCoachBoth = !!(coachStrength && coachGrowth);
+
+  if (coachInsightCreatedAt) {
+    coachDaysOld = Math.floor((Date.now() - new Date(coachInsightCreatedAt).getTime()) / 86400000);
+    coachTier = getCoachInsightTier(coachDaysOld);
+  }
+
+  // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
+  if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
+    // Stub: checkWearableRecoveryTrigger would go here
+    // if (wearableRecovery.triggered) return { ... source: 'wearable-recovery-override' };
+  }
+
+  // ── P0: Sunday evening (after 9pm on Sunday) — always wins ──
   if (lateEvening && dayCtx === 'sunday') {
-    return sundayEveningInsights[tier];
+    return { ...sundayEveningInsights[tier], source: 'sunday-evening-override' };
   }
 
-  // ── Priority 1: Coach insights (with recency + contradiction check) ──
-  if (coachStrength && coachGrowth) {
-    let useCoach = true;
-
-    if (coachInsightCreatedAt) {
-      const daysSince = Math.floor(
-        (Date.now() - new Date(coachInsightCreatedAt).getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      if (daysSince > 3) {
-        // Check for contradiction: coach mentions clarity/confidence as strength but today's C×C is low
-        const combined = (coachStrength + ' ' + coachGrowth).toLowerCase();
-        const mentionsClarity = combined.includes('clarity') || combined.includes('clear');
-        const mentionsConfidence = combined.includes('confidence') || combined.includes('conviction');
-
-        if (mentionsClarity && (clarity ?? 3) <= 2) {
-          useCoach = false; // Coach insight contradicted by today's low clarity
-        } else if (mentionsConfidence && (confidence ?? 3) <= 2) {
-          useCoach = false; // Coach insight contradicted by today's low confidence
-        }
-      }
-      // ≤ 3 days: always use (useCoach stays true)
-    }
-
-    if (useCoach) {
-      return { leanOn: coachStrength, watchFor: coachGrowth };
-    }
+  // ── P1a: Coach insights ≤3 days (recent) — no age label ──
+  if (hasCoachBoth && coachTier === 'recent') {
+    return {
+      leanOn: coachStrength!,
+      watchFor: coachGrowth!,
+      source: 'coach-insights-recent',
+      coachInsightAge: coachDaysOld,
+    };
   }
 
-  // Partial coach: mix with other priorities
+  // ── P1b: Coach insights 4-7 days (grace) — use if no C×C contradiction ──
+  if (hasCoachBoth && coachTier === 'grace') {
+    const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
+    if (!hasContradiction) {
+      return {
+        leanOn: coachStrength!,
+        watchFor: coachGrowth!,
+        source: 'coach-insights-grace',
+        coachInsightAge: coachDaysOld,
+        coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
+      };
+    }
+    // Contradiction detected — fall through to P2
+  }
+
+  // ── P2: C×C independent signal modifier ──
   const ccMod = getCCModifier(clarity, confidence);
-
-  if (coachStrength) {
-    const watchFor = ccMod?.watchFor || archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    return { leanOn: coachStrength, watchFor };
+  if (ccMod) {
+    // Check for contextual enrichment (8-14 day old coach insights)
+    if (hasCoachBoth && coachTier === 'contextual') {
+      const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_`;
+      return {
+        leanOn: enrichedLeanOn,
+        watchFor: ccMod.watchFor,
+        source: 'cc-modifier-with-context',
+        coachInsightAge: coachDaysOld,
+        coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
+      };
+    }
+    return { ...ccMod, source: 'cc-modifier' };
   }
-  if (coachGrowth) {
-    const leanOn = ccMod?.leanOn || archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    return { leanOn, watchFor: coachGrowth };
+
+  // ── Partial coach: mix with other priorities (any non-archived tier) ──
+  if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
+    const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
+    return { leanOn: coachStrength, watchFor, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+  }
+  if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
+    const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
+    return { leanOn, watchFor: coachGrowth, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
-  // ── Priority 2: C×C independent signal modifier ──
-  if (ccMod) return ccMod;
-
-  // ── Priority 3: Evening recovery (after 9pm, weekdays only) ──
+  // ── P3: Evening recovery (after 9pm, weekdays only) ──
   if (lateEvening) {
-    return eveningTierInsights[tier];
+    return { ...eveningTierInsights[tier], source: 'evening-recovery-override' };
   }
 
-  // ── Priority 4: Archetype × Tier ──
+  // ── P4: Archetype × Tier ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
-    return archetypeMatrix[archetype][tier];
+    return { ...archetypeMatrix[archetype][tier], source: 'archetype-tier' };
   }
 
-  // ── Priority 5: Tier fallback ──
-  return tierFallbacks[tier];
+  // ── P5: Tier fallback ──
+  return { ...tierFallbacks[tier], source: 'tier-fallback' };
 }
 
 // ==================== PATTERN RECOGNITION (all outcomes + C×C) ====================
