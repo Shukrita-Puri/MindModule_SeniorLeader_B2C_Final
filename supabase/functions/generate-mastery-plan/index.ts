@@ -184,7 +184,7 @@ const EXECUTIVE_SCENARIOS: ExecutiveScenario[] = [
   },
   {
     id: 'pre-difficult-conversation', name: 'Pre-Difficult Conversation', contextLabel: 'Conversation Prep',
-    triggers: { calendarKeywords: ['1:1', 'one on one', 'feedback', 'pip', 'termination', 'difficult', 'conflict'], hoursAhead: 4 },
+    triggers: { calendarKeywords: ['feedback', 'pip', 'termination', 'difficult', 'conflict'], hoursAhead: 4 },
     modules: [
       { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'composure' },
       { type: 'prepare', required: true, priority: 8, intensity: 'moderate', duration: 'short', focus: 'composure' }
