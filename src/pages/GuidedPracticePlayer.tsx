@@ -1814,18 +1814,20 @@ const GuidedPracticePlayer = () => {
         const jitData = localStorage.getItem('jitInterventionData');
         if (jitData) {
           try {
-            const { coachPrompt, flowType, eventTitle } = JSON.parse(jitData);
+            const parsed = JSON.parse(jitData);
             localStorage.removeItem('jitInterventionData');
-            toast.success('Practices complete! Opening Coach...');
-            navigate('/coach', {
-              state: {
-                flowType,
-                initialPrompt: coachPrompt,
-                fromIntervention: true,
-                eventTitle
-              }
-            });
-            return;
+            if (parsed.hasCoachStep === true && parsed.coachPrompt) {
+              toast.success('Practices complete! Opening Coach...');
+              navigate('/coach', {
+                state: {
+                  flowType: parsed.flowType,
+                  initialPrompt: parsed.coachPrompt,
+                  fromIntervention: true,
+                  eventTitle: parsed.eventTitle
+                }
+              });
+              return;
+            }
           } catch (e) {
             console.error('Error parsing JIT data:', e);
           }
