@@ -308,6 +308,7 @@ serve(async (req) => {
     let presenceScore: number | null = null;
     let presenceLabel: string | null = null;
     let presenceInsight: string | null = null;
+    let presenceActions: string[] = [];
 
     const highStakesEvents = calendarEvents.filter(e =>
       e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
