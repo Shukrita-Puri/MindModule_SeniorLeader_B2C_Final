@@ -20,6 +20,8 @@ export interface OuterReadinessData {
   driver: string;
   dataSources: string[];
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
+  coachInsightAge?: number;
+  coachInsightLabel?: string;
 }
 
 export async function fetchOuterReadiness(userId: string | undefined): Promise<OuterReadinessData | null> {

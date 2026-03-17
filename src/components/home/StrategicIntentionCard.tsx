@@ -72,12 +72,17 @@ const StrategicIntentionCard = () => {
           {brief.context}
         </p>
 
+        {/* Coach Insight Age Label */}
+        {brief.coachInsightLabel && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-l-[3px] border-l-taupe/60 rounded-sm">
+            <Info className="w-3.5 h-3.5 text-taupe/80 shrink-0" />
+            <span className="text-xs text-muted-foreground font-body">{brief.coachInsightLabel}</span>
+          </div>
+        )}
+
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
-          <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
-            <span className="font-semibold">Lean on:</span>{' '}
-            {brief.leanOn}
-          </p>
+          {renderLeanOn(brief.leanOn)}
           <p className="text-[13px] text-muted-foreground/80 font-subheadline leading-relaxed">
             <span className="font-semibold">Watch for:</span>{' '}
             {brief.watchFor}

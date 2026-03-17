@@ -866,12 +866,13 @@ serve(async (req) => {
       }
     }
     
-    const { leanOn, watchFor } = getLeanOnWatchFor(
+    const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
     );
 
-    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome);
+    const coachUsed = leanOnResult.source.startsWith('coach');
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed);
 
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
@@ -885,8 +886,8 @@ serve(async (req) => {
         calendar_pressure: calendarPressure || null,
         calendar_load: calendarLoad || null,
         time_of_day: timeOfDay,
-        lean_on: leanOn,
-        watch_for: watchFor,
+        lean_on: leanOnResult.leanOn,
+        watch_for: leanOnResult.watchFor,
         inner_readiness_score: innerReadinessScore,
         archetype: serverArchetype,
       }, { onConflict: 'user_id,theme_date' });
@@ -897,16 +898,20 @@ serve(async (req) => {
     const result: OuterReadinessResult = {
       phrase: finalPhrase,
       context: finalContext,
-      leanOn,
-      watchFor,
+      leanOn: leanOnResult.leanOn,
+      watchFor: leanOnResult.watchFor,
       driver: theme.driver,
       dataSources,
       calendarState: calendarResult.state,
+      coachInsightAge: leanOnResult.coachInsightAge,
+      coachInsightLabel: leanOnResult.coachInsightLabel,
     };
 
     console.log('[compute-outer-readiness] RESULT:', JSON.stringify({
       phrase: finalPhrase,
       driver: theme.driver,
+      source: leanOnResult.source,
+      coachInsightAge: leanOnResult.coachInsightAge,
       dataSources,
       calendarState: calendarResult.state,
     }));
