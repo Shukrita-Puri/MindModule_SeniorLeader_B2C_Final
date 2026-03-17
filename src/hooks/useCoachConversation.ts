@@ -444,7 +444,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             action: 'end', 
             sessionId: currentSessionId,
             durationSeconds: null,
-            totalMessages: messages.length,
+            totalMessages: msgCount,
             totalInterventions: 0
           }
         });
