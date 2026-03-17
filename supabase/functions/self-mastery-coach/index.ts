@@ -2508,7 +2508,7 @@ serve(async (req) => {
   try {
     // Verify Auth0 JWT — userId comes from token, not body
     const verifiedUserId = await verifyAuth0JWT(req.headers.get('Authorization'));
-    const { messages, flowType, sessionId, context: clientContext } = await req.json();
+    const { messages, flowType, entryPoint, sessionId, context: clientContext } = await req.json();
     const userId = verifiedUserId;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
