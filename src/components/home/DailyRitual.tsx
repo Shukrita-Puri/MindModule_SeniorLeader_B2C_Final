@@ -270,17 +270,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (checkinTime.getTime() > planTime.getTime() + 60000) {
           shouldRegenerate = true;
           sessionStorage.removeItem(sessionKey);
-          await upsertRitual({
-            ritual_date: todayDate,
-            session_period: currentPeriod,
-            completion_status: 'partial',
-            completed_practice_ids: [],
-            soundscape_completed: false,
-            guided_practice_completed: false,
-            micro_exercise_completed: false
-          });
-          setCompletedPracticeIds([]);
-          setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: 0 });
+          // Regenerate plan but PRESERVE existing completed_practice_ids
+          // (user may have completed practices before re-checking in)
         }
       }
 
