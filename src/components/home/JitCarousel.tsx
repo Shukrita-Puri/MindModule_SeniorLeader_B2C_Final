@@ -333,7 +333,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                   return (
                     <CarouselItem key={module.contentId || index} className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]">
                       <div
-                        onClick={() => !isDragging && !isCompleted && navigateToModule(module)}
+                        onClick={() => !isDragging && navigateToModule(module)}
                         className={cn(
                           "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
                           "bg-white/15 backdrop-blur-md border border-white/40",
