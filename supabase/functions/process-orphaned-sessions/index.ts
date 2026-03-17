@@ -101,6 +101,17 @@ serve(async (req) => {
         })
         .eq('id', session.id);
 
+      // Fire-and-forget: log coach session to behavior_logs for cause-effect
+      supabase.from('behavior_logs').insert({
+        user_id: session.user_id,
+        behavior_type: 'coach_session',
+        event_title: 'coach',
+        energy_after: null,
+        created_at: new Date().toISOString(),
+      }).then(({ error: blErr }) => {
+        if (blErr) console.error('[process-orphaned-sessions] behavior_log insert error:', blErr);
+      });
+
       if (msgCount < 2) {
         console.log(`[process-orphaned-sessions] Session ${session.id} completed with ${msgCount} msgs — too few for downstream`);
         skipped++;

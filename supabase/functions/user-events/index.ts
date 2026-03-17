@@ -193,6 +193,20 @@ serve(async (req) => {
         }
 
         console.log('[user-events] Checkin saved for', dateToSave);
+
+        // Fire-and-forget: log depleted check-ins to behavior_logs for cause-effect
+        if (outcome === 'drained' || outcome === 'overwhelmed') {
+          supabase.from('behavior_logs').insert({
+            user_id: userId,
+            behavior_type: 'check_in_depleted',
+            event_title: outcome,
+            energy_after: null,
+            created_at: new Date().toISOString(),
+          }).then(({ error: blErr }) => {
+            if (blErr) console.error('[user-events] behavior_log depleted insert error:', blErr);
+          });
+        }
+
         return new Response(
           JSON.stringify({ success: true, data }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

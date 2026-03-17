@@ -183,6 +183,18 @@ serve(async (req) => {
         }
 
         console.log('[practice-data] Ritual upserted for', dateToUpsert);
+
+        // Fire-and-forget: log practice completion to behavior_logs for cause-effect
+        supabase.from('behavior_logs').insert({
+          user_id: userId,
+          behavior_type: 'practice_completion',
+          event_title: completionStatus || 'ritual',
+          energy_after: null,
+          created_at: new Date().toISOString(),
+        }).then(({ error: blErr }) => {
+          if (blErr) console.error('[practice-data] behavior_log insert error:', blErr);
+        });
+
         return new Response(
           JSON.stringify({ success: true, data }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
