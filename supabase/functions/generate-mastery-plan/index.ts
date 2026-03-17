@@ -1534,7 +1534,13 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
   // 6. Build time-of-day plan
   const { maxModules } = getDurationCeiling(req.calendarLoad);
-  const moduleMapping = getModulesFromTheme(req.outerReadinessPhrase);
+  const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
+
+  // Calendar-context density overrides — adjust module focus/intensity based on actual calendar load
+  const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
+  const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
+  const calendarMessage = generateCalendarMessage(calendarContext, timeOfDay);
+  console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), calendarMessage=${calendarMessage}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
   if (timeOfDay === 'evening') {
