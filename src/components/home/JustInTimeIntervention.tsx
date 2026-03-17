@@ -382,7 +382,8 @@ const JustInTimeIntervention = () => {
       localStorage.setItem('jitInterventionData', JSON.stringify({
         coachPrompt: intervention.coachPrompt,
         flowType: intervention.modules.includes('integrate') ? 'integrate' : 'prepare',
-        eventTitle: intervention.event?.title
+        eventTitle: intervention.event?.title,
+        hasCoachStep: true
       }));
     }
     

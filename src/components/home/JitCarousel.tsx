@@ -379,6 +379,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                             <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                           </div>
                         </div>
+
+                        {isCompleted && (
+                          <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                            <Check size={16} className="text-white" />
+                          </div>
+                        )}
                       </div>
                     </CarouselItem>
                   );
