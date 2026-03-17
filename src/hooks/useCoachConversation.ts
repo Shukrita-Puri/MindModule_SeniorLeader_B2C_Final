@@ -30,6 +30,7 @@ interface UseCoachConversationReturn {
   sessionId: string | null;
   setFlowType: (flowType: 'prepare' | 'integrate' | 'guided-reflection' | null) => void;
   setPracticeContext: (title: string, steps: PracticeStep[]) => void;
+  setEventContext: (eventTitle: string, fromIntervention?: boolean, fromRitual?: boolean) => void;
   restoreMessages: (restoredMessages: Message[], restoredSessionId: string) => void;
 }
 
