@@ -219,6 +219,8 @@ serve(async (req) => {
 
     // ── CAUSE-EFFECT (1C) ──
     let causeEffectInsight: string | null = null;
+
+    // Path A: behavior_logs → next-day check-in
     if (behaviorLogs.length >= 3 && checkIns.length > 0) {
       const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
       for (const log of behaviorLogs) {
@@ -246,9 +248,10 @@ serve(async (req) => {
       if (patterns[0]) {
         const p = patterns[0];
         causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
+      }
     }
 
-    // ── CAUSE-EFFECT: Calendar event → outcome correlation ──
+    // Path B: Calendar event → next-day check-in outcome (independent fallback)
     if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
       const etOutcomes = new Map<string, string[]>();
       for (const ev of calendarEvents) {
@@ -259,11 +262,14 @@ serve(async (req) => {
         );
         if (!et) continue;
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        // Check same-day AND next-day check-ins
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
-        const nextCI = checkIns.find(c => c.checkin_date === nextDate);
-        if (nextCI?.outcome) {
+        const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
+        const nextDayCI = checkIns.find(c => c.checkin_date === nextDate);
+        const matchCI = nextDayCI || sameDayCI;
+        if (matchCI?.outcome) {
           if (!etOutcomes.has(et)) etOutcomes.set(et, []);
-          etOutcomes.get(et)!.push(nextCI.outcome);
+          etOutcomes.get(et)!.push(matchCI.outcome);
         }
       }
       let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
@@ -280,14 +286,38 @@ serve(async (req) => {
       });
       if (bestCalCE) {
         const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
-        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' the next day — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
       }
     }
 
-    // ── CAUSE-EFFECT: JIT completion → outcome correlation ──
-    if (!causeEffectInsight && jitPrefs.length >= 3 && checkIns.length >= 5) {
+    // Path C: Same-day check-in outcome correlation with any calendar event (broader net)
+    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 2 && checkIns.length >= 5) {
+      const eventDayOutcomes: string[] = [];
+      const nonEventDayOutcomes: string[] = [];
+      const eventDates = new Set(calendarEvents.map(e => new Date(e.start_time).toISOString().split("T")[0]));
+      for (const ci of checkIns) {
+        if (!ci.outcome) continue;
+        if (eventDates.has(ci.checkin_date)) eventDayOutcomes.push(ci.outcome);
+        else nonEventDayOutcomes.push(ci.outcome);
+      }
+      if (eventDayOutcomes.length >= 3 && nonEventDayOutcomes.length >= 2) {
+        const posOutcomes = new Set(["focused", "steady"]);
+        const eventPosPct = eventDayOutcomes.filter(o => posOutcomes.has(o)).length / eventDayOutcomes.length;
+        const nonEventPosPct = nonEventDayOutcomes.filter(o => posOutcomes.has(o)).length / nonEventDayOutcomes.length;
+        const diff = eventPosPct - nonEventPosPct;
+        if (Math.abs(diff) >= 0.15) {
+          if (diff > 0) {
+            causeEffectInsight = `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`;
+          } else {
+            causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+          }
+        }
+      }
+    }
+
+    // Path D: JIT completion → outcome correlation (independent fallback)
+    if (!causeEffectInsight && jitPrefs.length >= 2 && checkIns.length >= 5) {
       const jitCompleted = jitPrefs.filter(j => j.action === 'completed' || j.action === 'accepted');
-      const jitSkipped = jitPrefs.filter(j => j.action === 'skipped' || j.action === 'dismissed');
       if (jitCompleted.length >= 2) {
         const completedOutcomes: string[] = [];
         for (const j of jitCompleted) {
@@ -297,11 +327,10 @@ serve(async (req) => {
           if (ci?.outcome) completedOutcomes.push(ci.outcome);
         }
         const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
-        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.6) {
+        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
           causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
         }
       }
-    }
     }
 
     // ── HOW YOU SHOW UP (1A) ──
