@@ -98,6 +98,15 @@ const SelfMasteryCoach = () => {
     });
   }, [checkAccess, hasValidBetaAccess]);
 
+  // Cleanup: end session on unmount to prevent orphaned active sessions
+  const endSessionRef = useRef(endSession);
+  endSessionRef.current = endSession;
+  useEffect(() => {
+    return () => {
+      endSessionRef.current();
+    };
+  }, []);
+
   // Queue state
   const [practiceQueue, setPracticeQueue] = useState<QueuedPractice[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);

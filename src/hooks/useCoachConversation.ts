@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
@@ -48,6 +48,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
+  const messagesCountRef = useRef<number>(0);
 
   const setPracticeContext = useCallback((title: string, steps: PracticeStep[]) => {
     setPracticeContextState({ title, steps });
@@ -384,13 +385,19 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     contextSentRef.current = true; // Don't resend context for restored sessions
   }, []);
 
+  // Keep messagesCountRef in sync with messages state
+  useEffect(() => {
+    messagesCountRef.current = messages.length;
+  }, [messages.length]);
+
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
     const timestamp = new Date().toISOString();
+    const msgCount = messagesCountRef.current;
     
     // Skip if no session or conversation too short to extract insights
-    if (!currentSessionId || !user?.id || messages.length < 2) {
-      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short`);
+    if (!currentSessionId || !user?.id || msgCount < 2) {
+      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short (${msgCount} msgs)`);
       clearConversation();
       return;
     }
@@ -406,7 +413,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           .update({
             session_status: 'completed',
             ended_at: new Date().toISOString(),
-            total_messages: messages.length
+            total_messages: msgCount
           })
           .eq('id', currentSessionId);
         
@@ -433,7 +440,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             action: 'end', 
             sessionId: currentSessionId,
             durationSeconds: null,
-            totalMessages: messages.length,
+            totalMessages: msgCount,
             totalInterventions: 0
           }
         });
@@ -569,7 +576,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       // 3. Clear local state
       clearConversation();
     }
-  }, [user?.id, messages.length, clearConversation]);
+  }, [user?.id, clearConversation]);
 
   return {
     messages,

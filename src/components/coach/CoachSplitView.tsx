@@ -332,6 +332,9 @@ const CoachSplitView = ({
 
       {/* Input bar — pinned to bottom */}
       <InputBar glass={false} {...inputBarProps} />
+      <p className="text-[10px] text-muted-foreground/50 text-center pb-2 px-4">
+        AI-powered coaching assistant. Responses are generated and may not always be accurate. Not a substitute for professional advice.
+      </p>
     </div>
   );
 };
