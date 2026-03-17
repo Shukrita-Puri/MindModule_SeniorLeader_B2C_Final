@@ -1,0 +1,1 @@
+ALTER TABLE behavior_logs ALTER COLUMN energy_after DROP NOT NULL;

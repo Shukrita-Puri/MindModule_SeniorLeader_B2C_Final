@@ -98,7 +98,7 @@ export type Database = {
           context_event_id: string | null
           control_level: string | null
           created_at: string
-          energy_after: string
+          energy_after: string | null
           event_title: string | null
           id: string
           user_id: string
@@ -108,7 +108,7 @@ export type Database = {
           context_event_id?: string | null
           control_level?: string | null
           created_at?: string
-          energy_after: string
+          energy_after?: string | null
           event_title?: string | null
           id?: string
           user_id: string
@@ -118,7 +118,7 @@ export type Database = {
           context_event_id?: string | null
           control_level?: string | null
           created_at?: string
-          energy_after?: string
+          energy_after?: string | null
           event_title?: string | null
           id?: string
           user_id?: string
