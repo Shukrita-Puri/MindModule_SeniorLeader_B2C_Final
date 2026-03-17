@@ -164,6 +164,7 @@ const ExecutiveHome = () => {
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
               <video 
+                ref={videoRef}
                 key={heroVideoUrl}
                 src={heroVideoUrl}
                 autoPlay
@@ -171,7 +172,8 @@ const ExecutiveHome = () => {
                 muted
                 playsInline
                 preload="auto"
-                onCanPlay={handleVideoCanPlay}
+                onCanPlay={(e) => fadeInVideo(e.currentTarget)}
+                onLoadedData={(e) => fadeInVideo(e.currentTarget)}
                 className="w-full h-full object-cover video-warm-luxury"
                 style={{ opacity: 0 }}
               />
