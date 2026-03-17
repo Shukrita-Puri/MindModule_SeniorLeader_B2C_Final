@@ -1889,6 +1889,166 @@ async function fetchCalendarStateCorrelations(
   }
 }
 
+// Helper: Fetch wearable HRV data (today + 30-day baseline + 7-day trend)
+async function fetchWearableHRV(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<CoachContext['hrvData'] | undefined> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+    const [todayResult, baselineResult, trendResult] = await Promise.all([
+      // Latest HRV (today or yesterday)
+      supabase
+        .from('wearable_data')
+        .select('hrv, summary_date, created_at')
+        .eq('user_id', userId)
+        .gte('summary_date', yesterday)
+        .not('hrv', 'is', null)
+        .order('summary_date', { ascending: false })
+        .limit(1),
+      // 30-day baseline average
+      supabase
+        .from('wearable_data')
+        .select('hrv')
+        .eq('user_id', userId)
+        .gte('summary_date', thirtyDaysAgo)
+        .not('hrv', 'is', null),
+      // 7-day trend (daily values)
+      supabase
+        .from('wearable_data')
+        .select('hrv, summary_date')
+        .eq('user_id', userId)
+        .gte('summary_date', sevenDaysAgo)
+        .not('hrv', 'is', null)
+        .order('summary_date', { ascending: true }),
+    ]);
+
+    const currentRow = todayResult.data?.[0];
+    if (!currentRow) return undefined;
+
+    const currentHRV = Number(currentRow.hrv);
+    if (!currentHRV || isNaN(currentHRV)) return undefined;
+
+    // Compute 30-day baseline
+    const baselineRows = baselineResult.data || [];
+    let baselineHRV: number | undefined;
+    if (baselineRows.length >= 3) {
+      const sum = baselineRows.reduce((acc: number, r: any) => acc + Number(r.hrv), 0);
+      baselineHRV = Math.round(sum / baselineRows.length);
+    }
+
+    // Compute 7-day trend (simple linear direction)
+    let hrvTrend: string | undefined;
+    const trendRows = trendResult.data || [];
+    if (trendRows.length >= 4) {
+      const mid = Math.floor(trendRows.length / 2);
+      const firstHalf = trendRows.slice(0, mid);
+      const secondHalf = trendRows.slice(mid);
+      const avg = (rows: any[]) => rows.reduce((a: number, r: any) => a + Number(r.hrv), 0) / rows.length;
+      const diff = avg(secondHalf) - avg(firstHalf);
+      if (diff > 5) hrvTrend = 'rising (improving recovery)';
+      else if (diff < -5) hrvTrend = 'falling (accumulating load)';
+      else hrvTrend = 'stable';
+    }
+
+    const hrvDelta = baselineHRV ? currentHRV - baselineHRV : undefined;
+    const hrvDeltaPct = baselineHRV ? Math.round((hrvDelta! / baselineHRV) * 100) : undefined;
+
+    return {
+      currentHRV,
+      baselineHRV,
+      hrvDelta,
+      hrvDeltaPct,
+      hrvTrend,
+      hrvRecordedAt: (currentRow as any).summary_date,
+    };
+  } catch (e) {
+    console.error('[buildServerContext] Error fetching wearable HRV:', e);
+    return undefined;
+  }
+}
+
+// Helper: Fetch upcoming event HRV correlations (calendar × physiological_events)
+async function fetchUpcomingEventHRV(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<CoachContext['upcomingEventHRV']> {
+  try {
+    const now = new Date();
+    const twelveHoursLater = new Date(now.getTime() + 12 * 3600000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+
+    const [upcomingResult, physioResult] = await Promise.all([
+      // Upcoming calendar events (next 12 hours)
+      supabase
+        .from('calendar_events')
+        .select('title, start_time')
+        .eq('user_id', userId)
+        .gte('start_time', now.toISOString())
+        .lte('start_time', twelveHoursLater.toISOString())
+        .order('start_time', { ascending: true })
+        .limit(5),
+      // Historical physiological events (30 days)
+      supabase
+        .from('physiological_events')
+        .select('event_title, event_type, hrv, stress_level')
+        .eq('user_id', userId)
+        .gte('start_time', thirtyDaysAgo.toISOString())
+        .not('hrv', 'is', null),
+    ]);
+
+    const upcoming = upcomingResult.data || [];
+    const physioEvents = physioResult.data || [];
+    if (upcoming.length === 0 || physioEvents.length === 0) return [];
+
+    // Canonical keyword extraction for matching
+    const extractKeywords = (title: string): string[] => {
+      const lower = title.toLowerCase();
+      const keywords = ['board', 'investor', '1:1', 'standup', 'review', 'interview', 'strategy', 'all-hands', 'retro', 'sync', 'workshop', 'presentation', 'demo', 'townhall', 'offsite'];
+      return keywords.filter(kw => lower.includes(kw));
+    };
+
+    const results: NonNullable<CoachContext['upcomingEventHRV']> = [];
+
+    for (const event of upcoming) {
+      const eventTitle = (event as any).title || '';
+      const eventKeywords = extractKeywords(eventTitle);
+      if (eventKeywords.length === 0) continue;
+
+      // Find past physiological events matching any keyword
+      const matchingPhysio = physioEvents.filter((p: any) => {
+        const pTitle = (p.event_title || '').toLowerCase();
+        return eventKeywords.some(kw => pTitle.includes(kw));
+      });
+
+      if (matchingPhysio.length < 2) continue; // Need at least 2 data points
+
+      const hrvValues = matchingPhysio.map((p: any) => Number(p.hrv)).filter(v => !isNaN(v) && v > 0);
+      if (hrvValues.length < 2) continue;
+
+      const avgHRV = Math.round(hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length);
+      const trend = avgHRV < 40 ? 'elevated stress' : avgHRV < 55 ? 'moderate activation' : 'calm';
+
+      const minutesUntil = Math.round((new Date((event as any).start_time).getTime() - now.getTime()) / 60000);
+
+      results.push({
+        eventTitle,
+        minutesUntil,
+        pastHRV: { avg: avgHRV, count: hrvValues.length, trend },
+      });
+    }
+
+    return results;
+  } catch (e) {
+    console.error('[buildServerContext] Error fetching upcoming event HRV:', e);
+    return [];
+  }
+}
+
 // =============================================================================
 // 6. DYNAMIC PROMPT BUILDER
 // =============================================================================
