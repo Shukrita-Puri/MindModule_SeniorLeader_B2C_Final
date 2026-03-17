@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.persist-wearable-data]
 verify_jwt = false
+
+[functions.process-orphaned-sessions]
+verify_jwt = false
