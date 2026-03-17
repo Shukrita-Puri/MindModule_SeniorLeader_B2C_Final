@@ -1288,7 +1288,7 @@ const GuidedPracticePlayer = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleAudioSkip(15)}
-                  disabled={currentTime >= duration}
+                  disabled={duration > 0 && currentTime >= duration}
                   className="text-white/80 hover:text-gold hover:bg-gold/10"
                 >
                   <SkipForward className="w-5 h-5" />

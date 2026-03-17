@@ -619,7 +619,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     thumbnail: pranayamaClarityHero,
     steps: 4,
     creator: "Nadi Shodhana (Channel Purification)",
-    audioSrc: "/guided-practices/pranayama-clarity.mp3",
+    // Intentionally empty — no audio file for this practice
+    // audioSrc: "/guided-practices/pranayama-clarity.mp3",
     whatYouNeed: [
       "Essential: Quiet space for 3-5 minutes",
       "Essential: Comfortable seated position",
