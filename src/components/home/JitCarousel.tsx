@@ -163,18 +163,23 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       : 0;
     localStorage.setItem('queueIndex', String(selectedIndex >= 0 ? selectedIndex : 0));
     localStorage.setItem('ritualMode', 'true');
+
+    const hasCoachStep = queue.some((item) => item.contentType === 'coach');
+    if (hasCoachStep && preEventPlan.coachCard?.prompt) {
+      localStorage.setItem('jitInterventionData', JSON.stringify({
+        coachPrompt: preEventPlan.coachCard.prompt,
+        flowType: 'prepare',
+        eventTitle: preEventPlan.eventTitle,
+        hasCoachStep: true,
+      }));
+    } else {
+      localStorage.removeItem('jitInterventionData');
+    }
   };
 
   const handleStartPrep = () => {
     const modules = preEventPlan.modules;
     if (modules.length > 0) {
-      if (preEventPlan.coachCard?.prompt) {
-        localStorage.setItem('jitInterventionData', JSON.stringify({
-          coachPrompt: preEventPlan.coachCard.prompt,
-          flowType: 'prepare',
-          eventTitle: preEventPlan.eventTitle,
-        }));
-      }
 
       const first = modules[0];
       setJitPracticeQueue(first.contentId);
