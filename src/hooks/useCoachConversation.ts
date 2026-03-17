@@ -60,6 +60,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     setPracticeContextState({ title, steps });
   }, []);
 
+  const setEventContext = useCallback((eventTitle: string, fromIntervention?: boolean, fromRitual?: boolean) => {
+    setEventContextState({ eventTitle, fromIntervention, fromRitual });
+  }, []);
+
   const createSession = useCallback(async () => {
     if (!user?.id || sessionIdRef.current) return sessionIdRef.current;
     
