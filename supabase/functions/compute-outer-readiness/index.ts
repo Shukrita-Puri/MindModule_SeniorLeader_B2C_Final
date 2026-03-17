@@ -97,23 +97,24 @@ async function getServerCalendarMetrics(
   db: ReturnType<typeof createClient>,
   userId: string,
   timezoneOffset: number = 0,
+  dayOffset: number = 0,
 ): Promise<CalendarMetricsResult> {
-  // Compute user-local start/end of day using timezone offset
-  // timezoneOffset is minutes (e.g. -300 for UTC-5). getUserTime: now - offset*60000
   const now = new Date();
   const userNow = new Date(now.getTime() - timezoneOffset * 60000);
-  // Build start/end of user's local day in UTC
+  // Apply day offset (0 = today, 1 = tomorrow)
+  const targetDay = new Date(userNow);
+  targetDay.setUTCDate(targetDay.getUTCDate() + dayOffset);
+
   const userStartOfDay = new Date(Date.UTC(
-    userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 0, 0, 0, 0
+    targetDay.getUTCFullYear(), targetDay.getUTCMonth(), targetDay.getUTCDate(), 0, 0, 0, 0
   ));
   const userEndOfDay = new Date(Date.UTC(
-    userNow.getUTCFullYear(), userNow.getUTCMonth(), userNow.getUTCDate(), 23, 59, 59, 999
+    targetDay.getUTCFullYear(), targetDay.getUTCMonth(), targetDay.getUTCDate(), 23, 59, 59, 999
   ));
-  // Convert back to real UTC by adding the offset back
   const startUTC = new Date(userStartOfDay.getTime() + timezoneOffset * 60000);
   const endUTC = new Date(userEndOfDay.getTime() + timezoneOffset * 60000);
 
-  // Check connection status first — stale events must not power active behavior after disconnect
+  // Check connection status first
   const { data: conn } = await db
     .from('calendar_connections')
     .select('is_active')
@@ -125,7 +126,6 @@ async function getServerCalendarMetrics(
     return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected' };
   }
 
-  // Connection is active — query today's calendar events
   const { data: events, error } = await db
     .from('calendar_events')
     .select('start_time, end_time, is_organizer, attendees_count, is_recurring')
