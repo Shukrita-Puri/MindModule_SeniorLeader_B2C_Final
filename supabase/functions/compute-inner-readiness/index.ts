@@ -220,33 +220,37 @@ interface HRVPatternContext {
 function getLayer3Text(
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null,
-  patternContext: HRVPatternContext | null
+  patternContext: HRVPatternContext | null,
+  baselineConfidence: 'low' | 'medium' | 'high' = 'high',
+  sampleDays: number = 30
 ): string | null {
   const parts: string[] = [];
 
   // === Core HRV deviation message (always shows when wearable active) ===
   if (hrvDeviation !== null) {
     const absDeviation = Math.abs(hrvDeviation);
+    // Use data-density-aware baseline label
+    const baselineLabel = baselineConfidence === 'high'
+      ? 'your 30-day baseline'
+      : baselineConfidence === 'medium'
+        ? `your ${sampleDays}-day baseline`
+        : `${sampleDays} days of HRV data`;
 
     if (divergenceFlag === 'MASKED_HIGH') {
-      parts.push(`Your HRV is reading ${absDeviation}% below your baseline — your physiological load is higher than your felt state suggests.`);
+      parts.push(`Your HRV is reading ${absDeviation}% below ${baselineLabel} — your physiological load is higher than your felt state suggests.`);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      parts.push(`Your HRV is reading ${absDeviation}% above your baseline — your body is more recovered than you currently feel.`);
+      parts.push(`Your HRV is reading ${absDeviation}% above ${baselineLabel} — your body is more recovered than you currently feel.`);
     } else if (absDeviation < 5) {
-      // Aligned + minimal deviation
       parts.push("Your HRV is steady at baseline — your body and mind are reading the same signal.");
     } else if (hrvDeviation > 0) {
-      // Aligned + moderately above
-      parts.push(`Your HRV is tracking ${absDeviation}% above your 30-day baseline — your physiological state is consistent with how you feel.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% above ${baselineLabel} — your physiological state is consistent with how you feel.`);
     } else {
-      // Aligned + moderately below
-      parts.push(`Your HRV is tracking ${absDeviation}% below your 30-day baseline — a slight physiological dip, worth noting.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% below ${baselineLabel} — a slight physiological dip, worth noting.`);
     }
   }
 
-  // === Pattern observations (educational, from 30-day analysis) ===
-  if (patternContext && patternContext.patternObservations.length > 0) {
-    // Show the first (most significant) pattern
+  // === Pattern observations (only surface at medium+ confidence) ===
+  if (patternContext && patternContext.patternObservations.length > 0 && baselineConfidence !== 'low') {
     parts.push(patternContext.patternObservations[0] + '.');
   }
 
