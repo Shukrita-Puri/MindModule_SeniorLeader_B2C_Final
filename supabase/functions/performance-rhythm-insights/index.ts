@@ -401,6 +401,7 @@ serve(async (req) => {
       presenceScore,
       presenceLabel,
       presenceInsight,
+      presenceActions: presenceActions.length > 0 ? presenceActions : null,
       calendarInsight,
       causeEffectInsight,
       grid,
