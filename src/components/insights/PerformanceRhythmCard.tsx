@@ -494,36 +494,23 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
-                {data.presenceActions && data.presenceActions.length > 0 && (
+                {/* Combined: presence actions + temporal patterns */}
+                {(data.presenceActions?.length || data.temporalPatterns?.length) ? (
                   <ul className="pl-6 space-y-1.5 mt-1">
-                    {data.presenceActions.map((action, i) => (
-                      <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                    {data.presenceActions?.map((action, i) => (
+                      <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
                         <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
                         <span>{action}</span>
                       </li>
                     ))}
+                    {data.temporalPatterns?.map((pattern, i) => (
+                      <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
+                        <span>{pattern}</span>
+                      </li>
+                    ))}
                   </ul>
-                )}
-              </div>
-            )}
-
-            {/* Temporal Patterns (synced w/ rhythm grid) */}
-            {data.temporalPatterns && data.temporalPatterns.length > 0 && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-muted/30 via-muted/10 to-transparent border border-border/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary/60" />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/60 font-body">
-                    Your Rhythm Patterns
-                  </span>
-                </div>
-                <ul className="space-y-1.5">
-                  {data.temporalPatterns.map((pattern, i) => (
-                    <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2 pl-6">
-                      <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
-                      <span>{pattern}</span>
-                    </li>
-                  ))}
-                </ul>
+                ) : null}
               </div>
             )}
 
