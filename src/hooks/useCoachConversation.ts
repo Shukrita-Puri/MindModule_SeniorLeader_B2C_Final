@@ -401,6 +401,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     contextSentRef.current = false;
     lastMessageRef.current = null;
     setPracticeContextState(null);
+    setEventContextState(null);
   }, []);
 
   // Restore messages from a previous session (for Recent Activity click)
