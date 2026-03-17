@@ -2006,7 +2006,7 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      const returnPath = fromRitual ? '/executive-home' : `/recalibrate/${category}`;
+      const returnPath = (fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`;
       navigate(returnPath);
     }
   };
