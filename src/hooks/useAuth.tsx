@@ -406,7 +406,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ timezone_offset: -(new Date().getTimezoneOffset()) }),
         }
       );
 
