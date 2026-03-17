@@ -517,6 +517,7 @@ serve(async (req) => {
       presenceLabel,
       presenceInsight,
       presenceActions: presenceActions.length > 0 ? presenceActions : null,
+      temporalPatterns: temporalPatterns.length > 0 ? temporalPatterns.slice(0, 4) : null,
       calendarInsight,
       causeEffectInsight,
       grid,
