@@ -889,7 +889,7 @@ const Insights = () => {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground/60">
-                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 2 weeks
+                  Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
                 </p>
               </div>
             ) : (
