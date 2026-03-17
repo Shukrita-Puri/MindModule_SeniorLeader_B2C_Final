@@ -2364,6 +2364,11 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
   if (dominantPattern === 'clarity') prompt += CLARITY_PATTERN_PROMPT;
   if (dominantPattern === 'renewal') prompt += RENEWAL_PATTERN_PROMPT;
 
+  // --- FIRST-MESSAGE CONTEXTUAL OPENER ---
+  if (isFirstMessage && context) {
+    prompt += buildFirstMessageInstruction(context, entryPoint, flowType);
+  }
+
   return prompt;
 };
 
