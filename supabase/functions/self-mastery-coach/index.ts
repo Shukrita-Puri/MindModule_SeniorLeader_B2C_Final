@@ -2104,6 +2104,100 @@ function detectHRVDivergence(context?: CoachContext): string | null {
   return null;
 }
 
+// Build first-message contextual opener instruction based on entry point
+function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string, flowType?: string): string {
+  const lines: string[] = ['\n\n# 🎯 FIRST-MESSAGE INSTRUCTION (THIS IS THE USER\'S OPENING MESSAGE)'];
+  lines.push('');
+  lines.push('Your first response should demonstrate that you KNOW this user. Reference ONE specific piece of context naturally — don\'t dump everything. Make them feel understood, not profiled.');
+  lines.push('');
+
+  if (entryPoint === 'jit' && context.jitContext?.eventTitle) {
+    // JIT: Reference the specific event + historical data
+    lines.push('## Entry: Just-In-Time Event Preparation');
+    lines.push(`The user navigated here to prepare for "${context.jitContext.eventTitle}".`);
+    lines.push('');
+    lines.push('Your opener should:');
+    lines.push(`- Acknowledge the specific event by name`);
+    
+    // Check for HRV correlation for this event
+    const matchingHRV = context.upcomingEventHRV?.find(e => 
+      e.eventTitle.toLowerCase().includes((context.jitContext?.eventTitle || '').toLowerCase().split(' ')[0])
+    );
+    if (matchingHRV && matchingHRV.pastHRV.count >= 3) {
+      lines.push(`- Reference their physiological pattern: avg HRV ${matchingHRV.pastHRV.avg}ms across ${matchingHRV.pastHRV.count} similar events (${matchingHRV.pastHRV.trend})`);
+    }
+    
+    // Check for relevant memories about similar events
+    if (context.recentMemories && context.recentMemories.length > 0) {
+      lines.push('- If any memories relate to this event type, weave one in naturally');
+    }
+    
+    lines.push('- Make it clear you understand the stakes without them having to explain');
+    lines.push('');
+    lines.push('Example tone: "You have [event] coming up. [One relevant contextual observation]. How are you feeling about it?"');
+
+  } else if (entryPoint === 'tod_plan') {
+    // Time-of-Day Plan: Reference current state + continuity
+    lines.push('## Entry: Daily Performance Plan');
+    lines.push('The user is here as part of their daily mastery ritual.');
+    lines.push('');
+    lines.push('Your opener should show continuity. Pick ONE of these (whichever is most salient):');
+    
+    if (context.pendingCommitments && context.pendingCommitments.length > 0) {
+      const c = context.pendingCommitments[0];
+      lines.push(`- Check in on their commitment: "${c.commitment_text}" (${c.days_ago} days ago)`);
+    }
+    if (context.lastSessionSummary?.breakthrough_moment) {
+      lines.push(`- Reference their last breakthrough: "${context.lastSessionSummary.breakthrough_moment}"`);
+    }
+    if (context.todayState) {
+      lines.push(`- Acknowledge their current state: score ${context.todayState.score}, outcome "${context.todayState.outcome}"`);
+    }
+    if (context.consecutivePattern) {
+      lines.push(`- Name the consecutive pattern: ${context.consecutivePattern.days} days of "${context.consecutivePattern.state}"`);
+    }
+    
+    lines.push('');
+    lines.push('Example tone: "Welcome back. [One specific reference to their journey]. What\'s present for you right now?"');
+
+  } else {
+    // Independent: Use most salient signal for continuity
+    lines.push('## Entry: Independent Session');
+    lines.push('The user opened the coach on their own — no specific trigger.');
+    lines.push('');
+    lines.push('Your opener should feel natural and demonstrate you remember them. Pick ONE of these (most salient first):');
+    
+    if (context.pendingCommitments && context.pendingCommitments.length > 0) {
+      const c = context.pendingCommitments[0];
+      lines.push(`- 🔴 HIGH PRIORITY: Check commitment "${c.commitment_text}" (${c.days_ago} days ago, due for check-in)`);
+    }
+    if (context.patternsToName && context.patternsToName.length > 0) {
+      const p = context.patternsToName[0];
+      lines.push(`- Pattern ready to name: "${p.pattern_description}" (observed ${p.observation_count}x)`);
+    }
+    if (context.pastBreakthroughs?.some(b => !b.was_acted_on)) {
+      const b = context.pastBreakthroughs.find(b => !b.was_acted_on);
+      lines.push(`- Breakthrough not yet acted on: "${b?.breakthrough_content}"`);
+    }
+    if (context.consecutivePattern) {
+      lines.push(`- Consecutive state pattern: ${context.consecutivePattern.days} days of "${context.consecutivePattern.state}"`);
+    }
+    if (context.lastSessionSummary) {
+      lines.push(`- Last session continuity: "${context.lastSessionSummary.summary_text.slice(0, 100)}..."`);
+    }
+    
+    lines.push('');
+    lines.push('If nothing urgent stands out, a warm "What\'s on your mind?" is fine — but if you have context, use it.');
+    lines.push('');
+    lines.push('Example tone: "Good to see you. [One natural contextual reference]. What brings you here today?"');
+  }
+
+  lines.push('');
+  lines.push('CRITICAL: Pick only ONE piece of context. Do NOT list multiple things. Be conversational, not clinical. If the user has their own agenda, follow their lead after the first exchange.');
+
+  return lines.join('\n');
+}
+
 const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint?: string, isFirstMessage?: boolean): string => {
   let prompt = BASE_SYSTEM_PROMPT;
 
