@@ -390,7 +390,7 @@ const Insights = () => {
       const { data, error } = await withTimeout(
         supabase.functions.invoke('tiny-wins-insights', {
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { days: 14 }
+          body: { days: 30 }
         }),
         15000,
         'tiny-wins-insights'
