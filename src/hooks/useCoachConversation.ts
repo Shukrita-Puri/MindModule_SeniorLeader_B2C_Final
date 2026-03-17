@@ -30,6 +30,7 @@ interface UseCoachConversationReturn {
   sessionId: string | null;
   setFlowType: (flowType: 'prepare' | 'integrate' | 'guided-reflection' | null) => void;
   setPracticeContext: (title: string, steps: PracticeStep[]) => void;
+  setEventContext: (eventTitle: string, fromIntervention?: boolean, fromRitual?: boolean) => void;
   restoreMessages: (restoredMessages: Message[], restoredSessionId: string) => void;
 }
 
@@ -45,6 +46,11 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     title: string;
     steps: PracticeStep[];
   } | null>(null);
+  const [eventContext, setEventContextState] = useState<{
+    eventTitle: string;
+    fromIntervention?: boolean;
+    fromRitual?: boolean;
+  } | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
@@ -52,6 +58,10 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
 
   const setPracticeContext = useCallback((title: string, steps: PracticeStep[]) => {
     setPracticeContextState({ title, steps });
+  }, []);
+
+  const setEventContext = useCallback((eventTitle: string, fromIntervention?: boolean, fromRitual?: boolean) => {
+    setEventContextState({ eventTitle, fromIntervention, fromRitual });
   }, []);
 
   const createSession = useCallback(async () => {
@@ -223,9 +233,24 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           context.practiceTitle = practiceContext.title;
           context.practiceSteps = practiceContext.steps;
         }
+
+        // Add JIT event context if available
+        if (eventContext?.eventTitle) {
+          context.jitContext = {
+            trigger: 'jit',
+            eventTitle: eventContext.eventTitle,
+          };
+        }
         
         contextSentRef.current = true;
       }
+
+      // Derive entry point from available signals
+      const entryPoint = eventContext?.fromIntervention && eventContext?.eventTitle
+        ? 'jit'
+        : eventContext?.fromRitual
+          ? 'tod_plan'
+          : 'independent';
 
       // Get Auth0 token for self-mastery-coach
       const coachToken = await getAuthToken();
@@ -245,6 +270,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             content: m.content,
           })),
           flowType,
+          entryPoint,
           sessionId: currentSessionId,
           context, // Pass context to edge function
         }),
@@ -358,7 +384,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext]);
+  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext, eventContext]);
 
   const retryLastMessage = useCallback(async () => {
     if (lastMessageRef.current) {
@@ -375,6 +401,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     contextSentRef.current = false;
     lastMessageRef.current = null;
     setPracticeContextState(null);
+    setEventContextState(null);
   }, []);
 
   // Restore messages from a previous session (for Recent Activity click)
@@ -590,6 +617,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     sessionId,
     setFlowType,
     setPracticeContext,
+    setEventContext,
     restoreMessages,
   };
 };
