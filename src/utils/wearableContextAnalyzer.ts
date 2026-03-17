@@ -253,6 +253,10 @@ export interface HRVPatternContext {
   eveningAvg: number | null;
   baseline30d: number | null;
   totalSamples: number;
+  /** Number of unique days with HRV data in 30-day window */
+  sampleDays: number;
+  /** Confidence tier based on data density: <7 days = low, 7-14 = medium, 15+ = high */
+  baselineConfidence: 'low' | 'medium' | 'high';
   /** Detected recurring patterns like "3 Mondays with low HRV while reporting strong" */
   patternObservations: string[];
 }
