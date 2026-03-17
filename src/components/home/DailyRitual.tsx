@@ -282,12 +282,17 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
           onPreEventPlanReady?.(parsed.preEventPlan || null);
-          const completedIds = todayRitual?.completed_practice_ids || [];
-          setCompletedPracticeIds(completedIds);
+          const allCompletedIds = todayRitual?.completed_practice_ids || [];
           const modules = parsed.timeOfDayPlan?.modules || [];
+          const planModuleIds = modules.map(m => m.contentId);
+          // Only count completions relevant to THIS plan
+          const activeCompletedIds = planModuleIds.length > 0
+            ? allCompletedIds.filter(id => planModuleIds.includes(id))
+            : allCompletedIds;
+          setCompletedPracticeIds(activeCompletedIds);
           setRitualStatus({
-            status: completedIds.length >= modules.length && completedIds.length > 0 ? 'completed' : completedIds.length > 0 ? 'partial' : 'not_started',
-            completedCount: completedIds.length,
+            status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
+            completedCount: activeCompletedIds.length,
             totalCount: modules.length
           });
           setLoading(false);
