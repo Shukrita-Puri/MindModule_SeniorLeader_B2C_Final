@@ -27,6 +27,7 @@ interface PerformanceRhythmData {
   presenceScore: number | null;
   presenceLabel: string | null;
   presenceInsight: string | null;
+  presenceActions: string[] | null;
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
