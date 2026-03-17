@@ -729,20 +729,67 @@ type HRVCorrelationMap = Record<string, EventTypeCorrelation>;
 function extractEventType(title: string): string {
   const lower = title.toLowerCase();
   if (lower.includes('board')) return 'board';
-  if (lower.includes('investor') || lower.includes('vc')) return 'investor';
+  if (lower.includes('investor') || lower.includes('vc') || lower.includes('funding')) return 'investor';
   if (lower.includes('fundrais')) return 'fundraising';
   if (lower.includes('all-hands') || lower.includes('all hands') || lower.includes('town hall')) return 'all-hands';
-  if (lower.includes('interview')) return 'interview';
-  if (lower.includes('pitch') || lower.includes('demo')) return 'pitch';
-  if (lower.includes('client') || lower.includes('customer')) return 'client';
-  if (lower.includes('1:1') || lower.includes('one-on-one') || lower.includes('1-on-1') || lower.includes('check-in')) return '1:1';
+  // Interview disambiguation: media vs hiring vs ambiguous
+  if (lower.includes('media') || lower.includes('press') || lower.includes('journalist') || lower.includes('pr interview')) return 'media-interview';
+  if (lower.includes('final round') || lower.includes('hiring committee') || lower.includes('candidate review') || lower.includes('executive hire')) return 'hiring-interview';
+  if (lower.includes('interview') || lower.includes('podcast')) return 'interview-ambiguous';
+  if (lower.includes('pitch') || lower.includes('demo') || lower.includes('keynote')) return 'pitch';
+  if (lower.includes('client') || lower.includes('customer') || lower.includes('account review') || lower.includes('proposal')) return 'client';
+  // Strategy before generic team/planning
+  if (lower.includes('strategy') || lower.includes('strategic') || lower.includes('offsite') || lower.includes('vision') || lower.includes('roadmap')) return 'strategy';
+  // Leadership before generic team
+  if (lower.includes('leadership team') || lower.includes('exec team') || lower.includes('c-suite') || lower.includes('slt') || lower.includes('management meeting')) return 'leadership';
+  if (lower.includes('conference') || lower.includes('summit') || lower.includes('panel') || lower.includes('speaking') || lower.includes('presentation') || lower.includes('webinar')) return 'speaking';
+  if (lower.includes('m&a') || lower.includes('merger') || lower.includes('acquisition') || lower.includes('due diligence')) return 'ma';
+  if (lower.includes('launch') || lower.includes('go live') || lower.includes('release') || lower.includes('ship')) return 'launch';
+  if (lower.includes('layoff') || lower.includes('restructuring') || lower.includes('reduction') || lower.includes('rif') || lower.includes('downsizing')) return 'layoff';
+  if (lower.includes('negotiation') || lower.includes('contract') || lower.includes('deal') || lower.includes('terms') || lower.includes('partnership')) return 'negotiation';
+  if (lower.includes('crisis') || lower.includes('urgent') || lower.includes('emergency') || lower.includes('escalation')) return 'crisis';
+  if (lower.includes('competitor') || lower.includes('competitive')) return 'competitive';
+  if (lower.includes('budget') || lower.includes('finance review') || lower.includes('forecast') || lower.includes('earnings') || lower.includes('financial planning')) return 'finance';
+  if (lower.includes('quarterly') || lower.includes('qbr') || lower.match(/\bq[1-4]\b/)) return 'quarterly-review';
+  if (lower.includes('performance review') || lower.includes('annual review') || lower.includes('mid-year review') || lower.includes('360 feedback')) return 'performance-review';
+  if (lower.includes('1:1') || lower.includes('one-on-one') || lower.includes('1-on-1') || lower.includes('one on one') || lower.includes('check-in')) return '1:1';
   if (lower.includes('team')) return 'team';
   if (lower.includes('standup') || lower.includes('stand-up') || lower.includes('daily')) return 'standup';
   if (lower.includes('retro') || lower.includes('retrospective')) return 'retrospective';
   if (lower.includes('planning')) return 'planning';
-  if (lower.includes('review')) return 'review';
+  if (lower.includes('review')) return 'quarterly-review';
   return 'other';
 }
+
+const CANONICAL_TAGS: Record<string, string> = {
+  'board': 'Pre Board Meeting',
+  'investor': 'Pre Investor Meeting',
+  'fundraising': 'Pre Fundraising Meeting',
+  'pitch': 'Pre Pitch',
+  'all-hands': 'Pre All-Hands',
+  'leadership': 'Pre Leadership Meeting',
+  '1:1': '1:1 Prep',
+  'team': 'Team Meeting Prep',
+  'client': 'Pre Client Meeting',
+  'speaking': 'Pre Speaking Engagement',
+  'strategy': 'Strategic Planning Prep',
+  'quarterly-review': 'Pre Quarterly Review',
+  'performance-review': 'Pre Performance Review',
+  'ma': 'Pre M&A Discussion',
+  'launch': 'Pre Launch',
+  'layoff': 'Pre Difficult Conversation',
+  'negotiation': 'Pre Negotiation',
+  'crisis': 'Crisis Response Prep',
+  'media-interview': 'Pre Media Interview',
+  'hiring-interview': 'Pre Hiring Interview',
+  'interview-ambiguous': 'Interview Prep',
+  'standup': 'Standup Prep',
+  'retrospective': 'Retro Prep',
+  'planning': 'Planning Prep',
+  'finance': 'Pre Finance Review',
+  'competitive': 'Competitive Review Prep',
+  'other': 'Meeting Prep',
+};
 
 async function getHRVEventCorrelations(
   userId: string,
