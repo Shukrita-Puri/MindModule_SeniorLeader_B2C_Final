@@ -8,6 +8,23 @@
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
+import { Info } from 'lucide-react';
+
+/** Parse leanOn text for contextual enrichment blocks (text after \n\n_..._) */
+function renderLeanOn(text: string) {
+  const parts = text.split('\n\n_');
+  if (parts.length === 1) return <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed"><span className="font-semibold">Lean on:</span> {text}</p>;
+  return (
+    <>
+      <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
+        <span className="font-semibold">Lean on:</span> {parts[0]}
+      </p>
+      <p className="text-[12px] text-muted-foreground/70 font-body leading-relaxed italic mt-2 pt-2 border-t border-border/30">
+        {parts[1].replace(/_$/, '')}
+      </p>
+    </>
+  );
+}
 
 const StrategicIntentionCard = () => {
   const { data: brief, isLoading } = useOuterReadiness();
@@ -55,12 +72,17 @@ const StrategicIntentionCard = () => {
           {brief.context}
         </p>
 
+        {/* Coach Insight Age Label */}
+        {brief.coachInsightLabel && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-l-[3px] border-l-taupe/60 rounded-sm">
+            <Info className="w-3.5 h-3.5 text-taupe/80 shrink-0" />
+            <span className="text-xs text-muted-foreground font-body">{brief.coachInsightLabel}</span>
+          </div>
+        )}
+
         {/* Lean On + Watch For */}
         <div className="space-y-1 pt-1">
-          <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
-            <span className="font-semibold">Lean on:</span>{' '}
-            {brief.leanOn}
-          </p>
+          {renderLeanOn(brief.leanOn)}
           <p className="text-[13px] text-muted-foreground/80 font-subheadline leading-relaxed">
             <span className="font-semibold">Watch for:</span>{' '}
             {brief.watchFor}
