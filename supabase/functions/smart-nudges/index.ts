@@ -864,9 +864,9 @@ serve(async (req) => {
                   .lte('start_time', fourHoursLater.toISOString())
                   .order('start_time', { ascending: true });
 
-                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 50);
+                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 25);
 
-                if (highStakesEvents.length >= 3) {
+                if (highStakesEvents.length >= 1) {
                   // Determine variant
                   let selectedVariant: Variant;
 

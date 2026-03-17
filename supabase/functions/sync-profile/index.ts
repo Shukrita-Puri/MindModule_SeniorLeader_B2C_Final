@@ -114,6 +114,11 @@ Deno.serve(async (req) => {
       updated_at: now,
     };
 
+    // Always update timezone_offset if provided by client
+    if (clientHints.timezone_offset !== undefined && typeof clientHints.timezone_offset === 'number') {
+      upsertData.timezone_offset = clientHints.timezone_offset;
+    }
+
     // Only set display_name on initial profile creation
     if (isNewProfile) {
       upsertData.display_name = name;
