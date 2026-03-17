@@ -8,6 +8,23 @@
 import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
+import { Info } from 'lucide-react';
+
+/** Parse leanOn text for contextual enrichment blocks (text after \n\n_..._) */
+function renderLeanOn(text: string) {
+  const parts = text.split('\n\n_');
+  if (parts.length === 1) return <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed"><span className="font-semibold">Lean on:</span> {text}</p>;
+  return (
+    <>
+      <p className="text-[13px] text-primary/80 font-subheadline leading-relaxed">
+        <span className="font-semibold">Lean on:</span> {parts[0]}
+      </p>
+      <p className="text-[12px] text-muted-foreground/70 font-body leading-relaxed italic mt-2 pt-2 border-t border-border/30">
+        {parts[1].replace(/_$/, '')}
+      </p>
+    </>
+  );
+}
 
 const StrategicIntentionCard = () => {
   const { data: brief, isLoading } = useOuterReadiness();
