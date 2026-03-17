@@ -354,6 +354,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
+        sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}`);
+        console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length });
       }
 
       setRitualStatus(prev => ({
