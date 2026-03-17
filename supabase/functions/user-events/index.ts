@@ -89,6 +89,19 @@ serve(async (req) => {
           throw error;
         }
 
+        // Fire-and-forget: log sanctuary completions to behavior_logs for cause-effect insights
+        if (eventType === 'session_complete' || eventType === 'practice_completed') {
+          supabase.from('behavior_logs').insert({
+            user_id: userId,
+            behavior_type: 'sanctuary_event',
+            event_title: contentType || category || 'sanctuary',
+            energy_after: null,
+            created_at: new Date().toISOString(),
+          }).then(({ error: blErr }) => {
+            if (blErr) console.error('[user-events] behavior_log insert error:', blErr);
+          });
+        }
+
         console.log('[user-events] Engagement tracked:', eventType);
         return new Response(
           JSON.stringify({ success: true }),
