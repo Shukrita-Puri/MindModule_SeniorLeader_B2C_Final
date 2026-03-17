@@ -270,6 +270,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
             content: m.content,
           })),
           flowType,
+          entryPoint,
           sessionId: currentSessionId,
           context, // Pass context to edge function
         }),
