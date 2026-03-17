@@ -28,6 +28,7 @@ interface PerformanceRhythmData {
   presenceLabel: string | null;
   presenceInsight: string | null;
   presenceActions?: string[] | null;
+  temporalPatterns?: string[] | null;
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
@@ -503,6 +504,26 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                     ))}
                   </ul>
                 )}
+              </div>
+            )}
+
+            {/* Temporal Patterns (synced w/ rhythm grid) */}
+            {data.temporalPatterns && data.temporalPatterns.length > 0 && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-muted/30 via-muted/10 to-transparent border border-border/20 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary/60" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/60 font-body">
+                    Your Rhythm Patterns
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {data.temporalPatterns.map((pattern, i) => (
+                    <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2 pl-6">
+                      <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
+                      <span>{pattern}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
