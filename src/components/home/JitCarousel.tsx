@@ -16,6 +16,8 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import { getAuthToken } from '@/services/authTokenService';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getTodayRitual } from '@/utils/dailyRituals';
+import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
