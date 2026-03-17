@@ -187,7 +187,7 @@ const SelfMasteryCoach = () => {
     loadPreviousSession();
   }, [locationState?.resumeSession, locationState?.previousSessionId, messages.length, restoreMessages]);
   
-  // Set flow type and practice context
+  // Set flow type, practice context, and event context
   useEffect(() => {
     if (flowType) {
       setFlowType(flowType);
@@ -195,8 +195,16 @@ const SelfMasteryCoach = () => {
     if (flowType === 'guided-reflection' && practiceTitle && practiceSteps) {
       setPracticeContext(practiceTitle, practiceSteps);
     }
+    // Forward event context to hook for JIT/ToD awareness
+    if (locationState?.eventTitle || locationState?.fromIntervention || locationState?.fromRitual) {
+      setEventContext(
+        locationState?.eventTitle || '',
+        locationState?.fromIntervention,
+        locationState?.fromRitual
+      );
+    }
     return () => setFlowType(null);
-  }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext]);
+  }, [flowType, setFlowType, practiceTitle, practiceSteps, setPracticeContext, setEventContext, locationState?.eventTitle, locationState?.fromIntervention, locationState?.fromRitual]);
 
   // Get subtitle based on flow type
   const getSubtitle = () => {
