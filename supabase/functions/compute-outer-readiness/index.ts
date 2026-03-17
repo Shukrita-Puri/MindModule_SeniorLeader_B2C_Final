@@ -20,6 +20,8 @@ interface OuterReadinessResult {
   driver: ThemeDriver;
   dataSources: string[];
   calendarState?: 'active' | 'connected_no_events' | 'not_connected';
+  coachInsightAge?: number;
+  coachInsightLabel?: string;
 }
 
 interface ComputeRequest {
