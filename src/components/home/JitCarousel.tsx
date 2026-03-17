@@ -116,6 +116,25 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
     await trackJitAction('snoozed');
   };
 
+  const setJitPracticeQueue = (selectedContentId?: string) => {
+    const queue = preEventPlan.modules.map((module) => ({
+      id: module.contentId,
+      title: module.title,
+      contentType: module.isCoachCard ? 'coach' : module.contentType,
+      category: module.isCoachCard ? 'coach' : 'pause',
+      duration: module.duration,
+    }));
+
+    if (queue.length === 0) return;
+
+    localStorage.setItem('practiceQueue', JSON.stringify(queue));
+    const selectedIndex = selectedContentId
+      ? queue.findIndex((item) => item.id === selectedContentId)
+      : 0;
+    localStorage.setItem('queueIndex', String(selectedIndex >= 0 ? selectedIndex : 0));
+    localStorage.setItem('ritualMode', 'true');
+  };
+
   const handleStartPrep = () => {
     const modules = preEventPlan.modules;
     if (modules.length > 0) {
@@ -126,7 +145,10 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           eventTitle: preEventPlan.eventTitle,
         }));
       }
+
       const first = modules[0];
+      setJitPracticeQueue(first.contentId);
+
       if (first.isCoachCard) {
         navigate('/coach', {
           state: {
@@ -138,18 +160,28 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         });
         return;
       }
-      let route = first.contentType === 'soundbath'
+
+      const route = first.contentType === 'soundbath'
         ? `/soundscapes/${first.contentId}`
         : first.contentType === 'guided-practice'
           ? `/guided-practices/${first.contentId}`
           : `/micro-practice/${first.contentId}/cards`;
       navigate(route, { state: { category: 'pause', fromIntervention: true } });
     } else if (preEventPlan.coachCard?.prompt) {
-      navigate('/coach', { state: { flowType: 'prepare', initialPrompt: preEventPlan.coachCard.prompt, fromIntervention: true, eventTitle: preEventPlan.eventTitle } });
+      navigate('/coach', {
+        state: {
+          flowType: 'prepare',
+          initialPrompt: preEventPlan.coachCard.prompt,
+          fromIntervention: true,
+          eventTitle: preEventPlan.eventTitle,
+        }
+      });
     }
   };
 
   const navigateToModule = (module: PreEventModule) => {
+    setJitPracticeQueue(module.contentId);
+
     if (module.isCoachCard) {
       navigate('/coach', {
         state: {
@@ -161,7 +193,8 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       });
       return;
     }
-    let route = module.contentType === 'soundbath'
+
+    const route = module.contentType === 'soundbath'
       ? `/soundscapes/${module.contentId}`
       : module.contentType === 'guided-practice'
         ? `/guided-practices/${module.contentId}`
