@@ -995,7 +995,8 @@ serve(async (req) => {
                 notification_type: notif.type,
                 variant_id: notif.variant.id,
                 notification_log_id: notificationLogId || '',
-              }
+              },
+              apnsHost
             );
             if (sent) sendSuccess++;
             else sendFailed++;
