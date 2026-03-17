@@ -1,81 +1,53 @@
 
 
-# Plan: Calendar-Aware Practice Selection in Mastery Plan
+## Copy Updates — Front Page + Onboarding Welcome
 
-## Current State (Confirmed)
-- `generate-mastery-plan` fetches calendar events and computes `calendarLoad` (low/medium/high) from next-4-hour meetings
-- Practice selection is driven entirely by **Outer Readiness theme phrase → ThemeModuleMapping → selectContent()** — NO calendar density awareness
-- `getDurationCeiling()` limits module count/duration by load, but doesn't change practice TYPE or FOCUS
-- Morning with 8 meetings gets the same "focus activation" as morning with 0 meetings
-- Evening with light day gets same "deep wind-down" as extreme day
+Two files need text-only changes (no layout or UI modifications).
 
-## Approach: Calendar-Context Module Overrides
-Rather than replacing the existing theme-driven architecture, we ADD a calendar-context layer that **adjusts module specs** after theme mapping but before content selection. This is minimally invasive.
+---
 
-## Changes (1 file)
+### File 1: `src/pages/Front.tsx`
 
-### `supabase/functions/generate-mastery-plan/index.ts`
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**1. Add `CalendarContext` interface + `calculateCalendarContext()` function (~60 lines)**
-- Classifies today's full-day load and upcoming load into `light | moderate | heavy | extreme`
-- Thresholds: extreme (8+ meetings OR 6+ hrs), heavy (6+/4+), moderate (3+/2+), light (<3/<2)
-- Counts today's events vs upcoming (rest-of-day) events based on `timeOfDay`
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-**2. Add `applyCalendarOverrides()` function (~80 lines)**
-- Takes the theme-derived `ThemeModuleMapping` + `CalendarContext` + `timeOfDay` + `tier`
-- Returns modified `ThemeModuleMapping` with adjusted intensity/focus/priority:
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-```text
-MORNING + heavy/extreme:
-  - regulate: force required=true, focus='grounding', intensity='gentle', priority=9
-  - align: focus='composure' (not 'confidence' or 'focus' — grounding over activation)
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-MORNING + light:
-  - align: focus='focus', intensity='activating' (maximize deep work)
-  - Add prepare if not present (strategic thinking)
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-AFTERNOON + heavy + depleted/managing:
-  - regulate: force required=true, focus='restore', intensity='gentle'
-  - Remove align if activating (prevent further depletion)
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-EVENING + extreme/heavy:
-  - regulate: force focus='release', intensity='gentle', duration='standard'
-  - align: force focus='release' (not 'focus')
+---
 
-EVENING + light:
-  - regulate: reduce priority (brief wind-down sufficient)
-  - align: focus='focus' or 'grounding' (strategic reflection OK)
-```
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**3. Add `generateCalendarMessage()` function (~30 lines)**
-- Produces a short calendar-context string added to the plan label
-- Morning: "Heavy Day Ahead (7 meetings, 5.5 hrs)" / "Open Day (2 meetings)"
-- Evening: "Deep Recovery (9 meetings today)" / "Light Close (2 meetings today)"
-- Stored in a new optional `calendarMessage` field on `timeOfDayPlan`
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-**4. Wire into main `generateMasteryPlan()` (~15 lines changed)**
-- After line ~973 (where `calendarLoad`/`calendarPressure` are computed): call `calculateCalendarContext()` using `rawCalendarEvents` + `timeOfDay`
-- After line ~1351 (where `moduleMapping` is derived from theme): call `applyCalendarOverrides(moduleMapping, calendarContext, timeOfDay, req.innerReadinessTier)`
-- After line ~1497 (response assembly): add `calendarMessage` to response
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-**5. Update response type** — add optional fields:
-- `timeOfDayPlan.calendarMessage?: string`
-- `meta.calendarContext?: { todayLoad, upcomingLoad, todayMeetingCount, todayMeetingHours }`
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-### Client-side: `src/components/home/DailyRitual.tsx` (minimal)
-- Read `calendarMessage` from plan response
-- Display as subtitle under the period label (e.g., "Morning Practice — Heavy Day Ahead (7 meetings)")
-- No structural UI changes needed
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-## What stays the same
-- Theme-to-module mapping (still drives base selection)
-- Content scoring algorithm (unchanged)
-- JIT/pre-event plan (already calendar-aware)
-- Duration ceiling logic (unchanged)
-- Coach card inclusion rules (unchanged)
-- Deduplication logic (unchanged)
-- All DB schema (no migrations)
+---
 
-## Key Design Decision
-Calendar overrides MODIFY the existing `ThemeModuleMapping` specs rather than replacing them. This means the Outer Readiness theme still controls the base recommendation, but calendar load adjusts intensity, focus, and priority. A "heavy day + depleted" morning will still get the theme's structure but with focus shifted from "confidence" to "grounding."
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
