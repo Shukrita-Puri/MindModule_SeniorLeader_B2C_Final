@@ -15,7 +15,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
-import { syncHealthKitToBackend, markHealthKitPermissionGranted, clearHealthKitPermission, isHealthKitPermissionGranted } from '@/services/wearableSyncService';
+import { syncHealthKitToBackend, clearHealthKitPermission } from '@/services/wearableSyncService';
 import { openUrl } from '@/utils/openUrl';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 
 interface ConnectionStatus {
   calendar: { connected: boolean; provider: string | null; lastSync: string | null };
-  appleWatch: { connected: boolean; lastSync: string | null; hasData?: boolean };
+  appleWatch: { connected: boolean; lastSync: string | null; hasHistoricalData?: boolean; needsReconnect?: boolean };
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
@@ -50,7 +50,6 @@ async function triggerCalendarSync(provider: string): Promise<{ success: boolean
         body: JSON.stringify({ provider }),
       }
     );
-    // sync-calendar now always returns 200 with structured body
     const data = await res.json();
     if (data.reconnectRequired) {
       console.warn('[ConnectedData] Calendar reconnect required:', data.reason);
@@ -94,7 +93,7 @@ const ConnectedData = () => {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  // Fetch connection status from backend
+  // Fetch connection status from backend — NO localStorage overrides
   const fetchStatus = useCallback(async () => {
     try {
       const token = await getAuthToken();
@@ -115,15 +114,8 @@ const ConnectedData = () => {
       );
       if (res.ok) {
         const data = await res.json();
-        // Merge: if backend says not connected but local permission flag is set, show connected
-        if (!data.appleWatch?.connected && isHealthKitPermissionGranted()) {
-          data.appleWatch = {
-            ...data.appleWatch,
-            connected: true,
-            hasData: false,
-          };
-        }
-        console.log('[ConnectedData] Connection status:', JSON.stringify(data));
+        // Trust backend connection state — do NOT override with localStorage
+        console.log('[ConnectedData] Connection status from backend:', JSON.stringify(data));
         setStatus(data);
       } else {
         console.error('[ConnectedData] Status fetch failed:', res.status);
@@ -143,38 +135,11 @@ const ConnectedData = () => {
     }
   }, [user?.id, fetchStatus]);
 
-  // Auto-sync stale wearable data when opening Connected Data on native
-  useEffect(() => {
-    // Consider connected if backend says so OR local permission flag is set
-    const isConnected = status?.appleWatch.connected || isHealthKitPermissionGranted();
-    if (!isConnected || !isNativeApp()) return;
-    const lastSyncTime = status?.appleWatch.lastSync ? new Date(status.appleWatch.lastSync).getTime() : 0;
-    const STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
-    if (Date.now() - lastSyncTime > STALE_MS) {
-      console.log('[ConnectedData] Wearable data stale, auto-syncing...');
-      syncHealthKitToBackend().then((result) => {
-        if (result.permissionGranted) {
-          // Update local status to show connected even without data
-          setStatus(prev => prev ? {
-            ...prev,
-            appleWatch: {
-              connected: true,
-              lastSync: prev.appleWatch.lastSync,
-              hasData: result.hasData,
-            },
-          } : prev);
-        }
-        if (result.hasData && result.success) fetchStatus();
-      }).catch(() => {});
-    }
-  }, [status?.appleWatch.connected, status?.appleWatch.lastSync, fetchStatus]);
-
   // Handle post-OAuth callback: ?calendar_connected=true
   useEffect(() => {
     const calendarCallback = searchParams.get('calendar_connected');
     if (calendarCallback !== 'true') return;
 
-    // Clean URL param immediately
     searchParams.delete('calendar_connected');
     setSearchParams(searchParams, { replace: true });
 
@@ -182,10 +147,8 @@ const ConnectedData = () => {
     setSyncing(true);
 
     const runPostConnectSync = async () => {
-      // Small delay to let connection row settle
       await new Promise(r => setTimeout(r, 500));
 
-      // Re-fetch status to get the provider
       const token = await getAuthToken();
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const statusRes = await fetch(
@@ -212,7 +175,6 @@ const ConnectedData = () => {
 
       toast.success('Google Calendar connected!');
 
-      // Trigger initial sync
       const syncResult = await triggerCalendarSync(provider);
       if (syncResult.reconnectRequired) {
         toast.error('Calendar session expired. Please reconnect your calendar.');
@@ -321,83 +283,116 @@ const ConnectedData = () => {
     setSyncing(false);
   };
 
-  /* ─── Apple Watch Handlers ─── */
+  /* ─── Apple Health Handlers ─── */
 
-  const handleConnectAppleWatch = async () => {
+  const handleConnectAppleHealth = async () => {
     if (!isNativeApp()) {
-      toast.info('Apple Watch connects via the native iOS app. Download MindModule from the App Store to connect.');
+      toast.info('Apple Health connects via the native iOS app. Download MindModule from the App Store to connect.');
       return;
     }
-    setConnecting('apple-watch');
+    setConnecting('apple-health');
     try {
+      console.log('[ConnectedData] Starting Apple Health connect flow...');
       const granted = await requestHealthKitPermissions();
-      if (granted) {
-        markHealthKitPermissionGranted();
-        toast.success('Apple Health connected');
-        // Sync HealthKit data to backend
-        const result = await syncHealthKitToBackend();
-        if (result.hasData && result.success) {
-          toast.success('Apple Watch data synced');
-        } else if (result.permissionGranted && !result.hasData) {
-          toast.info('Connected! HRV data will appear once available from Apple Health.');
-        }
-        // Update local status immediately
-        setStatus(prev => prev ? {
-          ...prev,
-          appleWatch: {
-            connected: true,
-            lastSync: prev?.appleWatch.lastSync ?? null,
-            hasData: result.hasData,
-          },
-        } : prev);
-        // Refresh from backend
-        await fetchStatus();
-      } else {
-        toast.error('Health permissions were denied');
+      if (!granted) {
+        console.warn('[ConnectedData] HealthKit permission denied or verification failed');
+        toast.error('Health permissions were denied. Please enable in Settings > Privacy > Health.');
+        setConnecting(null);
+        return;
       }
-    } catch {
+
+      console.log('[ConnectedData] HealthKit permission verified, triggering sync...');
+      toast.success('Apple Health connected');
+
+      // Immediately sync HealthKit data
+      const result = await syncHealthKitToBackend();
+      console.log('[ConnectedData] Sync result:', JSON.stringify(result));
+
+      if (result.connectionState === 'connected_and_synced') {
+        toast.success('Apple Health data synced successfully');
+      } else if (result.connectionState === 'permission_granted_no_data') {
+        toast.info('Connected! HRV data will appear once available from Apple Health.');
+      } else {
+        toast.error('Apple Health sync encountered an issue. Try Sync Now later.');
+      }
+
+      // Refresh status from backend
+      await fetchStatus();
+    } catch (err) {
+      console.error('[ConnectedData] Apple Health connect error:', err);
       toast.error('Failed to connect Apple Health');
     } finally {
       setConnecting(null);
     }
   };
 
-  const handleSyncAppleWatch = async () => {
+  const handleSyncAppleHealth = async () => {
     if (!isNativeApp()) return;
     setSyncing(true);
     try {
-      const granted = await requestHealthKitPermissions();
-      if (!granted) {
-        toast.error('HealthKit permission not granted');
-        setSyncing(false);
-        return;
-      }
+      console.log('[ConnectedData] Manual Apple Health sync triggered...');
       const result = await syncHealthKitToBackend();
-      if (result.hasData && result.success) {
-        toast.success('Apple Watch data synced');
+      console.log('[ConnectedData] Manual sync result:', JSON.stringify(result));
+
+      if (result.connectionState === 'connected_and_synced') {
+        toast.success('Apple Health data synced');
         await fetchStatus();
-      } else if (result.permissionGranted && !result.hasData) {
+      } else if (result.connectionState === 'permission_granted_no_data') {
         toast.info('No HRV data available yet from Apple Health');
+      } else if (result.connectionState === 'reconnect_required') {
+        toast.error('Apple Health permission revoked. Please reconnect.');
+        await fetchStatus();
       } else {
-        toast.error('Apple Watch sync failed');
+        toast.error('Apple Health sync failed');
       }
-    } catch {
-      toast.error('Apple Watch sync failed');
+    } catch (err) {
+      console.error('[ConnectedData] Apple Health sync error:', err);
+      toast.error('Apple Health sync failed');
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleDisconnectAppleWatch = () => {
+  const handleDisconnectAppleHealth = () => {
     try {
       localStorage.removeItem('contextConnections');
       clearHealthKitPermission();
-      setStatus(prev => prev ? { ...prev, appleWatch: { connected: false, lastSync: null, hasData: false } } : prev);
-      toast.success('Apple Watch disconnected');
+      setStatus(prev => prev ? { 
+        ...prev, 
+        appleWatch: { connected: false, lastSync: null, hasHistoricalData: false, needsReconnect: false } 
+      } : prev);
+      toast.success('Apple Health disconnected');
     } catch {
-      toast.error('Failed to disconnect Apple Watch');
+      toast.error('Failed to disconnect Apple Health');
     }
   };
+
+  /* ─── Derive Apple Health display state ─── */
+
+  const getAppleHealthState = () => {
+    const aw = status?.appleWatch;
+    if (!aw) return { showConnected: false, statusNote: undefined as string | undefined, showReconnect: false };
+    
+    if (aw.connected) {
+      // Actively synced recently
+      return { 
+        showConnected: true, 
+        statusNote: undefined,
+        showReconnect: false,
+      };
+    }
+    if (aw.needsReconnect && aw.hasHistoricalData) {
+      // Has old data but no recent sync — show reconnect
+      return { 
+        showConnected: false, 
+        statusNote: 'Historical data available · Reconnect to resume sync',
+        showReconnect: true,
+      };
+    }
+    return { showConnected: false, statusNote: undefined, showReconnect: false };
+  };
+
+  const appleHealthState = status ? getAppleHealthState() : { showConnected: false, statusNote: undefined, showReconnect: false };
 
   /* ─── Connection Data ─── */
 
@@ -410,6 +405,7 @@ const ConnectedData = () => {
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
       statusNote: undefined as string | undefined,
+      showReconnect: false,
       onConnect: handleConnectCalendar,
       onDisconnect: handleDisconnectCalendar,
       onSync: handleSyncNow,
@@ -420,17 +416,13 @@ const ConnectedData = () => {
       name: 'Apple Health',
       description: 'Connect Apple Health for HRV data',
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
-      connected: status?.appleWatch.connected ?? false,
-      lastSync: formatLastSync(status?.appleWatch.lastSync ?? null),
-      statusNote: (() => {
-        const aw = status?.appleWatch;
-        if (!aw?.connected) return undefined;
-        if (aw.lastSync) return undefined; // lastSync line renders separately
-        return 'Connected · No HRV data yet. Verify HRV data exists in the Health app.';
-      })(),
-      onConnect: handleConnectAppleWatch,
-      onDisconnect: handleDisconnectAppleWatch,
-      onSync: handleSyncAppleWatch,
+      connected: appleHealthState.showConnected,
+      lastSync: formatLastSync(status?.appleWatch?.lastSync ?? null),
+      statusNote: appleHealthState.statusNote,
+      showReconnect: appleHealthState.showReconnect,
+      onConnect: handleConnectAppleHealth,
+      onDisconnect: handleDisconnectAppleHealth,
+      onSync: handleSyncAppleHealth,
       canSync: isNativeApp(),
     },
   ];
@@ -460,10 +452,10 @@ const ConnectedData = () => {
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
                     )}
-                    {conn.connected && !conn.lastSync && conn.statusNote && (
+                    {conn.statusNote && (
                       <p className="text-xs text-muted-foreground mt-0.5 italic">{conn.statusNote}</p>
                     )}
-                    {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-watch') && (
+                    {syncing && (conn.id === 'google-calendar' || conn.id === 'apple-health') && (
                       <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" /> Syncing…
                       </p>
@@ -496,6 +488,15 @@ const ConnectedData = () => {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  ) : conn.showReconnect ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={conn.onConnect}
+                      disabled={connecting === conn.id}
+                    >
+                      {connecting === conn.id ? 'Connecting…' : 'Reconnect'}
+                    </Button>
                   ) : (
                     <Button
                       size="sm"
