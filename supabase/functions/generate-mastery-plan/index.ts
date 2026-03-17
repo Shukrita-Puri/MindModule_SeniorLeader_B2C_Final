@@ -1523,8 +1523,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     return { ...c, structured_tags: meta?.structured_tags, mastery_category: meta?.mastery_category };
   });
 
-  // 3. Score calendar events
-  const scoredEvents = scoreCalendarEvents(req.calendarEvents || [], skippedTypes);
+  // 3. Fetch HRV × Calendar correlations
+  const hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
+
+  // 4. Score calendar events (with HRV correlation boost)
+  const scoredEvents = scoreCalendarEvents(req.calendarEvents || [], skippedTypes, hrvCorrelations);
   // Filter out 3+ skipped types
   const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
 
