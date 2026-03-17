@@ -511,7 +511,8 @@ export const sanctuaryContent: SanctuaryContent[] = [
     thumbnail: renewalStretchIllustration,
     steps: 6,
     creator: "Ancient Greek Warrior Activation",
-    audioSrc: "/guided-practices/spartan-battle-breath.mp3",
+    // TODO: Re-upload spartan-battle-breath.mp3 to public/guided-practices/ to restore audio
+    // audioSrc: "/guided-practices/spartan-battle-breath.mp3",
     fullStory: "Before the Battle of Thermopylae (480 BCE), Spartan warriors performed breathing rituals combined with battle cries to enter 'menos'—divine fury. Historical sources describe how they used rhythmic breathing and synchronized movements to create unified energy and fearless presence. Controlled hyperventilation increases adrenaline, reduces fear response, and creates a transcendent state of courage.",
     whatYouNeed: [
       "⚠️ DO NOT PRACTICE IF: Heart conditions, high blood pressure, pregnant, recent injuries, prone to panic attacks",
