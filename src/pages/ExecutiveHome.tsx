@@ -7,7 +7,7 @@
  * + Just-in-time interventions when triggered (JitCarousel)
  */
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -26,11 +26,11 @@ import { useOuterReadiness } from "@/hooks/useOuterReadiness";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
-  depleted: 'from-blue-900/30 via-slate-800/20 to-background',
-  managing: 'from-amber-900/25 via-stone-800/15 to-background',
-  strong: 'from-emerald-900/25 via-teal-800/15 to-background',
-  peak: 'from-violet-900/25 via-purple-800/15 to-background',
-  default: 'from-stone-800/20 via-stone-700/10 to-background',
+  depleted: 'from-blue-900/50 via-slate-800/35 to-background',
+  managing: 'from-amber-900/45 via-stone-800/30 to-background',
+  strong: 'from-emerald-900/45 via-teal-800/30 to-background',
+  peak: 'from-violet-900/45 via-purple-800/30 to-background',
+  default: 'from-stone-800/40 via-stone-700/25 to-background',
 };
 
 interface PreEventPlan {
@@ -136,13 +136,22 @@ const ExecutiveHome = () => {
   
   // Use ref to track if video has already faded in
   const videoFadedIn = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
-  const handleVideoCanPlay = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
-    if (!videoFadedIn.current) {
-      (e.currentTarget as HTMLVideoElement).style.opacity = '0.4';
+  const fadeInVideo = useCallback((el?: HTMLVideoElement | null) => {
+    const target = el || videoRef.current;
+    if (!videoFadedIn.current && target) {
+      target.style.opacity = '0.4';
       videoFadedIn.current = true;
     }
   }, []);
+
+  // Timeout fallback: if video events never fire (iOS WKWebView), fade in after 3s
+  useEffect(() => {
+    videoFadedIn.current = false;
+    const timer = setTimeout(() => fadeInVideo(), 3000);
+    return () => clearTimeout(timer);
+  }, [heroVideoUrl, fadeInVideo]);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -155,6 +164,7 @@ const ExecutiveHome = () => {
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
               <div className={`absolute inset-0 bg-gradient-to-b ${getTierGradient()}`} />
               <video 
+                ref={videoRef}
                 key={heroVideoUrl}
                 src={heroVideoUrl}
                 autoPlay
@@ -162,7 +172,8 @@ const ExecutiveHome = () => {
                 muted
                 playsInline
                 preload="auto"
-                onCanPlay={handleVideoCanPlay}
+                onCanPlay={(e) => fadeInVideo(e.currentTarget)}
+                onLoadedData={(e) => fadeInVideo(e.currentTarget)}
                 className="w-full h-full object-cover video-warm-luxury"
                 style={{ opacity: 0 }}
               />
