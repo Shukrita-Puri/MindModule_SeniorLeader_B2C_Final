@@ -348,9 +348,13 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
     // Pattern detection: find days where HRV is consistently low but check-in says strong/focused
     const patternObservations: string[] = [];
 
-    if (baseline30d && total >= 7) {
+    // Confidence tier based on unique days with data
+    const sampleDays = total;
+    const baselineConfidence: 'low' | 'medium' | 'high' = sampleDays >= 15 ? 'high' : sampleDays >= 7 ? 'medium' : 'low';
+
+    if (baseline30d && total >= 3) {
       for (const [day, vals] of Object.entries(dayBuckets)) {
-        if (vals.length < 3) continue;
+        if (vals.length < 2) continue;
         const dayAvg = vals.reduce((a, b) => a + b, 0) / vals.length;
         const deviationPct = ((dayAvg - baseline30d) / baseline30d) * 100;
 
