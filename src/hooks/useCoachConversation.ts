@@ -384,7 +384,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext]);
+  }, [messages, isLoading, createSession, saveMessage, flowType, user?.id, practiceContext, eventContext]);
 
   const retryLastMessage = useCallback(async () => {
     if (lastMessageRef.current) {
