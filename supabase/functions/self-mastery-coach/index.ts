@@ -1640,6 +1640,16 @@ async function buildServerContext(
     context.calendarStateCorrelations = calendarCorrelationsResult;
   }
 
+  // HRV data (wearable)
+  if (wearableHRVResult) {
+    context.hrvData = wearableHRVResult;
+  }
+
+  // Upcoming event HRV correlations
+  if (upcomingEventHRVResult && upcomingEventHRVResult.length > 0) {
+    context.upcomingEventHRV = upcomingEventHRVResult;
+  }
+
   return context;
 }
 
