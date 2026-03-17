@@ -266,7 +266,9 @@ function assembleContextStatement(
   confidence: number,
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null,
-  patternContext: HRVPatternContext | null
+  patternContext: HRVPatternContext | null,
+  baselineConfidence: 'low' | 'medium' | 'high' = 'high',
+  sampleDays: number = 30
 ): { text: string; layersActive: string[] } {
   const parts: string[] = [];
   const layersActive: string[] = ['base'];
@@ -288,7 +290,7 @@ function assembleContextStatement(
   }
 
   // Layer 3: Always-on HRV context (fires even when ALIGNED)
-  const layer3 = getLayer3Text(divergenceFlag, hrvDeviation, patternContext);
+  const layer3 = getLayer3Text(divergenceFlag, hrvDeviation, patternContext, baselineConfidence, sampleDays);
   if (layer3) {
     parts.push(layer3);
     layersActive.push('wearable');
