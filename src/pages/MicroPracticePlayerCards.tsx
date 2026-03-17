@@ -1739,6 +1739,7 @@ const MicroPracticePlayerCards = () => {
   const location = useLocation();
   const category = location.state?.category || 'power-up'; // Default to power-up if no category
   const fromRitual = location.state?.fromRitual || false;
+  const fromIntervention = location.state?.fromIntervention || false;
   const allContent = getAllContent();
   const practice = allContent.find(
     (item) => item.id === id && item.contentType === "micro-practice"
