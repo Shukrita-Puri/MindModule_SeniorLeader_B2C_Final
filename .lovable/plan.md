@@ -1,85 +1,53 @@
 
 
-# Audit: `/executive-home` Cross-Device Content Consistency
+## Copy Updates — Front Page + Onboarding Welcome
 
-## Source-of-Truth Map
+Two files need text-only changes (no layout or UI modifications).
 
-```text
-Page Load → useAuth (user.id)
-  │
-  ├─ TodayStateCard
-  │    └─ useQuery['energy-state', user.id] → computeEnergyState()
-  │         ├─ DB: wearable_data (HRV) ✅
-  │         ├─ FALLBACK: getLocalWearableData() ⚠️ DIVERGENCE RISK
-  │         ├─ DB: calendar_connections + calendar_events ✅
-  │         ├─ DB: daily_checkins (via edge fn) ✅
-  │         └─ Edge Fn: compute-inner-readiness ✅
-  │
-  ├─ StrategicIntentionCard
-  │    └─ useOuterReadiness → fetchOuterReadiness()
-  │         ├─ computeEnergyState() (same query key, shared) ✅
-  │         ├─ getTodayCheckin() → DB via edge fn ✅
-  │         └─ Edge Fn: compute-outer-readiness ✅
-  │
-  ├─ DailyRitual
-  │    └─ loadPlan()
-  │         ├─ sessionStorage cache: plan-data-{date}-{period} ⚠️ DIVERGENCE RISK
-  │         ├─ DB: daily_ritual_completions (via getTodayRitual) ✅
-  │         ├─ DB: daily_checkins (via getCheckinForWindow) ✅
-  │         └─ Edge Fn: generate-mastery-plan ✅
-  │
-  ├─ JitCarousel
-  │    └─ Receives preEventPlan from DailyRitual (same data path) ✅
-  │
-  └─ Hero (greeting, video)
-       └─ Time-of-day + energyTier → intentional device-local ✅ (not a bug)
-```
+---
 
-## Identified Divergence Sources
+### File 1: `src/pages/Front.tsx`
 
-### BUG 1 (HIGH): `energyStateEngine.ts` — localStorage wearable fallback
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-Lines 206-216: If the DB query returns no wearable row (e.g., RLS issue, network blip), it falls back to `getLocalWearableData()`. Device A (phone with Apple Health sync) has local HRV data; Device B (desktop) does not. This produces **different Inner Readiness scores, tiers, and recommendations** for the same user.
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-**Fix**: Remove the localStorage fallback. If DB has no wearable data, treat it as `hasWearable = false` — which is the correct state. The local cache is a write-through performance layer, not a source of truth. The backend `compute-inner-readiness` edge function already handles the no-wearable case gracefully.
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-### BUG 2 (MEDIUM): `DailyRitual.tsx` — sessionStorage plan cache
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-Lines 279-301: The plan is cached in `sessionStorage` per device. If Device A generates a plan and Device B loads later (or has stale session), they can show different plans. The cache bypass logic (line 267-276) correctly invalidates on check-in changes, but if no check-in happened, the stale cache persists per device.
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**Fix**: Add the energy state hash to the session cache key validation. The existing `plan-loaded-*` flag should also store the energy tier + score, and invalidate if the current energy state differs. This is already partially described in the memory (`ux/mastery-plan-cache-validation`) but the implementation only checks check-in time, not energy state hash.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-### NOT A BUG: `wearableContextAnalyzer.ts` localStorage fallback
+---
 
-`getWearableContext()` has a localStorage fallback (line 102-127), but it's only called from `MicroInterventions.tsx` which is NOT rendered on `/executive-home`. No impact.
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-### NOT A BUG: `useCalendarSync.ts` local storage
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-Calendar data on executive-home flows through `energyStateEngine.ts` which reads directly from DB (`calendar_events` table), not from local storage. No impact.
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-### NOT A BUG: Hero video/greeting
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-Time-of-day presentation differences are intentional and don't affect content.
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-## Fix Plan
+---
 
-### Fix 1: Remove localStorage wearable fallback from `energyStateEngine.ts`
-- Delete lines 206-216 (the `getLocalWearableData()` fallback block)
-- Remove the import of `getLocalWearableData`
-- Add a diagnostic log when DB returns no wearable data
-- This ensures both devices get identical wearable input (DB-only)
-
-### Fix 2: Add energy-state hash validation to DailyRitual sessionStorage cache
-- In `DailyRitual.tsx` `loadPlan()`, after fetching from session cache, compare the stored energy tier/score against the current energy state
-- If they differ, invalidate the cache and regenerate
-- Store the hash alongside the plan data in sessionStorage
-
-### Fix 3: Add diagnostic logging
-- In `computeEnergyState`: log whether wearable data came from DB or was absent
-- In `DailyRitual.loadPlan`: log whether session cache was used or fresh plan generated
-- In `useOuterReadiness`: already has logging ✅
-
-### Files to change:
-1. **`src/utils/energyStateEngine.ts`** — Remove localStorage fallback, add diagnostic log
-2. **`src/components/home/DailyRitual.tsx`** — Add energy hash validation to session cache, add diagnostic log
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

@@ -6,10 +6,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+// NOTE: getLocalWearableData intentionally NOT imported — DB is canonical source for cross-device consistency
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
-import { getLocalWearableData } from '@/services/localDataStore';
+// getLocalWearableData removed — local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
 
 // ==================== RETRY GUARDRAIL ====================
@@ -203,17 +204,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     }
   }
 
-  // Fall back to local storage if DB had nothing
-  if (wearableHRV === null) {
-    const localEntries = getLocalWearableData();
-    if (localEntries.length > 0) {
-      const latest = localEntries[localEntries.length - 1];
-      if (latest.hrv !== null) {
-        wearableHRV = latest.hrv;
-        wearableReadiness = wearableHRV >= 50 ? 75 : wearableHRV >= 30 ? 50 : 25;
-      }
-    }
-  }
+  // Diagnostic: log wearable data source for cross-device debugging
+  console.log('[energyStateEngine] Wearable source:', wearableHRV !== null ? 'DB' : 'NONE (no fallback)', '| HRV:', wearableHRV);
 
   const hasWearable = wearableHRV !== null && wearableHRV > 0;
 
