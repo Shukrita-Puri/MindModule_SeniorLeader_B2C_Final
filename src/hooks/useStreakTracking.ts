@@ -90,6 +90,17 @@ export const useStreakTracking = () => {
         }
       }
 
+      // Always persist current streak to profiles for backend access (smart-nudges)
+      if (currentStreak !== (profile?.current_streak || 0) || longestStreak !== (profile?.longest_streak || 0)) {
+        supabase
+          .from('profiles')
+          .update({ current_streak: currentStreak, longest_streak: longestStreak })
+          .eq('id', user.id)
+          .then(({ error }) => {
+            if (error) console.warn('[streak] Failed to persist streak:', error);
+          });
+      }
+
       return {
         currentStreak,
         longestStreak,

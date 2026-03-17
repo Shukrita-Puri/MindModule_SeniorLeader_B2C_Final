@@ -208,6 +208,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: payload.email,
               name: payload.name || payload.nickname,
               picture: payload.picture,
+              timezone_offset: -(new Date().getTimezoneOffset()),
             }),
           }
         );
@@ -309,6 +310,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: auth0User.email,
               name: auth0User.name,
               picture: auth0User.picture,
+              timezone_offset: -(new Date().getTimezoneOffset()),
             }),
           }
         );
@@ -404,7 +406,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ timezone_offset: -(new Date().getTimezoneOffset()) }),
         }
       );
 
