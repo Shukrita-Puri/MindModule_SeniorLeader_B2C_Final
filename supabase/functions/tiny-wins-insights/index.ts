@@ -164,7 +164,7 @@ serve(async (req) => {
   try {
     const userId = await verifyAuth0JWT(req.headers.get("authorization"));
 
-    const { days = 14 } = await req.json().catch(() => ({}));
+    const { days = 30 } = await req.json().catch(() => ({}));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

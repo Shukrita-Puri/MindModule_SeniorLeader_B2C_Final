@@ -893,9 +893,12 @@ const Insights = () => {
                 </p>
               </div>
             ) : (
-              <div className="py-4">
+              <div className="py-4 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {winsProgressMessage || 'Complete your evening Integrate flow with the Coach to capture wins.'}
+                  {winsProgressMessage || 'Share your wins during evening coach sessions to build your momentum map.'}
+                </p>
+                <p className="text-xs text-muted-foreground/60">
+                  The coach captures patterns you might miss — speak to them about your daily wins to unlock this feature.
                 </p>
               </div>
             )}

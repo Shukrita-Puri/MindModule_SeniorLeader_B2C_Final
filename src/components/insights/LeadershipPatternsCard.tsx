@@ -419,7 +419,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Watch For</p>
+                    <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">Growth Edges</p>
                     {data.coachFriction ? (
                       <span className="text-[9px] text-amber-600/70 font-medium tracking-wider uppercase">From your coach</span>
                     ) : (
