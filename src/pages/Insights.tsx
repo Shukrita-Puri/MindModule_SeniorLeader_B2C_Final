@@ -812,7 +812,7 @@ const Insights = () => {
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
                 title="Your Momentum"
-                explanation="The wins you've logged over the past two weeks — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
+                explanation="The wins you've logged over the past 30 days — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
