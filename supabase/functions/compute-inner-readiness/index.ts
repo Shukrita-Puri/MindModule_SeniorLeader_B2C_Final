@@ -326,6 +326,8 @@ serve(async (req) => {
       hasWearable,
       timezoneOffset = 0,
       hrvPatternContext = null,
+      baselineConfidence: bConf = 'high',
+      sampleDays = 30,
     } = body;
 
     const clarity = body.clarityLevel ?? 3;
