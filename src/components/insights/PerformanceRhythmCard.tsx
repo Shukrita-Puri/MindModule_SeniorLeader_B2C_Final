@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Calendar, AlertTriangle, Sparkles } from 'lucide-react';
+import { Loader2, Calendar, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
 import { CardContent, CardHeader } from '@/components/ui/card';
 import InsightInfoModal from '@/components/insights/InsightInfoModal';
 import LuxuryInsightCard from '@/components/insights/LuxuryInsightCard';
