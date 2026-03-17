@@ -385,12 +385,22 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     contextSentRef.current = true; // Don't resend context for restored sessions
   }, []);
 
+  // Keep messagesCountRef in sync with messages state
+  useEffect(() => {
+    messagesCountRef.current = messages.length;
+  }, [messages.length]);
+
   const endSession = useCallback(async () => {
     const currentSessionId = sessionIdRef.current;
     const timestamp = new Date().toISOString();
+    const msgCount = messagesCountRef.current;
     
     // Skip if no session or conversation too short to extract insights
-    if (!currentSessionId || !user?.id || messages.length < 2) {
+    if (!currentSessionId || !user?.id || msgCount < 2) {
+      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short (${msgCount} msgs)`);
+      clearConversation();
+      return;
+    }
       console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short`);
       clearConversation();
       return;
