@@ -626,6 +626,64 @@ function detectCCContradiction(
 // Feature flag for Phase 2 wearable recovery override
 const ENABLE_WEARABLE_RECOVERY_TRIGGER = false;
 
+// ==================== PHASE 2: WEARABLE RECOVERY TRIGGER (flagged OFF) ====================
+async function checkWearableRecoveryTrigger(
+  userId: string,
+  db: ReturnType<typeof createClient>
+): Promise<{ triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null> {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data: recentHRV } = await db
+      .from('wearable_data')
+      .select('summary_date, hrv')
+      .eq('user_id', userId)
+      .gte('summary_date', sevenDaysAgo.toISOString().split('T')[0])
+      .order('summary_date', { ascending: false })
+      .limit(7);
+
+    if (!recentHRV || recentHRV.length < 3) return null;
+
+    const baseline = recentHRV.reduce((sum: number, d: any) => sum + (d.hrv || 0), 0) / recentHRV.length;
+    if (baseline <= 0) return null;
+
+    // Check consecutive days <-20% below baseline
+    let consecutiveDays = 0;
+    for (const sample of recentHRV) {
+      const deviation = ((sample.hrv - baseline) / baseline) * 100;
+      if (deviation < -20) consecutiveDays++;
+      else break;
+    }
+
+    if (consecutiveDays >= 2) {
+      const todayDeviation = Math.round(((recentHRV[0].hrv - baseline) / baseline) * 100);
+      return {
+        triggered: true,
+        reason: `Sustained HRV deficit detected (${consecutiveDays} consecutive days <-20% below baseline)`,
+        hrvDeviation: todayDeviation,
+        consecutiveDays,
+      };
+    }
+
+    // Single-day extreme drop (<-30%)
+    const todayDeviation = ((recentHRV[0].hrv - baseline) / baseline) * 100;
+    if (todayDeviation < -30) {
+      return {
+        triggered: true,
+        reason: 'Severe single-day HRV drop detected (<-30% below baseline)',
+        hrvDeviation: Math.round(todayDeviation),
+        consecutiveDays: 1,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[compute-outer-readiness] Wearable recovery trigger error:', err);
+    return null;
+  }
+}
+
 // ==================== LEAN ON / WATCH FOR — PRIORITY CASCADE ====================
 interface LeanOnWatchForResult {
   leanOn: string;
@@ -633,6 +691,7 @@ interface LeanOnWatchForResult {
   source: string;
   coachInsightAge?: number;
   coachInsightLabel?: string;
+  recoveryDayTriggered?: boolean;
 }
 
 function getLeanOnWatchFor(
@@ -649,6 +708,7 @@ function getLeanOnWatchFor(
   calendarPressure: CalendarLevel | null,
   tomorrowLoad: CalendarLevel | null,
   tomorrowPressure: CalendarLevel | null,
+  wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
@@ -664,8 +724,13 @@ function getLeanOnWatchFor(
   }
 
   // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
-  if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
-    // Stub: checkWearableRecoveryTrigger would go here
+  if (ENABLE_WEARABLE_RECOVERY_TRIGGER && wearableRecovery?.triggered) {
+    return {
+      leanOn: "Your awareness that your system needs restoration, not activation. What you protect today prevents what you'll regret tomorrow.",
+      watchFor: "Trying to 'push through' when your physiology is already in deficit. Ignoring this signal compounds the cost.",
+      source: 'wearable-recovery-override',
+      recoveryDayTriggered: true,
+    };
   }
 
   // ── P0a: Sunday evening (after 9pm on Sunday) — ALWAYS wins ──

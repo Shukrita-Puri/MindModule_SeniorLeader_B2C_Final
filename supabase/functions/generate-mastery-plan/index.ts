@@ -715,6 +715,106 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
+// ==================== HRV × CALENDAR CORRELATION ====================
+
+interface EventTypeCorrelation {
+  eventType: string;
+  count: number;
+  avgHRVDeviation: number;
+  examples: string[];
+}
+
+type HRVCorrelationMap = Record<string, EventTypeCorrelation>;
+
+function extractEventType(title: string): string {
+  const lower = title.toLowerCase();
+  if (lower.includes('board')) return 'board';
+  if (lower.includes('investor') || lower.includes('vc')) return 'investor';
+  if (lower.includes('fundrais')) return 'fundraising';
+  if (lower.includes('all-hands') || lower.includes('all hands') || lower.includes('town hall')) return 'all-hands';
+  if (lower.includes('interview')) return 'interview';
+  if (lower.includes('pitch') || lower.includes('demo')) return 'pitch';
+  if (lower.includes('client') || lower.includes('customer')) return 'client';
+  if (lower.includes('1:1') || lower.includes('one-on-one') || lower.includes('1-on-1') || lower.includes('check-in')) return '1:1';
+  if (lower.includes('team')) return 'team';
+  if (lower.includes('standup') || lower.includes('stand-up') || lower.includes('daily')) return 'standup';
+  if (lower.includes('retro') || lower.includes('retrospective')) return 'retrospective';
+  if (lower.includes('planning')) return 'planning';
+  if (lower.includes('review')) return 'review';
+  return 'other';
+}
+
+async function getHRVEventCorrelations(
+  userId: string,
+  supabaseClient: any
+): Promise<HRVCorrelationMap | null> {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [eventsRes, hrvRes] = await Promise.all([
+      supabaseClient
+        .from('calendar_events')
+        .select('start_time, title')
+        .eq('user_id', userId)
+        .gte('start_time', thirtyDaysAgo.toISOString())
+        .order('start_time', { ascending: true }),
+      supabaseClient
+        .from('wearable_data')
+        .select('summary_date, hrv')
+        .eq('user_id', userId)
+        .gte('summary_date', thirtyDaysAgo.toISOString().split('T')[0])
+        .order('summary_date', { ascending: true }),
+    ]);
+
+    const pastEvents = eventsRes.data;
+    const hrvData = hrvRes.data;
+
+    if (!pastEvents || !hrvData || hrvData.length < 7) return null;
+
+    const baselineHRV = hrvData.reduce((sum: number, d: any) => sum + (d.hrv || 0), 0) / hrvData.length;
+    if (baselineHRV <= 0) return null;
+
+    const correlations: Record<string, { count: number; totalDeviation: number; examples: string[] }> = {};
+
+    for (const event of pastEvents) {
+      const eventDate = (event.start_time || '').split('T')[0];
+      const hrvOnDate = hrvData.find((h: any) => h.summary_date === eventDate);
+      if (!hrvOnDate || !hrvOnDate.hrv) continue;
+
+      const deviation = ((hrvOnDate.hrv - baselineHRV) / baselineHRV) * 100;
+      const eventType = extractEventType(event.title || '');
+
+      if (!correlations[eventType]) {
+        correlations[eventType] = { count: 0, totalDeviation: 0, examples: [] };
+      }
+      correlations[eventType].count++;
+      correlations[eventType].totalDeviation += deviation;
+      if (correlations[eventType].examples.length < 3) {
+        correlations[eventType].examples.push(event.title || '');
+      }
+    }
+
+    const result: HRVCorrelationMap = {};
+    for (const [type, data] of Object.entries(correlations)) {
+      if (data.count >= 2) {
+        result[type] = {
+          eventType: type,
+          count: data.count,
+          avgHRVDeviation: Math.round(data.totalDeviation / data.count),
+          examples: data.examples,
+        };
+      }
+    }
+
+    console.log(`[generate-mastery-plan] HRV correlations: ${Object.keys(result).length} event types with 2+ occurrences`);
+    return Object.keys(result).length > 0 ? result : null;
+  } catch (err) {
+    console.error('[generate-mastery-plan] HRV correlation error:', err);
+    return null;
+  }
+}
+
 // ==================== CALENDAR EVENT PRIORITISATION ====================
 
 interface ScoredEvent {
@@ -724,9 +824,14 @@ interface ScoredEvent {
   scenario: ExecutiveScenario | null;
   timePill: string;
   contextDescription: string;
+  hrvCorrelation?: {
+    eventType: string;
+    avgDeviation: number;
+    historicalCount: number;
+  };
 }
 
-function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): ScoredEvent[] {
+function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hrvCorrelations?: HRVCorrelationMap | null): ScoredEvent[] {
   const now = new Date();
   const scored: ScoredEvent[] = [];
 
@@ -793,6 +898,38 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
       score -= 15;
     }
 
+    // ===== HRV CORRELATION BOOST =====
+    let hrvCorrelation: ScoredEvent['hrvCorrelation'] = undefined;
+    let hrvContextPart = '';
+
+    if (hrvCorrelations) {
+      const evtType = extractEventType(event.title || '');
+      const correlation = hrvCorrelations[evtType];
+
+      if (correlation && correlation.count >= 2) {
+        const avgDev = correlation.avgHRVDeviation;
+        hrvCorrelation = {
+          eventType: evtType,
+          avgDeviation: avgDev,
+          historicalCount: correlation.count,
+        };
+
+        if (avgDev > 20) {
+          score += 25;
+          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${evtType} meetings — your system responds strongly to these. Preparation significantly reduces physiological activation.`;
+        } else if (avgDev > 15) {
+          score += 20;
+          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${evtType} meetings — your system responds to these. Grounding before the meeting helps.`;
+        } else if (avgDev > 10) {
+          score += 12;
+          hrvContextPart = `Your HRV tends to elevate during ${evtType} meetings (${Math.abs(avgDev)}% above baseline). Brief preparation recommended.`;
+        } else if (avgDev < -10) {
+          score -= 5;
+          hrvContextPart = `Your HRV typically remains stable during ${evtType} meetings — lower physiological demand detected.`;
+        }
+      }
+    }
+
     // Generate time pill
     let timePill: string;
     if (minutesUntil < 60) timePill = `In ${minutesUntil} min`;
@@ -832,11 +969,16 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[]): S
       contextParts.push(`non-recurring high-visibility event`);
     }
 
+    // HRV correlation context (injected before the closing sentence)
+    if (hrvContextPart) {
+      contextParts.push(hrvContextPart);
+    }
+
     const contextDescription = contextParts.length > 0
       ? contextParts.join(' — ') + '. Prepare with targeted practice.'
       : `${event.title}. Prepare with targeted practice.`;
 
-    scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription });
+    scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription, hrvCorrelation });
   }
 
   // Sort by score desc, tiebreaker: closer event wins
