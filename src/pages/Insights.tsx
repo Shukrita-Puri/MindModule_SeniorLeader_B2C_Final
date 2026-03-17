@@ -789,7 +789,7 @@ const Insights = () => {
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-              Your Inner World
+              Inner World Insights
             </h1>
             <p className="text-lg font-subheadline italic text-muted-foreground">
               Patterns. Progress. Presence.
