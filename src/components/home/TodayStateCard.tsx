@@ -62,6 +62,7 @@ const TodayStateCard = () => {
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
+  const layer3Statement = energyState.layer3Statement ? cleanText(energyState.layer3Statement) : null;
 
   return (
     <div className={cn(
