@@ -519,6 +519,192 @@ function getModulesFromTheme(themePhrase: string): ThemeModuleMapping {
   return DEFAULT_MODULE_MAPPING;
 }
 
+// ==================== CALENDAR CONTEXT (DENSITY-AWARE) ====================
+
+interface CalendarContext {
+  todayLoad: 'light' | 'moderate' | 'heavy' | 'extreme';
+  todayMeetingCount: number;
+  todayMeetingHours: number;
+  upcomingLoad: 'light' | 'moderate' | 'heavy' | 'extreme';
+  upcomingMeetingCount: number;
+  upcomingMeetingHours: number;
+}
+
+function classifyLoad(count: number, hours: number): 'light' | 'moderate' | 'heavy' | 'extreme' {
+  if (count >= 8 || hours >= 6) return 'extreme';
+  if (count >= 6 || hours >= 4) return 'heavy';
+  if (count >= 3 || hours >= 2) return 'moderate';
+  return 'light';
+}
+
+function calculateCalendarContext(
+  allDayEvents: any[],
+  timeOfDay: 'morning' | 'afternoon' | 'evening'
+): CalendarContext {
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+
+  // All events today (full day)
+  const todayEvents = allDayEvents.filter((e: any) => {
+    const start = new Date(e.start_time || e.startTime);
+    return start.toISOString().split('T')[0] === todayStr;
+  });
+
+  const todayMeetingCount = todayEvents.length;
+  const todayMeetingHours = todayEvents.reduce((sum: number, e: any) => {
+    const start = new Date(e.start_time || e.startTime).getTime();
+    const end = new Date(e.end_time || e.endTime).getTime();
+    return sum + Math.max(0, (end - start) / 3_600_000);
+  }, 0);
+
+  // Upcoming = rest of today (events starting after now)
+  const upcomingEvents = todayEvents.filter((e: any) => {
+    const start = new Date(e.start_time || e.startTime);
+    return start > now;
+  });
+  const upcomingMeetingCount = upcomingEvents.length;
+  const upcomingMeetingHours = upcomingEvents.reduce((sum: number, e: any) => {
+    const start = new Date(e.start_time || e.startTime).getTime();
+    const end = new Date(e.end_time || e.endTime).getTime();
+    return sum + Math.max(0, (end - start) / 3_600_000);
+  }, 0);
+
+  return {
+    todayLoad: classifyLoad(todayMeetingCount, todayMeetingHours),
+    todayMeetingCount,
+    todayMeetingHours: Math.round(todayMeetingHours * 10) / 10,
+    upcomingLoad: classifyLoad(upcomingMeetingCount, upcomingMeetingHours),
+    upcomingMeetingCount,
+    upcomingMeetingHours: Math.round(upcomingMeetingHours * 10) / 10,
+  };
+}
+
+function applyCalendarOverrides(
+  mapping: ThemeModuleMapping,
+  ctx: CalendarContext,
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  tier: string
+): ThemeModuleMapping {
+  // Deep clone to avoid mutating the original theme map entry
+  const m: ThemeModuleMapping = JSON.parse(JSON.stringify(mapping));
+  const load = timeOfDay === 'morning' ? ctx.upcomingLoad : ctx.todayLoad;
+
+  // ── MORNING: forward-looking ──
+  if (timeOfDay === 'morning') {
+    if (load === 'heavy' || load === 'extreme') {
+      // Force grounding regulate
+      if (!m.regulate) {
+        m.regulate = { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'grounding' };
+      } else {
+        m.regulate.required = true;
+        m.regulate.priority = Math.max(m.regulate.priority, 9);
+        m.regulate.intensity = 'gentle';
+        m.regulate.focus = 'grounding';
+      }
+      // Shift align away from activation toward composure
+      if (m.align) {
+        m.align.focus = 'composure';
+        m.align.intensity = 'gentle';
+      }
+      // Remove prepare (no space for strategic thinking on dense days)
+      if (load === 'extreme') delete m.prepare;
+    } else if (load === 'light') {
+      // Maximize focus + strategic thinking
+      if (m.align) {
+        m.align.focus = 'focus';
+        m.align.intensity = 'activating';
+      }
+      if (!m.prepare && !m.integrate) {
+        m.prepare = { type: 'prepare', required: false, priority: 5, intensity: 'moderate', duration: 'short', focus: 'focus' };
+      }
+    }
+    // moderate: theme mapping is fine as-is
+  }
+
+  // ── AFTERNOON: context-dependent ──
+  else if (timeOfDay === 'afternoon') {
+    if ((load === 'heavy' || load === 'extreme') && (tier === 'depleted' || tier === 'managing')) {
+      // Force restoration regulate
+      if (!m.regulate) {
+        m.regulate = { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'short', focus: 'restore' };
+      } else {
+        m.regulate.required = true;
+        m.regulate.priority = Math.max(m.regulate.priority, 9);
+        m.regulate.intensity = 'gentle';
+        m.regulate.focus = 'restore';
+      }
+      // Suppress activating align to prevent further depletion
+      if (m.align && m.align.intensity === 'activating') {
+        m.align.intensity = 'gentle';
+        m.align.focus = 'grounding';
+      }
+    } else if ((load === 'heavy' || load === 'extreme') && (tier === 'strong' || tier === 'peak')) {
+      // Sustained capacity — keep align but ensure regulate present
+      if (!m.regulate) {
+        m.regulate = { type: 'regulate', required: false, priority: 5, intensity: 'moderate', duration: 'micro', focus: 'composure' };
+      }
+    }
+  }
+
+  // ── EVENING: backward-looking ──
+  else if (timeOfDay === 'evening') {
+    if (load === 'extreme' || load === 'heavy') {
+      // Deep recovery / strong wind-down
+      if (m.regulate) {
+        m.regulate.required = true;
+        m.regulate.focus = 'release';
+        m.regulate.intensity = 'gentle';
+        if (load === 'extreme') m.regulate.duration = 'standard';
+      }
+      if (m.align) {
+        m.align.focus = 'release';
+        m.align.intensity = 'gentle';
+      }
+    } else if (load === 'light') {
+      // Light day → brief wind-down sufficient, strategic reflection OK
+      if (m.regulate) {
+        m.regulate.priority = Math.max(m.regulate.priority - 2, 3);
+        m.regulate.duration = 'micro';
+      }
+      if (m.align) {
+        m.align.focus = m.align.focus === 'release' ? 'grounding' : m.align.focus;
+      }
+    }
+  }
+
+  return m;
+}
+
+function generateCalendarMessage(
+  ctx: CalendarContext,
+  timeOfDay: 'morning' | 'afternoon' | 'evening'
+): string | null {
+  const load = timeOfDay === 'morning' ? ctx.upcomingLoad : ctx.todayLoad;
+  const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
+  const hours = timeOfDay === 'morning' ? ctx.upcomingMeetingHours : ctx.todayMeetingHours;
+
+  if (count === 0) return null; // No calendar data
+
+  const hrsLabel = hours === 1 ? '1 hr' : `${hours} hrs`;
+
+  if (timeOfDay === 'morning') {
+    if (load === 'extreme') return `Extreme Day Ahead (${count} meetings, ${hrsLabel})`;
+    if (load === 'heavy') return `Heavy Day Ahead (${count} meetings, ${hrsLabel})`;
+    if (load === 'moderate') return `Moderate Day (${count} meetings, ${hrsLabel})`;
+    return `Open Day (${count} meetings)`;
+  }
+  if (timeOfDay === 'afternoon') {
+    if (load === 'extreme' || load === 'heavy') return `Dense Day (${count} meetings, ${hrsLabel})`;
+    if (load === 'moderate') return `Moderate Day (${count} meetings)`;
+    return null; // Light afternoon — no special callout
+  }
+  // Evening
+  if (load === 'extreme') return `Deep Recovery (${count} meetings today, ${hrsLabel})`;
+  if (load === 'heavy') return `Wind-Down Priority (${count} meetings today)`;
+  if (load === 'moderate') return `Evening Transition (${count} meetings today)`;
+  return `Light Close (${count} meetings today)`;
+}
+
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
