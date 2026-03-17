@@ -136,6 +136,10 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     }
   } catch (err) {
     console.error('[WearableSync] ⚠️ Sync error:', err);
+    // If we had cached permission, this is likely a transient error, not a disconnect
+    if (isHealthKitPermissionGranted()) {
+      return { success: false, permissionGranted: true, hasData: false, connectionState: 'reconnect_required' };
+    }
     return { success: false, permissionGranted: false, hasData: false, connectionState: 'not_connected' };
   }
 }
