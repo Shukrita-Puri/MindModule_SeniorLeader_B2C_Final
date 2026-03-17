@@ -60,7 +60,8 @@ async function sendApnsPush(
   bundleId: string,
   title: string,
   body: string,
-  customData: Record<string, string>
+  customData: Record<string, string>,
+  apnsHost: string = 'api.sandbox.push.apple.com'
 ): Promise<boolean> {
   const apnsPayload = {
     aps: {
@@ -72,7 +73,9 @@ async function sendApnsPush(
     ...customData,
   };
 
-  const url = `https://api.push.apple.com/3/device/${deviceToken}`;
+  const url = `https://${apnsHost}/3/device/${deviceToken}`;
+
+  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars)`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -88,7 +91,7 @@ async function sendApnsPush(
 
   if (!response.ok) {
     const errBody = await response.text();
-    console.error(`[APNs] Failed (${response.status}): ${errBody} — token: ${deviceToken.substring(0, 12)}...`);
+    console.error(`[APNs] Failed (${response.status}): ${errBody} — host=${apnsHost} topic=${bundleId} token=${deviceToken.substring(0, 12)}...`);
 
     // Deactivate invalid tokens
     if (response.status === 410 || response.status === 400) {
@@ -99,6 +102,7 @@ async function sendApnsPush(
   }
 
   await response.text(); // consume body
+  console.log(`[APNs] Success — token=${deviceToken.substring(0, 12)}...`);
   return true;
 }
 
