@@ -1,49 +1,53 @@
 
 
-# Plan: Confidence-Tiered HRV Baseline (by Data Density)
+## Copy Updates — Front Page + Onboarding Welcome
 
-## Current Problem
-- `getUserHRVBaseline` returns an average from even 1 data point with no confidence signal
-- `compute-inner-readiness` gives wearable 25-35% weight regardless of whether baseline is derived from 1 day or 30
-- `computeHRVPatternContext` gates pattern observations at `total >= 7` but doesn't communicate confidence downstream
-- No mechanism to scale wearable influence based on how trustworthy the baseline actually is
+Two files need text-only changes (no layout or UI modifications).
 
-## Confidence Tiers (by unique days with HRV data)
+---
 
-| Days with data | Confidence | Wearable weight | Rationale |
-|---|---|---|---|
-| 1-6 days | `low` | ~15% | Baseline is directional only; not enough to detect real deviation |
-| 7-14 days | `medium` | ~25% | Minimum viable baseline per HRV research; deviation detection starts working |
-| 15+ days | `high` | Full 25-35% | Stable baseline; patterns and divergence are trustworthy |
+### File 1: `src/pages/Front.tsx`
 
-This is standard in HRV science — 7 days is the accepted minimum for a meaningful baseline. Below that, individual readings carry too much noise.
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-## Changes (3 files)
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-### 1. `src/utils/wearableContextAnalyzer.ts`
-- Add `baselineConfidence: 'low' | 'medium' | 'high'` and `sampleDays: number` to `HRVPatternContext`
-- Compute confidence from unique days count: `<7 → low`, `7-14 → medium`, `15+ → high`
-- Lower pattern observation gate from `total >= 7` to `total >= 3` (partial patterns still useful)
-- Lower per-weekday gate from 3 to 2
-- Return `sampleDays` so downstream consumers and Layer 3 text can reference it
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-### 2. `src/utils/energyStateEngine.ts`
-- Extract `baselineConfidence` and `sampleDays` from `hrvPatternContext`
-- Pass both to `compute-inner-readiness` in the request body
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-### 3. `supabase/functions/compute-inner-readiness/index.ts`
-- Accept `baselineConfidence` and `sampleDays` in request body
-- Scale wearable weight by confidence:
-  - `low`: wearable gets 15% (down from 25-35%), redistributed to felt state and circadian
-  - `medium`: wearable gets 25% (current aligned weight)
-  - `high`: wearable gets full 25-35% (current behavior)
-- In Layer 3 text, note data density when confidence is low: "Based on X days of HRV data" vs "Based on your 30-day baseline"
-- Pattern observations only surface at medium+ confidence
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-## What stays the same
-- `getUserHRVBaseline` logic unchanged (still averages whatever exists)
-- DB schema unchanged
-- Sync pipeline unchanged
-- Tier thresholds unchanged
-- Divergence detection thresholds unchanged (>30 gap)
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+
+---
+
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
+
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

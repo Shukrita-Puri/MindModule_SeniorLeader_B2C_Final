@@ -253,6 +253,10 @@ export interface HRVPatternContext {
   eveningAvg: number | null;
   baseline30d: number | null;
   totalSamples: number;
+  /** Number of unique days with HRV data in 30-day window */
+  sampleDays: number;
+  /** Confidence tier based on data density: <7 days = low, 7-14 = medium, 15+ = high */
+  baselineConfidence: 'low' | 'medium' | 'high';
   /** Detected recurring patterns like "3 Mondays with low HRV while reporting strong" */
   patternObservations: string[];
 }
@@ -344,9 +348,13 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
     // Pattern detection: find days where HRV is consistently low but check-in says strong/focused
     const patternObservations: string[] = [];
 
-    if (baseline30d && total >= 7) {
+    // Confidence tier based on unique days with data
+    const sampleDays = total;
+    const baselineConfidence: 'low' | 'medium' | 'high' = sampleDays >= 15 ? 'high' : sampleDays >= 7 ? 'medium' : 'low';
+
+    if (baseline30d && total >= 3) {
       for (const [day, vals] of Object.entries(dayBuckets)) {
-        if (vals.length < 3) continue;
+        if (vals.length < 2) continue;
         const dayAvg = vals.reduce((a, b) => a + b, 0) / vals.length;
         const deviationPct = ((dayAvg - baseline30d) / baseline30d) * 100;
 
@@ -395,6 +403,8 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
       eveningAvg: avg(eveningValues),
       baseline30d,
       totalSamples: total,
+      sampleDays,
+      baselineConfidence,
       patternObservations,
     };
   } catch (error) {

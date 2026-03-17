@@ -276,6 +276,10 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       }
     }
 
+    // Derive baseline confidence from pattern context
+    const baselineConfidence = hrvPatternContext?.baselineConfidence ?? 'low';
+    const sampleDays = hrvPatternContext?.sampleDays ?? 0;
+
     const response = await supabase.functions.invoke('compute-inner-readiness', {
       headers: authHeaders,
       body: {
@@ -288,6 +292,8 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
         hasWearable,
         timezoneOffset: new Date().getTimezoneOffset(),
         hrvPatternContext: hasWearable ? hrvPatternContext : null,
+        baselineConfidence: hasWearable ? baselineConfidence : undefined,
+        sampleDays: hasWearable ? sampleDays : undefined,
       },
     });
 

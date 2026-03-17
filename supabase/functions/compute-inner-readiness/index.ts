@@ -212,39 +212,45 @@ interface HRVPatternContext {
   eveningAvg: number | null;
   baseline30d: number | null;
   totalSamples: number;
+  sampleDays?: number;
+  baselineConfidence?: 'low' | 'medium' | 'high';
   patternObservations: string[];
 }
 
 function getLayer3Text(
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null,
-  patternContext: HRVPatternContext | null
+  patternContext: HRVPatternContext | null,
+  baselineConfidence: 'low' | 'medium' | 'high' = 'high',
+  sampleDays: number = 30
 ): string | null {
   const parts: string[] = [];
 
   // === Core HRV deviation message (always shows when wearable active) ===
   if (hrvDeviation !== null) {
     const absDeviation = Math.abs(hrvDeviation);
+    // Use data-density-aware baseline label
+    const baselineLabel = baselineConfidence === 'high'
+      ? 'your 30-day baseline'
+      : baselineConfidence === 'medium'
+        ? `your ${sampleDays}-day baseline`
+        : `${sampleDays} days of HRV data`;
 
     if (divergenceFlag === 'MASKED_HIGH') {
-      parts.push(`Your HRV is reading ${absDeviation}% below your baseline — your physiological load is higher than your felt state suggests.`);
+      parts.push(`Your HRV is reading ${absDeviation}% below ${baselineLabel} — your physiological load is higher than your felt state suggests.`);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
-      parts.push(`Your HRV is reading ${absDeviation}% above your baseline — your body is more recovered than you currently feel.`);
+      parts.push(`Your HRV is reading ${absDeviation}% above ${baselineLabel} — your body is more recovered than you currently feel.`);
     } else if (absDeviation < 5) {
-      // Aligned + minimal deviation
       parts.push("Your HRV is steady at baseline — your body and mind are reading the same signal.");
     } else if (hrvDeviation > 0) {
-      // Aligned + moderately above
-      parts.push(`Your HRV is tracking ${absDeviation}% above your 30-day baseline — your physiological state is consistent with how you feel.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% above ${baselineLabel} — your physiological state is consistent with how you feel.`);
     } else {
-      // Aligned + moderately below
-      parts.push(`Your HRV is tracking ${absDeviation}% below your 30-day baseline — a slight physiological dip, worth noting.`);
+      parts.push(`Your HRV is tracking ${absDeviation}% below ${baselineLabel} — a slight physiological dip, worth noting.`);
     }
   }
 
-  // === Pattern observations (educational, from 30-day analysis) ===
-  if (patternContext && patternContext.patternObservations.length > 0) {
-    // Show the first (most significant) pattern
+  // === Pattern observations (only surface at medium+ confidence) ===
+  if (patternContext && patternContext.patternObservations.length > 0 && baselineConfidence !== 'low') {
     parts.push(patternContext.patternObservations[0] + '.');
   }
 
@@ -260,7 +266,9 @@ function assembleContextStatement(
   confidence: number,
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null,
-  patternContext: HRVPatternContext | null
+  patternContext: HRVPatternContext | null,
+  baselineConfidence: 'low' | 'medium' | 'high' = 'high',
+  sampleDays: number = 30
 ): { text: string; layersActive: string[] } {
   const parts: string[] = [];
   const layersActive: string[] = ['base'];
@@ -282,7 +290,7 @@ function assembleContextStatement(
   }
 
   // Layer 3: Always-on HRV context (fires even when ALIGNED)
-  const layer3 = getLayer3Text(divergenceFlag, hrvDeviation, patternContext);
+  const layer3 = getLayer3Text(divergenceFlag, hrvDeviation, patternContext, baselineConfidence, sampleDays);
   if (layer3) {
     parts.push(layer3);
     layersActive.push('wearable');
@@ -303,6 +311,8 @@ interface ComputeRequest {
   hasWearable: boolean;
   timezoneOffset?: number;
   hrvPatternContext?: HRVPatternContext | null;
+  baselineConfidence?: 'low' | 'medium' | 'high';
+  sampleDays?: number;
 }
 
 serve(async (req) => {
@@ -318,6 +328,8 @@ serve(async (req) => {
       hasWearable,
       timezoneOffset = 0,
       hrvPatternContext = null,
+      baselineConfidence: bConf = 'high',
+      sampleDays = 30,
     } = body;
 
     const clarity = body.clarityLevel ?? 3;
@@ -350,20 +362,29 @@ serve(async (req) => {
       divergenceFlag = getDivergenceFlag(feltScore, wearableScore);
     }
 
-    // Compute final score based on weighting mode
+    // Compute final score based on weighting mode + baseline confidence
+    // Scale wearable weight by confidence: low=15%, medium=25%, high=full (25-35%)
+    const wearableConfidenceScale = bConf === 'low' ? 0.6 : bConf === 'medium' ? 0.85 : 1.0;
+
     let score: number;
     if (!hasWearable) {
       // Mode 1: No wearable
       score = Math.round(feltScore * 0.55 + irScore * 0.30 + circadianScore * 0.15);
     } else if (divergenceFlag === 'MASKED_HIGH') {
-      // Mode 3: Masked High
-      score = Math.round(feltScore * 0.30 + irScore * 0.25 + wearableScore * 0.35 + circadianScore * 0.10);
+      // Mode 3: Masked High — scale wearable weight by confidence
+      const wW = 0.35 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10; // circadian stays 0.10
+      score = Math.round(feltScore * (remainder * 0.55) + irScore * (remainder * 0.45) + wearableScore * wW + circadianScore * 0.10);
     } else if (divergenceFlag === 'RECOVERY_UNDERWAY') {
       // Mode 4: Recovery Underway
-      score = Math.round(feltScore * 0.35 + irScore * 0.25 + wearableScore * 0.30 + circadianScore * 0.10);
+      const wW = 0.30 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10;
+      score = Math.round(feltScore * (remainder * 0.58) + irScore * (remainder * 0.42) + wearableScore * wW + circadianScore * 0.10);
     } else {
       // Mode 2: Aligned
-      score = Math.round(feltScore * 0.40 + irScore * 0.25 + wearableScore * 0.25 + circadianScore * 0.10);
+      const wW = 0.25 * wearableConfidenceScale;
+      const remainder = 1 - wW - 0.10;
+      score = Math.round(feltScore * (remainder * 0.62) + irScore * (remainder * 0.38) + wearableScore * wW + circadianScore * 0.10);
     }
 
     // Clamp score
@@ -372,11 +393,11 @@ serve(async (req) => {
     const tier = getEnergyTier(score);
     const subTier = getEnergySubTier(score);
 
-    // Assemble context statement (now with always-on Layer 3)
+    // Assemble context statement (now with always-on Layer 3 + confidence-aware text)
     const { text: contextStatement, layersActive } = assembleContextStatement(
       checkInOutcome, hasCheckIn, timeOfDay, tier,
       clarity, confidence, divergenceFlag, hrvDeviation,
-      hrvPatternContext ?? null
+      hrvPatternContext ?? null, bConf, sampleDays
     );
 
     // Data sources
