@@ -645,6 +645,10 @@ function getLeanOnWatchFor(
   coachInsightCreatedAt: string | null,
   hour: number,
   dayOfWeek: number,
+  calendarLoad: CalendarLevel | null,
+  calendarPressure: CalendarLevel | null,
+  tomorrowLoad: CalendarLevel | null,
+  tomorrowPressure: CalendarLevel | null,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
@@ -662,12 +666,17 @@ function getLeanOnWatchFor(
   // ── P-1: Wearable sustained deficit (Phase 2, feature-flagged OFF) ──
   if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
     // Stub: checkWearableRecoveryTrigger would go here
-    // if (wearableRecovery.triggered) return { ... source: 'wearable-recovery-override' };
   }
 
-  // ── P0: Sunday evening (after 9pm on Sunday) — always wins ──
+  // ── P0a: Sunday evening (after 9pm on Sunday) — ALWAYS wins ──
   if (lateEvening && dayCtx === 'sunday') {
-    return { ...sundayEveningInsights[tier], source: 'sunday-evening-override' };
+    // Monday = tomorrow for Sunday evening
+    return { ...getSundayEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure), source: 'sunday-evening-override' };
+  }
+
+  // ── P0b: Late evening weekdays/Saturday (after 9pm) — recovery ALWAYS takes priority ──
+  if (lateEvening) {
+    return { ...getEveningInsights(tier, calendarLoad, calendarPressure), source: 'evening-recovery-override' };
   }
 
   // ── P1a: Coach insights ≤3 days (recent) — no age label ──
@@ -692,13 +701,11 @@ function getLeanOnWatchFor(
         coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
       };
     }
-    // Contradiction detected — fall through to P2
   }
 
   // ── P2: C×C independent signal modifier ──
   const ccMod = getCCModifier(clarity, confidence);
   if (ccMod) {
-    // Check for contextual enrichment (8-14 day old coach insights)
     if (hasCoachBoth && coachTier === 'contextual') {
       const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_`;
       return {
@@ -720,11 +727,6 @@ function getLeanOnWatchFor(
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
     return { leanOn, watchFor: coachGrowth, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
-  }
-
-  // ── P3: Evening recovery (after 9pm, weekdays only) ──
-  if (lateEvening) {
-    return { ...eveningTierInsights[tier], source: 'evening-recovery-override' };
   }
 
   // ── P4: Archetype × Tier ──
