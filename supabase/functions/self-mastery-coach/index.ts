@@ -2538,7 +2538,8 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(fullContext, flowType);
+    const isFirstMessage = messages.length === 1;
+    const systemPrompt = buildSystemPrompt(fullContext, flowType, entryPoint, isFirstMessage);
     
     const aiRequestBody = {
       messages: [
