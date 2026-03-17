@@ -24,6 +24,8 @@ export interface LeadershipPatternsData {
   archetypeEvolved?: boolean;
   archetypeLeanOn?: string;
   archetypeWatchFor?: string;
+  coreStrengths?: string[] | null;
+  growthEdges?: string[] | null;
   baselineScores?: DimensionScores | null;
   currentScores?: DimensionScores | null;
   scoreDeltas?: DimensionScores | null;
