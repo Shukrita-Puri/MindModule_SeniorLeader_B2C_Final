@@ -225,9 +225,9 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         </p>
 
         {/* Progress tracker — matches Time-of-Day style */}
-        <span className="text-xs font-medium font-body text-muted-foreground">
+        <div className="text-xs font-medium font-body text-muted-foreground">
           0 of {preEventPlan.modules.length} completed
-        </span>
+        </div>
 
         {/* HRV Correlation Badge */}
         {preEventPlan.hrvCorrelation && Math.abs(preEventPlan.hrvCorrelation.avgDeviation) > 10 && (

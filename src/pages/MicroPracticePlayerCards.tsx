@@ -2100,7 +2100,7 @@ const MicroPracticePlayerCards = () => {
       </div>
 
       {/* Top Navigation */}
-      <TopNavigation backPath={fromRitual ? '/executive-home' : `/recalibrate/${category}`} transparent />
+      <TopNavigation backPath={(fromRitual || fromIntervention) ? '/executive-home' : `/recalibrate/${category}`} transparent />
 
       {/* Practice Queue Progress - only show when multiple practices in queue */}
       {isInQueue && practice && practiceQueue.length > 1 && (

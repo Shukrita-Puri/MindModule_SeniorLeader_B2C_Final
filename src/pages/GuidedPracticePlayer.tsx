@@ -804,10 +804,11 @@ const GuidedPracticePlayer = () => {
 
   // Check if navigated from ritual
   const fromRitual = location.state?.fromRitual || false;
+  const fromIntervention = location.state?.fromIntervention || false;
 
   const getCategoryPath = () => {
-    // If from daily ritual, return to executive home
-    if (fromRitual) return '/executive-home';
+    // If from daily ritual or JIT intervention, return to executive home
+    if (fromRitual || fromIntervention) return '/executive-home';
     
     // Use the practice's actual category to determine back path
     if (!practice) return '/recalibrate';
