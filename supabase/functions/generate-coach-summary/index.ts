@@ -42,7 +42,7 @@ serve(async (req) => {
       .eq('session_id', sessionId)
       .order('message_index', { ascending: true });
 
-    if (msgError || !messages || messages.length < 3) {
+    if (msgError || !messages || messages.length < 2) {
       return new Response(JSON.stringify({ success: true, message: 'Too few messages for summary' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

@@ -396,7 +396,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     const msgCount = messagesCountRef.current;
     
     // Skip if no session or conversation too short to extract insights
-    if (!currentSessionId || !user?.id || msgCount < 2) {
+    if (!currentSessionId || !user?.id || msgCount < 1) {
       console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short (${msgCount} msgs)`);
       clearConversation();
       return;

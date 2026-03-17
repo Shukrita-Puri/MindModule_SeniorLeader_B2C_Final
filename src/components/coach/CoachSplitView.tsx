@@ -179,13 +179,19 @@ const InputBar = ({
       </div>
     </form>
     {hasMessages && (
-      <div className="flex items-center justify-center">
+      <div className="flex flex-col items-center gap-1.5 pt-1">
+        <div className={cn(
+          "w-12 h-px",
+          glass ? "bg-white/10" : "bg-border/40"
+        )} />
         <button
           type="button"
           onClick={onEndSession}
           className={cn(
-            "text-xs transition-colors",
-            glass ? "text-white/50 hover:text-white/80" : "text-muted-foreground hover:text-foreground"
+            "text-sm font-medium px-4 py-1 rounded-full transition-colors",
+            glass
+              ? "text-white/60 hover:text-white hover:bg-white/10"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
           End session
