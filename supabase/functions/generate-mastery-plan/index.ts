@@ -1752,7 +1752,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     if (preEventModules.length > 0) {
       preEventPlan = {
         eventTitle: topEvent.event.title,
-        eventType: scenario?.id || 'general',
+        eventType: CANONICAL_TAGS[extractEventType(topEvent.event.title || '')] || scenario?.contextLabel || 'Meeting Prep',
         minutesUntil: topEvent.minutesUntil,
         timePill: topEvent.timePill,
         contextDescription: enrichedContextDescription,
