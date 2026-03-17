@@ -2056,12 +2056,29 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string): string =>
       if (context.hrvData.baselineHRV) lines.push(`- **Baseline HRV**: ${context.hrvData.baselineHRV}ms (30-day average)`);
       if (context.hrvData.hrvDelta !== undefined) lines.push(`- **Delta from Baseline**: ${context.hrvData.hrvDelta}ms (${context.hrvData.hrvDeltaPct}%)`);
       if (context.hrvData.hrvTrend) lines.push(`- **Trend**: ${context.hrvData.hrvTrend}`);
+      if (context.hrvData.hrvRecordedAt) lines.push(`- **Recorded**: ${context.hrvData.hrvRecordedAt}`);
 
       const divergence = detectHRVDivergence(context);
       if (divergence) {
         lines.push('');
         lines.push(divergence);
       }
+    }
+
+    // Upcoming Event HRV Correlation
+    if (context.upcomingEventHRV && context.upcomingEventHRV.length > 0) {
+      lines.push('\n## Upcoming Event HRV Patterns');
+      lines.push('Cross-referencing upcoming calendar events with historical physiological data:');
+      for (const ev of context.upcomingEventHRV) {
+        lines.push(`- **"${ev.eventTitle}"** in ${ev.minutesUntil} minutes`);
+        lines.push(`  - Past HRV for similar events: avg ${ev.pastHRV.avg}ms across ${ev.pastHRV.count} occurrences (${ev.pastHRV.trend})`);
+        if (ev.pastHRV.avg < 40) {
+          lines.push(`  - ⚠️ This event type consistently triggers sympathetic activation. Consider proactively offering preparation support.`);
+        } else if (ev.pastHRV.avg > 55) {
+          lines.push(`  - ✅ User's nervous system is typically calm for this event type. Acknowledge their composure.`);
+        }
+      }
+      lines.push('You may use this data for a proactive conversation opener if appropriate.');
     }
 
     // Current Coaching Insights (LEAN ON / WATCH FOR)
