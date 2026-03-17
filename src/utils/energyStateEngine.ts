@@ -10,7 +10,7 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
-import { getLocalWearableData } from '@/services/localDataStore';
+// getLocalWearableData removed — local cache must not override cloud source of truth
 import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableContextAnalyzer';
 
 // ==================== RETRY GUARDRAIL ====================
