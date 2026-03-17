@@ -219,14 +219,16 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           </button>
         </div>
 
-        {/* Context description — AI-generated "why this event" reasoning */}
-        <p className="text-xs text-muted-foreground italic font-body leading-relaxed">
-          {preEventPlan.contextDescription}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          {/* Context description — AI-generated "why this event" reasoning */}
+          <p className="text-xs text-muted-foreground italic font-body leading-relaxed flex-1 min-w-0">
+            {preEventPlan.contextDescription}
+          </p>
 
-        {/* Progress tracker — matches Time-of-Day style */}
-        <div className="text-xs font-medium font-body text-muted-foreground">
-          0 of {preEventPlan.modules.length} completed
+          {/* Progress tracker — mirrors Time-of-Day placement */}
+          <span className="text-xs font-medium font-body text-foreground/80 whitespace-nowrap">
+            0 of {preEventPlan.modules.length} completed
+          </span>
         </div>
 
         {/* HRV Correlation Badge */}
