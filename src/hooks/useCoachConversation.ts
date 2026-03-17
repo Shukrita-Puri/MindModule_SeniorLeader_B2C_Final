@@ -417,7 +417,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           .update({
             session_status: 'completed',
             ended_at: new Date().toISOString(),
-            total_messages: messages.length
+            total_messages: msgCount
           })
           .eq('id', currentSessionId);
         
