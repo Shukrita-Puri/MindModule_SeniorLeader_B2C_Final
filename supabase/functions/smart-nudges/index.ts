@@ -60,7 +60,8 @@ async function sendApnsPush(
   bundleId: string,
   title: string,
   body: string,
-  customData: Record<string, string>
+  customData: Record<string, string>,
+  apnsHost: string = 'api.sandbox.push.apple.com'
 ): Promise<boolean> {
   const apnsPayload = {
     aps: {
@@ -72,7 +73,9 @@ async function sendApnsPush(
     ...customData,
   };
 
-  const url = `https://api.push.apple.com/3/device/${deviceToken}`;
+  const url = `https://${apnsHost}/3/device/${deviceToken}`;
+
+  console.log(`[APNs] Sending to ${apnsHost} | topic=${bundleId} | token=${deviceToken.substring(0, 12)}... (${deviceToken.length} chars)`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -88,7 +91,7 @@ async function sendApnsPush(
 
   if (!response.ok) {
     const errBody = await response.text();
-    console.error(`[APNs] Failed (${response.status}): ${errBody} — token: ${deviceToken.substring(0, 12)}...`);
+    console.error(`[APNs] Failed (${response.status}): ${errBody} — host=${apnsHost} topic=${bundleId} token=${deviceToken.substring(0, 12)}...`);
 
     // Deactivate invalid tokens
     if (response.status === 410 || response.status === 400) {
@@ -99,6 +102,7 @@ async function sendApnsPush(
   }
 
   await response.text(); // consume body
+  console.log(`[APNs] Success — token=${deviceToken.substring(0, 12)}...`);
   return true;
 }
 
@@ -922,8 +926,21 @@ serve(async (req) => {
     const apnsKey = Deno.env.get('APNS_P8_KEY');
     const apnsKeyId = Deno.env.get('APNS_KEY_ID');
     const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
-    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'app.mindmodule.me';
+    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
+    const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
+    const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
     const isDryRun = !apnsKey || !apnsKeyId || !apnsTeamId;
+
+    if (isDryRun) {
+      const missing = [
+        !apnsKey && 'APNS_P8_KEY',
+        !apnsKeyId && 'APNS_KEY_ID',
+        !apnsTeamId && 'APNS_TEAM_ID',
+      ].filter(Boolean);
+      console.warn(`[smart-nudges] DRY RUN — missing secrets: ${missing.join(', ')}`);
+    } else {
+      console.log(`[smart-nudges] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
+    }
 
     let sendSuccess = 0;
     let sendFailed = 0;
@@ -978,7 +995,8 @@ serve(async (req) => {
                 notification_type: notif.type,
                 variant_id: notif.variant.id,
                 notification_log_id: notificationLogId || '',
-              }
+              },
+              apnsHost
             );
             if (sent) sendSuccess++;
             else sendFailed++;

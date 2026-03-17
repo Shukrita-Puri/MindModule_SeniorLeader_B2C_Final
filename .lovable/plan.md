@@ -1,54 +1,53 @@
 
 
-## Push Notification Pipeline Audit — Root Causes & Fix Plan
+## Copy Updates — Front Page + Onboarding Welcome
 
-### Root Causes Found
+Two files need text-only changes (no layout or UI modifications).
 
-**Issue 1 (CRITICAL): No cron job to invoke `smart-nudges`**
-The `smart-nudges` edge function is never called. There is no `pg_cron` job scheduled for it (only `refresh-calendar-tokens` and `sync-calendar-scheduled` exist). The function has zero logs. This is the primary reason notifications are not being delivered — the delivery pipeline simply never runs.
+---
 
-**Issue 2 (CRITICAL): APNs topic / bundle ID mismatch**
-The iOS bundle identifier is `com.moonshot.mindmoduleapp`. The `smart-nudges` function defaults to `app.mindmodule.me` (line 925: `Deno.env.get('APNS_BUNDLE_ID') || 'app.mindmodule.me'`). APNs will reject every push with a `TopicDisallowed` or `BadDeviceToken` error because the topic doesn't match the provisioning profile the device registered under.
+### File 1: `src/pages/Front.tsx`
 
-**Issue 3 (MODERATE): APNs environment mismatch**
-The iOS entitlement `aps-environment` is set to `development`, meaning device tokens are sandbox tokens. However, `sendApnsPush` always sends to `api.push.apple.com` (production). Sandbox tokens are invalid on the production endpoint — APNs will return 400/BadDeviceToken. The function needs to support `api.sandbox.push.apple.com` for development builds.
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**Issue 4 (LOW): Dry-run mode is logged but not prominently surfaced**
-When APNs credentials are missing, the function logs `DRY RUN` but doesn't log *why* (which credential is missing). This makes debugging harder.
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-### Fixes
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-1. **Create the `pg_cron` job for `smart-nudges`** — schedule it every 15 minutes, matching the documented architecture. This is a database migration.
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-2. **Fix APNs bundle ID default** in `smart-nudges/index.ts` line 925 — change the fallback from `'app.mindmodule.me'` to `'com.moonshot.mindmoduleapp'`.
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-3. **Add APNs environment support** in `smart-nudges/index.ts`:
-   - Read an `APNS_ENVIRONMENT` secret (default: `development`).
-   - Use `api.sandbox.push.apple.com` when environment is `development`, `api.push.apple.com` when `production`.
-   - Log which APNs host is being used.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-4. **Improve dry-run logging** — when `isDryRun` is true, log exactly which credentials are missing.
+---
 
-5. **Add diagnostic logging** to `sendApnsPush` — log the APNs host, topic, and truncated token before each send attempt.
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-### Files Changed
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-| File | Change |
-|------|--------|
-| `supabase/functions/smart-nudges/index.ts` | Fix bundle ID default, add environment-aware APNs host, improve logging |
-| Database migration (SQL) | Create `pg_cron` job to invoke `smart-nudges` every 15 minutes |
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-### No Changes Needed (Verified Working)
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-- **iOS entitlements / Info.plist / AppDelegate.swift** — correctly configured for push (aps-environment, remote-notification background mode, Capacitor forwarding)
-- **`useDeviceTokenRegistration.ts`** — working correctly (tokens are being persisted; DB confirms active tokens exist)
-- **`register-device-token` edge function** — working (logs show successful registration)
-- **`usePushNotificationHandler.ts`** — correct tap handling and routing
-- **APNs credentials** — `APNS_P8_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` are all present in secrets
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-### What Still Requires Live Testing
+---
 
-- Verify a push is actually delivered to a physical device after the cron job fires
-- Confirm the device token format in DB matches what APNs expects (one token in DB looks suspiciously long at 136 hex chars — standard APNs tokens are 64 hex chars)
-- When the app is built for production (App Store), update `APNS_ENVIRONMENT` secret to `production`
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 
