@@ -990,8 +990,8 @@ serve(async (req) => {
 
       // Apply final suppression: only keep highest-priority notification if multiple
       if (userNotifications.length > 1 && suppressed) {
-        // Priority: pre_event_prep > pattern_alert > morning_anchor > evening_close > state_aware_nudge
-        const priority = ['pre_event_prep', 'pattern_alert', 'morning_anchor', 'evening_close', 'state_aware_nudge'];
+        // Priority: pre_event_prep > pattern_alert > morning_anchor > afternoon_checkin > evening_close > state_aware_nudge > daily_fallback
+        const priority = ['pre_event_prep', 'pattern_alert', 'morning_anchor', 'afternoon_checkin', 'evening_close', 'state_aware_nudge', 'daily_fallback'];
         userNotifications.sort((a, b) => priority.indexOf(a.type) - priority.indexOf(b.type));
         allNotifications.push(userNotifications[0]);
       } else {
