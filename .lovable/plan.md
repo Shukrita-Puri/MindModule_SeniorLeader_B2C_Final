@@ -1,53 +1,71 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Plan: Wire Event Context + Add First-Message Contextual Awareness
 
-Two files need text-only changes (no layout or UI modifications).
+## Problem
 
----
+The coach has rich upstream context (memories, patterns, HRV, calendar correlations, commitments, insights) but **none of it shapes the first message**. Additionally:
 
-### File 1: `src/pages/Front.tsx`
+1. **`eventTitle` is never forwarded** — JitCarousel passes `eventTitle` via `locationState`, but `useCoachConversation` never includes it (or `jitContext`) in the context payload sent to the edge function. The `jitContext` field in `CoachContext` is always `undefined`.
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+2. **No first-message instruction** — The system prompt has context sections but no explicit instruction telling the coach to reference relevant context in its opening response (except for the narrow HRV × calendar opener). The coach treats the first user message like any other.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+3. **No entry-point awareness** — The edge function receives `flowType` but doesn't know *how* the user arrived (JIT event, ToD plan, or independent). This limits proactive contextual openers.
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+## Fix Plan
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+### Fix 1: Forward event context from client to edge function
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+**`src/hooks/useCoachConversation.ts`**
+- Accept `eventTitle` as a settable field (like `flowType`)
+- On first message, include `jitContext: { trigger: 'jit', eventTitle, minutesUntil }` in the context payload when `eventTitle` is set
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+**`src/pages/SelfMasteryCoach.tsx`**
+- Pass `locationState.eventTitle` to the hook via a new setter (similar to `setFlowType`)
 
----
+### Fix 2: Add `entryPoint` field to request payload
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+**`src/hooks/useCoachConversation.ts`**
+- Derive `entryPoint` from available signals: `'jit'` (fromIntervention + eventTitle), `'tod_plan'` (fromRitual), or `'independent'` (neither)
+- Send as part of the request body alongside `flowType`
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+**`supabase/functions/self-mastery-coach/index.ts`**
+- Parse `entryPoint` from request body
+- Pass to `buildSystemPrompt`
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+### Fix 3: Add FIRST-MESSAGE CONTEXTUAL OPENER instruction to system prompt
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+**`supabase/functions/self-mastery-coach/index.ts`**
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+Add a new section to `buildSystemPrompt` that generates a **first-message instruction block** based on entry point and available context. This section is only appended when `messages.length === 1` (first user message).
 
----
+The instruction tells the coach:
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+- **JIT entry**: Reference the specific event by name, any historical HRV/state correlations for that event type, and relevant memories from past similar situations. Make the user feel the coach already knows the stakes.
+
+- **ToD plan entry**: Reference the user's current state (inner readiness score, check-in outcome), any pending commitments, last session summary, or named patterns. Show continuity.
+
+- **Independent entry**: Use the most salient available signal (pending commitment due, unnamed pattern with 3+ observations, consecutive state pattern, recent breakthrough not acted on) as a natural opener. If nothing urgent, use the last session summary for continuity.
+
+The key instruction: *"Your first response should demonstrate that you know this user. Reference ONE specific piece of context naturally — don't dump everything. Make them feel understood, not profiled."*
+
+### Fix 4: Add `isFirstMessage` flag to edge function
+
+**`supabase/functions/self-mastery-coach/index.ts`**
+- Detect `messages.length === 1` (only the user's opening message)
+- When true, append the first-message instruction block to the system prompt
+- When false, skip it (the coach already has conversation momentum)
+
+## Files to change
+
+1. **`src/hooks/useCoachConversation.ts`** — Add `eventTitle` setter, derive `entryPoint`, include `jitContext` and `entryPoint` in request
+2. **`src/pages/SelfMasteryCoach.tsx`** — Pass `eventTitle` and `fromRitual`/`fromIntervention` to hook
+3. **`supabase/functions/self-mastery-coach/index.ts`** — Parse `entryPoint`, add first-message contextual opener instruction block to system prompt
+
+## What this achieves
+
+- JIT → coach: "I see you have 'Board Meeting' in 45 minutes. Last time, your HRV dropped to 34ms around similar events..."
+- ToD → coach: "Welcome back. Last session you had a breakthrough about delegation. How did that land this week?"
+- Independent → coach: "You committed to pausing before reacting 3 days ago. How's that going?"
+- All entries: Coach demonstrates knowledge of the user from message one
 
