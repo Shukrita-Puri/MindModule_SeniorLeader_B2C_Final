@@ -51,25 +51,20 @@ const PracticeRatingModal = ({
 
   if (showConfirmation) {
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="relative bg-gradient-to-br from-charcoal via-charcoal/95 to-charcoal/90 rounded-3xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 border border-saffron/20 shadow-[0_0_60px_hsl(var(--gold)/0.15)]">
-          {/* Animated glow effect */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-saffron/10 via-transparent to-transparent opacity-50" />
-          
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="relative bg-background/95 backdrop-blur-md rounded-2xl p-8 max-w-sm w-full text-center animate-in fade-in zoom-in duration-500 border border-border shadow-2xl">
           {/* Success icon with animation */}
           <div className="relative mb-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-saffron/30 via-saffron/20 to-saffron/10 flex items-center justify-center border border-saffron/30 animate-pulse">
-              <Check className="w-8 h-8 text-saffron" strokeWidth={3} />
+            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Check className="w-8 h-8 text-primary" strokeWidth={3} />
             </div>
-            {/* Radiating circles */}
-            <div className="absolute inset-0 w-16 h-16 mx-auto rounded-full border border-saffron/20 animate-ping" style={{ animationDuration: '1.5s' }} />
           </div>
           
           {/* Text */}
-          <h3 className="relative text-lg font-headline text-foreground mb-2">
+          <h3 className="text-lg font-headline text-foreground mb-2">
             Feedback Received
           </h3>
-          <p className="relative text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Your input helps us personalize your experience and recommend practices that work for you.
           </p>
         </div>

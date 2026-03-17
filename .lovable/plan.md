@@ -1,112 +1,53 @@
 
 
-# Plan: Canonical Tags, JIT Progress Tracker, Calendar Message Italics, Feedback Modal Fix
+## Copy Updates — Front Page + Onboarding Welcome
 
-## 4 Changes
+Two files need text-only changes (no layout or UI modifications).
 
-### 1. Canonical Tag Mapping + `extractEventType()` Alignment + `check-in` Fix
+---
 
-**File: `supabase/functions/generate-mastery-plan/index.ts`**
+### File 1: `src/pages/Front.tsx`
 
-**A. Add `CANONICAL_TAGS` map** (~30 lines, after `extractEventType`):
-```typescript
-const CANONICAL_TAGS: Record<string, string> = {
-  'board': 'Pre Board Meeting',
-  'investor': 'Pre Investor Meeting',
-  'fundraising': 'Pre Fundraising Meeting',
-  'pitch': 'Pre Pitch',
-  'all-hands': 'Pre All-Hands',
-  'leadership': 'Pre Leadership Meeting',
-  '1:1': '1:1 Prep',
-  'team': 'Team Meeting Prep',
-  'client': 'Pre Client Meeting',
-  'speaking': 'Pre Speaking Engagement',
-  'strategy': 'Strategic Planning Prep',
-  'quarterly-review': 'Pre Quarterly Review',
-  'performance-review': 'Pre Performance Review',
-  'ma': 'Pre M&A Discussion',
-  'launch': 'Pre Launch',
-  'layoff': 'Pre Difficult Conversation',
-  'negotiation': 'Pre Negotiation',
-  'crisis': 'Crisis Response Prep',
-  'media-interview': 'Pre Media Interview',
-  'hiring-interview': 'Pre Hiring Interview',
-  'interview-ambiguous': 'Interview Prep',
-  'standup': 'Standup Prep',
-  'retrospective': 'Retro Prep',
-  'planning': 'Planning Prep',
-  'finance': 'Pre Finance Review',
-  'competitive': 'Competitive Review Prep',
-  'other': 'Meeting Prep'
-};
-```
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**B. Expand `extractEventType()`** to cover 12 missing categories (strategy, speaking, leadership, ma, launch, layoff, negotiation, crisis, competitive, finance, quarterly, performance-review). Also split `interview` into `media-interview` vs `hiring-interview` vs `interview-ambiguous`.
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-**C. Remove `check-in` from `extractEventType()` mapping to `1:1`** — `check-in` stays ONLY in `pre-difficult-conversation` scenario keywords... actually, the REVERSE is needed: remove `check-in` from the scenario `pre-difficult-conversation` keywords (line 187) since "Check-in with Sarah" is a routine 1:1, not a difficult conversation. Keep `check-in` in `extractEventType()` → `1:1`.
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-Also remove `1:1` from `pre-difficult-conversation` scenario keywords (line 187) since 1:1s are NOT difficult conversations by default.
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-**D. Line 949**: Replace `matchedScenario.id.replace(/-/g, ' ')` with canonical tag lookup:
-```typescript
-const evtType = extractEventType(event.title || '');
-const canonicalTag = CANONICAL_TAGS[evtType] || 'Meeting Prep';
-contextParts.push(`Upcoming ${canonicalTag.toLowerCase()} detected`);
-```
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**E. Line 1705**: Replace `eventType: scenario?.id || 'general'` with:
-```typescript
-eventType: CANONICAL_TAGS[extractEventType(topEvent.event.title || '')] || scenario?.contextLabel || 'Meeting Prep',
-```
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-**F. HRV context (lines 919-928)**: Replace raw `evtType` in HRV messages with canonical tag for user-facing text:
-```typescript
-const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
-// "Your HRV typically elevates 18% during Pre Board Meeting — ..."
-```
+---
 
-### 2. JIT Progress Tracker (match Time-of-Day style)
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**File: `src/components/home/JitCarousel.tsx`**
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-Add a progress counter between the event header and carousel, matching the DailyRitual pattern at line 533-538:
-```tsx
-<span className="text-xs font-medium font-body text-muted-foreground">
-  0 of {preEventPlan.modules.length} completed
-</span>
-```
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-This is display-only for now (JIT doesn't track completion yet — would need `jit_ritual` table). Show `0 of X completed` to match the visual pattern. The existing `progressTracked` field on `PreEventPlan` is already available for future use.
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-### 3. Calendar Message Italics
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-**File: `src/components/home/DailyRitual.tsx`**
+---
 
-Line 528: Add `italic` to the calendarMessage span class:
-```tsx
-<span className="text-[11px] text-muted-foreground font-body mt-0.5 italic">
-```
-
-This matches the JIT context description italic style at JitCarousel line 221.
-
-### 4. Feedback Confirmation Modal — Light/Glass Design
-
-**File: `src/components/PracticeRatingModal.tsx`**
-
-Line 53-76: Replace the dark confirmation overlay with a glass-like design matching the rating form:
-- Change `bg-black/60` → `bg-black/30` (lighter overlay)
-- Change the inner div from `bg-gradient-to-br from-charcoal via-charcoal/95 to-charcoal/90` → `bg-background/95 backdrop-blur-md border border-border` (matching the rating form at line 82)
-- Change `border-saffron/20 shadow-[0_0_60px_hsl(var(--gold)/0.15)]` → `shadow-2xl` (matching rating form)
-- Keep the check icon and text but update text colors from `text-foreground` (which was white on dark) to work on light background
-
-## Files Changed
-
-| File | Change |
-|---|---|
-| `supabase/functions/generate-mastery-plan/index.ts` | CANONICAL_TAGS map, expand extractEventType, fix check-in, use canonical tags in context + eventType response |
-| `src/components/home/JitCarousel.tsx` | Add "0 of X completed" progress counter |
-| `src/components/home/DailyRitual.tsx` | Add italic to calendarMessage |
-| `src/components/PracticeRatingModal.tsx` | Light glass-like confirmation modal |
-
-No DB migrations needed.
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

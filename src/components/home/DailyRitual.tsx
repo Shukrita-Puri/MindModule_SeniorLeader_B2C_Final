@@ -525,7 +525,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                 </span>
               </div>
               {plan?.timeOfDayPlan?.calendarMessage && (
-                <span className="text-[11px] text-muted-foreground font-body mt-0.5">
+                <span className="text-[11px] text-muted-foreground font-body mt-0.5 italic">
                   {plan.timeOfDayPlan.calendarMessage}
                 </span>
               )}
