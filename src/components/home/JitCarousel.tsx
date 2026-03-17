@@ -197,16 +197,18 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       {/* Event header with pills inline + X dismiss — same structure as time-of-day */}
       <div className="px-4 md:px-6 max-w-lg mx-auto space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-foreground font-body">
-              {preEventPlan.eventTitle || 'Upcoming Event'}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
-              {preEventPlan.timePill}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-              {eventTypeLabel}
-            </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-foreground font-body">
+                {preEventPlan.eventTitle || 'Upcoming Event'}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-background border border-border text-foreground">
+                {preEventPlan.timePill}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                {eventTypeLabel}
+              </span>
+            </div>
           </div>
           <button
             onClick={handleDismiss}
