@@ -359,6 +359,32 @@ serve(async (req) => {
       ];
       signals.sort((a, b) => b.s - a.s);
       presenceInsight = signals[0].s > 0 ? signals[0].t : "Building pattern data — presence insights strengthen after more high-stakes moments.";
+
+      // Build presenceActions — actionable bullets from the top 2 non-zero signals
+      presenceActions = signals
+        .filter(sig => sig.s > 0)
+        .slice(0, 2)
+        .map(sig => sig.t);
+
+      // Add JIT-specific action if data available
+      const jitBeforeHighStakes = jitPrefs.filter(j => 
+        (j.action === 'completed' || j.action === 'accepted') && j.event_start_time
+      ).length;
+      if (jitBeforeHighStakes >= 2 && highStakesEvents.length > 0) {
+        presenceActions.push(
+          `You completed JIT prep before ${jitBeforeHighStakes} high-stakes events — this preparation pattern correlates with stronger presence.`
+        );
+      }
+
+      // Add depleted recovery suggestion if depleted > 50% of high-stakes
+      if (depletedHighStakes > highStakesEvents.length * 0.5 && highStakesEvents.length >= 2) {
+        presenceActions.push(
+          `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments — consider scheduling recovery blocks before these events.`
+        );
+      }
+
+      // Cap at 3 actions
+      presenceActions = presenceActions.slice(0, 3);
     }
 
     // ── DATA SOURCE NOTE ──
