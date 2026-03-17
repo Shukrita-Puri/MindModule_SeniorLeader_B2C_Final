@@ -1258,10 +1258,65 @@ function getCoachPromptForContext(
   return null;
 }
 
+// ==================== PHASE 2: WEARABLE RECOVERY DAY (flagged OFF) ====================
+const ENABLE_WEARABLE_RECOVERY_TRIGGER = false;
+
+async function checkMasteryPlanRecoveryTrigger(
+  userId: string,
+  supabaseClient: any
+): Promise<{ triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null> {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data: recentHRV } = await supabaseClient
+      .from('wearable_data')
+      .select('summary_date, hrv')
+      .eq('user_id', userId)
+      .gte('summary_date', sevenDaysAgo.toISOString().split('T')[0])
+      .order('summary_date', { ascending: false })
+      .limit(7);
+
+    if (!recentHRV || recentHRV.length < 3) return null;
+
+    const baseline = recentHRV.reduce((sum: number, d: any) => sum + (d.hrv || 0), 0) / recentHRV.length;
+    if (baseline <= 0) return null;
+
+    let consecutiveDays = 0;
+    for (const sample of recentHRV) {
+      const deviation = ((sample.hrv - baseline) / baseline) * 100;
+      if (deviation < -20) consecutiveDays++;
+      else break;
+    }
+
+    if (consecutiveDays >= 2) {
+      const todayDeviation = Math.round(((recentHRV[0].hrv - baseline) / baseline) * 100);
+      return { triggered: true, reason: `Sustained HRV deficit (${consecutiveDays} days <-20%)`, hrvDeviation: todayDeviation, consecutiveDays };
+    }
+
+    const todayDeviation = ((recentHRV[0].hrv - baseline) / baseline) * 100;
+    if (todayDeviation < -30) {
+      return { triggered: true, reason: 'Severe HRV drop (<-30%)', hrvDeviation: Math.round(todayDeviation), consecutiveDays: 1 };
+    }
+
+    return null;
+  } catch { return null; }
+}
+
 // ==================== MAIN PLAN GENERATION ====================
 
 async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const timeOfDay = getTimeOfDay(req.timezoneOffset);
+
+  // Phase 2: Recovery day override (feature-flagged OFF)
+  if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
+    const recoveryTrigger = await checkMasteryPlanRecoveryTrigger(req.userId, supabaseClient);
+    if (recoveryTrigger?.triggered) {
+      console.log(`[generate-mastery-plan] RECOVERY DAY TRIGGERED: ${recoveryTrigger.reason}`);
+      // When enabled, this will force a recovery-only plan
+      // For now, just log — full implementation activates in Phase 2
+    }
+  }
 
   // 0. Server-side upstream queries — ALL signals derived here (trust gap closed)
   // Calendar events — next 48h (only if connection is active)
