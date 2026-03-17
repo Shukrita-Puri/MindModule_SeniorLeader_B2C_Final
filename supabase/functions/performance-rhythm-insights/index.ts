@@ -388,6 +388,121 @@ serve(async (req) => {
       presenceActions = presenceActions.slice(0, 3);
     }
 
+    // ── TEMPORAL PATTERNS (day-of-week, time-of-day, weekday vs weekend, consecutive) ──
+    const temporalPatterns: string[] = [];
+
+    if (checkIns.length >= 7) {
+      // Group check-ins by day-of-week × time-window
+      const dayTimeOutcomes: Map<string, string[]> = new Map();
+      const dayOutcomes: Map<number, string[]> = new Map();
+      const timeOutcomes: Map<number, string[]> = new Map();
+      const weekdayOutcomes: string[] = [];
+      const weekendOutcomes: string[] = [];
+
+      for (const ci of checkIns) {
+        if (!ci.created_at || !ci.outcome) continue;
+        const d = new Date(ci.created_at);
+        const di = getDayIndex(d.getDay());
+        const tw = getTimeWindow(d.getHours());
+        const isWeekend = di >= 5; // Sat=5, Sun=6
+
+        if (!dayOutcomes.has(di)) dayOutcomes.set(di, []);
+        dayOutcomes.get(di)!.push(ci.outcome);
+
+        if (!timeOutcomes.has(tw)) timeOutcomes.set(tw, []);
+        timeOutcomes.get(tw)!.push(ci.outcome);
+
+        const dtKey = `${di}-${tw}`;
+        if (!dayTimeOutcomes.has(dtKey)) dayTimeOutcomes.set(dtKey, []);
+        dayTimeOutcomes.get(dtKey)!.push(ci.outcome);
+
+        if (isWeekend) weekendOutcomes.push(ci.outcome);
+        else weekdayOutcomes.push(ci.outcome);
+      }
+
+      // 1. Consecutive same-day patterns (e.g., "3 consecutive Mondays depleted")
+      // Group check-ins by day-of-week, ordered by date
+      const dayDateOutcomes: Map<number, { date: string; outcome: string }[]> = new Map();
+      for (const ci of checkIns) {
+        if (!ci.created_at || !ci.outcome) continue;
+        const d = new Date(ci.created_at);
+        const di = getDayIndex(d.getDay());
+        if (!dayDateOutcomes.has(di)) dayDateOutcomes.set(di, []);
+        dayDateOutcomes.get(di)!.push({ date: ci.checkin_date, outcome: ci.outcome });
+      }
+      for (const [di, entries] of dayDateOutcomes) {
+        // Deduplicate by date (keep latest)
+        const byDate = new Map<string, string>();
+        for (const e of entries) byDate.set(e.date, e.outcome);
+        const sorted = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+        // Find consecutive runs of 3+
+        let runOutcome = sorted[0]?.[1];
+        let runLen = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i][1] === runOutcome) { runLen++; }
+          else { 
+            if (runLen >= 3 && runOutcome) {
+              temporalPatterns.push(`${runLen} consecutive ${DAYS[di]}s you've checked in '${runOutcome}'.`);
+            }
+            runOutcome = sorted[i][1]; runLen = 1;
+          }
+        }
+        if (runLen >= 3 && runOutcome) {
+          temporalPatterns.push(`${runLen} consecutive ${DAYS[di]}s you've checked in '${runOutcome}'.`);
+        }
+      }
+
+      // 2. Day-of-week × time-of-day comparison (e.g., "Friday evening more focused than Monday morning")
+      const dtScores: Map<string, { focusedPct: number; label: string; count: number }> = new Map();
+      const positiveOutcomes = new Set(["focused", "steady"]);
+      dayTimeOutcomes.forEach((outcomes, key) => {
+        if (outcomes.length < 2) return;
+        const [diStr, twStr] = key.split("-");
+        const posPct = outcomes.filter(o => positiveOutcomes.has(o)).length / outcomes.length;
+        dtScores.set(key, { focusedPct: posPct, label: `${TIME_LABELS[+twStr]} ${DAYS[+diStr]}`, count: outcomes.length });
+      });
+      if (dtScores.size >= 2) {
+        const sorted = [...dtScores.entries()].sort((a, b) => b[1].focusedPct - a[1].focusedPct);
+        const best = sorted[0][1];
+        const worst = sorted[sorted.length - 1][1];
+        if (best.focusedPct - worst.focusedPct >= 0.3 && best.count >= 2 && worst.count >= 2) {
+          temporalPatterns.push(
+            `${best.label} you're positive ${Math.round(best.focusedPct * 100)}% of the time vs ${worst.label} at ${Math.round(worst.focusedPct * 100)}%.`
+          );
+        }
+      }
+
+      // 3. Weekday vs weekend
+      if (weekdayOutcomes.length >= 3 && weekendOutcomes.length >= 2) {
+        const wdPos = weekdayOutcomes.filter(o => positiveOutcomes.has(o)).length / weekdayOutcomes.length;
+        const wePos = weekendOutcomes.filter(o => positiveOutcomes.has(o)).length / weekendOutcomes.length;
+        const diff = Math.abs(wdPos - wePos);
+        if (diff >= 0.2) {
+          const better = wdPos > wePos ? "weekdays" : "weekends";
+          const pct = Math.round(Math.max(wdPos, wePos) * 100);
+          temporalPatterns.push(`You tend to check in more positively on ${better} (${pct}% focused/steady).`);
+        }
+      }
+
+      // 4. Time-of-day pattern
+      const timeScores: { tw: number; posPct: number; count: number }[] = [];
+      timeOutcomes.forEach((outcomes, tw) => {
+        if (outcomes.length >= 3) {
+          timeScores.push({ tw, posPct: outcomes.filter(o => positiveOutcomes.has(o)).length / outcomes.length, count: outcomes.length });
+        }
+      });
+      if (timeScores.length >= 2) {
+        timeScores.sort((a, b) => b.posPct - a.posPct);
+        const best = timeScores[0];
+        const worst = timeScores[timeScores.length - 1];
+        if (best.posPct - worst.posPct >= 0.2) {
+          temporalPatterns.push(
+            `${TIME_LABELS[best.tw]}s are your strongest window (${Math.round(best.posPct * 100)}% positive) — ${TIME_LABELS[worst.tw]}s your most challenging (${Math.round(worst.posPct * 100)}%).`
+          );
+        }
+      }
+    }
+
     // ── DATA SOURCE NOTE ──
     const daySpan = checkIns.length > 0
       ? Math.ceil((now.getTime() - new Date(checkIns[checkIns.length - 1].checkin_date).getTime()) / 86400000)
