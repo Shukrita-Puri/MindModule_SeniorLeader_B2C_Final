@@ -907,6 +907,28 @@ serve(async (req) => {
         }
       }
 
+      // ── Daily Fallback: guarantee at least 1 touch per day ──
+      // If no nudge has qualified AND it's past 10 AM local AND no notification sent today
+      if (
+        userNotifications.length === 0 &&
+        localTime >= 10 && localTime < 12 &&
+        (!todayLogs || todayLogs.length === 0)
+      ) {
+        const fallbackVariants: Variant[] = [
+          { id: 'FB-1', title: 'Your Day Awaits', body: 'Take 30 seconds to check in. Your Compass is ready.' },
+          { id: 'FB-2', title: 'Quick Check-In', body: 'How are you showing up today? A moment of awareness changes everything.' },
+          { id: 'FB-3', title: 'Pause & Notice', body: 'Before the day runs you — pause and notice where you are.' },
+        ];
+        const lastFallback = (logsByType.get('daily_fallback') || [])[0]?.variant_id || null;
+        const selectedFallback = selectVariant(fallbackVariants, lastFallback);
+        userNotifications.push({
+          userId,
+          type: 'morning_anchor', // Use morning_anchor type for routing to /daily-check-in
+          variant: selectedFallback,
+          tokens: userTokens.get(userId)!,
+        });
+      }
+
       // Apply final suppression: only keep highest-priority notification if multiple
       if (userNotifications.length > 1 && suppressed) {
         // Priority: pre_event_prep > pattern_alert > morning_anchor > evening_close > state_aware_nudge
