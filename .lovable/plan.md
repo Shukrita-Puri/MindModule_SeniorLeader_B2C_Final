@@ -1,79 +1,109 @@
 
 
-# Audit: Data Flow — Inner Readiness → Outer Readiness → Mastery Plan
+# Plan: HRV x Calendar Correlation in JIT Scoring + Phase 2 Recovery Day Stubs
 
-## Your Question Answered
+## Summary
 
-You asked: "Does Outer Readiness already include calendar load? So shouldn't the theme already give the Mastery Plan the right direction? Why add calendar overrides again?"
+Two changes:
+1. **Phase 1 (Active)**: Add HRV event-type correlation to JIT scoring in `generate-mastery-plan`, enriching `contextDescription` and boosting scores for events that historically spike the user's HRV. Surface this in JitCarousel UI via a small HRV badge.
+2. **Phase 2 (Feature-flagged OFF)**: Write wearable recovery day trigger logic in all 3 edge functions (`compute-inner-readiness`, `compute-outer-readiness`, `generate-mastery-plan`) behind `ENABLE_WEARABLE_RECOVERY_TRIGGER = false`.
 
-**Yes, and here's exactly how it works — and why the calendar override layer is still correct.**
+## Phase 1: HRV x Calendar Correlation
 
-## The Data Flow (confirmed in code)
+### Edge Function: `supabase/functions/generate-mastery-plan/index.ts`
+
+**Add 3 new functions (~100 lines total):**
+
+1. **`extractEventType(title: string): string`** — keyword-based classification (board, investor, 1:1, all-hands, client, pitch, team, standup, etc.) returning a canonical type string.
+
+2. **`getHRVEventCorrelations(userId, supabaseClient): Promise<HRVCorrelationMap | null>`**
+   - Query `wearable_data` (last 30 days) for `summary_date, hrv`
+   - Query `calendar_events` (last 30 days) for `start_time, title`
+   - Calculate 30-day baseline HRV mean
+   - Group events by `extractEventType`, compute avg HRV deviation per type
+   - Return `null` if <7 days of HRV data
+   - Only include types with 2+ occurrences
+
+3. **Update `scoreCalendarEvents(events, skippedTypes)`** → add `hrvCorrelations` parameter:
+   - After existing scoring, if correlation exists for event type:
+     - `avgDeviation > 20%` → `score += 25`, contextDescription = "Your HRV typically elevates X%..."
+     - `avgDeviation > 15%` → `score += 20`
+     - `avgDeviation > 10%` → `score += 12`
+     - `avgDeviation < -10%` → `score -= 5` (low-demand event)
+   - Add `hrvCorrelation` field to `ScoredEvent` interface: `{ eventType, avgDeviation, historicalCount }`
+   - Append HRV context to `contextDescription` (before the existing "Prepare with targeted practice." suffix)
+
+**Wire into main handler (~5 lines changed):**
+- After calendar events fetch (~line 1157): call `getHRVEventCorrelations(req.userId, supabaseClient)`
+- Pass result to `scoreCalendarEvents` call at line 1385
+- Include `hrvCorrelation` in preEventPlan response object
+
+**Update response types:**
+- `ScoredEvent` gets optional `hrvCorrelation` field
+- `preEventPlan` response includes `hrvCorrelation` on the event object
+
+### Client: `src/components/home/JitCarousel.tsx`
+
+**Minimal UI addition (~15 lines):**
+- Add `hrvCorrelation` to `PreEventPlan` interface
+- Below contextDescription (line 216-218), add a small HRV badge when `preEventPlan.hrvCorrelation` exists and `|avgDeviation| > 10`:
 
 ```text
-┌─────────────────────┐
-│  INNER READINESS    │  Score 0-100, Tier (depleted/managing/strong/peak)
-│  (compute-inner)    │  Inputs: check-in, HRV, circadian
-└────────┬────────────┘
-         │ feeds tier + score
-         ▼
-┌─────────────────────┐
-│  OUTER READINESS    │  Theme phrase + Lean On + Watch For
-│  (compute-outer)    │  Inputs: tier + calendar load/pressure + time-of-day
-│                     │  Calendar: low/medium/high (3 levels)
-└────────┬────────────┘
-         │ feeds theme phrase (e.g. "Hold your ground.")
-         ▼
-┌─────────────────────┐
-│  MASTERY PLAN       │  Module specs → content selection
-│  (generate-mastery) │  
-│                     │  Step 1: Theme phrase → ThemeModuleMapping (base)
-│                     │  Step 2: Calendar overrides (light/moderate/heavy/extreme)
-│                     │  Step 3: Content scoring → final practices
-└─────────────────────┘
+┌─────────────────────────────────────────┐
+│ Board Meeting Q1 Review    In 2 hrs     │
+│                                         │
+│ ⚡ HRV +18% · 4 past board meetings    │  ← new badge
+│                                         │
+│ Upcoming pre board meeting detected...  │
+└─────────────────────────────────────────┘
 ```
 
-## Why Calendar Appears Twice (and why this is correct)
+- Badge styling: amber bg for elevated (>0), green bg for stable (<0), using existing Tailwind classes
+- No new CSS files, no structural changes
 
-**Outer Readiness uses calendar to select the THEME** — a directional phrase like "Hold your ground" or "Protect and build." This embeds calendar awareness into the *strategic direction*. The theme IS calendar-aware.
+### Client: `src/components/home/DailyRitual.tsx`
 
-**But the theme phrase is then mapped to module specs** (regulate/align/prepare/integrate) via `THEME_MODULE_MAP` — a static lookup table with 40+ entries. This mapping captures the *type* of practice but NOT the *intensity adjustment* for calendar density.
+- Add `hrvCorrelation` to `PreEventPlan` interface (pass-through only, no rendering changes here)
 
-**Example of the gap without calendar overrides:**
+## Phase 2: Wearable Recovery Day (Feature-Flagged OFF)
 
-- Theme: "Lead from strength." (Strong tier + high pressure + high load)
-- Base mapping: `align: focus='confidence', intensity='activating'`
-- This is correct for a heavy day — but it's the SAME mapping whether there are 6 meetings (heavy) or 12 meetings (extreme)
-- Without overrides: morning gets activating confidence practice even with 12 back-to-back meetings
-- With overrides: extreme morning forces grounding + composure instead of activation
+### `supabase/functions/compute-outer-readiness/index.ts`
 
-**The theme captures WHAT direction. The calendar overrides adjust HOW MUCH intensity.**
+**Replace the P-1 stub (~40 lines):**
+- Add `checkWearableRecoveryTrigger(userId, supabaseClient)` function:
+  - Query `wearable_data` last 7 days
+  - Check for 2+ consecutive days with HRV <-20% below mean, OR single day <-30%
+  - Return `{ triggered, reason, hrvDeviation, consecutiveDays }` or `null`
+- Inside the existing `if (ENABLE_WEARABLE_RECOVERY_TRIGGER)` block: call the function and return Recovery Day theme/leanOn/watchFor if triggered
+- Flag stays `false` — no behavior change
 
-## What's Actually Happening Now (Verified)
+### `supabase/functions/compute-inner-readiness/index.ts`
 
-1. **Outer Readiness `getTheme()`** — uses 3-level calendar (low/medium/high) × 4 tiers × time-of-day to select from 40 theme phrases. Calendar IS baked into theme selection. Confirmed at line 175-299.
+**Add sustained deficit warning to Layer 3 (~20 lines):**
+- Add `ENABLE_SUSTAINED_DEFICIT_WARNING = false` flag
+- Inside `getLayer3Text`, when flag is true and `recentHRVSamples` available, check for consecutive suppressed days
+- Append warning text: "This is the Nth consecutive day your HRV has been suppressed..."
+- Flag stays `false` — no behavior change
 
-2. **Mastery Plan `getModulesFromTheme()`** — maps theme phrase to static `ThemeModuleMapping`. This preserves the strategic direction but loses calendar granularity (the map doesn't know if load was "high" = 6 meetings or "high" = 12 meetings). Confirmed at line 507.
+### `supabase/functions/generate-mastery-plan/index.ts`
 
-3. **Mastery Plan `applyCalendarOverrides()`** — re-reads raw calendar events and classifies into 4 levels (light/moderate/heavy/extreme) with finer granularity than Outer Readiness's 3 levels. Adjusts module intensity/focus based on actual density. Confirmed at line 582-676.
+**Add recovery day override (~25 lines):**
+- Add `ENABLE_WEARABLE_RECOVERY_TRIGGER = false` flag
+- Before scenario selection in `generateMasteryPlan`, when flag is true: call same `checkWearableRecoveryTrigger` pattern
+- If triggered: force recovery_day scenario, override JIT prep with warning messages, return recovery-only practices
+- Flag stays `false` — no behavior change
 
-## Is This Redundant?
+## Deployment
 
-**No.** The two systems use calendar data at different resolutions for different purposes:
+All 3 edge functions redeployed. No DB migrations needed — `wearable_data` and `calendar_events` tables already exist.
 
-| System | Calendar Resolution | Purpose |
-|---|---|---|
-| Outer Readiness | 3 levels (low/med/high) | Theme direction (strategic framing) |
-| Mastery Plan overrides | 4 levels (light/mod/heavy/extreme) | Practice intensity (tactical adjustment) |
+## Files Changed
 
-The override layer catches cases the theme can't express — like the difference between "heavy" (6 meetings) and "extreme" (12 meetings), which both map to the same theme phrase but need very different practice intensities.
-
-## The Architecture Is Sound
-
-The cascade works as intended:
-1. **Inner Readiness** → "How resourced am I?" (tier + score)
-2. **Outer Readiness** → "Given my state + my calendar, what's my strategic frame?" (theme + lean on + watch for)  
-3. **Mastery Plan** → "Given the strategic frame, what specific practices at what intensity?" (module specs adjusted by calendar density)
-
-Each layer adds specificity. The theme carries the direction; the overrides tune the execution. No changes needed — the implementation matches the design intent.
+| File | Change |
+|---|---|
+| `supabase/functions/generate-mastery-plan/index.ts` | HRV correlation functions + Phase 2 stub |
+| `supabase/functions/compute-outer-readiness/index.ts` | Phase 2 recovery trigger (flagged off) |
+| `supabase/functions/compute-inner-readiness/index.ts` | Phase 2 sustained deficit warning (flagged off) |
+| `src/components/home/JitCarousel.tsx` | HRV badge in event header |
+| `src/components/home/DailyRitual.tsx` | Interface update for hrvCorrelation passthrough |
 
