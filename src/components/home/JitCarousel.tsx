@@ -66,6 +66,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [completedModuleIds, setCompletedModuleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -88,6 +89,33 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       carouselApi.off('scroll', onScroll);
     };
   }, [carouselApi]);
+
+  useEffect(() => {
+    const refreshJitCompletion = async () => {
+      if (!user || !preEventPlan?.modules?.length) {
+        setCompletedModuleIds([]);
+        return;
+      }
+
+      try {
+        const ritual = await getTodayRitual(getCurrentTimeWindow());
+        const completedIds = ritual?.completed_practice_ids || [];
+        const jitModuleIds = preEventPlan.modules.map((module) => module.contentId);
+        setCompletedModuleIds(jitModuleIds.filter((id) => completedIds.includes(id)));
+      } catch (error) {
+        console.error('[JitCarousel] Failed to load completion state:', error);
+      }
+    };
+
+    refreshJitCompletion();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshJitCompletion();
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [user, preEventPlan]);
 
   if (!preEventPlan || dismissed || snoozed) return null;
 
