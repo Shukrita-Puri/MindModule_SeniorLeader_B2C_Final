@@ -6,6 +6,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+// NOTE: getLocalWearableData intentionally NOT imported — DB is canonical source for cross-device consistency
 import { getCalendarMetrics, type CalendarLoad, type CalendarPressure, type MasteryType, type MasterySubtype } from './energyStateScoring';
 import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 import { getAuthToken as getAuth0Token } from '@/services/authTokenService';
