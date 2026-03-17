@@ -580,7 +580,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       // 3. Clear local state
       clearConversation();
     }
-  }, [user?.id, messages.length, clearConversation]);
+  }, [user?.id, clearConversation]);
 
   return {
     messages,
