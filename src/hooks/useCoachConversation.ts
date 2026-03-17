@@ -48,6 +48,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
+  const messagesCountRef = useRef<number>(0);
 
   const setPracticeContext = useCallback((title: string, steps: PracticeStep[]) => {
     setPracticeContextState({ title, steps });
