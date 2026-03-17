@@ -136,13 +136,22 @@ const ExecutiveHome = () => {
   
   // Use ref to track if video has already faded in
   const videoFadedIn = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
-  const handleVideoCanPlay = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
-    if (!videoFadedIn.current) {
-      (e.currentTarget as HTMLVideoElement).style.opacity = '0.4';
+  const fadeInVideo = useCallback((el?: HTMLVideoElement | null) => {
+    const target = el || videoRef.current;
+    if (!videoFadedIn.current && target) {
+      target.style.opacity = '0.4';
       videoFadedIn.current = true;
     }
   }, []);
+
+  // Timeout fallback: if video events never fire (iOS WKWebView), fade in after 3s
+  useEffect(() => {
+    videoFadedIn.current = false;
+    const timer = setTimeout(() => fadeInVideo(), 3000);
+    return () => clearTimeout(timer);
+  }, [heroVideoUrl, fadeInVideo]);
 
   return (
     <SidebarProvider defaultOpen={false}>
