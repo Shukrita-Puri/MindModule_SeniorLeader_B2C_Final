@@ -219,6 +219,8 @@ serve(async (req) => {
 
     // ── CAUSE-EFFECT (1C) ──
     let causeEffectInsight: string | null = null;
+
+    // Path A: behavior_logs → next-day check-in
     if (behaviorLogs.length >= 3 && checkIns.length > 0) {
       const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
       for (const log of behaviorLogs) {
@@ -246,9 +248,10 @@ serve(async (req) => {
       if (patterns[0]) {
         const p = patterns[0];
         causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
+      }
     }
 
-    // ── CAUSE-EFFECT: Calendar event → outcome correlation ──
+    // Path B: Calendar event → next-day check-in outcome (independent fallback)
     if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
       const etOutcomes = new Map<string, string[]>();
       for (const ev of calendarEvents) {
@@ -259,11 +262,14 @@ serve(async (req) => {
         );
         if (!et) continue;
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        // Check same-day AND next-day check-ins
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
-        const nextCI = checkIns.find(c => c.checkin_date === nextDate);
-        if (nextCI?.outcome) {
+        const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
+        const nextDayCI = checkIns.find(c => c.checkin_date === nextDate);
+        const matchCI = nextDayCI || sameDayCI;
+        if (matchCI?.outcome) {
           if (!etOutcomes.has(et)) etOutcomes.set(et, []);
-          etOutcomes.get(et)!.push(nextCI.outcome);
+          etOutcomes.get(et)!.push(matchCI.outcome);
         }
       }
       let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
@@ -280,14 +286,38 @@ serve(async (req) => {
       });
       if (bestCalCE) {
         const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
-        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' the next day — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
       }
     }
 
-    // ── CAUSE-EFFECT: JIT completion → outcome correlation ──
-    if (!causeEffectInsight && jitPrefs.length >= 3 && checkIns.length >= 5) {
+    // Path C: Same-day check-in outcome correlation with any calendar event (broader net)
+    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 2 && checkIns.length >= 5) {
+      const eventDayOutcomes: string[] = [];
+      const nonEventDayOutcomes: string[] = [];
+      const eventDates = new Set(calendarEvents.map(e => new Date(e.start_time).toISOString().split("T")[0]));
+      for (const ci of checkIns) {
+        if (!ci.outcome) continue;
+        if (eventDates.has(ci.checkin_date)) eventDayOutcomes.push(ci.outcome);
+        else nonEventDayOutcomes.push(ci.outcome);
+      }
+      if (eventDayOutcomes.length >= 3 && nonEventDayOutcomes.length >= 2) {
+        const posOutcomes = new Set(["focused", "steady"]);
+        const eventPosPct = eventDayOutcomes.filter(o => posOutcomes.has(o)).length / eventDayOutcomes.length;
+        const nonEventPosPct = nonEventDayOutcomes.filter(o => posOutcomes.has(o)).length / nonEventDayOutcomes.length;
+        const diff = eventPosPct - nonEventPosPct;
+        if (Math.abs(diff) >= 0.15) {
+          if (diff > 0) {
+            causeEffectInsight = `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`;
+          } else {
+            causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+          }
+        }
+      }
+    }
+
+    // Path D: JIT completion → outcome correlation (independent fallback)
+    if (!causeEffectInsight && jitPrefs.length >= 2 && checkIns.length >= 5) {
       const jitCompleted = jitPrefs.filter(j => j.action === 'completed' || j.action === 'accepted');
-      const jitSkipped = jitPrefs.filter(j => j.action === 'skipped' || j.action === 'dismissed');
       if (jitCompleted.length >= 2) {
         const completedOutcomes: string[] = [];
         for (const j of jitCompleted) {
@@ -297,11 +327,10 @@ serve(async (req) => {
           if (ci?.outcome) completedOutcomes.push(ci.outcome);
         }
         const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
-        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.6) {
+        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
           causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
         }
       }
-    }
     }
 
     // ── HOW YOU SHOW UP (1A) ──
@@ -317,25 +346,35 @@ serve(async (req) => {
       dialogueMessages.filter(m => m.sender_type === "coach").map(m => m.session_id)
     ).size;
 
-    if (checkIns.length >= 7 && (highStakesEvents.length >= 1 || coachSessionCount >= 2)) {
+    // Lowered gate: show presence section with ≥7 check-ins even without high-stakes/coach
+    if (checkIns.length >= 7) {
+      let pts = 0;
+
+      // Signal 1: Pre-event rituals before high-stakes
       const preEventDone = rituals.filter(r =>
         r.session_period === "pre-event" && r.completion_status === "full" &&
         highStakesEvents.some(e => isSameDay(new Date(e.start_time).toISOString(), r.ritual_date))
       ).length;
       const preEventPts = Math.min(30, preEventDone * 10);
+      pts += preEventPts;
 
+      // Signal 2: Depleted during high-stakes (requires readiness scores)
       const depletedHighStakes = highStakesEvents.filter(e => {
         const ds = readinessScores.find(s => isSameDay(s.score_date, new Date(e.start_time).toISOString().split("T")[0]));
         return ds && ds.energy_tier === "depleted";
       }).length;
       const depletedPts = Math.min(20, depletedHighStakes * 5);
+      pts += depletedPts;
 
+      // Signal 3: Coach presence keywords
       const posKw = /showed up well|brought full presence|held the room|commanded the space|fully there|present and sharp|brought your best/i;
       const negKw = /wasn't fully there|didn't bring it|phoned it in|checked out|not fully present|energy wasn't there/i;
       const posCount = dialogueMessages.filter(m => posKw.test(m.content)).length;
       const negCount = dialogueMessages.filter(m => negKw.test(m.content)).length;
       const coachPts = Math.max(-30, Math.min(30, (posCount * 15) - (negCount * 15)));
+      pts += coachPts;
 
+      // Signal 4: Energized after high-stakes
       const energizedCount = highStakesEvents.filter(e => {
         const evDateStr = new Date(e.start_time).toISOString().split("T")[0];
         const nextDate = new Date(new Date(e.start_time).getTime() + 86400000).toISOString().split("T")[0];
@@ -344,31 +383,63 @@ serve(async (req) => {
         return evScore && nextScore && (nextScore.composite_score > evScore.composite_score + 10);
       }).length;
       const energizedPts = Math.min(15, energizedCount * 5);
+      pts += energizedPts;
 
-      presenceScore = Math.max(0, Math.min(100, preEventPts + depletedPts + coachPts + energizedPts));
+      // Signal 5 (NEW): Check-in consistency on high-stakes days
+      const highStakesDayOutcomes: string[] = [];
+      for (const ev of highStakesEvents) {
+        const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        const ci = checkIns.find(c => c.checkin_date === evDate);
+        if (ci?.outcome) highStakesDayOutcomes.push(ci.outcome);
+      }
+      const positiveOutcomesSet = new Set(["focused", "steady"]);
+      const hsPositivePct = highStakesDayOutcomes.length > 0
+        ? highStakesDayOutcomes.filter(o => positiveOutcomesSet.has(o)).length / highStakesDayOutcomes.length
+        : 0;
+      const hsDayPts = highStakesDayOutcomes.length >= 2 ? Math.round(hsPositivePct * 25) : 0;
+      pts += hsDayPts;
+
+      // Signal 6 (NEW): Overall positive check-in rate as baseline
+      const overallPosPct = checkIns.filter(c => c.outcome && positiveOutcomesSet.has(c.outcome)).length / checkIns.length;
+      const baselinePts = Math.round(overallPosPct * 15);
+      pts += baselinePts;
+
+      presenceScore = Math.max(0, Math.min(100, pts));
 
       if (presenceScore >= 70) presenceLabel = "You show up when it matters";
       else if (presenceScore >= 50) presenceLabel = "Your presence holds under pressure";
       else if (presenceScore >= 30) presenceLabel = "Your presence varies with your state";
-      else presenceLabel = "State is affecting your presence";
+      else presenceLabel = "Building your presence pattern";
 
-      const signals = [
-        { s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments — your presence held even when readiness was low.` },
-        { s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high — preparation matters but doesn't always close the gap." },
-        { s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted — your presence held despite your state.` },
-        { s: energizedPts, t: "High-stakes moments energize you — your readiness often rises the day after, not before." },
-      ];
+      // Build signals for insight text
+      const signals: { s: number; t: string }[] = [];
+
+      if (preEventPts > 0) signals.push({ s: preEventPts, t: `You prepared for ${preEventDone} of ${highStakesEvents.length} high-stakes moments — preparation correlates with stronger presence.` });
+      if (Math.abs(coachPts) > 0) signals.push({ s: Math.abs(coachPts), t: coachPts > 0 ? "Your coach has noted strong presence in high-stakes contexts — that consistency is a real strength." : "Your coach has flagged uneven presence when stakes are high." });
+      if (depletedPts > 0) signals.push({ s: depletedPts, t: `You showed up to ${depletedHighStakes} high-stakes moments while depleted — your presence held despite your state.` });
+      if (energizedPts > 0) signals.push({ s: energizedPts, t: "High-stakes moments energize you — your readiness often rises the day after, not before." });
+
+      // Check-in-based presence insights (always available)
+      if (hsDayPts > 0 && highStakesDayOutcomes.length >= 2) {
+        signals.push({ s: hsDayPts, t: `On high-stakes days, you checked in positively ${Math.round(hsPositivePct * 100)}% of the time across ${highStakesDayOutcomes.length} events.` });
+      }
+      if (baselinePts > 0) {
+        signals.push({ s: baselinePts, t: `Your overall positive check-in rate is ${Math.round(overallPosPct * 100)}% — ${overallPosPct >= 0.6 ? "a strong foundation for sustained performance." : "there's room to build more consistent positive states."}` });
+      }
+
       signals.sort((a, b) => b.s - a.s);
-      presenceInsight = signals[0].s > 0 ? signals[0].t : "Building pattern data — presence insights strengthen after more high-stakes moments.";
+      presenceInsight = signals.length > 0 && signals[0].s > 0
+        ? signals[0].t
+        : "Building pattern data — presence insights strengthen with more check-ins and high-stakes moments.";
 
-      // Build presenceActions — actionable bullets from the top 2 non-zero signals
+      // Build presenceActions from top signals
       presenceActions = signals
         .filter(sig => sig.s > 0)
         .slice(0, 2)
         .map(sig => sig.t);
 
       // Add JIT-specific action if data available
-      const jitBeforeHighStakes = jitPrefs.filter(j => 
+      const jitBeforeHighStakes = jitPrefs.filter(j =>
         (j.action === 'completed' || j.action === 'accepted') && j.event_start_time
       ).length;
       if (jitBeforeHighStakes >= 2 && highStakesEvents.length > 0) {
@@ -377,7 +448,7 @@ serve(async (req) => {
         );
       }
 
-      // Add depleted recovery suggestion if depleted > 50% of high-stakes
+      // Add depleted recovery suggestion
       if (depletedHighStakes > highStakesEvents.length * 0.5 && highStakesEvents.length >= 2) {
         presenceActions.push(
           `You've shown up depleted to ${depletedHighStakes} of ${highStakesEvents.length} high-stakes moments — consider scheduling recovery blocks before these events.`
