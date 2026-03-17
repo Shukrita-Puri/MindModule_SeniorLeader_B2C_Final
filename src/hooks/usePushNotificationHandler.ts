@@ -8,8 +8,10 @@ const ROUTE_MAP: Record<string, string> = {
   pre_event_prep: '/executive-home',
   pattern_alert: '/insights',
   morning_anchor: '/daily-check-in',
-  evening_close: '/executive-home',
+  afternoon_checkin: '/daily-check-in',
+  evening_close: '/daily-check-in',
   state_aware_nudge: '/recalibrate',
+  daily_fallback: '/daily-check-in',
 };
 
 /**

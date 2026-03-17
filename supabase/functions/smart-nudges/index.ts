@@ -742,6 +742,39 @@ serve(async (req) => {
         }
       }
 
+      // ── Afternoon Check-In ──
+      // Nudge users to complete their afternoon check-in (12:30-14:30 local)
+      if (
+        localTime >= 12.5 && localTime < 14.5 &&
+        !(logsByType.get('afternoon_checkin')?.length) &&
+        (userNotifications.length === 0 || !suppressed)
+      ) {
+        // Check if afternoon check-in already exists
+        const { data: afternoonCheckin } = await supabase
+          .from('daily_checkins')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('checkin_date', todayStr)
+          .eq('time_window', 'afternoon')
+          .limit(1);
+
+        if (!afternoonCheckin || afternoonCheckin.length === 0) {
+          const afternoonVariants: Variant[] = [
+            { id: 'AC-1', title: 'Midday Reset', body: 'Halfway through — how are you holding up? A quick check-in recalibrates the rest of your day.' },
+            { id: 'AC-2', title: 'Afternoon Pulse', body: 'Your morning self set the tone. Your afternoon self steers the ship. Check in now.' },
+            { id: 'AC-3', title: 'Quick Recalibration', body: 'Before the afternoon stacks up — 30 seconds to notice where your energy sits.' },
+          ];
+          const lastAfternoon = (logsByType.get('afternoon_checkin') || [])[0]?.variant_id || null;
+          const selectedAfternoon = selectVariant(afternoonVariants, lastAfternoon);
+          userNotifications.push({
+            userId,
+            type: 'afternoon_checkin',
+            variant: selectedAfternoon,
+            tokens: userTokens.get(userId)!,
+          });
+        }
+      }
+
       // ── Evening Close ──
       const eveningStart = prefs?.evening_window_start ?? 19;
       const eveningEnd = prefs?.evening_window_end ?? 22;
@@ -760,7 +793,20 @@ serve(async (req) => {
           .eq('session_period', 'evening')
           .limit(1);
 
-        if (!todayRitual || todayRitual.length === 0) {
+        // Also check if evening check-in is missing
+        const { data: eveningCheckin } = await supabase
+          .from('daily_checkins')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('checkin_date', todayStr)
+          .eq('time_window', 'evening')
+          .limit(1);
+
+        const noEveningRitual = !todayRitual || todayRitual.length === 0;
+        const noEveningCheckin = !eveningCheckin || eveningCheckin.length === 0;
+
+        // Trigger if either evening ritual OR evening check-in is missing
+        if (noEveningRitual || noEveningCheckin) {
           const { count: eventCount } = await supabase
             .from('calendar_events')
             .select('id', { count: 'exact', head: true })
@@ -782,16 +828,29 @@ serve(async (req) => {
 
           const hrvDeltaPct = energySnap?.computed_data?.hrv_delta_pct as number | undefined;
 
-          const variants = getEveningVariants({
-            dayOfWeek: dayName,
-            calendarLoad,
-            streak,
-            hrvDeltaPct: hrvDeltaPct ? Math.round(Math.abs(hrvDeltaPct)) : undefined,
-            calendarPressure: calendarLoad,
-          });
+          // Use evening check-in variants if that's what's missing, otherwise ritual variants
+          let variants: Variant[];
+          if (noEveningCheckin) {
+            variants = [
+              { id: 'ECI-1', title: 'Evening Check-In', body: 'Before you wind down — how did you show up today? A quick check-in closes the loop.' },
+              { id: 'ECI-2', title: 'End-of-Day Pulse', body: 'Your evening self has wisdom your morning self didn\'t. Capture it in 30 seconds.' },
+            ];
+          } else {
+            variants = getEveningVariants({
+              dayOfWeek: dayName,
+              calendarLoad,
+              streak,
+              hrvDeltaPct: hrvDeltaPct ? Math.round(Math.abs(hrvDeltaPct)) : undefined,
+              calendarPressure: calendarLoad,
+            });
+          }
 
           let selectedVariant: Variant;
-          if (hrvDeltaPct && Math.abs(hrvDeltaPct) >= 15) {
+          if (noEveningCheckin) {
+            // Simple rotation for evening check-in variants
+            const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
+            selectedVariant = selectVariant(variants, lastVariant);
+          } else if (hrvDeltaPct && Math.abs(hrvDeltaPct) >= 15) {
             selectedVariant = variants[3]; // EC-4
           } else if (calendarLoad === 'high') {
             selectedVariant = variants[1]; // EC-2
@@ -923,7 +982,7 @@ serve(async (req) => {
         const selectedFallback = selectVariant(fallbackVariants, lastFallback);
         userNotifications.push({
           userId,
-          type: 'morning_anchor', // Use morning_anchor type for routing to /daily-check-in
+          type: 'daily_fallback',
           variant: selectedFallback,
           tokens: userTokens.get(userId)!,
         });
@@ -931,8 +990,8 @@ serve(async (req) => {
 
       // Apply final suppression: only keep highest-priority notification if multiple
       if (userNotifications.length > 1 && suppressed) {
-        // Priority: pre_event_prep > pattern_alert > morning_anchor > evening_close > state_aware_nudge
-        const priority = ['pre_event_prep', 'pattern_alert', 'morning_anchor', 'evening_close', 'state_aware_nudge'];
+        // Priority: pre_event_prep > pattern_alert > morning_anchor > afternoon_checkin > evening_close > state_aware_nudge > daily_fallback
+        const priority = ['pre_event_prep', 'pattern_alert', 'morning_anchor', 'afternoon_checkin', 'evening_close', 'state_aware_nudge', 'daily_fallback'];
         userNotifications.sort((a, b) => priority.indexOf(a.type) - priority.indexOf(b.type));
         allNotifications.push(userNotifications[0]);
       } else {
