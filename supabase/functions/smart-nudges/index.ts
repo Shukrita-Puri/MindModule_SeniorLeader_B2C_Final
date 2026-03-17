@@ -982,7 +982,7 @@ serve(async (req) => {
         const selectedFallback = selectVariant(fallbackVariants, lastFallback);
         userNotifications.push({
           userId,
-          type: 'morning_anchor', // Use morning_anchor type for routing to /daily-check-in
+          type: 'daily_fallback',
           variant: selectedFallback,
           tokens: userTokens.get(userId)!,
         });
