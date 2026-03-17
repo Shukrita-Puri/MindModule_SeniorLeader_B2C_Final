@@ -217,12 +217,17 @@ interface HRVPatternContext {
   patternObservations: string[];
 }
 
+// Feature flag for Phase 2 sustained deficit warning
+const ENABLE_SUSTAINED_DEFICIT_WARNING = false;
+
 function getLayer3Text(
   divergenceFlag: DivergenceFlag,
   hrvDeviation: number | null,
   patternContext: HRVPatternContext | null,
   baselineConfidence: 'low' | 'medium' | 'high' = 'high',
-  sampleDays: number = 30
+  sampleDays: number = 30,
+  recentHRVSamples?: Array<{ date: string; hrv: number }> | null,
+  baseline30d?: number | null,
 ): string | null {
   const parts: string[] = [];
 
@@ -246,6 +251,21 @@ function getLayer3Text(
       parts.push(`Your HRV is tracking ${absDeviation}% above ${baselineLabel} — your physiological state is consistent with how you feel.`);
     } else {
       parts.push(`Your HRV is tracking ${absDeviation}% below ${baselineLabel} — a slight physiological dip, worth noting.`);
+    }
+
+    // Phase 2: Sustained deficit warning (feature-flagged OFF)
+    if (ENABLE_SUSTAINED_DEFICIT_WARNING && recentHRVSamples && baseline30d && baseline30d > 0 && divergenceFlag === 'MASKED_HIGH') {
+      let consecutiveDays = 0;
+      const sorted = [...recentHRVSamples].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      for (const sample of sorted) {
+        const dev = ((sample.hrv - baseline30d) / baseline30d) * 100;
+        if (dev < -20) consecutiveDays++;
+        else break;
+      }
+      if (consecutiveDays >= 2) {
+        const nth = consecutiveDays === 2 ? '2nd' : consecutiveDays === 3 ? '3rd' : `${consecutiveDays}th`;
+        parts.push(`⚠️ This is the ${nth} consecutive day your HRV has been suppressed. Your system is signaling sustained physiological depletion.`);
+      }
     }
   }
 

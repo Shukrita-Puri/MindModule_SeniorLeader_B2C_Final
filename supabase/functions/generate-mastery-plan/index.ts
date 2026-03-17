@@ -1653,7 +1653,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         contextDescription: enrichedContextDescription,
         modules: preEventModules,
         coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
-        progressTracked: false
+        progressTracked: false,
+        hrvCorrelation: topEvent.hrvCorrelation || null,
       };
       console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
     } else {

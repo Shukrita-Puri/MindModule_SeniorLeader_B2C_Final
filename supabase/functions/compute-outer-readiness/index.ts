@@ -1004,10 +1004,17 @@ serve(async (req) => {
       }
     }
     
+    // Phase 2: Wearable recovery check (feature-flagged off)
+    let wearableRecovery = null;
+    if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
+      wearableRecovery = await checkWearableRecoveryTrigger(userId, db);
+    }
+
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
-      calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure
+      calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
+      wearableRecovery
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
