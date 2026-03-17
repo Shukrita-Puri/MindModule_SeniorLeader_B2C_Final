@@ -233,9 +233,24 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
           context.practiceTitle = practiceContext.title;
           context.practiceSteps = practiceContext.steps;
         }
+
+        // Add JIT event context if available
+        if (eventContext?.eventTitle) {
+          context.jitContext = {
+            trigger: 'jit',
+            eventTitle: eventContext.eventTitle,
+          };
+        }
         
         contextSentRef.current = true;
       }
+
+      // Derive entry point from available signals
+      const entryPoint = eventContext?.fromIntervention && eventContext?.eventTitle
+        ? 'jit'
+        : eventContext?.fromRitual
+          ? 'tod_plan'
+          : 'independent';
 
       // Get Auth0 token for self-mastery-coach
       const coachToken = await getAuthToken();
