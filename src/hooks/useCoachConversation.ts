@@ -46,6 +46,11 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     title: string;
     steps: PracticeStep[];
   } | null>(null);
+  const [eventContext, setEventContextState] = useState<{
+    eventTitle: string;
+    fromIntervention?: boolean;
+    fromRitual?: boolean;
+  } | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const contextSentRef = useRef<boolean>(false);
   const lastMessageRef = useRef<string | null>(null);
