@@ -1299,6 +1299,13 @@ interface CoachContext {
     hrvRecordedAt?: string;
   };
 
+  // Upcoming Event HRV Correlation (server-fetched)
+  upcomingEventHRV?: Array<{
+    eventTitle: string;
+    minutesUntil: number;
+    pastHRV: { avg: number; count: number; trend: string };
+  }>;
+
   // Dimension Evolution (server-fetched)
   dimensionEvolution?: {
     recalibration?: { baseline: number; current: number; delta: number };
