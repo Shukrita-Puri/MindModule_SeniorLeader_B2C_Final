@@ -16,6 +16,8 @@ import MetricInfoModal from '@/components/home/MetricInfoModal';
 import { getAuthToken } from '@/services/authTokenService';
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { getTodayRitual } from '@/utils/dailyRituals';
+import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
 
@@ -64,6 +66,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [completedModuleIds, setCompletedModuleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -86,6 +89,33 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       carouselApi.off('scroll', onScroll);
     };
   }, [carouselApi]);
+
+  useEffect(() => {
+    const refreshJitCompletion = async () => {
+      if (!user || !preEventPlan?.modules?.length) {
+        setCompletedModuleIds([]);
+        return;
+      }
+
+      try {
+        const ritual = await getTodayRitual(getCurrentTimeWindow());
+        const completedIds = ritual?.completed_practice_ids || [];
+        const jitModuleIds = preEventPlan.modules.map((module) => module.contentId);
+        setCompletedModuleIds(jitModuleIds.filter((id) => completedIds.includes(id)));
+      } catch (error) {
+        console.error('[JitCarousel] Failed to load completion state:', error);
+      }
+    };
+
+    refreshJitCompletion();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshJitCompletion();
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [user, preEventPlan]);
 
   if (!preEventPlan || dismissed || snoozed) return null;
 
@@ -133,18 +163,23 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
       : 0;
     localStorage.setItem('queueIndex', String(selectedIndex >= 0 ? selectedIndex : 0));
     localStorage.setItem('ritualMode', 'true');
+
+    const hasCoachStep = queue.some((item) => item.contentType === 'coach');
+    if (hasCoachStep && preEventPlan.coachCard?.prompt) {
+      localStorage.setItem('jitInterventionData', JSON.stringify({
+        coachPrompt: preEventPlan.coachCard.prompt,
+        flowType: 'prepare',
+        eventTitle: preEventPlan.eventTitle,
+        hasCoachStep: true,
+      }));
+    } else {
+      localStorage.removeItem('jitInterventionData');
+    }
   };
 
   const handleStartPrep = () => {
     const modules = preEventPlan.modules;
     if (modules.length > 0) {
-      if (preEventPlan.coachCard?.prompt) {
-        localStorage.setItem('jitInterventionData', JSON.stringify({
-          coachPrompt: preEventPlan.coachCard.prompt,
-          flowType: 'prepare',
-          eventTitle: preEventPlan.eventTitle,
-        }));
-      }
 
       const first = modules[0];
       setJitPracticeQueue(first.contentId);
@@ -260,7 +295,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
           {/* Progress tracker — mirrors Time-of-Day placement */}
           <span className="text-xs font-medium font-body text-foreground/80 whitespace-nowrap">
-            0 of {preEventPlan.modules.length} completed
+            {completedModuleIds.length} of {preEventPlan.modules.length} completed
           </span>
         </div>
 
@@ -291,18 +326,19 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
               <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
                 {preEventPlan.modules.map((module, index) => {
                   const isCoach = module.isCoachCard;
+                  const isCompleted = completedModuleIds.includes(module.contentId);
                   const display = getModuleDisplay(module);
                   const isLastCard = index === preEventPlan.modules.length - 1;
 
                   return (
                     <CarouselItem key={module.contentId || index} className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]">
                       <div
-                        onClick={() => !isDragging && navigateToModule(module)}
+                        onClick={() => !isDragging && !isCompleted && navigateToModule(module)}
                         className={cn(
                           "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
                           "bg-white/15 backdrop-blur-md border border-white/40",
                           "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
-                          "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
+                          isCompleted ? "opacity-50 cursor-not-allowed" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                           isLastCard && "mr-4"
                         )}
                       >
@@ -343,6 +379,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                             <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                           </div>
                         </div>
+
+                        {isCompleted && (
+                          <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                            <Check size={16} className="text-white" />
+                          </div>
+                        )}
                       </div>
                     </CarouselItem>
                   );
