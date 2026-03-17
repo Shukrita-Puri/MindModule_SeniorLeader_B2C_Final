@@ -106,6 +106,7 @@ serve(async (req) => {
     const behaviorLogs = behaviorRes.data || [];
     const readinessScores = readinessRes.data || [];
     const rituals = ritualsRes.data || [];
+    const jitPrefs = jitRes.data || [];
 
     // BUG 1 fix: Scope dialogue_messages by user's session IDs
     const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
