@@ -246,7 +246,62 @@ serve(async (req) => {
       if (patterns[0]) {
         const p = patterns[0];
         causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
+    }
+
+    // ── CAUSE-EFFECT: Calendar event → outcome correlation ──
+    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
+      const etOutcomes = new Map<string, string[]>();
+      for (const ev of calendarEvents) {
+        if (!ev.title) continue;
+        const tl = ev.title.toLowerCase();
+        const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+          EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
+        );
+        if (!et) continue;
+        const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+        const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
+        const nextCI = checkIns.find(c => c.checkin_date === nextDate);
+        if (nextCI?.outcome) {
+          if (!etOutcomes.has(et)) etOutcomes.set(et, []);
+          etOutcomes.get(et)!.push(nextCI.outcome);
+        }
       }
+      let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
+      etOutcomes.forEach((outcomes, et) => {
+        if (outcomes.length < 2) return;
+        const freq = new Map<string, number>();
+        outcomes.forEach(o => freq.set(o, (freq.get(o) || 0) + 1));
+        freq.forEach((cnt, outcome) => {
+          const pct = cnt / outcomes.length;
+          if (pct >= 0.5 && (!bestCalCE || pct > bestCalCE.pct)) {
+            bestCalCE = { et, outcome, pct, count: outcomes.length };
+          }
+        });
+      });
+      if (bestCalCE) {
+        const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
+        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' the next day — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+      }
+    }
+
+    // ── CAUSE-EFFECT: JIT completion → outcome correlation ──
+    if (!causeEffectInsight && jitPrefs.length >= 3 && checkIns.length >= 5) {
+      const jitCompleted = jitPrefs.filter(j => j.action === 'completed' || j.action === 'accepted');
+      const jitSkipped = jitPrefs.filter(j => j.action === 'skipped' || j.action === 'dismissed');
+      if (jitCompleted.length >= 2) {
+        const completedOutcomes: string[] = [];
+        for (const j of jitCompleted) {
+          if (!j.event_start_time) continue;
+          const evDate = new Date(j.event_start_time).toISOString().split("T")[0];
+          const ci = checkIns.find(c => c.checkin_date === evDate);
+          if (ci?.outcome) completedOutcomes.push(ci.outcome);
+        }
+        const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
+        if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.6) {
+          causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
+        }
+      }
+    }
     }
 
     // ── HOW YOU SHOW UP (1A) ──
