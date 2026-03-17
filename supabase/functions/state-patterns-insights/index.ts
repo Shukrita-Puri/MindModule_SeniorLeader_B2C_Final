@@ -569,6 +569,22 @@ Deno.serve(async (req) => {
 
     stepTimer("total", t0);
 
+    // ── Build coreStrengths / growthEdges ──
+    const activeScores = currentScores || baselineScores;
+    const coreStrengths: string[] = [];
+    const growthEdges: string[] = [];
+
+    if (activeScores.recalibration >= 70) coreStrengths.push(`Regulation capacity under pressure (recalibration: ${activeScores.recalibration}/100)`);
+    if (activeScores.clarity >= 70) coreStrengths.push(`Decision clarity and strategic focus (clarity: ${activeScores.clarity}/100)`);
+    if (activeScores.renewal >= 70) coreStrengths.push(`Recovery capacity and sustainable performance (renewal: ${activeScores.renewal}/100)`);
+    if (coachStrength) coreStrengths.push(`${coachStrength} (from coaching)`);
+
+    if (activeScores.recalibration < 60) growthEdges.push(`Sustaining regulation under sustained load (recalibration: ${activeScores.recalibration}/100)`);
+    if (activeScores.clarity < 60) growthEdges.push(`Maintaining focus across fragmented contexts (clarity: ${activeScores.clarity}/100)`);
+    if (activeScores.renewal < 60) growthEdges.push(`Consistent recovery practices when depleted (renewal: ${activeScores.renewal}/100)`);
+    if (frictionPct > 40) growthEdges.push(`High friction days (${Math.round(frictionPct)}% of check-ins show depletion or fragmentation)`);
+    if (coachFriction) growthEdges.push(`${coachFriction} (from coaching)`);
+
     // ── Response ──
     const response = {
       data: {
@@ -580,6 +596,8 @@ Deno.serve(async (req) => {
         archetypeEvolved,
         archetypeLeanOn: (currentArch || baselineArch).leanOn,
         archetypeWatchFor: (currentArch || baselineArch).watchFor,
+        coreStrengths: coreStrengths.length > 0 ? coreStrengths : null,
+        growthEdges: growthEdges.length > 0 ? growthEdges : null,
         baselineScores,
         currentScores,
         scoreDeltas,
