@@ -994,7 +994,9 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
 
     // Scenario-based reasoning
     if (matchedScenario) {
-      contextParts.push(`Upcoming ${matchedScenario.id.replace(/-/g, ' ')} detected`);
+      const evtTypeForContext = extractEventType(event.title || '');
+      const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
+      contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
     } else if ((event.attendeesCount || 0) > 5) {
       contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
     } else if (event.isOrganizer) {
