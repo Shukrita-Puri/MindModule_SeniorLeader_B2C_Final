@@ -854,10 +854,16 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const db = createClient(supabaseUrl, supabaseKey);
 
-    // ── Server-side calendar metrics (replaces client-sent load/pressure) ──
-    const calendarResult = await getServerCalendarMetrics(db, userId, timezoneOffset);
+    // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
+    const lateEvening = isLateEvening(hour);
+    const [calendarResult, tomorrowResult] = await Promise.all([
+      getServerCalendarMetrics(db, userId, timezoneOffset, 0),
+      lateEvening ? getServerCalendarMetrics(db, userId, timezoneOffset, 1) : Promise.resolve(null),
+    ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
+    const tomorrowLoad: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.load : null;
+    const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
 
     console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
       userId: userId.substring(0, 12) + '...',
@@ -870,11 +876,13 @@ serve(async (req) => {
       calendarEventCount: calendarResult.eventCount,
       calendarLoad,
       calendarPressure,
+      tomorrowLoad,
+      tomorrowPressure,
       hour,
       dayOfWeek,
     }));
 
-    // Change 1: Add created_at to coach insights query, add clarity_level + confidence_level to check-ins
+    // Fetch coach insights, check-ins, and archetype in parallel
     const [coachRes, checkInRes, profileRes] = await Promise.all([
       db.from('user_coach_insights')
         .select('insight_type, insight_content, created_at')
@@ -897,14 +905,12 @@ serve(async (req) => {
 
     const coachInsights = coachRes.data || [];
     const recentCheckIns = checkInRes.data || [];
-    // Server-side archetype fetch (bypasses RLS via service role)
     const serverArchetype = profileRes.data?.user_archetype || null;
     
     const strengthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'strength');
     const growthInsight = coachInsights.find((i: { insight_type: string }) => i.insight_type === 'growth_area');
     const coachStrength = strengthInsight?.insight_content || null;
     const coachGrowth = growthInsight?.insight_content || null;
-    // Use the most recent created_at from either insight for recency check
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
     const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
@@ -919,8 +925,7 @@ serve(async (req) => {
       fallbackReason: !hasCalendar ? (calendarResult.state === 'not_connected' ? 'no_calendar_connection' : calendarResult.state === 'connected_no_events' ? 'connected_no_upcoming_events' : 'unknown') : null,
     }));
     
-    // Change 4: "Strength without clarity" override — independent signals
-    // Trigger when clarity ≤ 2 OR confidence ≤ 2 (not averaged) for strong/peak tier
+    // "Strength without clarity" override — independent signals
     const ccProvided = clarityLevel !== null || confidenceLevel !== null;
     let finalPhrase = theme.phrase;
     let finalContext = patternOverride || theme.context;
@@ -936,7 +941,8 @@ serve(async (req) => {
     
     const leanOnResult = getLeanOnWatchFor(
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
-      coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek
+      coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
+      calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
