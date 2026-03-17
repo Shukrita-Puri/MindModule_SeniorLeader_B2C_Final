@@ -212,6 +212,8 @@ interface HRVPatternContext {
   eveningAvg: number | null;
   baseline30d: number | null;
   totalSamples: number;
+  sampleDays?: number;
+  baselineConfidence?: 'low' | 'medium' | 'high';
   patternObservations: string[];
 }
 
