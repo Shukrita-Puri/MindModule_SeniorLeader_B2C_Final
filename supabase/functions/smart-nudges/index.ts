@@ -742,6 +742,39 @@ serve(async (req) => {
         }
       }
 
+      // ── Afternoon Check-In ──
+      // Nudge users to complete their afternoon check-in (12:30-14:30 local)
+      if (
+        localTime >= 12.5 && localTime < 14.5 &&
+        !(logsByType.get('afternoon_checkin')?.length) &&
+        (userNotifications.length === 0 || !suppressed)
+      ) {
+        // Check if afternoon check-in already exists
+        const { data: afternoonCheckin } = await supabase
+          .from('daily_checkins')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('checkin_date', todayStr)
+          .eq('time_window', 'afternoon')
+          .limit(1);
+
+        if (!afternoonCheckin || afternoonCheckin.length === 0) {
+          const afternoonVariants: Variant[] = [
+            { id: 'AC-1', title: 'Midday Reset', body: 'Halfway through — how are you holding up? A quick check-in recalibrates the rest of your day.' },
+            { id: 'AC-2', title: 'Afternoon Pulse', body: 'Your morning self set the tone. Your afternoon self steers the ship. Check in now.' },
+            { id: 'AC-3', title: 'Quick Recalibration', body: 'Before the afternoon stacks up — 30 seconds to notice where your energy sits.' },
+          ];
+          const lastAfternoon = (logsByType.get('afternoon_checkin') || [])[0]?.variant_id || null;
+          const selectedAfternoon = selectVariant(afternoonVariants, lastAfternoon);
+          userNotifications.push({
+            userId,
+            type: 'afternoon_checkin',
+            variant: selectedAfternoon,
+            tokens: userTokens.get(userId)!,
+          });
+        }
+      }
+
       // ── Evening Close ──
       const eveningStart = prefs?.evening_window_start ?? 19;
       const eveningEnd = prefs?.evening_window_end ?? 22;
