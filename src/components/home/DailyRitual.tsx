@@ -357,6 +357,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   const navigateToPractice = async (module: PlanModule) => {
     const modules = plan?.timeOfDayPlan?.modules || [];
 
+    // Clear stale JIT data when starting Time-of-Day practice
+    localStorage.removeItem('jitInterventionData');
+
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
       id: m.contentId, title: m.title, contentType: m.contentType, category: m.contentType === 'coach' ? 'coach' : 'pause', duration: m.duration
     }))));

@@ -99,6 +99,13 @@ const TodayStateCard = () => {
         {insight}
       </p>
 
+      {/* Layer 3: Wearable Context — separate line for visibility */}
+      {layer3Statement && layersActive.includes('wearable') && (
+        <p className="text-xs text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
+          {layer3Statement}
+        </p>
+      )}
+
       <div className="mb-4" />
 
       {/* Data Sources */}

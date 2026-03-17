@@ -344,6 +344,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       hrvDeviation: result.hrvDeviation,
       tierLabel: result.tierLabel,
       layersActive: result.layersActive || ['base'],
+      layer3Statement: result.layer3Statement || null,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
