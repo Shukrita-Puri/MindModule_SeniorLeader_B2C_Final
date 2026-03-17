@@ -295,7 +295,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
           {/* Progress tracker — mirrors Time-of-Day placement */}
           <span className="text-xs font-medium font-body text-foreground/80 whitespace-nowrap">
-            0 of {preEventPlan.modules.length} completed
+            {completedModuleIds.length} of {preEventPlan.modules.length} completed
           </span>
         </div>
 
