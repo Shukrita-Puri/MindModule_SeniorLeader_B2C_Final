@@ -326,6 +326,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
               <CarouselContent className="-ml-3 pl-4 cursor-grab active:cursor-grabbing select-none" style={{ touchAction: 'pan-y' }}>
                 {preEventPlan.modules.map((module, index) => {
                   const isCoach = module.isCoachCard;
+                  const isCompleted = completedModuleIds.includes(module.contentId);
                   const display = getModuleDisplay(module);
                   const isLastCard = index === preEventPlan.modules.length - 1;
 
