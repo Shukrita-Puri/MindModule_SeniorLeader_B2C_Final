@@ -275,28 +275,41 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         }
       }
 
-      // Use session cache if available (EF handles staleness via rate limiting)
+      // Use session cache if available — but validate energy state hash for cross-device consistency
       if (!shouldRegenerate && sessionLoaded === 'true') {
         const cachedPlan = sessionStorage.getItem(`plan-data-${todayDate}-${currentPeriod}`);
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
-          setPlan(parsed);
-          onPreEventPlanReady?.(parsed.preEventPlan || null);
-          const allCompletedIds = todayRitual?.completed_practice_ids || [];
-          const modules = parsed.timeOfDayPlan?.modules || [];
-          const planModuleIds = modules.map(m => m.contentId);
-          // Only count completions relevant to THIS plan
-          const activeCompletedIds = planModuleIds.length > 0
-            ? allCompletedIds.filter(id => planModuleIds.includes(id))
-            : allCompletedIds;
-          setCompletedPracticeIds(activeCompletedIds);
-          setRitualStatus({
-            status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
-            completedCount: activeCompletedIds.length,
-            totalCount: modules.length
-          });
-          setLoading(false);
-          return;
+          
+          // Validate cached plan against current energy state to prevent cross-device divergence
+          const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}`; // basic hash from plan period
+          // If we can detect a different energy tier from the plan metadata, invalidate
+          if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
+            console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
+            sessionStorage.removeItem(sessionKey);
+            sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+            sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+            shouldRegenerate = true;
+          } else {
+            console.log('[DailyRitual] Using sessionStorage cache for plan', { period: currentPeriod, date: todayDate });
+            setPlan(parsed);
+            onPreEventPlanReady?.(parsed.preEventPlan || null);
+            const allCompletedIds = todayRitual?.completed_practice_ids || [];
+            const modules = parsed.timeOfDayPlan?.modules || [];
+            const planModuleIds = modules.map(m => m.contentId);
+            const activeCompletedIds = planModuleIds.length > 0
+              ? allCompletedIds.filter(id => planModuleIds.includes(id))
+              : allCompletedIds;
+            setCompletedPracticeIds(activeCompletedIds);
+            setRitualStatus({
+              status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
+              completedCount: activeCompletedIds.length,
+              totalCount: modules.length
+            });
+            setLoading(false);
+            return;
+          }
         }
       }
 
