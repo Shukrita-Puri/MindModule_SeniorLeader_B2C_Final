@@ -616,6 +616,7 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
     sessionId,
     setFlowType,
     setPracticeContext,
+    setEventContext,
     restoreMessages,
   };
 };
