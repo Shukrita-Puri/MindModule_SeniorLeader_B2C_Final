@@ -403,6 +403,8 @@ export async function computeHRVPatternContext(userId: string): Promise<HRVPatte
       eveningAvg: avg(eveningValues),
       baseline30d,
       totalSamples: total,
+      sampleDays,
+      baselineConfidence,
       patternObservations,
     };
   } catch (error) {
