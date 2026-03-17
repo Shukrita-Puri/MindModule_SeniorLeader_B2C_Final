@@ -2104,7 +2104,7 @@ function detectHRVDivergence(context?: CoachContext): string | null {
   return null;
 }
 
-const buildSystemPrompt = (context?: CoachContext, flowType?: string): string => {
+const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint?: string, isFirstMessage?: boolean): string => {
   let prompt = BASE_SYSTEM_PROMPT;
 
   // --- Flow-specific prompt additions ---
