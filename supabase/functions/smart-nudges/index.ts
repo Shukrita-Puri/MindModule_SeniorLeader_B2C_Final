@@ -414,7 +414,7 @@ serve(async (req) => {
 
           for (const evt of (upcomingEvents || [])) {
             const score = scoreEvent(evt.title);
-            if (score < 50) continue;
+            if (score < 25) continue;
 
             // Check if already sent for this event
             const alreadySent = (logsByType.get('pre_event_prep') || [])
