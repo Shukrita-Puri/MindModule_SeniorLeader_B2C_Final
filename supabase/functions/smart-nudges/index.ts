@@ -793,7 +793,20 @@ serve(async (req) => {
           .eq('session_period', 'evening')
           .limit(1);
 
-        if (!todayRitual || todayRitual.length === 0) {
+        // Also check if evening check-in is missing
+        const { data: eveningCheckin } = await supabase
+          .from('daily_checkins')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('checkin_date', todayStr)
+          .eq('time_window', 'evening')
+          .limit(1);
+
+        const noEveningRitual = !todayRitual || todayRitual.length === 0;
+        const noEveningCheckin = !eveningCheckin || eveningCheckin.length === 0;
+
+        // Trigger if either evening ritual OR evening check-in is missing
+        if (noEveningRitual || noEveningCheckin) {
           const { count: eventCount } = await supabase
             .from('calendar_events')
             .select('id', { count: 'exact', head: true })
@@ -815,16 +828,29 @@ serve(async (req) => {
 
           const hrvDeltaPct = energySnap?.computed_data?.hrv_delta_pct as number | undefined;
 
-          const variants = getEveningVariants({
-            dayOfWeek: dayName,
-            calendarLoad,
-            streak,
-            hrvDeltaPct: hrvDeltaPct ? Math.round(Math.abs(hrvDeltaPct)) : undefined,
-            calendarPressure: calendarLoad,
-          });
+          // Use evening check-in variants if that's what's missing, otherwise ritual variants
+          let variants: Variant[];
+          if (noEveningCheckin) {
+            variants = [
+              { id: 'ECI-1', title: 'Evening Check-In', body: 'Before you wind down — how did you show up today? A quick check-in closes the loop.' },
+              { id: 'ECI-2', title: 'End-of-Day Pulse', body: 'Your evening self has wisdom your morning self didn\'t. Capture it in 30 seconds.' },
+            ];
+          } else {
+            variants = getEveningVariants({
+              dayOfWeek: dayName,
+              calendarLoad,
+              streak,
+              hrvDeltaPct: hrvDeltaPct ? Math.round(Math.abs(hrvDeltaPct)) : undefined,
+              calendarPressure: calendarLoad,
+            });
+          }
 
           let selectedVariant: Variant;
-          if (hrvDeltaPct && Math.abs(hrvDeltaPct) >= 15) {
+          if (noEveningCheckin) {
+            // Simple rotation for evening check-in variants
+            const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
+            selectedVariant = selectVariant(variants, lastVariant);
+          } else if (hrvDeltaPct && Math.abs(hrvDeltaPct) >= 15) {
             selectedVariant = variants[3]; // EC-4
           } else if (calendarLoad === 'high') {
             selectedVariant = variants[1]; // EC-2
