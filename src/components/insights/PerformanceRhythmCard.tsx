@@ -493,6 +493,16 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
+                {data.presenceActions && data.presenceActions.length > 0 && (
+                  <ul className="pl-6 space-y-1.5 mt-1">
+                    {data.presenceActions.map((action, i) => (
+                      <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
