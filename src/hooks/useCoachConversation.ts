@@ -401,10 +401,6 @@ export const useCoachConversation = (): UseCoachConversationReturn => {
       clearConversation();
       return;
     }
-      console.log(`[useCoachConversation ${timestamp}] endSession skipped - no session or too short`);
-      clearConversation();
-      return;
-    }
     
     const userId = DEV_MODE ? DEV_USER.id : user.id;
     
