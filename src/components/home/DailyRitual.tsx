@@ -510,13 +510,20 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       {(
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground font-body">
-                {plan?.timeOfDayPlan?.label || 'Today'}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
-              </span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground font-body">
+                  {plan?.timeOfDayPlan?.label || 'Today'}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+                </span>
+              </div>
+              {plan?.timeOfDayPlan?.calendarMessage && (
+                <span className="text-[11px] text-muted-foreground font-body mt-0.5">
+                  {plan.timeOfDayPlan.calendarMessage}
+                </span>
+              )}
             </div>
             <span className={cn(
               "text-xs font-medium font-body",
