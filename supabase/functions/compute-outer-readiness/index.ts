@@ -347,45 +347,111 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
 
 // ==================== LEAN ON / WATCH FOR ====================
 
-// Late evening (9 PM+) recovery-oriented Lean On / Watch For by tier
-const eveningTierInsights: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: {
-    leanOn: "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.",
-    watchFor: "Replaying the day when what your system actually needs is release.",
-  },
-  managing: {
-    leanOn: "Your capacity to close cleanly. The day is done and your system knows it.",
-    watchFor: "Carrying unfinished mental threads into the hours your body needs to recover.",
-  },
-  strong: {
-    leanOn: "Your ability to transition. You can shift from performance mode to recovery mode deliberately.",
-    watchFor: "Staying in problem-solving mode past the point where it serves tomorrow.",
-  },
-  peak: {
-    leanOn: "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.",
-    watchFor: "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.",
-  },
-};
+// Calendar-aware evening Lean On / Watch For generator
+function getEveningInsights(
+  tier: EnergyTier,
+  calendarLoad: CalendarLevel | null,
+  calendarPressure: CalendarLevel | null,
+): { leanOn: string; watchFor: string } {
+  const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
+  const hadModerateDay = calendarLoad === 'medium' || calendarPressure === 'medium';
 
-// Sunday evening Lean On / Watch For by tier
-const sundayEveningInsights: Record<EnergyTier, { leanOn: string; watchFor: string }> = {
-  depleted: {
-    leanOn: "Your awareness that starting the week already depleted is itself useful information. What you protect tonight is the most important leadership decision you make before Monday.",
-    watchFor: "Pushing through Sunday evening when your system needs recovery. Deficit carried into Monday compounds through the week.",
-  },
-  managing: {
-    leanOn: "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.",
-    watchFor: "Drifting into Monday without a clear internal anchor. Operational capacity without direction diffuses quickly.",
-  },
-  strong: {
-    leanOn: "Your readiness to open the week from a position of genuine strength. Above-baseline on a Sunday evening is a real advantage if protected.",
-    watchFor: "Spending Sunday evening energy on low-value thinking when the higher-leverage move is protecting the state you're already in.",
-  },
-  peak: {
-    leanOn: "Full readiness at the start of the week is among the rarest and most valuable conditions. Your priority tonight is protecting it, not spending it.",
-    watchFor: "Using peak Sunday activation for work or planning rather than genuine wind-down. The week needs this state intact, not already drawn from.",
-  },
-};
+  if (tier === 'depleted') {
+    return {
+      leanOn: hadHeavyDay
+        ? "Your awareness that your system has given everything it had to a demanding day. Permission to stop is itself a form of leadership tonight."
+        : "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.",
+      watchFor: hadHeavyDay
+        ? "Replaying today's high-stakes moments when what your system actually needs is release. The review can wait until morning."
+        : "Replaying the day when what your system actually needs is release.",
+    };
+  }
+  if (tier === 'managing') {
+    return {
+      leanOn: hadHeavyDay
+        ? "Your capacity to close a demanding day cleanly. You carried the weight — now let the day be done."
+        : "Your capacity to close cleanly. The day is done and your system knows it.",
+      watchFor: hadHeavyDay
+        ? "Carrying today's unfinished threads into recovery hours. A heavy day needs a clean close, not extended processing."
+        : "Carrying unfinished mental threads into the hours your body needs to recover.",
+    };
+  }
+  if (tier === 'strong') {
+    return {
+      leanOn: hadHeavyDay
+        ? "Your ability to transition deliberately after a full day. Strength used well today needs quality rest tonight."
+        : hadModerateDay
+        ? "Your ability to transition. You can shift from performance mode to recovery mode deliberately."
+        : "Your ability to transition. You can shift from performance mode to recovery mode deliberately.",
+      watchFor: hadHeavyDay
+        ? "Staying in problem-solving mode after a day that already asked a lot. Tomorrow benefits more from rest than from tonight's residual thinking."
+        : "Staying in problem-solving mode past the point where it serves tomorrow.",
+    };
+  }
+  // peak
+  return {
+    leanOn: hadHeavyDay
+      ? "Your discipline to protect recovery after a high-output day. Peak performance sustained through a demanding schedule needs deliberate wind-down."
+      : "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.",
+    watchFor: hadHeavyDay
+      ? "Mistaking late-night activation for productive energy after a full day. Your nervous system needs the wind-down especially after sustained output."
+      : "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.",
+  };
+}
+
+// Calendar-aware Sunday evening Lean On / Watch For generator
+function getSundayEveningInsights(
+  tier: EnergyTier,
+  calendarLoad: CalendarLevel | null,
+  calendarPressure: CalendarLevel | null,
+  mondayLoad: CalendarLevel | null,
+  mondayPressure: CalendarLevel | null,
+): { leanOn: string; watchFor: string } {
+  const heavyMonday = mondayLoad === 'high' || mondayPressure === 'high';
+  const moderateMonday = mondayLoad === 'medium' || mondayPressure === 'medium';
+
+  if (tier === 'depleted') {
+    return {
+      leanOn: heavyMonday
+        ? "Your awareness that starting the week depleted before a demanding Monday is itself critical information. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
+        : "Your awareness that starting the week already depleted is itself useful information. What you protect tonight is the most important leadership decision you make before Monday.",
+      watchFor: heavyMonday
+        ? "Pushing through Sunday evening when Monday demands your best. Deficit carried into a heavy day compounds every decision."
+        : "Pushing through Sunday evening when your system needs recovery. Deficit carried into Monday compounds through the week.",
+    };
+  }
+  if (tier === 'managing') {
+    return {
+      leanOn: heavyMonday
+        ? "Your capacity to close the weekend cleanly and prepare deliberately. A demanding Monday is ahead — how you enter it matters more than what you plan for it."
+        : "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.",
+      watchFor: heavyMonday
+        ? "Pre-loading Monday's stress tonight. The preparation that matters most is protecting your internal state, not rehearsing tomorrow's calendar."
+        : moderateMonday
+        ? "Drifting into Monday without a clear internal anchor. A moderate week ahead deserves a deliberate opening."
+        : "Drifting into Monday without a clear internal anchor. Operational capacity without direction diffuses quickly.",
+    };
+  }
+  if (tier === 'strong') {
+    return {
+      leanOn: heavyMonday
+        ? "Your above-baseline readiness meeting a demanding Monday. Protecting this state tonight is the single highest-leverage move for tomorrow."
+        : "Your readiness to open the week from a position of genuine strength. Above-baseline on a Sunday evening is a real advantage if protected.",
+      watchFor: heavyMonday
+        ? "Spending tonight's strong state on Monday prep instead of genuine wind-down. Your best asset for a heavy day is arriving rested, not over-prepared."
+        : "Spending Sunday evening energy on low-value thinking when the higher-leverage move is protecting the state you're already in.",
+    };
+  }
+  // peak
+  return {
+    leanOn: heavyMonday
+      ? "Full readiness on Sunday evening before a demanding Monday is exceptionally rare and valuable. Your only priority tonight is protecting this state through genuine rest."
+      : "Full readiness at the start of the week is among the rarest and most valuable conditions. Your priority tonight is protecting it, not spending it.",
+    watchFor: heavyMonday
+      ? "Using peak Sunday activation to front-load Monday's work. The week needs this state intact — preserved through rest, not depleted through anticipation."
+      : "Using peak Sunday activation for work or planning rather than genuine wind-down. The week needs this state intact, not already drawn from.",
+  };
+}
 
 // Priority 2: C+C Independent Signal Modifier (aligned with Inner Readiness Layer 2)
 function getCCModifier(clarity: number | null, confidence: number | null): { leanOn: string; watchFor: string } | null {
