@@ -64,6 +64,11 @@ interface PreEventPlan {
   modules: PlanModule[];
   coachCard: CoachCardData | null;
   progressTracked: boolean;
+  hrvCorrelation?: {
+    eventType: string;
+    avgDeviation: number;
+    historicalCount: number;
+  } | null;
 }
 
 interface MasteryPlanResponse {
