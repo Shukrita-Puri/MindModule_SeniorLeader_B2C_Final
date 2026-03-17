@@ -208,6 +208,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               email: payload.email,
               name: payload.name || payload.nickname,
               picture: payload.picture,
+              timezone_offset: -(new Date().getTimezoneOffset()),
             }),
           }
         );
