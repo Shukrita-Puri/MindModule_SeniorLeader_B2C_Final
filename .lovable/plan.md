@@ -1,109 +1,53 @@
 
 
-# Plan: HRV x Calendar Correlation in JIT Scoring + Phase 2 Recovery Day Stubs
+## Copy Updates — Front Page + Onboarding Welcome
 
-## Summary
+Two files need text-only changes (no layout or UI modifications).
 
-Two changes:
-1. **Phase 1 (Active)**: Add HRV event-type correlation to JIT scoring in `generate-mastery-plan`, enriching `contextDescription` and boosting scores for events that historically spike the user's HRV. Surface this in JitCarousel UI via a small HRV badge.
-2. **Phase 2 (Feature-flagged OFF)**: Write wearable recovery day trigger logic in all 3 edge functions (`compute-inner-readiness`, `compute-outer-readiness`, `generate-mastery-plan`) behind `ENABLE_WEARABLE_RECOVERY_TRIGGER = false`.
+---
 
-## Phase 1: HRV x Calendar Correlation
+### File 1: `src/pages/Front.tsx`
 
-### Edge Function: `supabase/functions/generate-mastery-plan/index.ts`
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-**Add 3 new functions (~100 lines total):**
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-1. **`extractEventType(title: string): string`** — keyword-based classification (board, investor, 1:1, all-hands, client, pitch, team, standup, etc.) returning a canonical type string.
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-2. **`getHRVEventCorrelations(userId, supabaseClient): Promise<HRVCorrelationMap | null>`**
-   - Query `wearable_data` (last 30 days) for `summary_date, hrv`
-   - Query `calendar_events` (last 30 days) for `start_time, title`
-   - Calculate 30-day baseline HRV mean
-   - Group events by `extractEventType`, compute avg HRV deviation per type
-   - Return `null` if <7 days of HRV data
-   - Only include types with 2+ occurrences
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-3. **Update `scoreCalendarEvents(events, skippedTypes)`** → add `hrvCorrelations` parameter:
-   - After existing scoring, if correlation exists for event type:
-     - `avgDeviation > 20%` → `score += 25`, contextDescription = "Your HRV typically elevates X%..."
-     - `avgDeviation > 15%` → `score += 20`
-     - `avgDeviation > 10%` → `score += 12`
-     - `avgDeviation < -10%` → `score -= 5` (low-demand event)
-   - Add `hrvCorrelation` field to `ScoredEvent` interface: `{ eventType, avgDeviation, historicalCount }`
-   - Append HRV context to `contextDescription` (before the existing "Prepare with targeted practice." suffix)
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-**Wire into main handler (~5 lines changed):**
-- After calendar events fetch (~line 1157): call `getHRVEventCorrelations(req.userId, supabaseClient)`
-- Pass result to `scoreCalendarEvents` call at line 1385
-- Include `hrvCorrelation` in preEventPlan response object
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
 
-**Update response types:**
-- `ScoredEvent` gets optional `hrvCorrelation` field
-- `preEventPlan` response includes `hrvCorrelation` on the event object
+---
 
-### Client: `src/components/home/JitCarousel.tsx`
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
 
-**Minimal UI addition (~15 lines):**
-- Add `hrvCorrelation` to `PreEventPlan` interface
-- Below contextDescription (line 216-218), add a small HRV badge when `preEventPlan.hrvCorrelation` exists and `|avgDeviation| > 10`:
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
 
-```text
-┌─────────────────────────────────────────┐
-│ Board Meeting Q1 Review    In 2 hrs     │
-│                                         │
-│ ⚡ HRV +18% · 4 past board meetings    │  ← new badge
-│                                         │
-│ Upcoming pre board meeting detected...  │
-└─────────────────────────────────────────┘
-```
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
 
-- Badge styling: amber bg for elevated (>0), green bg for stable (<0), using existing Tailwind classes
-- No new CSS files, no structural changes
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
 
-### Client: `src/components/home/DailyRitual.tsx`
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
 
-- Add `hrvCorrelation` to `PreEventPlan` interface (pass-through only, no rendering changes here)
+---
 
-## Phase 2: Wearable Recovery Day (Feature-Flagged OFF)
-
-### `supabase/functions/compute-outer-readiness/index.ts`
-
-**Replace the P-1 stub (~40 lines):**
-- Add `checkWearableRecoveryTrigger(userId, supabaseClient)` function:
-  - Query `wearable_data` last 7 days
-  - Check for 2+ consecutive days with HRV <-20% below mean, OR single day <-30%
-  - Return `{ triggered, reason, hrvDeviation, consecutiveDays }` or `null`
-- Inside the existing `if (ENABLE_WEARABLE_RECOVERY_TRIGGER)` block: call the function and return Recovery Day theme/leanOn/watchFor if triggered
-- Flag stays `false` — no behavior change
-
-### `supabase/functions/compute-inner-readiness/index.ts`
-
-**Add sustained deficit warning to Layer 3 (~20 lines):**
-- Add `ENABLE_SUSTAINED_DEFICIT_WARNING = false` flag
-- Inside `getLayer3Text`, when flag is true and `recentHRVSamples` available, check for consecutive suppressed days
-- Append warning text: "This is the Nth consecutive day your HRV has been suppressed..."
-- Flag stays `false` — no behavior change
-
-### `supabase/functions/generate-mastery-plan/index.ts`
-
-**Add recovery day override (~25 lines):**
-- Add `ENABLE_WEARABLE_RECOVERY_TRIGGER = false` flag
-- Before scenario selection in `generateMasteryPlan`, when flag is true: call same `checkWearableRecoveryTrigger` pattern
-- If triggered: force recovery_day scenario, override JIT prep with warning messages, return recovery-only practices
-- Flag stays `false` — no behavior change
-
-## Deployment
-
-All 3 edge functions redeployed. No DB migrations needed — `wearable_data` and `calendar_events` tables already exist.
-
-## Files Changed
-
-| File | Change |
-|---|---|
-| `supabase/functions/generate-mastery-plan/index.ts` | HRV correlation functions + Phase 2 stub |
-| `supabase/functions/compute-outer-readiness/index.ts` | Phase 2 recovery trigger (flagged off) |
-| `supabase/functions/compute-inner-readiness/index.ts` | Phase 2 sustained deficit warning (flagged off) |
-| `src/components/home/JitCarousel.tsx` | HRV badge in event header |
-| `src/components/home/DailyRitual.tsx` | Interface update for hrvCorrelation passthrough |
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

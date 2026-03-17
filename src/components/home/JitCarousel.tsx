@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { X, Heart, ChevronDown, Check } from 'lucide-react';
+import { X, Heart, ChevronDown, Check, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -42,6 +42,11 @@ interface PreEventPlan {
   modules: PreEventModule[];
   coachCard: any;
   progressTracked: boolean;
+  hrvCorrelation?: {
+    eventType: string;
+    avgDeviation: number;
+    historicalCount: number;
+  } | null;
 }
 
 interface JitCarouselProps {
@@ -216,6 +221,24 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         <p className="text-xs text-muted-foreground italic font-body leading-relaxed">
           {preEventPlan.contextDescription}
         </p>
+
+        {/* HRV Correlation Badge */}
+        {preEventPlan.hrvCorrelation && Math.abs(preEventPlan.hrvCorrelation.avgDeviation) > 10 && (
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs mt-1.5",
+            preEventPlan.hrvCorrelation.avgDeviation > 0
+              ? "bg-saffron/10 text-saffron border-l-2 border-saffron/60"
+              : "bg-primary/10 text-primary border-l-2 border-primary/60"
+          )}>
+            <Activity size={14} className="flex-shrink-0" />
+            <span className="font-medium">
+              HRV {preEventPlan.hrvCorrelation.avgDeviation > 0 ? '+' : ''}{preEventPlan.hrvCorrelation.avgDeviation}%
+            </span>
+            <span className="text-[10px] opacity-70 italic">
+              (based on {preEventPlan.hrvCorrelation.historicalCount} past {preEventPlan.hrvCorrelation.eventType} meetings)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Carousel of module cards */}
