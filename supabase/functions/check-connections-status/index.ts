@@ -43,16 +43,40 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // Check Apple Watch — look for recent wearable data (last 7 days)
+    // Apple Watch — check for ANY wearable data (historical) separately from recent sync
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: latestWearable } = await db
+
+    // Recent data = evidence of active sync pipeline
+    const { data: recentWearable } = await db
       .from("wearable_data")
-      .select("id, updated_at")
+      .select("id, updated_at, summary_date")
       .eq("user_id", userId)
-      .gte("created_at", sevenDaysAgo)
+      .gte("updated_at", sevenDaysAgo)
       .order("summary_date", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Any historical data at all
+    const { data: anyWearable } = await db
+      .from("wearable_data")
+      .select("id, updated_at, summary_date")
+      .eq("user_id", userId)
+      .order("summary_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // connected = recent sync activity (within 7 days), NOT just historical data existing
+    // hasHistoricalData = any wearable_data rows exist at all
+    // needsReconnect = has old data but no recent sync
+    const hasRecentSync = !!recentWearable;
+    const hasHistoricalData = !!anyWearable;
+    const needsReconnect = hasHistoricalData && !hasRecentSync;
+
+    console.log("[check-connections-status] Apple Watch:", JSON.stringify({
+      hasRecentSync, hasHistoricalData, needsReconnect,
+      latestSummaryDate: anyWearable?.summary_date,
+      latestUpdatedAt: anyWearable?.updated_at,
+    }));
 
     const result = {
       calendar: {
@@ -65,8 +89,10 @@ Deno.serve(async (req) => {
         lastSync: ouraConn?.last_sync || null,
       },
       appleWatch: {
-        connected: !!latestWearable,
-        lastSync: latestWearable?.updated_at || null,
+        connected: hasRecentSync,
+        hasHistoricalData,
+        needsReconnect,
+        lastSync: anyWearable?.updated_at || null,
       },
     };
 

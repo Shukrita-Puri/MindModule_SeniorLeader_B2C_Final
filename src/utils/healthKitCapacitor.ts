@@ -35,22 +35,65 @@ export function isNativeApp(): boolean {
 /**
  * Request HealthKit read/write permissions.
  * Resolves `true` if granted, `false` if denied or unavailable.
+ * 
+ * IMPORTANT: On iOS, requestAuthorization() resolves even if user denies.
+ * We verify actual access by attempting a sample read afterward.
  */
 export async function requestHealthKitPermissions(): Promise<boolean> {
-  if (!isNativeApp()) return false;
+  if (!isNativeApp()) {
+    console.log('[HealthKit] Not native platform, skipping permission request');
+    return false;
+  }
 
   try {
     const { Health } = await import('@capgo/capacitor-health');
 
+    console.log('[HealthKit] Requesting authorization for heartRateVariability...');
     await Health.requestAuthorization({
       read: ['heartRateVariability'],
       write: [],
     });
+    console.log('[HealthKit] requestAuthorization() completed (does NOT confirm grant on iOS)');
 
-    console.log('[HealthKit] Permissions granted');
+    // Verify actual access by attempting a read
+    // iOS returns empty array (not error) when permission is denied
+    const verified = await verifyHealthKitAccess();
+    console.log('[HealthKit] Permission verification result:', verified);
+    return verified;
+  } catch (error) {
+    console.error('[HealthKit] Permission request threw error:', error);
+    return false;
+  }
+}
+
+/**
+ * Verify that HealthKit HRV data is actually accessible.
+ * Attempts a short read. Returns true if the query succeeds (even with 0 samples).
+ * Returns false only if the query itself fails (permission denied).
+ */
+export async function verifyHealthKitAccess(): Promise<boolean> {
+  if (!isNativeApp()) return false;
+
+  try {
+    const { Health } = await import('@capgo/capacitor-health');
+    const now = new Date();
+    // Query just last 1 day to minimize work
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    console.log('[HealthKit] Verifying access with 1-day sample read...');
+    const result = await (Health as any).readSamples({
+      dataType: 'heartRateVariability',
+      startDate: oneDayAgo.toISOString(),
+      endDate: now.toISOString(),
+    });
+
+    // If we get here without throwing, HealthKit access is granted
+    // (even if result has 0 samples — that just means no HRV recorded)
+    const samples = result?.samples ?? result?.data ?? result?.results ?? [];
+    console.log('[HealthKit] Verification read succeeded, sample count:', Array.isArray(samples) ? samples.length : 'non-array');
     return true;
   } catch (error) {
-    console.error('[HealthKit] Permission request failed:', error);
+    console.error('[HealthKit] Verification read failed (permission likely denied):', error);
     return false;
   }
 }
@@ -69,6 +112,8 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    console.log('[HealthKit] queryHealthKitData: reading 30-day HRV window...');
+
     const hrvRes = await (Health as any).readSamples({
       dataType: 'heartRateVariability',
       startDate: thirtyDaysAgo.toISOString(),
@@ -83,7 +128,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     const samples = hrvRes?.samples ?? hrvRes?.data ?? hrvRes?.results ?? hrvRes?.resultData ?? [];
 
     if (!Array.isArray(samples) || samples.length === 0) {
-      console.log('[HealthKit] No HRV samples in 30-day window');
+      console.log('[HealthKit] No HRV samples in 30-day window (permission granted, no data)');
       return { hrv: null, latestSampleDate: null, permissionGranted: true, dailySamples: [] };
     }
 

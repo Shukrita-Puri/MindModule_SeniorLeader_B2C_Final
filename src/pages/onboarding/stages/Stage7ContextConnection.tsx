@@ -4,8 +4,7 @@ import UnifiedTopBar from "@/components/navigation/UnifiedTopBar";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { isNativeApp } from "@/utils/healthKitCapacitor";
-import { requestHRVPermission, getHRV } from "@/services/healthkit";
+import { isNativeApp, requestHealthKitPermissions } from "@/utils/healthKitCapacitor";
 import { syncHealthKitToBackend } from "@/services/wearableSyncService";
 import { getAuthToken } from "@/services/authTokenService";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
@@ -95,6 +94,7 @@ export default function Stage7ContextConnection() {
 
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [watchEnabled, setWatchEnabled] = useState(false);
+  const [watchSyncStatus, setWatchSyncStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
@@ -111,7 +111,6 @@ export default function Stage7ContextConnection() {
     const calendarCallback = searchParams.get("calendar_connected");
 
     if (calendarCallback === "true") {
-      // OAuth callback — verify with backend before trusting URL param
       searchParams.delete("calendar_connected");
       setSearchParams(searchParams, { replace: true });
 
@@ -120,7 +119,6 @@ export default function Stage7ContextConnection() {
           console.log("[Stage7] ✅ Calendar verified connected after callback");
           toast.success("Google Calendar connected successfully");
           
-          // Trigger initial sync so calendar_events are populated before plan generation
           try {
             const token = await getAuthToken();
             if (token) {
@@ -164,12 +162,11 @@ export default function Stage7ContextConnection() {
         }
       });
     } else {
-      // Normal mount — check existing status
       verifyConnection();
     }
   }, [verifyConnection, searchParams, setSearchParams]);
 
-  // Handle Google Calendar toggle — uses calendar-auth edge function (no re-auth)
+  // Handle Google Calendar toggle
   const handleCalendarToggle = async (checked: boolean) => {
     if (!checked) {
       setCalendarEnabled(false);
@@ -185,7 +182,6 @@ export default function Stage7ContextConnection() {
 
     try {
       console.log("[Stage7] Starting Google Calendar connect via calendar-auth edge function");
-
       const authUrl = await requestCalendarAuthUrl("/onboarding/context-connection");
 
       if (!authUrl) {
@@ -195,12 +191,7 @@ export default function Stage7ContextConnection() {
       }
 
       console.log("[Stage7] Redirecting to Google OAuth (via edge function URL)");
-
-      // Redirect to Google consent — the edge function callback will redirect
-      // back to /onboarding/context-connection?calendar_connected=true
       await openUrl(authUrl);
-
-      // Keep loading until redirect completes
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error("[Stage7] Calendar connect failed:", msg);
@@ -210,32 +201,58 @@ export default function Stage7ContextConnection() {
     }
   };
 
-  // Handle Apple Watch toggle — native HealthKit or preference-only
+  // Handle Apple Health toggle — verify actual HealthKit access + sync
   const handleWatchToggle = async (checked: boolean) => {
-    if (checked && isNativeApp()) {
-      try {
-        await requestHRVPermission();
-        toast.success("Apple Watch connected via HealthKit");
-        try {
-          const hrvData = await getHRV();
-          console.log("HRV samples:", hrvData);
-        } catch (hrvErr) {
-          console.error("Failed to fetch HRV:", hrvErr);
-        }
-        // Persist HealthKit data to backend
-        syncHealthKitToBackend().then((ok) => {
-          if (ok) console.log("[Stage7] HealthKit data synced to backend");
-        });
-      } catch (err) {
-        console.error("HealthKit permission denied ❌", err);
-        toast.error("HealthKit permissions are required for Apple Watch integration");
-        return;
-      }
-    } else if (checked) {
-      toast.info("Apple Watch will connect when you install the mobile app");
+    if (!checked) {
+      setWatchEnabled(false);
+      setWatchSyncStatus(null);
+      return;
     }
 
-    setWatchEnabled(checked);
+    if (!isNativeApp()) {
+      toast.info("Apple Health will connect when you install the mobile app");
+      setWatchEnabled(true);
+      return;
+    }
+
+    try {
+      console.log("[Stage7] Starting Apple Health connect flow...");
+      setWatchSyncStatus("Requesting permission...");
+
+      // Request + verify HealthKit permission
+      const granted = await requestHealthKitPermissions();
+      
+      if (!granted) {
+        console.warn("[Stage7] HealthKit permission denied or verification failed");
+        toast.error("HealthKit permissions are required. Please enable in Settings > Privacy > Health.");
+        setWatchSyncStatus(null);
+        return;
+      }
+
+      console.log("[Stage7] HealthKit permission verified, syncing data...");
+      setWatchEnabled(true);
+      setWatchSyncStatus("Syncing data...");
+
+      // Immediately trigger sync to persist data
+      const result = await syncHealthKitToBackend();
+      console.log("[Stage7] Sync result:", JSON.stringify(result));
+
+      if (result.connectionState === 'connected_and_synced') {
+        toast.success("Apple Health connected and data synced");
+        setWatchSyncStatus("Synced ✓");
+      } else if (result.connectionState === 'permission_granted_no_data') {
+        toast.success("Apple Health connected. HRV data will sync once available.");
+        setWatchSyncStatus("Connected · No HRV data yet");
+      } else {
+        toast.warning("Apple Health connected but sync incomplete. Data will sync on next app open.");
+        setWatchSyncStatus("Connected · Sync pending");
+      }
+    } catch (err) {
+      console.error("[Stage7] HealthKit connect error:", err);
+      toast.error("Failed to connect Apple Health");
+      setWatchSyncStatus(null);
+      setWatchEnabled(false);
+    }
   };
 
   const handleComplete = async () => {
@@ -326,7 +343,11 @@ export default function Stage7ContextConnection() {
               <div className="flex flex-col">
                 <span className="font-medium">Apple Health</span>
                 <span className="text-xs text-muted-foreground">
-                  {isNativeApp() ? "HealthKit integration" : "Available in mobile app"}
+                  {watchSyncStatus 
+                    ? watchSyncStatus
+                    : isNativeApp() 
+                      ? "HealthKit integration" 
+                      : "Available in mobile app"}
                 </span>
               </div>
             </div>
