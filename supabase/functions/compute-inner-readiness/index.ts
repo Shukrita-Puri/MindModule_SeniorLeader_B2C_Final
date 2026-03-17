@@ -305,6 +305,8 @@ interface ComputeRequest {
   hasWearable: boolean;
   timezoneOffset?: number;
   hrvPatternContext?: HRVPatternContext | null;
+  baselineConfidence?: 'low' | 'medium' | 'high';
+  sampleDays?: number;
 }
 
 serve(async (req) => {
