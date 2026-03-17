@@ -109,16 +109,16 @@ const SelfMasteryCoach = () => {
   const practiceTitle = locationState?.practiceTitle;
   const practiceSteps = locationState?.practiceSteps;
 
-  // Load queue from localStorage
+  // Load queue from localStorage (Time-of-Day + JIT)
   useEffect(() => {
     const queue = localStorage.getItem('practiceQueue');
-    const fromRitual = locationState?.fromRitual;
-    
-    if (queue && fromRitual) {
+    const fromQueueContext = Boolean(locationState?.fromRitual || locationState?.fromIntervention);
+
+    if (queue && fromQueueContext) {
       try {
         const parsed = JSON.parse(queue) as QueuedPractice[];
         setPracticeQueue(parsed);
-        const index = parsed.findIndex((p) => 
+        const index = parsed.findIndex((p) =>
           p.contentType === 'coach' || p.id?.startsWith('coach-')
         );
         if (index !== -1) {
@@ -129,7 +129,7 @@ const SelfMasteryCoach = () => {
         console.error('Error parsing practice queue:', e);
       }
     }
-  }, [locationState?.fromRitual]);
+  }, [locationState?.fromRitual, locationState?.fromIntervention]);
 
   // Restore previous session if navigating from Recent Activity
   useEffect(() => {
