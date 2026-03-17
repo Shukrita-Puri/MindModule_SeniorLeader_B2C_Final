@@ -926,8 +926,21 @@ serve(async (req) => {
     const apnsKey = Deno.env.get('APNS_P8_KEY');
     const apnsKeyId = Deno.env.get('APNS_KEY_ID');
     const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
-    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'app.mindmodule.me';
+    const apnsBundleId = Deno.env.get('APNS_BUNDLE_ID') || 'com.moonshot.mindmoduleapp';
+    const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'development';
+    const apnsHost = apnsEnv === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
     const isDryRun = !apnsKey || !apnsKeyId || !apnsTeamId;
+
+    if (isDryRun) {
+      const missing = [
+        !apnsKey && 'APNS_P8_KEY',
+        !apnsKeyId && 'APNS_KEY_ID',
+        !apnsTeamId && 'APNS_TEAM_ID',
+      ].filter(Boolean);
+      console.warn(`[smart-nudges] DRY RUN — missing secrets: ${missing.join(', ')}`);
+    } else {
+      console.log(`[smart-nudges] APNs config: host=${apnsHost} topic=${apnsBundleId} env=${apnsEnv}`);
+    }
 
     let sendSuccess = 0;
     let sendFailed = 0;
