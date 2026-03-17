@@ -211,6 +211,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     const currentPeriod = getCurrentTimeWindow();
     const data = await getTodayRitual(currentPeriod);
     const modules = plan?.timeOfDayPlan?.modules || [];
+    const planModuleIds = modules.map(m => m.contentId);
     
     if (!data) {
       setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length || 0 });
@@ -218,16 +219,21 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       return;
     }
 
-    const completedIds = data.completed_practice_ids || [];
-    setCompletedPracticeIds(completedIds);
-    const totalRecommended = data.recommended_practices_count || modules.length || 3;
-    const effectiveCompletedCount = completedIds.length;
+    const allCompletedIds = data.completed_practice_ids || [];
+    // Only count completions that belong to THIS plan's modules (not JIT completions)
+    const activeCompletedIds = planModuleIds.length > 0
+      ? allCompletedIds.filter(id => planModuleIds.includes(id))
+      : allCompletedIds;
+    setCompletedPracticeIds(activeCompletedIds);
+    const totalRecommended = modules.length || data.recommended_practices_count || 3;
+    const effectiveCompletedCount = activeCompletedIds.length;
 
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (data.completion_status === 'full') status = 'completed';
-    else if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
+    if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
       status = 'completed';
-      await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
+      if (data.completion_status !== 'full') {
+        await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
+      }
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
     setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
@@ -264,17 +270,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (checkinTime.getTime() > planTime.getTime() + 60000) {
           shouldRegenerate = true;
           sessionStorage.removeItem(sessionKey);
-          await upsertRitual({
-            ritual_date: todayDate,
-            session_period: currentPeriod,
-            completion_status: 'partial',
-            completed_practice_ids: [],
-            soundscape_completed: false,
-            guided_practice_completed: false,
-            micro_exercise_completed: false
-          });
-          setCompletedPracticeIds([]);
-          setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: 0 });
+          // Regenerate plan but PRESERVE existing completed_practice_ids
+          // (user may have completed practices before re-checking in)
         }
       }
 
@@ -285,12 +282,17 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           setPlan(parsed);
           onPreEventPlanReady?.(parsed.preEventPlan || null);
-          const completedIds = todayRitual?.completed_practice_ids || [];
-          setCompletedPracticeIds(completedIds);
+          const allCompletedIds = todayRitual?.completed_practice_ids || [];
           const modules = parsed.timeOfDayPlan?.modules || [];
+          const planModuleIds = modules.map(m => m.contentId);
+          // Only count completions relevant to THIS plan
+          const activeCompletedIds = planModuleIds.length > 0
+            ? allCompletedIds.filter(id => planModuleIds.includes(id))
+            : allCompletedIds;
+          setCompletedPracticeIds(activeCompletedIds);
           setRitualStatus({
-            status: completedIds.length >= modules.length && completedIds.length > 0 ? 'completed' : completedIds.length > 0 ? 'partial' : 'not_started',
-            completedCount: completedIds.length,
+            status: activeCompletedIds.length >= modules.length && activeCompletedIds.length > 0 ? 'completed' : activeCompletedIds.length > 0 ? 'partial' : 'not_started',
+            completedCount: activeCompletedIds.length,
             totalCount: modules.length
           });
           setLoading(false);
@@ -354,6 +356,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
   const navigateToPractice = async (module: PlanModule) => {
     const modules = plan?.timeOfDayPlan?.modules || [];
+
+    // Clear stale JIT data when starting Time-of-Day practice
+    localStorage.removeItem('jitInterventionData');
 
     localStorage.setItem('practiceQueue', JSON.stringify(modules.map(m => ({
       id: m.contentId, title: m.title, contentType: m.contentType, category: m.contentType === 'coach' ? 'coach' : 'pause', duration: m.duration

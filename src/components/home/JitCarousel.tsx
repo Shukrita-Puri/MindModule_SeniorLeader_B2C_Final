@@ -333,12 +333,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                   return (
                     <CarouselItem key={module.contentId || index} className="pl-4 basis-[80%] sm:basis-[70%] md:basis-[45%] lg:basis-[30%]">
                       <div
-                        onClick={() => !isDragging && !isCompleted && navigateToModule(module)}
+                        onClick={() => !isDragging && navigateToModule(module)}
                         className={cn(
                           "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
                           "bg-white/15 backdrop-blur-md border border-white/40",
                           "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
-                          isCompleted ? "opacity-50 cursor-not-allowed" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
+                          isCompleted ? "opacity-60" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                           isLastCard && "mr-4"
                         )}
                       >

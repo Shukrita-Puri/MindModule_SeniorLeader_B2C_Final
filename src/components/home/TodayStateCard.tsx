@@ -62,6 +62,7 @@ const TodayStateCard = () => {
   const contextStatement = energyState.recommendation?.contextStatement || '';
   const insight = cleanText(contextStatement);
   const layersActive = energyState.layersActive || ['base'];
+  const layer3Statement = energyState.layer3Statement ? cleanText(energyState.layer3Statement) : null;
 
   return (
     <div className={cn(
@@ -97,6 +98,13 @@ const TodayStateCard = () => {
       <p className="text-sm text-muted-foreground leading-relaxed mb-2 font-body">
         {insight}
       </p>
+
+      {/* Layer 3: Wearable Context — separate line for visibility */}
+      {layer3Statement && layersActive.includes('wearable') && (
+        <p className="text-xs text-muted-foreground/70 leading-relaxed mb-2 font-body italic">
+          {layer3Statement}
+        </p>
+      )}
 
       <div className="mb-4" />
 

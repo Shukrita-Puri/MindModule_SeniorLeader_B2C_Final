@@ -426,11 +426,15 @@ serve(async (req) => {
     if (hasWearable) dataSources.push('wearable');
     dataSources.push('circadian');
 
+    // Extract Layer 3 as dedicated field for separate rendering
+    const layer3Statement = getLayer3Text(divergenceFlag, hrvDeviation, hrvPatternContext ?? null, bConf, sampleDays);
+
     const result = {
       score,
       tier,
       subTier,
       contextStatement,
+      layer3Statement,
       layersActive,
       divergenceFlag,
       hrvDeviation,

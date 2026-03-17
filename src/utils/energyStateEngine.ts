@@ -120,6 +120,7 @@ export interface CurrentEnergyState {
   hrvDeviation?: number | null;
   tierLabel?: string;
   layersActive?: string[];
+  layer3Statement?: string | null;
 }
 
 // Fetch today's check-in from DB to get clarity/confidence
@@ -343,6 +344,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
       hrvDeviation: result.hrvDeviation,
       tierLabel: result.tierLabel,
       layersActive: result.layersActive || ['base'],
+      layer3Statement: result.layer3Statement || null,
     };
   } catch (err) {
     console.error('[energyStateEngine] Backend call failed, using fallback:', err);
