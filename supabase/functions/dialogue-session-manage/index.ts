@@ -105,10 +105,10 @@ Deno.serve(async (req) => {
     } else if (action === "end") {
       const { sessionId, durationSeconds, totalMessages, totalInterventions } = body;
 
-      // Verify session belongs to user
+      // Verify session belongs to user and fetch metadata for behavior log
       const { data: existingSession, error: fetchError } = await supabase
         .from("dialogue_sessions")
-        .select("user_id")
+        .select("user_id, context_type, coach_personality, meta_data")
         .eq("id", sessionId)
         .single();
 
