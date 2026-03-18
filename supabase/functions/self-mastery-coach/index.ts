@@ -2624,7 +2624,7 @@ serve(async (req) => {
     const fullContext = await buildServerContext(supabase, userId, clientContext);
 
     // Fire AI-driven tiny win extraction in parallel (non-blocking)
-    if ((flowType === 'integrate' || flowType === 'guided-reflection') && userId && messages.length > 1) {
+    if (userId && messages.length > 1) {
       if (supabaseUrl && supabaseServiceKey) {
         extractAndStoreTinyWin(
           supabaseUrl,
