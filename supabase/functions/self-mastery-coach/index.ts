@@ -1541,6 +1541,32 @@ async function buildServerContext(
     fetchWearableHRV(supabase, userId),
     // 15. Upcoming event HRV correlations (calendar × physiological_events)
     fetchUpcomingEventHRV(supabase, userId),
+    // 16. Today's check-ins (all time windows)
+    supabase
+      .from('daily_checkins')
+      .select('outcome, energy_balance, time_window, clarity_level, confidence_level')
+      .eq('user_id', userId)
+      .eq('checkin_date', new Date().toISOString().split('T')[0])
+      .order('timestamp', { ascending: false })
+      .limit(3),
+    // 17. Upcoming calendar events (next 4 hours)
+    supabase
+      .from('calendar_events')
+      .select('title, start_time, attendees_count')
+      .eq('user_id', userId)
+      .gte('start_time', new Date().toISOString())
+      .lte('start_time', new Date(Date.now() + 4 * 3600000).toISOString())
+      .order('start_time', { ascending: true })
+      .limit(5),
+    // 18. Learned check-in patterns for today's day of week
+    supabase
+      .from('checkin_patterns')
+      .select('pattern_type, pattern_description, typical_outcome, typical_tier, time_window, confidence_score')
+      .eq('user_id', userId)
+      .eq('day_of_week', new Date().getDay())
+      .gte('confidence_score', 0.5)
+      .order('confidence_score', { ascending: false })
+      .limit(3),
   ]);
 
   // --- Populate context from server results ---
