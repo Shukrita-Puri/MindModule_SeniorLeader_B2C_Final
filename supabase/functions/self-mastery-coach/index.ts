@@ -1721,6 +1721,38 @@ async function buildServerContext(
     context.upcomingEventHRV = upcomingEventHRVResult;
   }
 
+  // Today's check-ins
+  if (todayCheckinsResult.data && todayCheckinsResult.data.length > 0) {
+    context.todayCheckins = todayCheckinsResult.data.map((c: any) => ({
+      outcome: c.outcome,
+      energy_balance: c.energy_balance,
+      time_window: c.time_window,
+      clarity_level: c.clarity_level,
+      confidence_level: c.confidence_level,
+    }));
+  }
+
+  // Upcoming calendar events
+  if (upcomingCalendarResult.data && upcomingCalendarResult.data.length > 0) {
+    context.upcomingCalendarEvents = upcomingCalendarResult.data.map((e: any) => ({
+      title: e.title,
+      start_time: e.start_time,
+      attendees_count: e.attendees_count,
+    }));
+  }
+
+  // Today's learned check-in patterns
+  if (todayPatternsResult.data && todayPatternsResult.data.length > 0) {
+    context.todayCheckinPatterns = todayPatternsResult.data.map((p: any) => ({
+      pattern_type: p.pattern_type,
+      pattern_description: p.pattern_description,
+      typical_outcome: p.typical_outcome,
+      typical_tier: p.typical_tier,
+      time_window: p.time_window,
+      confidence_score: p.confidence_score,
+    }));
+  }
+
   return context;
 }
 
