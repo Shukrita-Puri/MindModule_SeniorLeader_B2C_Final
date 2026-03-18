@@ -333,12 +333,21 @@ const Privacy = () => {
             <p className="text-sm text-muted-foreground">
               Last Updated: March 11, 2026
             </p>
-            <button
-              onClick={() => navigate('/terms')}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Terms of Use →
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/terms')}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Terms of Use →
+              </button>
+              <span className="text-muted-foreground/40 text-sm">·</span>
+              <button
+                onClick={() => navigate('/powered-by-ai')}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Powered by AI →
+              </button>
+            </div>
           </div>
         </div>
       </div>

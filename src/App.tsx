@@ -187,6 +187,10 @@ const router = createBrowserRouter([
         element: <Suspense fallback={<LoadingFallback />}><Terms /></Suspense>,
       },
       {
+        path: "powered-by-ai",
+        element: <Suspense fallback={<LoadingFallback />}><PoweredByAI /></Suspense>,
+      },
+      {
         path: "onboarding",
         element: <Suspense fallback={<LoadingFallback />}><OnboardingBlockGuard><OnboardingFlow /></OnboardingBlockGuard></Suspense>,
         children: [

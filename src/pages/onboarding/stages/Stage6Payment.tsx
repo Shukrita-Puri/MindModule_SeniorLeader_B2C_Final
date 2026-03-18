@@ -295,6 +295,10 @@ export default function Stage6Payment() {
         <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
           Terms of Use
         </a>
+        <span className="text-muted-foreground/40 text-xs">·</span>
+        <a href="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Powered by AI
+        </a>
       </div>
     </div>
   );

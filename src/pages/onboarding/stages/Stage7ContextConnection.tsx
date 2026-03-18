@@ -390,6 +390,10 @@ export default function Stage7ContextConnection() {
             <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
               Terms of Use
             </Link>
+            <span className="text-muted-foreground/40 text-xs">·</span>
+            <Link to="/powered-by-ai" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Powered by AI
+            </Link>
           </div>
         </div>
 
