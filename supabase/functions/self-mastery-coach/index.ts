@@ -1390,6 +1390,32 @@ interface CoachContext {
     practice_name: string;
     effectiveness_rate: number;
   }>;
+
+  // Today's check-ins (server-fetched)
+  todayCheckins?: Array<{
+    outcome: string;
+    energy_balance: number | null;
+    time_window: string;
+    clarity_level: number | null;
+    confidence_level: number | null;
+  }>;
+
+  // Upcoming calendar events (server-fetched)
+  upcomingCalendarEvents?: Array<{
+    title: string;
+    start_time: string;
+    attendees_count: number | null;
+  }>;
+
+  // Learned check-in patterns for today (server-fetched)
+  todayCheckinPatterns?: Array<{
+    pattern_type: string;
+    pattern_description: string | null;
+    typical_outcome: string | null;
+    typical_tier: string | null;
+    time_window: string | null;
+    confidence_score: number | null;
+  }>;
 }
 
 // =============================================================================
