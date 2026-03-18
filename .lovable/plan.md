@@ -1,53 +1,41 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Plan: Fix Behavior Log Tracking for Coach Session Ends
 
-Two files need text-only changes (no layout or UI modifications).
+## Problem
 
----
+Two gaps in session-end tracking:
 
-### File 1: `src/pages/Front.tsx`
+1. **`dialogue-session-manage` `end` action** — marks session completed but does NOT insert into `behavior_logs`. Only `process-orphaned-sessions` does. So user-initiated "End Session" clicks produce no behavior log.
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+2. **`dialogue-session-manage` `end` action** — does NOT fire downstream processing functions (insights, summaries, patterns, etc.). The client (`useCoachConversation.ts`) fires these client-side, but if the user drifts away (unmount cleanup calls `endSession`), the fire-and-forget fetches may be killed by the browser before completing. `process-orphaned-sessions` handles abandoned sessions but only runs every 10 minutes with a 5-min idle threshold.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+## Fix
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+### File 1: `supabase/functions/dialogue-session-manage/index.ts`
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+In the `end` action (after session update at line 148):
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+1. **Fetch session metadata** — change the select at line 111 from `"user_id"` to `"user_id, context_type, coach_personality, meta_data"` so we have context for the behavior log.
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+2. **Insert behavior_log** — fire-and-forget insert with `behavior_type: 'coach_session'`, `event_title: 'coach'`, and `context_event_data` containing `sessionId`, `context_type`, `totalMessages`, `durationSeconds`.
 
----
+3. **Fire downstream functions server-side** — after the session update, fire the same 7 downstream functions that `process-orphaned-sessions` fires (plus chained `extract-session-memories`), using the service role key. This ensures processing happens server-side regardless of whether the browser stays open. Add a guard: only fire if `totalMessages >= 2`.
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+This makes the `end` action self-sufficient — whether the user clicks "End Session" or the browser fires it on unmount via beacon/cleanup, the server handles all downstream work.
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+### File 2: `supabase/functions/process-orphaned-sessions/index.ts`
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+- Add `context_event_data` to the existing behavior_logs insert (line 105-113) with `sessionId`, `context_type: 'coach'`, `totalMessages: msgCount`, `source: 'orphan_cleanup'`.
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+### File 3: `src/hooks/useCoachConversation.ts` (optional cleanup)
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+- The client-side downstream calls (lines 491-597) become redundant once the server handles them. However, keeping them provides a "belt and suspenders" approach — the server-side `end` action will check for existing summaries before re-processing (same as `process-orphaned-sessions` does). No change strictly required, but we could add a comment noting the server now handles this.
 
----
+## Changes Summary
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+| File | Change |
+|------|--------|
+| `supabase/functions/dialogue-session-manage/index.ts` | Expand session select to include `context_type`; add `behavior_logs` insert with `context_event_data`; fire 7 downstream functions + chained memories server-side when `totalMessages >= 2` |
+| `supabase/functions/process-orphaned-sessions/index.ts` | Add `context_event_data` to existing `behavior_logs` insert |
 
