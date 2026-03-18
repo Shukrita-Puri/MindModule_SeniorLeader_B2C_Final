@@ -28,6 +28,7 @@ const MicroPracticePlayer = lazy(() => import("./pages/MicroPracticePlayer"));
 const MicroPracticePlayerCards = lazy(() => import("./pages/MicroPracticePlayerCards"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+const PoweredByAI = lazy(() => import("./pages/PoweredByAI"));
 const SelfMasteryCoach = lazy(() => import("./pages/SelfMasteryCoach"));
 const Insights = lazy(() => import("./pages/Insights"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -184,6 +185,10 @@ const router = createBrowserRouter([
       {
         path: "terms",
         element: <Suspense fallback={<LoadingFallback />}><Terms /></Suspense>,
+      },
+      {
+        path: "powered-by-ai",
+        element: <Suspense fallback={<LoadingFallback />}><PoweredByAI /></Suspense>,
       },
       {
         path: "onboarding",

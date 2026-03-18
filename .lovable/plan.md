@@ -1,37 +1,53 @@
 
 
-# Plan: Create AI Transparency Page ("Powered by AI")
+## Copy Updates — Front Page + Onboarding Welcome
 
-## What
+Two files need text-only changes (no layout or UI modifications).
 
-Create a new `/powered-by-ai` page following the same structure and styling as Privacy and Terms pages. Add a footer link to it from the Front page, Privacy page, Terms page, and other relevant footers.
+---
 
-## Page Content
+### File 1: `src/pages/Front.tsx`
 
-The page will disclose:
+**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
 
-1. **AI Services Used** — Mind Module uses Google Gemini (via Lovable AI gateway) for all AI-powered features
-2. **What AI Powers** — AI Coach conversations, energy insights, dashboard trend analysis, mastery plan generation, state pattern analysis, nudge recommendations, and daily check-in insights
-3. **How AI Is Used** — All AI processing happens server-side via backend functions; no client-side AI calls; AI generates real-time responses based on user context
-4. **Data Sent to AI** — Anonymised/contextual data (energy scores, check-in outcomes, calendar metadata, practice history) — never raw PII like email or passwords
-5. **AI Limitations** — AI Coach is not a licensed professional; outputs are guidance only; no medical/health advice
-6. **Human Oversight** — AI responses are not reviewed by humans unless user reports an issue
-7. **User Control** — Users can delete conversation history; calendar/wearable integrations are optional
+**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
 
-## Files to Create/Modify
+**Lines 92-96** — Replace tagline h2:
+- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
+- To: "A New Inner Operating System for Leaders."
 
-| File | Change |
-|------|--------|
-| `src/pages/PoweredByAI.tsx` | **New** — AI Transparency page matching Privacy/Terms style |
-| `src/App.tsx` | Add lazy import and route for `/powered-by-ai` |
-| `src/pages/Front.tsx` | Add "Powered by AI" link near existing Privacy trust badge |
-| `src/pages/Privacy.tsx` | Add link to AI Transparency page in footer |
-| `src/pages/Terms.tsx` | Add link to AI Transparency page in footer |
-| `src/components/home/PrivacyFooter.tsx` | Add "Powered by AI" link alongside existing Privacy link |
-| `src/pages/onboarding/stages/Stage6Payment.tsx` | Add link in legal links section |
-| `src/pages/onboarding/stages/Stage7ContextConnection.tsx` | Add link in legal links section |
+**Lines 102-107** — Replace description + motto:
+- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
+- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
 
-## Build Errors
+**Line 111** — CTA button text:
+- From: "Begin Your Journey"
+- To: "Let's Go"
 
-The 26 existing build errors are all in edge functions (type mismatches in `compute-outer-readiness`, `generate-mastery-plan`, `self-mastery-coach`, `state-patterns-insights`, `tiny-wins-insights`) and are **pre-existing** — unrelated to this change. They will not be addressed in this task.
+**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+
+---
+
+### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+
+**Lines 17-24** — Replace header block:
+- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
+- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+
+**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
+1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
+2. Transition: "This system changes that." + "Three minutes. Five questions."
+3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
+4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
+5. Closing: "The more honest you are, the smarter the system gets."
+
+**Line 51** — CTA button text:
+- From: "Begin"
+- To: "Start Questions"
+
+**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+
+---
+
+**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
 

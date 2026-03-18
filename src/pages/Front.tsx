@@ -159,6 +159,12 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
           <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-body tracking-wide">
             Local &amp; End-to-End Encrypted
           </span>
+          <button
+            onClick={() => navigate('/powered-by-ai')}
+            className="text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground font-body tracking-wide transition-colors mt-1"
+          >
+            Powered by AI →
+          </button>
         </div>
       </div>
       
