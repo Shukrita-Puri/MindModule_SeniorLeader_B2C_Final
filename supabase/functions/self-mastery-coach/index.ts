@@ -1390,6 +1390,32 @@ interface CoachContext {
     practice_name: string;
     effectiveness_rate: number;
   }>;
+
+  // Today's check-ins (server-fetched)
+  todayCheckins?: Array<{
+    outcome: string;
+    energy_balance: number | null;
+    time_window: string;
+    clarity_level: number | null;
+    confidence_level: number | null;
+  }>;
+
+  // Upcoming calendar events (server-fetched)
+  upcomingCalendarEvents?: Array<{
+    title: string;
+    start_time: string;
+    attendees_count: number | null;
+  }>;
+
+  // Learned check-in patterns for today (server-fetched)
+  todayCheckinPatterns?: Array<{
+    pattern_type: string;
+    pattern_description: string | null;
+    typical_outcome: string | null;
+    typical_tier: string | null;
+    time_window: string | null;
+    confidence_score: number | null;
+  }>;
 }
 
 // =============================================================================
@@ -1429,6 +1455,9 @@ async function buildServerContext(
     calendarCorrelationsResult,
     wearableHRVResult,
     upcomingEventHRVResult,
+    todayCheckinsResult,
+    upcomingCalendarResult,
+    todayPatternsResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
@@ -1515,6 +1544,32 @@ async function buildServerContext(
     fetchWearableHRV(supabase, userId),
     // 15. Upcoming event HRV correlations (calendar × physiological_events)
     fetchUpcomingEventHRV(supabase, userId),
+    // 16. Today's check-ins (all time windows)
+    supabase
+      .from('daily_checkins')
+      .select('outcome, energy_balance, time_window, clarity_level, confidence_level')
+      .eq('user_id', userId)
+      .eq('checkin_date', new Date().toISOString().split('T')[0])
+      .order('timestamp', { ascending: false })
+      .limit(3),
+    // 17. Upcoming calendar events (next 4 hours)
+    supabase
+      .from('calendar_events')
+      .select('title, start_time, attendees_count')
+      .eq('user_id', userId)
+      .gte('start_time', new Date().toISOString())
+      .lte('start_time', new Date(Date.now() + 4 * 3600000).toISOString())
+      .order('start_time', { ascending: true })
+      .limit(5),
+    // 18. Learned check-in patterns for today's day of week
+    supabase
+      .from('checkin_patterns')
+      .select('pattern_type, pattern_description, typical_outcome, typical_tier, time_window, confidence_score')
+      .eq('user_id', userId)
+      .eq('day_of_week', new Date().getDay())
+      .gte('confidence_score', 0.5)
+      .order('confidence_score', { ascending: false })
+      .limit(3),
   ]);
 
   // --- Populate context from server results ---
@@ -1664,6 +1719,38 @@ async function buildServerContext(
   // Upcoming event HRV correlations
   if (upcomingEventHRVResult && upcomingEventHRVResult.length > 0) {
     context.upcomingEventHRV = upcomingEventHRVResult;
+  }
+
+  // Today's check-ins
+  if (todayCheckinsResult.data && todayCheckinsResult.data.length > 0) {
+    context.todayCheckins = todayCheckinsResult.data.map((c: any) => ({
+      outcome: c.outcome,
+      energy_balance: c.energy_balance,
+      time_window: c.time_window,
+      clarity_level: c.clarity_level,
+      confidence_level: c.confidence_level,
+    }));
+  }
+
+  // Upcoming calendar events
+  if (upcomingCalendarResult.data && upcomingCalendarResult.data.length > 0) {
+    context.upcomingCalendarEvents = upcomingCalendarResult.data.map((e: any) => ({
+      title: e.title,
+      start_time: e.start_time,
+      attendees_count: e.attendees_count,
+    }));
+  }
+
+  // Today's learned check-in patterns
+  if (todayPatternsResult.data && todayPatternsResult.data.length > 0) {
+    context.todayCheckinPatterns = todayPatternsResult.data.map((p: any) => ({
+      pattern_type: p.pattern_type,
+      pattern_description: p.pattern_description,
+      typical_outcome: p.typical_outcome,
+      typical_tier: p.typical_tier,
+      time_window: p.time_window,
+      confidence_score: p.confidence_score,
+    }));
   }
 
   return context;
@@ -2111,15 +2198,100 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
   lines.push('Your first response should demonstrate that you KNOW this user. Reference ONE specific piece of context naturally — don\'t dump everything. Make them feel understood, not profiled.');
   lines.push('');
 
+  // --- Shared context signals available to all entry points ---
+  const contextSignals: string[] = [];
+
+  // Today's check-in state (high salience — most recent self-report)
+  if (context.todayCheckins && context.todayCheckins.length > 0) {
+    const latest = context.todayCheckins[0];
+    const windowLabel = latest.time_window === 'morning' ? 'this morning' : latest.time_window === 'afternoon' ? 'this afternoon' : 'this evening';
+    contextSignals.push(`- Today's check-in (${windowLabel}): outcome "${latest.outcome}"${latest.energy_balance != null ? `, energy balance ${latest.energy_balance}` : ''}${latest.clarity_level != null ? `, clarity ${latest.clarity_level}/10` : ''}${latest.confidence_level != null ? `, confidence ${latest.confidence_level}/10` : ''}`);
+  } else if (context.todayState) {
+    contextSignals.push(`- Current state: score ${context.todayState.score}, outcome "${context.todayState.outcome}"`);
+  }
+
+  // Upcoming calendar load (high salience — immediate context)
+  if (context.upcomingCalendarEvents && context.upcomingCalendarEvents.length > 0) {
+    const evts = context.upcomingCalendarEvents;
+    const evtSummary = evts.map(e => {
+      const mins = Math.round((new Date(e.start_time).getTime() - Date.now()) / 60000);
+      const timeStr = mins < 60 ? `in ${mins}m` : `in ${Math.round(mins / 60)}h`;
+      return `"${e.title}" ${timeStr}${e.attendees_count && e.attendees_count > 3 ? ` (${e.attendees_count} attendees)` : ''}`;
+    }).join('; ');
+    contextSignals.push(`- Upcoming calendar: ${evtSummary}`);
+  }
+
+  // Learned check-in patterns for today (predictive insight)
+  if (context.todayCheckinPatterns && context.todayCheckinPatterns.length > 0) {
+    const p = context.todayCheckinPatterns[0];
+    if (p.pattern_description) {
+      contextSignals.push(`- Learned pattern for today: "${p.pattern_description}" (typical outcome: ${p.typical_outcome || 'unknown'}, confidence: ${Math.round((p.confidence_score || 0) * 100)}%)`);
+    }
+  }
+
+  // Pending commitments
+  if (context.pendingCommitments && context.pendingCommitments.length > 0) {
+    const c = context.pendingCommitments[0];
+    contextSignals.push(`- 🔴 Pending commitment: "${c.commitment_text}" (${c.days_ago} days ago, due for check-in)`);
+  }
+
+  // Consecutive low-state pattern
+  if (context.consecutivePattern) {
+    contextSignals.push(`- Consecutive state pattern: ${context.consecutivePattern.days} days of "${context.consecutivePattern.state}"`);
+  }
+
+  // HRV data
+  if (context.hrvData?.currentHRV) {
+    const hrv = context.hrvData;
+    let hrvNote = `HRV ${hrv.currentHRV}ms`;
+    if (hrv.baselineHRV && hrv.hrvDeltaPct != null) {
+      hrvNote += ` (${hrv.hrvDeltaPct > 0 ? '+' : ''}${hrv.hrvDeltaPct}% vs baseline)`;
+    }
+    if (hrv.hrvTrend) hrvNote += `, trend: ${hrv.hrvTrend}`;
+    contextSignals.push(`- Physiological: ${hrvNote}`);
+  }
+
+  // Recent tiny wins
+  if (context.insights?.tinyWinsThemes && context.insights.tinyWinsThemes.length > 0) {
+    contextSignals.push(`- Recent tiny wins: ${context.insights.tinyWinsThemes.slice(0, 2).join('; ')}`);
+  }
+
+  // Outer readiness / current insights
+  if (context.currentInsights?.leanOn || context.currentInsights?.watchFor) {
+    const parts: string[] = [];
+    if (context.currentInsights.leanOn) parts.push(`lean on: "${context.currentInsights.leanOn}"`);
+    if (context.currentInsights.watchFor) parts.push(`watch for: "${context.currentInsights.watchFor}"`);
+    contextSignals.push(`- Active insights: ${parts.join(', ')}`);
+  }
+
+  // Breakthrough not acted on
+  if (context.pastBreakthroughs?.some(b => !b.was_acted_on)) {
+    const b = context.pastBreakthroughs.find(b => !b.was_acted_on);
+    if (b) contextSignals.push(`- Unacted breakthrough: "${b.breakthrough_content}"`);
+  }
+
+  // Pattern ready to name
+  if (context.patternsToName && context.patternsToName.length > 0) {
+    const p = context.patternsToName[0];
+    contextSignals.push(`- Pattern ready to name: "${p.pattern_description}" (observed ${p.observation_count}x)`);
+  }
+
+  // Last session continuity
+  if (context.lastSessionSummary) {
+    contextSignals.push(`- Last session: "${context.lastSessionSummary.summary_text.slice(0, 100)}..."`);
+    if (context.lastSessionSummary.breakthrough_moment) {
+      contextSignals.push(`- Last breakthrough: "${context.lastSessionSummary.breakthrough_moment}"`);
+    }
+  }
+
+  // --- Entry-point specific instructions ---
   if (entryPoint === 'jit' && context.jitContext?.eventTitle) {
-    // JIT: Reference the specific event + historical data
     lines.push('## Entry: Just-In-Time Event Preparation');
     lines.push(`The user navigated here to prepare for "${context.jitContext.eventTitle}".`);
     lines.push('');
     lines.push('Your opener should:');
     lines.push(`- Acknowledge the specific event by name`);
     
-    // Check for HRV correlation for this event
     const matchingHRV = context.upcomingEventHRV?.find(e => 
       e.eventTitle.toLowerCase().includes((context.jitContext?.eventTitle || '').toLowerCase().split(' ')[0])
     );
@@ -2127,65 +2299,32 @@ function buildFirstMessageInstruction(context: CoachContext, entryPoint?: string
       lines.push(`- Reference their physiological pattern: avg HRV ${matchingHRV.pastHRV.avg}ms across ${matchingHRV.pastHRV.count} similar events (${matchingHRV.pastHRV.trend})`);
     }
     
-    // Check for relevant memories about similar events
     if (context.recentMemories && context.recentMemories.length > 0) {
       lines.push('- If any memories relate to this event type, weave one in naturally');
     }
     
     lines.push('- Make it clear you understand the stakes without them having to explain');
     lines.push('');
+    lines.push('Additional context available (use ONLY if more relevant than the event itself):');
+    contextSignals.forEach(s => lines.push(s));
+    lines.push('');
     lines.push('Example tone: "You have [event] coming up. [One relevant contextual observation]. How are you feeling about it?"');
 
   } else if (entryPoint === 'tod_plan') {
-    // Time-of-Day Plan: Reference current state + continuity
     lines.push('## Entry: Daily Performance Plan');
     lines.push('The user is here as part of their daily mastery ritual.');
     lines.push('');
     lines.push('Your opener should show continuity. Pick ONE of these (whichever is most salient):');
-    
-    if (context.pendingCommitments && context.pendingCommitments.length > 0) {
-      const c = context.pendingCommitments[0];
-      lines.push(`- Check in on their commitment: "${c.commitment_text}" (${c.days_ago} days ago)`);
-    }
-    if (context.lastSessionSummary?.breakthrough_moment) {
-      lines.push(`- Reference their last breakthrough: "${context.lastSessionSummary.breakthrough_moment}"`);
-    }
-    if (context.todayState) {
-      lines.push(`- Acknowledge their current state: score ${context.todayState.score}, outcome "${context.todayState.outcome}"`);
-    }
-    if (context.consecutivePattern) {
-      lines.push(`- Name the consecutive pattern: ${context.consecutivePattern.days} days of "${context.consecutivePattern.state}"`);
-    }
-    
+    contextSignals.forEach(s => lines.push(s));
     lines.push('');
     lines.push('Example tone: "Welcome back. [One specific reference to their journey]. What\'s present for you right now?"');
 
   } else {
-    // Independent: Use most salient signal for continuity
     lines.push('## Entry: Independent Session');
     lines.push('The user opened the coach on their own — no specific trigger.');
     lines.push('');
     lines.push('Your opener should feel natural and demonstrate you remember them. Pick ONE of these (most salient first):');
-    
-    if (context.pendingCommitments && context.pendingCommitments.length > 0) {
-      const c = context.pendingCommitments[0];
-      lines.push(`- 🔴 HIGH PRIORITY: Check commitment "${c.commitment_text}" (${c.days_ago} days ago, due for check-in)`);
-    }
-    if (context.patternsToName && context.patternsToName.length > 0) {
-      const p = context.patternsToName[0];
-      lines.push(`- Pattern ready to name: "${p.pattern_description}" (observed ${p.observation_count}x)`);
-    }
-    if (context.pastBreakthroughs?.some(b => !b.was_acted_on)) {
-      const b = context.pastBreakthroughs.find(b => !b.was_acted_on);
-      lines.push(`- Breakthrough not yet acted on: "${b?.breakthrough_content}"`);
-    }
-    if (context.consecutivePattern) {
-      lines.push(`- Consecutive state pattern: ${context.consecutivePattern.days} days of "${context.consecutivePattern.state}"`);
-    }
-    if (context.lastSessionSummary) {
-      lines.push(`- Last session continuity: "${context.lastSessionSummary.summary_text.slice(0, 100)}..."`);
-    }
-    
+    contextSignals.forEach(s => lines.push(s));
     lines.push('');
     lines.push('If nothing urgent stands out, a warm "What\'s on your mind?" is fine — but if you have context, use it.');
     lines.push('');
@@ -2624,7 +2763,7 @@ serve(async (req) => {
     const fullContext = await buildServerContext(supabase, userId, clientContext);
 
     // Fire AI-driven tiny win extraction in parallel (non-blocking)
-    if ((flowType === 'integrate' || flowType === 'guided-reflection') && userId && messages.length > 1) {
+    if (userId && messages.length > 1) {
       if (supabaseUrl && supabaseServiceKey) {
         extractAndStoreTinyWin(
           supabaseUrl,
