@@ -1455,6 +1455,9 @@ async function buildServerContext(
     calendarCorrelationsResult,
     wearableHRVResult,
     upcomingEventHRVResult,
+    todayCheckinsResult,
+    upcomingCalendarResult,
+    todayPatternsResult,
   ] = await Promise.all([
     // 1. User profile
     supabase
