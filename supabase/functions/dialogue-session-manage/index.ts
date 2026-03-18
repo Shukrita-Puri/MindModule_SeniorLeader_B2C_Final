@@ -105,10 +105,10 @@ Deno.serve(async (req) => {
     } else if (action === "end") {
       const { sessionId, durationSeconds, totalMessages, totalInterventions } = body;
 
-      // Verify session belongs to user
+      // Verify session belongs to user and fetch metadata for behavior log
       const { data: existingSession, error: fetchError } = await supabase
         .from("dialogue_sessions")
-        .select("user_id")
+        .select("user_id, context_type, coach_personality, meta_data")
         .eq("id", sessionId)
         .single();
 
@@ -148,6 +148,83 @@ Deno.serve(async (req) => {
       }
 
       console.log("[dialogue-session-manage] Session ended:", sessionId);
+
+      // Insert behavior_log with context_event_data (fire-and-forget)
+      supabase.from('behavior_logs').insert({
+        user_id: userId,
+        behavior_type: 'coach_session',
+        event_title: 'coach',
+        energy_after: null,
+        context_event_id: sessionId,
+        created_at: new Date().toISOString(),
+      }).then(({ error: blErr }) => {
+        if (blErr) console.error('[dialogue-session-manage] behavior_log insert error:', blErr);
+        else console.log('[dialogue-session-manage] behavior_log inserted for session:', sessionId);
+      });
+
+      // Fire downstream processing functions server-side if enough messages
+      const msgCount = totalMessages || 0;
+      if (msgCount >= 2 && existingSession.context_type === 'coach') {
+        // Check if summary already exists (avoid duplicate processing)
+        const { data: existingSummary } = await supabase
+          .from('coach_session_summaries')
+          .select('id')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+
+        if (!existingSummary) {
+          const payload = JSON.stringify({ sessionId, userId });
+          const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          };
+
+          const downstreamFns = [
+            'extract-coach-insights',
+            'analyze-probing-effectiveness',
+            'generate-coach-summary',
+            'detect-recurring-patterns',
+            'detect-coach-scenarios',
+            'extract-tool-commitments',
+            'resolve-session-commitments',
+          ];
+
+          // Fire all downstream in parallel (fire-and-forget)
+          Promise.allSettled(
+            downstreamFns.map(fn =>
+              fetch(`${supabaseUrl}/functions/v1/${fn}`, {
+                method: 'POST',
+                headers,
+                body: payload,
+              }).then(async (res) => {
+                if (!res.ok) {
+                  const body = await res.text();
+                  console.error(`[dialogue-session-manage] ${fn} failed (${res.status}):`, body);
+                }
+                return { fn, status: res.status };
+              })
+            )
+          ).then(results => {
+            const succeeded = results.filter(r => r.status === 'fulfilled').length;
+            console.log(`[dialogue-session-manage] Session ${sessionId}: ${succeeded}/${downstreamFns.length} downstream succeeded`);
+          });
+
+          // Fire extract-session-memories after delay to let summary complete
+          setTimeout(async () => {
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/extract-session-memories`, {
+                method: 'POST',
+                headers,
+                body: payload,
+              });
+            } catch (e) {
+              console.error(`[dialogue-session-manage] extract-session-memories failed:`, e);
+            }
+          }, 5000);
+        } else {
+          console.log(`[dialogue-session-manage] Session ${sessionId} already has summary — skipping downstream`);
+        }
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
