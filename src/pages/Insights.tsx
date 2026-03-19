@@ -360,7 +360,11 @@ const Insights = () => {
         
         const winsWithContent = wins?.map(w => ({
           content: w.win_content,
-          date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          primary_emotion: w.primary_emotion || null,
+          agency_type: w.agency_type || null,
+          regulation_level: w.regulation_level || null,
+          growth_signal: w.growth_signal || null,
         })) || [];
         setTinyWinsContent(winsWithContent);
         

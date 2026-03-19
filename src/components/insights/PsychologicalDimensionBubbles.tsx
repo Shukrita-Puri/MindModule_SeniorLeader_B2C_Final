@@ -228,12 +228,12 @@ const PsychologicalDimensionBubbles = ({
                 </p>
               </div>
               
-              {meaningfulWins.length > 0 && (
+              {filteredWins.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     From your wins
                   </h5>
-                  {meaningfulWins.slice(0, 2).map((win, i) => (
+                  {filteredWins.slice(0, 2).map((win, i) => (
                     <div key={i} className="bg-muted/50 rounded-xl p-3 text-sm text-foreground">
                       "{win.content}"
                       <div className="text-[10px] text-muted-foreground mt-1">

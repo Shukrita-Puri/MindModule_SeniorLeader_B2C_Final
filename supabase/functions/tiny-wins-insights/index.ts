@@ -408,7 +408,11 @@ serve(async (req) => {
     // BUG 2 fix: Include win content in response for Auth path
     const winsContent = (updatedWins || []).map(w => ({
       content: w.win_content,
-      date: new Date(w.win_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      date: new Date(w.win_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      primary_emotion: w.primary_emotion || null,
+      agency_type: w.agency_type || null,
+      regulation_level: w.regulation_level || null,
+      growth_signal: w.growth_signal || null,
     }));
 
     return new Response(JSON.stringify({ 
