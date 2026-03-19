@@ -26,21 +26,12 @@ Deno.serve(async (req) => {
 
     /**
      * Helper: upsert integration status.
-     * Preserves watch_connected_at if already set — only writes it on first real connection.
+     * Preserves watch_connected_at after the first real connection.
      */
     const upsertIntegrationStatus = async (payload: Record<string, unknown>) => {
-      // If caller wants to set watch_connected_at, only do so if not already stored
-      if (payload.watch_connected_at) {
-        const { data: existing } = await db
-          .from("user_integrations")
-          .select("watch_connected_at")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (existing?.watch_connected_at) {
-          // Already has a first-connection timestamp — don't overwrite
-          delete payload.watch_connected_at;
-        }
+      const requestedConnectedAt = payload.watch_connected_at;
+      if (requestedConnectedAt) {
+        delete payload.watch_connected_at;
       }
 
       const { error } = await db
@@ -54,6 +45,20 @@ Deno.serve(async (req) => {
       if (error) {
         console.error("[persist-wearable-data] user_integrations upsert error:", error);
         throw error;
+      }
+
+      // Set first-connection timestamp only if it is still unset.
+      if (requestedConnectedAt) {
+        const { error: connectedAtError } = await db
+          .from("user_integrations")
+          .update({ watch_connected_at: requestedConnectedAt })
+          .eq("user_id", userId)
+          .is("watch_connected_at", null);
+
+        if (connectedAtError) {
+          console.error("[persist-wearable-data] watch_connected_at update error:", connectedAtError);
+          throw connectedAtError;
+        }
       }
     };
 
@@ -209,6 +214,19 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    await upsertIntegrationStatus({
+      watch_type: "apple",
+      watch_connected_at: new Date().toISOString(),
+      watch_connection_status: "connected",
+      watch_sync_status: "synced",
+      watch_last_sync_at: new Date().toISOString(),
+      watch_last_sample_at: new Date(`${summary_date}T00:00:00.000Z`).toISOString(),
+      watch_last_error: null,
+      watch_last_error_at: null,
+      watch_disconnected_at: null,
+      watch_status_updated_at: new Date().toISOString(),
+    });
 
     return new Response(
       JSON.stringify({ success: true, summary_date }),
