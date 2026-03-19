@@ -101,17 +101,20 @@ serve(async (req) => {
         })
         .eq('id', session.id);
 
-      // Fire-and-forget: log coach session to behavior_logs with context
-      supabase.from('behavior_logs').insert({
-        user_id: session.user_id,
-        behavior_type: 'coach_session',
-        event_title: 'coach',
-        energy_after: null,
-        context_event_id: session.id,
-        created_at: new Date().toISOString(),
-      }).then(({ error: blErr }) => {
+      // Await behavior_log insert to prevent silent data loss
+      try {
+        const { error: blErr } = await supabase.from('behavior_logs').insert({
+          user_id: session.user_id,
+          behavior_type: 'coach_session',
+          event_title: 'coach',
+          energy_after: null,
+          context_event_id: session.id,
+          created_at: new Date().toISOString(),
+        });
         if (blErr) console.error('[process-orphaned-sessions] behavior_log insert error:', blErr);
-      });
+      } catch (blCatchErr) {
+        console.error('[process-orphaned-sessions] behavior_log insert exception:', blCatchErr);
+      }
 
       if (msgCount < 2) {
         console.log(`[process-orphaned-sessions] Session ${session.id} completed with ${msgCount} msgs — too few for downstream`);

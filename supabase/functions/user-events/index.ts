@@ -197,17 +197,20 @@ serve(async (req) => {
 
         console.log('[user-events] Checkin saved for', dateToSave);
 
-        // Fire-and-forget: log depleted check-ins to behavior_logs for cause-effect
+        // Await behavior_log insert to prevent silent data loss
         if (outcome === 'drained' || outcome === 'overwhelmed') {
-          supabase.from('behavior_logs').insert({
-            user_id: userId,
-            behavior_type: 'check_in_depleted',
-            event_title: outcome,
-            energy_after: null,
-            created_at: new Date().toISOString(),
-          }).then(({ error: blErr }) => {
+          try {
+            const { error: blErr } = await supabase.from('behavior_logs').insert({
+              user_id: userId,
+              behavior_type: 'check_in_depleted',
+              event_title: outcome,
+              energy_after: null,
+              created_at: new Date().toISOString(),
+            });
             if (blErr) console.error('[user-events] behavior_log depleted insert error:', blErr);
-          });
+          } catch (blCatchErr) {
+            console.error('[user-events] behavior_log depleted insert exception:', blCatchErr);
+          }
         }
 
         return new Response(
