@@ -80,9 +80,25 @@ const PsychologicalDimensionBubbles = ({
     return Math.max(...sortedData.map(d => d.count), 1);
   }, [sortedData]);
 
-  const meaningfulWins = useMemo(() => {
-    return relatedWins?.filter(win => !isGenericWin(win.content)) || [];
-  }, [relatedWins]);
+  // Dimension field mapping: which field to check for each dimension type
+  const DIMENSION_FIELD_MAP: Record<string, keyof WinWithDimensions> = {
+    emotion: 'primary_emotion',
+    agency: 'agency_type',
+    regulation: 'regulation_level',
+    growth: 'growth_signal',
+  };
+
+  const filteredWins = useMemo(() => {
+    if (!selectedItem || !relatedWins) return [];
+    const field = DIMENSION_FIELD_MAP[selectedItem.dimension];
+    if (!field) return [];
+    return relatedWins
+      .filter(win => {
+        const val = win[field];
+        return typeof val === 'string' && val.toLowerCase() === selectedItem.value.toLowerCase();
+      })
+      .filter(win => !isGenericWin(win.content));
+  }, [selectedItem, relatedWins]);
 
   const closeModal = () => setSelectedItem(null);
 
