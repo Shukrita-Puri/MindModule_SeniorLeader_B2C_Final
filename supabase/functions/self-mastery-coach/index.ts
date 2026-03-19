@@ -2524,7 +2524,7 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     if (context.calendarStateCorrelations && context.calendarStateCorrelations.length > 0) {
       lines.push('\n## Calendar-State Correlations');
       lines.push('Patterns between calendar events and user state:');
-      context.calendarStateCorrelations.forEach(c => {
+      context.calendarStateCorrelations.forEach((c: any) => {
         lines.push(`- "${c.event_keyword}" events → typically **${c.typical_state}** (${c.correlation_pct}% of ${c.occurrence_count} occurrences)`);
       });
       lines.push('Use these correlations to anticipate and proactively address state shifts.');
