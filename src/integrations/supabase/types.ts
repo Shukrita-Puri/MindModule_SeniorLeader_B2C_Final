@@ -3721,8 +3721,8 @@ export type Database = {
           calendar_provider: string | null
           updated_at: string | null
           user_id: string
-          watch_connection_status: string | null
           watch_connected_at: string | null
+          watch_connection_status: string | null
           watch_disconnected_at: string | null
           watch_last_error: string | null
           watch_last_error_at: string | null
@@ -3737,8 +3737,8 @@ export type Database = {
           calendar_provider?: string | null
           updated_at?: string | null
           user_id: string
-          watch_connection_status?: string | null
           watch_connected_at?: string | null
+          watch_connection_status?: string | null
           watch_disconnected_at?: string | null
           watch_last_error?: string | null
           watch_last_error_at?: string | null
@@ -3753,8 +3753,8 @@ export type Database = {
           calendar_provider?: string | null
           updated_at?: string | null
           user_id?: string
-          watch_connection_status?: string | null
           watch_connected_at?: string | null
+          watch_connection_status?: string | null
           watch_disconnected_at?: string | null
           watch_last_error?: string | null
           watch_last_error_at?: string | null
