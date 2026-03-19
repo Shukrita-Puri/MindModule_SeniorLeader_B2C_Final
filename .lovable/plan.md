@@ -1,75 +1,71 @@
 
 
-# Plan: Calendar×HRV Cause-Effect Path + HRV in JIT Path
+# Plan: Fix Cause-Effect Data Gaps + HRV Enrichment + Actual Event Titles
 
-## Overview
+## Three Gaps Addressed
 
-Add a new top-priority **Path A** that correlates calendar event types with HRV readings, showing users which events impact their physiology. Shift existing paths down (A→B, B→C, C→D, D→E, E→F). Enrich the JIT path (now Path E) with HRV data. Update client-side DEV_MODE code to mirror all paths.
+### Gap 1: Fire-and-forget behavior_log inserts silently fail
+**Root cause**: All 4 edge functions (`dialogue-session-manage`, `process-orphaned-sessions`, `user-events`, `practice-data`) use unawaited `.insert().then()` calls. When the Deno runtime terminates before the promise resolves, the insert is lost silently.
 
----
+**Fix**: Convert all fire-and-forget inserts to **awaited** calls with try-catch. The insert is fast (single row, no joins) and won't meaningfully delay the response. This is why only `coach_session` rows exist — the other functions terminate before completion.
 
-## Data Available
+**Files**: 4 edge functions
 
-The `wearable_data` table contains `user_id`, `summary_date`, `hrv` (numeric), `resting_heart_rate`, plus quality flags. The `calendar_events` table has `title`, `start_time`. The existing `EVENT_TYPE_KEYWORDS` map classifies events into 10 canonical types. Both tables are already queried in the edge function (wearable_data is NOT currently queried — needs adding).
+### Gap 2: Calendar events defaulting to generic `calendar_event` label
+**Root cause**: Path A (HRV) and Path C (check-in) skip events that don't match `EVENT_TYPE_KEYWORDS`. Path C falls back to `calendar_event` but the output says "busy calendar days" — not useful.
+
+**Fix**: When no keyword match exists, use the **actual event title** as the grouping key (truncated to 40 chars). This means unclassified events still contribute to cause-effect analysis with their real names. For Path A (HRV), also include unclassified events grouped by title, so users see "Team standup correlates with stable HRV" instead of nothing.
+
+**Files**: Edge function + client-side mirrored paths
+
+### Gap 3: Cause-effect paths rely too heavily on self-declared check-ins; HRV underused
+**Root cause**: Paths B–F use only check-in outcomes. HRV is only used in Path A (calendar×HRV) and Path E (JIT×HRV). Paths B, C, D have no HRV enrichment.
+
+**Fix**: Add HRV enrichment to Paths B, C, and D where wearable data is available:
+- **Path B** (Behavior→outcome): Append HRV context — "On days following Coach session, you tend to check in 'steady' 80% of the time. Your HRV averaged 48ms on those days vs 41ms baseline."
+- **Path C** (Event type→outcome): Append HRV — "After board events, you tend to check in 'focused'. Your HRV on those days averaged 52ms."
+- **Path D** (Event vs non-event day): Add HRV comparison — "On event days your HRV averages 44ms vs 51ms on quieter days."
+
+This keeps the primary insight (check-in correlation) but adds physiological backing when data exists.
 
 ---
 
 ## Changes
 
-### 1. Edge Function (`supabase/functions/performance-rhythm-insights/index.ts`)
+### 1. Await behavior_log inserts (4 edge functions)
 
-**Add wearable_data to parallel fetch** (line 83-101):
-- Add query: `wearable_data` table, selecting `summary_date, hrv, resting_heart_rate` for user, last 30 days, where `hrv IS NOT NULL`
+**`dialogue-session-manage/index.ts`** (line 153): Change from fire-and-forget to awaited:
+```typescript
+// Before: supabase.from('behavior_logs').insert({...}).then(...)
+// After:
+try {
+  const { error: blErr } = await supabase.from('behavior_logs').insert({...});
+  if (blErr) console.error('...');
+} catch (e) { console.error('...'); }
+```
 
-**New Path A — Calendar Event Type × HRV Correlation** (insert before current Path A at line 223):
-- For each calendar event with a classified type, find same-day HRV from `wearable_data`
-- Group by event type → collect HRV readings
-- Calculate per-type average HRV and compare to user's overall 30-day HRV baseline
-- Threshold: event type needs ≥2 occurrences AND ≥10% deviation from baseline
-- Output examples:
-  - "Board meetings correlate with a 22% HRV drop (avg 38ms vs your baseline 49ms) — observed across 4 events."
-  - "1:1 sessions correlate with stable HRV (avg 52ms vs baseline 49ms) — these events don't tax your nervous system."
-- Include the actual event title of the most recent occurrence for specificity
+Same pattern in:
+- **`process-orphaned-sessions/index.ts`** (line 105)
+- **`user-events/index.ts`** (lines 94, 199)
+- **`practice-data/index.ts`** (line 188)
 
-**Shift existing paths**: A→B, B→C, C→D, D→E, E→F (just renaming in comments, adding `!causeEffectInsight &&` gates remain unchanged)
+### 2. Use actual event titles for unclassified events (edge function + client)
 
-**Enrich Path E (formerly D) — JIT Prep × HRV**:
-- After finding JIT-completed events, also look up same-day HRV from `wearable_data`
-- If HRV data exists for ≥2 JIT-completed events, compare avg HRV on JIT-prepped days vs non-prepped event days
-- Enhanced output: "When you completed JIT prep, your HRV averaged 52ms vs 38ms on unprepped event days — preparation may reduce physiological stress."
-- Falls back to existing check-in-only logic if no HRV data
+**`performance-rhythm-insights/index.ts`**:
+- **Path A** (line 243): When `et` is null (no keyword match), use the event title directly (truncated) as the grouping key. This lets unclassified events like "Team standup" or "Weekly sync" appear in HRV correlations.
+- **Path C** (line 332): Same change — use actual title instead of `calendar_event` generic bucket. Update output to show the title: "After 'Weekly sync' events, you tend to check in 'steady'..."
 
-### 2. Client-Side DEV_MODE (`src/components/insights/PerformanceRhythmCard.tsx`)
+**`PerformanceRhythmCard.tsx`**: Mirror both changes in the DEV_MODE paths.
 
-**Add wearable_data fetch** to the DEV_MODE parallel query block (line 92-130):
-- Query `wearable_data` for `summary_date, hrv` where `hrv` is not null
+### 3. Add HRV enrichment to Paths B, C, D
 
-**Add all 6 cause-effect paths** (A through F) to the DEV_MODE block, replacing the current single-path logic (lines 273-305):
-- Path A: Calendar×HRV (same logic as edge function)
-- Path B: Behavior→Check-in (current Path A logic, threshold stays at ≥2, conf ≥0.4)
-- Path C: Calendar event→Check-in
-- Path D: Event day vs non-event day
-- Path E: JIT prep→outcome + HRV enrichment
-- Path F: Temporal fallback (weekday/weekend, morning/evening)
+**`performance-rhythm-insights/index.ts`**:
+- After each path generates its `causeEffectInsight` string, check if `wearableData.length >= 3`. If so, compute the relevant HRV average and append it to the insight string.
+- Path B: Avg HRV on behavior-log days vs baseline
+- Path C: Avg HRV on matched event-type days
+- Path D: Avg HRV on event days vs non-event days
 
-**Auth user path**: No changes needed — production users already call the edge function which handles everything server-side.
-
-### 3. JIT Preferences fetch in DEV_MODE
-
-The DEV_MODE block currently does NOT fetch `jit_preferences`. Add it to the parallel query so Paths E works client-side.
-
----
-
-## Path Priority Order (final)
-
-| Path | Trigger | Data Required | Output Focus |
-|------|---------|--------------|--------------|
-| **A** | Calendar Event × HRV | `calendar_events` ≥3 + `wearable_data` HRV ≥5 days | Which event types move your HRV |
-| **B** | Behavior → Check-in | `behavior_logs` ≥2 + `daily_checkins` | Coach sessions / practices → state |
-| **C** | Calendar Event → Check-in | Calendar ≥3 events + checkins ≥5 | Event type → next-day state |
-| **D** | Event Day vs Non-Event Day | Calendar ≥2 + checkins ≥5 | Structure vs space |
-| **E** | JIT Prep → Outcome + HRV | `jit_preferences` ≥2 + checkins ≥5 | Prep impact on state + physiology |
-| **F** | Temporal Fallback | Checkins ≥7 | Weekday/weekend or morning/evening |
+**`PerformanceRhythmCard.tsx`**: Mirror the same HRV enrichment logic in DEV_MODE Paths B, C, D.
 
 ---
 
@@ -77,8 +73,12 @@ The DEV_MODE block currently does NOT fetch `jit_preferences`. Add it to the par
 
 | File | Change |
 |------|--------|
-| `performance-rhythm-insights/index.ts` | Add `wearable_data` query, new Path A (Calendar×HRV), enrich Path E (JIT+HRV), shift path letters |
-| `PerformanceRhythmCard.tsx` | Add `wearable_data` + `jit_preferences` to DEV_MODE queries, mirror all 6 paths client-side |
+| `dialogue-session-manage/index.ts` | Await behavior_log insert |
+| `process-orphaned-sessions/index.ts` | Await behavior_log insert |
+| `user-events/index.ts` | Await both behavior_log inserts (sanctuary + depleted) |
+| `practice-data/index.ts` | Await behavior_log insert |
+| `performance-rhythm-insights/index.ts` | Use actual titles for unclassified events in Paths A+C; add HRV enrichment to Paths B, C, D |
+| `PerformanceRhythmCard.tsx` | Mirror title + HRV enrichment changes in DEV_MODE paths |
 
-No DB migrations. Edge function redeploy required.
+5 edge function redeploys. No DB migrations.
 
