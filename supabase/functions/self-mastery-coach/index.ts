@@ -1899,7 +1899,7 @@ async function fetchPracticeEffectiveness(
     // For each practice, check if next-day state was positive
     const practiceStats: Record<string, { improved: number; total: number }> = {};
     for (const ev of events) {
-      const practiceDate = new Date(ev.created_at).toISOString().split('T')[0];
+      const practiceDate = new Date((ev as any).created_at).toISOString().split('T')[0];
       const nextDay = new Date(new Date(practiceDate).getTime() + 86400000).toISOString().split('T')[0];
       const nextDayOutcome = checkInByDate[nextDay];
       if (!nextDayOutcome) continue;
