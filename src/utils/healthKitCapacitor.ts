@@ -151,7 +151,8 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
     console.log('[HealthKit] Raw readSamples response keys:', hrvRes ? Object.keys(hrvRes) : 'null/undefined');
     console.log('[HealthKit] Raw readSamples response:', JSON.stringify(hrvRes).slice(0, 500));
 
-    const samples = hrvRes?.samples ?? hrvRes?.data ?? hrvRes?.results ?? hrvRes?.resultData ?? [];
+    const rawRes = hrvRes as any;
+    const samples = rawRes?.samples ?? rawRes?.data ?? rawRes?.results ?? rawRes?.resultData ?? [];
 
     if (!Array.isArray(samples) || samples.length === 0) {
       console.log('[HealthKit] No HRV samples in 30-day window (permission granted, no data)');
