@@ -248,8 +248,8 @@ const CoachSplitView = ({
         <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-          {/* Title + tagline + avatar + greeting — top-aligned for mobile first-fold */}
-          <div className="flex-1 flex flex-col items-center justify-start pt-14 md:pt-20 px-6 text-center space-y-2">
+          {/* Compact hero block for first-fold mobile visibility */}
+          <div className="px-6 pt-6 md:pt-10 pb-3 text-center space-y-2 shrink-0">
             <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
               Inner Mastery Coach
             </h1>
@@ -257,33 +257,29 @@ const CoachSplitView = ({
               Inner Awareness. Presence. Growth.
             </p>
 
-            {/* Circular coach avatar */}
-            <div className="w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
+            <div className="mx-auto w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
               <img src={coachVisual} alt="Inner Mastery Coach" className="w-full h-full object-cover object-top" />
             </div>
 
-            <h2 className="text-lg font-headline text-foreground/90">
-              Hello, {firstName}
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+            <h2 className="text-lg font-headline text-foreground/90">Hello, {firstName}</h2>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
               {contextualGreeting}
             </p>
           </div>
 
-          {/* Prompt suggestions — transparent, text-only */}
-          <div className="px-5 pb-2 space-y-1">
+          {/* Prompt suggestions */}
+          <div className="px-5 pb-2 space-y-1 overflow-y-auto min-h-0">
             {promptSuggestions.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => onPromptClick(prompt)}
-                className="w-full text-left px-4 py-2 bg-transparent hover:bg-black/5 transition-colors text-sm text-muted-foreground hover:text-foreground"
+                className="w-full text-left px-4 py-1.5 bg-transparent hover:bg-muted/40 transition-colors text-sm text-muted-foreground hover:text-foreground"
               >
                 {prompt}
               </button>
             ))}
           </div>
 
-          {/* Input bar */}
           <InputBar glass={false} {...inputBarProps} />
         </div>
       </div>
