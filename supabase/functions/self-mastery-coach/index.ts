@@ -1392,6 +1392,17 @@ interface CoachContext {
     effectiveness_rate: number;
   }>;
 
+  // Dominant pattern (server-detected)
+  dominantPattern?: string;
+
+  // Calendar-state correlations (server-fetched)
+  calendarStateCorrelations?: Array<{
+    event_keyword: string;
+    typical_state: string;
+    correlation_pct: number;
+    occurrence_count: number;
+  }>;
+
   // Today's check-ins (server-fetched)
   todayCheckins?: Array<{
     outcome: string;
