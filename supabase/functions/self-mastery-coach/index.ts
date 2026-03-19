@@ -3314,22 +3314,27 @@ const extractAndStoreTinyWin = async (
           {
             role: "system",
             content: `You analyze coaching conversations to detect genuine tiny wins shared by the user. 
-A tiny win is a real personal achievement, accomplishment, positive behavior, or moment of growth the user describes from their day.
+A tiny win is a real personal achievement, accomplishment, positive behavior, moment of growth, or something the user is proud of — even if they don't call it a "win."
 
 DO NOT treat the following as wins:
 - The coach's suggested prompts or questions (e.g., "Here's one thing I did right today")
 - Generic greetings or small talk
-- Questions the user asks
-- Vague or unspecific statements
+- Questions the user asks without describing an action
+- Purely negative statements with no growth element
 
-DO treat these as wins:
+DO treat these as wins (be generous — capture implicit achievements):
 - Specific actions the user took (e.g., "I stayed calm during the board meeting")
 - Behaviors they're proud of (e.g., "I delegated instead of doing it myself")
 - Realizations or growth moments (e.g., "I noticed I was getting reactive and paused")
-- Reflections on what went well
+- Reflections on what went well (e.g., "things actually went smoothly today")
+- Moments of self-awareness (e.g., "I caught myself before reacting")
+- Choosing differently than usual (e.g., "I didn't check my phone during dinner")
+- Showing up despite difficulty (e.g., "I showed up even though I was exhausted")
+- Progress on a pattern they've been working on
+- Any moment where the user describes doing something positive, even casually
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-Only call store_tiny_win if there is a REAL win. When in doubt, do NOT store.`
+When the user describes something they did well or are proud of, even implicitly, store it. Err on the side of capturing rather than missing.`
           },
           ...messages,
         ],

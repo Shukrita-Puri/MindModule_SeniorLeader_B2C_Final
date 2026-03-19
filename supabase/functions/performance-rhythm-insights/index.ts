@@ -432,9 +432,9 @@ serve(async (req) => {
         ? signals[0].t
         : "Building pattern data — presence insights strengthen with more check-ins and high-stakes moments.";
 
-      // Build presenceActions from top signals
+      // Build presenceActions from top signals, excluding the one already used as presenceInsight
       presenceActions = signals
-        .filter(sig => sig.s > 0)
+        .filter(sig => sig.s > 0 && sig.t !== presenceInsight)
         .slice(0, 2)
         .map(sig => sig.t);
 
@@ -583,6 +583,11 @@ serve(async (req) => {
     if (hasCalendar) dataSourceNote += ", calendar data";
     dataSourceNote += ` over ${daySpan} days`;
 
+    // Inject cause-effect insight into presenceActions if available (so it renders inline)
+    if (causeEffectInsight && presenceActions.length < 3) {
+      presenceActions.push(causeEffectInsight);
+    }
+
     const result = {
       presenceScore,
       presenceLabel,
@@ -590,7 +595,7 @@ serve(async (req) => {
       presenceActions: presenceActions.length > 0 ? presenceActions : null,
       temporalPatterns: temporalPatterns.length > 0 ? temporalPatterns.slice(0, 4) : null,
       calendarInsight,
-      causeEffectInsight,
+      causeEffectInsight: causeEffectInsight && presenceActions.includes(causeEffectInsight) ? null : causeEffectInsight,
       grid,
       bestReadinessWindow,
       checkInCount: checkIns.length,
