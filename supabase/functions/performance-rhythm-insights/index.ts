@@ -220,34 +220,42 @@ serve(async (req) => {
     // ── CAUSE-EFFECT (1C) ──
     let causeEffectInsight: string | null = null;
 
-    // Path A: behavior_logs → next-day check-in
-    if (behaviorLogs.length >= 3 && checkIns.length > 0) {
+    // Path A: behavior_logs → nearest same/next-day check-in (refined pairing)
+    if (behaviorLogs.length >= 2 && checkIns.length > 0) {
       const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
       for (const log of behaviorLogs) {
         const bd = new Date(log.created_at).toISOString().split("T")[0];
         const type = log.behavior_type?.toLowerCase();
         if (!type) continue;
+        // Find nearest check-in (same day or next day only)
+        let nearest: typeof checkIns[0] | null = null;
+        let nearestDiff = Infinity;
         for (const ci of checkIns) {
           const diff = (new Date(ci.checkin_date).getTime() - new Date(bd).getTime()) / 86400000;
-          if (diff >= 0 && diff <= 1 && ci.outcome) {
-            const key = `${type}→${ci.outcome}`;
-            if (!bp.has(key)) bp.set(key, { behavior: type, outcome: ci.outcome, count: 0 });
-            bp.get(key)!.count++;
+          if (diff >= 0 && diff <= 1 && Math.abs(diff) < nearestDiff && ci.outcome) {
+            nearest = ci;
+            nearestDiff = Math.abs(diff);
           }
+        }
+        if (nearest) {
+          const key = `${type}→${nearest.outcome}`;
+          if (!bp.has(key)) bp.set(key, { behavior: type, outcome: nearest.outcome!, count: 0 });
+          bp.get(key)!.count++;
         }
       }
       const totals = new Map<string, number>();
       bp.forEach(p => totals.set(p.behavior, (totals.get(p.behavior) || 0) + p.count));
-      const patterns: { behavior: string; outcome: string; conf: number }[] = [];
+      const patterns: { behavior: string; outcome: string; conf: number; count: number }[] = [];
       bp.forEach(p => {
         const t = totals.get(p.behavior) || 1;
         const conf = p.count / t;
-        if (p.count >= 2 && conf >= 0.5) patterns.push({ behavior: p.behavior, outcome: p.outcome, conf });
+        if (p.count >= 2 && conf >= 0.4) patterns.push({ behavior: p.behavior, outcome: p.outcome, conf, count: p.count });
       });
       patterns.sort((a, b) => b.conf - a.conf);
       if (patterns[0]) {
         const p = patterns[0];
-        causeEffectInsight = `On days following ${p.behavior.charAt(0).toUpperCase() + p.behavior.slice(1)}, you tend to check in ${p.outcome} ${Math.round(p.conf * 100)}% of the time.`;
+        const behaviorLabel = p.behavior.replace(/_/g, ' ');
+        causeEffectInsight = `On days following ${behaviorLabel.charAt(0).toUpperCase() + behaviorLabel.slice(1)}, you tend to check in '${p.outcome}' ${Math.round(p.conf * 100)}% of the time.`;
       }
     }
 
@@ -257,12 +265,11 @@ serve(async (req) => {
       for (const ev of calendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
-        const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
+        let et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
           EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
-        if (!et) continue;
+        if (!et) et = "calendar_event";
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
-        // Check same-day AND next-day check-ins
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
         const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
         const nextDayCI = checkIns.find(c => c.checkin_date === nextDate);
@@ -279,14 +286,15 @@ serve(async (req) => {
         outcomes.forEach(o => freq.set(o, (freq.get(o) || 0) + 1));
         freq.forEach((cnt, outcome) => {
           const pct = cnt / outcomes.length;
-          if (pct >= 0.5 && (!bestCalCE || pct > bestCalCE.pct)) {
+          if (pct >= 0.4 && (!bestCalCE || pct > bestCalCE.pct)) {
             bestCalCE = { et, outcome, pct, count: outcomes.length };
           }
         });
       });
       if (bestCalCE) {
         const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
-        causeEffectInsight = `After ${b.et.replace("_", " ")} events, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+        const label = b.et === 'calendar_event' ? 'busy calendar days' : `${b.et.replace("_", " ")} events`;
+        causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
       }
     }
 
@@ -329,6 +337,37 @@ serve(async (req) => {
         const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
         if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
           causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
+        }
+      }
+    }
+
+    // Path E (NEW): Deterministic temporal fallback — use strongest day/time differential
+    if (!causeEffectInsight && checkIns.length >= 7) {
+      const positiveOutcomes = new Set(["focused", "steady"]);
+      const weekdayCI = checkIns.filter(c => { const d = new Date(c.checkin_date).getDay(); return d >= 1 && d <= 5 && c.outcome; });
+      const weekendCI = checkIns.filter(c => { const d = new Date(c.checkin_date).getDay(); return (d === 0 || d === 6) && c.outcome; });
+      if (weekdayCI.length >= 3 && weekendCI.length >= 2) {
+        const wdPos = weekdayCI.filter(c => positiveOutcomes.has(c.outcome!)).length / weekdayCI.length;
+        const wePos = weekendCI.filter(c => positiveOutcomes.has(c.outcome!)).length / weekendCI.length;
+        if (Math.abs(wdPos - wePos) >= 0.15) {
+          const better = wdPos > wePos ? "weekdays" : "weekends";
+          const worse = wdPos > wePos ? "weekends" : "weekdays";
+          const betterPct = Math.round(Math.max(wdPos, wePos) * 100);
+          const worsePct = Math.round(Math.min(wdPos, wePos) * 100);
+          causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} — your environment on ${better} may better support your inner state.`;
+        }
+      }
+      if (!causeEffectInsight) {
+        const morningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 5 && h < 12 && c.outcome; });
+        const eveningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 17 && c.outcome; });
+        if (morningCI.length >= 3 && eveningCI.length >= 3) {
+          const mPos = morningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / morningCI.length;
+          const ePos = eveningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / eveningCI.length;
+          if (Math.abs(mPos - ePos) >= 0.15) {
+            const better = mPos > ePos ? "mornings" : "evenings";
+            const betterPct = Math.round(Math.max(mPos, ePos) * 100);
+            causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) — your natural rhythm may favour this window for high-stakes work.`;
+          }
         }
       }
     }
