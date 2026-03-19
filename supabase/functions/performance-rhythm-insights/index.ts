@@ -121,7 +121,7 @@ serve(async (req) => {
       dialogueMessages = msgs || [];
     }
 
-    console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs`);
+    console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
 
     // ── BUILD 3×7 GRID ──
     const grid: HeatmapCell[][] = Array(3).fill(null).map(() =>
