@@ -351,7 +351,8 @@ serve(async (req) => {
         let et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
           EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
-        if (!et) et = "calendar_event";
+        // Use actual event title when no keyword match
+        if (!et) et = ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title;
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
         const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
