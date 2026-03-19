@@ -2030,7 +2030,7 @@ async function fetchWearableHRV(
     const currentRow = todayResult.data?.[0];
     if (!currentRow) return undefined;
 
-    const currentHRV = Number(currentRow.hrv);
+    const currentHRV = Number((currentRow as any).hrv);
     if (!currentHRV || isNaN(currentHRV)) return undefined;
 
     // Compute 30-day baseline
