@@ -174,8 +174,8 @@ Deno.serve(async (req) => {
     if (coachSessionCount > 0) {
       const sessionIds = dialogueSessions.map((s: any) => s.id);
       secondaryQueries.push(
-        supabase.from("dialogue_messages").select("content").in("session_id", sessionIds)
-          .then(({ data }) => { dialogueMessages = (data || []).map((m: any) => ({ content: m.content || "" })); })
+        Promise.resolve(supabase.from("dialogue_messages").select("content").in("session_id", sessionIds)
+          .then(({ data }) => { dialogueMessages = (data || []).map((m: any) => ({ content: m.content || "" })); }))
       );
     }
 
