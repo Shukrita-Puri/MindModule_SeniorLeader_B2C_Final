@@ -24,7 +24,25 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    /**
+     * Helper: upsert integration status.
+     * Preserves watch_connected_at if already set — only writes it on first real connection.
+     */
     const upsertIntegrationStatus = async (payload: Record<string, unknown>) => {
+      // If caller wants to set watch_connected_at, only do so if not already stored
+      if (payload.watch_connected_at) {
+        const { data: existing } = await db
+          .from("user_integrations")
+          .select("watch_connected_at")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (existing?.watch_connected_at) {
+          // Already has a first-connection timestamp — don't overwrite
+          delete payload.watch_connected_at;
+        }
+      }
+
       const { error } = await db
         .from("user_integrations")
         .upsert({
@@ -39,6 +57,7 @@ Deno.serve(async (req) => {
       }
     };
 
+    // ===== DISCONNECT =====
     if (body.action === "disconnect") {
       await upsertIntegrationStatus({
         watch_type: null,
@@ -56,6 +75,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ===== UPDATE STATUS =====
     if (body.action === "update_status") {
       await upsertIntegrationStatus({
         watch_type: body.watch_type ?? "apple",
@@ -99,44 +119,24 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
 
-        // Populate hrv_samples JSONB if provided
         if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) {
           row.hrv_samples = sample.hrv_samples;
         }
 
-        // Preserve any raw_data from the request
         if (body.raw_data) {
           row.raw_data = body.raw_data;
         }
 
-        // Check if row exists
-        const { data: existing } = await db
+        // Use upsert instead of select-then-update/insert to eliminate race conditions
+        const { error } = await db
           .from("wearable_data")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("summary_date", sample.summary_date)
-          .eq("source", "apple-healthkit")
-          .maybeSingle();
-
-        let error;
-        if (existing?.id) {
-          const result = await db
-            .from("wearable_data")
-            .update(row)
-            .eq("id", existing.id);
-          error = result.error;
-          if (!error) results.updated++;
-        } else {
-          const result = await db
-            .from("wearable_data")
-            .insert(row);
-          error = result.error;
-          if (!error) results.inserted++;
-        }
+          .upsert(row, { onConflict: "user_id,summary_date" });
 
         if (error) {
           console.error("[persist-wearable-data] DB error for", sample.summary_date, ":", error);
           results.errors++;
+        } else {
+          results.inserted++;  // upsert — counted as write
         }
       }
 
@@ -181,15 +181,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if row exists
-    const { data: existing } = await db
-      .from("wearable_data")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("summary_date", summary_date)
-      .eq("source", "apple-healthkit")
-      .maybeSingle();
-
     const row: Record<string, unknown> = {
       user_id: userId,
       summary_date,
@@ -206,19 +197,10 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
-    let error;
-    if (existing?.id) {
-      const result = await db
-        .from("wearable_data")
-        .update(row)
-        .eq("id", existing.id);
-      error = result.error;
-    } else {
-      const result = await db
-        .from("wearable_data")
-        .insert(row);
-      error = result.error;
-    }
+    // Use upsert instead of select-then-update/insert to eliminate race conditions
+    const { error } = await db
+      .from("wearable_data")
+      .upsert(row, { onConflict: "user_id,summary_date" });
 
     if (error) {
       console.error("[persist-wearable-data] DB error:", error);
