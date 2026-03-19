@@ -424,6 +424,24 @@ serve(async (req) => {
           } else {
             causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
           }
+          // HRV enrichment for Path D
+          if (wearableData.length >= 3) {
+            const hrvByDate = new Map<string, number>();
+            for (const w of wearableData) hrvByDate.set(w.summary_date, w.hrv as number);
+            const eventDayHRVs: number[] = [];
+            const nonEventDayHRVs: number[] = [];
+            for (const ci of checkIns) {
+              const hrv = hrvByDate.get(ci.checkin_date);
+              if (hrv === undefined) continue;
+              if (eventDates.has(ci.checkin_date)) eventDayHRVs.push(hrv);
+              else nonEventDayHRVs.push(hrv);
+            }
+            if (eventDayHRVs.length >= 2 && nonEventDayHRVs.length >= 2) {
+              const evAvg = Math.round(eventDayHRVs.reduce((a, b) => a + b, 0) / eventDayHRVs.length);
+              const neAvg = Math.round(nonEventDayHRVs.reduce((a, b) => a + b, 0) / nonEventDayHRVs.length);
+              causeEffectInsight += ` HRV: ${evAvg}ms on event days vs ${neAvg}ms on quiet days.`;
+            }
+          }
         }
       }
     }
