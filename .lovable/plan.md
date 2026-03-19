@@ -1,53 +1,90 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Plan: Fix Build Errors Across Edge Functions + Audit Implementation
 
-Two files need text-only changes (no layout or UI modifications).
+## Context
 
----
+There are 26 TypeScript errors across 5 edge function files. Most are **pre-existing type inference issues** unrelated to the recent changes (Issues 2 & 3). The self-mastery-coach errors include 3 fields missing from the `CoachContext` type that were added in code but not in the interface.
 
-### File 1: `src/pages/Front.tsx`
+## Audit: Issue 2 (Tiny Win Gate) — ALREADY IMPLEMENTED
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+The `flowType` gate has been removed at line 2766. Tiny win extraction now fires for all sessions with `userId && messages.length > 1`. **No further work needed.**
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+## Audit: Issue 3 (Coach Opener Enrichment) — ALREADY IMPLEMENTED
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+- `todayCheckins`, `upcomingCalendarEvents`, and `todayCheckinPatterns` fields added to `CoachContext` type
+- Server queries added to `buildServerContext` (queries 16-18)
+- Context population logic added (lines 1724-1754)
+- `buildFirstMessageInstruction` enriched with `contextSignals` array approach
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+**However**, the opener instruction needs a small refinement: the instruction should explicitly tell the coach to pick **one** most salient signal and weave it naturally — not dump multiple data points. This aligns with the user's feedback about not overwhelming with data. **I'll audit the current instruction text to confirm.**
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+## Audit: Issue 1 (Behavior Logs) — ALREADY IMPLEMENTED
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+Verified in prior message: `dialogue-session-manage` `end` action now inserts behavior_logs and fires downstream functions server-side.
 
 ---
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+## Build Error Fixes (5 files)
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+### File 1: `supabase/functions/self-mastery-coach/index.ts`
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+| Error | Fix |
+|-------|-----|
+| `dominantPattern` not on CoachContext (line 1630) | Add `dominantPattern?: string` to CoachContext interface |
+| `calendarStateCorrelations` not on CoachContext (lines 1711, 2511, 2514) | Add `calendarStateCorrelations?: Array<{event_keyword: string; typical_state: string; correlation_pct: number; occurrence_count: number}>` to CoachContext |
+| `jitContext.eventType` not on type (line 2355) | Add `eventType?: string` to `jitContext` type in CoachContext |
+| `profileResult.data` type errors (lines 1579-1581) | Cast `profileResult.data` as `any` (it's a `.maybeSingle()` result) |
+| `ev.created_at` not on type (line 1889) | Already using `(ev as any)` pattern nearby — apply same cast |
+| `currentRow.hrv` not on type (line 2020) | Already handled with `(currentRow as any)` or explicit cast |
+| Parameter `c` implicitly any (line 2514) | Add explicit `: any` type to forEach callback |
+| `supabase` argument type mismatch (line 2763) | Cast `supabase as any` in the `buildServerContext` call |
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+### File 2: `supabase/functions/compute-outer-readiness/index.ts`
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+| Error | Fix |
+|-------|-----|
+| `sample.hrv` / `recentHRV[0].hrv` type `never` (lines 654, 660, 670) | Cast `sample` and `recentHRV[0]` as `any` — the select includes `hrv` but TS can't infer |
+| `db` argument type mismatch (lines 925, 926, 1010) | Cast `db as any` in function calls |
+
+### File 3: `supabase/functions/generate-mastery-plan/index.ts`
+
+| Error | Fix |
+|-------|-----|
+| `meta?.structured_tags` / `mastery_category` on type `{}` (line 1628) | Cast `meta` as `any` (it's from a Map lookup) |
+| `req.patternInsight.toLowerCase()` on wrong type (line 1742) | Cast `(req.patternInsight as string \|\| '')` |
+
+### File 4: `supabase/functions/state-patterns-insights/index.ts`
+
+| Error | Fix |
+|-------|-----|
+| `PromiseLike` not assignable to `Promise` (lines 177, 187, 199) | Wrap `.then()` chains with `Promise.resolve()` or use `await` pattern |
+
+### File 5: `supabase/functions/tiny-wins-insights/index.ts`
+
+| Error | Fix |
+|-------|-----|
+| `win_date` not on type (line 411) | Add `win_date` to the select query (line 294) or cast `w` as `any` |
 
 ---
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+## Coach Opener Refinement (per user feedback)
+
+Review `buildFirstMessageInstruction` to ensure the instruction explicitly states:
+- Pick **exactly one** context signal (the most salient)
+- Weave it naturally into the greeting — no data dumps
+- If the user just says "Hi", use memory + context to ask a warm, relevant question
+- Never list multiple metrics in the opener
+
+---
+
+## Summary
+
+| File | Changes |
+|------|---------|
+| `self-mastery-coach/index.ts` | Add 3 missing fields to CoachContext; fix 8 type cast issues; refine opener instruction wording |
+| `compute-outer-readiness/index.ts` | Fix 5 type cast issues (`any` casts for DB results) |
+| `generate-mastery-plan/index.ts` | Fix 3 type cast issues |
+| `state-patterns-insights/index.ts` | Fix 3 `PromiseLike` → `Promise` issues |
+| `tiny-wins-insights/index.ts` | Add `win_date` to select or cast fix |
 
