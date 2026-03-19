@@ -3021,6 +3021,11 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     prompt += PREPARE_FLOW_PROMPT(context.jitContext.eventTitle, context.jitContext.minutesUntil, context.jitContext.eventType);
   }
 
+  // Independent session (no specific flow) — add independent flow prompt
+  if (!flowType || (flowType !== 'integrate' && flowType !== 'prepare' && flowType !== 'guided-reflection')) {
+    prompt += INDEPENDENT_FLOW_PROMPT;
+  }
+
   // --- Dynamic context injection ---
   if (context) {
     const lines: string[] = ['\n\n# CURRENT CONTEXT FOR THIS SESSION'];
