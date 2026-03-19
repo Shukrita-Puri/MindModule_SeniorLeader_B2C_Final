@@ -1625,7 +1625,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   const metadataMap = new Map((contentMetadata || []).map((m: any) => [m.content_id, m]));
   const enrichedContent = (contentLibrary || []).map((c: any) => {
     const meta = metadataMap.get(c.id);
-    return { ...c, structured_tags: meta?.structured_tags, mastery_category: meta?.mastery_category };
+    return { ...c, structured_tags: (meta as any)?.structured_tags, mastery_category: (meta as any)?.mastery_category };
   });
 
   // 3. Fetch HRV × Calendar correlations
@@ -1739,7 +1739,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
     // Check for pattern observations related to this event type
     if (scenario && req.patternInsight) {
-      const patternLower = (req.patternInsight || '').toLowerCase();
+      const patternLower = ((req as any).patternInsight || '').toLowerCase();
       const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
       if (scenarioKeywords.some(kw => patternLower.includes(kw))) {
         enrichedContextDescription = enrichedContextDescription.replace(

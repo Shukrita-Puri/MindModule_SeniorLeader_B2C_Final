@@ -651,13 +651,13 @@ async function checkWearableRecoveryTrigger(
     // Check consecutive days <-20% below baseline
     let consecutiveDays = 0;
     for (const sample of recentHRV) {
-      const deviation = ((sample.hrv - baseline) / baseline) * 100;
+      const deviation = (((sample as any).hrv - baseline) / baseline) * 100;
       if (deviation < -20) consecutiveDays++;
       else break;
     }
 
     if (consecutiveDays >= 2) {
-      const todayDeviation = Math.round(((recentHRV[0].hrv - baseline) / baseline) * 100);
+      const todayDeviation = Math.round((((recentHRV[0] as any).hrv - baseline) / baseline) * 100);
       return {
         triggered: true,
         reason: `Sustained HRV deficit detected (${consecutiveDays} consecutive days <-20% below baseline)`,
@@ -667,7 +667,7 @@ async function checkWearableRecoveryTrigger(
     }
 
     // Single-day extreme drop (<-30%)
-    const todayDeviation = ((recentHRV[0].hrv - baseline) / baseline) * 100;
+    const todayDeviation = (((recentHRV[0] as any).hrv - baseline) / baseline) * 100;
     if (todayDeviation < -30) {
       return {
         triggered: true,
@@ -922,8 +922,8 @@ serve(async (req) => {
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
     const lateEvening = isLateEvening(hour);
     const [calendarResult, tomorrowResult] = await Promise.all([
-      getServerCalendarMetrics(db, userId, timezoneOffset, 0),
-      lateEvening ? getServerCalendarMetrics(db, userId, timezoneOffset, 1) : Promise.resolve(null),
+      getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
+      lateEvening ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
@@ -1007,7 +1007,7 @@ serve(async (req) => {
     // Phase 2: Wearable recovery check (feature-flagged off)
     let wearableRecovery = null;
     if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
-      wearableRecovery = await checkWearableRecoveryTrigger(userId, db);
+      wearableRecovery = await checkWearableRecoveryTrigger(userId, db as any);
     }
 
     const leanOnResult = getLeanOnWatchFor(

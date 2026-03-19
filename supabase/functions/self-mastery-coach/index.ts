@@ -1256,6 +1256,7 @@ interface CoachContext {
     trigger: string;
     eventTitle?: string;
     minutesUntil?: number;
+    eventType?: string;
   };
   planStatus?: {
     completedModules: string[];
@@ -1389,6 +1390,17 @@ interface CoachContext {
   practiceEffectiveness?: Array<{
     practice_name: string;
     effectiveness_rate: number;
+  }>;
+
+  // Dominant pattern (server-detected)
+  dominantPattern?: string;
+
+  // Calendar-state correlations (server-fetched)
+  calendarStateCorrelations?: Array<{
+    event_keyword: string;
+    typical_state: string;
+    correlation_pct: number;
+    occurrence_count: number;
   }>;
 
   // Today's check-ins (server-fetched)
@@ -1576,9 +1588,10 @@ async function buildServerContext(
 
   // Profile
   if (profileResult.data) {
-    context.userName = profileResult.data.full_name?.split(' ')[0] || undefined;
-    context.userArchetype = profileResult.data.user_archetype || undefined;
-    context.identityRole = profileResult.data.identity_role || undefined;
+    const profile = profileResult.data as any;
+    context.userName = profile.full_name?.split(' ')[0] || undefined;
+    context.userArchetype = profile.user_archetype || undefined;
+    context.identityRole = profile.identity_role || undefined;
   }
 
   // Recent practices
@@ -1886,7 +1899,7 @@ async function fetchPracticeEffectiveness(
     // For each practice, check if next-day state was positive
     const practiceStats: Record<string, { improved: number; total: number }> = {};
     for (const ev of events) {
-      const practiceDate = new Date(ev.created_at).toISOString().split('T')[0];
+      const practiceDate = new Date((ev as any).created_at).toISOString().split('T')[0];
       const nextDay = new Date(new Date(practiceDate).getTime() + 86400000).toISOString().split('T')[0];
       const nextDayOutcome = checkInByDate[nextDay];
       if (!nextDayOutcome) continue;
@@ -2017,7 +2030,7 @@ async function fetchWearableHRV(
     const currentRow = todayResult.data?.[0];
     if (!currentRow) return undefined;
 
-    const currentHRV = Number(currentRow.hrv);
+    const currentHRV = Number((currentRow as any).hrv);
     if (!currentHRV || isNaN(currentHRV)) return undefined;
 
     // Compute 30-day baseline
@@ -2511,7 +2524,7 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     if (context.calendarStateCorrelations && context.calendarStateCorrelations.length > 0) {
       lines.push('\n## Calendar-State Correlations');
       lines.push('Patterns between calendar events and user state:');
-      context.calendarStateCorrelations.forEach(c => {
+      context.calendarStateCorrelations.forEach((c: any) => {
         lines.push(`- "${c.event_keyword}" events → typically **${c.typical_state}** (${c.correlation_pct}% of ${c.occurrence_count} occurrences)`);
       });
       lines.push('Use these correlations to anticipate and proactively address state shifts.');
@@ -2760,7 +2773,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Server builds full context from DB; client only sends ephemeral UI state
-    const fullContext = await buildServerContext(supabase, userId, clientContext);
+    const fullContext = await buildServerContext(supabase as any, userId, clientContext);
 
     // Fire AI-driven tiny win extraction in parallel (non-blocking)
     if (userId && messages.length > 1) {

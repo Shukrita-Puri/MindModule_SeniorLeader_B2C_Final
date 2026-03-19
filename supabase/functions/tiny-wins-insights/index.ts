@@ -292,7 +292,7 @@ serve(async (req) => {
     // Re-fetch updated wins
     const { data: updatedWins } = await supabase
       .from("tiny_wins")
-      .select("id, win_content, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal, source")
+      .select("id, win_content, win_date, sentiment, primary_emotion, secondary_emotion, agency_type, regulation_level, growth_signal, source")
       .eq("user_id", userId)
       .gte("win_date", startDate.toISOString().split("T")[0]);
 
