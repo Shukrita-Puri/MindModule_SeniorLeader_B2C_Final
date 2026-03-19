@@ -6,6 +6,7 @@ import { DEV_MODE } from '@/config/devMode';
 import { CANONICAL_APP_URL } from '@/utils/authRedirect';
 import { getRedirectUri, nativeLogin, isNativeAuthBusy, isNativeAuthCompleted, getSanitisedAuth0Audience } from '@/utils/nativeAuth';
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress';
+import { useAuth } from '@/hooks/useAuth';
 
 function isInIframe(): boolean {
   try {
@@ -16,9 +17,11 @@ function isInIframe(): boolean {
 }
 
 const Stage8SignupStep = () => {
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { isLoading: auth0Loading, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const redirectInitiated = useRef(false);
+  const completionInitiated = useRef(false);
   const inIframe = isInIframe();
   const { recordStep } = useOnboardingProgress();
 
@@ -28,11 +31,16 @@ const Stage8SignupStep = () => {
       return;
     }
     if (inIframe) return;
-    if (isLoading) return;
+    if (auth0Loading || authLoading) return;
 
     if (isAuthenticated) {
-      recordStep('signup_step');
-      navigate('/onboarding/results');
+      if (completionInitiated.current) return;
+      completionInitiated.current = true;
+
+      (async () => {
+        await recordStep('signup_step');
+        navigate('/onboarding/results', { replace: true });
+      })();
       return;
     }
 
@@ -59,7 +67,7 @@ const Stage8SignupStep = () => {
         },
       });
     })();
-  }, [isLoading, isAuthenticated, navigate, loginWithRedirect, inIframe]);
+  }, [auth0Loading, authLoading, isAuthenticated, navigate, loginWithRedirect, inIframe, recordStep]);
 
   if (DEV_MODE) {
     return (
