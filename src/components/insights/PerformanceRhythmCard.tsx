@@ -409,7 +409,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             let et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
               EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl.includes(kw))
             );
-            if (!et) et = 'calendar_event';
+            if (!et) et = ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title;
             const evDate = new Date(ev.start_time).toISOString().split('T')[0];
             const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split('T')[0];
             const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
