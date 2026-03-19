@@ -379,6 +379,24 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const p = patterns[0];
             const behaviorLabel = p.behavior.replace(/_/g, ' ');
             causeEffectInsight = `On days following ${behaviorLabel.charAt(0).toUpperCase() + behaviorLabel.slice(1)}, you tend to check in '${p.outcome}' ${Math.round(p.conf * 100)}% of the time.`;
+            // HRV enrichment for Path B
+            if (wearableData.length >= 3) {
+              const hrvByDateB = new Map<string, number>();
+              for (const w of wearableData) hrvByDateB.set(w.summary_date, w.hrv as number);
+              const allHRVsB = wearableData.map((w: any) => w.hrv as number);
+              const hrvBaselineB = Math.round(allHRVsB.reduce((a: number, b: number) => a + b, 0) / allHRVsB.length);
+              const behaviorDayHRVs: number[] = [];
+              for (const log of behaviorLogs) {
+                if (log.behavior_type?.toLowerCase() !== p.behavior) continue;
+                const bd = new Date(log.created_at).toISOString().split('T')[0];
+                const hrv = hrvByDateB.get(bd);
+                if (hrv !== undefined) behaviorDayHRVs.push(hrv);
+              }
+              if (behaviorDayHRVs.length >= 2) {
+                const avgHRV = Math.round(behaviorDayHRVs.reduce((a, b) => a + b, 0) / behaviorDayHRVs.length);
+                causeEffectInsight += ` Your HRV averaged ${avgHRV}ms on those days vs ${hrvBaselineB}ms baseline.`;
+              }
+            }
           }
         }
 
