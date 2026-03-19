@@ -667,7 +667,7 @@ async function checkWearableRecoveryTrigger(
     }
 
     // Single-day extreme drop (<-30%)
-    const todayDeviation = ((recentHRV[0].hrv - baseline) / baseline) * 100;
+    const todayDeviation = (((recentHRV[0] as any).hrv - baseline) / baseline) * 100;
     if (todayDeviation < -30) {
       return {
         triggered: true,
