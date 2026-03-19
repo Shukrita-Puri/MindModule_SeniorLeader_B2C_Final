@@ -88,6 +88,21 @@ const PsychologicalDimensionBubbles = ({
     growth: 'growth_signal',
   };
 
+  // Priority order: a win shows only in its highest-priority matching dimension
+  const DIMENSION_PRIORITY: string[] = ['emotion', 'agency', 'regulation', 'growth'];
+
+  // Determine which dimension "owns" a win (first non-null field in priority order)
+  const getWinPrimaryDimension = (win: WinWithDimensions): { dimension: string; value: string } | null => {
+    for (const dim of DIMENSION_PRIORITY) {
+      const field = DIMENSION_FIELD_MAP[dim];
+      const val = win[field];
+      if (typeof val === 'string' && val.trim()) {
+        return { dimension: dim, value: val.toLowerCase() };
+      }
+    }
+    return null;
+  };
+
   const filteredWins = useMemo(() => {
     if (!selectedItem || !relatedWins) return [];
     const field = DIMENSION_FIELD_MAP[selectedItem.dimension];
@@ -95,7 +110,11 @@ const PsychologicalDimensionBubbles = ({
     return relatedWins
       .filter(win => {
         const val = win[field];
-        return typeof val === 'string' && val.toLowerCase() === selectedItem.value.toLowerCase();
+        if (typeof val !== 'string' || val.toLowerCase() !== selectedItem.value.toLowerCase()) return false;
+        // Only show this win if the selected dimension IS its primary dimension
+        const primary = getWinPrimaryDimension(win);
+        if (!primary) return false;
+        return primary.dimension === selectedItem.dimension && primary.value === selectedItem.value.toLowerCase();
       })
       .filter(win => !isGenericWin(win.content));
   }, [selectedItem, relatedWins]);
