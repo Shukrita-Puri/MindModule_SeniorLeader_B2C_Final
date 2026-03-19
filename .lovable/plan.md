@@ -1,74 +1,70 @@
 
+Audit outcome (root causes confirmed)
 
-# Plan: Fix "Your Momentum" Data Gap + "How You Show Up" Duplicates
+1) Tiny Wins / “Your Momentum” is failing due ingestion reliability, not UI:
+- Database check: `tiny_wins` has only 2 rows total, both for `dev-user-123` from Jan 26; zero rows for active production users.
+- Recent coach messages for your affected user do include explicit win language (e.g., “I am proud… beta is finally live”), but no corresponding inserts happened.
+- `process-orphaned-sessions` cron is active and running every 10 minutes (job is healthy), but logs show “No orphaned sessions found” in recent runs, so orphan processing did not execute for those recent sessions.
+- Most recent coach sessions are already `completed`, so they bypass orphan path.
+- In `self-mastery-coach`, tiny win extraction currently has 3 fragility points:
+  - It only runs when `messages.length > 1` (first-turn sessions are skipped).
+  - It is fire-and-forget (not awaited), so completion is not guaranteed in a streaming edge lifecycle.
+  - Tool call is optional (no `tool_choice`), so extraction can silently return no structured call.
 
-## Findings
+2) “Cause-effect statement not visible” is currently data-path/threshold behavior, not rendering bug:
+- `performance-rhythm-insights` logs show `ceIns=false` (cause-effect not generated server-side), so UI has nothing to render.
+- For the affected user, behavior logs are sparse and concentrated (`coach_session` only), and current algorithm can fail to produce a confident pattern under its thresholds.
+- Calendar fallback is keyword-dependent; many event titles may not classify into known event types, which blocks fallback paths.
+- So the inline rendering code works when data exists, but the generator frequently outputs null.
 
-### Issue 1: "Your Momentum" shows no data
+Implementation plan
 
-**Root cause identified**: Tiny win extraction IS implemented — it runs on every coach message via `extractAndStoreTinyWin` in `self-mastery-coach/index.ts` (line 3436-3448). The DB has only **2 wins from January 26**, meaning either:
+A) Fix Tiny Wins ingestion at the reliable lifecycle point (session close), then keep orphan path as safety net
+Files:
+- `supabase/functions/dialogue-session-manage/index.ts`
+- `supabase/functions/process-orphaned-sessions/index.ts`
+- `supabase/functions/self-mastery-coach/index.ts`
 
-1. The extraction AI (`gemini-2.5-flash-lite`) is too conservative and rarely calls `store_tiny_win`
-2. Sessions aren't generating enough qualifying content
-3. The orphaned session processor does NOT trigger tiny win extraction — it fires 7 downstream functions but `store-tiny-win` / `extractAndStoreTinyWin` is not among them
+Changes:
+1. Add a shared “extract from persisted session messages” routine (or equivalent duplicated helper) and run it during `dialogue-session-manage` `action: end` for coach sessions with `msgCount >= 2`.
+2. Add duplicate guard: skip extraction if `tiny_wins` already has a row for that `session_id`.
+3. Keep orphan function extraction, but align it to same helper/prompt logic so both paths behave identically.
+4. In `self-mastery-coach`, harden per-message extraction as supplemental only:
+   - Change gate to include first meaningful user turn.
+   - Use structured tool output with deterministic contract (`has_win` + `win_content`) instead of optional tool-call behavior.
+   - Ensure extraction completion is lifecycle-safe (await with short timeout or move to close-only path for guaranteed persistence).
 
-**Key gap**: The `process-orphaned-sessions` function handles abandoned sessions but does NOT extract tiny wins. Only the live streaming path in `self-mastery-coach` does win extraction. If a session is orphaned before the user sends their final message, wins may be missed.
+B) Backfill missed wins so the card updates with already-completed recent sessions
+Files:
+- Add one edge-function backfill endpoint OR extend existing maintenance function in a controlled way.
 
-**Additionally**: The extraction prompt is strict ("When in doubt, do NOT store") and may be filtering out valid wins that don't use explicit achievement language.
+Changes:
+1. Scan last N days of completed coach sessions with `total_messages >= 2` and no `tiny_wins` rows.
+2. Re-run extraction from stored `dialogue_messages`.
+3. Insert wins with `source='coach'`, `session_id`, and dedupe by session.
 
-### Issue 2: "How You Show Up" shows duplicate text
+C) Make cause-effect always produce a useful line (or graceful fallback) instead of null
+File:
+- `supabase/functions/performance-rhythm-insights/index.ts`
 
-**Root cause**: In `performance-rhythm-insights/index.ts`, lines 426-428 add the overall positive check-in rate as a signal. Then line 431-433 picks the **top signal** as `presenceInsight`. Lines 436-439 build `presenceActions` from the **top 2 signals**. 
+Changes:
+1. Refine Path A correlation logic to avoid overcount dilution (pair behavior with nearest same/next-day check-in instead of broad many-to-many counting).
+2. Relax/expand fallback classification:
+   - If event title doesn’t match keyword taxonomy, treat as generic event type instead of discarding.
+3. If all cause-effect paths still fail, create deterministic fallback from strongest temporal differential already computed (so “How You Show Up” always includes one causal-style insight when sufficient check-ins exist).
+4. Preserve dedupe rule so no repeated sentence appears between `presenceInsight` and bullets.
 
-When the baseline check-in signal is the highest-scored, it appears as BOTH `presenceInsight` AND `presenceActions[0]` — producing the exact duplicate seen in the screenshot.
+D) Verification plan (post-implementation)
+1. Data verification:
+- Confirm new `tiny_wins` rows are created for the affected user after a coach session.
+- Confirm backfill inserts rows for missed completed sessions.
+2. Function verification:
+- Check logs for `dialogue-session-manage`, `process-orphaned-sessions`, `tiny-wins-insights`, and `performance-rhythm-insights`.
+3. UI/output verification:
+- `tiny-wins-insights` returns `winsCount > 0` and content for affected user.
+- `performance-rhythm-insights` returns non-null cause-effect or fallback line and no duplicated sentence.
 
-### Issue 3: No cause-effect in "How You Show Up"
-
-The cause-effect insight exists (line 530-534 in the UI) but renders as a **separate section below**, not inside the "How You Show Up" card. The user expects it inline.
-
----
-
-## Changes
-
-### File 1: `supabase/functions/performance-rhythm-insights/index.ts`
-
-**Fix A — Deduplicate presenceActions vs presenceInsight**:
-- After setting `presenceInsight` from top signal, filter `presenceActions` to exclude any signal whose text matches `presenceInsight`
-- This prevents the same sentence from appearing twice
-
-**Fix B — Include cause-effect insight inside "How You Show Up"**:
-- Add `causeEffectInsight` to the `presenceActions` array (if available and not already used as `presenceInsight`), so it renders inside the presence card bullets instead of as a disconnected standalone section
-
-### File 2: `supabase/functions/process-orphaned-sessions/index.ts`
-
-**Fix C — Add tiny win extraction to orphaned session processing**:
-- After the downstream functions fire, also call the AI-driven tiny win extraction for orphaned sessions
-- Fetch session messages, then call the Lovable AI gateway with the same extraction prompt used in `self-mastery-coach`
-- This ensures abandoned sessions still contribute wins to "Your Momentum"
-
-### File 3: `supabase/functions/self-mastery-coach/index.ts`
-
-**Fix D — Broaden tiny win extraction sensitivity**:
-- Update the extraction system prompt to be less conservative: recognize implicit wins (moments of pride, accomplishment language, growth reflections) even without explicit "win" framing
-- Add examples like: "I stayed calm", "I delegated", "I noticed my pattern", "things went well", "I'm proud of"
-- Change "When in doubt, do NOT store" to "When the user describes something they did well or are proud of, even implicitly, store it"
-
-### File 4: `src/components/insights/PerformanceRhythmCard.tsx`
-
-**Fix E — UI: Remove standalone cause-effect section if already shown in presence card**:
-- Add a guard: if `causeEffectInsight` was included in `presenceActions` (server-side), don't render the standalone 1C section again
-- Alternative: move the cause-effect rendering into the presence card section so it's always grouped together
-
----
-
-## Summary
-
-| Change | File | Impact |
-|--------|------|--------|
-| Deduplicate presenceInsight/Actions | performance-rhythm-insights EF | Fixes duplicate sentence |
-| Include cause-effect in presence card | performance-rhythm-insights EF + UI | Groups analysis together |
-| Add tiny win extraction to orphaned sessions | process-orphaned-sessions EF | Captures wins from abandoned sessions |
-| Broaden win extraction prompt | self-mastery-coach EF | More wins detected from conversations |
-
-No DB migrations needed. Three edge functions to deploy.
-
+Expected result after this plan
+- “Your Momentum” starts populating from both newly closed sessions and recovered recent sessions.
+- Cause-effect insight appears consistently in “How You Show Up” (with fallback when strict correlations are weak).
+- Duplicate readiness sentence remains fixed.
