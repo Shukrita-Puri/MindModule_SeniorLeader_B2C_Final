@@ -183,6 +183,104 @@ serve(async (req) => {
         }
       }, 5000);
 
+      // Extract tiny wins from orphaned session messages via AI
+      try {
+        const { data: sessionMessages } = await supabase
+          .from('dialogue_messages')
+          .select('content, sender_type')
+          .eq('session_id', session.id)
+          .order('message_index', { ascending: true });
+
+        if (sessionMessages && sessionMessages.length >= 2) {
+          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+          if (LOVABLE_API_KEY) {
+            const aiMessages = sessionMessages.map(m => ({
+              role: m.sender_type === 'user' ? 'user' : 'assistant',
+              content: m.content,
+            }));
+
+            const winResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash-lite',
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You analyze coaching conversations to detect genuine tiny wins shared by the user. 
+A tiny win is a real personal achievement, accomplishment, positive behavior, moment of growth, or something the user is proud of — even if they don't call it a "win."
+
+DO NOT treat the following as wins:
+- The coach's suggested prompts or questions
+- Generic greetings or small talk
+- Questions the user asks without describing an action
+
+DO treat these as wins (be generous — capture implicit achievements):
+- Specific actions the user took
+- Behaviors they're proud of
+- Realizations or growth moments
+- Reflections on what went well
+- Moments of self-awareness
+- Choosing differently than usual
+- Showing up despite difficulty
+- Any moment where the user describes doing something positive, even casually
+
+If the user shared a genuine win, consolidate it into one clear statement. Err on the side of capturing rather than missing.`
+                  },
+                  ...aiMessages,
+                ],
+                tools: [{
+                  type: 'function',
+                  function: {
+                    name: 'store_tiny_win',
+                    description: 'Store a tiny win when the user shares a genuine personal achievement or positive reflection.',
+                    parameters: {
+                      type: 'object',
+                      properties: {
+                        win_content: {
+                          type: 'string',
+                          description: 'The actual win or achievement the user described.',
+                        },
+                      },
+                      required: ['win_content'],
+                    },
+                  },
+                }],
+                stream: false,
+              }),
+            });
+
+            if (winResponse.ok) {
+              const winData = await winResponse.json();
+              const toolCalls = winData.choices?.[0]?.message?.tool_calls;
+              if (toolCalls) {
+                for (const tc of toolCalls) {
+                  if (tc.function?.name === 'store_tiny_win') {
+                    const args = JSON.parse(tc.function.arguments);
+                    const winContent = args.win_content?.trim();
+                    if (winContent && winContent.length >= 10) {
+                      await supabase.from('tiny_wins').insert({
+                        user_id: session.user_id,
+                        session_id: session.id,
+                        win_content: winContent,
+                        win_date: new Date().toISOString().split('T')[0],
+                        source: 'coach',
+                      });
+                      console.log(`[process-orphaned-sessions] ✅ Tiny win extracted: ${winContent.substring(0, 60)}`);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (winErr) {
+        console.error(`[process-orphaned-sessions] Tiny win extraction error:`, winErr);
+      }
+
       const succeeded = results.filter(r => r.status === 'fulfilled').length;
       console.log(`[process-orphaned-sessions] Session ${session.id}: ${succeeded}/${downstreamFns.length} downstream succeeded (${msgCount} msgs)`);
       processed++;
