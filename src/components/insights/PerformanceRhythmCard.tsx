@@ -89,7 +89,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const effectiveUserId = DEV_USER.id;
         const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
 
-        const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] = await Promise.all([
+        const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] = await Promise.all([
           supabase
             .from('daily_checkins')
             .select('outcome, energy_balance, checkin_date, created_at')
@@ -127,6 +127,17 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .select('id')
             .eq('user_id', effectiveUserId)
             .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
+          supabase
+            .from('jit_preferences')
+            .select('event_title, action, event_start_time')
+            .eq('user_id', effectiveUserId)
+            .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
+          supabase
+            .from('wearable_data')
+            .select('summary_date, hrv, resting_heart_rate')
+            .eq('user_id', effectiveUserId)
+            .gte('summary_date', thirtyDaysAgo)
+            .not('hrv', 'is', null),
         ]);
 
         const checkIns = checkInsRes.data || [];
@@ -135,6 +146,8 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const behaviorLogs = behaviorRes.data || [];
         const readinessScores = readinessRes.data || [];
         const rituals = ritualsRes.data || [];
+        const jitPrefs = jitRes.data || [];
+        const wearableData = wearableRes.data || [];
 
         // BUG 5 fix: Scope dialogue_messages by user's session IDs
         const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
@@ -270,37 +283,244 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
         }
 
-        // ── Cause-Effect (1C) ──
+        // ── Cause-Effect (1C) — All 6 paths mirroring edge function ──
         let causeEffectInsight: string | null = null;
-        if (behaviorLogs.length >= 3) {
-          const behaviorPatterns = new Map<string, { behavior: string; outcome: string; count: number }>();
+
+        const EVENT_TYPE_KEYWORDS_CE: Record<string, string[]> = {
+          board: ['board', 'board meeting', 'board of directors', 'board deck'],
+          investor: ['investor', 'vc', 'funding', 'pitch', 'fundraise'],
+          quarterly: ['quarterly', 'qbr', 'q1', 'q2', 'q3', 'q4', 'quarterly review'],
+          strategic: ['strategy', 'strategic planning', 'offsite', 'vision', 'roadmap'],
+          client: ['client', 'customer', 'demo', 'proposal'],
+          performance_review: ['performance review', 'annual review', 'mid-year', '360'],
+          all_hands: ['all hands', 'town hall', 'company meeting'],
+          media: ['interview', 'podcast', 'media', 'press'],
+          deadline: ['deadline', 'urgent', 'due', 'eod', 'cob'],
+          presentation: ['presentation', 'speaking', 'conference', 'webinar'],
+        };
+
+        // Path A: Calendar Event Type × HRV Correlation
+        if (hasCalendar && calendarEvents.length >= 3 && wearableData.length >= 5) {
+          const allHRVs = wearableData.map((w: any) => w.hrv as number);
+          const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
+          const hrvByDate = new Map<string, number>();
+          for (const w of wearableData) {
+            hrvByDate.set(w.summary_date, w.hrv as number);
+          }
+          const eventTypeHRV = new Map<string, { hrvs: number[]; titles: string[] }>();
+          for (const ev of calendarEvents) {
+            if (!ev.title) continue;
+            const tl = ev.title.toLowerCase();
+            const et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
+              EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl.includes(kw))
+            );
+            if (!et) continue;
+            const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+            const dayHRV = hrvByDate.get(evDate);
+            if (dayHRV === undefined) continue;
+            if (!eventTypeHRV.has(et)) eventTypeHRV.set(et, { hrvs: [], titles: [] });
+            const entry = eventTypeHRV.get(et)!;
+            entry.hrvs.push(dayHRV);
+            entry.titles.push(ev.title);
+          }
+          let bestDeviation: { et: string; avgHRV: number; count: number; devPct: number; recentTitle: string; direction: string } | null = null;
+          eventTypeHRV.forEach((data, et) => {
+            if (data.hrvs.length < 2) return;
+            const avgHRV = data.hrvs.reduce((a, b) => a + b, 0) / data.hrvs.length;
+            const devPct = ((avgHRV - hrvBaseline) / hrvBaseline) * 100;
+            if (Math.abs(devPct) >= 10) {
+              if (!bestDeviation || Math.abs(devPct) > Math.abs(bestDeviation.devPct)) {
+                bestDeviation = { et, avgHRV: Math.round(avgHRV), count: data.hrvs.length, devPct: Math.round(devPct), recentTitle: data.titles[data.titles.length - 1], direction: devPct < 0 ? 'drop' : 'rise' };
+              }
+            }
+          });
+          if (bestDeviation) {
+            const b = bestDeviation as { et: string; avgHRV: number; count: number; devPct: number; recentTitle: string; direction: string };
+            const label = b.et.replace(/_/g, ' ');
+            const absDevPct = Math.abs(b.devPct);
+            causeEffectInsight = b.direction === 'drop'
+              ? `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — observed across ${b.count} events.`
+              : `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — these events don't tax your nervous system.`;
+          }
+        }
+
+        // Path B: behavior_logs → nearest same/next-day check-in
+        if (!causeEffectInsight && behaviorLogs.length >= 2 && checkIns.length > 0) {
+          const bp = new Map<string, { behavior: string; outcome: string; count: number }>();
           for (const log of behaviorLogs) {
             const bd = new Date(log.created_at).toISOString().split('T')[0];
             const type = log.behavior_type?.toLowerCase();
             if (!type) continue;
+            let nearest: typeof checkIns[0] | null = null;
+            let nearestDiff = Infinity;
             for (const ci of checkIns) {
               const diff = (new Date(ci.checkin_date).getTime() - new Date(bd).getTime()) / 86400000;
-              if (diff >= 0 && diff <= 1 && ci.outcome) {
-                const key = `${type}→${ci.outcome}`;
-                if (!behaviorPatterns.has(key)) behaviorPatterns.set(key, { behavior: type, outcome: ci.outcome, count: 0 });
-                behaviorPatterns.get(key)!.count++;
+              if (diff >= 0 && diff <= 1 && Math.abs(diff) < nearestDiff && ci.outcome) {
+                nearest = ci;
+                nearestDiff = Math.abs(diff);
+              }
+            }
+            if (nearest) {
+              const key = `${type}→${nearest.outcome}`;
+              if (!bp.has(key)) bp.set(key, { behavior: type, outcome: nearest.outcome!, count: 0 });
+              bp.get(key)!.count++;
+            }
+          }
+          const totals = new Map<string, number>();
+          bp.forEach(p => totals.set(p.behavior, (totals.get(p.behavior) || 0) + p.count));
+          const patterns: { behavior: string; outcome: string; conf: number; count: number }[] = [];
+          bp.forEach(p => {
+            const t = totals.get(p.behavior) || 1;
+            const conf = p.count / t;
+            if (p.count >= 2 && conf >= 0.4) patterns.push({ behavior: p.behavior, outcome: p.outcome, conf, count: p.count });
+          });
+          patterns.sort((a, b) => b.conf - a.conf);
+          if (patterns[0]) {
+            const p = patterns[0];
+            const behaviorLabel = p.behavior.replace(/_/g, ' ');
+            causeEffectInsight = `On days following ${behaviorLabel.charAt(0).toUpperCase() + behaviorLabel.slice(1)}, you tend to check in '${p.outcome}' ${Math.round(p.conf * 100)}% of the time.`;
+          }
+        }
+
+        // Path C: Calendar event → next-day check-in outcome
+        if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
+          const etOutcomes = new Map<string, string[]>();
+          for (const ev of calendarEvents) {
+            if (!ev.title) continue;
+            const tl = ev.title.toLowerCase();
+            let et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
+              EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl.includes(kw))
+            );
+            if (!et) et = 'calendar_event';
+            const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+            const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split('T')[0];
+            const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
+            const nextDayCI = checkIns.find(c => c.checkin_date === nextDate);
+            const matchCI = nextDayCI || sameDayCI;
+            if (matchCI?.outcome) {
+              if (!etOutcomes.has(et)) etOutcomes.set(et, []);
+              etOutcomes.get(et)!.push(matchCI.outcome);
+            }
+          }
+          let bestCalCE: { et: string; outcome: string; pct: number; count: number } | null = null;
+          etOutcomes.forEach((outcomes, et) => {
+            if (outcomes.length < 2) return;
+            const freq = new Map<string, number>();
+            outcomes.forEach(o => freq.set(o, (freq.get(o) || 0) + 1));
+            freq.forEach((cnt, outcome) => {
+              const pct = cnt / outcomes.length;
+              if (pct >= 0.4 && (!bestCalCE || pct > bestCalCE.pct)) {
+                bestCalCE = { et, outcome, pct, count: outcomes.length };
+              }
+            });
+          });
+          if (bestCalCE) {
+            const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
+            const label = b.et === 'calendar_event' ? 'busy calendar days' : `${b.et.replace('_', ' ')} events`;
+            causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+          }
+        }
+
+        // Path D: Event day vs non-event day
+        if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 2 && checkIns.length >= 5) {
+          const eventDayOutcomes: string[] = [];
+          const nonEventDayOutcomes: string[] = [];
+          const eventDates = new Set(calendarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]));
+          for (const ci of checkIns) {
+            if (!ci.outcome) continue;
+            if (eventDates.has(ci.checkin_date)) eventDayOutcomes.push(ci.outcome);
+            else nonEventDayOutcomes.push(ci.outcome);
+          }
+          if (eventDayOutcomes.length >= 3 && nonEventDayOutcomes.length >= 2) {
+            const posOutcomes = new Set(['focused', 'steady']);
+            const eventPosPct = eventDayOutcomes.filter(o => posOutcomes.has(o)).length / eventDayOutcomes.length;
+            const nonEventPosPct = nonEventDayOutcomes.filter(o => posOutcomes.has(o)).length / nonEventDayOutcomes.length;
+            const diff = eventPosPct - nonEventPosPct;
+            if (Math.abs(diff) >= 0.15) {
+              causeEffectInsight = diff > 0
+                ? `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`
+                : `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+            }
+          }
+        }
+
+        // Path E: JIT completion → outcome + HRV enrichment
+        if (!causeEffectInsight && jitPrefs.length >= 2 && checkIns.length >= 5) {
+          const jitCompleted = jitPrefs.filter((j: any) => j.action === 'completed' || j.action === 'accepted');
+          if (jitCompleted.length >= 2) {
+            if (wearableData.length >= 3) {
+              const hrvByDate = new Map<string, number>();
+              for (const w of wearableData) {
+                hrvByDate.set(w.summary_date, w.hrv as number);
+              }
+              const jitDayHRVs: number[] = [];
+              const allEventDates = new Set<string>();
+              for (const j of jitCompleted) {
+                if (!j.event_start_time) continue;
+                const evDate = new Date(j.event_start_time).toISOString().split('T')[0];
+                allEventDates.add(evDate);
+                const hrv = hrvByDate.get(evDate);
+                if (hrv !== undefined) jitDayHRVs.push(hrv);
+              }
+              const nonPreppedHRVs: number[] = [];
+              for (const ev of calendarEvents) {
+                const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+                if (allEventDates.has(evDate)) continue;
+                const hrv = hrvByDate.get(evDate);
+                if (hrv !== undefined) nonPreppedHRVs.push(hrv);
+              }
+              if (jitDayHRVs.length >= 2 && nonPreppedHRVs.length >= 2) {
+                const jitAvg = Math.round(jitDayHRVs.reduce((a, b) => a + b, 0) / jitDayHRVs.length);
+                const nonAvg = Math.round(nonPreppedHRVs.reduce((a, b) => a + b, 0) / nonPreppedHRVs.length);
+                causeEffectInsight = jitAvg > nonAvg
+                  ? `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped event days — preparation may reduce physiological stress.`
+                  : `When you completed JIT prep, your HRV averaged ${jitAvg}ms vs ${nonAvg}ms on unprepped days — prep helps your state even when HRV stays similar.`;
+              }
+            }
+            if (!causeEffectInsight) {
+              const completedOutcomes: string[] = [];
+              for (const j of jitCompleted) {
+                if (!j.event_start_time) continue;
+                const evDate = new Date(j.event_start_time).toISOString().split('T')[0];
+                const ci = checkIns.find(c => c.checkin_date === evDate);
+                if (ci?.outcome) completedOutcomes.push(ci.outcome);
+              }
+              const positiveCount = completedOutcomes.filter(o => o === 'focused' || o === 'steady').length;
+              if (completedOutcomes.length >= 2 && positiveCount / completedOutcomes.length >= 0.5) {
+                causeEffectInsight = `When you completed JIT prep before events, you checked in positively ${Math.round(positiveCount / completedOutcomes.length * 100)}% of the time — observed across ${completedOutcomes.length} events.`;
               }
             }
           }
-          const patterns: { behavior: string; outcome: string; count: number; confidence: number }[] = [];
-          const behaviorTotals = new Map<string, number>();
-          behaviorPatterns.forEach(p => {
-            behaviorTotals.set(p.behavior, (behaviorTotals.get(p.behavior) || 0) + p.count);
-          });
-          behaviorPatterns.forEach(p => {
-            const total = behaviorTotals.get(p.behavior) || 1;
-            const conf = p.count / total;
-            if (p.count >= 2 && conf >= 0.5) patterns.push({ ...p, confidence: conf });
-          });
-          patterns.sort((a, b) => b.confidence - a.confidence);
-          if (patterns[0]) {
-            const p = patterns[0];
-            causeEffectInsight = `On days following ${p.behavior.replace(/^\w/, c => c.toUpperCase())}, you tend to check in ${p.outcome} ${Math.round(p.confidence * 100)}% of the time.`;
+        }
+
+        // Path F: Temporal fallback (weekday/weekend, morning/evening)
+        if (!causeEffectInsight && checkIns.length >= 7) {
+          const positiveOutcomes = new Set(['focused', 'steady']);
+          const weekdayCI = checkIns.filter(c => { const d = new Date(c.checkin_date).getDay(); return d >= 1 && d <= 5 && c.outcome; });
+          const weekendCI = checkIns.filter(c => { const d = new Date(c.checkin_date).getDay(); return (d === 0 || d === 6) && c.outcome; });
+          if (weekdayCI.length >= 3 && weekendCI.length >= 2) {
+            const wdPos = weekdayCI.filter(c => positiveOutcomes.has(c.outcome!)).length / weekdayCI.length;
+            const wePos = weekendCI.filter(c => positiveOutcomes.has(c.outcome!)).length / weekendCI.length;
+            if (Math.abs(wdPos - wePos) >= 0.15) {
+              const better = wdPos > wePos ? 'weekdays' : 'weekends';
+              const worse = wdPos > wePos ? 'weekends' : 'weekdays';
+              const betterPct = Math.round(Math.max(wdPos, wePos) * 100);
+              const worsePct = Math.round(Math.min(wdPos, wePos) * 100);
+              causeEffectInsight = `Your positive check-in rate on ${better} is ${betterPct}% vs ${worsePct}% on ${worse} — your environment on ${better} may better support your inner state.`;
+            }
+          }
+          if (!causeEffectInsight) {
+            const morningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 5 && h < 12 && c.outcome; });
+            const eveningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 17 && c.outcome; });
+            if (morningCI.length >= 3 && eveningCI.length >= 3) {
+              const mPos = morningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / morningCI.length;
+              const ePos = eveningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / eveningCI.length;
+              if (Math.abs(mPos - ePos) >= 0.15) {
+                const better = mPos > ePos ? 'mornings' : 'evenings';
+                const betterPct = Math.round(Math.max(mPos, ePos) * 100);
+                causeEffectInsight = `You tend to check in more positively during ${better} (${betterPct}% positive) — your natural rhythm may favour this window for high-stakes work.`;
+              }
+            }
           }
         }
 
@@ -380,6 +600,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? 's' : ''}`;
         if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? 's' : ''}`;
         if (hasCalendar) dataSourceNote += ', calendar data';
+        if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? 's' : ''}`;
         dataSourceNote += ` over ${daySpan} days`;
 
         setData({
