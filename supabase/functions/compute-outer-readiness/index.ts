@@ -657,7 +657,7 @@ async function checkWearableRecoveryTrigger(
     }
 
     if (consecutiveDays >= 2) {
-      const todayDeviation = Math.round(((recentHRV[0].hrv - baseline) / baseline) * 100);
+      const todayDeviation = Math.round((((recentHRV[0] as any).hrv - baseline) / baseline) * 100);
       return {
         triggered: true,
         reason: `Sustained HRV deficit detected (${consecutiveDays} consecutive days <-20% below baseline)`,
