@@ -12,10 +12,19 @@ interface DimensionData {
   insight?: string;
 }
 
+interface WinWithDimensions {
+  content: string;
+  date: string;
+  primary_emotion?: string | null;
+  agency_type?: string | null;
+  regulation_level?: string | null;
+  growth_signal?: string | null;
+}
+
 interface PsychologicalDimensionBubblesProps {
   data: DimensionData[];
   emptyMessage?: string;
-  relatedWins?: Array<{ content: string; date: string }>;
+  relatedWins?: WinWithDimensions[];
 }
 
 // Color schemes by dimension type — sentiment removed (internal only)
