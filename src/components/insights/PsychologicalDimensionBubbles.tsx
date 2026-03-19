@@ -12,10 +12,19 @@ interface DimensionData {
   insight?: string;
 }
 
+interface WinWithDimensions {
+  content: string;
+  date: string;
+  primary_emotion?: string | null;
+  agency_type?: string | null;
+  regulation_level?: string | null;
+  growth_signal?: string | null;
+}
+
 interface PsychologicalDimensionBubblesProps {
   data: DimensionData[];
   emptyMessage?: string;
-  relatedWins?: Array<{ content: string; date: string }>;
+  relatedWins?: WinWithDimensions[];
 }
 
 // Color schemes by dimension type — sentiment removed (internal only)
@@ -71,9 +80,25 @@ const PsychologicalDimensionBubbles = ({
     return Math.max(...sortedData.map(d => d.count), 1);
   }, [sortedData]);
 
-  const meaningfulWins = useMemo(() => {
-    return relatedWins?.filter(win => !isGenericWin(win.content)) || [];
-  }, [relatedWins]);
+  // Dimension field mapping: which field to check for each dimension type
+  const DIMENSION_FIELD_MAP: Record<string, keyof WinWithDimensions> = {
+    emotion: 'primary_emotion',
+    agency: 'agency_type',
+    regulation: 'regulation_level',
+    growth: 'growth_signal',
+  };
+
+  const filteredWins = useMemo(() => {
+    if (!selectedItem || !relatedWins) return [];
+    const field = DIMENSION_FIELD_MAP[selectedItem.dimension];
+    if (!field) return [];
+    return relatedWins
+      .filter(win => {
+        const val = win[field];
+        return typeof val === 'string' && val.toLowerCase() === selectedItem.value.toLowerCase();
+      })
+      .filter(win => !isGenericWin(win.content));
+  }, [selectedItem, relatedWins]);
 
   const closeModal = () => setSelectedItem(null);
 
@@ -203,12 +228,12 @@ const PsychologicalDimensionBubbles = ({
                 </p>
               </div>
               
-              {meaningfulWins.length > 0 && (
+              {filteredWins.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     From your wins
                   </h5>
-                  {meaningfulWins.slice(0, 2).map((win, i) => (
+                  {filteredWins.slice(0, 2).map((win, i) => (
                     <div key={i} className="bg-muted/50 rounded-xl p-3 text-sm text-foreground">
                       "{win.content}"
                       <div className="text-[10px] text-muted-foreground mt-1">

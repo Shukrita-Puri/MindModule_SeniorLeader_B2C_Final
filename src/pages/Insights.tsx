@@ -173,7 +173,7 @@ const Insights = () => {
   const [checkInStreak, setCheckInStreak] = useState(0);
   const [checkInsWithTimestamp, setCheckInsWithTimestamp] = useState<CheckInWithTimestamp[]>([]);
   const [tinyWinsInsights, setTinyWinsInsights] = useState<TinyWinsInsights | null>(null);
-  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string }>>([]);
+  const [tinyWinsContent, setTinyWinsContent] = useState<Array<{ content: string; date: string; primary_emotion?: string | null; agency_type?: string | null; regulation_level?: string | null; growth_signal?: string | null }>>([]);
   const [winsLoading, setWinsLoading] = useState(true);
   const [statePatterns, setStatePatterns] = useState<StatePatternInsights | null>(null);
   const [patternsLoading, setPatternsLoading] = useState(true);
@@ -360,7 +360,11 @@ const Insights = () => {
         
         const winsWithContent = wins?.map(w => ({
           content: w.win_content,
-          date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          date: new Date(w.win_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          primary_emotion: w.primary_emotion || null,
+          agency_type: w.agency_type || null,
+          regulation_level: w.regulation_level || null,
+          growth_signal: w.growth_signal || null,
         })) || [];
         setTinyWinsContent(winsWithContent);
         
