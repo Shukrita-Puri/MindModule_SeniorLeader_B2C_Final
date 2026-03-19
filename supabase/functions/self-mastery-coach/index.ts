@@ -1588,9 +1588,10 @@ async function buildServerContext(
 
   // Profile
   if (profileResult.data) {
-    context.userName = profileResult.data.full_name?.split(' ')[0] || undefined;
-    context.userArchetype = profileResult.data.user_archetype || undefined;
-    context.identityRole = profileResult.data.identity_role || undefined;
+    const profile = profileResult.data as any;
+    context.userName = profile.full_name?.split(' ')[0] || undefined;
+    context.userArchetype = profile.user_archetype || undefined;
+    context.identityRole = profile.identity_role || undefined;
   }
 
   // Recent practices
