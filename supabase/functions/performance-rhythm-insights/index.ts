@@ -432,9 +432,9 @@ serve(async (req) => {
         ? signals[0].t
         : "Building pattern data — presence insights strengthen with more check-ins and high-stakes moments.";
 
-      // Build presenceActions from top signals
+      // Build presenceActions from top signals, excluding the one already used as presenceInsight
       presenceActions = signals
-        .filter(sig => sig.s > 0)
+        .filter(sig => sig.s > 0 && sig.t !== presenceInsight)
         .slice(0, 2)
         .map(sig => sig.t);
 
