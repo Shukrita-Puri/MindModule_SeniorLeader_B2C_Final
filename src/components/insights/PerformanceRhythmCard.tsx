@@ -434,8 +434,29 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           });
           if (bestCalCE) {
             const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
-            const label = b.et === 'calendar_event' ? 'busy calendar days' : `${b.et.replace('_', ' ')} events`;
+            const isKeyword = Object.keys(EVENT_TYPE_KEYWORDS_CE).includes(b.et);
+            const label = isKeyword ? `${b.et.replace(/_/g, ' ')} events` : `'${b.et}' events`;
             causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+            // HRV enrichment for Path C
+            if (wearableData.length >= 3) {
+              const hrvByDateC = new Map<string, number>();
+              for (const w of wearableData) hrvByDateC.set(w.summary_date, w.hrv as number);
+              const matchedDayHRVs: number[] = [];
+              for (const ev of calendarEvents) {
+                if (!ev.title) continue;
+                const tl2 = ev.title.toLowerCase();
+                const et2 = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type => EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl2.includes(kw)));
+                const groupKey = et2 || (ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title);
+                if (groupKey !== b.et) continue;
+                const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+                const hrv = hrvByDateC.get(evDate);
+                if (hrv !== undefined) matchedDayHRVs.push(hrv);
+              }
+              if (matchedDayHRVs.length >= 2) {
+                const avgHRV = Math.round(matchedDayHRVs.reduce((a, b) => a + b, 0) / matchedDayHRVs.length);
+                causeEffectInsight += ` Your HRV on those days averaged ${avgHRV}ms.`;
+              }
+            }
           }
         }
 
