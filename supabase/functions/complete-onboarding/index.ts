@@ -99,12 +99,14 @@ Deno.serve(async (req) => {
       if (watch_type !== undefined) {
         integrationData.watch_type = watch_type;
         if (watch_type) {
-          integrationData.watch_connected_at = new Date().toISOString();
-          integrationData.watch_connection_status = "connected";
+          // Do NOT set watch_connection_status = "connected" here.
+          // Onboarding only records the user's watch_type as metadata.
+          // Real "connected" status must come from actual HealthKit auth/sync
+          // via persist-wearable-data action=update_status.
           integrationData.watch_sync_status = "unknown";
           integrationData.watch_status_updated_at = new Date().toISOString();
-          integrationData.watch_disconnected_at = null;
         } else {
+          // Explicitly clearing watch_type → mark disconnected
           integrationData.watch_connection_status = "disconnected";
           integrationData.watch_sync_status = "unknown";
           integrationData.watch_status_updated_at = new Date().toISOString();
