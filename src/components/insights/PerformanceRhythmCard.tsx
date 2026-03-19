@@ -89,7 +89,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const effectiveUserId = DEV_USER.id;
         const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
 
-        const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes] = await Promise.all([
+        const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] = await Promise.all([
           supabase
             .from('daily_checkins')
             .select('outcome, energy_balance, checkin_date, created_at')
@@ -127,6 +127,17 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             .select('id')
             .eq('user_id', effectiveUserId)
             .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
+          supabase
+            .from('jit_preferences')
+            .select('event_title, action, event_start_time')
+            .eq('user_id', effectiveUserId)
+            .gte('created_at', new Date(thirtyDaysAgo).toISOString()),
+          supabase
+            .from('wearable_data')
+            .select('summary_date, hrv, resting_heart_rate')
+            .eq('user_id', effectiveUserId)
+            .gte('summary_date', thirtyDaysAgo)
+            .not('hrv', 'is', null),
         ]);
 
         const checkIns = checkInsRes.data || [];
