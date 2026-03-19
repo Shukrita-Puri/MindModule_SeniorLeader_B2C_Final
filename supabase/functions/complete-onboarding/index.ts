@@ -98,7 +98,18 @@ Deno.serve(async (req) => {
       }
       if (watch_type !== undefined) {
         integrationData.watch_type = watch_type;
-        if (watch_type) integrationData.watch_connected_at = new Date().toISOString();
+        if (watch_type) {
+          integrationData.watch_connected_at = new Date().toISOString();
+          integrationData.watch_connection_status = "connected";
+          integrationData.watch_sync_status = "unknown";
+          integrationData.watch_status_updated_at = new Date().toISOString();
+          integrationData.watch_disconnected_at = null;
+        } else {
+          integrationData.watch_connection_status = "disconnected";
+          integrationData.watch_sync_status = "unknown";
+          integrationData.watch_status_updated_at = new Date().toISOString();
+          integrationData.watch_disconnected_at = new Date().toISOString();
+        }
       }
 
       const { error: intErr } = await supabaseAdmin

@@ -1,11 +1,13 @@
 /**
- * Hook for wearable (Apple Watch / HealthKit) data freshness.
- * 
- * Connection state model (authoritative — based on LIVE permission + recent sync):
- * - not_connected: no permission granted, no data
- * - permission_granted_no_data: HealthKit access verified but no HRV samples
- * - connected_and_synced: HealthKit access + data persisted within threshold
- * - reconnect_required: had data before but permission revoked or sync stale
+ * Hook for wearable (Apple Watch / HealthKit) status.
+ *
+ * Connection state model:
+ * - disconnected: user has not connected or explicitly disconnected
+ * - connected: HealthKit permission is valid and sync is healthy
+ * - connected_but_waiting_for_data: HealthKit permission is valid, but no recent HRV samples exist yet
+ * - sync_delayed: HealthKit permission is valid, but the latest read/persist attempt was delayed or temporary failed
+ * - permission_revoked: HealthKit authorization is no longer valid
+ * - error: unexpected unrecoverable failure
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,7 +31,7 @@ const AUTO_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
 export function useWearableSync(): WearableSyncState {
   const { user } = useAuth();
-  const [connectionState, setConnectionState] = useState<WearableConnectionState>('not_connected');
+  const [connectionState, setConnectionState] = useState<WearableConnectionState>('disconnected');
   const [hasData, setHasData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
@@ -39,8 +41,9 @@ export function useWearableSync(): WearableSyncState {
   const syncingRef = useRef(false); // guard against duplicate syncs
   const lastSyncRef = useRef<Date | null>(null); // mutable ref for interval checks
 
-  const hasWearable = connectionState === 'permission_granted_no_data'
-    || connectionState === 'connected_and_synced';
+  const hasWearable = connectionState === 'connected'
+    || connectionState === 'connected_but_waiting_for_data'
+    || connectionState === 'sync_delayed';
 
   // Keep mutable ref in sync
   useEffect(() => { lastSyncRef.current = lastSync; }, [lastSync]);
@@ -95,11 +98,13 @@ export function useWearableSync(): WearableSyncState {
 
       setConnectionState(result.connectionState);
 
-      if (result.connectionState === 'connected_and_synced') {
+      if (result.connectionState === 'connected') {
         await fetchLatestFromDB();
         return true;
-      } else if (result.connectionState === 'permission_granted_no_data') {
-        // Connected but no HRV samples — not an error
+      } else if (
+        result.connectionState === 'connected_but_waiting_for_data'
+        || result.connectionState === 'sync_delayed'
+      ) {
         return true;
       } else {
         if (!silent) setError('Sync could not complete');
@@ -127,7 +132,7 @@ export function useWearableSync(): WearableSyncState {
       const granted = await requestHealthKitPermissions();
       if (!granted) {
         setError('HealthKit permission not granted');
-        setConnectionState('not_connected');
+        setConnectionState('permission_revoked');
         setIsSyncing(false);
         return false;
       }
@@ -181,8 +186,8 @@ export function useWearableSync(): WearableSyncState {
           console.log('[useWearableSync] Init: live HealthKit access confirmed');
           await syncIfStale();
         } else {
-          console.log('[useWearableSync] Init: live HealthKit access DENIED — marking reconnect_required');
-          setConnectionState('reconnect_required');
+          console.log('[useWearableSync] Init: live HealthKit access DENIED — marking permission_revoked');
+          setConnectionState('permission_revoked');
         }
       } else if (!isNativeApp()) {
         // Web: rely on DB data only for display

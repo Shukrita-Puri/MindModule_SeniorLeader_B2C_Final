@@ -164,7 +164,7 @@ export default function Stage7ContextConnection() {
     } else {
       verifyConnection();
     }
-  }, [verifyConnection, searchParams, setSearchParams]);
+  }, [verifyConnection, searchParams, setSearchParams, queryClient]);
 
   // Handle Google Calendar toggle
   const handleCalendarToggle = async (checked: boolean) => {
@@ -237,12 +237,18 @@ export default function Stage7ContextConnection() {
       const result = await syncHealthKitToBackend();
       console.log("[Stage7] Sync result:", JSON.stringify(result));
 
-      if (result.connectionState === 'connected_and_synced') {
+      if (result.connectionState === 'connected') {
         toast.success("Apple Health connected and data synced");
         setWatchSyncStatus("Synced ✓");
-      } else if (result.connectionState === 'permission_granted_no_data') {
+      } else if (result.connectionState === 'connected_but_waiting_for_data') {
         toast.success("Apple Health connected. HRV data will sync once available.");
         setWatchSyncStatus("Connected · No HRV data yet");
+      } else if (result.connectionState === 'sync_delayed') {
+        toast.warning("Apple Health is connected, but sync is delayed. The app will retry.");
+        setWatchSyncStatus("Connected · Sync delayed");
+      } else if (result.connectionState === 'permission_revoked') {
+        toast.error("Apple Health permission was revoked. Please re-enable it in Health settings.");
+        setWatchSyncStatus("Permission revoked");
       } else {
         toast.warning("Apple Health connected but sync incomplete. Data will sync on next app open.");
         setWatchSyncStatus("Connected · Sync pending");

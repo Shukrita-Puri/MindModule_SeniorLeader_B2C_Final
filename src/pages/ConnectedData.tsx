@@ -15,9 +15,9 @@ import { getAuthToken } from '@/services/authTokenService';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { requestHealthKitPermissions, isNativeApp } from '@/utils/healthKitCapacitor';
-import { syncHealthKitToBackend, clearHealthKitPermission } from '@/services/wearableSyncService';
+import { syncHealthKitToBackend, clearHealthKitPermission, disconnectAppleHealthFromBackend } from '@/services/wearableSyncService';
 import { openUrl } from '@/utils/openUrl';
-import { format } from 'date-fns';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
 
 import googleCalendarLogo from '@/assets/shared/google-calendar-logo.avif';
@@ -27,7 +27,19 @@ import appleHealthIcon from '@/assets/shared/apple-health-icon.png';
 
 interface ConnectionStatus {
   calendar: { connected: boolean; provider: string | null; lastSync: string | null };
-  appleWatch: { connected: boolean; lastSync: string | null; hasHistoricalData?: boolean; needsReconnect?: boolean };
+  appleWatch: {
+    connected: boolean;
+    connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'permission_revoked' | 'error';
+    syncStatus: 'unknown' | 'synced' | 'waiting_for_data' | 'sync_delayed' | 'watch_unavailable' | 'error';
+    lastSync: string | null;
+    lastSampleAt?: string | null;
+    watchConnectedAt?: string | null;
+    hasHistoricalData?: boolean;
+    needsReconnect?: boolean;
+    disconnectedAt?: string | null;
+    lastError?: string | null;
+    lastErrorAt?: string | null;
+  };
 }
 
 /** Trigger sync-calendar edge function with Auth0 token */
@@ -192,7 +204,7 @@ const ConnectedData = () => {
     };
 
     runPostConnectSync();
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, fetchStatus, queryClient]);
 
   const formatLastSync = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -308,12 +320,16 @@ const ConnectedData = () => {
       const result = await syncHealthKitToBackend();
       console.log('[ConnectedData] Sync result:', JSON.stringify(result));
 
-      if (result.connectionState === 'connected_and_synced') {
+      if (result.connectionState === 'connected') {
         toast.success('Apple Health data synced successfully');
-      } else if (result.connectionState === 'permission_granted_no_data') {
-        toast.info('Connected! HRV data will appear once available from Apple Health.');
+      } else if (result.connectionState === 'connected_but_waiting_for_data') {
+        toast.info('Apple Health is connected. Waiting for new HRV data from Apple Health.');
+      } else if (result.connectionState === 'sync_delayed') {
+        toast.warning('Apple Health is connected, but sync is delayed. We will retry automatically.');
+      } else if (result.connectionState === 'permission_revoked') {
+        toast.error('Apple Health permission was revoked. Please reconnect in Health settings.');
       } else {
-        toast.error('Apple Health sync encountered an issue. Try Sync Now later.');
+        toast.error('Apple Health encountered an issue. Try Sync Now later.');
       }
 
       // Refresh status from backend
@@ -334,12 +350,16 @@ const ConnectedData = () => {
       const result = await syncHealthKitToBackend();
       console.log('[ConnectedData] Manual sync result:', JSON.stringify(result));
 
-      if (result.connectionState === 'connected_and_synced') {
+      if (result.connectionState === 'connected') {
         toast.success('Apple Health data synced');
         await fetchStatus();
-      } else if (result.connectionState === 'permission_granted_no_data') {
-        toast.info('No HRV data available yet from Apple Health');
-      } else if (result.connectionState === 'reconnect_required') {
+      } else if (result.connectionState === 'connected_but_waiting_for_data') {
+        toast.info('Apple Health is connected. Waiting for new HRV data.');
+        await fetchStatus();
+      } else if (result.connectionState === 'sync_delayed') {
+        toast.warning('Apple Health is still connected, but sync is delayed.');
+        await fetchStatus();
+      } else if (result.connectionState === 'permission_revoked') {
         toast.error('Apple Health permission revoked. Please reconnect.');
         await fetchStatus();
       } else {
@@ -353,13 +373,31 @@ const ConnectedData = () => {
     }
   };
 
-  const handleDisconnectAppleHealth = () => {
+  const handleDisconnectAppleHealth = async () => {
     try {
       localStorage.removeItem('contextConnections');
+      const backendDisconnected = await disconnectAppleHealthFromBackend();
+      if (!backendDisconnected) {
+        toast.error('Failed to disconnect Apple Health');
+        return;
+      }
+
       clearHealthKitPermission();
-      setStatus(prev => prev ? { 
-        ...prev, 
-        appleWatch: { connected: false, lastSync: null, hasHistoricalData: false, needsReconnect: false } 
+      setStatus(prev => prev ? {
+        ...prev,
+        appleWatch: {
+          connected: false,
+          connectionStatus: 'disconnected',
+          syncStatus: 'unknown',
+          lastSync: null,
+          lastSampleAt: prev.appleWatch?.lastSampleAt ?? null,
+          hasHistoricalData: prev.appleWatch?.hasHistoricalData ?? false,
+          needsReconnect: false,
+          watchConnectedAt: null,
+          disconnectedAt: new Date().toISOString(),
+          lastError: null,
+          lastErrorAt: null,
+        }
       } : prev);
       toast.success('Apple Health disconnected');
     } catch {
@@ -371,28 +409,87 @@ const ConnectedData = () => {
 
   const getAppleHealthState = () => {
     const aw = status?.appleWatch;
-    if (!aw) return { showConnected: false, statusNote: undefined as string | undefined, showReconnect: false };
-    
-    if (aw.connected) {
-      // Actively synced recently
-      return { 
-        showConnected: true, 
-        statusNote: undefined,
+    if (!aw) {
+      return {
+        showConnected: false,
+        statusLabel: 'Disconnected',
+        statusNote: undefined as string | undefined,
         showReconnect: false,
       };
     }
-    if (aw.needsReconnect && aw.hasHistoricalData) {
-      // Has old data but no recent sync — show reconnect
-      return { 
-        showConnected: false, 
-        statusNote: 'Historical data available · Reconnect to resume sync',
+
+    const lastSyncNote = aw.lastSync
+      ? `Last synced ${formatDistanceToNowStrict(new Date(aw.lastSync), { addSuffix: true })}`
+      : undefined;
+    const lastSampleNote = aw.lastSampleAt
+      ? `Last sample ${formatDistanceToNowStrict(new Date(aw.lastSampleAt), { addSuffix: true })}`
+      : undefined;
+
+    if (aw.connectionStatus === 'connected') {
+      if (aw.syncStatus === 'waiting_for_data') {
+        return {
+          showConnected: true,
+          statusLabel: 'Connected',
+          statusNote: [ 'Waiting for new data', lastSyncNote ].filter(Boolean).join(' · '),
+          showReconnect: false,
+        };
+      }
+
+      if (aw.syncStatus === 'sync_delayed' || aw.syncStatus === 'watch_unavailable') {
+        return {
+          showConnected: true,
+          statusLabel: 'Connected',
+          statusNote: [ 'Watch unavailable or no recent samples', lastSyncNote, lastSampleNote ].filter(Boolean).join(' · '),
+          showReconnect: false,
+        };
+      }
+
+      return {
+        showConnected: true,
+        statusLabel: 'Connected',
+        statusNote: [ lastSyncNote, lastSampleNote ].filter(Boolean).join(' · ') || undefined,
+        showReconnect: false,
+      };
+    }
+
+    if (aw.connectionStatus === 'connecting') {
+      return {
+        showConnected: false,
+        statusLabel: 'Connecting...',
+        statusNote: 'Checking HealthKit authorization',
+        showReconnect: false,
+      };
+    }
+
+    if (aw.connectionStatus === 'permission_revoked') {
+      return {
+        showConnected: false,
+        statusLabel: 'Permission revoked',
+        statusNote: 'Reconnect Apple Health in iOS Health permissions to resume sync',
         showReconnect: true,
       };
     }
-    return { showConnected: false, statusNote: undefined, showReconnect: false };
+
+    if (aw.connectionStatus === 'error') {
+      return {
+        showConnected: false,
+        statusLabel: 'Connection issue',
+        statusNote: aw.lastError ? 'A HealthKit sync error needs attention' : 'Reconnect may be required to restore sync',
+        showReconnect: true,
+      };
+    }
+
+    return {
+      showConnected: false,
+      statusLabel: 'Disconnected',
+      statusNote: aw.hasHistoricalData ? 'Historical data is still available' : undefined,
+      showReconnect: false,
+    };
   };
 
-  const appleHealthState = status ? getAppleHealthState() : { showConnected: false, statusNote: undefined, showReconnect: false };
+  const appleHealthState = status
+    ? getAppleHealthState()
+    : { showConnected: false, statusLabel: 'Disconnected', statusNote: undefined, showReconnect: false };
 
   /* ─── Connection Data ─── */
 
@@ -404,6 +501,7 @@ const ConnectedData = () => {
       logo: <img src={googleCalendarLogo} alt="Google Calendar" className="h-8 w-8 rounded" />,
       connected: status?.calendar.connected ?? false,
       lastSync: formatLastSync(status?.calendar.lastSync ?? null),
+      statusLabel: undefined as string | undefined,
       statusNote: undefined as string | undefined,
       showReconnect: false,
       onConnect: handleConnectCalendar,
@@ -418,6 +516,7 @@ const ConnectedData = () => {
       logo: <img src={appleHealthIcon} alt="Apple Health" className="h-8 w-8 rounded-[10px]" />,
       connected: appleHealthState.showConnected,
       lastSync: formatLastSync(status?.appleWatch?.lastSync ?? null),
+      statusLabel: appleHealthState.statusLabel,
       statusNote: appleHealthState.statusNote,
       showReconnect: appleHealthState.showReconnect,
       onConnect: handleConnectAppleHealth,
@@ -449,6 +548,9 @@ const ConnectedData = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-foreground">{conn.name}</h3>
                     <p className="text-sm text-muted-foreground truncate">{conn.description}</p>
+                    {conn.id === 'apple-health' && (
+                      <p className="text-xs text-foreground/80 mt-0.5">{conn.statusLabel}</p>
+                    )}
                     {conn.connected && conn.lastSync && (
                       <p className="text-xs text-muted-foreground mt-0.5">{conn.lastSync}</p>
                     )}

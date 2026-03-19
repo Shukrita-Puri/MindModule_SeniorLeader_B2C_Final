@@ -41,22 +41,8 @@ Deno.serve(async (req) => {
       .eq("user_id", userId)
       .eq("is_active", true)
       .limit(1)
-      .single();
-
-    // Apple Watch — check for ANY wearable data (historical) separately from recent sync
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // Recent data = evidence of active sync pipeline
-    const { data: recentWearable } = await db
-      .from("wearable_data")
-      .select("id, updated_at, summary_date")
-      .eq("user_id", userId)
-      .gte("updated_at", sevenDaysAgo)
-      .order("summary_date", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    // Any historical data at all
     const { data: anyWearable } = await db
       .from("wearable_data")
       .select("id, updated_at, summary_date")
@@ -65,17 +51,47 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // connected = recent sync activity (within 7 days), NOT just historical data existing
-    // hasHistoricalData = any wearable_data rows exist at all
-    // needsReconnect = has old data but no recent sync
-    const hasRecentSync = !!recentWearable;
+    const { data: watchIntegration } = await db
+      .from("user_integrations")
+      .select(`
+        watch_type,
+        watch_connected_at,
+        watch_connection_status,
+        watch_sync_status,
+        watch_last_sync_at,
+        watch_last_sample_at,
+        watch_last_error,
+        watch_last_error_at,
+        watch_disconnected_at,
+        watch_status_updated_at
+      `)
+      .eq("user_id", userId)
+      .maybeSingle();
+
     const hasHistoricalData = !!anyWearable;
-    const needsReconnect = hasHistoricalData && !hasRecentSync;
+    const connectionStatus = watchIntegration?.watch_connection_status
+      ?? (watchIntegration?.watch_type ? "connected" : hasHistoricalData ? "connected" : "disconnected");
+    let syncStatus = watchIntegration?.watch_sync_status ?? "unknown";
+
+    if (
+      connectionStatus === "connected" &&
+      syncStatus !== "waiting_for_data" &&
+      watchIntegration?.watch_last_sync_at
+    ) {
+      const lastSyncMs = new Date(watchIntegration.watch_last_sync_at).getTime();
+      if (!Number.isNaN(lastSyncMs)) {
+        const hoursSinceSync = (Date.now() - lastSyncMs) / (1000 * 60 * 60);
+        if (hoursSinceSync >= 24 && syncStatus === "synced") {
+          syncStatus = "sync_delayed";
+        }
+      }
+    }
 
     console.log("[check-connections-status] Apple Watch:", JSON.stringify({
-      hasRecentSync, hasHistoricalData, needsReconnect,
+      connectionStatus, syncStatus, hasHistoricalData,
       latestSummaryDate: anyWearable?.summary_date,
       latestUpdatedAt: anyWearable?.updated_at,
+      integration: watchIntegration,
     }));
 
     const result = {
@@ -89,10 +105,17 @@ Deno.serve(async (req) => {
         lastSync: ouraConn?.last_sync || null,
       },
       appleWatch: {
-        connected: hasRecentSync,
+        connected: connectionStatus === "connected",
+        connectionStatus,
+        syncStatus,
         hasHistoricalData,
-        needsReconnect,
-        lastSync: anyWearable?.updated_at || null,
+        needsReconnect: connectionStatus === "permission_revoked" || connectionStatus === "error",
+        lastSync: watchIntegration?.watch_last_sync_at || anyWearable?.updated_at || null,
+        lastSampleAt: watchIntegration?.watch_last_sample_at || (anyWearable?.summary_date ? new Date(`${anyWearable.summary_date}T00:00:00.000Z`).toISOString() : null),
+        watchConnectedAt: watchIntegration?.watch_connected_at || null,
+        disconnectedAt: watchIntegration?.watch_disconnected_at || null,
+        lastError: watchIntegration?.watch_last_error || null,
+        lastErrorAt: watchIntegration?.watch_last_error_at || null,
       },
     };
 
