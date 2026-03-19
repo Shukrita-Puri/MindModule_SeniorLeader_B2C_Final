@@ -600,6 +600,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         let dataSourceNote = `Based on ${checkIns.length} check-in${checkIns.length !== 1 ? 's' : ''}`;
         if (behaviorLogs.length > 0) dataSourceNote += `, ${behaviorLogs.length} behavior log${behaviorLogs.length !== 1 ? 's' : ''}`;
         if (hasCalendar) dataSourceNote += ', calendar data';
+        if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? 's' : ''}`;
         dataSourceNote += ` over ${daySpan} days`;
 
         setData({
