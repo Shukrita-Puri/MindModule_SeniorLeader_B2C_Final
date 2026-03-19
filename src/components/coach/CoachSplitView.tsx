@@ -248,8 +248,8 @@ const CoachSplitView = ({
         <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 via-stone-50 to-rose-50/30" />
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-          {/* Title + tagline + avatar + greeting — single centered block */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-2 md:space-y-5">
+          {/* Title + tagline + avatar + greeting — top-aligned for mobile first-fold */}
+          <div className="flex-1 flex flex-col items-center justify-start pt-14 md:pt-20 px-6 text-center space-y-2">
             <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
               Inner Mastery Coach
             </h1>
@@ -266,7 +266,7 @@ const CoachSplitView = ({
               Hello, {firstName}
             </h2>
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-              I'm your inner mastery coach. Share what's on your mind, and let's explore it together.
+              {contextualGreeting}
             </p>
           </div>
 
