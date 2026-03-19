@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     // Use upsert instead of select-then-update/insert to eliminate race conditions
     const { error } = await db
       .from("wearable_data")
-      .upsert(row, { onConflict: "user_id,summary_date,source" });
+      .upsert(row, { onConflict: "user_id,summary_date" });
 
     if (error) {
       console.error("[persist-wearable-data] DB error:", error);
