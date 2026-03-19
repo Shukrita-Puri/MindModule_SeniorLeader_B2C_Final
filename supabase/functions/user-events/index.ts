@@ -89,17 +89,20 @@ serve(async (req) => {
           throw error;
         }
 
-        // Fire-and-forget: log sanctuary completions to behavior_logs for cause-effect insights
+        // Await behavior_log insert to prevent silent data loss
         if (eventType === 'session_complete' || eventType === 'practice_completed') {
-          supabase.from('behavior_logs').insert({
-            user_id: userId,
-            behavior_type: 'sanctuary_event',
-            event_title: contentType || category || 'sanctuary',
-            energy_after: null,
-            created_at: new Date().toISOString(),
-          }).then(({ error: blErr }) => {
+          try {
+            const { error: blErr } = await supabase.from('behavior_logs').insert({
+              user_id: userId,
+              behavior_type: 'sanctuary_event',
+              event_title: contentType || category || 'sanctuary',
+              energy_after: null,
+              created_at: new Date().toISOString(),
+            });
             if (blErr) console.error('[user-events] behavior_log insert error:', blErr);
-          });
+          } catch (blCatchErr) {
+            console.error('[user-events] behavior_log insert exception:', blCatchErr);
+          }
         }
 
         console.log('[user-events] Engagement tracked:', eventType);
