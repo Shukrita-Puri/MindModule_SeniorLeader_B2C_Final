@@ -651,7 +651,7 @@ async function checkWearableRecoveryTrigger(
     // Check consecutive days <-20% below baseline
     let consecutiveDays = 0;
     for (const sample of recentHRV) {
-      const deviation = ((sample.hrv - baseline) / baseline) * 100;
+      const deviation = (((sample as any).hrv - baseline) / baseline) * 100;
       if (deviation < -20) consecutiveDays++;
       else break;
     }
