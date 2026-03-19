@@ -248,8 +248,8 @@ serve(async (req) => {
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
         const dayHRV = hrvByDate.get(evDate);
         if (dayHRV === undefined) continue;
-        if (!eventTypeHRV.has(et)) eventTypeHRV.set(et, { hrvs: [], titles: [] });
-        const entry = eventTypeHRV.get(et)!;
+        if (!eventTypeHRV.has(groupKey)) eventTypeHRV.set(groupKey, { hrvs: [], titles: [] });
+        const entry = eventTypeHRV.get(groupKey)!;
         entry.hrvs.push(dayHRV);
         entry.titles.push(ev.title);
       }
