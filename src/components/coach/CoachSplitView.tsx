@@ -249,34 +249,34 @@ const CoachSplitView = ({
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
           {/* Title + tagline + avatar + greeting — single centered block */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-2 md:space-y-5">
-            <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center space-y-5">
+            <h1 className="text-3xl font-headline text-foreground tracking-tight">
               Inner Mastery Coach
             </h1>
-            <p className="text-xs md:text-sm font-subheadline italic text-muted-foreground">
+            <p className="text-sm font-subheadline italic text-muted-foreground">
               Inner Awareness. Presence. Growth.
             </p>
 
             {/* Circular coach avatar */}
-            <div className="w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
               <img src={coachVisual} alt="Inner Mastery Coach" className="w-full h-full object-cover object-top" />
             </div>
 
-            <h2 className="text-base md:text-lg font-headline text-foreground/90">
+            <h2 className="text-lg font-headline text-foreground/90">
               Hello, {firstName}
             </h2>
-            <p className="text-xs md:text-sm text-muted-foreground max-w-xs leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
               I'm your inner mastery coach. Share what's on your mind, and let's explore it together.
             </p>
           </div>
 
           {/* Prompt suggestions — transparent, text-only */}
-          <div className="px-5 pb-1 md:pb-2 space-y-0.5 md:space-y-1">
+          <div className="px-5 pb-2 space-y-1">
             {promptSuggestions.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => onPromptClick(prompt)}
-                className="w-full text-left px-4 py-2 md:py-2.5 bg-transparent hover:bg-black/5 transition-colors text-sm text-muted-foreground hover:text-foreground"
+                className="w-full text-left px-4 py-2.5 bg-transparent hover:bg-black/5 transition-colors text-sm text-muted-foreground hover:text-foreground"
               >
                 {prompt}
               </button>
