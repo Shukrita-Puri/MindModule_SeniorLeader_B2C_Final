@@ -1,53 +1,84 @@
 
 
-## Copy Updates — Front Page + Onboarding Welcome
+# Audit: iOS Logout "Oops!" Error — Root Cause & Fix
 
-Two files need text-only changes (no layout or UI modifications).
+## Root Cause
 
----
+**Line 472** in `src/hooks/useAuth.tsx`:
 
-### File 1: `src/pages/Front.tsx`
+```
+const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
+```
 
-**Line 84-86** — Hero title: keep "MIND MODULE" as-is (already correct)
+The `returnTo` value is `app.mindmodule.me://callback` — a **custom URL scheme**. Auth0 requires that **every `returnTo` URL used in `/v2/logout` calls must be listed in the application's Allowed Logout URLs** in the Auth0 dashboard.
 
-**Line 87-89** — Subtitle: keep "Executive Edition" as-is (already correct)
+If `app.mindmodule.me://callback` is not in that list, Auth0 shows: *"Oops!, something went wrong — There could be a misconfiguration in the system…"*
 
-**Lines 92-96** — Replace tagline h2:
-- From: "The World's First Proactive Performance System For Your Inner Game. Built for Leaders, By Leaders."
-- To: "A New Inner Operating System for Leaders."
+### Secondary issue
 
-**Lines 102-107** — Replace description + motto:
-- From: "It understands your day, learns your patterns..." + "Calibrate. Clarify. Renew."
-- To: "It understands your day. Learns your patterns. Prepares how you show up before the stakes arrive." + "Built by leaders. For leaders."
+Even if the custom scheme were allowed, Auth0 redirecting to `app.mindmodule.me://callback` after logout would trigger the **appUrlOpen deep-link listener** in `nativeAuth.ts`, which expects `code` and `state` params (login callback). A logout redirect hitting the login callback handler would cause errors or confusion.
 
-**Line 111** — CTA button text:
-- From: "Begin Your Journey"
-- To: "Let's Go"
+## Fix
 
-**Lines 121-131** — Privacy badge: simplify to just "Privacy by Design" (remove the Lock/Local-First item, keep Shield icon only)
+### 1. Change the iOS logout `returnTo` to a web URL (code fix)
 
----
+**File**: `src/hooks/useAuth.tsx`, line 472
 
-### File 2: `src/pages/onboarding/stages/Stage1Welcome.tsx`
+Replace the custom scheme with a safe web URL that the app doesn't need to handle:
 
-**Lines 17-24** — Replace header block:
-- From: "Welcome to MIND MODULE" + "Proactive Self Mastery for Peak Performers"
-- To: "Welcome to MIND MODULE" (keep) — remove the subtitle h2 entirely
+```typescript
+// Before
+const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
 
-**Lines 26-30** — Replace the glass card body. New copy (structured with visual breaks):
-1. Opening hook: "Most leaders don't fail because they lack strategy." then "They fail because they showed up scattered. Ruminated instead of deciding. Burned out when it mattered most."
-2. Transition: "This system changes that." + "Three minutes. Five questions."
-3. Profile areas intro: "Your answers build your performance profile across three areas:" then three labeled items — RECALIBRATE, CLARITY, RENEWAL with their descriptions
-4. Personalization list: "Everything personalizes from this:" then four items (Daily Brief, Proactive Mastery Plan, AI Coach, Just-In-Time Prep)
-5. Closing: "The more honest you are, the smarter the system gets."
+// After
+const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('https://app.mindmodule.me')}`;
+```
 
-**Line 51** — CTA button text:
-- From: "Begin"
-- To: "Start Questions"
+Using `https://app.mindmodule.me` means:
+- Auth0 redirects the in-app browser to the web landing page after logout
+- The 1.5s `Browser.close()` timer dismisses the in-app browser before or shortly after the redirect completes
+- No deep-link handler is triggered
+- The user returns to the native app's current WebView (which has already cleaned up local state)
 
-**Lines 33-43** — Privacy footer: simplify to just "Privacy by Design" (single line, no Lock icon)
+### 2. Auth0 Dashboard: Add to Allowed Logout URLs
 
----
+In the Auth0 dashboard for application `fOlef5xSQ6JWGKM2U2HGhZrEuaCN7fCk`, add these to **Allowed Logout URLs** (if not already present):
 
-**Files changed:** 2 (`Front.tsx`, `Stage1Welcome.tsx`). No logic, routing, or component changes.
+```
+https://app.mindmodule.me
+https://app.mindmodule.me/
+```
+
+Also verify the existing web logout URL is present:
+```
+https://app.mindmodule.me
+```
+
+Remove or keep `app.mindmodule.me://callback` — it's no longer needed for logout.
+
+### 3. No other files need changes
+
+| Area | Status |
+|------|--------|
+| `capacitor.config.ts` | OK — `appId: 'app.mindmodule.me'` matches scheme |
+| `Info.plist` | OK — URL scheme `app.mindmodule.me` registered |
+| `nativeAuth.ts` | OK — login flow uses correct redirect URI |
+| `main.tsx` Auth0Provider | OK — config is correct |
+| `.env` domain/clientId | OK — `auth.mindmodule.me` / `fOlef5xSQ6JWGKM2U2HGhZrEuaCN7fCk` |
+| Web logout path | OK — uses `window.location.origin` which resolves correctly |
+
+## Summary
+
+| Item | Current (broken) | Fixed |
+|------|-------------------|-------|
+| iOS logout `returnTo` | `app.mindmodule.me://callback` | `https://app.mindmodule.me` |
+| Auth0 Allowed Logout URLs | Missing web URL for iOS | Add `https://app.mindmodule.me` |
+| Files to change | `src/hooks/useAuth.tsx` line 472 | Single line change |
+| Auth0 dashboard | Allowed Logout URLs | Add `https://app.mindmodule.me` |
+
+## Risk
+
+- None — the in-app browser is dismissed by the existing `setTimeout` before the user sees the web page
+- Local state is already cleaned up before the `/v2/logout` call fires
+- Login flow is completely unaffected
 
