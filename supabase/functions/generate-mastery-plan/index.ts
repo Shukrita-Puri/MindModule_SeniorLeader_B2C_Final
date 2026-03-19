@@ -1739,7 +1739,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
     // Check for pattern observations related to this event type
     if (scenario && req.patternInsight) {
-      const patternLower = (req.patternInsight || '').toLowerCase();
+      const patternLower = ((req as any).patternInsight || '').toLowerCase();
       const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
       if (scenarioKeywords.some(kw => patternLower.includes(kw))) {
         enrichedContextDescription = enrichedContextDescription.replace(

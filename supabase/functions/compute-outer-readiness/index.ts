@@ -1007,7 +1007,7 @@ serve(async (req) => {
     // Phase 2: Wearable recovery check (feature-flagged off)
     let wearableRecovery = null;
     if (ENABLE_WEARABLE_RECOVERY_TRIGGER) {
-      wearableRecovery = await checkWearableRecoveryTrigger(userId, db);
+      wearableRecovery = await checkWearableRecoveryTrigger(userId, db as any);
     }
 
     const leanOnResult = getLeanOnWatchFor(

@@ -2773,7 +2773,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Server builds full context from DB; client only sends ephemeral UI state
-    const fullContext = await buildServerContext(supabase, userId, clientContext);
+    const fullContext = await buildServerContext(supabase as any, userId, clientContext);
 
     // Fire AI-driven tiny win extraction in parallel (non-blocking)
     if (userId && messages.length > 1) {

@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
     let explicitGrowth: string | null = null;
 
     secondaryQueries.push(
-      supabase.from("user_coach_insights")
+      Promise.resolve(supabase.from("user_coach_insights")
         .select("insight_content")
         .eq("user_id", userId)
         .eq("is_active", true)
@@ -192,11 +192,11 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => { explicitStrength = data?.insight_content?.substring(0, 120) || null; })
+        .then(({ data }) => { explicitStrength = data?.insight_content?.substring(0, 120) || null; }))
     );
 
     secondaryQueries.push(
-      supabase.from("user_coach_insights")
+      Promise.resolve(supabase.from("user_coach_insights")
         .select("insight_content")
         .eq("user_id", userId)
         .eq("is_active", true)
@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => { explicitGrowth = data?.insight_content?.substring(0, 120) || null; })
+        .then(({ data }) => { explicitGrowth = data?.insight_content?.substring(0, 120) || null; }))
     );
 
     await Promise.all(secondaryQueries);
