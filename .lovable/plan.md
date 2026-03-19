@@ -1,84 +1,74 @@
 
 
-# Audit: iOS Logout "Oops!" Error — Root Cause & Fix
+# Plan: Fix "Your Momentum" Data Gap + "How You Show Up" Duplicates
 
-## Root Cause
+## Findings
 
-**Line 472** in `src/hooks/useAuth.tsx`:
+### Issue 1: "Your Momentum" shows no data
 
-```
-const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
-```
+**Root cause identified**: Tiny win extraction IS implemented — it runs on every coach message via `extractAndStoreTinyWin` in `self-mastery-coach/index.ts` (line 3436-3448). The DB has only **2 wins from January 26**, meaning either:
 
-The `returnTo` value is `app.mindmodule.me://callback` — a **custom URL scheme**. Auth0 requires that **every `returnTo` URL used in `/v2/logout` calls must be listed in the application's Allowed Logout URLs** in the Auth0 dashboard.
+1. The extraction AI (`gemini-2.5-flash-lite`) is too conservative and rarely calls `store_tiny_win`
+2. Sessions aren't generating enough qualifying content
+3. The orphaned session processor does NOT trigger tiny win extraction — it fires 7 downstream functions but `store-tiny-win` / `extractAndStoreTinyWin` is not among them
 
-If `app.mindmodule.me://callback` is not in that list, Auth0 shows: *"Oops!, something went wrong — There could be a misconfiguration in the system…"*
+**Key gap**: The `process-orphaned-sessions` function handles abandoned sessions but does NOT extract tiny wins. Only the live streaming path in `self-mastery-coach` does win extraction. If a session is orphaned before the user sends their final message, wins may be missed.
 
-### Secondary issue
+**Additionally**: The extraction prompt is strict ("When in doubt, do NOT store") and may be filtering out valid wins that don't use explicit achievement language.
 
-Even if the custom scheme were allowed, Auth0 redirecting to `app.mindmodule.me://callback` after logout would trigger the **appUrlOpen deep-link listener** in `nativeAuth.ts`, which expects `code` and `state` params (login callback). A logout redirect hitting the login callback handler would cause errors or confusion.
+### Issue 2: "How You Show Up" shows duplicate text
 
-## Fix
+**Root cause**: In `performance-rhythm-insights/index.ts`, lines 426-428 add the overall positive check-in rate as a signal. Then line 431-433 picks the **top signal** as `presenceInsight`. Lines 436-439 build `presenceActions` from the **top 2 signals**. 
 
-### 1. Change the iOS logout `returnTo` to a web URL (code fix)
+When the baseline check-in signal is the highest-scored, it appears as BOTH `presenceInsight` AND `presenceActions[0]` — producing the exact duplicate seen in the screenshot.
 
-**File**: `src/hooks/useAuth.tsx`, line 472
+### Issue 3: No cause-effect in "How You Show Up"
 
-Replace the custom scheme with a safe web URL that the app doesn't need to handle:
+The cause-effect insight exists (line 530-534 in the UI) but renders as a **separate section below**, not inside the "How You Show Up" card. The user expects it inline.
 
-```typescript
-// Before
-const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('app.mindmodule.me://callback')}`;
+---
 
-// After
-const logoutUrl = `https://${domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent('https://app.mindmodule.me')}`;
-```
+## Changes
 
-Using `https://app.mindmodule.me` means:
-- Auth0 redirects the in-app browser to the web landing page after logout
-- The 1.5s `Browser.close()` timer dismisses the in-app browser before or shortly after the redirect completes
-- No deep-link handler is triggered
-- The user returns to the native app's current WebView (which has already cleaned up local state)
+### File 1: `supabase/functions/performance-rhythm-insights/index.ts`
 
-### 2. Auth0 Dashboard: Add to Allowed Logout URLs
+**Fix A — Deduplicate presenceActions vs presenceInsight**:
+- After setting `presenceInsight` from top signal, filter `presenceActions` to exclude any signal whose text matches `presenceInsight`
+- This prevents the same sentence from appearing twice
 
-In the Auth0 dashboard for application `fOlef5xSQ6JWGKM2U2HGhZrEuaCN7fCk`, add these to **Allowed Logout URLs** (if not already present):
+**Fix B — Include cause-effect insight inside "How You Show Up"**:
+- Add `causeEffectInsight` to the `presenceActions` array (if available and not already used as `presenceInsight`), so it renders inside the presence card bullets instead of as a disconnected standalone section
 
-```
-https://app.mindmodule.me
-https://app.mindmodule.me/
-```
+### File 2: `supabase/functions/process-orphaned-sessions/index.ts`
 
-Also verify the existing web logout URL is present:
-```
-https://app.mindmodule.me
-```
+**Fix C — Add tiny win extraction to orphaned session processing**:
+- After the downstream functions fire, also call the AI-driven tiny win extraction for orphaned sessions
+- Fetch session messages, then call the Lovable AI gateway with the same extraction prompt used in `self-mastery-coach`
+- This ensures abandoned sessions still contribute wins to "Your Momentum"
 
-Remove or keep `app.mindmodule.me://callback` — it's no longer needed for logout.
+### File 3: `supabase/functions/self-mastery-coach/index.ts`
 
-### 3. No other files need changes
+**Fix D — Broaden tiny win extraction sensitivity**:
+- Update the extraction system prompt to be less conservative: recognize implicit wins (moments of pride, accomplishment language, growth reflections) even without explicit "win" framing
+- Add examples like: "I stayed calm", "I delegated", "I noticed my pattern", "things went well", "I'm proud of"
+- Change "When in doubt, do NOT store" to "When the user describes something they did well or are proud of, even implicitly, store it"
 
-| Area | Status |
-|------|--------|
-| `capacitor.config.ts` | OK — `appId: 'app.mindmodule.me'` matches scheme |
-| `Info.plist` | OK — URL scheme `app.mindmodule.me` registered |
-| `nativeAuth.ts` | OK — login flow uses correct redirect URI |
-| `main.tsx` Auth0Provider | OK — config is correct |
-| `.env` domain/clientId | OK — `auth.mindmodule.me` / `fOlef5xSQ6JWGKM2U2HGhZrEuaCN7fCk` |
-| Web logout path | OK — uses `window.location.origin` which resolves correctly |
+### File 4: `src/components/insights/PerformanceRhythmCard.tsx`
+
+**Fix E — UI: Remove standalone cause-effect section if already shown in presence card**:
+- Add a guard: if `causeEffectInsight` was included in `presenceActions` (server-side), don't render the standalone 1C section again
+- Alternative: move the cause-effect rendering into the presence card section so it's always grouped together
+
+---
 
 ## Summary
 
-| Item | Current (broken) | Fixed |
-|------|-------------------|-------|
-| iOS logout `returnTo` | `app.mindmodule.me://callback` | `https://app.mindmodule.me` |
-| Auth0 Allowed Logout URLs | Missing web URL for iOS | Add `https://app.mindmodule.me` |
-| Files to change | `src/hooks/useAuth.tsx` line 472 | Single line change |
-| Auth0 dashboard | Allowed Logout URLs | Add `https://app.mindmodule.me` |
+| Change | File | Impact |
+|--------|------|--------|
+| Deduplicate presenceInsight/Actions | performance-rhythm-insights EF | Fixes duplicate sentence |
+| Include cause-effect in presence card | performance-rhythm-insights EF + UI | Groups analysis together |
+| Add tiny win extraction to orphaned sessions | process-orphaned-sessions EF | Captures wins from abandoned sessions |
+| Broaden win extraction prompt | self-mastery-coach EF | More wins detected from conversations |
 
-## Risk
-
-- None — the in-app browser is dismissed by the existing `setTimeout` before the user sees the web page
-- Local state is already cleaned up before the `/v2/logout` call fires
-- Login flow is completely unaffected
+No DB migrations needed. Three edge functions to deploy.
 
