@@ -149,18 +149,21 @@ Deno.serve(async (req) => {
 
       console.log("[dialogue-session-manage] Session ended:", sessionId);
 
-      // Insert behavior_log with context_event_data (fire-and-forget)
-      supabase.from('behavior_logs').insert({
-        user_id: userId,
-        behavior_type: 'coach_session',
-        event_title: 'coach',
-        energy_after: null,
-        context_event_id: sessionId,
-        created_at: new Date().toISOString(),
-      }).then(({ error: blErr }) => {
+      // Await behavior_log insert to prevent silent data loss
+      try {
+        const { error: blErr } = await supabase.from('behavior_logs').insert({
+          user_id: userId,
+          behavior_type: 'coach_session',
+          event_title: 'coach',
+          energy_after: null,
+          context_event_id: sessionId,
+          created_at: new Date().toISOString(),
+        });
         if (blErr) console.error('[dialogue-session-manage] behavior_log insert error:', blErr);
         else console.log('[dialogue-session-manage] behavior_log inserted for session:', sessionId);
-      });
+      } catch (blCatchErr) {
+        console.error('[dialogue-session-manage] behavior_log insert exception:', blCatchErr);
+      }
 
       // Fire downstream processing functions server-side if enough messages
       const msgCount = totalMessages || 0;

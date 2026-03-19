@@ -243,12 +243,13 @@ serve(async (req) => {
         const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
           EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
-        if (!et) continue;
+        // Use actual event title (truncated) when no keyword match
+        const groupKey = et || (ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title);
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
         const dayHRV = hrvByDate.get(evDate);
         if (dayHRV === undefined) continue;
-        if (!eventTypeHRV.has(et)) eventTypeHRV.set(et, { hrvs: [], titles: [] });
-        const entry = eventTypeHRV.get(et)!;
+        if (!eventTypeHRV.has(groupKey)) eventTypeHRV.set(groupKey, { hrvs: [], titles: [] });
+        const entry = eventTypeHRV.get(groupKey)!;
         entry.hrvs.push(dayHRV);
         entry.titles.push(ev.title);
       }
@@ -320,6 +321,24 @@ serve(async (req) => {
         const p = patterns[0];
         const behaviorLabel = p.behavior.replace(/_/g, ' ');
         causeEffectInsight = `On days following ${behaviorLabel.charAt(0).toUpperCase() + behaviorLabel.slice(1)}, you tend to check in '${p.outcome}' ${Math.round(p.conf * 100)}% of the time.`;
+        // HRV enrichment for Path B
+        if (wearableData.length >= 3) {
+          const hrvByDate = new Map<string, number>();
+          for (const w of wearableData) hrvByDate.set(w.summary_date, w.hrv as number);
+          const allHRVs = wearableData.map((w: any) => w.hrv as number);
+          const hrvBaseline = Math.round(allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length);
+          const behaviorDayHRVs: number[] = [];
+          for (const log of behaviorLogs) {
+            if (log.behavior_type?.toLowerCase() !== p.behavior) continue;
+            const bd = new Date(log.created_at).toISOString().split("T")[0];
+            const hrv = hrvByDate.get(bd);
+            if (hrv !== undefined) behaviorDayHRVs.push(hrv);
+          }
+          if (behaviorDayHRVs.length >= 2) {
+            const avgHRV = Math.round(behaviorDayHRVs.reduce((a, b) => a + b, 0) / behaviorDayHRVs.length);
+            causeEffectInsight += ` Your HRV averaged ${avgHRV}ms on those days vs ${hrvBaseline}ms baseline.`;
+          }
+        }
       }
     }
 
@@ -332,7 +351,8 @@ serve(async (req) => {
         let et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
           EVENT_TYPE_KEYWORDS[type].some(kw => tl.includes(kw))
         );
-        if (!et) et = "calendar_event";
+        // Use actual event title when no keyword match
+        if (!et) et = ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title;
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
         const nextDate = new Date(new Date(ev.start_time).getTime() + 86400000).toISOString().split("T")[0];
         const sameDayCI = checkIns.find(c => c.checkin_date === evDate);
@@ -357,8 +377,29 @@ serve(async (req) => {
       });
       if (bestCalCE) {
         const b = bestCalCE as { et: string; outcome: string; pct: number; count: number };
-        const label = b.et === 'calendar_event' ? 'busy calendar days' : `${b.et.replace("_", " ")} events`;
+        const isKeyword = Object.keys(EVENT_TYPE_KEYWORDS).includes(b.et);
+        const label = isKeyword ? `${b.et.replace(/_/g, " ")} events` : `'${b.et}' events`;
         causeEffectInsight = `After ${label}, you tend to check in '${b.outcome}' — ${Math.round(b.pct * 100)}% of the time across ${b.count} occurrences.`;
+        // HRV enrichment for Path C
+        if (wearableData.length >= 3) {
+          const hrvByDate = new Map<string, number>();
+          for (const w of wearableData) hrvByDate.set(w.summary_date, w.hrv as number);
+          const matchedDayHRVs: number[] = [];
+          for (const ev of calendarEvents) {
+            if (!ev.title) continue;
+            const tl2 = ev.title.toLowerCase();
+            const et2 = Object.keys(EVENT_TYPE_KEYWORDS).find(type => EVENT_TYPE_KEYWORDS[type].some(kw => tl2.includes(kw)));
+            const groupKey = et2 || (ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title);
+            if (groupKey !== b.et) continue;
+            const evDate = new Date(ev.start_time).toISOString().split("T")[0];
+            const hrv = hrvByDate.get(evDate);
+            if (hrv !== undefined) matchedDayHRVs.push(hrv);
+          }
+          if (matchedDayHRVs.length >= 2) {
+            const avgHRV = Math.round(matchedDayHRVs.reduce((a, b) => a + b, 0) / matchedDayHRVs.length);
+            causeEffectInsight += ` Your HRV on those days averaged ${avgHRV}ms.`;
+          }
+        }
       }
     }
 
@@ -382,6 +423,24 @@ serve(async (req) => {
             causeEffectInsight = `On days with calendar events, you check in positively ${Math.round(eventPosPct * 100)}% of the time vs ${Math.round(nonEventPosPct * 100)}% on quieter days — external structure may help you focus.`;
           } else {
             causeEffectInsight = `On quieter days without events, you check in positively ${Math.round(nonEventPosPct * 100)}% of the time vs ${Math.round(eventPosPct * 100)}% on event-heavy days — your inner state may benefit from space.`;
+          }
+          // HRV enrichment for Path D
+          if (wearableData.length >= 3) {
+            const hrvByDate = new Map<string, number>();
+            for (const w of wearableData) hrvByDate.set(w.summary_date, w.hrv as number);
+            const eventDayHRVs: number[] = [];
+            const nonEventDayHRVs: number[] = [];
+            for (const ci of checkIns) {
+              const hrv = hrvByDate.get(ci.checkin_date);
+              if (hrv === undefined) continue;
+              if (eventDates.has(ci.checkin_date)) eventDayHRVs.push(hrv);
+              else nonEventDayHRVs.push(hrv);
+            }
+            if (eventDayHRVs.length >= 2 && nonEventDayHRVs.length >= 2) {
+              const evAvg = Math.round(eventDayHRVs.reduce((a, b) => a + b, 0) / eventDayHRVs.length);
+              const neAvg = Math.round(nonEventDayHRVs.reduce((a, b) => a + b, 0) / nonEventDayHRVs.length);
+              causeEffectInsight += ` HRV: ${evAvg}ms on event days vs ${neAvg}ms on quiet days.`;
+            }
           }
         }
       }
