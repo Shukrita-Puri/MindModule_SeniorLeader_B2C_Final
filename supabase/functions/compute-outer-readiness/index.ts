@@ -922,8 +922,8 @@ serve(async (req) => {
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
     const lateEvening = isLateEvening(hour);
     const [calendarResult, tomorrowResult] = await Promise.all([
-      getServerCalendarMetrics(db, userId, timezoneOffset, 0),
-      lateEvening ? getServerCalendarMetrics(db, userId, timezoneOffset, 1) : Promise.resolve(null),
+      getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
+      lateEvening ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
