@@ -1256,6 +1256,7 @@ interface CoachContext {
     trigger: string;
     eventTitle?: string;
     minutesUntil?: number;
+    eventType?: string;
   };
   planStatus?: {
     completedModules: string[];
