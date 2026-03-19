@@ -109,6 +109,7 @@ serve(async (req) => {
     const readinessScores = readinessRes.data || [];
     const rituals = ritualsRes.data || [];
     const jitPrefs = jitRes.data || [];
+    const wearableData = wearableRes.data || [];
 
     // BUG 1 fix: Scope dialogue_messages by user's session IDs
     const userSessionIds = (dialogueRes.data || []).map((s: any) => s.id);
