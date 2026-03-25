@@ -7,7 +7,284 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ─── Executive Scenarios ────────────────────────────────────────────
+const IS_DEV = (Deno.env.get('ENVIRONMENT') || '') !== 'production';
+
+// ─── Stage 0: Noise Filter ─────────────────────────────────────────
+const NOISE_KEYWORDS = [
+  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+  'car service', 'mot', 'oil change', 'dentist', 'optician',
+  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+];
+const NOISE_PATTERN = /\[\d{6,}\]/;
+
+function isNoiseEvent(title: string): boolean {
+  const lower = (title || '').toLowerCase();
+  if (NOISE_PATTERN.test(title || '')) return true;
+  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// ─── Stage 2: Dimension Scoring ─────────────────────────────────────
+
+// Dim A: Interpersonal Stakes (0-35)
+const PRESSURE_KEYWORDS = [
+  'board', 'investor', 'performance', 'review', 'feedback', 'fire', 'difficult',
+  'press', 'media', 'interview', 'pitch', 'crisis', 'negotiation', 'termination',
+  'layoff', 'conflict', 'confrontation', 'dispute',
+];
+
+function scoreDimensionA(title: string, attendeeCount: number): number {
+  let score = 0;
+  if (attendeeCount === 0) return 0;
+  if (attendeeCount <= 2) score = 12;
+  else score = 20;
+
+  const lower = (title || '').toLowerCase();
+  if (PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) {
+    score = Math.min(35, score + 15);
+  }
+  return score;
+}
+
+// Dim B: Inner State Relevance (0-35) + bucket assignment
+interface DimBResult {
+  score: number;
+  primaryBucket: string | null;
+  secondaryBucket: string | null;
+  cluster: string | null;
+}
+
+const CLUSTER_KEYWORDS: Record<string, { keywords: string[]; scoreRange: [number, number]; bucket: string }> = {
+  pressure: {
+    keywords: ['board', 'pitch', 'media', 'press', 'interview', 'speak', 'present', 'conference', 'investor', 'keynote', 'crisis', 'emergency', 'urgent'],
+    scoreRange: [30, 35],
+    bucket: 'recalibrate',
+  },
+  relationship: {
+    keywords: ['feedback', 'performance', 'difficult', 'fire', 'demotion', 'conflict', 'dispute', 'tension', 'confrontation', 'termination', 'pip', 'layoff'],
+    scoreRange: [22, 28],
+    bucket: 'clarity',
+  },
+  decision: {
+    keywords: ['strategy', 'planning', 'prioritise', 'prioritize', 'trade-off', 'decision', 'q&a', 'grilling', 'stakeholder', 'budget', 'forecast', 'earnings'],
+    scoreRange: [18, 24],
+    bucket: 'clarity',
+  },
+  transition: {
+    keywords: ['first', 'last', 'new role', 'launch', 'announcement', 'offsite', 'retreat', 'end of quarter', 'annual', 'chapter', 'restructuring'],
+    scoreRange: [15, 22],
+    bucket: 'renewal',
+  },
+};
+
+function scoreDimensionB(title: string, coachSignalScore: number, coachSignalBucket: string | null): DimBResult {
+  const lower = (title || '').toLowerCase();
+  const matches: { cluster: string; score: number; bucket: string }[] = [];
+
+  for (const [clusterName, config] of Object.entries(CLUSTER_KEYWORDS)) {
+    const hasMatch = config.keywords.some(kw => lower.includes(kw));
+    if (hasMatch) {
+      // Use midpoint of range
+      const score = Math.round((config.scoreRange[0] + config.scoreRange[1]) / 2);
+      matches.push({ cluster: clusterName, score, bucket: config.bucket });
+    }
+  }
+
+  // Sort by score descending
+  matches.sort((a, b) => b.score - a.score);
+
+  // Coach signal as a separate cluster
+  if (coachSignalScore > 0) {
+    matches.push({ cluster: 'coach_signal', score: coachSignalScore, bucket: coachSignalBucket || 'clarity' });
+    matches.sort((a, b) => b.score - a.score);
+  }
+
+  if (matches.length === 0) {
+    return { score: 0, primaryBucket: null, secondaryBucket: null, cluster: null };
+  }
+
+  const primary = matches[0];
+  const secondary = matches.length > 1 ? matches[1] : null;
+
+  return {
+    score: Math.min(35, primary.score),
+    primaryBucket: primary.bucket,
+    secondaryBucket: secondary?.bucket || null,
+    cluster: primary.cluster,
+  };
+}
+
+// Dim C: Urgency Window (0-20)
+function scoreDimensionC(minutesUntil: number): number {
+  if (minutesUntil <= 360) return 20;       // 0-6 hours
+  if (minutesUntil <= 1440) return 14;      // same day (6-24h)
+  if (minutesUntil <= 2880) return 8;       // tomorrow
+  if (minutesUntil <= 10080) return 4;      // 2-7 days
+  return 0;                                  // 8+ days
+}
+
+// Dim D: Context Signals (0-10)
+function scoreDimensionD(isRecurring: boolean, isOrganizer: boolean, title: string, description: string | null): number {
+  let score = 0;
+  if (!isRecurring) score += 4;
+  if (isOrganizer) score += 3;
+  // High-stakes in description
+  if (description) {
+    const lower = description.toLowerCase();
+    if (PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) score += 3;
+  }
+  return Math.min(10, score);
+}
+
+// ─── Stage 2b: Composite Readiness Amplifier ────────────────────────
+interface ReadinessAmplifierResult {
+  multiplier: number;
+  baselineLocked: boolean;
+  hrvDeviation: number | null;
+}
+
+async function computeReadinessAmplifier(
+  supabase: any, userId: string
+): Promise<ReadinessAmplifierResult> {
+  const defaultResult: ReadinessAmplifierResult = { multiplier: 1.0, baselineLocked: false, hrvDeviation: null };
+
+  // Get baseline
+  const { data: baseline } = await supabase
+    .from('readiness_baselines')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!baseline || !baseline.baseline_established_at) {
+    // Check if wearable is connected but baseline not yet established
+    if (baseline?.wearable_connected_at) {
+      const connectedAt = new Date(baseline.wearable_connected_at);
+      const daysSinceConnect = (Date.now() - connectedAt.getTime()) / (86400000);
+      if (daysSinceConnect < 14) {
+        return { multiplier: 1.0, baselineLocked: true, hrvDeviation: null };
+      }
+    }
+    return defaultResult;
+  }
+
+  // Get recent wearable data
+  const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
+  const { data: recentWearable } = await supabase
+    .from('wearable_data')
+    .select('hrv, resting_heart_rate, sleep_duration, summary_date')
+    .eq('user_id', userId)
+    .gte('summary_date', threeDaysAgo)
+    .not('hrv', 'is', null)
+    .order('summary_date', { ascending: false })
+    .limit(3);
+
+  if (!recentWearable || recentWearable.length === 0) return defaultResult;
+
+  const baselineHRV = Number(baseline.baseline_hrv) || 0;
+  const baselineRHR = Number(baseline.baseline_rhr) || 0;
+
+  if (baselineHRV === 0) return defaultResult;
+
+  // Composite signal: HRV (40%), HR (35%), Sleep (15%), RHR trend (10%)
+  let compositeDeviation = 0;
+
+  // Signal 1: HRV vs baseline (40%)
+  const latestHRV = recentWearable[0]?.hrv || baselineHRV;
+  const hrvDevPct = ((latestHRV - baselineHRV) / baselineHRV) * 100;
+  compositeDeviation += hrvDevPct * 0.4;
+
+  // Signal 2: Current HR vs resting norm (35%)
+  const latestRHR = recentWearable[0]?.resting_heart_rate;
+  if (latestRHR && baselineRHR > 0) {
+    const rhrDevPct = ((baselineRHR - latestRHR) / baselineRHR) * 100; // inverted: lower RHR = better
+    compositeDeviation += rhrDevPct * 0.35;
+  }
+
+  // Signal 3: Sleep duration (15%) — assume 7.5h as good baseline
+  const latestSleep = recentWearable[0]?.sleep_duration;
+  if (latestSleep) {
+    const sleepDevPct = ((latestSleep - 7.5) / 7.5) * 100;
+    compositeDeviation += sleepDevPct * 0.15;
+  }
+
+  // Signal 4: 3-day RHR trend (10%)
+  if (recentWearable.length >= 2 && baselineRHR > 0) {
+    const rhrs = recentWearable.map((w: any) => w.resting_heart_rate).filter(Boolean);
+    if (rhrs.length >= 2) {
+      const avgRHR = rhrs.reduce((a: number, b: number) => a + b, 0) / rhrs.length;
+      const trendDevPct = ((baselineRHR - avgRHR) / baselineRHR) * 100;
+      compositeDeviation += trendDevPct * 0.1;
+    }
+  }
+
+  // Map composite deviation to multiplier
+  let multiplier = 1.0;
+  if (compositeDeviation <= -20) multiplier = 1.4;
+  else if (compositeDeviation <= -10) multiplier = 1.2;
+  else if (compositeDeviation >= 10) multiplier = 0.9;
+  // else stays 1.0
+
+  return { multiplier, baselineLocked: false, hrvDeviation: hrvDevPct };
+}
+
+// ─── Stage 3: Confidence Scoring ────────────────────────────────────
+interface ConfidenceResult {
+  score: number;
+  band: 'high' | 'medium' | 'low' | 'none';
+}
+
+function computeConfidence(
+  titleKeywordHit: boolean,
+  coachSessionMatch: boolean,
+  hrvConfirmed: boolean,
+  hasStructuralSignals: boolean,
+  pastPlanCompleted: boolean,
+): ConfidenceResult {
+  let score = 0;
+  if (titleKeywordHit) score += 40;
+  if (coachSessionMatch) score += 30;
+  if (hrvConfirmed) score += 15;
+  if (hasStructuralSignals) score += 10;
+  if (pastPlanCompleted) score += 5;
+
+  let band: ConfidenceResult['band'] = 'none';
+  if (score >= 70) band = 'high';
+  else if (score >= 40) band = 'medium';
+  else if (score >= 20) band = 'low';
+
+  return { score: Math.min(100, score), band };
+}
+
+// ─── Stage 5: Urgency Horizon ───────────────────────────────────────
+function determineUrgencyHorizon(minutesUntil: number): 'immediate' | 'tactical' | 'strategic' {
+  if (minutesUntil <= 360) return 'immediate';       // 0-6h
+  if (minutesUntil <= 10080) return 'tactical';       // 1-7 days
+  return 'strategic';                                  // 1-4 weeks
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function generatePillLabel(title: string, minutesUntil: number): string {
+  const labelBase = title || 'Event';
+  if (minutesUntil <= 60) return `${labelBase} — Soon`;
+  if (minutesUntil <= 1440) return `${labelBase} — ${Math.floor(minutesUntil / 60)}h`;
+  return `${labelBase} — ${Math.floor(minutesUntil / 1440)}d`;
+}
+
+function getTimeOfDayPill(timezoneOffset: number): { pillLabel: string; pillType: string; sessionPeriod: string } {
+  const now = new Date();
+  const localHour = (now.getUTCHours() - Math.floor(timezoneOffset / 60) + 24) % 24;
+  if (localHour >= 5 && localHour < 12) return { pillLabel: 'Morning Practice', pillType: 'time_of_day', sessionPeriod: 'morning' };
+  if (localHour >= 12 && localHour < 17) return { pillLabel: 'Afternoon Reset', pillType: 'time_of_day', sessionPeriod: 'afternoon' };
+  return { pillLabel: 'Evening Close', pillType: 'time_of_day', sessionPeriod: 'evening' };
+}
+
+// ─── Executive Scenarios (kept for scenario module matching) ────────
 const executiveScenarios: Record<string, { keywords: string[]; modules: string[]; eventTypes: string[]; leadTimeMinutes: number }> = {
   'pre-board-meeting': { keywords: ['board', 'board meeting', 'board of directors'], modules: ['regulate', 'align', 'prepare'], eventTypes: ['board_meeting'], leadTimeMinutes: 1440 },
   'pre-investor-meeting': { keywords: ['investor', 'vc', 'funding', 'pitch', 'keynote'], modules: ['regulate', 'prepare'], eventTypes: ['investor_call', 'investor_pitch'], leadTimeMinutes: 1440 },
@@ -31,17 +308,6 @@ const executiveScenarios: Record<string, { keywords: string[]; modules: string[]
   'pre-product-launch': { keywords: ['launch', 'go live', 'release', 'ship', 'product launch'], modules: ['regulate', 'align', 'prepare'], eventTypes: ['product_launch', 'go_live'], leadTimeMinutes: 1440 },
 };
 
-// ─── Scoring Functions ──────────────────────────────────────────────
-
-function calculateUrgencyScore(minutesUntilEvent: number): number {
-  if (minutesUntilEvent <= 120) return 40;
-  if (minutesUntilEvent <= 240) return 30;
-  if (minutesUntilEvent <= 480) return 20;
-  if (minutesUntilEvent <= 1440) return 10;
-  if (minutesUntilEvent <= 2880) return 5;
-  return 0;
-}
-
 function matchScenario(title: string): { scenarioId: string; scenario: typeof executiveScenarios[string] } | null {
   const lower = (title || '').toLowerCase();
   for (const [id, scenario] of Object.entries(executiveScenarios)) {
@@ -54,20 +320,13 @@ function matchScenario(title: string): { scenarioId: string; scenario: typeof ex
   return null;
 }
 
-function calculateContextScore(startTime: string, isRecurring: boolean): number {
-  let score = 0;
-  const eventHour = new Date(startTime).getHours();
-  if ((eventHour >= 9 && eventHour < 12) || (eventHour >= 14 && eventHour < 16)) score += 5;
-  if (!isRecurring) score += 5;
-  return Math.min(score, 10);
-}
-
+// Emotional concern detection for coach context
 const concernPatterns = [
   /anxious|nervous|worried|stressed|dread|afraid|scared|fear/i,
   /caught off guard|unprepared|not ready|wasn't expecting/i,
   /defensive|attacked|criticized|under fire/i,
   /overwhelm|drained|exhausted|burned out/i,
-  /avoid|delay|put off|postpone/i
+  /avoid|delay|put off|postpone/i,
 ];
 
 function detectEmotionalConcern(content: string): boolean {
@@ -86,25 +345,6 @@ function generateContextStatement(content: string | null, coachContext: any): st
   if (coachContext.hasScenario) return `Working on: ${(coachContext.scenario || '').replace(/_/g, ' ')}`;
   if (coachContext.hasPendingTool) return `Tool from coach: ${coachContext.toolName}`;
   return null;
-}
-
-function capitalizeFirst(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function generatePillLabel(title: string, minutesUntil: number): string {
-  const labelBase = title || 'Event';
-  if (minutesUntil <= 60) return `${labelBase} — Soon`;
-  if (minutesUntil <= 1440) return `${labelBase} — ${Math.floor(minutesUntil / 60)}h`;
-  return `${labelBase} — ${Math.floor(minutesUntil / 1440)}d`;
-}
-
-function getTimeOfDayPill(timezoneOffset: number): { pillLabel: string; pillType: string; sessionPeriod: string } {
-  const now = new Date();
-  const localHour = (now.getUTCHours() - Math.floor(timezoneOffset / 60) + 24) % 24;
-  if (localHour >= 5 && localHour < 12) return { pillLabel: 'Morning Practice', pillType: 'time_of_day', sessionPeriod: 'morning' };
-  if (localHour >= 12 && localHour < 17) return { pillLabel: 'Afternoon Reset', pillType: 'time_of_day', sessionPeriod: 'afternoon' };
-  return { pillLabel: 'Evening Close', pillType: 'time_of_day', sessionPeriod: 'evening' };
 }
 
 // ─── Main Handler ───────────────────────────────────────────────────
@@ -128,9 +368,10 @@ serve(async (req) => {
     console.log(`[generate-jit-events] User: ${userId}, TZ offset: ${timezoneOffset}`);
 
     const now = new Date();
-    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    // Expand window to 4 weeks for strategic horizon
+    const in4Weeks = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
     // Check calendar connection status first
     const { data: calConn } = await supabase
@@ -140,23 +381,22 @@ serve(async (req) => {
       .eq('is_active', true)
       .maybeSingle();
 
-    // Parallel queries (includes coach_tools_offered for pending tool boost)
-    // Calendar events only queried if connection is active
-    const [eventsRes, skipRes, scenariosRes, pendingToolsRes] = await Promise.all([
+    // Parallel queries
+    const [eventsRes, cancellationRes, scenariosRes, pendingToolsRes, completedPlansRes, readinessAmpResult] = await Promise.all([
       calConn
         ? supabase
             .from('calendar_events')
-            .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring')
+            .select('id, title, start_time, end_time, is_organizer, attendees_count, is_recurring, event_metadata')
             .eq('user_id', userId)
             .gte('start_time', now.toISOString())
-            .lte('start_time', in48h.toISOString())
+            .lte('start_time', in4Weeks.toISOString())
             .order('start_time', { ascending: true })
         : Promise.resolve({ data: [], error: null }),
       supabase
-        .from('jit_preferences')
-        .select('event_type, created_at')
+        .from('jit_cancellation_memory')
+        .select('event_type, cluster, cancelled_at, penalty_level')
         .eq('user_id', userId)
-        .gte('created_at', thirtyDaysAgo),
+        .gte('cancelled_at', sixtyDaysAgo),
       supabase
         .from('coach_scenarios_detected')
         .select('scenario, dimension, event_types')
@@ -170,55 +410,101 @@ serve(async (req) => {
         .eq('status', 'pending')
         .order('offered_at', { ascending: false })
         .limit(10),
+      // Past completed plans for confidence scoring
+      supabase
+        .from('jit_event_context')
+        .select('event_type')
+        .eq('user_id', userId)
+        .eq('completed', true)
+        .gte('created_at', thirtyDaysAgo),
+      computeReadinessAmplifier(supabase, userId),
     ]);
 
     const events = eventsRes.data || [];
-    const skipHistory = skipRes.data || [];
+    const cancellationHistory = cancellationRes.data || [];
     const activeScenarios = scenariosRes.data || [];
     const pendingTools = pendingToolsRes.data || [];
+    const completedPlanTypes = new Set((completedPlansRes.data || []).map((p: any) => p.event_type));
 
     if (events.length === 0) {
       console.log('[generate-jit-events] No upcoming events');
       return new Response(JSON.stringify({
         selectedEvents: [],
-        timeOfDayPill: getTimeOfDayPill(timezoneOffset)
+        timeOfDayPill: getTimeOfDayPill(timezoneOffset),
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Score each event
+    // ─── Calendar Inference Layer 2: Coach session memory ────────
+    // Pre-load coach memories for attendee cross-referencing
+    const { data: coachMemories } = await supabase
+      .from('coach_memory_index')
+      .select('memory_content, key_themes, pattern_area')
+      .eq('user_id', userId)
+      .order('importance_score', { ascending: false })
+      .limit(50);
+
+    const coachMemoryTexts = (coachMemories || []).map((m: any) => ({
+      content: (m.memory_content || '').toLowerCase(),
+      themes: m.key_themes || [],
+      area: m.pattern_area || '',
+    }));
+
+    // Score each event through the six-stage pipeline
     const scoredEvents: any[] = [];
 
     for (const event of events) {
+      const title = event.title || 'Untitled Event';
       const minutesUntil = Math.max(0, (new Date(event.start_time).getTime() - now.getTime()) / 60000);
       const durationMinutes = (new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) / 60000;
+      const metadata = event.event_metadata || {};
 
-      // Factor 1: Urgency
-      const urgencyScore = calculateUrgencyScore(minutesUntil);
+      // ════════ STAGE 0: Noise Filter ════════
+      if (isNoiseEvent(title)) {
+        if (IS_DEV) console.log(`[JIT:Stage0] BLOCKED title="${title}" reason=noise_filter`);
+        continue;
+      }
 
-      // Factor 2: Scenario match
-      const scenarioMatch = matchScenario(event.title || '');
-      const scenarioMatchScore = scenarioMatch ? 25 : 0;
+      // ════════ STAGE 1: Cancellation Memory ════════
+      const scenarioMatch = matchScenario(title);
       const eventType = scenarioMatch
         ? scenarioMatch.scenario.eventTypes[0] || 'general'
         : 'general';
 
-      // Factor 3: Accountability
-      const accountabilityScore = event.is_organizer ? 15 : 0;
+      let cancellationPenalty = 0;
+      const relevantCancellations = cancellationHistory.filter(c => {
+        const matchesType = c.event_type === eventType;
+        const matchesCluster = c.cluster && c.cluster === (scoreDimensionB(title, 0, null).cluster);
+        return matchesType || matchesCluster;
+      });
 
-      // Factor 4: Scale
-      let scaleScore = 0;
-      if ((event.attendees_count || 0) > 5) scaleScore += 5;
-      if (durationMinutes > 60) scaleScore += 5;
+      if (relevantCancellations.length >= 2) {
+        // Check 60-day decay for 2+ cancellations
+        const recentEnough = relevantCancellations.some(c =>
+          (now.getTime() - new Date(c.cancelled_at).getTime()) < 60 * 86400000
+        );
+        if (recentEnough) cancellationPenalty = 40;
+      } else if (relevantCancellations.length === 1) {
+        // Check 30-day decay for single cancellation
+        const withinDecay = (now.getTime() - new Date(relevantCancellations[0].cancelled_at).getTime()) < 30 * 86400000;
+        if (withinDecay) cancellationPenalty = 25;
+      }
 
-      // Factor 5: Context
-      const contextScore = calculateContextScore(event.start_time, event.is_recurring || false);
+      if (IS_DEV && cancellationPenalty > 0) {
+        console.log(`[JIT:Stage1] PENALTY title="${title}" penalty=${cancellationPenalty} cancellations=${relevantCancellations.length}`);
+      }
 
-      // Coach context boost
-      let coachBoost = 0;
+      // ════════ STAGE 2: Five-Signal Scoring ════════
+
+      // Dim A: Interpersonal Stakes
+      const dimA = scoreDimensionA(title, event.attendees_count || 0);
+
+      // Coach signal check for Dim B (calendar inference layer 2)
+      let coachSignalScore = 0;
+      let coachSignalBucket: string | null = null;
       const coachContext: any = { hasScenario: false, hasMentions: false, expressedConcern: false, hasPendingTool: false, hasGoal: false };
 
       // Check active scenarios
-      const matchingScenario = activeScenarios.find(s =>
+      const matchingScenario = activeScenarios.find((s: any) =>
         s.event_types && s.event_types.includes(eventType)
       );
       if (matchingScenario) {
@@ -227,110 +513,164 @@ serve(async (req) => {
         coachContext.dimension = matchingScenario.dimension;
       }
 
-      // Check coach mentions (only if we have an event type to search for)
-      if (eventType !== 'general') {
-        const searchTerm = eventType.replace(/_/g, ' ');
-        const { data: mentions } = await supabase
-          .from('dialogue_messages')
-          .select('content')
-          .eq('sender_type', 'user')
-          .gte('timestamp', thirtyDaysAgo)
-          .ilike('content', `%${searchTerm}%`)
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      // Coach memory cross-reference (calendar inference layer 2)
+      const titleLower = title.toLowerCase();
+      const titleWords = titleLower.split(/\s+/).filter(w => w.length > 2);
+      const coachMemoryMatch = coachMemoryTexts.some((m: any) =>
+        titleWords.some(w => m.content.includes(w)) ||
+        m.themes.some((t: string) => titleLower.includes(t.toLowerCase()))
+      );
 
-        if (mentions) {
-          coachContext.hasMentions = true;
-          coachContext.mentionContent = mentions.content;
-          coachContext.expressedConcern = detectEmotionalConcern(mentions.content);
-        }
+      if (coachMemoryMatch) {
+        coachSignalScore = 15;
+        coachSignalBucket = 'clarity'; // Default; refined by dimension
+        coachContext.hasMentions = true;
       }
 
-      // Check pending tools from coach (GAP FIX #1)
-      const matchingTool = pendingTools.find(t =>
+      // Check pending tools
+      const matchingTool = pendingTools.find((t: any) =>
         t.event_types && t.event_types.includes(eventType)
       );
       if (matchingTool) {
         coachContext.hasPendingTool = true;
         coachContext.toolName = matchingTool.tool_name;
+        if (!coachSignalScore) {
+          coachSignalScore = 10;
+          coachSignalBucket = 'clarity';
+        }
       }
 
-      // Check goals
-      const { data: goalMatch } = await supabase
-        .from('user_coach_insights')
-        .select('insight_content')
-        .eq('user_id', userId)
-        .eq('insight_type', 'goal')
-        .eq('is_active', true)
-        .ilike('insight_content', `%${eventType.replace(/_/g, ' ')}%`)
-        .limit(1)
-        .maybeSingle();
+      // Dim B: Inner State Relevance
+      const dimBResult = scoreDimensionB(title, coachSignalScore, coachSignalBucket);
+      const dimB = dimBResult.score;
 
-      if (goalMatch) {
-        coachContext.hasGoal = true;
+      // Dim C: Urgency
+      const dimC = scoreDimensionC(minutesUntil);
+
+      // Dim D: Context
+      const description = metadata?.description || null;
+      const dimD = scoreDimensionD(
+        event.is_recurring || false,
+        event.is_organizer || false,
+        title,
+        description,
+      );
+
+      // Readiness amplifier
+      const { multiplier: readinessMultiplier, baselineLocked, hrvDeviation } = readinessAmpResult;
+
+      // Final score
+      const rawScore = dimA + dimB + dimC + dimD;
+      const amplifiedScore = Math.round(rawScore * readinessMultiplier);
+      const finalScore = Math.max(0, amplifiedScore - cancellationPenalty);
+
+      if (IS_DEV) {
+        console.log(`[JIT:Stage2] SCORED title="${title}" A=${dimA} B=${dimB} C=${dimC} D=${dimD} amp=${readinessMultiplier} penalty=${cancellationPenalty} final=${finalScore}`);
       }
 
-      // Calculate coach boost
-      if (coachContext.hasMentions && coachContext.expressedConcern) coachBoost = 20;
-      else if (coachContext.hasScenario) coachBoost = 15;
-      else if (coachContext.hasPendingTool) coachBoost = 12;
-      else if (coachContext.hasGoal) coachBoost = 8;
+      // ════════ STAGE 3: Confidence Scoring ════════
+      const titleKeywordHit = dimBResult.cluster !== null && dimBResult.cluster !== 'coach_signal';
+      const hrvConfirmed = (hrvDeviation !== null && hrvDeviation <= -15);
+      const hasStructural = (event.attendees_count || 0) > 0 && !event.is_recurring;
+      const pastCompleted = completedPlanTypes.has(eventType);
 
-      // Skip penalty
-      const eventTypeSkips = skipHistory.filter(s => s.event_type === eventType).length;
-      let skipPenalty = 0;
-      if (eventTypeSkips >= 3) skipPenalty = -999;
-      else if (eventTypeSkips === 2) skipPenalty = -15;
+      const confidence = computeConfidence(
+        titleKeywordHit,
+        coachMemoryMatch || coachContext.hasScenario,
+        hrvConfirmed,
+        hasStructural,
+        pastCompleted,
+      );
 
-      const baselineScore = urgencyScore + scenarioMatchScore + accountabilityScore + scaleScore + contextScore;
-      const finalScore = baselineScore + coachBoost + skipPenalty;
+      if (IS_DEV) {
+        console.log(`[JIT:Stage3] CONFIDENCE title="${title}" score=${confidence.score} band=${confidence.band}`);
+      }
 
-      if (finalScore < 50) continue; // Filter below threshold
+      // ════════ STAGE 4: Threshold Gate ════════
+      const gatePass = finalScore >= 55 && dimA >= 10 && dimB >= 8;
 
-      const eventHour = new Date(event.start_time).getHours();
-      const isDuringPrimeHours = (eventHour >= 9 && eventHour < 12) || (eventHour >= 14 && eventHour < 16);
+      if (IS_DEV) {
+        const reason = !gatePass
+          ? `FAIL (${finalScore < 55 ? `score=${finalScore}<55` : ''}${dimA < 10 ? ` A=${dimA}<10` : ''}${dimB < 8 ? ` B=${dimB}<8` : ''})`
+          : `PASS (${finalScore}≥55, A=${dimA}≥10, B=${dimB}≥8)`;
+        console.log(`[JIT:Stage4] GATE title="${title}" ${reason}`);
+      }
 
+      if (!gatePass) continue;
+
+      // Confidence band check: below 20 = do not surface
+      if (confidence.band === 'none') {
+        if (IS_DEV) console.log(`[JIT:Stage4] BLOCKED title="${title}" reason=confidence_below_20 (${confidence.score})`);
+        continue;
+      }
+
+      // ════════ STAGE 5: Urgency Horizon ════════
+      const urgencyHorizon = determineUrgencyHorizon(minutesUntil);
+
+      if (IS_DEV) {
+        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon}`);
+      }
+
+      // Generate context statement
       const contextStatement = generateContextStatement(
         coachContext.mentionContent || null,
-        coachContext
+        coachContext,
       );
 
       scoredEvents.push({
         calendarEventId: event.id,
-        eventTitle: event.title || 'Upcoming Event',
+        eventTitle: title,
         eventType,
         eventStart: event.start_time,
         eventDurationMinutes: Math.round(durationMinutes),
         attendeeCount: event.attendees_count || 0,
         userIsOrganizer: event.is_organizer || false,
         isRecurring: event.is_recurring || false,
-        isDuringPrimeHours,
+        isDuringPrimeHours: (() => {
+          const h = new Date(event.start_time).getHours();
+          return (h >= 9 && h < 12) || (h >= 14 && h < 16);
+        })(),
         minutesUntil: Math.round(minutesUntil),
-        urgencyScore,
-        scenarioMatchScore,
-        accountabilityScore,
-        scaleScore,
-        contextScore,
-        coachBoostScore: coachBoost,
-        skipPenalty,
+        // Legacy score fields (backward compat)
+        urgencyScore: dimC,
+        scenarioMatchScore: titleKeywordHit ? 25 : 0,
+        accountabilityScore: event.is_organizer ? 15 : 0,
+        scaleScore: Math.min(10, ((event.attendees_count || 0) > 5 ? 5 : 0) + (durationMinutes > 60 ? 5 : 0)),
+        contextScore: dimD,
+        coachBoostScore: coachSignalScore,
+        skipPenalty: -cancellationPenalty,
         finalScore: Math.min(finalScore, 120),
+        // New dimension scores
+        dimensionA: dimA,
+        dimensionB: dimB,
+        dimensionC: dimC,
+        dimensionD: dimD,
+        readinessMultiplier,
+        // Bucket classification
+        jitBucketPrimary: dimBResult.primaryBucket,
+        jitBucketSecondary: dimBResult.secondaryBucket,
+        // Confidence
+        jitConfidenceScore: confidence.score,
+        confidenceBand: confidence.band,
+        // Urgency horizon
+        jitUrgencyHorizon: urgencyHorizon,
+        // Coach context
         hasCoachContext: coachContext.hasScenario || coachContext.hasMentions || coachContext.hasGoal,
         coachScenario: coachContext.scenario || null,
         coachDimension: coachContext.dimension || null,
         hasPendingTool: coachContext.hasPendingTool,
         expressedConcern: coachContext.expressedConcern,
         contextStatement,
-        pillLabel: generatePillLabel(event.title || 'Event', Math.round(minutesUntil)),
+        pillLabel: generatePillLabel(title, Math.round(minutesUntil)),
         pillType: 'calendar_context',
         scenarioId: scenarioMatch?.scenarioId || null,
         scenarioModules: scenarioMatch?.scenario.modules || null,
       });
     }
 
-    // Sort by score, take top 2
+    // Sort by score, take top 3 (up from 2 to accommodate multi-horizon)
     scoredEvents.sort((a, b) => b.finalScore - a.finalScore);
-    const selectedEvents = scoredEvents.slice(0, 2);
+    const selectedEvents = scoredEvents.slice(0, 3);
 
     // Store in jit_event_context
     for (const evt of selectedEvents) {
@@ -361,6 +701,20 @@ serve(async (req) => {
         context_statement: evt.contextStatement,
         shown_in_jit: true,
         updated_at: new Date().toISOString(),
+        // New fields
+        jit_bucket_primary: evt.jitBucketPrimary,
+        jit_bucket_secondary: evt.jitBucketSecondary,
+        jit_confidence_score: evt.jitConfidenceScore,
+        jit_dimension_scores: {
+          a: evt.dimensionA,
+          b: evt.dimensionB,
+          c: evt.dimensionC,
+          d: evt.dimensionD,
+          readiness_multiplier: evt.readinessMultiplier,
+          final: evt.finalScore,
+        },
+        jit_urgency_horizon: evt.jitUrgencyHorizon,
+        jit_horizons_surfaced: [evt.jitUrgencyHorizon],
       }, { onConflict: 'id' });
     }
 
@@ -383,6 +737,10 @@ serve(async (req) => {
         pillLabel: e.pillLabel,
         pillType: e.pillType,
         scenarioModules: e.scenarioModules,
+        // New fields for client
+        jitBucketPrimary: e.jitBucketPrimary,
+        jitConfidenceBand: e.confidenceBand,
+        jitUrgencyHorizon: e.jitUrgencyHorizon,
       })),
       timeOfDayPill: getTimeOfDayPill(timezoneOffset),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -392,7 +750,7 @@ serve(async (req) => {
     console.error('[generate-jit-events] Error:', msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

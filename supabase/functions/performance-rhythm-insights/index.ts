@@ -186,11 +186,40 @@ serve(async (req) => {
       }
     }
 
+    // Logistic event filter — skip transit/admin/booking events from all insight paths
+    const LOGISTIC_KEYWORDS = [
+      'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+      'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+      'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+      'car service', 'mot', 'oil change', 'dentist', 'optician',
+      'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+      'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+    ];
+    const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+    function isLogisticEvent(title: string): boolean {
+      const lower = (title || '').toLowerCase();
+      if (LOGISTIC_PATTERN.test(title || '')) return true;
+      return LOGISTIC_KEYWORDS.some(kw => lower.includes(kw));
+    }
+
+    // Also check event_metadata.eventType for events classified as 'logistic' at sync time
+    function isLogisticByMetadata(ev: any): boolean {
+      return ev.event_metadata?.eventType === 'logistic';
+    }
+
+    // Filter calendar events for insight analysis — exclude logistics
+    const insightCalendarEvents = calendarEvents.filter((ev: any) => {
+      if (!ev.title) return false;
+      if (isLogisticEvent(ev.title)) return false;
+      if (isLogisticByMetadata(ev)) return false;
+      return true;
+    });
+
     // ── CALENDAR PATTERN (1B) ──
     let calendarInsight: string | null = null;
-    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
+    if (hasCalendar && insightCalendarEvents.length > 0 && checkIns.length >= 7) {
       const etCorr = new Map<string, { scores: number[]; count: number }>();
-      for (const ev of calendarEvents) {
+      for (const ev of insightCalendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
@@ -224,7 +253,7 @@ serve(async (req) => {
     let causeEffectInsight: string | null = null;
 
     // Path A (NEW): Calendar Event Type × HRV Correlation
-    if (hasCalendar && calendarEvents.length >= 3 && wearableData.length >= 5) {
+    if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
       // Calculate 30-day HRV baseline
       const allHRVs = wearableData.map((w: any) => w.hrv as number);
       const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
@@ -237,7 +266,7 @@ serve(async (req) => {
 
       // Group calendar events by type, collect same-day HRV
       const eventTypeHRV = new Map<string, { hrvs: number[]; titles: string[] }>();
-      for (const ev of calendarEvents) {
+      for (const ev of insightCalendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
         const et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
@@ -343,9 +372,9 @@ serve(async (req) => {
     }
 
     // Path C: Calendar event → next-day check-in outcome (independent fallback)
-    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
+    if (!causeEffectInsight && hasCalendar && insightCalendarEvents.length >= 3 && checkIns.length >= 5) {
       const etOutcomes = new Map<string, string[]>();
-      for (const ev of calendarEvents) {
+      for (const ev of insightCalendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
         let et = Object.keys(EVENT_TYPE_KEYWORDS).find(type =>
@@ -385,7 +414,7 @@ serve(async (req) => {
           const hrvByDate = new Map<string, number>();
           for (const w of wearableData) hrvByDate.set(w.summary_date, w.hrv as number);
           const matchedDayHRVs: number[] = [];
-          for (const ev of calendarEvents) {
+          for (const ev of insightCalendarEvents) {
             if (!ev.title) continue;
             const tl2 = ev.title.toLowerCase();
             const et2 = Object.keys(EVENT_TYPE_KEYWORDS).find(type => EVENT_TYPE_KEYWORDS[type].some(kw => tl2.includes(kw)));
@@ -404,10 +433,10 @@ serve(async (req) => {
     }
 
     // Path D: Same-day check-in outcome correlation with any calendar event (broader net)
-    if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 2 && checkIns.length >= 5) {
+    if (!causeEffectInsight && hasCalendar && insightCalendarEvents.length >= 2 && checkIns.length >= 5) {
       const eventDayOutcomes: string[] = [];
       const nonEventDayOutcomes: string[] = [];
-      const eventDates = new Set(calendarEvents.map(e => new Date(e.start_time).toISOString().split("T")[0]));
+      const eventDates = new Set(insightCalendarEvents.map(e => new Date(e.start_time).toISOString().split("T")[0]));
       for (const ci of checkIns) {
         if (!ci.outcome) continue;
         if (eventDates.has(ci.checkin_date)) eventDayOutcomes.push(ci.outcome);
@@ -467,7 +496,7 @@ serve(async (req) => {
           }
           // Non-prepped event days: calendar events not in JIT completed set
           const nonPreppedHRVs: number[] = [];
-          for (const ev of calendarEvents) {
+          for (const ev of insightCalendarEvents) {
             const evDate = new Date(ev.start_time).toISOString().split("T")[0];
             if (allEventDates.has(evDate)) continue;
             const hrv = hrvByDate.get(evDate);
@@ -537,7 +566,7 @@ serve(async (req) => {
     let presenceInsight: string | null = null;
     let presenceActions: string[] = [];
 
-    const highStakesEvents = calendarEvents.filter(e =>
+    const highStakesEvents = insightCalendarEvents.filter(e =>
       e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
     );
     const coachSessionCount = new Set(

@@ -1915,6 +1915,33 @@ export type Database = {
         }
         Relationships: []
       }
+      jit_cancellation_memory: {
+        Row: {
+          cancelled_at: string
+          cluster: string | null
+          event_type: string | null
+          id: string
+          penalty_level: number
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string
+          cluster?: string | null
+          event_type?: string | null
+          id?: string
+          penalty_level?: number
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string
+          cluster?: string | null
+          event_type?: string | null
+          id?: string
+          penalty_level?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       jit_carousel_cards: {
         Row: {
           card_position: number | null
@@ -1999,6 +2026,12 @@ export type Database = {
           id: string
           is_during_prime_hours: boolean | null
           is_recurring: boolean | null
+          jit_bucket_primary: string | null
+          jit_bucket_secondary: string | null
+          jit_confidence_score: number | null
+          jit_dimension_scores: Json | null
+          jit_horizons_surfaced: string[] | null
+          jit_urgency_horizon: string | null
           scale_score: number | null
           scenario_match_score: number | null
           shown_in_jit: boolean | null
@@ -2032,6 +2065,12 @@ export type Database = {
           id?: string
           is_during_prime_hours?: boolean | null
           is_recurring?: boolean | null
+          jit_bucket_primary?: string | null
+          jit_bucket_secondary?: string | null
+          jit_confidence_score?: number | null
+          jit_dimension_scores?: Json | null
+          jit_horizons_surfaced?: string[] | null
+          jit_urgency_horizon?: string | null
           scale_score?: number | null
           scenario_match_score?: number | null
           shown_in_jit?: boolean | null
@@ -2065,6 +2104,12 @@ export type Database = {
           id?: string
           is_during_prime_hours?: boolean | null
           is_recurring?: boolean | null
+          jit_bucket_primary?: string | null
+          jit_bucket_secondary?: string | null
+          jit_confidence_score?: number | null
+          jit_dimension_scores?: Json | null
+          jit_horizons_surfaced?: string[] | null
+          jit_urgency_horizon?: string | null
           scale_score?: number | null
           scenario_match_score?: number | null
           shown_in_jit?: boolean | null
@@ -2925,6 +2970,39 @@ export type Database = {
           trial_ends_at?: string | null
           updated_at?: string | null
           user_archetype?: string | null
+        }
+        Relationships: []
+      }
+      readiness_baselines: {
+        Row: {
+          baseline_established_at: string | null
+          baseline_hrv: number | null
+          baseline_rhr: number | null
+          rolling_hrv_30d: Json | null
+          rolling_rhr_3d: Json | null
+          updated_at: string | null
+          user_id: string
+          wearable_connected_at: string | null
+        }
+        Insert: {
+          baseline_established_at?: string | null
+          baseline_hrv?: number | null
+          baseline_rhr?: number | null
+          rolling_hrv_30d?: Json | null
+          rolling_rhr_3d?: Json | null
+          updated_at?: string | null
+          user_id: string
+          wearable_connected_at?: string | null
+        }
+        Update: {
+          baseline_established_at?: string | null
+          baseline_hrv?: number | null
+          baseline_rhr?: number | null
+          rolling_hrv_30d?: Json | null
+          rolling_rhr_3d?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          wearable_connected_at?: string | null
         }
         Relationships: []
       }

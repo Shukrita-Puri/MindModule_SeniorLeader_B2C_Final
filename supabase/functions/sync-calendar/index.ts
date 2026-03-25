@@ -300,13 +300,27 @@ serve(async (req) => {
       }
     }
 
+    // Logistic noise keywords — events that should never drive insights or JIT plans
+    const LOGISTIC_KEYWORDS = [
+      'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+      'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+      'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+      'car service', 'mot', 'oil change', 'dentist', 'optician',
+      'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+      'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+    ];
+    const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+
     // Classify events
     const classifiedEvents = events.map(event => {
       const title = event.title.toLowerCase();
       let eventType = 'meeting';
       let isHighStakes = false;
-      
-      if (title.includes('board') || title.includes('executive')) { eventType = 'board-meeting'; isHighStakes = true; }
+
+      // Check logistic first — before any other classification
+      const isLogistic = LOGISTIC_KEYWORDS.some(kw => title.includes(kw)) || LOGISTIC_PATTERN.test(event.title);
+      if (isLogistic) { eventType = 'logistic'; isHighStakes = false; }
+      else if (title.includes('board') || title.includes('executive')) { eventType = 'board-meeting'; isHighStakes = true; }
       else if (title.includes('presentation') || title.includes('demo') || title.includes('pitch')) { eventType = 'presentation'; isHighStakes = true; }
       else if (title.includes('client') || title.includes('customer')) { eventType = 'client-call'; isHighStakes = event.attendees_count > 5; }
       else if (title.includes('interview')) { eventType = 'interview'; isHighStakes = true; }

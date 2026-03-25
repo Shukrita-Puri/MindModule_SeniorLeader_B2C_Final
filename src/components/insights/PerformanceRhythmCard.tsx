@@ -236,9 +236,26 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
         }
 
+        // Logistic event filter — skip transit/admin/booking events
+        const LOGISTIC_KEYWORDS = [
+          'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+          'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+          'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+          'car service', 'mot', 'oil change', 'dentist', 'optician',
+          'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+          'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+        ];
+        const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+        const isLogisticEvent = (title: string) => {
+          const lower = (title || '').toLowerCase();
+          if (LOGISTIC_PATTERN.test(title || '')) return true;
+          return LOGISTIC_KEYWORDS.some(kw => lower.includes(kw));
+        };
+        const insightCalendarEvents = calendarEvents.filter(e => e.title && !isLogisticEvent(e.title));
+
         // ── Calendar Pattern (1B) ──
         let calendarInsight: string | null = null;
-        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
+        if (hasCalendar && insightCalendarEvents.length > 0 && checkIns.length >= 7) {
           const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
             board: ['board', 'board meeting', 'board of directors'],
             investor: ['investor', 'vc', 'funding', 'pitch'],
@@ -252,7 +269,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             presentation: ['presentation', 'speaking', 'conference', 'webinar'],
           };
           const eventTypeCorrelations = new Map<string, { scores: number[]; count: number }>();
-          for (const event of calendarEvents) {
+          for (const event of insightCalendarEvents) {
             if (!event.title) continue;
             const tl = event.title.toLowerCase();
             const eventDate = new Date(event.start_time).toISOString().split('T')[0];
@@ -300,7 +317,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         };
 
         // Path A: Calendar Event Type × HRV Correlation
-        if (hasCalendar && calendarEvents.length >= 3 && wearableData.length >= 5) {
+        if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
           const allHRVs = wearableData.map((w: any) => w.hrv as number);
           const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
           const hrvByDate = new Map<string, number>();
@@ -308,7 +325,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             hrvByDate.set(w.summary_date, w.hrv as number);
           }
           const eventTypeHRV = new Map<string, { hrvs: number[]; titles: string[] }>();
-          for (const ev of calendarEvents) {
+          for (const ev of insightCalendarEvents) {
             if (!ev.title) continue;
             const tl = ev.title.toLowerCase();
             const et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
@@ -401,9 +418,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         }
 
         // Path C: Calendar event → next-day check-in outcome
-        if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 3 && checkIns.length >= 5) {
+        if (!causeEffectInsight && hasCalendar && insightCalendarEvents.length >= 3 && checkIns.length >= 5) {
           const etOutcomes = new Map<string, string[]>();
-          for (const ev of calendarEvents) {
+          for (const ev of insightCalendarEvents) {
             if (!ev.title) continue;
             const tl = ev.title.toLowerCase();
             let et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
@@ -442,7 +459,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               const hrvByDateC = new Map<string, number>();
               for (const w of wearableData) hrvByDateC.set(w.summary_date, w.hrv as number);
               const matchedDayHRVs: number[] = [];
-              for (const ev of calendarEvents) {
+              for (const ev of insightCalendarEvents) {
                 if (!ev.title) continue;
                 const tl2 = ev.title.toLowerCase();
                 const et2 = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type => EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl2.includes(kw)));
@@ -461,10 +478,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         }
 
         // Path D: Event day vs non-event day
-        if (!causeEffectInsight && hasCalendar && calendarEvents.length >= 2 && checkIns.length >= 5) {
+        if (!causeEffectInsight && hasCalendar && insightCalendarEvents.length >= 2 && checkIns.length >= 5) {
           const eventDayOutcomes: string[] = [];
           const nonEventDayOutcomes: string[] = [];
-          const eventDates = new Set(calendarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]));
+          const eventDates = new Set(insightCalendarEvents.map(e => new Date(e.start_time).toISOString().split('T')[0]));
           for (const ci of checkIns) {
             if (!ci.outcome) continue;
             if (eventDates.has(ci.checkin_date)) eventDayOutcomes.push(ci.outcome);
@@ -520,7 +537,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 if (hrv !== undefined) jitDayHRVs.push(hrv);
               }
               const nonPreppedHRVs: number[] = [];
-              for (const ev of calendarEvents) {
+              for (const ev of insightCalendarEvents) {
                 const evDate = new Date(ev.start_time).toISOString().split('T')[0];
                 if (allEventDates.has(evDate)) continue;
                 const hrv = hrvByDate.get(evDate);
@@ -594,7 +611,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           'quarterly', 'qbr', 'earnings', 'product launch', 'go live',
           'keynote', 'conference', 'speaking', 'presentation',
         ];
-        const highStakesEvents = calendarEvents.filter(e =>
+        const highStakesEvents = insightCalendarEvents.filter(e =>
           e.title && HIGH_STAKES_KEYWORDS.some(k => e.title!.toLowerCase().includes(k))
         );
         const coachSessionCount = dialogueMessages.filter(m => m.sender_type === 'coach').length > 0 ? 
