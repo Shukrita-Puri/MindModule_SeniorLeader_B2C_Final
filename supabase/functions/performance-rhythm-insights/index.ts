@@ -253,7 +253,7 @@ serve(async (req) => {
     let causeEffectInsight: string | null = null;
 
     // Path A (NEW): Calendar Event Type × HRV Correlation
-    if (hasCalendar && calendarEvents.length >= 3 && wearableData.length >= 5) {
+    if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
       // Calculate 30-day HRV baseline
       const allHRVs = wearableData.map((w: any) => w.hrv as number);
       const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
