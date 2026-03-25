@@ -37,7 +37,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { eventId, eventType, eventTitle, action, cluster, jitBucketPrimary, jitBucketSecondary } = await req.json();
+    const { eventId, eventType, eventTitle, action, cluster, jitBucketPrimary, jitBucketSecondary, horizon } = await req.json();
 
     if (!action) {
       return new Response(JSON.stringify({ error: 'Missing action' }), {
@@ -46,13 +46,44 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[track-jit-skip] User: ${userId}, Action: ${action}, Event: ${eventTitle}`);
+    console.log(`[track-jit-skip] User: ${userId}, Action: ${action}, Event: ${eventTitle}, Horizon: ${horizon || 'none'}`);
 
     // Update jit_event_context if eventId provided
     if (eventId) {
+      // Per-touch dismissal: append horizon to dismissed_horizons array
+      // Also keep dismissed_by_user = true for backward compat (only when ALL touches dismissed or no horizon specified)
+      const updatePayload: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (horizon && (action === 'dismissed' || action === 'snoozed')) {
+        // Append this specific touch to dismissed_horizons using raw SQL via rpc
+        // Since we can't do array_append via PostgREST, fetch + merge
+        const { data: existingCtx } = await supabase
+          .from('jit_event_context')
+          .select('dismissed_horizons')
+          .eq('calendar_event_id', eventId)
+          .eq('user_id', userId)
+          .single();
+
+        const priorDismissed: string[] = existingCtx?.dismissed_horizons || [];
+        if (!priorDismissed.includes(horizon)) {
+          priorDismissed.push(horizon);
+        }
+        updatePayload.dismissed_horizons = priorDismissed;
+
+        // Only set global dismissed_by_user if BOTH touches are now dismissed
+        if (priorDismissed.includes('touch_1') && priorDismissed.includes('touch_2')) {
+          updatePayload.dismissed_by_user = true;
+        }
+      } else {
+        // Legacy fallback: no horizon specified, set global dismiss
+        updatePayload.dismissed_by_user = true;
+      }
+
       await supabase
         .from('jit_event_context')
-        .update({ dismissed_by_user: true, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('calendar_event_id', eventId)
         .eq('user_id', userId);
     }
