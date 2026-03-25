@@ -257,11 +257,13 @@ function computeConfidence(
   return { score: Math.min(100, score), band };
 }
 
-// ─── Stage 5: Urgency Horizon ───────────────────────────────────────
-function determineUrgencyHorizon(minutesUntil: number): 'immediate' | 'tactical' | 'strategic' {
-  if (minutesUntil <= 360) return 'immediate';       // 0-6h
-  if (minutesUntil <= 10080) return 'tactical';       // 1-7 days
-  return 'strategic';                                  // 1-4 weeks
+// ─── Stage 5: Two-Touch Action Model ────────────────────────────────
+// Touch 1 (24-48h): coach + think prep. Touch 2 (0-6h): body + state prep.
+// Silent gap (6-24h) and selection-only (>48h): scored & stored, not surfaced.
+function determineUrgencyHorizon(minutesUntil: number): 'immediate' | 'tactical' | null {
+  if (minutesUntil <= 360) return 'immediate';                        // Touch 2: 0-6h body prep
+  if (minutesUntil >= 1440 && minutesUntil <= 2880) return 'tactical'; // Touch 1: 24-48h coach + think
+  return null;  // Silent gap (6-24h) or selection-only (>48h) — scored but not surfaced
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -368,7 +370,8 @@ serve(async (req) => {
     console.log(`[generate-jit-events] User: ${userId}, TZ offset: ${timezoneOffset}`);
 
     const now = new Date();
-    // Expand window to 4 weeks for strategic horizon
+    // Selection window: 4 weeks. Events are scored and stored but only surfaced
+    // when they enter a two-touch action window (0-6h or 24-48h).
     const in4Weeks = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -604,12 +607,16 @@ serve(async (req) => {
         continue;
       }
 
-      // ════════ STAGE 5: Urgency Horizon ════════
+      // ════════ STAGE 5: Two-Touch Action Model ════════
       const urgencyHorizon = determineUrgencyHorizon(minutesUntil);
 
       if (IS_DEV) {
-        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon}`);
+        console.log(`[JIT:Stage5] HORIZON title="${title}" horizon=${urgencyHorizon ?? 'null (silent/selection-only)'} minutesUntil=${Math.round(minutesUntil)}`);
       }
+
+      // Events in the silent gap (6-24h) or selection-only (>48h) are scored and
+      // stored but NOT surfaced — they wait until entering an action window.
+      const isSurfaceable = urgencyHorizon !== null;
 
       // Generate context statement
       const contextStatement = generateContextStatement(
@@ -652,8 +659,9 @@ serve(async (req) => {
         // Confidence
         jitConfidenceScore: confidence.score,
         confidenceBand: confidence.band,
-        // Urgency horizon
+        // Two-touch horizon (null = silent gap or selection-only)
         jitUrgencyHorizon: urgencyHorizon,
+        isSurfaceable,
         // Coach context
         hasCoachContext: coachContext.hasScenario || coachContext.hasMentions || coachContext.hasGoal,
         coachScenario: coachContext.scenario || null,
@@ -668,37 +676,46 @@ serve(async (req) => {
       });
     }
 
-    // Sort by score, take top 3 (up from 2 to accommodate multi-horizon)
+    // Sort by score, take top 3
     scoredEvents.sort((a, b) => b.finalScore - a.finalScore);
 
-    // ════════ Multi-Horizon Deduplication ════════
-    // Check which horizons have already been surfaced per event to allow
-    // the same event to appear at different horizons (immediate/tactical/strategic)
-    const eventIds = scoredEvents.map(e => e.calendarEventId);
+    // ════════ Two-Touch Deduplication ════════
+    // Only surfaceable events (in an action window) are shown to the user.
+    // Non-surfaceable events are still stored for future window entry.
+    const surfaceableEvents = scoredEvents.filter(e => e.isSurfaceable);
+    const nonSurfaceableEvents = scoredEvents.filter(e => !e.isSurfaceable);
+
+    if (IS_DEV && nonSurfaceableEvents.length > 0) {
+      console.log(`[JIT:Stage5] ${nonSurfaceableEvents.length} events in silent gap or selection-only (scored but not surfaced): ${nonSurfaceableEvents.map(e => `"${e.eventTitle}" (${Math.round(e.minutesUntil)}min)`).join(', ')}`);
+    }
+
+    // Check which horizons have already been surfaced per event
+    const allEventIds = scoredEvents.map(e => e.calendarEventId);
     let existingHorizonsMap: Record<string, string[]> = {};
-    if (eventIds.length > 0) {
+    if (allEventIds.length > 0) {
       try {
         const { data: existingCtx } = await supabase
           .from('jit_event_context')
           .select('calendar_event_id, jit_horizons_surfaced')
           .eq('user_id', userId)
-          .in('calendar_event_id', eventIds);
+          .in('calendar_event_id', allEventIds);
         for (const row of (existingCtx || [])) {
           existingHorizonsMap[row.calendar_event_id] = row.jit_horizons_surfaced || [];
         }
       } catch { /* ignore */ }
     }
 
-    // Select events: allow same event at different horizons, max 3 total
+    // Select surfaceable events: deduplicate by event+horizon, max 3
     const selectedEvents: typeof scoredEvents = [];
     const seenEventHorizons = new Set<string>();
-    for (const evt of scoredEvents) {
+    for (const evt of surfaceableEvents) {
       if (selectedEvents.length >= 3) break;
-      const key = `${evt.calendarEventId}:${evt.jitUrgencyHorizon}`;
-      // Skip if this exact event+horizon combo was already surfaced
+      const horizon = evt.jitUrgencyHorizon!;
+      const key = `${evt.calendarEventId}:${horizon}`;
+      // Skip if this event+horizon was already surfaced in a prior run
       const priorHorizons = existingHorizonsMap[evt.calendarEventId] || [];
-      if (priorHorizons.includes(evt.jitUrgencyHorizon)) {
-        if (IS_DEV) console.log(`[JIT:Stage5] DEDUP title="${evt.eventTitle}" horizon=${evt.jitUrgencyHorizon} (already surfaced)`);
+      if (priorHorizons.includes(horizon)) {
+        if (IS_DEV) console.log(`[JIT:Stage5] DEDUP title="${evt.eventTitle}" horizon=${horizon} (already surfaced)`);
         continue;
       }
       if (seenEventHorizons.has(key)) continue;
@@ -706,10 +723,14 @@ serve(async (req) => {
       selectedEvents.push(evt);
     }
 
-    // Store in jit_event_context
-    for (const evt of selectedEvents) {
+    // Store ALL scored events (surfaceable and non-surfaceable) in jit_event_context
+    const allEventsToStore = [...selectedEvents, ...nonSurfaceableEvents];
+    for (const evt of allEventsToStore) {
       const priorHorizons = existingHorizonsMap[evt.calendarEventId] || [];
-      const mergedHorizons = [...new Set([...priorHorizons, evt.jitUrgencyHorizon])];
+      const horizon = evt.jitUrgencyHorizon;
+      const mergedHorizons = horizon
+        ? [...new Set([...priorHorizons, horizon])]
+        : priorHorizons; // Don't add null horizon to the array
 
       await supabase.from('jit_event_context').upsert({
         user_id: userId,
@@ -736,7 +757,7 @@ serve(async (req) => {
         has_pending_tool: evt.hasPendingTool,
         expressed_concern: evt.expressedConcern,
         context_statement: evt.contextStatement,
-        shown_in_jit: true,
+        shown_in_jit: evt.isSurfaceable,
         updated_at: new Date().toISOString(),
         // New fields
         jit_bucket_primary: evt.jitBucketPrimary,
