@@ -2059,6 +2059,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         hrvCorrelation: topEvent.hrvCorrelation || null,
         actionWindow: actionWindow,
         horizon: horizon,
+        eventId: topEvent.event.id,
       };
       console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
     } else {

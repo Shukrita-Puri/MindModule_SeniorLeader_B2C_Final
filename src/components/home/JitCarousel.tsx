@@ -49,10 +49,8 @@ interface PreEventPlan {
     avgDeviation: number;
     historicalCount: number;
   } | null;
-}
-
-interface JitCarouselProps {
-  preEventPlan?: PreEventPlan | null;
+  horizon?: string;
+  eventId?: string;
 }
 
 const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
@@ -131,6 +129,8 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           action,
           eventType: preEventPlan.eventType,
           eventTitle: preEventPlan.eventTitle,
+          eventId: preEventPlan.eventId || null,
+          horizon: preEventPlan.horizon || null,
         }
       });
     } catch { /* silent */ }
