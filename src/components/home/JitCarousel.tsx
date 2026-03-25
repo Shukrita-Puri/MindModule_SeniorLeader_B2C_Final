@@ -293,10 +293,12 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
         </div>
 
         <div className="flex items-start justify-between gap-3">
-          {/* Context description — AI-generated "why this event" reasoning */}
-          <p className="text-xs text-muted-foreground italic font-body leading-relaxed flex-1 min-w-0">
-            {preEventPlan.contextDescription}
-          </p>
+          {/* Context description — AI-generated "why this event" reasoning — hidden if low confidence */}
+          {preEventPlan.contextDescription && preEventPlan.contextDescription.length > 0 && (
+            <p className="text-xs text-muted-foreground italic font-body leading-relaxed flex-1 min-w-0">
+              {preEventPlan.contextDescription}
+            </p>
+          )}
 
           {/* Progress tracker — mirrors Time-of-Day placement */}
           <span className="text-xs font-medium font-body text-foreground/80 whitespace-nowrap">
@@ -340,7 +342,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                       <div
                         onClick={() => !isDragging && navigateToModule(module)}
                         className={cn(
-                          "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
+                          "flex rounded-xl overflow-hidden h-44 cursor-pointer transition-all duration-300",
                           "bg-white/15 backdrop-blur-md border border-white/40",
                           "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                           isCompleted ? "opacity-60" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
@@ -380,6 +382,11 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                               <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                             )}
                           </div>
+                          {module.reasoning && (
+                            <p className="text-[10px] text-muted-foreground/70 italic font-body line-clamp-2 leading-snug mt-0.5">
+                              {module.reasoning}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                           </div>
