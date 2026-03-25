@@ -1,118 +1,38 @@
 
+# Plan: JIT Mastery Plan — Six-Stage Pipeline Logic Evolution
 
-# Audit: JIT Mastery Plan — Six-Stage Pipeline Implementation Status
+## Status: IMPLEMENTED (All Gaps Closed)
 
-## Summary
+All 9 phases have been implemented, plus 5 gap fixes from the deep audit:
 
-The six-stage pipeline is **fully implemented in `generate-jit-events/index.ts`** but there is a critical architectural gap: **`generate-mastery-plan` still runs its own OLD flat scoring model** to build the `preEventPlan` that actually renders on the homepage. The two systems are disconnected.
+1. ✅ DB Migration: `jit_cancellation_memory`, `readiness_baselines` tables + 6 new columns on `jit_event_context`
+2. ✅ Noise Filter (Stage 0): NOISE_KEYWORDS + booking ref regex in `generate-jit-events` AND `generate-mastery-plan`
+3. ✅ Cancellation Memory (Stage 1): Write on dismiss in `track-jit-skip`, read+penalty in `generate-jit-events`
+4. ✅ Five-Signal Scoring (Stage 2): 4-dimension model (A:0-35, B:0-35, C:0-20, D:0-10) + composite readiness amplifier
+5. ✅ Confidence Scoring (Stage 3) + New Gate (Stage 4): Score ≥55 AND A≥10 AND B≥8
+6. ✅ Three-Bucket Classification + Calendar Inference: Recalibrate/Clarity/Renewal with dual attribution
+7. ✅ Urgency Multi-Surface (Stage 5): Immediate/Tactical/Strategic horizons, 4-week window, multi-horizon deduplication
+8. ✅ Insights Attribution: 70/30 bucket split with weight multipliers (completion ×1.2, reflection ×1.3, recurring ×1.5)
+9. ✅ DEV_MODE Logging: Structured pipeline stage logs when ENVIRONMENT !== 'production'
 
----
+## Gap Fixes (Audit Round 2)
 
-## Phase-by-Phase Status
+| Gap | Fix | Status |
+|-----|-----|--------|
+| Gap 1: `generate-mastery-plan` used old scoring | Bridge to `jit_event_context` for pre-scored events; legacy fallback with noise filter | ✅ DONE |
+| Gap 2: `performance-rhythm-insights` missing logistic exclusion | Already implemented (lines 189-216) — LOGISTIC_KEYWORDS + metadata check | ✅ DONE (was already there) |
+| Gap 3: Multi-horizon deduplication incomplete | Added `jit_horizons_surfaced` check before surfacing; merges horizons on upsert | ✅ DONE |
+| Gap 4: Insights attribution missing multipliers | Added completion/reflected/recurring_improvement multipliers + secondary bucket logging | ✅ DONE |
+| Gap 5: Context line not enriched | `buildEnrichedContextDescription()` uses bucket, coach memory, HRV, confidence framing | ✅ DONE |
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| 1. DB Migration | DONE | `jit_cancellation_memory`, `readiness_baselines` tables exist. 6 new columns on `jit_event_context` confirmed in schema. |
-| 2. Noise Filter (Stage 0) | DONE | `NOISE_KEYWORDS` + `NOISE_PATTERN` regex in `generate-jit-events`. `logistic` classification in `sync-calendar`. `PerformanceRhythmCard.tsx` mirrors exclusion. |
-| 3. Cancellation Memory (Stage 1) | DONE | `track-jit-skip` writes to `jit_cancellation_memory`. `generate-jit-events` reads + applies -25/-40 penalty with 30/60-day decay. |
-| 4. Five-Signal Scoring (Stage 2) | DONE | Dims A (0-35), B (0-35), C (0-20), D (0-10) + composite readiness amplifier with 4-signal composite (HRV 40%, HR 35%, sleep 15%, RHR trend 10%). 14-day baseline lock-in implemented. |
-| 5. Confidence + Gate (Stage 3-4) | DONE | Confidence scoring (keyword +40, coach +30, HRV +15, structural +10, past +5). Gate: ≥55 AND A≥10 AND B≥8. Band-based filtering (below 20 = no surface). |
-| 6. Three-Bucket + Calendar Inference | DONE | Bucket assignment from Dim B clusters. Coach memory cross-ref against `coach_memory_index`. Three inference layers implemented. |
-| 7. Urgency Multi-Surface (Stage 5) | PARTIALLY DONE | Horizon determination (immediate/tactical/strategic) works. Calendar window expanded to 4 weeks. BUT: `jit_horizons_surfaced` tracking only writes the current horizon — no logic to surface the SAME event at multiple horizons across calls. Events are deduplicated by score rank (top 3), not by horizon uniqueness. |
-| 8. Insights Attribution | DONE | `track-jit-skip` writes `behavior_logs` on completion with bucket context. |
-| 9. DEV_MODE Logging | DONE | Structured `[JIT:Stage0-5]` logs at each pipeline stage, gated by `ENVIRONMENT !== 'production'`. |
-
----
-
-## Critical Gaps
-
-### Gap 1: `generate-mastery-plan` still uses OLD scoring (MAJOR)
-
-`generate-mastery-plan/index.ts` (lines 894-946) builds the `preEventPlan` using the original flat model:
-- Urgency 0-40 + organizer +15 + attendees>5 +10 + duration>60 +8 + non-recurring +10 + scenario +25 + prime hours +5 + back-to-back +5 − skip penalty -15
-- Gate threshold: ≥50
-- 48-hour window only
-- No noise filter, no Dim A/B floors, no confidence scoring, no bucket classification
-
-This is the function that actually produces the `preEventPlan` rendered by `JitCarousel.tsx`. The new pipeline in `generate-jit-events` runs separately and stores results in `jit_event_context`, but its output is NOT consumed by the mastery plan or the JIT carousel.
-
-**Impact**: The bus ticket / "London Victoria Coach Station" scenario would still surface through `generate-mastery-plan` even though `generate-jit-events` correctly blocks it.
-
-### Gap 2: `performance-rhythm-insights` has no logistic exclusion
-
-Search confirmed zero matches for "logistic" or "noise" in `performance-rhythm-insights/index.ts`. The edge function does NOT exclude logistic events from cause-effect analysis. Only `PerformanceRhythmCard.tsx` (client DEV_MODE) has the exclusion.
-
-### Gap 3: Multi-horizon surfacing is incomplete
-
-The spec says the same event can surface up to 3 times at different horizons. Current implementation:
-- Determines horizon but only picks top 3 events by score
-- Does not check which horizons have already been surfaced for a given event
-- Does not generate distinct plan types per horizon (immediate = somatic-first 3-5 min vs strategic = deep reflection)
-
-### Gap 4: Insights attribution missing weight multipliers
-
-`track-jit-skip` writes a flat `behavior_logs` entry on completion. The spec requires:
-- Completion ×1.2
-- Post-event reflection ×1.3
-- Recurring improvement ×1.5
-- 70/30 primary/secondary bucket split
-
-Current implementation only writes a single log with `control_level = primaryBucket`. No multipliers, no secondary bucket attribution, no reflection detection.
-
-### Gap 5: Context line not enriched by new pipeline signals
-
-The `contextDescription` in `JitCarousel.tsx` comes from `generate-mastery-plan`'s old logic (scenario label + urgency + stakes + HRV correlation). It does NOT reference:
-- Coach session memory matches ("You mentioned this in coaching")
-- Dim B cluster reasoning ("High inner-state relevance: pressure cluster")
-- Confidence band framing (soft vs silent vs prompt)
-- Bucket classification ("Recalibrate plan")
-
-The `contextStatement` generated by `generate-jit-events` (line 615-618) IS richer — it includes coach scenario, pending tool, and emotional concern detection — but it never reaches the UI.
-
----
-
-## Recommended Fix Plan
-
-### Step 1: Bridge `generate-jit-events` output into `generate-mastery-plan`
-
-Instead of `generate-mastery-plan` scoring events itself, have it query `jit_event_context` for pre-scored events from the new pipeline. If the user has called `generate-jit-events` recently (within the last 30 min), use those results. Otherwise, fall back to calling the scoring logic inline.
-
-This connects the new pipeline to the actual UI rendering path.
-
-### Step 2: Add noise filter + logistic exclusion to `generate-mastery-plan`
-
-Even before the bridge is complete, add the same `isNoiseEvent()` check and `logistic` eventType skip to `generate-mastery-plan`'s event scoring loop (line 892). This immediately prevents bus tickets from surfacing.
-
-### Step 3: Add logistic exclusion to `performance-rhythm-insights`
-
-Mirror the `PerformanceRhythmCard.tsx` logistic filter into the edge function's event processing paths.
-
-### Step 4: Enrich `contextDescription` with pipeline signals
-
-Update the `contextDescription` builder in `generate-mastery-plan` (or the bridge) to include:
-- Bucket label: "Recalibrate — regulate inner state before this"
-- Coach memory: "You discussed [person/theme] with your coach"  
-- HRV context: "Your HRV is 18% below baseline today"
-- Confidence framing: High → silent context, Medium → "Before your [event]…", Low → "Worth preparing for this?"
-
-### Step 5: Complete multi-horizon logic
-
-Add horizon deduplication: when scoring events, check `jit_horizons_surfaced` and allow the same event to appear once per unsurfaced horizon.
-
-### Step 6: Complete insights attribution
-
-Add weight multipliers and secondary bucket logging to `track-jit-skip` completion handler.
-
----
-
-## Files Requiring Changes
+## Files Changed
 
 | File | Change |
-|------|--------|
-| `generate-mastery-plan/index.ts` | Add noise filter to event scoring loop (immediate fix). Bridge to `jit_event_context` for pre-scored events. Enrich `contextDescription` with bucket/coach/HRV/confidence signals. |
-| `performance-rhythm-insights/index.ts` | Add logistic event exclusion to all paths. |
-| `generate-jit-events/index.ts` | Add multi-horizon deduplication logic. |
-| `track-jit-skip/index.ts` | Add weight multipliers + secondary bucket attribution. |
-
-No DB migrations needed — all required columns exist.
-
+|---|---|
+| Migration | `jit_cancellation_memory`, `readiness_baselines` tables, 6 columns on `jit_event_context` |
+| `generate-jit-events/index.ts` | Complete rewrite: 6-stage pipeline + multi-horizon deduplication |
+| `generate-mastery-plan/index.ts` | Bridge to `jit_event_context`, noise filter, enriched context descriptions |
+| `track-jit-skip/index.ts` | Cancellation memory writes + 70/30 attribution with weight multipliers |
+| `sync-calendar/index.ts` | `logistic` event type classification |
+| `performance-rhythm-insights/index.ts` | Logistic event exclusion from all insight paths |
+| `PerformanceRhythmCard.tsx` | Logistic exclusion mirrored in DEV_MODE |
