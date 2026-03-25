@@ -123,7 +123,7 @@ function scoreEvent(title: string | null): number {
 }
 
 // ── Constants ──
-const DAILY_NOTIFICATION_CAP = 4;
+const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -525,7 +525,7 @@ serve(async (req) => {
         .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
-      // ── DAILY CAP: max 4 notifications per user per day ──
+      // ── DAILY CAP: max 3 notifications per user per day ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
         continue;
