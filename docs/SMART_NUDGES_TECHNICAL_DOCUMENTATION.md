@@ -87,6 +87,15 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 
 ## Notification Types — Full Logic
 
+**Weekday Priority Order (highest → lowest):**
+1. Pre-Event Prep (P1)
+2. Pattern Alert (P2)
+3. Morning Anchor (P3)
+4. State-Aware Nudge (P4)
+5. Evening Close (P5)
+6. Afternoon Check-In (P6)
+7. Daily Fallback (P7)
+
 ### Type 1: Pre-Event Prep (P1 — highest priority)
 
 | Property | Value |
@@ -96,7 +105,7 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Data needed** | `calendar_events`, `daily_checkins` (inner tier) |
 | **Suppression** | Max 3/day, dedup by `event_reference` (external_id), 2-hour global |
 | **Weekend** | Active (high-stakes events can happen on weekends) |
-| **Engagement learning** | Subject to 50% reduction if 0 taps in 5+ sends over 14 days |
+| **Engagement learning** | Subject to 50% reduction if 0 taps in 5+ sends over 7 days |
 | **Variant selection** | strong/peak → PE-3, depleted/managing → PE-4, else round-robin |
 | **Copy variants** | PE-1 through PE-6 |
 
@@ -132,14 +141,15 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Weekday variant selection** | High calendar pressure → MA-2, streak ≥ 3 → MA-5, else round-robin |
 | **Copy variants** | Weekday: MA-1 through MA-6 · Weekend: MA-W1, MA-W2 |
 
-### Type 4: Afternoon Check-In (P4)
+### Type 4: State-Aware Nudge (P4)
 
 | Property | Value |
 |----------|-------|
-| **Window** | 12:30 – 14:30 local time |
-| **Trigger** | No afternoon check-in (`time_window = 'afternoon'`) exists for today |
-| **Weekend** | **DISABLED** — skipped on Saturday and Sunday |
-| **Copy variants** | AC-1 through AC-3 |
+| **Window** | 12:00 – 15:00 local time |
+| **Trigger** | Morning check-in outcome is depleted/managing AND no afternoon reset completed AND ≥ 1 high-stakes event in next 4 hours |
+| **Weekend** | **DISABLED** — requires structured calendar pressure |
+| **Suppression** | 3-hour minimum gap, skip if app opened in 3 hours, max 1/day, must be only queued notification |
+| **Copy variants** | SN-1 through SN-4 |
 
 ### Type 5: Evening Close (P5)
 
@@ -160,15 +170,14 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Weekday (missing check-in)** | ECI-1, ECI-2 | Standard evening check-in copy |
 | **Weekday (missing ritual)** | EC-1 through EC-6 | Context-aware: HRV delta ≥ 15% → EC-4, high calendar load → EC-2, streak ≥ 3 → EC-5 |
 
-### Type 6: State-Aware Nudge (P6)
+### Type 6: Afternoon Check-In (P6)
 
 | Property | Value |
 |----------|-------|
-| **Window** | 12:00 – 15:00 local time |
-| **Trigger** | Morning check-in outcome is depleted/managing AND no afternoon reset completed AND ≥ 1 high-stakes event in next 4 hours |
-| **Weekend** | **DISABLED** — requires structured calendar pressure |
-| **Suppression** | 3-hour minimum gap, skip if app opened in 3 hours, max 1/day, must be only queued notification |
-| **Copy variants** | SN-1 through SN-4 |
+| **Window** | 12:30 – 14:30 local time |
+| **Trigger** | No afternoon check-in (`time_window = 'afternoon'`) exists for today |
+| **Weekend** | **DISABLED** — skipped on Saturday and Sunday |
+| **Copy variants** | AC-1 through AC-3 |
 
 ### Type 7: Daily Fallback (P7)
 
