@@ -2014,6 +2014,7 @@ export type Database = {
           context_statement: string | null
           created_at: string | null
           dismissed_by_user: boolean | null
+          dismissed_horizons: string[] | null
           event_duration_minutes: number | null
           event_start: string
           event_title: string
@@ -2053,6 +2054,7 @@ export type Database = {
           context_statement?: string | null
           created_at?: string | null
           dismissed_by_user?: boolean | null
+          dismissed_horizons?: string[] | null
           event_duration_minutes?: number | null
           event_start: string
           event_title: string
@@ -2092,6 +2094,7 @@ export type Database = {
           context_statement?: string | null
           created_at?: string | null
           dismissed_by_user?: boolean | null
+          dismissed_horizons?: string[] | null
           event_duration_minutes?: number | null
           event_start?: string
           event_title?: string

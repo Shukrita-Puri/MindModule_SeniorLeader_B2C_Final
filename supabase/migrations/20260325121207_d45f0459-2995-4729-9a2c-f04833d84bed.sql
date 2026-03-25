@@ -1,0 +1,1 @@
+ALTER TABLE public.jit_event_context ADD COLUMN IF NOT EXISTS dismissed_horizons text[] DEFAULT '{}';
