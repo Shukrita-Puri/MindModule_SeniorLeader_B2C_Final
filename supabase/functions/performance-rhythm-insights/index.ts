@@ -186,11 +186,40 @@ serve(async (req) => {
       }
     }
 
+    // Logistic event filter — skip transit/admin/booking events from all insight paths
+    const LOGISTIC_KEYWORDS = [
+      'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+      'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+      'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+      'car service', 'mot', 'oil change', 'dentist', 'optician',
+      'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+      'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+    ];
+    const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+    function isLogisticEvent(title: string): boolean {
+      const lower = (title || '').toLowerCase();
+      if (LOGISTIC_PATTERN.test(title || '')) return true;
+      return LOGISTIC_KEYWORDS.some(kw => lower.includes(kw));
+    }
+
+    // Also check event_metadata.eventType for events classified as 'logistic' at sync time
+    function isLogisticByMetadata(ev: any): boolean {
+      return ev.event_metadata?.eventType === 'logistic';
+    }
+
+    // Filter calendar events for insight analysis — exclude logistics
+    const insightCalendarEvents = calendarEvents.filter((ev: any) => {
+      if (!ev.title) return false;
+      if (isLogisticEvent(ev.title)) return false;
+      if (isLogisticByMetadata(ev)) return false;
+      return true;
+    });
+
     // ── CALENDAR PATTERN (1B) ──
     let calendarInsight: string | null = null;
-    if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
+    if (hasCalendar && insightCalendarEvents.length > 0 && checkIns.length >= 7) {
       const etCorr = new Map<string, { scores: number[]; count: number }>();
-      for (const ev of calendarEvents) {
+      for (const ev of insightCalendarEvents) {
         if (!ev.title) continue;
         const tl = ev.title.toLowerCase();
         const evDate = new Date(ev.start_time).toISOString().split("T")[0];
