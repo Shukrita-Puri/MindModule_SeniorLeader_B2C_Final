@@ -1,38 +1,131 @@
 
-# Plan: JIT Mastery Plan — Six-Stage Pipeline Logic Evolution
 
-## Status: IMPLEMENTED (All Gaps Closed)
+# Plan: Two-Touch Action Model + Legacy Gate Alignment + Cleanup
 
-All 9 phases have been implemented, plus 5 gap fixes from the deep audit:
+## What changes
 
-1. ✅ DB Migration: `jit_cancellation_memory`, `readiness_baselines` tables + 6 new columns on `jit_event_context`
-2. ✅ Noise Filter (Stage 0): NOISE_KEYWORDS + booking ref regex in `generate-jit-events` AND `generate-mastery-plan`
-3. ✅ Cancellation Memory (Stage 1): Write on dismiss in `track-jit-skip`, read+penalty in `generate-jit-events`
-4. ✅ Five-Signal Scoring (Stage 2): 4-dimension model (A:0-35, B:0-35, C:0-20, D:0-10) + composite readiness amplifier
-5. ✅ Confidence Scoring (Stage 3) + New Gate (Stage 4): Score ≥55 AND A≥10 AND B≥8
-6. ✅ Three-Bucket Classification + Calendar Inference: Recalibrate/Clarity/Renewal with dual attribution
-7. ✅ Urgency Multi-Surface (Stage 5): Immediate/Tactical/Strategic horizons, 4-week window, multi-horizon deduplication
-8. ✅ Insights Attribution: 70/30 bucket split with weight multipliers (completion ×1.2, reflection ×1.3, recurring ×1.5)
-9. ✅ DEV_MODE Logging: Structured pipeline stage logs when ENVIRONMENT !== 'production'
+Three targeted fixes inside `generate-mastery-plan/index.ts` and one fix in `generate-jit-events/index.ts`. No UI changes. No DB migrations.
 
-## Gap Fixes (Audit Round 2)
+---
 
-| Gap | Fix | Status |
-|-----|-----|--------|
-| Gap 1: `generate-mastery-plan` used old scoring | Bridge to `jit_event_context` for pre-scored events; legacy fallback with noise filter | ✅ DONE |
-| Gap 2: `performance-rhythm-insights` missing logistic exclusion | Already implemented (lines 189-216) — LOGISTIC_KEYWORDS + metadata check | ✅ DONE (was already there) |
-| Gap 3: Multi-horizon deduplication incomplete | Added `jit_horizons_surfaced` check before surfacing; merges horizons on upsert | ✅ DONE |
-| Gap 4: Insights attribution missing multipliers | Added completion/reflected/recurring_improvement multipliers + secondary bucket logging | ✅ DONE |
-| Gap 5: Context line not enriched | `buildEnrichedContextDescription()` uses bucket, coach memory, HRV, confidence framing | ✅ DONE |
+## Step 1: Define shared constants and two-touch window logic
 
-## Files Changed
+**File: `generate-mastery-plan/index.ts`**
+
+Add a single `JIT_THRESHOLD_UNIFIED = 55` constant near the top. Remove the dynamic `const JIT_THRESHOLD = filteredEvents[0]?.jitDimensionScores ? 55 : 50` at line 1821.
+
+Add a helper function:
+```typescript
+function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'silent' | 'selection_only' {
+  if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
+  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap
+  if (minutesUntil <= 2880) return 'touch1';           // 24-48h: coach + think
+  return 'selection_only';                              // >48h: scored but not surfaced
+}
+```
+
+---
+
+## Step 2: Two-touch plan composition (Gap A fix)
+
+**File: `generate-mastery-plan/index.ts`** — lines 1817-1936 (pre-event plan building)
+
+After selecting `topEvent`, check its action window. If `silent` or `selection_only`, skip — set `preEventPlan = null`. If the first event is silent, try the next candidate in `filteredEvents` that falls in `touch1` or `touch2`.
+
+For events in a valid window, switch plan composition:
+
+**Touch 1 (24-48h)** — coach CTA primary, one mental framework, optional focus practice:
+- Primary module: coach card (prepare type)
+- Secondary: one `align` module (framework/reframe content)
+- Optional: one `focus` practice if time allows
+- Store horizon as `'tactical'`
+
+**Touch 2 (0-6h)** — somatic-first, short:
+- Primary module: `regulate` (somatic/breathing, intensity gentle, duration short/micro)
+- Secondary: one `focus` or grounding exercise
+- Coach card as secondary CTA only
+- Store horizon as `'immediate'`
+
+This replaces the current horizon-agnostic module building at lines 1827-1891.
+
+---
+
+## Step 3: Upgrade legacy fallback to new gate (Gap B fix)
+
+**File: `generate-mastery-plan/index.ts`** — `scoreCalendarEventsLegacy()` (lines 1099-1204)
+
+Three changes:
+
+1. Replace `minutesUntil <= 2880` window with the two-touch action window check — skip events in `silent` or `selection_only` windows.
+
+2. Add dimension A and B floor checks after scoring:
+   - Compute `dimA` from attendees + pressure keywords (same logic as `generate-jit-events`)
+   - Compute `dimB` from cluster keyword matching
+   - After score is calculated: `if (score < 55 || dimA < 10 || dimB < 8) continue;`
+
+3. Replace the old flat scoring with the four-dimension model (or at minimum, apply the floor checks as a safety guard on the existing flat score).
+
+The pragmatic approach: keep the flat scoring for content selection but add dimension floor guards to prevent solo/no-inner-state events from passing. This is safer than a full rewrite of the legacy path.
+
+---
+
+## Step 4: Threshold constant alignment (Gap C fix)
+
+**File: `generate-mastery-plan/index.ts`**
+
+Line 1821: Replace the dynamic threshold with `JIT_THRESHOLD_UNIFIED` (always 55). Both bridge path and legacy path use the same constant. One definition, one place.
+
+---
+
+## Step 5: Update `generate-jit-events` horizon model
+
+**File: `generate-jit-events/index.ts`**
+
+Update `determineUrgencyHorizon()` (line 261-265) to match the two-touch model:
+```typescript
+function determineUrgencyHorizon(minutesUntil: number): 'immediate' | 'tactical' | null {
+  if (minutesUntil <= 360) return 'immediate';        // Touch 2: 0-6h
+  if (minutesUntil >= 1440 && minutesUntil <= 2880) return 'tactical';  // Touch 1: 24-48h
+  return null;  // Silent gap (6-24h) or selection-only (>48h)
+}
+```
+
+Events with `null` horizon are still scored and stored in `jit_event_context` (for future surfacing when they enter a window) but are marked `shown_in_jit: false`.
+
+Remove all references to `'strategic'` as a horizon value. Update deduplication and `jit_horizons_surfaced` accordingly.
+
+---
+
+## Step 6: Cleanup dead code
+
+Across both files:
+- Remove any `score >= 50` references — all paths use 55
+- Remove comments referencing "3-tier horizon" or "Immediate / Tactical / Strategic as three plan types"
+- Remove `'strategic'` from the horizon type union
+- Extract shared noise filter keywords into a comment block referencing `generate-jit-events` as the source of truth (the copy in `generate-mastery-plan` is already used — consolidate the constant name)
+- Remove the dynamic `JIT_THRESHOLD` conditional at line 1821
+
+---
+
+## Files changed
 
 | File | Change |
-|---|---|
-| Migration | `jit_cancellation_memory`, `readiness_baselines` tables, 6 columns on `jit_event_context` |
-| `generate-jit-events/index.ts` | Complete rewrite: 6-stage pipeline + multi-horizon deduplication |
-| `generate-mastery-plan/index.ts` | Bridge to `jit_event_context`, noise filter, enriched context descriptions |
-| `track-jit-skip/index.ts` | Cancellation memory writes + 70/30 attribution with weight multipliers |
-| `sync-calendar/index.ts` | `logistic` event type classification |
-| `performance-rhythm-insights/index.ts` | Logistic event exclusion from all insight paths |
-| `PerformanceRhythmCard.tsx` | Logistic exclusion mirrored in DEV_MODE |
+|------|--------|
+| `generate-mastery-plan/index.ts` | Unified threshold constant. Two-touch action window helper. Horizon-aware plan composition. Legacy fallback with A/B floor guards and action window filtering. Dead code cleanup. |
+| `generate-jit-events/index.ts` | Two-value horizon model (immediate/tactical/null). Remove `strategic`. Events in silent gap stored but not surfaced. |
+
+No DB migrations. No UI changes. No other files touched.
+
+## Post-implementation audit checklist
+
+- Event 3h away → Touch 2 (somatic-first, 3-5 min, coach secondary)
+- Event 36h away → Touch 1 (coach primary, one framework, 5-8 min)
+- Event 10h away → nothing surfaced (silent gap)
+- Event 5 days away → nothing surfaced (selection-only)
+- Same event at both Touch 1 and Touch 2 → both appear in `jit_horizons_surfaced`
+- Dismiss Touch 1 → Touch 2 still fires
+- Legacy fallback → ≥55 gate with A≥10, B≥8 floors
+- One `JIT_THRESHOLD` definition in codebase
+- No plan composition path ignores `minutesUntil`
+- No references to `strategic` horizon or `score >= 50`
+
