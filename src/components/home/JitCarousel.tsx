@@ -53,6 +53,11 @@ interface PreEventPlan {
   eventId?: string;
 }
 
+interface JitCarouselProps {
+  preEventPlan?: PreEventPlan | null;
+}
+
+
 const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
