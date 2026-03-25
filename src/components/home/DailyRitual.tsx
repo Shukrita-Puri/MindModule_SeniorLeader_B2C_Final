@@ -587,7 +587,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                   <div
                     onClick={() => !isDragging && !isCompleted && navigateToPractice(module)}
                     className={cn(
-                      "flex rounded-xl overflow-hidden h-40 cursor-pointer transition-all duration-300",
+                      "flex rounded-xl overflow-hidden h-44 cursor-pointer transition-all duration-300",
                       "bg-white/15 backdrop-blur-md border border-white/40",
                       "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                       isCompleted ? "opacity-50 cursor-not-allowed" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
@@ -627,6 +627,11 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                           <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                         )}
                       </div>
+                      {module.reasoning && (
+                        <p className="text-[10px] text-muted-foreground/70 italic font-body line-clamp-2 leading-snug mt-0.5">
+                          {module.reasoning}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                       </div>

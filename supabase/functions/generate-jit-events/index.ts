@@ -543,6 +543,12 @@ serve(async (req) => {
         coachSignalScore = 15;
         coachSignalBucket = 'clarity'; // Default; refined by dimension
         coachContext.hasMentions = true;
+        // Populate mentionContent for generateContextStatement emotional concern detection
+        const matchedMemory = coachMemoryTexts.find((m: any) =>
+          titleWords.some(w => m.content.includes(w)) ||
+          m.themes.some((t: string) => titleLower.includes(t.toLowerCase()))
+        );
+        coachContext.mentionContent = matchedMemory?.content || null;
       }
 
       // Check pending tools

@@ -968,13 +968,13 @@ async function getPreScoredEvents(
 
   // Query jit_event_context for recent pre-scored events (within last 60 min)
   try {
-    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
+    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
     const { data: jitContextRows } = await supabaseClient
       .from('jit_event_context')
       .select('calendar_event_id, event_title, event_type, event_start, final_score, context_statement, jit_bucket_primary, jit_bucket_secondary, jit_confidence_score, jit_urgency_horizon, jit_dimension_scores, has_coach_context, coach_scenario, expressed_concern, has_pending_tool, dismissed_by_user, dismissed_horizons')
       .eq('user_id', userId)
       .eq('shown_in_jit', true)
-      .gte('updated_at', fourHoursAgo)
+      .gte('updated_at', twelveHoursAgo)
       .gte('event_start', now.toISOString())
       .order('final_score', { ascending: false })
       .limit(5);
@@ -1252,25 +1252,29 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     else if (minutesUntil < 1440) { const hours = Math.floor(minutesUntil / 60); timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`; }
     else { const days = Math.ceil(minutesUntil / 1440); timePill = `In ${days} day${days > 1 ? 's' : ''}`; }
 
-    const contextParts: string[] = [];
-    if (matchedScenario) {
-      const evtTypeForContext = extractEventType(event.title || '');
-      const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
-      contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
-    } else if ((event.attendeesCount || 0) > 5) {
-      contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
-    } else if (event.isOrganizer) {
-      contextParts.push(`You're organizing this event`);
+    // ═══ CONTEXT DESCRIPTION — HIDE IF LOW CONFIDENCE ═══
+    // Only show context if dimA + dimB signals are strong enough
+    let contextDescription = '';
+    if (dimA + dimB >= 22) {
+      const contextParts: string[] = [];
+      if (matchedScenario) {
+        const evtTypeForContext = extractEventType(event.title || '');
+        const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
+        contextParts.push(`Upcoming ${canonicalTagForContext.toLowerCase()} detected`);
+      } else if ((event.attendeesCount || 0) > 5) {
+        contextParts.push(`Large meeting with ${event.attendeesCount} attendees`);
+      }
+      // Removed: generic "You're organizing this event" — not a justifiable context reason
+      if (minutesUntil <= 30) contextParts.push(`starting very soon — prepare now`);
+      else if (minutesUntil <= 60) contextParts.push(`in ${minutesUntil} minutes`);
+      else if (minutesUntil < 1440) contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+      else contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
+      if (!event.isRecurring && (event.attendeesCount || 0) > 3) contextParts.push(`non-recurring high-visibility event`);
+      if (hrvContextPart) contextParts.push(hrvContextPart);
+      contextDescription = contextParts.length > 0
+        ? contextParts.join(' — ') + '. Prepare with targeted practice.'
+        : '';
     }
-    if (minutesUntil <= 30) contextParts.push(`starting very soon — prepare now`);
-    else if (minutesUntil <= 60) contextParts.push(`in ${minutesUntil} minutes`);
-    else if (minutesUntil < 1440) contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
-    else contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
-    if (!event.isRecurring && (event.attendeesCount || 0) > 3) contextParts.push(`non-recurring high-visibility event`);
-    if (hrvContextPart) contextParts.push(hrvContextPart);
-    const contextDescription = contextParts.length > 0
-      ? contextParts.join(' — ') + '. Prepare with targeted practice.'
-      : `${event.title}. Prepare with targeted practice.`;
 
     scored.push({
       event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription, hrvCorrelation,
@@ -1935,7 +1939,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: 'composure',
           intensity: 'gentle',
           isFavorite: req.favorites.includes(somaticContent.id),
-          reasoning: 'Settle your body before this event'
+          reasoning: `Settle your body before ${topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event'}`
         });
       }
       // Secondary: one short focus/grounding exercise
@@ -1951,7 +1955,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: 'grounding',
           intensity: 'gentle',
           isFavorite: req.favorites.includes(focusContent.id),
-          reasoning: 'Get focused and grounded'
+          reasoning: `Get focused and grounded before ${topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event'}`
         });
       }
       // Coach card as secondary CTA only
@@ -1980,7 +1984,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         intensity: 'moderate',
         isFavorite: false,
         isCoachCard: true,
-        reasoning: 'Discuss your approach with your coach before this event'
+        reasoning: scenario ? `Discuss your ${scenario.contextLabel.toLowerCase()} approach with your coach` : `Discuss your approach with your coach before ${topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event'}`
       });
       // Secondary: one mental framework / reframe / align practice
       const frameworkSpec: ModuleSpec = { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' };
@@ -1995,7 +1999,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: 'confidence',
           intensity: 'moderate',
           isFavorite: req.favorites.includes(frameworkContent.id),
-          reasoning: 'Mental framework to sharpen your approach'
+          reasoning: `Mental framework to sharpen your approach for ${topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event'}`
         });
       }
       // Optional: one focus practice if scenario matched
@@ -2012,38 +2016,42 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: 'focus',
             intensity: 'gentle',
             isFavorite: req.favorites.includes(focusContent.id),
-            reasoning: 'Optional focus practice for deeper preparation'
+            reasoning: `Optional focus practice for deeper ${scenario?.contextLabel?.toLowerCase() || 'event'} preparation`
           });
         }
       }
     }
 
-    // Enrich contextDescription with coach/commitment context if available
-    let enrichedContextDescription = topEvent.contextDescription;
+    // ═══ ENRICH CONTEXT — Coach Memory + HRV as Lead Context ═══
+    let enrichedContextDescription = topEvent.contextDescription || '';
     const eventTitleLower = (topEvent.event.title || '').toLowerCase();
+    const eventTitleShort = topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event';
     
     // Check if any pending coach commitment mentions this event
     const relevantCommitment = pendingCommitments.find((c: any) => {
       const commitText = (c.commitment_text || '').toLowerCase();
       return eventTitleLower.split(' ').some((word: string) => word.length > 3 && commitText.includes(word));
     });
-    if (relevantCommitment) {
-      enrichedContextDescription = enrichedContextDescription.replace(
-        'Prepare with targeted practice.',
-        `You discussed this with your coach. Prepare with targeted practice.`
-      );
-    }
 
     // Check for pattern observations related to this event type
+    let patternMatched = false;
     if (scenario && req.patternInsight) {
       const patternLower = ((req as any).patternInsight || '').toLowerCase();
       const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
-      if (scenarioKeywords.some(kw => patternLower.includes(kw))) {
-        enrichedContextDescription = enrichedContextDescription.replace(
-          'Prepare with targeted practice.',
-          `Your coach has noted a pattern here. Prepare with targeted practice.`
-        );
-      }
+      patternMatched = scenarioKeywords.some(kw => patternLower.includes(kw));
+    }
+
+    // Aggressively replace context — coach memory and HRV take priority over generic text
+    if (relevantCommitment && patternMatched) {
+      enrichedContextDescription = `You discussed this with your coach and a pattern has been noted — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+    } else if (relevantCommitment) {
+      enrichedContextDescription = `You discussed this with your coach — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+    } else if (patternMatched) {
+      enrichedContextDescription = `Your coach has noted a pattern here — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
+    } else if (topEvent.hrvCorrelation && Math.abs(topEvent.hrvCorrelation.avgDeviation) > 10 && !enrichedContextDescription) {
+      // HRV as lead context when no coach signals and context is empty
+      const canonicalLabel = CANONICAL_TAGS[topEvent.hrvCorrelation.eventType] || topEvent.hrvCorrelation.eventType;
+      enrichedContextDescription = `Your HRV typically shifts ${Math.abs(topEvent.hrvCorrelation.avgDeviation)}% during ${canonicalLabel.toLowerCase()} events — ${topEvent.timePill?.toLowerCase() || 'upcoming'}. Prepare with targeted practice.`;
     }
 
     if (preEventModules.length > 0) {
