@@ -549,6 +549,10 @@ serve(async (req) => {
           m.themes.some((t: string) => titleLower.includes(t.toLowerCase()))
         );
         coachContext.mentionContent = matchedMemory?.content || null;
+        // FIX: Actually run concern detection so expressedConcern flag is set
+        if (coachContext.mentionContent && detectEmotionalConcern(coachContext.mentionContent)) {
+          coachContext.expressedConcern = true;
+        }
       }
 
       // Check pending tools
