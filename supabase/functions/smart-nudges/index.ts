@@ -294,7 +294,7 @@ function isWeekend(dayOfWeek: number): boolean {
   return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 }
 
-// ── Engagement-Based Learning (14-day feedback loop) ──
+// ── Engagement-Based Learning (7-day feedback loop) ──
 
 interface EngagementProfile {
   typeEffectiveness: Record<string, { sent: number; tapped: number; rate: number }>;
@@ -305,13 +305,13 @@ async function getUserEngagementProfile(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<EngagementProfile> {
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: logs } = await supabase
     .from('notification_log')
     .select('notification_type, tapped')
     .eq('user_id', userId)
-    .gte('sent_at', fourteenDaysAgo);
+    .gte('sent_at', sevenDaysAgo);
 
   const typeEffectiveness: Record<string, { sent: number; tapped: number; rate: number }> = {};
 
@@ -362,19 +362,19 @@ async function getTypeFrequencyMap(
 
 function getTimePriority(localHour: number): string[] {
   if (localHour >= 6 && localHour < 11) {
-    // Morning: Morning Anchor is most contextual, then Pre-Event, then Pattern
-    return ['morning_anchor', 'pre_event_prep', 'pattern_alert', 'afternoon_checkin', 'evening_close', 'state_aware_nudge', 'daily_fallback'];
+    // Morning: Morning Anchor most contextual, State-Aware above Afternoon
+    return ['morning_anchor', 'pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'evening_close', 'afternoon_checkin', 'daily_fallback'];
   }
   if (localHour >= 11 && localHour < 15) {
-    // Midday: Pre-Event is most urgent, then State-Aware, then Afternoon
-    return ['pre_event_prep', 'state_aware_nudge', 'afternoon_checkin', 'pattern_alert', 'morning_anchor', 'evening_close', 'daily_fallback'];
+    // Midday: Pre-Event most urgent, State-Aware above Afternoon
+    return ['pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'afternoon_checkin', 'morning_anchor', 'evening_close', 'daily_fallback'];
   }
   if (localHour >= 18 && localHour < 22) {
-    // Evening: Evening Close is most contextual, then Pattern, then Pre-Event
+    // Evening: Evening Close most contextual
     return ['evening_close', 'pattern_alert', 'pre_event_prep', 'state_aware_nudge', 'morning_anchor', 'afternoon_checkin', 'daily_fallback'];
   }
-  // Default (15-18, 22+): Pre-Event > Pattern > Fallback
-  return ['pre_event_prep', 'pattern_alert', 'daily_fallback', 'morning_anchor', 'afternoon_checkin', 'evening_close', 'state_aware_nudge'];
+  // Default (15-18, 22+): Pre-Event > Pattern > State-Aware > Afternoon > Fallback
+  return ['pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'afternoon_checkin', 'daily_fallback', 'morning_anchor', 'evening_close'];
 }
 
 // ── Diversity-aware sort ──
