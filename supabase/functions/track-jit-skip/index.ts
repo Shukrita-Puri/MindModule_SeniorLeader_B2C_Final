@@ -16,7 +16,6 @@ serve(async (req) => {
     let userId: string;
     const auth = await authenticateRequest(req, corsHeaders);
     if (auth.errorResponse) {
-      // DEV_MODE bypass: allow fallback when not in production
       const env = Deno.env.get('ENVIRONMENT') || '';
       if (env !== 'production') {
         const devHeader = req.headers.get('x-dev-user-id');
@@ -38,7 +37,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { eventId, eventType, eventTitle, action } = await req.json();
+    const { eventId, eventType, eventTitle, action, cluster, jitBucketPrimary, jitBucketSecondary } = await req.json();
 
     if (!action) {
       return new Response(JSON.stringify({ error: 'Missing action' }), {
@@ -71,6 +70,63 @@ serve(async (req) => {
     if (error) {
       console.error('[track-jit-skip] Insert error:', error);
       throw error;
+    }
+
+    // ═══ Stage 1: Cancellation Memory ═══
+    // On dismiss/cancel, persist to jit_cancellation_memory for future penalty scoring
+    if (action === 'dismissed' || action === 'skipped' || action === 'cancelled') {
+      const dimBCluster = cluster || null;
+      try {
+        const { error: cancelErr } = await supabase.from('jit_cancellation_memory').insert({
+          user_id: userId,
+          event_type: eventType || null,
+          cluster: dimBCluster,
+          cancelled_at: new Date().toISOString(),
+          penalty_level: 25,
+        });
+        if (cancelErr) {
+          console.error('[track-jit-skip] Cancellation memory insert error:', cancelErr);
+        } else {
+          console.log(`[track-jit-skip] Cancellation memory saved: type=${eventType} cluster=${dimBCluster}`);
+        }
+      } catch (e) {
+        console.error('[track-jit-skip] Cancellation memory error:', e);
+      }
+    }
+
+    // ═══ Phase 8: Insights Attribution ═══
+    // On plan completion, attribute to behavior_logs with bucket context
+    if (action === 'completed') {
+      const primaryBucket = jitBucketPrimary || null;
+      const secondaryBucket = jitBucketSecondary || null;
+
+      try {
+        // Write to behavior_logs with bucket context for performance-rhythm-insights
+        const { error: blErr } = await supabase.from('behavior_logs').insert({
+          user_id: userId,
+          behavior_type: `jit_plan_completed`,
+          event_title: eventTitle || null,
+          energy_after: null,
+          control_level: primaryBucket,
+        });
+        if (blErr) console.error('[track-jit-skip] behavior_log insert error:', blErr);
+
+        // Mark jit_event_context as completed
+        if (eventId) {
+          await supabase
+            .from('jit_event_context')
+            .update({
+              completed: true,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('calendar_event_id', eventId)
+            .eq('user_id', userId);
+        }
+
+        console.log(`[track-jit-skip] Completion attributed: primary=${primaryBucket} secondary=${secondaryBucket}`);
+      } catch (e) {
+        console.error('[track-jit-skip] Attribution error:', e);
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {
