@@ -107,7 +107,7 @@ const RecalibrateMode = () => {
             Reset Studio
           </h1>
           <p className="text-lg font-subheadline italic text-muted-foreground">
-            Reset. Restore. Refocus. — Master Your Mental Edge
+            Recalibrate. Restore. Refocus. — Master Your Mental Edge
           </p>
           <p className="text-sm text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Curated Sonic Library, Guided Sessions and Micro Exercises, crafted from centuries of proven techniques, insights from high performers, and ancient wisdom — designed to restore mental agility, resilience, and executive poise.

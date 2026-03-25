@@ -504,7 +504,7 @@ const SelfMasteryCoach = () => {
               ? `Let's walk through ${practiceTitle} together.`
               : flowType 
                 ? getContextualGreeting(flowType, locationState?.eventTitle)
-                : "I'm your self-mastery coach. Share what's on your mind, and let's explore it together."
+                : "I'm your mind performance coach. Share what's on your mind, and let's sharpen your edge together."
           }
           promptSuggestions={getFlowPrompts(flowType, locationState?.eventTitle)}
           onPromptClick={sendMessage}
