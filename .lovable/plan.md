@@ -1,44 +1,127 @@
 
-# Plan: JIT Mastery Plan — Two-Touch Action Model (Phase 7)
 
-## Status: IMPLEMENTED
+# Plan: Phase 8 — Per-Touch Dismissal, DEV_MODE Auth, Staleness Fix, Horizon Renaming
 
-All gaps from the Phase 7 audit have been implemented:
+## What this fixes
 
-### Changes Implemented
+Four issues identified in the audit. No UI changes — only backend logic and one small client-side payload update.
 
-| Gap | Fix | Status |
-|-----|-----|--------|
-| Gap A: No horizon-based plan depth differentiation | Two-touch action model: Touch 1 (24-48h) = coach primary + framework; Touch 2 (0-6h) = somatic primary + focus. Silent gap (6-24h) and selection-only (>48h) produce no plan. | ✅ DONE |
-| Gap B: Legacy fallback uses old gate (≥50) | Legacy now uses JIT_THRESHOLD_UNIFIED=55 with Dim A≥10 and Dim B≥8 floor guards + action window filtering | ✅ DONE |
-| Gap C: Bridge threshold mismatch | Single `JIT_THRESHOLD_UNIFIED = 55` constant used across all paths | ✅ DONE |
-| Cleanup: Remove `strategic` horizon | `determineUrgencyHorizon` returns `immediate | tactical | null`. No `strategic` references. | ✅ DONE |
-| Cleanup: Remove `score >= 50` in JIT paths | All JIT paths use 55. Only non-JIT presence label uses 50. | ✅ DONE |
-| Cleanup: Action window in bridge path | Bridge path now filters by `getActionWindow()` — silent/selection-only events excluded | ✅ DONE |
+---
 
-### Two-Touch Action Model
+## Step 1: DB Migration — Add `dismissed_horizons` column
 
-- **Touch 2 (0-6h)**: Body prep — somatic practice primary (gentle, micro), focus/grounding exercise, coach as secondary CTA. 3-5 min.
-- **Silent gap (6-24h)**: Nothing surfaces. Event is scored and stored but not shown.
-- **Touch 1 (24-48h)**: Think prep — coach CTA primary ("Prepare with Your Coach"), one framework/reframe practice, optional focus. 5-8 min.
-- **Selection-only (>48h)**: Event is scored by `generate-jit-events` and stored in `jit_event_context` but no plan surfaces. Waits for 48h window.
+Add `dismissed_horizons text[] DEFAULT '{}'` to `jit_event_context`. Keep `dismissed_by_user` for backward compatibility (existing queries won't break).
 
-### Files Changed
+```sql
+ALTER TABLE public.jit_event_context 
+ADD COLUMN IF NOT EXISTS dismissed_horizons text[] DEFAULT '{}';
+```
+
+---
+
+## Step 2: Fix `track-jit-skip` — per-touch dismissal
+
+**File: `supabase/functions/track-jit-skip/index.ts`**
+
+- Accept `horizon` parameter from request body (e.g., `'touch_1'` or `'touch_2'`)
+- On dismiss: instead of setting `dismissed_by_user = true`, append the horizon to `dismissed_horizons` array using SQL array append
+- Keep writing `dismissed_by_user = true` as well for backward compat (belt and suspenders)
+- Lines 40, 52-57 change
+
+---
+
+## Step 3: Fix `generate-mastery-plan` bridge — per-touch filter
+
+**File: `supabase/functions/generate-mastery-plan/index.ts`**
+
+- Line 977: Remove `.eq('dismissed_by_user', false)` from the bridge query
+- Add `dismissed_horizons` to the select list (line 974)
+- After computing `actionWindow` for each event (line 996), check: if the action window's touch label (e.g., `'touch_1'` for `touch1`, `'touch_2'` for `touch2`) is in `dismissed_horizons`, skip that event. Otherwise allow it through.
+- This means dismissing Touch 1 does NOT block Touch 2
+
+---
+
+## Step 4: Widen bridge staleness window
+
+**File: `supabase/functions/generate-mastery-plan/index.ts`**
+
+- Line 971: Change `60 * 60 * 1000` (60 min) to `4 * 60 * 60 * 1000` (4 hours)
+
+---
+
+## Step 5: Add DEV_MODE auth bypass to `generate-jit-events`
+
+**File: `supabase/functions/generate-jit-events/index.ts`**
+
+- Lines 360-362: Replace the immediate return on auth failure with the standard bypass pattern:
+```typescript
+let userId: string;
+const auth = await authenticateRequest(req, corsHeaders);
+if (auth.errorResponse) {
+  const env = Deno.env.get('ENVIRONMENT') || '';
+  if (env !== 'production') {
+    const devHeader = req.headers.get('x-dev-user-id');
+    if (devHeader) { userId = devHeader; }
+    else { return auth.errorResponse; }
+  } else { return auth.errorResponse; }
+} else {
+  userId = auth.userId;
+}
+```
+
+---
+
+## Step 6: Rename horizon values to `touch_1` / `touch_2`
+
+**File: `supabase/functions/generate-jit-events/index.ts`**
+
+- `determineUrgencyHorizon()` (line 263-266): Return `'touch_2'` instead of `'immediate'`, `'touch_1'` instead of `'tactical'`
+- Update type signature to `'touch_1' | 'touch_2' | null`
+- All references to the horizon value in deduplication logic (lines 713-718) and storage (line 731-733) automatically use the new values
+- Response mapping (line 801): `jitUrgencyHorizon` now returns `'touch_1'`/`'touch_2'`
+
+**File: `supabase/functions/generate-mastery-plan/index.ts`**
+
+- Line 1910: Change `actionWindow === 'touch1' ? 'tactical' : 'immediate'` to `actionWindow === 'touch1' ? 'touch_1' : 'touch_2'`
+- Line 2053: `horizon` field in response already derives from above — no separate change needed
+
+---
+
+## Step 7: Update client dismiss call to include horizon
+
+**File: `src/components/home/JitCarousel.tsx`**
+
+- The `preEventPlan` response already includes `actionWindow` and `horizon` (lines 2052-2053 of mastery plan)
+- Add `horizon` to the `PreEventPlan` interface
+- In `trackJitAction` (line 130-134), add `horizon: preEventPlan.horizon` and `eventId: preEventPlan.eventId` to the body (need to also pass `eventId` through from mastery plan response — currently missing from `PreEventPlan` interface but available on the server as `calendar_event_id`)
+- Also add `eventId` to the `PreEventPlan` interface and populate it from mastery plan response
+
+**File: `supabase/functions/generate-mastery-plan/index.ts`**
+
+- In the `preEventPlan` response object (line 2042-2054), add `eventId: topEvent.event.id` (the calendar_event_id) so the client can send it back on dismiss
+
+---
+
+## Step 8: Post-implementation audit
+
+Verify against the definition of done:
+- Dismiss Touch 1 → Touch 2 still fires (per-touch `dismissed_horizons`)
+- `generate-jit-events` works in DEV_MODE
+- Bridge doesn't fall back unnecessarily (4h window)
+- All horizon values are `touch_1`/`touch_2` — no `tactical`/`immediate` in `jit_horizons_surfaced`
+- No `dismissed_by_user` filtering blocks Touch 2
+
+---
+
+## Files changed
 
 | File | Change |
 |------|--------|
-| `generate-mastery-plan/index.ts` | `JIT_THRESHOLD_UNIFIED=55`, `getActionWindow()`, `computeLegacyDimA/B()`, two-touch plan composition, bridge action window filter, legacy fallback with A/B floors |
-| `generate-jit-events/index.ts` | `determineUrgencyHorizon()` returns `immediate|tactical|null`, non-surfaceable events stored with `shown_in_jit: false`, two-touch deduplication |
+| New migration | Add `dismissed_horizons text[]` column |
+| `track-jit-skip/index.ts` | Accept `horizon` param, append to `dismissed_horizons` array |
+| `generate-mastery-plan/index.ts` | Remove `dismissed_by_user` filter, add per-touch check, widen staleness to 4h, rename horizon labels, add `eventId` to response |
+| `generate-jit-events/index.ts` | DEV_MODE auth bypass, rename horizon values to `touch_1`/`touch_2` |
+| `src/components/home/JitCarousel.tsx` | Add `horizon` and `eventId` to dismiss payload (no visual changes) |
 
-### Definition of Done ✅
+No visual/UI changes. No breaking changes to existing data.
 
-- [x] Event 3h away → Touch 2 (somatic-first, 3-5 min, coach secondary)
-- [x] Event 36h away → Touch 1 (coach primary, one framework, 5-8 min)
-- [x] Event 10h away → nothing surfaced (silent gap)
-- [x] Event 5 days away → nothing surfaced (selection-only)
-- [x] Same event at both Touch 1 and Touch 2 → both appear in `jit_horizons_surfaced`
-- [x] Dismiss Touch 1 → Touch 2 still fires (tracked independently)
-- [x] Legacy fallback → ≥55 gate with A≥10, B≥8 floors
-- [x] One `JIT_THRESHOLD` definition in codebase
-- [x] No plan composition path ignores `minutesUntil`
-- [x] No references to `strategic` horizon or `score >= 50` in JIT paths
