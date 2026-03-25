@@ -1,68 +1,90 @@
 
-# Plan: JIT Mastery Plan — Two-Touch Action Model (Phase 8)
 
-## Status: IMPLEMENTED
+# Feature Renaming — Final Names
 
-All gaps from Phase 7 audit + Phase 8 hardening have been implemented.
+## Naming Map
 
-### Phase 8 Changes (Per-Touch Dismissal, DEV_MODE, Staleness, Horizon Renaming)
+| Current | New |
+|---------|-----|
+| Emotional & Cognitive Energy Check in | **Performance Readiness Assessment** |
+| Recalibrate Studio | **Reset Studio** |
+| Inner Mastery Coach | **Mind Performance Coach** |
+| Insights / Inner World Insights | **Performance Intelligence** |
+| Renewal Mastery | **Recharge Mastery** |
 
-| Gap | Fix | Status |
-|-----|-----|--------|
-| CRITICAL: Touch 1 dismiss blocks Touch 2 | Per-touch `dismissed_horizons text[]` column. Dismiss appends specific touch label. Bridge filters per-touch, not globally. | ✅ DONE |
-| `generate-jit-events` missing DEV_MODE bypass | Standard `x-dev-user-id` fallback added | ✅ DONE |
-| Bridge staleness window too tight (60 min) | Widened to 4 hours — Touch 1 data valid for hours | ✅ DONE |
-| Horizon labels conflate selection/action | Action layer uses `touch_1`/`touch_2`. Selection layer unchanged (`determineUrgencyHorizon` returns `touch_1`/`touch_2`/`null`). `jit_urgency_horizon` stores selection-time classification for insights attribution. | ✅ DONE |
-| Client dismiss missing eventId/horizon | `PreEventPlan` now includes `eventId` and `horizon`. Dismiss payload sends both. | ✅ DONE |
-| `eventId` missing from mastery plan response | Added `eventId: topEvent.event.id` to `preEventPlan` response | ✅ DONE |
+Check-in pages get "Performance Readiness Assessment" as parent title above existing step headers.
 
-### Phase 7 Changes (Two-Touch Action Model) — Previously Implemented
+## All File Changes
 
-| Gap | Fix | Status |
-|-----|-----|--------|
-| Gap A: No horizon-based plan depth differentiation | Two-touch action model: Touch 1 (24-48h) = coach primary + framework; Touch 2 (0-6h) = somatic primary + focus. Silent gap (6-24h) and selection-only (>48h) produce no plan. | ✅ DONE |
-| Gap B: Legacy fallback uses old gate (≥50) | Legacy now uses JIT_THRESHOLD_UNIFIED=55 with Dim A≥10 and Dim B≥8 floor guards + action window filtering | ✅ DONE |
-| Gap C: Bridge threshold mismatch | Single `JIT_THRESHOLD_UNIFIED = 55` constant used across all paths | ✅ DONE |
-| Cleanup: Remove `strategic` horizon | `determineUrgencyHorizon` returns `touch_1 | touch_2 | null`. No `strategic` references. | ✅ DONE |
-| Cleanup: Remove `score >= 50` in JIT paths | All JIT paths use 55. Only non-JIT presence label uses 50. | ✅ DONE |
-| Cleanup: Action window in bridge path | Bridge path now filters by `getActionWindow()` — silent/selection-only events excluded | ✅ DONE |
+### 1. Sidebar — `src/components/navigation/LeftSidebar.tsx`
+- Line 32: `'Emotional & Cognitive Energy Check in'` → `'Performance Readiness Assessment'`
+- Line 38: `'Recalibrate Studio'` → `'Reset Studio'`
+- Line 44: `'Inner Mastery Coach'` → `'Mind Performance Coach'`
+- Line 50: `'Insights'` → `'Performance Intelligence'`
 
-### Two-Touch Action Model
+### 2. Check-In Step 1 — `src/pages/DailyCheckIn.tsx`
+- Lines 243-244: Add parent label above h1:
+  ```
+  <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Performance Readiness Assessment</p>
+  <h1 ...>Emotional & Cognitive State</h1>
+  ```
 
-- **Touch 2 (0-6h)**: Body prep — somatic practice primary (gentle, micro), focus/grounding exercise, coach as secondary CTA. 3-5 min.
-- **Silent gap (6-24h)**: Nothing surfaces. Event is scored and stored but not shown.
-- **Touch 1 (24-48h)**: Think prep — coach CTA primary ("Prepare with Your Coach"), one framework/reframe practice, optional focus. 5-8 min.
-- **Selection-only (>48h)**: Event is scored by `generate-jit-events` and stored in `jit_event_context` but no plan surfaces. Waits for 48h window.
+### 3. Check-In Step 2 — `src/pages/CheckInDetail.tsx`
+- Lines 80-81: Add parent label above h1:
+  ```
+  <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Performance Readiness Assessment</p>
+  <h1 ...>Clarity & Confidence State</h1>
+  ```
 
-### Per-Touch Dismissal Logic
+### 4. Reset Studio page — `src/pages/RecalibrateMode.tsx`
+- Line 33: `'Renewal Mastery'` → `'Recharge Mastery'`
+- Line 107: `'Recalibrate Studio'` → `'Reset Studio'`
 
-- `dismissed_horizons text[]` on `jit_event_context` tracks which touches were dismissed (e.g., `['touch_1']`)
-- Dismissing Touch 1 does NOT block Touch 2 — each is checked independently
-- `dismissed_by_user` boolean kept for backward compat — only set `true` when BOTH touches dismissed
-- Client sends `horizon` and `eventId` with dismiss action
+### 5. PowerUp outcome — `src/pages/recalibrate/PowerUpOutcomePage.tsx`
+- Line 197: `'Renewal Mastery'` → `'Recharge Mastery'`
 
-### Selection vs Action Layer Distinction
+### 6. Pause outcome — `src/pages/recalibrate/PauseOutcomePage.tsx`
+- Line 342: `'Renewal Mastery →'` → `'Recharge Mastery →'`
 
-- **Selection layer** (`generate-jit-events`): Scores events up to 28 days out. Stores `jit_urgency_horizon` as metadata. This is a classification label, not an action signal.
-- **Action layer** (`generate-mastery-plan`): Uses live `minutesUntil` to determine which plan to build. Never reads the stored horizon for plan composition.
-- **`jit_horizons_surfaced`**: Tracks which action touches have fired (`touch_1`, `touch_2`). Used for deduplication.
+### 7. Presence outcome — `src/pages/recalibrate/PresenceOutcomePage.tsx`
+- Line 330: `'Renewal Mastery →'` → `'Recharge Mastery →'`
 
-### Files Changed (Phase 8)
+### 8. Daily Ritual Card — `src/components/home/DailyRitualCard.tsx`
+- Line 57: `'Renewal Mastery'` → `'Recharge Mastery'`
 
-| File | Change |
-|------|--------|
-| New migration | Add `dismissed_horizons text[] DEFAULT '{}'` to `jit_event_context` |
-| `track-jit-skip/index.ts` | Accept `horizon` param, append to `dismissed_horizons` array, per-touch logic |
-| `generate-mastery-plan/index.ts` | Remove `dismissed_by_user` filter, add per-touch horizon check, widen staleness to 4h, rename horizon labels to `touch_1`/`touch_2`, add `eventId` to response |
-| `generate-jit-events/index.ts` | DEV_MODE auth bypass, rename horizon values to `touch_1`/`touch_2` |
-| `src/components/home/JitCarousel.tsx` | Add `horizon` and `eventId` to `PreEventPlan` interface and dismiss payload |
+### 9. Insights page — `src/pages/Insights.tsx`
+- Line 792: comment `Recalibrate Studio` → `Reset Studio`
+- Line 796: `'Inner World Insights'` → `'Performance Intelligence'`
 
-### Definition of Done ✅
+### 10. Coach page — `src/components/coach/CoachSplitView.tsx`
+- Line 47: alt `'Inner Mastery Coach'` → `'Mind Performance Coach'`
+- Line 254: h1 `'Inner Mastery Coach'` → `'Mind Performance Coach'`
+- Line 262: alt `'Inner Mastery Coach'` → `'Mind Performance Coach'`
 
-- [x] Dismiss Touch 1 → Touch 2 still fires (per-touch `dismissed_horizons`)
-- [x] `generate-jit-events` works in DEV_MODE (`x-dev-user-id` bypass)
-- [x] Bridge doesn't fall back unnecessarily (4h staleness window)
-- [x] All action-layer horizon values are `touch_1`/`touch_2`
-- [x] No `dismissed_by_user` filtering blocks Touch 2
-- [x] Client sends `eventId` and `horizon` on dismiss
-- [x] `eventId` included in mastery plan response
+### 11. Tooltip references — all `'Inner Mastery Coach'` → `'Mind Performance Coach'`:
+- `src/components/navigation/FloatingNavigation.tsx` line 58
+- `src/components/navigation/UnifiedTopBar.tsx` line 49
+- `src/components/navigation/CoachAccessButton.tsx` line 22
+- `src/components/simulation/TopNavigation.tsx` line 56
+
+### 12. Protocol type labels — all `'Inner Mastery Coach'` → `'Mind Performance Coach'`:
+- `src/components/home/JitCarousel.tsx` line 247
+- `src/components/home/DailyRitual.tsx` line 522
+- `src/utils/performancePlanEngine.ts` lines 893, 905
+- `src/utils/planReconstruction.ts` lines 28, 40
+
+### 13. Profile sidebar — `src/components/ProfileSidebar.tsx`
+- Line 18: `'Recalibrate Studio'` → `'Reset Studio'`
+
+### 14. Onboarding payment — `src/pages/onboarding/stages/Stage6Payment.tsx`
+- Line 114: `'Recalibrate Studio (all practices)'` → `'Reset Studio (all practices)'`
+
+### 15. Content recommendation engine — `src/utils/contentRecommendationEngine.ts`
+- Line 6: comment `Renewal mastery` → `Recharge mastery`
+
+### 16. Coach system prompt — `supabase/functions/self-mastery-coach/index.ts`
+- Line 519: `'Recalibrate Studio'` → `'Reset Studio'`
+- Lines 525-526: `'RECALIBRATE STUDIO'` → `'RESET STUDIO'`, `'Recalibrate Studio'` → `'Reset Studio'`
+
+All changes are pure text/label updates. No logic, routing, or DB changes.
+
