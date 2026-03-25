@@ -1814,9 +1814,11 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     timePill: e.timePill
   }));
 
-  // 5. Build pre-event plan from highest-scoring event (threshold ≥ 50)
+  // 5. Build pre-event plan from highest-scoring event
+  // When bridged from new pipeline, events already passed the ≥55 gate.
+  // Legacy fallback uses ≥50 for backward compat until full migration.
   let preEventPlan: any = null;
-  const JIT_THRESHOLD = 50;
+  const JIT_THRESHOLD = filteredEvents[0]?.jitDimensionScores ? 55 : 50;
   if (filteredEvents.length > 0 && filteredEvents[0].score >= JIT_THRESHOLD) {
     const topEvent = filteredEvents[0];
     const scenario = topEvent.scenario;
