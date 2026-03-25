@@ -30,7 +30,7 @@ const RecalibrateMode = () => {
     },
     {
       id: "power-up", 
-      title: "Renewal Mastery",
+      title: "Recharge Mastery",
       description: "Rebuild energy, resilience, and readiness for high-stakes moments.",
       illustration: architecturalPowerUp,
       path: "/recalibrate/power-up"
@@ -104,7 +104,7 @@ const RecalibrateMode = () => {
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
           <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-            Recalibrate Studio
+            Reset Studio
           </h1>
           <p className="text-lg font-subheadline italic text-muted-foreground">
             Reset. Restore. Refocus. — Master Your Mental Edge

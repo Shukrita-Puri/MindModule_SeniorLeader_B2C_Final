@@ -54,7 +54,7 @@ const DailyRitualCard = () => {
   
   // Title based on primary mastery type
   const masteryTitle = recommendation.primary === 'pause' ? 'Pause Mastery' :
-                       recommendation.primary === 'flow' ? 'Flow Mastery' : 'Renewal Mastery';
+                       recommendation.primary === 'flow' ? 'Flow Mastery' : 'Recharge Mastery';
   
   // Subtitle - capitalize first letter of each word in subtype
   const masterySubtitle = recommendation.primarySubtype

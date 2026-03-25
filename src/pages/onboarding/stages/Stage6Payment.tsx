@@ -111,7 +111,7 @@ export default function Stage6Payment() {
 
   const monthlyFeatures = [
     { label: 'Daily Check-Ins (unlimited)', included: true },
-    { label: 'Recalibrate Studio (all practices)', included: true },
+    { label: 'Reset Studio (all practices)', included: true },
     { label: 'Daily Mastery Plan', included: true },
     { label: 'Outer Readiness Brief', included: true },
     { label: 'JIT Pre-Event Prep', included: true },

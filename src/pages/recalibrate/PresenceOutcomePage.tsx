@@ -327,7 +327,7 @@ const PresenceOutcomePage = () => {
               Pause Mastery →
             </Button>
             <Button variant="outline" onClick={() => navigate('/recalibrate/power-up')}>
-              Renewal Mastery →
+              Recharge Mastery →
             </Button>
           </div>
         </div>

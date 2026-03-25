@@ -339,7 +339,7 @@ const PauseOutcomePage = () => {
               Flow Mastery →
             </Button>
             <Button variant="outline" onClick={() => navigate('/recalibrate/power-up')}>
-              Renewal Mastery →
+              Recharge Mastery →
             </Button>
           </div>
         </div>

@@ -789,11 +789,11 @@ const Insights = () => {
       <div className="relative">
         <FloatingNavigation />
 
-        {/* Hero Banner - matching Recalibrate Studio pattern */}
+        {/* Hero Banner - matching Reset Studio pattern */}
         <div className="relative h-auto py-8 overflow-hidden">
           <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-3">
             <h1 className="text-5xl font-headline mb-2 text-foreground tracking-tight">
-              Inner World Insights
+              Performance Intelligence
             </h1>
             <p className="text-lg font-subheadline italic text-muted-foreground">
               Patterns. Progress. Presence.

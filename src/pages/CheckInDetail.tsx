@@ -77,8 +77,9 @@ const CheckInDetail = () => {
       
       <div className="relative h-auto py-8 overflow-hidden">
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center z-10 space-y-2">
+          <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Performance Readiness Assessment</p>
           <h1 className="text-3xl font-headline text-foreground tracking-tight">
-            Clarity & Confidence Check-In
+            Clarity & Confidence State
           </h1>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
             Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated.

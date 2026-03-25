@@ -15,7 +15,7 @@ const ProfileSidebar = () => {
 
   const quickActions = [
     {
-      label: "Recalibrate Studio",
+      label: "Reset Studio",
       icon: Compass,
       path: "/recalibrate",
       description: "Shift your energy state"

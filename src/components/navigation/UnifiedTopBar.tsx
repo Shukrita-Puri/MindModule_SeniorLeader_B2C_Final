@@ -46,7 +46,7 @@ const UnifiedTopBar = ({ backPath, onBack, hideCoach }: UnifiedTopBarProps) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
-              <p>Inner Mastery Coach</p>
+              <p>Mind Performance Coach</p>
             </TooltipContent>
           </Tooltip>
         )}
