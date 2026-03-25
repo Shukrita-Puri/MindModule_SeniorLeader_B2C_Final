@@ -29,25 +29,25 @@ import StarredItems from './StarredItems';
 
 const features = [
   {
-    title: 'Emotional & Cognitive Energy Check in',
+    title: 'Performance Readiness Assessment',
     icon: Smiley,
     path: '/daily-check-in',
     description: 'Track your state',
   },
   {
-    title: 'Recalibrate Studio',
+    title: 'Reset Studio',
     icon: Compass,
     path: '/recalibrate',
     description: 'Energy practices',
   },
   {
-    title: 'Inner Mastery Coach',
+    title: 'Mind Performance Coach',
     icon: ChatCircle,
     path: '/coach',
     description: 'AI-powered coaching',
   },
   {
-    title: 'Insights',
+    title: 'Performance Intelligence',
     icon: TrendUp,
     path: '/insights',
     description: 'Trends & patterns',

@@ -244,7 +244,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
 
   const getModuleDisplay = (module: PreEventModule) => {
     const labels: Record<string, string> = { regulate: 'Regulate', align: 'Align', prepare: 'Prepare', integrate: 'Integrate' };
-    const protocolTypes: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Inner Mastery Coach', integrate: 'Inner Mastery Coach' };
+    const protocolTypes: Record<string, string> = { regulate: 'Somatic Protocol', align: 'Mindset Protocol', prepare: 'Mind Performance Coach', integrate: 'Mind Performance Coach' };
     return { label: labels[module.type] || 'Prepare', protocolType: protocolTypes[module.type] || 'Protocol' };
   };
 

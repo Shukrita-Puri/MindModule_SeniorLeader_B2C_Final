@@ -3,7 +3,7 @@
  * 
  * Backend content tagging system for /recalibrate section:
  * - Tags all soundscapes, guided practices, micro-practices
- * - Maps content to Pause / Flow / Renewal mastery types
+ * - Maps content to Pause / Flow / Recharge mastery types
  * - Provides intelligent recommendations based on energy state
  */
 

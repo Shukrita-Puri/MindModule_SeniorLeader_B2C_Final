@@ -53,7 +53,7 @@ const TopNavigation = ({ backPath, transparent = false }: TopNavigationProps) =>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
-              <p>Inner Mastery Coach</p>
+              <p>Mind Performance Coach</p>
             </TooltipContent>
           </Tooltip>
         )}

@@ -44,7 +44,7 @@ const CoachAvatar = ({ size = 'sm' }: { size?: 'sm' | 'md' }) => (
   >
     <img
       src={coachVisual}
-      alt="Inner Mastery Coach"
+      alt="Mind Performance Coach"
       className="w-full h-full object-cover object-top"
     />
   </div>
@@ -251,7 +251,7 @@ const CoachSplitView = ({
           {/* Title + tagline + avatar + greeting — top-aligned for mobile first-fold */}
           <div className="flex-1 flex flex-col items-center justify-start pt-14 md:pt-20 px-6 text-center space-y-2">
             <h1 className="text-2xl md:text-3xl font-headline text-foreground tracking-tight">
-              Inner Mastery Coach
+              Mind Performance Coach
             </h1>
             <p className="text-sm font-subheadline italic text-muted-foreground">
               Inner Awareness. Presence. Growth.
@@ -259,7 +259,7 @@ const CoachSplitView = ({
 
             {/* Circular coach avatar */}
             <div className="w-16 h-16 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-stone-200 shadow-lg shadow-stone-200/30">
-              <img src={coachVisual} alt="Inner Mastery Coach" className="w-full h-full object-cover object-top" />
+              <img src={coachVisual} alt="Mind Performance Coach" className="w-full h-full object-cover object-top" />
             </div>
 
             <h2 className="text-lg font-headline text-foreground/90">
