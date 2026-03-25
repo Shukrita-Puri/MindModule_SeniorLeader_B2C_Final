@@ -123,7 +123,7 @@ function scoreEvent(title: string | null): number {
 }
 
 // ── Constants ──
-const DAILY_NOTIFICATION_CAP = 4;
+const DAILY_NOTIFICATION_CAP = 3;
 const LOW_TIERS = ['depleted', 'managing'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
