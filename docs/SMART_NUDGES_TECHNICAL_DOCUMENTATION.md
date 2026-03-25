@@ -75,13 +75,13 @@ This ensures the "already sent today" deduplication is accurate regardless of ti
 
 ## Daily Global Cap
 
-**Maximum 4 notifications per user per day.** After fetching `todayLogs`, the system checks:
+**Maximum 3 notifications per user per day.** After fetching `todayLogs`, the system checks:
 
 ```
-if (todayLogs.length >= 4) → skip user entirely
+if (todayLogs.length >= 3) → skip user entirely
 ```
 
-This hard-caps total notifications regardless of how many types qualify. The cap prevents notification fatigue while still allowing a healthy mix of morning + afternoon + evening + one contextual nudge.
+This hard-caps total notifications regardless of how many types qualify. The cap prevents notification fatigue while still allowing a healthy mix of morning + evening + one contextual nudge (e.g. pre-event or pattern alert).
 
 ---
 

@@ -525,7 +525,7 @@ serve(async (req) => {
         .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
-      // ── DAILY CAP: max 4 notifications per user per day ──
+      // ── DAILY CAP: max 3 notifications per user per day ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
         continue;
