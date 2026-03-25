@@ -201,7 +201,7 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 
 | Rule | Logic |
 |------|-------|
-| **Daily cap** | Max 4 notifications per user per day across all types |
+| **Daily cap** | Max 3 notifications per user per day across all types |
 | **2-hour cooldown** | Separate query for logs in last 2 hours (not date-filtered). Prevents midnight crossover gaps. |
 | **DND** | Configurable `dnd_start`/`dnd_end` hours; wraps midnight |
 | **Quiet Days** | Array of day-of-week numbers (0=Sun…6=Sat) to skip entirely. Schema supports it; no defaults set. User-configurable in NudgeSettings. |
@@ -358,5 +358,5 @@ SELECT cron.schedule(
 
 | Date | Change |
 |------|--------|
-| 2026-03-25 | **Major enhancement:** Added daily global cap (max 4/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (14-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
+| 2026-03-25 | **Major enhancement:** Added daily global cap (max 3/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (14-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
 | 2026-03-25 | Fixed timezone bug: `todayStr` log query now uses UTC-corrected boundaries. Added separate 2-hour suppression query independent of date filter. This fixes duplicate notifications and enables Pattern Alert / State-Aware nudges to fire correctly. |
