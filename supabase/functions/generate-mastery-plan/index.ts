@@ -991,6 +991,11 @@ async function getPreScoredEvents(
         const minutesUntil = Math.floor((eventStart.getTime() - now.getTime()) / (1000 * 60));
         if (minutesUntil < 0) continue;
 
+        // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
+        // Only include events in valid action windows (touch1 or touch2)
+        const actionWindow = getActionWindow(minutesUntil);
+        if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+
         // Generate time pill
         let timePill: string;
         if (minutesUntil < 60) timePill = `In ${minutesUntil} min`;
