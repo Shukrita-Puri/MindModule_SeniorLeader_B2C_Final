@@ -862,6 +862,19 @@ async function getHRVEventCorrelations(
   }
 }
 
+// ==================== UNIFIED THRESHOLD ====================
+const JIT_THRESHOLD_UNIFIED = 55;
+
+// ==================== TWO-TOUCH ACTION WINDOWS ====================
+// Touch 1 (24-48h): coach + think prep. Touch 2 (0-6h): body + state prep.
+// Silent gap (6-24h) and selection-only (>48h): scored but not surfaced.
+function getActionWindow(minutesUntil: number): 'touch1' | 'touch2' | 'silent' | 'selection_only' {
+  if (minutesUntil <= 360) return 'touch2';           // 0-6h: body prep
+  if (minutesUntil <= 1440) return 'silent';           // 6-24h: gap — do not surface
+  if (minutesUntil <= 2880) return 'touch1';           // 24-48h: coach + think
+  return 'selection_only';                              // >48h: scored but not surfaced
+}
+
 // ==================== NOISE FILTER (mirrors generate-jit-events Stage 0) ====================
 
 const NOISE_KEYWORDS = [
@@ -878,6 +891,44 @@ function isNoiseEvent(title: string): boolean {
   const lower = (title || '').toLowerCase();
   if (NOISE_PATTERN.test(title || '')) return true;
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// ==================== LEGACY DIM A/B FLOOR GUARDS ====================
+// Mirrors generate-jit-events dimension scoring for legacy fallback gate
+
+const LEGACY_PRESSURE_KEYWORDS = [
+  'board', 'investor', 'performance', 'review', 'feedback', 'fire', 'difficult',
+  'press', 'media', 'interview', 'pitch', 'crisis', 'negotiation', 'termination',
+  'layoff', 'conflict', 'confrontation', 'dispute',
+];
+
+const LEGACY_CLUSTER_KEYWORDS: Record<string, string[]> = {
+  pressure: ['board', 'pitch', 'media', 'press', 'interview', 'speak', 'present', 'conference', 'investor', 'keynote', 'crisis', 'emergency', 'urgent'],
+  relationship: ['feedback', 'performance', 'difficult', 'fire', 'demotion', 'conflict', 'dispute', 'tension', 'confrontation', 'termination', 'pip', 'layoff'],
+  decision: ['strategy', 'planning', 'prioritise', 'prioritize', 'trade-off', 'decision', 'stakeholder', 'budget', 'forecast', 'earnings'],
+  transition: ['first', 'last', 'new role', 'launch', 'announcement', 'offsite', 'retreat', 'end of quarter', 'annual', 'restructuring'],
+};
+
+function computeLegacyDimA(title: string, attendeeCount: number): number {
+  let score = 0;
+  if (attendeeCount === 0) return 0;
+  if (attendeeCount <= 2) score = 12;
+  else score = 20;
+  const lower = (title || '').toLowerCase();
+  if (LEGACY_PRESSURE_KEYWORDS.some(kw => lower.includes(kw))) {
+    score = Math.min(35, score + 15);
+  }
+  return score;
+}
+
+function computeLegacyDimB(title: string): number {
+  const lower = (title || '').toLowerCase();
+  for (const keywords of Object.values(LEGACY_CLUSTER_KEYWORDS)) {
+    if (keywords.some(kw => lower.includes(kw))) {
+      return 15; // Minimum passing value for B if any cluster matches
+    }
+  }
+  return 0;
 }
 
 // ==================== CALENDAR EVENT PRIORITISATION ====================
