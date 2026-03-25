@@ -374,12 +374,19 @@ serve(async (req) => {
       if (isInDND(localHour, dndStart, dndEnd)) continue;
       if (isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
 
-      // Fetch today's notification log for this user
+      // Convert local midnight to UTC for timezone-aware log queries
+      // e.g. user at UTC+5:30 (tzOffset=330), local midnight Mar 25 = Mar 24 18:30 UTC
+      const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
+      const todayStartUtc = new Date(localMidnightMs - tzOffset * 60000).toISOString();
+      const todayEndUtc = new Date(localMidnightMs - tzOffset * 60000 + 24 * 60 * 60 * 1000).toISOString();
+
+      // Fetch today's notification log using timezone-corrected UTC boundaries
       const { data: todayLogs } = await supabase
         .from('notification_log')
         .select('notification_type, variant_id, sent_at, event_reference')
         .eq('user_id', userId)
-        .gte('sent_at', `${todayStr}T00:00:00`)
+        .gte('sent_at', todayStartUtc)
+        .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
       const logsByType = new Map<string, typeof todayLogs>();
@@ -388,8 +395,17 @@ serve(async (req) => {
         logsByType.get(log.notification_type)!.push(log);
       }
 
-      // Check suppression: no notification within last 2 hours
-      const lastSentAt = todayLogs && todayLogs.length > 0 ? new Date(todayLogs[0].sent_at) : null;
+      // 2-hour suppression: query recent logs independently (handles midnight crossover)
+      const twoHoursAgoIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const { data: recentLogs } = await supabase
+        .from('notification_log')
+        .select('sent_at')
+        .eq('user_id', userId)
+        .gte('sent_at', twoHoursAgoIso)
+        .order('sent_at', { ascending: false })
+        .limit(1);
+
+      const lastSentAt = recentLogs && recentLogs.length > 0 ? new Date(recentLogs[0].sent_at) : null;
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       const suppressed = lastSentAt && lastSentAt > twoHoursAgo;
 
