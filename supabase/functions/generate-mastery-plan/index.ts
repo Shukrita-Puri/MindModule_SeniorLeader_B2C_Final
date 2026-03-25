@@ -1145,7 +1145,8 @@ function buildEnrichedContextDescription(
 
 /**
  * Legacy scoring — kept as fallback when jit_event_context has no recent data.
- * Now includes noise filter to prevent transit/logistics events.
+ * Enforces: noise filter, two-touch action windows, unified ≥55 threshold,
+ * and Dim A≥10 + Dim B≥8 floor guards.
  */
 function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string[], hrvCorrelations?: HRVCorrelationMap | null): ScoredEvent[] {
   const now = new Date();
@@ -1162,15 +1163,18 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
     // ═══ NOISE FILTER ═══
     if (isNoiseEvent(event.title || '')) continue;
 
+    // ═══ TWO-TOUCH ACTION WINDOW ═══
+    const actionWindow = getActionWindow(minutesUntil);
+    if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+
     let score = 0;
     const titleLower = (event.title || '').toLowerCase();
 
-    // Immediacy scoring
+    // Immediacy scoring (only touch2 0-6h and touch1 24-48h windows)
     if (minutesUntil <= 120) score += 40;
     else if (minutesUntil <= 240) score += 30;
-    else if (minutesUntil <= 1440) score += 20;
+    else if (minutesUntil <= 360) score += 20;
     else if (minutesUntil <= 2880) score += 10;
-    else continue;
 
     if (event.isOrganizer) score += 15;
     if ((event.attendeesCount || 0) > 5) score += 10;
@@ -1204,6 +1208,14 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
 
     const eventType = matchedScenario?.id || 'general';
     if (skippedTypes.includes(eventType)) score -= 15;
+
+    // ═══ DIM A/B FLOOR GUARDS ═══
+    const dimA = computeLegacyDimA(event.title || '', event.attendeesCount || 0);
+    const dimB = computeLegacyDimB(event.title || '');
+    if (score < JIT_THRESHOLD_UNIFIED || dimA < 10 || dimB < 8) {
+      console.log(`[generate-mastery-plan] Legacy GATE FAIL: "${event.title}" score=${score} dimA=${dimA} dimB=${dimB}`);
+      continue;
+    }
 
     // HRV correlation boost
     let hrvCorrelation: ScoredEvent['hrvCorrelation'] = undefined;
@@ -1247,7 +1259,11 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
       ? contextParts.join(' — ') + '. Prepare with targeted practice.'
       : `${event.title}. Prepare with targeted practice.`;
 
-    scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription, hrvCorrelation });
+    scored.push({
+      event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription, hrvCorrelation,
+      // Store action window as horizon for plan composition
+      jitUrgencyHorizon: actionWindow === 'touch1' ? 'tactical' : 'immediate',
+    });
   }
 
   scored.sort((a, b) => b.score - a.score || a.minutesUntil - b.minutesUntil);
