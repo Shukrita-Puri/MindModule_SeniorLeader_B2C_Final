@@ -910,7 +910,93 @@ serve(async (req) => {
         }
       }
 
-      // ── Afternoon Check-In ──
+      // ── State-Aware Nudge (P4 — above Afternoon Check-In) ──
+      // SKIP on weekends — requires structured calendar pressure
+      if (
+        !weekend &&
+        (prefs?.state_aware_nudge_enabled ?? true) &&
+        !isEngagementSuppressed('state_aware_nudge') &&
+        localTime >= 12 && localTime < 15 &&
+        !(logsByType.get('state_aware_nudge')?.length)
+      ) {
+        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const strictSuppressed = lastSentAt && lastSentAt > threeHoursAgo;
+
+        if (!strictSuppressed && userNotifications.length === 0) {
+          const lastAppOpen = lastAppOpenMap.get(userId);
+          const appOpenedIn3h = lastAppOpen && lastAppOpen > threeHoursAgo;
+
+          if (!appOpenedIn3h) {
+            const { data: morningCheckin } = await supabase
+              .from('daily_checkins')
+              .select('outcome')
+              .eq('user_id', userId)
+              .eq('checkin_date', todayStr)
+              .limit(1)
+              .single();
+
+            if (morningCheckin && LOW_TIERS.includes(morningCheckin.outcome)) {
+              const { data: afternoonReset } = await supabase
+                .from('daily_ritual_completions')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('ritual_date', todayStr)
+                .eq('session_period', 'afternoon')
+                .limit(1);
+
+              if (!afternoonReset || afternoonReset.length === 0) {
+                const now = new Date();
+                const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+                const { data: afternoonEvents } = await supabase
+                  .from('calendar_events')
+                  .select('id, title, start_time')
+                  .eq('user_id', userId)
+                  .gte('start_time', now.toISOString())
+                  .lte('start_time', fourHoursLater.toISOString())
+                  .order('start_time', { ascending: true });
+
+                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 25);
+
+                if (highStakesEvents.length >= 1) {
+                  const min60 = new Date(now.getTime() + 60 * 60000);
+                  const min120 = new Date(now.getTime() + 120 * 60000);
+                  const nearEvent = highStakesEvents.find(e => {
+                    const start = new Date(e.start_time);
+                    return start >= min60 && start <= min120;
+                  });
+
+                  const variants = getStateAwareVariants({
+                    highStakesCount: highStakesEvents.length,
+                    nextEventTitle: nearEvent?.title || undefined,
+                    minutesUntilNextEvent: nearEvent
+                      ? Math.round((new Date(nearEvent.start_time).getTime() - now.getTime()) / 60000)
+                      : undefined,
+                  });
+
+                  let selectedVariant: Variant;
+                  if (nearEvent) {
+                    selectedVariant = variants[3]; // SN-4
+                  } else if (highStakesEvents.length >= 3) {
+                    selectedVariant = variants[0]; // SN-1
+                  } else {
+                    selectedVariant = variants[1]; // SN-2
+                  }
+
+                  userNotifications.push({
+                    userId,
+                    type: 'state_aware_nudge',
+                    variant: selectedVariant,
+                    tokens: userTokens.get(userId)!,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // ── Afternoon Check-In (P6 — below State-Aware and Evening Close) ──
       // SKIP on weekends — no structured afternoon work
       if (
         !weekend &&
@@ -1054,92 +1140,6 @@ serve(async (req) => {
             variant: selectedVariant,
             tokens: userTokens.get(userId)!,
           });
-        }
-      }
-
-      // ── State-Aware Nudge ──
-      // SKIP on weekends — requires structured calendar pressure
-      if (
-        !weekend &&
-        (prefs?.state_aware_nudge_enabled ?? true) &&
-        !isEngagementSuppressed('state_aware_nudge') &&
-        localTime >= 12 && localTime < 15 &&
-        !(logsByType.get('state_aware_nudge')?.length)
-      ) {
-        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
-        const strictSuppressed = lastSentAt && lastSentAt > threeHoursAgo;
-
-        if (!strictSuppressed && userNotifications.length === 0) {
-          const lastAppOpen = lastAppOpenMap.get(userId);
-          const appOpenedIn3h = lastAppOpen && lastAppOpen > threeHoursAgo;
-
-          if (!appOpenedIn3h) {
-            const { data: morningCheckin } = await supabase
-              .from('daily_checkins')
-              .select('outcome')
-              .eq('user_id', userId)
-              .eq('checkin_date', todayStr)
-              .limit(1)
-              .single();
-
-            if (morningCheckin && LOW_TIERS.includes(morningCheckin.outcome)) {
-              const { data: afternoonReset } = await supabase
-                .from('daily_ritual_completions')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('ritual_date', todayStr)
-                .eq('session_period', 'afternoon')
-                .limit(1);
-
-              if (!afternoonReset || afternoonReset.length === 0) {
-                const now = new Date();
-                const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-
-                const { data: afternoonEvents } = await supabase
-                  .from('calendar_events')
-                  .select('id, title, start_time')
-                  .eq('user_id', userId)
-                  .gte('start_time', now.toISOString())
-                  .lte('start_time', fourHoursLater.toISOString())
-                  .order('start_time', { ascending: true });
-
-                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 25);
-
-                if (highStakesEvents.length >= 1) {
-                  const min60 = new Date(now.getTime() + 60 * 60000);
-                  const min120 = new Date(now.getTime() + 120 * 60000);
-                  const nearEvent = highStakesEvents.find(e => {
-                    const start = new Date(e.start_time);
-                    return start >= min60 && start <= min120;
-                  });
-
-                  const variants = getStateAwareVariants({
-                    highStakesCount: highStakesEvents.length,
-                    nextEventTitle: nearEvent?.title || undefined,
-                    minutesUntilNextEvent: nearEvent
-                      ? Math.round((new Date(nearEvent.start_time).getTime() - now.getTime()) / 60000)
-                      : undefined,
-                  });
-
-                  let selectedVariant: Variant;
-                  if (nearEvent) {
-                    selectedVariant = variants[3]; // SN-4
-                  } else if (highStakesEvents.length >= 3) {
-                    selectedVariant = variants[0]; // SN-1
-                  } else {
-                    selectedVariant = variants[1]; // SN-2
-                  }
-
-                  userNotifications.push({
-                    userId,
-                    type: 'state_aware_nudge',
-                    variant: selectedVariant,
-                    tokens: userTokens.get(userId)!,
-                  });
-                }
-              }
-            }
-          }
         }
       }
 
