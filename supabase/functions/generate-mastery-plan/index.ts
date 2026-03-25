@@ -862,6 +862,24 @@ async function getHRVEventCorrelations(
   }
 }
 
+// ==================== NOISE FILTER (mirrors generate-jit-events Stage 0) ====================
+
+const NOISE_KEYWORDS = [
+  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+  'car service', 'mot', 'oil change', 'dentist', 'optician',
+  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+];
+const NOISE_PATTERN = /\[\d{6,}\]/;
+
+function isNoiseEvent(title: string): boolean {
+  const lower = (title || '').toLowerCase();
+  if (NOISE_PATTERN.test(title || '')) return true;
+  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 // ==================== CALENDAR EVENT PRIORITISATION ====================
 
 interface ScoredEvent {
@@ -876,20 +894,222 @@ interface ScoredEvent {
     avgDeviation: number;
     historicalCount: number;
   };
+  // New pipeline fields (populated from jit_event_context bridge)
+  jitBucketPrimary?: string | null;
+  jitBucketSecondary?: string | null;
+  jitConfidenceScore?: number | null;
+  jitConfidenceBand?: string | null;
+  jitUrgencyHorizon?: string | null;
+  jitDimensionScores?: any | null;
 }
 
-function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hrvCorrelations?: HRVCorrelationMap | null): ScoredEvent[] {
+/**
+ * Bridge: Try to use pre-scored events from jit_event_context (new pipeline).
+ * Falls back to legacy scoring if no pre-scored events are available.
+ */
+async function getPreScoredEvents(
+  userId: string,
+  calendarEvents: CalendarEvent[],
+  supabaseClient: any,
+  hrvCorrelations: HRVCorrelationMap | null,
+): Promise<ScoredEvent[]> {
+  const now = new Date();
+
+  // Query jit_event_context for recent pre-scored events (within last 60 min)
+  try {
+    const sixtyMinAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    const { data: jitContextRows } = await supabaseClient
+      .from('jit_event_context')
+      .select('calendar_event_id, event_title, event_type, event_start, final_score, context_statement, jit_bucket_primary, jit_bucket_secondary, jit_confidence_score, jit_urgency_horizon, jit_dimension_scores, has_coach_context, coach_scenario, expressed_concern, has_pending_tool, dismissed_by_user')
+      .eq('user_id', userId)
+      .eq('shown_in_jit', true)
+      .eq('dismissed_by_user', false)
+      .gte('updated_at', sixtyMinAgo)
+      .gte('event_start', now.toISOString())
+      .order('final_score', { ascending: false })
+      .limit(5);
+
+    if (jitContextRows && jitContextRows.length > 0) {
+      console.log(`[generate-mastery-plan] Bridge: found ${jitContextRows.length} pre-scored events from jit_event_context`);
+      
+      const bridgedEvents: ScoredEvent[] = [];
+      for (const row of jitContextRows) {
+        // Find matching calendar event for full metadata
+        const matchingEvent = calendarEvents.find(e => e.id === row.calendar_event_id);
+        const eventStart = new Date(row.event_start);
+        const minutesUntil = Math.floor((eventStart.getTime() - now.getTime()) / (1000 * 60));
+        if (minutesUntil < 0) continue;
+
+        // Generate time pill
+        let timePill: string;
+        if (minutesUntil < 60) timePill = `In ${minutesUntil} min`;
+        else if (minutesUntil < 1440) {
+          const hours = Math.floor(minutesUntil / 60);
+          timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`;
+        } else {
+          const days = Math.ceil(minutesUntil / 1440);
+          timePill = `In ${days} day${days > 1 ? 's' : ''}`;
+        }
+
+        // Build enriched context description from pipeline signals
+        const contextDescription = buildEnrichedContextDescription(row, minutesUntil, matchingEvent, hrvCorrelations);
+
+        // Find matching scenario for module selection
+        const titleLower = (row.event_title || '').toLowerCase();
+        let matchedScenario: ExecutiveScenario | null = null;
+        for (const scenario of EXECUTIVE_SCENARIOS) {
+          if (scenario.triggers.calendarKeywords?.some(kw => titleLower.includes(kw.toLowerCase()))) {
+            matchedScenario = scenario;
+            break;
+          }
+        }
+
+        // Build HRV correlation from existing correlations
+        let hrvCorrelation: ScoredEvent['hrvCorrelation'] = undefined;
+        if (hrvCorrelations) {
+          const evtType = extractEventType(row.event_title || '');
+          const corr = hrvCorrelations[evtType];
+          if (corr && corr.count >= 2) {
+            hrvCorrelation = {
+              eventType: evtType,
+              avgDeviation: corr.avgHRVDeviation,
+              historicalCount: corr.count,
+            };
+          }
+        }
+
+        bridgedEvents.push({
+          event: matchingEvent || {
+            id: row.calendar_event_id,
+            title: row.event_title,
+            startTime: row.event_start,
+          } as CalendarEvent,
+          score: row.final_score || 0,
+          minutesUntil,
+          scenario: matchedScenario,
+          timePill,
+          contextDescription,
+          hrvCorrelation,
+          jitBucketPrimary: row.jit_bucket_primary,
+          jitBucketSecondary: row.jit_bucket_secondary,
+          jitConfidenceScore: row.jit_confidence_score,
+          jitConfidenceBand: row.jit_confidence_score != null
+            ? (row.jit_confidence_score >= 70 ? 'high' : row.jit_confidence_score >= 40 ? 'medium' : row.jit_confidence_score >= 20 ? 'low' : 'none')
+            : null,
+          jitUrgencyHorizon: row.jit_urgency_horizon,
+          jitDimensionScores: row.jit_dimension_scores,
+        });
+      }
+
+      if (bridgedEvents.length > 0) {
+        return bridgedEvents;
+      }
+    }
+  } catch (err) {
+    console.error('[generate-mastery-plan] jit_event_context bridge error:', err);
+  }
+
+  // Fallback: legacy scoring (with noise filter added)
+  console.log('[generate-mastery-plan] Bridge: no pre-scored events, falling back to legacy scoring');
+  return scoreCalendarEventsLegacy(calendarEvents, [], hrvCorrelations);
+}
+
+/**
+ * Build enriched context description from pipeline signals.
+ * Incorporates bucket classification, coach memory, HRV context, and confidence framing.
+ */
+function buildEnrichedContextDescription(
+  row: any,
+  minutesUntil: number,
+  matchingEvent: CalendarEvent | undefined,
+  hrvCorrelations: HRVCorrelationMap | null,
+): string {
+  const parts: string[] = [];
+  const dimScores = row.jit_dimension_scores;
+  const bucket = row.jit_bucket_primary;
+  const confidenceScore = row.jit_confidence_score || 0;
+
+  // Bucket-driven reasoning
+  if (bucket === 'recalibrate') {
+    parts.push('High inner-state demand detected — regulate before this');
+  } else if (bucket === 'clarity') {
+    parts.push('Decision or relationship stakes ahead — sharpen your approach');
+  } else if (bucket === 'renewal') {
+    parts.push('Transition moment — sustain energy and identity');
+  }
+
+  // Coach memory signal
+  if (row.has_coach_context) {
+    if (row.expressed_concern) {
+      parts.push('you\'ve discussed this concern with your coach');
+    } else if (row.coach_scenario) {
+      parts.push('your coach has flagged this pattern');
+    } else if (row.has_pending_tool) {
+      parts.push('a coach-recommended tool applies here');
+    } else {
+      parts.push('this connects to themes from your coaching');
+    }
+  }
+
+  // HRV context from dimension scores
+  if (dimScores?.readiness_multiplier && dimScores.readiness_multiplier > 1.1) {
+    const deviation = Math.round((dimScores.readiness_multiplier - 1) * 100);
+    parts.push(`your readiness is ${deviation}% below baseline today`);
+  }
+
+  // Urgency
+  if (minutesUntil <= 30) {
+    parts.push('starting very soon — prepare now');
+  } else if (minutesUntil <= 60) {
+    parts.push(`in ${minutesUntil} minutes`);
+  } else if (minutesUntil < 1440) {
+    parts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+  } else {
+    parts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
+  }
+
+  // HRV correlation from historical data
+  if (hrvCorrelations) {
+    const evtType = extractEventType(row.event_title || '');
+    const corr = hrvCorrelations[evtType];
+    if (corr && corr.count >= 2 && Math.abs(corr.avgHRVDeviation) > 10) {
+      const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
+      parts.push(`HRV typically shifts ${corr.avgHRVDeviation > 0 ? '+' : ''}${corr.avgHRVDeviation}% during ${canonicalLabel.toLowerCase()} events`);
+    }
+  }
+
+  // Confidence-framed closing
+  if (confidenceScore >= 70) {
+    return parts.join(' — ') + '. Prepare with targeted practice.';
+  } else if (confidenceScore >= 40) {
+    return `Before your ${row.event_title || 'event'} — ` + parts.join(' — ') + '.';
+  } else if (confidenceScore >= 20) {
+    return `Worth preparing for this? ` + parts.join(' — ') + '.';
+  }
+
+  return parts.length > 0
+    ? parts.join(' — ') + '. Prepare with targeted practice.'
+    : `${row.event_title || 'Upcoming event'}. Prepare with targeted practice.`;
+}
+
+/**
+ * Legacy scoring — kept as fallback when jit_event_context has no recent data.
+ * Now includes noise filter to prevent transit/logistics events.
+ */
+function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string[], hrvCorrelations?: HRVCorrelationMap | null): ScoredEvent[] {
   const now = new Date();
   const scored: ScoredEvent[] = [];
 
-  // Sort events by start time first for back-to-back detection
   const sortedEvents = [...events].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   for (let ei = 0; ei < sortedEvents.length; ei++) {
     const event = sortedEvents[ei];
     const startTime = new Date(event.startTime);
     const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / (1000 * 60));
-    if (minutesUntil < 0) continue; // Skip past events
+    if (minutesUntil < 0) continue;
+
+    // ═══ NOISE FILTER ═══
+    if (isNoiseEvent(event.title || '')) continue;
 
     let score = 0;
     const titleLower = (event.title || '').toLowerCase();
@@ -899,37 +1119,29 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
     else if (minutesUntil <= 240) score += 30;
     else if (minutesUntil <= 1440) score += 20;
     else if (minutesUntil <= 2880) score += 10;
-    else continue; // Skip events more than 48h away
+    else continue;
 
-    // Organiser
     if (event.isOrganizer) score += 15;
-    // Attendees > 5
     if ((event.attendeesCount || 0) > 5) score += 10;
-    // Duration > 60 min
     if (event.endTime) {
       const durationMin = (new Date(event.endTime).getTime() - startTime.getTime()) / 60000;
       if (durationMin > 60) score += 8;
     }
-    // Non-recurring
     if (!event.isRecurring) score += 10;
 
-    // Scenario keyword match
     let matchedScenario: ExecutiveScenario | null = null;
     for (const scenario of EXECUTIVE_SCENARIOS) {
       if (!scenario.triggers.calendarKeywords) continue;
-      const matches = scenario.triggers.calendarKeywords.some(kw => titleLower.includes(kw.toLowerCase()));
-      if (matches) {
+      if (scenario.triggers.calendarKeywords.some(kw => titleLower.includes(kw.toLowerCase()))) {
         score += 25;
         matchedScenario = scenario;
         break;
       }
     }
 
-    // Prime hours (9-12, 14-16)
     const eventHour = startTime.getHours();
     if ((eventHour >= 9 && eventHour <= 12) || (eventHour >= 14 && eventHour <= 16)) score += 5;
 
-    // Back-to-back event detection (+5 if previous event ends within 15 min of this event's start)
     if (ei > 0) {
       const prevEvent = sortedEvents[ei - 1];
       if (prevEvent.endTime) {
@@ -939,60 +1151,32 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
       }
     }
 
-    // Skip penalty
     const eventType = matchedScenario?.id || 'general';
-    if (skippedTypes.includes(eventType)) {
-      score -= 15;
-    }
+    if (skippedTypes.includes(eventType)) score -= 15;
 
-    // ===== HRV CORRELATION BOOST =====
+    // HRV correlation boost
     let hrvCorrelation: ScoredEvent['hrvCorrelation'] = undefined;
     let hrvContextPart = '';
-
     if (hrvCorrelations) {
       const evtType = extractEventType(event.title || '');
       const correlation = hrvCorrelations[evtType];
-
       if (correlation && correlation.count >= 2) {
         const avgDev = correlation.avgHRVDeviation;
-        hrvCorrelation = {
-          eventType: evtType,
-          avgDeviation: avgDev,
-          historicalCount: correlation.count,
-        };
-
+        hrvCorrelation = { eventType: evtType, avgDeviation: avgDev, historicalCount: correlation.count };
         const canonicalLabel = CANONICAL_TAGS[evtType] || evtType;
-        if (avgDev > 20) {
-          score += 25;
-          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds strongly to these. Preparation significantly reduces physiological activation.`;
-        } else if (avgDev > 15) {
-          score += 20;
-          hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds to these. Grounding before the meeting helps.`;
-        } else if (avgDev > 10) {
-          score += 12;
-          hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline). Brief preparation recommended.`;
-        } else if (avgDev < -10) {
-          score -= 5;
-          hrvContextPart = `Your HRV typically remains stable during ${canonicalLabel.toLowerCase()} events — lower physiological demand detected.`;
-        }
+        if (avgDev > 20) { score += 25; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events — your system responds strongly to these.`; }
+        else if (avgDev > 15) { score += 20; hrvContextPart = `Your HRV typically elevates ${Math.abs(avgDev)}% during ${canonicalLabel.toLowerCase()} events.`; }
+        else if (avgDev > 10) { score += 12; hrvContextPart = `Your HRV tends to elevate during ${canonicalLabel.toLowerCase()} events (${Math.abs(avgDev)}% above baseline).`; }
+        else if (avgDev < -10) { score -= 5; }
       }
     }
 
-    // Generate time pill
     let timePill: string;
     if (minutesUntil < 60) timePill = `In ${minutesUntil} min`;
-    else if (minutesUntil < 1440) {
-      const hours = Math.floor(minutesUntil / 60);
-      timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`;
-    } else {
-      const days = Math.ceil(minutesUntil / 1440);
-      timePill = `In ${days} day${days > 1 ? 's' : ''}`;
-    }
+    else if (minutesUntil < 1440) { const hours = Math.floor(minutesUntil / 60); timePill = `In ${hours} hr${hours > 1 ? 's' : ''}`; }
+    else { const days = Math.ceil(minutesUntil / 1440); timePill = `In ${days} day${days > 1 ? 's' : ''}`; }
 
-    // Context description — AI-generated reasoning for why this event was selected
     const contextParts: string[] = [];
-
-    // Scenario-based reasoning
     if (matchedScenario) {
       const evtTypeForContext = extractEventType(event.title || '');
       const canonicalTagForContext = CANONICAL_TAGS[evtTypeForContext] || matchedScenario.contextLabel || 'meeting';
@@ -1002,28 +1186,12 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
     } else if (event.isOrganizer) {
       contextParts.push(`You're organizing this event`);
     }
-
-    // Urgency context
-    if (minutesUntil <= 30) {
-      contextParts.push(`starting very soon — prepare now`);
-    } else if (minutesUntil <= 60) {
-      contextParts.push(`in ${minutesUntil} minutes`);
-    } else if (minutesUntil < 1440) {
-      contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
-    } else {
-      contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
-    }
-
-    // Stakes indicators
-    if (!event.isRecurring && (event.attendeesCount || 0) > 3) {
-      contextParts.push(`non-recurring high-visibility event`);
-    }
-
-    // HRV correlation context (injected before the closing sentence)
-    if (hrvContextPart) {
-      contextParts.push(hrvContextPart);
-    }
-
+    if (minutesUntil <= 30) contextParts.push(`starting very soon — prepare now`);
+    else if (minutesUntil <= 60) contextParts.push(`in ${minutesUntil} minutes`);
+    else if (minutesUntil < 1440) contextParts.push(`in ${Math.floor(minutesUntil / 60)} hours`);
+    else contextParts.push(`in ${Math.ceil(minutesUntil / 1440)} days`);
+    if (!event.isRecurring && (event.attendeesCount || 0) > 3) contextParts.push(`non-recurring high-visibility event`);
+    if (hrvContextPart) contextParts.push(hrvContextPart);
     const contextDescription = contextParts.length > 0
       ? contextParts.join(' — ') + '. Prepare with targeted practice.'
       : `${event.title}. Prepare with targeted practice.`;
@@ -1031,7 +1199,6 @@ function scoreCalendarEvents(events: CalendarEvent[], skippedTypes: string[], hr
     scored.push({ event, score, minutesUntil, scenario: matchedScenario, timePill, contextDescription, hrvCorrelation });
   }
 
-  // Sort by score desc, tiebreaker: closer event wins
   scored.sort((a, b) => b.score - a.score || a.minutesUntil - b.minutesUntil);
   return scored;
 }
@@ -1631,8 +1798,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // 3. Fetch HRV × Calendar correlations
   const hrvCorrelations = await getHRVEventCorrelations(req.userId, supabaseClient);
 
-  // 4. Score calendar events (with HRV correlation boost)
-  const scoredEvents = scoreCalendarEvents(req.calendarEvents || [], skippedTypes, hrvCorrelations);
+  // 4. Score calendar events — bridge to new pipeline (jit_event_context) with legacy fallback
+  const scoredEvents = await getPreScoredEvents(req.userId, req.calendarEvents || [], supabaseClient, hrvCorrelations);
   // Filter out 3+ skipped types
   const filteredEvents = scoredEvents.filter(e => !skippedTypes3Plus.includes(e.scenario?.id || 'general'));
 

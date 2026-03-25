@@ -96,20 +96,39 @@ serve(async (req) => {
 
     // ═══ Phase 8: Insights Attribution ═══
     // On plan completion, attribute to behavior_logs with bucket context
-    if (action === 'completed') {
+    // Weight multipliers: completion ×1.2, reflection ×1.3, recurring improvement ×1.5
+    if (action === 'completed' || action === 'reflected' || action === 'recurring_improvement') {
       const primaryBucket = jitBucketPrimary || null;
       const secondaryBucket = jitBucketSecondary || null;
 
+      // Determine weight multiplier based on action type
+      let weightMultiplier = 1.0;
+      if (action === 'completed') weightMultiplier = 1.2;
+      else if (action === 'reflected') weightMultiplier = 1.3;
+      else if (action === 'recurring_improvement') weightMultiplier = 1.5;
+
       try {
-        // Write to behavior_logs with bucket context for performance-rhythm-insights
+        // Primary bucket attribution (70% weight)
         const { error: blErr } = await supabase.from('behavior_logs').insert({
           user_id: userId,
-          behavior_type: `jit_plan_completed`,
+          behavior_type: `jit_plan_${action}`,
           event_title: eventTitle || null,
-          energy_after: null,
+          energy_after: String(Math.round(0.7 * weightMultiplier * 100) / 100),
           control_level: primaryBucket,
         });
-        if (blErr) console.error('[track-jit-skip] behavior_log insert error:', blErr);
+        if (blErr) console.error('[track-jit-skip] primary behavior_log insert error:', blErr);
+
+        // Secondary bucket attribution (30% weight) — if secondary exists
+        if (secondaryBucket && secondaryBucket !== primaryBucket) {
+          const { error: blErr2 } = await supabase.from('behavior_logs').insert({
+            user_id: userId,
+            behavior_type: `jit_plan_${action}_secondary`,
+            event_title: eventTitle || null,
+            energy_after: String(Math.round(0.3 * weightMultiplier * 100) / 100),
+            control_level: secondaryBucket,
+          });
+          if (blErr2) console.error('[track-jit-skip] secondary behavior_log insert error:', blErr2);
+        }
 
         // Mark jit_event_context as completed
         if (eventId) {
@@ -123,7 +142,7 @@ serve(async (req) => {
             .eq('user_id', userId);
         }
 
-        console.log(`[track-jit-skip] Completion attributed: primary=${primaryBucket} secondary=${secondaryBucket}`);
+        console.log(`[track-jit-skip] Attribution: action=${action} primary=${primaryBucket}(70%) secondary=${secondaryBucket}(30%) multiplier=${weightMultiplier}`);
       } catch (e) {
         console.error('[track-jit-skip] Attribution error:', e);
       }

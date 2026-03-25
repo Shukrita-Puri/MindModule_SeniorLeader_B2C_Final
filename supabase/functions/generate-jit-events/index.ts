@@ -670,10 +670,47 @@ serve(async (req) => {
 
     // Sort by score, take top 3 (up from 2 to accommodate multi-horizon)
     scoredEvents.sort((a, b) => b.finalScore - a.finalScore);
-    const selectedEvents = scoredEvents.slice(0, 3);
+
+    // ════════ Multi-Horizon Deduplication ════════
+    // Check which horizons have already been surfaced per event to allow
+    // the same event to appear at different horizons (immediate/tactical/strategic)
+    const eventIds = scoredEvents.map(e => e.calendarEventId);
+    let existingHorizonsMap: Record<string, string[]> = {};
+    if (eventIds.length > 0) {
+      try {
+        const { data: existingCtx } = await supabase
+          .from('jit_event_context')
+          .select('calendar_event_id, jit_horizons_surfaced')
+          .eq('user_id', userId)
+          .in('calendar_event_id', eventIds);
+        for (const row of (existingCtx || [])) {
+          existingHorizonsMap[row.calendar_event_id] = row.jit_horizons_surfaced || [];
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Select events: allow same event at different horizons, max 3 total
+    const selectedEvents: typeof scoredEvents = [];
+    const seenEventHorizons = new Set<string>();
+    for (const evt of scoredEvents) {
+      if (selectedEvents.length >= 3) break;
+      const key = `${evt.calendarEventId}:${evt.jitUrgencyHorizon}`;
+      // Skip if this exact event+horizon combo was already surfaced
+      const priorHorizons = existingHorizonsMap[evt.calendarEventId] || [];
+      if (priorHorizons.includes(evt.jitUrgencyHorizon)) {
+        if (IS_DEV) console.log(`[JIT:Stage5] DEDUP title="${evt.eventTitle}" horizon=${evt.jitUrgencyHorizon} (already surfaced)`);
+        continue;
+      }
+      if (seenEventHorizons.has(key)) continue;
+      seenEventHorizons.add(key);
+      selectedEvents.push(evt);
+    }
 
     // Store in jit_event_context
     for (const evt of selectedEvents) {
+      const priorHorizons = existingHorizonsMap[evt.calendarEventId] || [];
+      const mergedHorizons = [...new Set([...priorHorizons, evt.jitUrgencyHorizon])];
+
       await supabase.from('jit_event_context').upsert({
         user_id: userId,
         calendar_event_id: evt.calendarEventId,
@@ -714,7 +751,7 @@ serve(async (req) => {
           final: evt.finalScore,
         },
         jit_urgency_horizon: evt.jitUrgencyHorizon,
-        jit_horizons_surfaced: [evt.jitUrgencyHorizon],
+        jit_horizons_surfaced: mergedHorizons,
       }, { onConflict: 'id' });
     }
 
