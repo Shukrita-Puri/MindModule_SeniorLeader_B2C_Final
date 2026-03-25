@@ -87,6 +87,15 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 
 ## Notification Types — Full Logic
 
+**Weekday Priority Order (highest → lowest):**
+1. Pre-Event Prep (P1)
+2. Pattern Alert (P2)
+3. Morning Anchor (P3)
+4. State-Aware Nudge (P4)
+5. Evening Close (P5)
+6. Afternoon Check-In (P6)
+7. Daily Fallback (P7)
+
 ### Type 1: Pre-Event Prep (P1 — highest priority)
 
 | Property | Value |
@@ -96,7 +105,7 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Data needed** | `calendar_events`, `daily_checkins` (inner tier) |
 | **Suppression** | Max 3/day, dedup by `event_reference` (external_id), 2-hour global |
 | **Weekend** | Active (high-stakes events can happen on weekends) |
-| **Engagement learning** | Subject to 50% reduction if 0 taps in 5+ sends over 14 days |
+| **Engagement learning** | Subject to 50% reduction if 0 taps in 5+ sends over 7 days |
 | **Variant selection** | strong/peak → PE-3, depleted/managing → PE-4, else round-robin |
 | **Copy variants** | PE-1 through PE-6 |
 
@@ -132,14 +141,15 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Weekday variant selection** | High calendar pressure → MA-2, streak ≥ 3 → MA-5, else round-robin |
 | **Copy variants** | Weekday: MA-1 through MA-6 · Weekend: MA-W1, MA-W2 |
 
-### Type 4: Afternoon Check-In (P4)
+### Type 4: State-Aware Nudge (P4)
 
 | Property | Value |
 |----------|-------|
-| **Window** | 12:30 – 14:30 local time |
-| **Trigger** | No afternoon check-in (`time_window = 'afternoon'`) exists for today |
-| **Weekend** | **DISABLED** — skipped on Saturday and Sunday |
-| **Copy variants** | AC-1 through AC-3 |
+| **Window** | 12:00 – 15:00 local time |
+| **Trigger** | Morning check-in outcome is depleted/managing AND no afternoon reset completed AND ≥ 1 high-stakes event in next 4 hours |
+| **Weekend** | **DISABLED** — requires structured calendar pressure |
+| **Suppression** | 3-hour minimum gap, skip if app opened in 3 hours, max 1/day, must be only queued notification |
+| **Copy variants** | SN-1 through SN-4 |
 
 ### Type 5: Evening Close (P5)
 
@@ -160,15 +170,14 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | **Weekday (missing check-in)** | ECI-1, ECI-2 | Standard evening check-in copy |
 | **Weekday (missing ritual)** | EC-1 through EC-6 | Context-aware: HRV delta ≥ 15% → EC-4, high calendar load → EC-2, streak ≥ 3 → EC-5 |
 
-### Type 6: State-Aware Nudge (P6)
+### Type 6: Afternoon Check-In (P6)
 
 | Property | Value |
 |----------|-------|
-| **Window** | 12:00 – 15:00 local time |
-| **Trigger** | Morning check-in outcome is depleted/managing AND no afternoon reset completed AND ≥ 1 high-stakes event in next 4 hours |
-| **Weekend** | **DISABLED** — requires structured calendar pressure |
-| **Suppression** | 3-hour minimum gap, skip if app opened in 3 hours, max 1/day, must be only queued notification |
-| **Copy variants** | SN-1 through SN-4 |
+| **Window** | 12:30 – 14:30 local time |
+| **Trigger** | No afternoon check-in (`time_window = 'afternoon'`) exists for today |
+| **Weekend** | **DISABLED** — skipped on Saturday and Sunday |
+| **Copy variants** | AC-1 through AC-3 |
 
 ### Type 7: Daily Fallback (P7)
 
@@ -221,7 +230,7 @@ When multiple notification types qualify in the same evaluation cycle:
 
 1. **Pre-Event always wins** — time-critical, never deprioritized
 2. **Unseen types get a boost** — types not sent in 3+ days receive a `-10` priority score boost (higher priority)
-3. **Effective types get a boost** — types with >50% tap rate over 14 days receive a `-5` priority score boost
+3. **Effective types get a boost** — types with >50% tap rate over 7 days receive a `-5` priority score boost
 4. **Time-of-day context** — base priority shifts by time window (see below)
 
 This ensures that if Pattern Alert and Morning Anchor both qualify, the one the user hasn't seen recently gets preference.
@@ -232,9 +241,9 @@ This ensures that if Pattern Alert and Morning Anchor both qualify, the one the 
 
 The system learns from user behavior using data already captured in `notification_log`.
 
-### 14-Day Feedback Loop
+### 7-Day Feedback Loop
 
-The `getUserEngagementProfile()` function queries the last 14 days of notifications and calculates:
+The `getUserEngagementProfile()` function queries the last 7 days of notifications and calculates:
 
 | Metric | Calculation |
 |--------|-------------|
@@ -261,10 +270,10 @@ Priority is **not static** — it shifts based on the user's current local time 
 
 | Time Window | Priority Order (highest → lowest) |
 |-------------|-----------------------------------|
-| **Morning (6–11)** | Morning Anchor → Pre-Event → Pattern Alert → Afternoon → Evening → State-Aware → Fallback |
-| **Midday (11–15)** | Pre-Event → State-Aware → Afternoon → Pattern Alert → Morning → Evening → Fallback |
+| **Morning (6–11)** | Morning Anchor → Pre-Event → Pattern Alert → State-Aware → Evening → Afternoon → Fallback |
+| **Midday (11–15)** | Pre-Event → Pattern Alert → State-Aware → Afternoon → Morning → Evening → Fallback |
 | **Evening (18–22)** | Evening Close → Pattern Alert → Pre-Event → State-Aware → Morning → Afternoon → Fallback |
-| **Other (15–18, 22+)** | Pre-Event → Pattern Alert → Fallback → Morning → Afternoon → Evening → State-Aware |
+| **Other (15–18, 22+)** | Pre-Event → Pattern Alert → State-Aware → Afternoon → Fallback → Morning → Evening |
 
 **Exception:** Pre-Event Prep always wins within its 30–90 min trigger window regardless of time-of-day priority, because it is inherently time-critical.
 
@@ -358,5 +367,6 @@ SELECT cron.schedule(
 
 | Date | Change |
 |------|--------|
-| 2026-03-25 | **Major enhancement:** Added daily global cap (max 3/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (14-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
+| 2026-03-25 | **Priority reorder:** State-Aware Nudge moved above Afternoon Check-In (P4 vs P6). Engagement feedback loop shortened from 14 days to 7 days for faster learning. Updated time-of-day priority tables. |
+| 2026-03-25 | **Major enhancement:** Added daily global cap (max 3/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (7-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
 | 2026-03-25 | Fixed timezone bug: `todayStr` log query now uses UTC-corrected boundaries. Added separate 2-hour suppression query independent of date filter. This fixes duplicate notifications and enables Pattern Alert / State-Aware nudges to fire correctly. |
