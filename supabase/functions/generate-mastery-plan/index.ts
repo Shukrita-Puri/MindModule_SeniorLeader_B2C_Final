@@ -2036,9 +2036,9 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     // Check for pattern observations related to this event type
     let patternMatched = false;
     if (scenario && req.patternInsight) {
-      const patternLower = ((req as any).patternInsight || '').toLowerCase();
+      const patternState = (req.patternInsight.state || '').toLowerCase();
       const scenarioKeywords = (scenario.triggers.calendarKeywords || []).map((k: string) => k.toLowerCase());
-      patternMatched = scenarioKeywords.some(kw => patternLower.includes(kw));
+      patternMatched = scenarioKeywords.some(kw => patternState.includes(kw));
     }
 
     // Aggressively replace context — coach memory and HRV take priority over generic text
