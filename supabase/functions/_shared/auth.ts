@@ -13,7 +13,7 @@
  *   import { verifyAuth0JWT, authenticateRequest } from "../_shared/auth.ts";
  */
 
-import { createRemoteJWKSet, jwtVerify } from "https://deno.land/x/jose@v5.2.0/index.ts";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.2.0";
 
 // ─── Domain sanitization ────────────────────────────────────────────
 /** Strip protocol and trailing slashes from domain env var */
