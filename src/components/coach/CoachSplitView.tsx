@@ -254,7 +254,7 @@ const CoachSplitView = ({
               Mind Performance Coach
             </h1>
             <p className="text-sm font-subheadline italic text-muted-foreground">
-              Inner Awareness. Presence. Growth.
+              Clarity. Focus. Performance.
             </p>
 
             {/* Circular coach avatar */}
