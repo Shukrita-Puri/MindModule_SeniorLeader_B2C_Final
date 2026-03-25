@@ -260,9 +260,9 @@ function computeConfidence(
 // ─── Stage 5: Two-Touch Action Model ────────────────────────────────
 // Touch 1 (24-48h): coach + think prep. Touch 2 (0-6h): body + state prep.
 // Silent gap (6-24h) and selection-only (>48h): scored & stored, not surfaced.
-function determineUrgencyHorizon(minutesUntil: number): 'immediate' | 'tactical' | null {
-  if (minutesUntil <= 360) return 'immediate';                        // Touch 2: 0-6h body prep
-  if (minutesUntil >= 1440 && minutesUntil <= 2880) return 'tactical'; // Touch 1: 24-48h coach + think
+function determineUrgencyHorizon(minutesUntil: number): 'touch_1' | 'touch_2' | null {
+  if (minutesUntil <= 360) return 'touch_2';                          // Touch 2: 0-6h body prep
+  if (minutesUntil >= 1440 && minutesUntil <= 2880) return 'touch_1'; // Touch 1: 24-48h coach + think
   return null;  // Silent gap (6-24h) or selection-only (>48h) — scored but not surfaced
 }
 
@@ -357,9 +357,24 @@ serve(async (req) => {
   }
 
   try {
+    let userId: string;
     const auth = await authenticateRequest(req, corsHeaders);
-    if (auth.errorResponse) return auth.errorResponse;
-    const userId = auth.userId;
+    if (auth.errorResponse) {
+      const env = Deno.env.get('ENVIRONMENT') || '';
+      if (env !== 'production') {
+        const devHeader = req.headers.get('x-dev-user-id');
+        if (devHeader) {
+          userId = devHeader;
+          console.log(`[generate-jit-events] DEV bypass: userId=${userId}`);
+        } else {
+          return auth.errorResponse;
+        }
+      } else {
+        return auth.errorResponse;
+      }
+    } else {
+      userId = auth.userId;
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

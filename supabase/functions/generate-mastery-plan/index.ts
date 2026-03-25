@@ -968,14 +968,13 @@ async function getPreScoredEvents(
 
   // Query jit_event_context for recent pre-scored events (within last 60 min)
   try {
-    const sixtyMinAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
     const { data: jitContextRows } = await supabaseClient
       .from('jit_event_context')
-      .select('calendar_event_id, event_title, event_type, event_start, final_score, context_statement, jit_bucket_primary, jit_bucket_secondary, jit_confidence_score, jit_urgency_horizon, jit_dimension_scores, has_coach_context, coach_scenario, expressed_concern, has_pending_tool, dismissed_by_user')
+      .select('calendar_event_id, event_title, event_type, event_start, final_score, context_statement, jit_bucket_primary, jit_bucket_secondary, jit_confidence_score, jit_urgency_horizon, jit_dimension_scores, has_coach_context, coach_scenario, expressed_concern, has_pending_tool, dismissed_by_user, dismissed_horizons')
       .eq('user_id', userId)
       .eq('shown_in_jit', true)
-      .eq('dismissed_by_user', false)
-      .gte('updated_at', sixtyMinAgo)
+      .gte('updated_at', fourHoursAgo)
       .gte('event_start', now.toISOString())
       .order('final_score', { ascending: false })
       .limit(5);
@@ -995,6 +994,15 @@ async function getPreScoredEvents(
         // Only include events in valid action windows (touch1 or touch2)
         const actionWindow = getActionWindow(minutesUntil);
         if (actionWindow === 'silent' || actionWindow === 'selection_only') continue;
+
+        // ═══ PER-TOUCH DISMISSAL CHECK ═══
+        // Check if this specific touch has been dismissed (not the whole event)
+        const touchLabel = actionWindow === 'touch1' ? 'touch_1' : 'touch_2';
+        const dismissedHorizons: string[] = row.dismissed_horizons || [];
+        if (dismissedHorizons.includes(touchLabel)) {
+          console.log(`[generate-mastery-plan] Bridge: skipping "${row.event_title}" — ${touchLabel} dismissed`);
+          continue;
+        }
 
         // Generate time pill
         let timePill: string;
@@ -1907,7 +1915,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   if (topEvent) {
     const scenario = topEvent.scenario;
     const actionWindow = getActionWindow(topEvent.minutesUntil);
-    const horizon = actionWindow === 'touch1' ? 'tactical' : 'immediate';
+    const horizon = actionWindow === 'touch1' ? 'touch_1' : 'touch_2';
     const preEventModules: any[] = [];
 
     console.log(`[generate-mastery-plan] Two-touch: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} score=${topEvent.score} minutesUntil=${topEvent.minutesUntil}`);
@@ -2051,6 +2059,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         hrvCorrelation: topEvent.hrvCorrelation || null,
         actionWindow: actionWindow,
         horizon: horizon,
+        eventId: topEvent.event.id,
       };
       console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
     } else {

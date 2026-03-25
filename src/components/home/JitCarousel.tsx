@@ -49,11 +49,14 @@ interface PreEventPlan {
     avgDeviation: number;
     historicalCount: number;
   } | null;
+  horizon?: string;
+  eventId?: string;
 }
 
 interface JitCarouselProps {
   preEventPlan?: PreEventPlan | null;
 }
+
 
 const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
   const navigate = useNavigate();
@@ -131,6 +134,8 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           action,
           eventType: preEventPlan.eventType,
           eventTitle: preEventPlan.eventTitle,
+          eventId: preEventPlan.eventId || null,
+          horizon: preEventPlan.horizon || null,
         }
       });
     } catch { /* silent */ }
