@@ -1881,80 +1881,128 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     timePill: e.timePill
   }));
 
-  // 5. Build pre-event plan from highest-scoring event
-  // When bridged from new pipeline, events already passed the ≥55 gate.
-  // Legacy fallback uses ≥50 for backward compat until full migration.
+  // 5. Build pre-event plan using TWO-TOUCH ACTION MODEL
+  // Touch 1 (24-48h): coach primary CTA + framework + optional focus practice (5-8 min thinking prep)
+  // Touch 2 (0-6h): somatic primary + focus exercise + coach secondary (3-5 min body prep)
+  // Silent gap (6-24h): nothing surfaces. Selection-only (>48h): nothing surfaces.
   let preEventPlan: any = null;
-  const JIT_THRESHOLD = filteredEvents[0]?.jitDimensionScores ? 55 : 50;
-  if (filteredEvents.length > 0 && filteredEvents[0].score >= JIT_THRESHOLD) {
-    const topEvent = filteredEvents[0];
+
+  // Find first event in a valid action window
+  let topEvent: ScoredEvent | null = null;
+  for (const evt of filteredEvents) {
+    if (evt.score < JIT_THRESHOLD_UNIFIED) continue;
+    const window = getActionWindow(evt.minutesUntil);
+    if (window === 'touch1' || window === 'touch2') {
+      topEvent = evt;
+      break;
+    }
+    // Events in silent gap or selection-only are skipped for plan building
+  }
+
+  if (topEvent) {
     const scenario = topEvent.scenario;
+    const actionWindow = getActionWindow(topEvent.minutesUntil);
+    const horizon = actionWindow === 'touch1' ? 'tactical' : 'immediate';
     const preEventModules: any[] = [];
 
-    if (scenario) {
-      // Scenario-matched: use scenario modules
-      for (const spec of scenario.modules) {
-        if (spec.type === 'prepare' || spec.type === 'integrate') {
-          preEventModules.push({
-            type: spec.type,
-            contentId: `coach-${spec.type}`,
-            title: spec.type === 'prepare' ? 'Mental Rehearsal' : 'Tiny Win and Reflection',
-            contentType: 'coach',
-            duration: 2,
-            focus: spec.focus,
-            intensity: spec.intensity,
-            isFavorite: false,
-            isCoachCard: true,
-            reasoning: spec.type === 'prepare' ? 'Mental rehearsal for upcoming high-stakes moments' : 'Reflection and closure'
-          });
-        } else {
-          const selected = selectContent(enrichedContent, spec, req, pendingCommitments);
-          if (selected) {
-            preEventModules.push({
-              type: spec.type,
-              contentId: selected.id,
-              title: selected.title,
-              contentType: selected.content_type,
-              duration: selected.duration,
-              focus: spec.focus,
-              intensity: spec.intensity,
-              isFavorite: req.favorites.includes(selected.id),
-              reasoning: getModuleReasoning(spec.type, spec.focus)
-            });
-          }
-        }
-      }
-    } else {
-      // No scenario match but high score: produce fallback pre-event pack
-      // 1. Regulate (gentle short grounding)
-      const regulateSpec: ModuleSpec = { type: 'regulate', required: true, priority: 7, intensity: 'gentle', duration: 'short', focus: 'composure' };
-      const regulateContent = selectContent(enrichedContent, regulateSpec, req, pendingCommitments);
-      if (regulateContent) {
+    console.log(`[generate-mastery-plan] Two-touch: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} score=${topEvent.score} minutesUntil=${topEvent.minutesUntil}`);
+
+    if (actionWindow === 'touch2') {
+      // ═══ TOUCH 2 (0-6h): BODY PREP — somatic-first, 3-5 min max ═══
+      // Primary: somatic/breathing regulation practice (gentle, micro/short)
+      const somaticSpec: ModuleSpec = { type: 'regulate', required: true, priority: 9, intensity: 'gentle', duration: 'micro', focus: 'composure' };
+      const somaticContent = selectContent(enrichedContent, somaticSpec, req, pendingCommitments);
+      if (somaticContent) {
         preEventModules.push({
           type: 'regulate',
-          contentId: regulateContent.id,
-          title: regulateContent.title,
-          contentType: regulateContent.content_type,
-          duration: regulateContent.duration,
+          contentId: somaticContent.id,
+          title: somaticContent.title,
+          contentType: somaticContent.content_type,
+          duration: somaticContent.duration,
           focus: 'composure',
           intensity: 'gentle',
-          isFavorite: req.favorites.includes(regulateContent.id),
-          reasoning: 'Center before your upcoming event'
+          isFavorite: req.favorites.includes(somaticContent.id),
+          reasoning: 'Settle your body before this event'
         });
       }
-      // 2. Prepare (coach card)
+      // Secondary: one short focus/grounding exercise
+      const focusSpec: ModuleSpec = { type: 'align', required: false, priority: 6, intensity: 'gentle', duration: 'micro', focus: 'grounding' };
+      const focusContent = selectContent(enrichedContent, focusSpec, req, pendingCommitments);
+      if (focusContent) {
+        preEventModules.push({
+          type: 'align',
+          contentId: focusContent.id,
+          title: focusContent.title,
+          contentType: focusContent.content_type,
+          duration: focusContent.duration,
+          focus: 'grounding',
+          intensity: 'gentle',
+          isFavorite: req.favorites.includes(focusContent.id),
+          reasoning: 'Get focused and grounded'
+        });
+      }
+      // Coach card as secondary CTA only
       preEventModules.push({
         type: 'prepare',
         contentId: 'coach-prepare',
-        title: 'Mental Rehearsal',
+        title: 'Quick Coach Check-in',
         contentType: 'coach',
         duration: 2,
+        focus: 'composure',
+        intensity: 'gentle',
+        isFavorite: false,
+        isCoachCard: true,
+        reasoning: 'Quick check-in if you need it'
+      });
+    } else {
+      // ═══ TOUCH 1 (24-48h): THINK PREP — coach primary, framework, 5-8 min ═══
+      // Primary: coach card (prepare type) as main CTA
+      preEventModules.push({
+        type: 'prepare',
+        contentId: 'coach-prepare',
+        title: 'Prepare with Your Coach',
+        contentType: 'coach',
+        duration: 3,
         focus: 'composure',
         intensity: 'moderate',
         isFavorite: false,
         isCoachCard: true,
-        reasoning: 'Mental rehearsal for upcoming event'
+        reasoning: 'Discuss your approach with your coach before this event'
       });
+      // Secondary: one mental framework / reframe / align practice
+      const frameworkSpec: ModuleSpec = { type: 'align', required: true, priority: 7, intensity: 'moderate', duration: 'short', focus: 'confidence' };
+      const frameworkContent = selectContent(enrichedContent, frameworkSpec, req, pendingCommitments);
+      if (frameworkContent) {
+        preEventModules.push({
+          type: 'align',
+          contentId: frameworkContent.id,
+          title: frameworkContent.title,
+          contentType: frameworkContent.content_type,
+          duration: frameworkContent.duration,
+          focus: 'confidence',
+          intensity: 'moderate',
+          isFavorite: req.favorites.includes(frameworkContent.id),
+          reasoning: 'Mental framework to sharpen your approach'
+        });
+      }
+      // Optional: one focus practice if scenario matched
+      if (scenario) {
+        const focusSpec: ModuleSpec = { type: 'regulate', required: false, priority: 5, intensity: 'gentle', duration: 'short', focus: 'focus' };
+        const focusContent = selectContent(enrichedContent, focusSpec, req, pendingCommitments);
+        if (focusContent) {
+          preEventModules.push({
+            type: 'regulate',
+            contentId: focusContent.id,
+            title: focusContent.title,
+            contentType: focusContent.content_type,
+            duration: focusContent.duration,
+            focus: 'focus',
+            intensity: 'gentle',
+            isFavorite: req.favorites.includes(focusContent.id),
+            reasoning: 'Optional focus practice for deeper preparation'
+          });
+        }
+      }
     }
 
     // Enrich contextDescription with coach/commitment context if available
@@ -1996,13 +2044,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
         progressTracked: false,
         hrvCorrelation: topEvent.hrvCorrelation || null,
+        actionWindow: actionWindow,
+        horizon: horizon,
       };
-      console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
+      console.log(`[generate-mastery-plan] preEventPlan built: "${topEvent.event.title}" window=${actionWindow} horizon=${horizon} with ${preEventModules.length} modules (scenario: ${scenario?.id || 'fallback'})`);
     } else {
       console.log(`[generate-mastery-plan] preEventPlan skipped: no modules resolved for "${topEvent.event.title}"`);
     }
   } else {
-    const reason = filteredEvents.length === 0 ? 'no calendar events' : `top score ${filteredEvents[0]?.score || 0} < threshold ${JIT_THRESHOLD}`;
+    const reason = filteredEvents.length === 0 ? 'no calendar events' : `no events in action window (top: "${filteredEvents[0]?.event.title}" score=${filteredEvents[0]?.score || 0} minutesUntil=${filteredEvents[0]?.minutesUntil || 0})`;
     console.log(`[generate-mastery-plan] preEventPlan=null: ${reason}`);
   }
 
