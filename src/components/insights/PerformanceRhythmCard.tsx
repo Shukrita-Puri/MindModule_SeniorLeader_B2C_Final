@@ -236,9 +236,26 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
         }
 
+        // Logistic event filter — skip transit/admin/booking events
+        const LOGISTIC_KEYWORDS = [
+          'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+          'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+          'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+          'car service', 'mot', 'oil change', 'dentist', 'optician',
+          'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+          'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+        ];
+        const LOGISTIC_PATTERN = /\[\d{6,}\]/;
+        const isLogisticEvent = (title: string) => {
+          const lower = (title || '').toLowerCase();
+          if (LOGISTIC_PATTERN.test(title || '')) return true;
+          return LOGISTIC_KEYWORDS.some(kw => lower.includes(kw));
+        };
+        const insightCalendarEvents = calendarEvents.filter(e => e.title && !isLogisticEvent(e.title));
+
         // ── Calendar Pattern (1B) ──
         let calendarInsight: string | null = null;
-        if (hasCalendar && calendarEvents.length > 0 && checkIns.length >= 7) {
+        if (hasCalendar && insightCalendarEvents.length > 0 && checkIns.length >= 7) {
           const EVENT_TYPE_KEYWORDS: Record<string, string[]> = {
             board: ['board', 'board meeting', 'board of directors'],
             investor: ['investor', 'vc', 'funding', 'pitch'],
