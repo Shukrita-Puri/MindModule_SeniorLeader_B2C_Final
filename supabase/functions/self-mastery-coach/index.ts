@@ -3280,18 +3280,6 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
 // 7. TINY WIN EXTRACTION
 // =============================================================================
 
-// Blocklist of coach prompt phrases that should never be stored as wins
-const WIN_BLOCKLIST = [
-  "one thing i did right today",
-  "one thing you did right today",
-  "what's one thing",
-  "what is one thing",
-  "here's one thing",
-  "share one thing",
-  "name one thing",
-  "before we wind down",
-];
-
 // AI-driven tiny win extraction using tool calling
 const extractAndStoreTinyWin = async (
   supabaseUrl: string,
@@ -3313,11 +3301,11 @@ const extractAndStoreTinyWin = async (
         messages: [
           {
             role: "system",
-            content: `You analyze coaching conversations to detect genuine tiny wins shared by the user. 
-A tiny win is a real personal achievement, accomplishment, positive behavior, moment of growth, or something the user is proud of — even if they don't call it a "win."
+            content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
+
+Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of, even if they don't call it a "win."
 
 DO NOT treat the following as wins:
-- The coach's suggested prompts or questions (e.g., "Here's one thing I did right today")
 - Generic greetings or small talk
 - Questions the user asks without describing an action
 - Purely negative statements with no growth element
@@ -3334,7 +3322,7 @@ DO treat these as wins (be generous — capture implicit achievements):
 - Any moment where the user describes doing something positive, even casually
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-When the user describes something they did well or are proud of, even implicitly, store it. Err on the side of capturing rather than missing.`
+Err on the side of capturing rather than missing.`
           },
           ...messages,
         ],
@@ -3379,13 +3367,6 @@ When the user describes something they did well or are proud of, even implicitly
         
         if (!winContent || winContent.length < 10) {
           console.log("Win content too short, skipping");
-          continue;
-        }
-
-        // Safety net: check against blocklist
-        const lowerWin = winContent.toLowerCase();
-        if (WIN_BLOCKLIST.some(phrase => lowerWin.includes(phrase))) {
-          console.log("Win matched blocklist, skipping:", winContent.substring(0, 50));
           continue;
         }
 
@@ -3443,13 +3424,17 @@ serve(async (req) => {
     if (userId && messages.length >= 1) {
       const hasUserContent = messages.some((m: any) => m.role === 'user' && m.content?.trim().length > 5);
       if (hasUserContent && supabaseUrl && supabaseServiceKey) {
+        // Filter to user-only messages — wins must come from user's own statements
+        const userOnlyMessages = messages
+          .filter((m: any) => m.role === 'user')
+          .map((m: any) => ({ role: 'user' as const, content: m.content }));
         extractAndStoreTinyWin(
           supabaseUrl,
           supabaseServiceKey,
           LOVABLE_API_KEY,
           userId,
           sessionId,
-          messages
+          userOnlyMessages
         ).catch(err => console.error('Tiny win extraction error (non-blocking):', err));
       }
     }

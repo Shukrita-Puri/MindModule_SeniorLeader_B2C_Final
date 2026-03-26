@@ -248,10 +248,10 @@ Deno.serve(async (req) => {
             if (sessionMessages && sessionMessages.length >= 2) {
               const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
               if (LOVABLE_API_KEY) {
-                const aiMessages = sessionMessages.map(m => ({
-                  role: m.sender_type === 'user' ? 'user' : 'assistant',
-                  content: m.content,
-                }));
+                // Filter to user-only messages — wins must come from user's own statements
+                const aiMessages = sessionMessages
+                  .filter(m => m.sender_type === 'user')
+                  .map(m => ({ role: 'user' as const, content: m.content }));
 
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 15000);
@@ -267,11 +267,11 @@ Deno.serve(async (req) => {
                     messages: [
                       {
                         role: 'system',
-                        content: `You analyze coaching conversations to detect genuine tiny wins shared by the user.
-A tiny win is a real personal achievement, accomplishment, positive behavior, moment of growth, or something the user is proud of — even if they don't call it a "win."
+                         content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
+
+Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of, even if they don't call it a "win."
 
 DO NOT treat the following as wins:
-- The coach's suggested prompts or questions
 - Generic greetings or small talk
 - Questions the user asks without describing an action
 
@@ -288,7 +288,7 @@ DO treat these as wins (be generous — capture implicit achievements):
 - Launching something, completing a project, hitting a milestone
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-When the user describes something they did well or are proud of, even implicitly, store it. Err on the side of capturing rather than missing.`
+Err on the side of capturing rather than missing.`
                       },
                       ...aiMessages,
                     ],
@@ -327,19 +327,14 @@ When the user describes something they did well or are proud of, even implicitly
                           const args = JSON.parse(tc.function.arguments);
                           const winContent = args.win_content?.trim();
                           if (winContent && winContent.length >= 10) {
-                            // Blocklist check
-                            const lowerWin = winContent.toLowerCase();
-                            const blocklist = ['one thing i did right', 'one thing you did right', "what's one thing", 'before we wind down'];
-                            if (!blocklist.some(b => lowerWin.includes(b))) {
-                              await supabase.from('tiny_wins').insert({
-                                user_id: userId,
-                                session_id: sessionId,
-                                win_content: winContent,
-                                win_date: new Date().toISOString().split('T')[0],
-                                source: 'coach',
-                              });
-                              console.log(`[dialogue-session-manage] ✅ Tiny win extracted: ${winContent.substring(0, 60)}`);
-                            }
+                            await supabase.from('tiny_wins').insert({
+                              user_id: userId,
+                              session_id: sessionId,
+                              win_content: winContent,
+                              win_date: new Date().toISOString().split('T')[0],
+                              source: 'coach',
+                            });
+                            console.log(`[dialogue-session-manage] ✅ Tiny win extracted: ${winContent.substring(0, 60)}`);
                           }
                         } catch (parseErr) {
                           console.error('[dialogue-session-manage] Win parse error:', parseErr);

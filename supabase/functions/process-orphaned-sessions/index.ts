@@ -197,10 +197,10 @@ serve(async (req) => {
         if (sessionMessages && sessionMessages.length >= 2) {
           const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
           if (LOVABLE_API_KEY) {
-            const aiMessages = sessionMessages.map(m => ({
-              role: m.sender_type === 'user' ? 'user' : 'assistant',
-              content: m.content,
-            }));
+            // Filter to user-only messages — wins must come from user's own statements
+            const aiMessages = sessionMessages
+              .filter(m => m.sender_type === 'user')
+              .map(m => ({ role: 'user' as const, content: m.content }));
 
             const winResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
@@ -213,11 +213,11 @@ serve(async (req) => {
                 messages: [
                   {
                     role: 'system',
-                    content: `You analyze coaching conversations to detect genuine tiny wins shared by the user. 
-A tiny win is a real personal achievement, accomplishment, positive behavior, moment of growth, or something the user is proud of — even if they don't call it a "win."
+                    content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
+
+Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of, even if they don't call it a "win."
 
 DO NOT treat the following as wins:
-- The coach's suggested prompts or questions
 - Generic greetings or small talk
 - Questions the user asks without describing an action
 

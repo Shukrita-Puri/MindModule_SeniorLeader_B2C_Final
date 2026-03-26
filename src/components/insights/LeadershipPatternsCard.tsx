@@ -293,20 +293,7 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
         ) : (
           <div className="space-y-5">
 
-            {/* ── SECTION 1: AI OBSERVATION (quality-gated) ── */}
-            {data.aiObservation && (data.checkInCount ?? 0) >= 7 && 
-             ((data.recurringThemes?.length ?? 0) > 0 || data.coachStrength) && (
-              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10">
-                <div className="flex items-start gap-2.5">
-                  <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-foreground/90 leading-relaxed">
-                    {data.aiObservation}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── SECTION 2: YOUR DIMENSIONS ── */}
+            {/* ── SECTION 1: YOUR DIMENSIONS ── */}
             <div className="space-y-3">
               <p className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
                 Your Dimensions
