@@ -894,7 +894,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
-                {(data.presenceActions?.length || data.temporalPatterns?.length) ? (
+                {(data.presenceActions?.length || data.temporalPatterns?.length || (data.causeEffectInsight && data.causeEffectInsight.toLowerCase().includes('coach'))) ? (
                   <ul className="pl-6 space-y-1.5 mt-1">
                     {data.presenceActions?.map((action, i) => (
                       <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
@@ -908,6 +908,12 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                         <span>{pattern}</span>
                       </li>
                     ))}
+                    {data.causeEffectInsight && data.causeEffectInsight.toLowerCase().includes('coach') && (
+                      <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
+                        <span>{data.causeEffectInsight}</span>
+                      </li>
+                    )}
                   </ul>
                 ) : null}
               </div>
@@ -938,19 +944,9 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1C — Cause-Effect with Coach Impact elevation */}
-            {data.checkInCount >= 7 && data.causeEffectInsight && (
-              <div className={cn(
-                "p-4 rounded-xl space-y-2",
-                data.causeEffectInsight.toLowerCase().includes('coach')
-                  ? "bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10"
-                  : "bg-muted/20 border border-border/30"
-              )}>
-                {data.causeEffectInsight.toLowerCase().includes('coach') && (
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
-                    Coach Impact
-                  </span>
-                )}
+            {/* 1C — Cause-Effect (merged into How You Show Up if coach-related, otherwise standalone) */}
+            {data.checkInCount >= 7 && data.causeEffectInsight && !data.causeEffectInsight.toLowerCase().includes('coach') && (
+              <div className="p-4 rounded-xl space-y-2 bg-muted/20 border border-border/30">
                 <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
               </div>
             )}

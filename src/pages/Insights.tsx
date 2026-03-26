@@ -844,9 +844,9 @@ const Insights = () => {
                         <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
                         <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
                       </div>
-                      <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                       <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                         <p className="text-2xl font-headline text-foreground">{pressureCount}</p>
-                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Under pressure</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">With composure</p>
                       </div>
                     </div>
                   );
@@ -863,7 +863,7 @@ const Insights = () => {
                     return (
                       <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                         <p className="text-sm text-foreground leading-relaxed">
-                          {pressurePct}% of your wins came under pressure — that's your resilience pattern.
+                          {pressurePct}% of your wins showed active self-regulation — that's your composure pattern.
                         </p>
                       </div>
                     );
@@ -879,14 +879,35 @@ const Insights = () => {
                     let dotColor = 'bg-slate-400';
                     let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
                     
-                    if (win.agency_type === 'proactive' || win.agency_type === 'decisive') {
-                      domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
-                    } else if (win.primary_emotion === 'pride' || win.primary_emotion === 'confidence') {
-                      domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
-                    } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed') {
+                    const content = (win.content || '').toLowerCase();
+                    
+                    // Resilience first (most specific signal)
+                    if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
+                        win.growth_signal === 'resilience' ||
+                        /patience|strength|persisted|bounced|recovered|despite|endured|stayed steady/.test(content)) {
                       domain = 'Resilience'; dotColor = 'bg-emerald-500'; tagBg = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
-                    } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress') {
+                    } else if (win.primary_emotion === 'pride' || win.primary_emotion === 'confidence' ||
+                        /\b(led|delegated|mentored|coached|inspired)\b/.test(content)) {
+                      domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+                    } else if ((win.agency_type === 'proactive' || win.agency_type === 'decisive') &&
+                        /\b(decided|chose|committed|pivoted|initiated)\b/.test(content)) {
+                      domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
+                    } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress' ||
+                        win.growth_signal === 'learning' || win.growth_signal === 'breakthrough' ||
+                        /\b(learned|realized|grew|improved|first time)\b/.test(content)) {
                       domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+                    }
+
+                    // Secondary tags: Clarity / Renewal / Recalibration (from Performance Patterns definitions)
+                    const secondaryTags: Array<{ label: string; color: string }> = [];
+                    if (/clarity|focused|cut through|clear thinking|mental precision|sharp/.test(content)) {
+                      secondaryTags.push({ label: 'Clarity', color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' });
+                    }
+                    if (/recharged|recovered|rested|paused|grounded|renewed|breathe/.test(content)) {
+                      secondaryTags.push({ label: 'Renewal', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' });
+                    }
+                    if (/regulated|recalibrated|managed energy|shifted|adjusted|stayed steady/.test(content)) {
+                      secondaryTags.push({ label: 'Recalibration', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' });
                     }
                     
                     return (
@@ -894,10 +915,15 @@ const Insights = () => {
                         <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
-                          <div className="flex items-center gap-2 mt-1.5">
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
                               {domain}
                             </span>
+                            {secondaryTags.map((st, si) => (
+                              <span key={si} className={cn('px-1.5 py-0.5 rounded-full text-[9px] font-medium', st.color)}>
+                                {st.label}
+                              </span>
+                            ))}
                             <span className="text-[10px] text-muted-foreground">{win.date}</span>
                           </div>
                         </div>
