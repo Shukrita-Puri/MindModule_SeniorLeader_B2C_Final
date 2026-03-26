@@ -881,7 +881,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 1A — How You Show Up (15+ check-ins) */}
+            {/* 1A — How You Show Up (7+ check-ins) */}
             {data.checkInCount >= 7 && data.presenceLabel && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -894,7 +894,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
-                {/* Combined: presence actions + temporal patterns */}
                 {(data.presenceActions?.length || data.temporalPatterns?.length) ? (
                   <ul className="pl-6 space-y-1.5 mt-1">
                     {data.presenceActions?.map((action, i) => (
@@ -914,7 +913,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1B — Calendar Pattern (10+ check-ins) */}
+            {/* Elevated: Your Sharpest Window */}
+            {data.bestReadinessWindow && (
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
+                  Your Sharpest Window
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {data.bestReadinessWindow.label}
+                </p>
+              </div>
+            )}
+
+            {/* 1B — Calendar Pattern */}
             {data.checkInCount >= 7 && data.calendarInsight && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -927,9 +938,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1C — Cause-Effect (10+ check-ins) */}
+            {/* 1C — Cause-Effect with Coach Impact elevation */}
             {data.checkInCount >= 7 && data.causeEffectInsight && (
-              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 space-y-2">
+              <div className={cn(
+                "p-4 rounded-xl space-y-2",
+                data.causeEffectInsight.toLowerCase().includes('coach')
+                  ? "bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10"
+                  : "bg-muted/20 border border-border/30"
+              )}>
+                {data.causeEffectInsight.toLowerCase().includes('coach') && (
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Coach Impact
+                  </span>
+                )}
                 <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
               </div>
             )}
@@ -956,17 +977,18 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Heatmap (7+ check-ins) */}
-            {data.checkInCount >= 5 && data.grid && (
+            {/* 2 — Rolling Weekly Calendar (replaces composite heatmap) */}
+            {data.checkInCount >= 5 && (data.weekRows || data.grid) && (
               <>
                 <div>
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body mb-3 block">
                     Your Week at a Glance
                   </span>
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[400px]">
-                      {/* Header row */}
-                      <div className="flex items-center mb-2">
+                  
+                  {data.weekRows ? (
+                    <div className="space-y-3">
+                      {/* Day header row */}
+                      <div className="flex items-center">
                         <div className="w-20" />
                         {DAYS.map(day => (
                           <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
@@ -974,52 +996,106 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                           </div>
                         ))}
                       </div>
-
-                      {/* Time rows */}
-                      {TIME_LABELS.map((label, twIdx) => (
-                        <div key={label} className="flex items-center mb-2">
-                          <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
-                            {label}
-                          </div>
-                          {DAYS.map((day, dayIdx) => {
-                            const cell = data.grid[twIdx]?.[dayIdx];
-                            const hasOutcome = cell && cell.outcome;
-                            const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
-
-                            return (
-                              <div key={`${twIdx}-${dayIdx}`} className="flex-1 px-0.5">
-                                <div
-                                  className={cn(
-                                    'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
-                                    hasOutcome
-                                      ? 'shadow-lg'
-                                      : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
-                                    cell?.divergence && 'ring-2 ring-amber-400/60'
-                                  )}
-                                  style={hasOutcome && style ? {
-                                    boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
-                                  } : undefined}
-                                >
-                                  {hasOutcome && style && (
-                                    <>
-                                      <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
-                                      <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
-                                      {cell.compositeScore !== null && (
-                                        <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
-                                          {cell.compositeScore}
-                                          {cell.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
-                                        </span>
-                                      )}
-                                    </>
-                                  )}
+                      
+                      {/* Week rows */}
+                      {data.weekRows.map((week, wIdx) => (
+                        <div key={wIdx}>
+                          <div className="flex items-center mb-1">
+                            <div className="w-20 text-[10px] text-muted-foreground pr-3 text-right font-medium">
+                              {week.weekLabel}
+                            </div>
+                            {week.days.map((day, dIdx) => {
+                              const hasOutcome = day.outcome && !day.isFuture;
+                              const style = hasOutcome ? stateColors[day.outcome || ''] : null;
+                              
+                              return (
+                                <div key={`${wIdx}-${dIdx}`} className="flex-1 px-0.5">
+                                  <div
+                                    className={cn(
+                                      'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                      day.isFuture
+                                        ? 'bg-muted/10 border border-dashed border-border/20'
+                                        : hasOutcome
+                                          ? 'shadow-lg'
+                                          : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
+                                      day.divergence && 'ring-2 ring-amber-400/60',
+                                      day.isToday && 'ring-2 ring-primary/40'
+                                    )}
+                                    style={hasOutcome && style ? {
+                                      boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
+                                    } : undefined}
+                                  >
+                                    {hasOutcome && style && (
+                                      <>
+                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                        <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                                        {day.compositeScore !== null && (
+                                          <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
+                                            {day.compositeScore}
+                                            {day.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  ) : (
+                    /* Fallback to legacy composite grid */
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[400px]">
+                        <div className="flex items-center mb-2">
+                          <div className="w-20" />
+                          {DAYS.map(day => (
+                            <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+                        {TIME_LABELS.map((label, twIdx) => (
+                          <div key={label} className="flex items-center mb-2">
+                            <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
+                              {label}
+                            </div>
+                            {DAYS.map((day, dayIdx) => {
+                              const cell = data.grid[twIdx]?.[dayIdx];
+                              const hasOutcome = cell && cell.outcome;
+                              const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
+                              return (
+                                <div key={`${twIdx}-${dayIdx}`} className="flex-1 px-0.5">
+                                  <div
+                                    className={cn(
+                                      'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                      hasOutcome ? 'shadow-lg' : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5',
+                                      cell?.divergence && 'ring-2 ring-amber-400/60'
+                                    )}
+                                    style={hasOutcome && style ? { boxShadow: `0 4px 12px ${style.glow}` } : undefined}
+                                  >
+                                    {hasOutcome && style && (
+                                      <>
+                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                        <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                                        {cell.compositeScore !== null && (
+                                          <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm">
+                                            {cell.compositeScore}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Legend */}
@@ -1034,14 +1110,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </>
             )}
 
-            {/* 3 — Best Readiness Window */}
-            {data.bestReadinessWindow && (
-              <p className="text-xs text-muted-foreground text-center font-medium">
-                Your sharpest window: {data.bestReadinessWindow.label}
-              </p>
-            )}
-
-            {/* 4 — Data Source Note */}
+            {/* Data Source Note */}
             {data.checkInCount > 0 && (
               <p className="text-[10px] text-muted-foreground/60 text-center">
                 {data.dataSourceNote}

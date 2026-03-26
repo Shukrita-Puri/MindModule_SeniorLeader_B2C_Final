@@ -809,14 +809,14 @@ const Insights = () => {
         {/* Your Self Mastery Patterns — pass pre-fetched data to avoid duplicate edge call */}
         <LeadershipPatternsCard userId={user?.id} prefetchedData={statePatterns} parentLoading={patternsLoading} />
 
-        {/* Card 2 — Your Momentum (moved up from Card 6) */}
+        {/* Card 2 — Your Momentum (Performance Log) */}
         <LuxuryInsightCard>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">Your Momentum</span>
               <InsightInfoModal
                 title="Your Momentum"
-                explanation="The wins you've logged over the past 30 days — and what they reveal about your momentum, how you're showing up, and what you're building. At this level, few people reflect your progress back to you. This card does."
+                explanation="The wins you've logged over the past 30 days — reframed as a performance log. Shows what you've delivered, under what conditions, and the domains where your impact lands. At this level, few people reflect your progress back to you. This card does."
               />
             </div>
           </CardHeader>
@@ -831,67 +831,80 @@ const Insights = () => {
               </div>
             ) : tinyWinsInsights && tinyWinsInsights.winsCount > 0 ? (
               <div className="space-y-4">
-                {/* AI observation — only show at 10+ wins */}
-                {tinyWinsInsights.winsCount >= 5 && tinyWinsInsights.observation && (
-                  <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {tinyWinsInsights.observation}
-                    </p>
-                  </div>
-                )}
-                {winsProgressMessage && (
-                  <p className="text-xs text-saffron/80 mb-2">{winsProgressMessage}</p>
-                )}
-                {tinyWinsInsights.dimensions && tinyWinsInsights.dimensions.length > 0 ? (
-                  tinyWinsInsights.winsCount >= 3 ? (
-                    /* 5+ wins with dimensions: show full bubble chart */
-                    <PsychologicalDimensionBubbles
-                      data={tinyWinsInsights.dimensions.map(d => ({
-                        dimension: d.dimension as 'emotion' | 'agency' | 'regulation' | 'growth',
-                        value: d.value,
-                        count: d.count,
-                        displayLabel: d.displayLabel,
-                        insight: d.insight,
-                      }))}
-                      relatedWins={tinyWinsContent}
-                      emptyMessage="Complete evening Integrate flow to capture wins"
-                    />
-                  ) : (
-                    /* 1-4 wins with dimensions: show text summary of top dimensions */
-                    <div className="p-3 bg-muted/20 border border-border/30 rounded-lg">
-                      <p className="text-sm text-foreground leading-relaxed">
-                        Your recent wins reflect{' '}
-                        <span className="font-medium">
-                          {tinyWinsInsights.dimensions
-                            .slice(0, 3)
-                            .map(d => d.value)
-                            .join(', ')
-                            .replace(/, ([^,]*)$/, ' and $1')}
-                        </span>.
-                      </p>
-                    </div>
-                  )
-                ) : tinyWinsContent.length > 0 ? (
-                  /* Wins exist but no dimensions extracted yet — show recent win texts */
-                  <div className="space-y-2">
-                    {tinyWinsContent.slice(0, 3).map((win, i) => (
-                      <div key={i} className="p-2.5 bg-muted/30 rounded-lg border border-border/20">
-                        <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{win.date}</p>
+                {/* Stat boxes */}
+                {(() => {
+                  const pressureCount = tinyWinsContent.filter(w => 
+                    w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
+                    w.primary_emotion === 'determination' || w.primary_emotion === 'relief'
+                  ).length;
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                        <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <InnerWorldBubbles
-                    items={tinyWinsBubbleData}
-                    emptyMessage="Complete evening Integrate flow to capture wins"
-                  />
-                )}
-                {tinyWinsInsights.patternLine && tinyWinsInsights.winsCount >= 3 && (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {tinyWinsInsights.patternLine}
-                  </p>
-                )}
+                      <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
+                        <p className="text-2xl font-headline text-foreground">{pressureCount}</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Under pressure</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Insight bar */}
+                {tinyWinsInsights.winsCount >= 3 && (() => {
+                  const pressureCount = tinyWinsContent.filter(w => 
+                    w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
+                    w.primary_emotion === 'determination' || w.primary_emotion === 'relief'
+                  ).length;
+                  const pressurePct = Math.round((pressureCount / tinyWinsInsights.winsCount) * 100);
+                  if (pressurePct >= 30) {
+                    return (
+                      <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {pressurePct}% of your wins came under pressure — that's your resilience pattern.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Win list */}
+                <div className="space-y-2">
+                  {tinyWinsContent.slice(0, 5).map((win, i) => {
+                    // Domain tag mapping
+                    let domain = 'Delivery';
+                    let dotColor = 'bg-slate-400';
+                    let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+                    
+                    if (win.agency_type === 'proactive' || win.agency_type === 'decisive') {
+                      domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
+                    } else if (win.primary_emotion === 'pride' || win.primary_emotion === 'confidence') {
+                      domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+                    } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed') {
+                      domain = 'Resilience'; dotColor = 'bg-emerald-500'; tagBg = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
+                    } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress') {
+                      domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+                    }
+                    
+                    return (
+                      <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/10 border border-border/10">
+                        <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5', dotColor)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground leading-relaxed line-clamp-2">"{win.content}"</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
+                              {domain}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{win.date}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <p className="text-xs text-muted-foreground/60">
                   Based on {tinyWinsInsights.winsCount} win{tinyWinsInsights.winsCount !== 1 ? 's' : ''} captured in the past 30 days
                 </p>
@@ -899,7 +912,7 @@ const Insights = () => {
             ) : (
               <div className="py-4 space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {winsProgressMessage || 'Share your wins during evening coach sessions to build your momentum map.'}
+                  {winsProgressMessage || 'Share your wins during evening coach sessions to build your performance log.'}
                 </p>
                 <p className="text-xs text-muted-foreground/60">
                   The coach captures patterns you might miss — speak to them about your daily wins to unlock this feature.
