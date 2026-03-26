@@ -1,121 +1,124 @@
 
 
-# Insights Page Overhaul — C-Suite Performance Intelligence
+# Smart Nudges Pre-Event: Align with JIT Pipeline
 
-8 tasks across 4 files. No database migrations.
+## Root Cause Analysis
 
----
+The "AI Augmented Executive" event illustrates the gap perfectly:
 
-## Task 1: Rename & Gate AI Observation — `LeadershipPatternsCard.tsx`
+**JIT pipeline result:** The event would fail the Stage 4 gate because:
+- Dim A (Interpersonal Stakes) = 0 or ~12 (low attendee count, no PRESSURE_KEYWORDS match — `'executive'` is not in JIT's pressure list)
+- Dim B (Inner State) = 0 (no cluster keyword match — `'executive'` isn't in any JIT cluster)
+- Gate requires: `finalScore >= 55 AND dimA >= 10 AND dimB >= 8` → **FAIL**
+- Additionally, JIT's noise filter would also catch education events if we added those keywords
 
-- Line 278: `"Your Self Mastery Patterns"` → `"Your Performance Patterns"` (title, InsightInfoModal title+explanation, error fallback line 292)
-- Lines 296-306: Wrap AI observation with quality gate:
-  ```tsx
-  {data.aiObservation && data.checkInCount >= 7 && 
-   (data.recurringThemes?.length > 0 || data.coachStrength) && (
-  ```
+**Smart nudges result:** `scoreEvent('AI Augmented Executive')` hits `'executive'` → score = 25 → passes `score < 25` gate → **nudge fires**
 
-## Task 2: Harden AI Prompt — `state-patterns-insights/index.ts`
+Two completely different systems, two completely different answers for the same event. The user is right: **if JIT didn't build a plan, the nudge shouldn't fire.**
 
-- Line 465 system prompt: Append `"If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null'. Do NOT generate generic statements about navigating challenges, recalibration, or renewal."`
-- After line 491 (parsing): If `aiObservation === "null"` or word count < 10, set `aiObservation = null`
-- Enrich recurring themes (line 271-273): Also query `daily_checkins` for `state_tags` (already fetched in checkInsRes), merge tag counts into `themeCounts` map before building `recurringThemes`
+## The Fix: Single Source of Truth
 
-## Task 3: Redesign Momentum Card — `Insights.tsx` (lines 812-910)
+Instead of duplicating JIT's 6-stage scoring logic inside smart-nudges, make smart-nudges **query `jit_event_context`** for events that already passed the JIT gate.
 
-Replace bubble chart with performance log per mockup. Keep title "Your Momentum".
+### Change 1: Replace keyword scoring with `jit_event_context` lookup
 
-**Header:** Two stat boxes — "X Wins this month" | "Y Under pressure"  
-- "Under pressure" = wins where `regulation_level` is `managed`/`composed` or `primary_emotion` is `determination`/`relief`
+**File: `supabase/functions/smart-nudges/index.ts` (lines 570-642)**
 
-**Insight bar** (≥3 wins): Pattern line reframed with C-suite language
+Replace the current pre-event logic:
+```
+// CURRENT: query calendar_events → scoreEvent() → score >= 25
+// NEW: query jit_event_context for events that passed JIT gate in 30-90 min window
+```
 
-**Win list** (up to 5 recent): Each shows color dot, win text (line-clamp-2), domain tag pill + date  
-**Domain tag mapping** from existing `tiny_wins` fields:
-- `agency_type: proactive/decisive` → Decision (purple)
-- `primary_emotion: pride/confidence` → Leadership (blue)
-- `regulation_level: managed/composed` → Resilience (green)
-- `growth_signal: insight/progress` → Growth (amber)
-- Default → Delivery (slate)
-
-**Remove:** `PsychologicalDimensionBubbles`, `InnerWorldBubbles` renders, dimension text summaries. Move archived components to `src/components/_archived/`.
-
-Keep data source line at bottom.
-
-## Task 4: Lower Cause-Effect Thresholds — `PerformanceRhythmCard.tsx`
-
-- Line 320: `insightCalendarEvents.length >= 3` → `>= 2`, `wearableData.length >= 5` → `>= 3`
-- Line 345: `data.hrvs.length < 2` → `< 1`
-- After line 361 (bestDeviation block): Add confidence qualifier:
-  ```typescript
-  if (bestDeviation && bestDeviation.count === 1) {
-    causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence — will validate over time)`;
-  }
-  ```
-
-## Task 5: Add RHR to Path A — `PerformanceRhythmCard.tsx`
-
-After HRV deviation block (~line 361), add RHR enrichment using `wearableData` (which already fetches `resting_heart_rate` at line 137):
-- Build `rhrByDate` map, calculate `rhrBaseline` from all RHR readings
-- For matched event type, collect event-day RHRs
-- If `eventRHRs.length >= 1` and `|avgRHR - rhrBaseline| >= 3`, append to `causeEffectInsight`
-
-## Task 6: Elevate Sharpest Window & Coach Impact — `PerformanceRhythmCard.tsx`
-
-**Best Readiness Window** (lines 932-937):
-- Move up to render after "How You Show Up" section (after line 810)
-- Restyle as highlighted stat box with green gradient border
-- Remove old footer rendering
-
-**Coach Session Impact** (lines 826-830):
-- When `causeEffectInsight` contains "coach" (case-insensitive), render in its own bordered section with "Coach Impact" label and primary gradient styling
-- Otherwise render in default muted box
-
-## Task 7: Heatmap → Rolling Weekly Calendar — `PerformanceRhythmCard.tsx`
-
-Replace the 30-day composite 3×7 grid with a rolling weekly calendar view:
-
-**Data model change** (lines 168-204): Instead of building a single composite grid, build an array of week objects:
+New logic:
 ```typescript
-interface WeekRow {
-  weekLabel: string;        // e.g. "This week", "Last week", "Mar 3-9"
-  startDate: string;
-  days: Array<{ date: string; dayLabel: string; outcome: string | null; compositeScore: number | null; divergence: boolean; isToday: boolean; isFuture: boolean }>;
+// Pre-Event Prep — aligned with JIT pipeline
+const { data: jitEvents } = await supabase
+  .from('jit_event_context')
+  .select('event_id, event_title, event_start, event_type, final_score, dim_a, dim_b, confidence_band, external_id')
+  .eq('user_id', userId)
+  .gte('event_start', min30.toISOString())
+  .lte('event_start', min90.toISOString())
+  .gte('final_score', 55)  // Same gate as JIT Stage 4
+  .order('final_score', { ascending: false });
+
+for (const evt of (jitEvents || [])) {
+  // Skip if confidence too low (mirrors JIT Stage 4)
+  if (evt.confidence_band === 'none') continue;
+  
+  // Dedup by external_id (same as before)
+  const alreadySent = (logsByType.get('pre_event_prep') || [])
+    .some(l => l.event_reference === evt.external_id);
+  if (alreadySent) continue;
+  
+  // ... rest of variant selection and push logic
 }
 ```
 
-Build 4 weeks of data (current week + 3 prior weeks). Current week shows Mon→today with future days greyed/empty. Each cell maps to a specific real date.
+This means:
+- If JIT scored an event below 55, or dimA < 10, or dimB < 8 → no nudge
+- If JIT's noise filter blocked it → it's not in `jit_event_context` → no nudge
+- Education events the leader isn't organising → JIT's Dim D gives 0 for `isOrganizer=false`, reducing the composite score, potentially below gate → no nudge
+- Education events the leader IS leading → `isOrganizer=true` gives +3 in Dim D, plus if it has attendees and pressure keywords it may pass → nudge fires correctly
 
-**UI change** (lines 854-918): Replace single grid with vertically stacked weeks:
-- "This week" label + 7-cell row (future days muted)
-- "Last week" label + 7-cell row
-- 2 more prior weeks (scrollable or always visible)
-- Keep same cell styling (gradient colors, composite score overlay, divergence ring)
-- Keep "Your Week at a Glance" title
-- Add small date range subtitle per week row
+### Change 2: Remove hardcoded duration/practice claims from PE variants
 
-Keep existing legend unchanged.
+**File: `supabase/functions/smart-nudges/index.ts` (lines 196-202)**
 
-## Task 8: Verify Upstream/Downstream Connections (Audit Only)
+```typescript
+// BEFORE
+{ id: 'PE-1', body: `${ctx.eventTitle} in ${ctx.minutesUntil} min. 3-min prep ready.` },
+{ id: 'PE-6', body: `High stakes, ${ctx.minutesUntil} min out. Your prep is ready.` },
 
-Verified during file reads:
-- ✅ `state-patterns-insights` EF reads: `daily_checkins`, `daily_themes`, `user_coach_insights`, `profiles`, `wearable_data`, `sanctuary_events`, `daily_ritual_completions`, `tiny_wins`, `dialogue_sessions`, `calendar_connections`, `behavior_logs`, `inner_readiness_scores`
-- ✅ `performance-rhythm-insights` EF: called from production path (line 704)
-- ✅ `tiny-wins-insights` EF reads: `tiny_wins` (via edge function, line 395)
-- ✅ `insights-semantic-analysis` EF reads: `dialogue_messages`, `tiny_wins`, `daily_checkins` (line 690)
-- ✅ All write operations upstream — insights page is read-only
-- ✅ DEV_MODE paths mirror production queries correctly
+// AFTER
+{ id: 'PE-1', body: `${ctx.eventTitle} in ${ctx.minutesUntil} min. Open your prep.` },
+{ id: 'PE-6', body: `High stakes, ${ctx.minutesUntil} min out. Open your prep.` },
+```
 
----
+Also update SN-3 if it references a specific practice duration.
+
+### Change 3: Keep `scoreEvent()` as fallback for users without JIT data
+
+If `jit_event_context` has no rows (e.g., user has no calendar connected or `generate-jit-events` hasn't run yet), the current keyword-based logic would still be needed as a degraded fallback. But we add the noise filter:
+
+```typescript
+// Fallback: only if jit_event_context returned nothing AND calendar_events exist
+if (jitEvents?.length === 0 && calendarConnected) {
+  // Use existing calendar_events query but with noise filter + raised threshold
+  const score = scoreEvent(evt.title);
+  if (isNoiseEvent(evt.title)) continue;  // Import from JIT
+  if (score < 50) continue;  // Raised from 25 to require 2+ keyword hits
+}
+```
+
+### Change 4: Add NOISE_KEYWORDS and education filter to smart-nudges
+
+Import or duplicate the noise filter from `generate-jit-events` for the fallback path:
+```typescript
+const NOISE_KEYWORDS = [
+  'station', 'bus', 'train', 'flight', ...  // Same as JIT
+];
+// Don't exclude ALL education keywords — just add noise filter
+// Education events led by the user (isOrganizer=true) should still qualify via JIT
+```
+
+Per the user's feedback: we do NOT blanket-exclude education keywords. The JIT pipeline's multi-dimensional scoring already handles this correctly — if the leader is organising/leading a workshop, `isOrganizer=true` adds Dim D points, attendee count adds Dim A points, and it may pass the gate. If they're just attending, it won't.
+
+## Why This Works
+
+| Scenario | JIT Gate | Smart Nudge (new) | Correct? |
+|----------|----------|-------------------|----------|
+| "AI Augmented Executive" (attending) | FAIL (low Dim A+B) | No nudge | ✅ |
+| "AI Workshop" (leading, 20 attendees) | PASS (Dim A=20, Dim D=+3) | Nudge fires | ✅ |
+| "Board Meeting" (organiser) | PASS (high all dims) | Nudge fires | ✅ |
+| "Dentist appointment" | NOISE filtered | No nudge | ✅ |
+| No mastery plan built | Not in jit_event_context | No nudge | ✅ |
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `LeadershipPatternsCard.tsx` | Rename → "Performance Patterns"; gate AI observation on data quality |
-| `state-patterns-insights/index.ts` | Harden prompt; null-gate sparse output; enrich themes with state_tags |
-| `Insights.tsx` | Redesign Momentum → performance log; archive bubble components |
-| `PerformanceRhythmCard.tsx` | Lower thresholds; add RHR; elevate sharpest window & coach impact; rolling weekly heatmap |
+| File | Change |
+|------|--------|
+| `smart-nudges/index.ts` | Replace `scoreEvent` pre-event gate with `jit_event_context` lookup; add noise filter fallback; fix PE variant copy; raise fallback threshold to 50 |
 
-No database changes. Mind Map untouched.
+No database changes. No UI changes. Single edge function update.
 
