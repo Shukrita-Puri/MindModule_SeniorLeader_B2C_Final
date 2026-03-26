@@ -101,15 +101,20 @@ This hard-caps total notifications regardless of how many types qualify. The cap
 | Property | Value |
 |----------|-------|
 | **Window** | Any time |
-| **Trigger** | Calendar event with high-stakes keywords starting in 30–90 min, score ≥ 25 |
-| **Data needed** | `calendar_events`, `daily_checkins` (inner tier) |
-| **Suppression** | Max 3/day, dedup by `event_reference` (external_id), 2-hour global |
+| **Primary trigger** | `jit_event_context` row exists with `final_score >= 55`, `confidence_band != 'none'`, event starting in 30–90 min |
+| **Fallback trigger** | If no `jit_event_context` data: `calendar_events` with keyword score ≥ 50, noise-filtered |
+| **Data needed** | `jit_event_context` (primary), `calendar_events` (fallback), `daily_checkins` (inner tier) |
+| **Suppression** | Max 3/day, dedup by `external_id`, 2-hour global |
 | **Weekend** | Active (high-stakes events can happen on weekends) |
 | **Engagement learning** | Subject to 50% reduction if 0 taps in 5+ sends over 7 days |
 | **Variant selection** | strong/peak → PE-3, depleted/managing → PE-4, else round-robin |
 | **Copy variants** | PE-1 through PE-6 |
 
-**High-stakes scoring keywords:** board, investor, presentation, negotiation, pitch, review, performance, strategy, executive, stakeholder, crisis, conflict, termination, layoff, restructure, merger, acquisition, due diligence, fundraise, ipo, media, press, interview, keynote, panel, town hall, all-hands, offsite, retreat, workshop, training. Each match = +25 pts, capped at 100.
+**JIT alignment:** Pre-event nudges now use the same gate as the JIT Mastery Plan pipeline (`final_score >= 55`, `dim_a >= 10`, `dim_b >= 8`). If JIT didn't build a plan for an event, the nudge won't fire. This prevents false positives from education/learning events the user is merely attending.
+
+**Fallback keywords** (only used when `jit_event_context` has no data): board, investor, presentation, negotiation, pitch, review, performance, strategy, stakeholder, crisis, conflict, termination, layoff, restructure, merger, acquisition, due diligence, fundraise, ipo, media, press, interview, keynote, panel, town hall, all-hands, offsite, retreat. Each match = +25 pts, threshold = 50 (requires 2+ matches). Noise filter applied (transit, logistics, admin events excluded).
+
+**Removed from keywords:** `executive`, `workshop`, `training` — these are ambiguous (attending vs leading) and are better handled by JIT's multi-dimensional scoring.
 
 ### Type 2: Pattern Alert (P2)
 
@@ -367,6 +372,7 @@ SELECT cron.schedule(
 
 | Date | Change |
 |------|--------|
+| 2026-03-26 | **JIT alignment:** Pre-event nudges now query `jit_event_context` instead of standalone keyword scoring. If JIT didn't build a plan, no nudge fires. Fallback keyword path retains noise filter + raised threshold (50, was 25). Removed `executive`, `workshop`, `training` from fallback keywords. Fixed PE-1, PE-6, SN-3 copy to remove hardcoded duration claims ("3-min prep ready" → "Open your prep"). |
 | 2026-03-25 | **Priority reorder:** State-Aware Nudge moved above Afternoon Check-In (P4 vs P6). Engagement feedback loop shortened from 14 days to 7 days for faster learning. Updated time-of-day priority tables. |
 | 2026-03-25 | **Major enhancement:** Added daily global cap (max 3/day), weekend-aware morning/evening variants (Fri/Sat/Sun), disabled afternoon check-in and state-aware nudge on weekends, shifted weekend morning windows (Sat 7:30–10, Sun 8–10:30), extended Sunday evening window. Added engagement-based learning (7-day tap rate analysis, 50% suppression of ineffective types). Added type diversity guarantee (3-day lookback, least-recently-sent boost). Added time-of-day priority shifting (dynamic priority based on morning/midday/evening). |
 | 2026-03-25 | Fixed timezone bug: `todayStr` log query now uses UTC-corrected boundaries. Added separate 2-hour suppression query independent of date filter. This fixes duplicate notifications and enables Pattern Alert / State-Aware nudges to fire correctly. |
