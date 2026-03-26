@@ -717,6 +717,60 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
         }
 
+        // ── Build Rolling Weekly Calendar (4 weeks) ──
+        const today = new Date();
+        const todayStr = format(today, 'yyyy-MM-dd');
+        const todayDayOfWeek = today.getDay(); // 0=Sun
+        const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
+        const thisMonday = subDays(today, mondayOffset);
+        
+        const weekRows: WeekRow[] = [];
+        for (let w = 0; w < 4; w++) {
+          const weekStart = subDays(thisMonday, w * 7);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          const weekLabel = w === 0 ? 'This week' : w === 1 ? 'Last week' : `${format(weekStart, 'MMM d')}–${format(weekEnd, 'MMM d')}`;
+          
+          const days: WeekDay[] = [];
+          for (let d = 0; d < 7; d++) {
+            const dayDate = new Date(weekStart);
+            dayDate.setDate(dayDate.getDate() + d);
+            const dateStr = format(dayDate, 'yyyy-MM-dd');
+            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const isFuture = dateStr > todayStr;
+            const isToday = dateStr === todayStr;
+            
+            // Find check-in for this specific date
+            const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
+            // Find readiness score for this specific date
+            const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
+            const avgScore = dayReadiness.length > 0
+              ? Math.round(dayReadiness.reduce((sum, s) => sum + s.composite_score, 0) / dayReadiness.length)
+              : null;
+            
+            // Divergence check
+            const outcomeExpectedMap: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
+            const outcome = dayCheckIn?.outcome || null;
+            let divergence = false;
+            if (outcome && avgScore !== null) {
+              const expected = outcomeExpectedMap[outcome] || 50;
+              if (Math.abs(avgScore - expected) >= 20) divergence = true;
+            }
+            
+            days.push({
+              date: dateStr,
+              dayLabel: dayNames[d],
+              outcome: isFuture ? null : outcome,
+              compositeScore: isFuture ? null : avgScore,
+              divergence: isFuture ? false : divergence,
+              isToday,
+              isFuture,
+            });
+          }
+          
+          weekRows.push({ weekLabel, startDate: format(weekStart, 'yyyy-MM-dd'), days });
+        }
+
         // ── Data Source Note ──
         const daySpan = checkIns.length > 0
           ? Math.ceil((new Date().getTime() - new Date(checkIns[checkIns.length - 1].checkin_date).getTime()) / 86400000)
@@ -734,6 +788,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           calendarInsight,
           causeEffectInsight,
           grid,
+          weekRows,
           bestReadinessWindow: bestReadinessWindow,
           checkInCount: checkIns.length,
           behaviorLogCount: behaviorLogs.length,
