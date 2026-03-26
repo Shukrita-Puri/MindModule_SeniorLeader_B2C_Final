@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       dialogueSessionsRes, calConnRes, behaviorRes, innerReadinessRes,
     ] = await Promise.all([
       supabase.from("profiles").select("user_archetype, component_scores, mental_fitness_baseline, growth_priority").eq("id", userId).maybeSingle(),
-      supabase.from("daily_checkins").select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at").eq("user_id", userId).gte("checkin_date", thirtyStr).order("checkin_date", { ascending: true }),
+      supabase.from("daily_checkins").select("checkin_date, outcome, energy_balance, clarity_level, confidence_level, created_at, state_tags").eq("user_id", userId).gte("checkin_date", thirtyStr).order("checkin_date", { ascending: true }),
       supabase.from("daily_themes").select("theme_phrase, theme_driver").eq("user_id", userId).gte("theme_date", thirtyStr),
       supabase.from("user_coach_insights").select("insight_content, created_at, insight_type, is_active").eq("user_id", userId).order("created_at", { ascending: false }).limit(10),
       supabase.from("sanctuary_events").select("category, event_type, timestamp, context_data").eq("user_id", userId).gte("timestamp", thirtyDaysAgo.toISOString()),
@@ -267,10 +267,21 @@ Deno.serve(async (req) => {
     const sortedStates = Object.entries(distribution).sort((a, b) => b[1] - a[1]);
     const typicalState = sortedStates.length > 0 && sortedStates[0][1] > 0 ? sortedStates[0][0] : null;
 
-    // ── Recurring compass themes ──
+    // ── Recurring compass themes (enriched with state_tags) ──
     const themeCounts = new Map<string, number>();
     themes.forEach((t: any) => { if (t.theme_phrase) themeCounts.set(t.theme_phrase, (themeCounts.get(t.theme_phrase) || 0) + 1); });
-    const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([phrase, count]) => ({ phrase, count }));
+    // Enrich with state_tags from daily_checkins
+    checkIns.forEach((c: any) => {
+      const tags = (c as any).state_tags;
+      if (Array.isArray(tags)) {
+        tags.forEach((tag: string) => {
+          if (tag && tag.length > 2) {
+            themeCounts.set(tag, (themeCounts.get(tag) || 0) + 1);
+          }
+        });
+      }
+    });
+    const recurringThemes = Array.from(themeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([phrase, count]) => ({ phrase, count }));
 
     // ── Coach insights (use explicit types first, fallback to keyword scan) ──
     let coachStrength: string | null = explicitStrength;
@@ -462,7 +473,7 @@ Deno.serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work — regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice — just name what you see.`,
+                content: `You are analyzing a leader's self-mastery patterns over 30 days. Based on the data below, name the ONE pattern most worth their attention right now.\n\nThis is self-mastery work — regulation, clarity, and renewal matter in leadership and in life. Speak to the whole person, not just the executive role. One sentence. Direct. No generic language. No advice — just name what you see.\n\nIMPORTANT: If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null' as the observation. Do NOT generate generic statements about 'navigating challenges', 'recalibration and renewal', or any vague filler.`,
               },
               {
                 role: "user",
@@ -488,7 +499,11 @@ Deno.serve(async (req) => {
           const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
           if (toolCall?.function?.arguments) {
             const parsed = JSON.parse(toolCall.function.arguments);
-            aiObservation = parsed.observation || null;
+            const obs = parsed.observation || null;
+            // Quality gate: reject generic filler
+            if (obs && obs.toLowerCase().trim() !== 'null' && obs.split(/\s+/).length >= 10) {
+              aiObservation = obs;
+            }
           }
         }
         stepTimer("ai-observation (success)", tAI);
