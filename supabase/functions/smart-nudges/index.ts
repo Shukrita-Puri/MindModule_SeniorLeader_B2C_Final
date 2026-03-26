@@ -585,7 +585,7 @@ serve(async (req) => {
         return hash % 2 === 0;
       }
 
-      // ── Pre-Event Prep (always highest time-critical priority) ──
+      // ── Pre-Event Prep (aligned with JIT pipeline — single source of truth) ──
       if ((prefs?.pre_event_prep_enabled ?? true) && !suppressed && !isEngagementSuppressed('pre_event_prep')) {
         const preEventCount = (logsByType.get('pre_event_prep') || []).length;
         if (preEventCount < 3) {
@@ -593,18 +593,23 @@ serve(async (req) => {
           const min30 = new Date(now.getTime() + 30 * 60000);
           const min90 = new Date(now.getTime() + 90 * 60000);
 
-          const { data: upcomingEvents } = await supabase
-            .from('calendar_events')
-            .select('id, title, start_time, external_id')
+          // PRIMARY: Query jit_event_context for events that already passed the JIT Stage 4 gate
+          const { data: jitEvents } = await supabase
+            .from('jit_event_context')
+            .select('event_id, event_title, event_start, event_type, final_score, dim_a, dim_b, confidence_band, external_id')
             .eq('user_id', userId)
-            .gte('start_time', min30.toISOString())
-            .lte('start_time', min90.toISOString())
-            .order('start_time', { ascending: true });
+            .gte('event_start', min30.toISOString())
+            .lte('event_start', min90.toISOString())
+            .gte('final_score', 55)
+            .order('final_score', { ascending: false });
 
-          for (const evt of (upcomingEvents || [])) {
-            const score = scoreEvent(evt.title);
-            if (score < 25) continue;
+          let preEventMatched = false;
 
+          for (const evt of (jitEvents || [])) {
+            // Skip if confidence too low (mirrors JIT Stage 4)
+            if (evt.confidence_band === 'none') continue;
+
+            // Dedup by external_id
             const alreadySent = (logsByType.get('pre_event_prep') || [])
               .some(l => l.event_reference === evt.external_id);
             if (alreadySent) continue;
@@ -617,7 +622,7 @@ serve(async (req) => {
               .limit(1)
               .single();
 
-            const minutesUntil = Math.round((new Date(evt.start_time).getTime() - now.getTime()) / 60000);
+            const minutesUntil = Math.round((new Date(evt.event_start).getTime() - now.getTime()) / 60000);
             const innerTier = latestCheckin?.outcome || 'unknown';
 
             const { count: todayEventCount } = await supabase
@@ -628,12 +633,12 @@ serve(async (req) => {
               .lte('start_time', `${todayStr}T23:59:59`);
 
             const variants = getPreEventVariants({
-              eventTitle: evt.title || 'Upcoming event',
+              eventTitle: evt.event_title || 'Upcoming event',
               minutesUntil,
               innerTier,
               calendarLoad: (todayEventCount || 0) > 5 ? 'high' : 'moderate',
               eventCount: (todayEventCount || 0),
-              priorityScore: score,
+              priorityScore: evt.final_score,
             });
 
             let selectedVariant: Variant;
@@ -653,7 +658,79 @@ serve(async (req) => {
               eventReference: evt.external_id,
               tokens: userTokens.get(userId)!,
             });
+            preEventMatched = true;
             break;
+          }
+
+          // FALLBACK: If jit_event_context had no qualifying events, use keyword scoring
+          // with noise filter + raised threshold (requires 2+ keyword hits)
+          if (!preEventMatched && (!jitEvents || jitEvents.length === 0)) {
+            const { data: upcomingEvents } = await supabase
+              .from('calendar_events')
+              .select('id, title, start_time, external_id')
+              .eq('user_id', userId)
+              .gte('start_time', min30.toISOString())
+              .lte('start_time', min90.toISOString())
+              .order('start_time', { ascending: true });
+
+            for (const evt of (upcomingEvents || [])) {
+              // Noise filter: skip transit, logistics, admin events
+              if (isNoiseEvent(evt.title || '')) continue;
+
+              const score = scoreEvent(evt.title);
+              if (score < 50) continue; // Raised from 25 — require 2+ keyword matches
+
+              const alreadySent = (logsByType.get('pre_event_prep') || [])
+                .some(l => l.event_reference === evt.external_id);
+              if (alreadySent) continue;
+
+              const { data: latestCheckin } = await supabase
+                .from('daily_checkins')
+                .select('outcome')
+                .eq('user_id', userId)
+                .eq('checkin_date', todayStr)
+                .limit(1)
+                .single();
+
+              const minutesUntil = Math.round((new Date(evt.start_time).getTime() - now.getTime()) / 60000);
+              const innerTier = latestCheckin?.outcome || 'unknown';
+
+              const { count: todayEventCount } = await supabase
+                .from('calendar_events')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .gte('start_time', `${todayStr}T00:00:00`)
+                .lte('start_time', `${todayStr}T23:59:59`);
+
+              const variants = getPreEventVariants({
+                eventTitle: evt.title || 'Upcoming event',
+                minutesUntil,
+                innerTier,
+                calendarLoad: (todayEventCount || 0) > 5 ? 'high' : 'moderate',
+                eventCount: (todayEventCount || 0),
+                priorityScore: score,
+              });
+
+              let selectedVariant: Variant;
+              if (innerTier === 'strong' || innerTier === 'peak') {
+                selectedVariant = variants[2]; // PE-3
+              } else if (innerTier === 'depleted' || innerTier === 'managing') {
+                selectedVariant = variants[3]; // PE-4
+              } else {
+                const lastVariant = (logsByType.get('pre_event_prep') || [])[0]?.variant_id || null;
+                selectedVariant = selectVariant(variants, lastVariant);
+              }
+
+              userNotifications.push({
+                userId,
+                type: 'pre_event_prep',
+                variant: selectedVariant,
+                eventReference: evt.external_id,
+                tokens: userTokens.get(userId)!,
+                suppressionReason: 'fallback_keyword_scoring',
+              });
+              break;
+            }
           }
         }
       }
