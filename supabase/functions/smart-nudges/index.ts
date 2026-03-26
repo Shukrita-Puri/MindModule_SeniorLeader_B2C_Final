@@ -102,14 +102,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ── Event priority scoring keywords ──
+// ── Noise filter (aligned with JIT pipeline generate-jit-events) ──
+const NOISE_KEYWORDS = [
+  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
+  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
+  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
+  'car service', 'mot', 'oil change', 'dentist', 'optician',
+  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
+  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
+];
+const NOISE_PATTERN = /\[\d{6,}\]/;
+
+function isNoiseEvent(title: string): boolean {
+  const lower = (title || '').toLowerCase();
+  if (NOISE_PATTERN.test(title || '')) return true;
+  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// ── Fallback event scoring (only used when jit_event_context has no data) ──
 const HIGH_STAKES_KEYWORDS = [
   'board', 'investor', 'presentation', 'negotiation', 'pitch',
-  'review', 'performance', 'strategy', 'executive', 'stakeholder',
+  'review', 'performance', 'strategy', 'stakeholder',
   'crisis', 'conflict', 'termination', 'layoff', 'restructure',
   'merger', 'acquisition', 'due diligence', 'fundraise', 'ipo',
   'media', 'press', 'interview', 'keynote', 'panel', 'town hall',
-  'all-hands', 'offsite', 'retreat', 'workshop', 'training',
+  'all-hands', 'offsite', 'retreat',
 ];
 
 function scoreEvent(title: string | null): number {
@@ -193,12 +210,12 @@ function getPreEventVariants(ctx: {
   priorityScore: number;
 }): Variant[] {
   return [
-    { id: 'PE-1', title: 'Prep Ready', body: `${ctx.eventTitle} in ${ctx.minutesUntil} min. 3-min prep ready.` },
+    { id: 'PE-1', title: 'Prep Ready', body: `${ctx.eventTitle} in ${ctx.minutesUntil} min. Open your prep.` },
     { id: 'PE-2', title: 'Ground and Prepare', body: `${ctx.eventTitle} ahead. Ground and prepare now.` },
     { id: 'PE-3', title: "You're Well-Resourced", body: "You're well-resourced. Channel it." },
     { id: 'PE-4', title: 'Regulate First', body: "You're running low. Regulate before you engage." },
     { id: 'PE-5', title: 'Reset First', body: `${ctx.eventTitle} is your ${ctx.eventCount}${ordinalSuffix(ctx.eventCount)} meeting today. Reset first.` },
-    { id: 'PE-6', title: 'High Stakes Prep', body: `High stakes, ${ctx.minutesUntil} min out. Your prep is ready.` },
+    { id: 'PE-6', title: 'High Stakes Prep', body: `High stakes, ${ctx.minutesUntil} min out. Open your prep.` },
   ];
 }
 
@@ -247,7 +264,7 @@ function getStateAwareVariants(ctx: {
   return [
     { id: 'SN-1', title: 'Reset Available', body: `${ctx.highStakesCount} high-stakes events ahead. 5-min reset available now.` },
     { id: 'SN-2', title: 'Recalibrate', body: 'You started low. The afternoon is heavy. Recalibrate first.' },
-    { id: 'SN-3', title: 'Afternoon Reset', body: `Afternoon Reset: ${ctx.practiceName || 'Quick reset'}. 3 min.` },
+    { id: 'SN-3', title: 'Afternoon Reset', body: `Afternoon Reset: ${ctx.practiceName || 'Quick reset'} is ready.` },
     { id: 'SN-4', title: 'Reset or Push Through', body: `${ctx.nextEventTitle || 'Next event'} in ${ctx.minutesUntilNextEvent || 90} min. Reset now or push through?` },
   ];
 }
