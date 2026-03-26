@@ -275,11 +275,11 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium tracking-widest uppercase text-muted-foreground font-body">
-            Your Self Mastery Patterns
+            Your Performance Patterns
           </span>
           <InsightInfoModal
-            title="Your Self Mastery Patterns"
-            explanation="What is consistently true about how you operate — not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring Compass themes, practices, and wearable data over 30 days."
+            title="Your Performance Patterns"
+            explanation="What is consistently true about how you operate — not what you reported today, but what the data reveals about your patterns over time. This card draws from your check-ins, coach sessions, recurring themes, practices, and wearable data over 30 days."
           />
         </div>
       </CardHeader>
@@ -289,12 +289,13 @@ const LeadershipPatternsCard = ({ userId, prefetchedData, parentLoading }: Leade
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : !data ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Unable to load self mastery patterns.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">Unable to load performance patterns.</p>
         ) : (
           <div className="space-y-5">
 
-            {/* ── SECTION 1: AI OBSERVATION ── */}
-            {data.aiObservation && (
+            {/* ── SECTION 1: AI OBSERVATION (quality-gated) ── */}
+            {data.aiObservation && (data.checkInCount ?? 0) >= 7 && 
+             ((data.recurringThemes?.length ?? 0) > 0 || data.coachStrength) && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10">
                 <div className="flex items-start gap-2.5">
                   <Sparkles className="h-4 w-4 text-primary/70 flex-shrink-0 mt-0.5" />

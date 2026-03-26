@@ -15,6 +15,22 @@ interface HeatmapCell {
   divergence: boolean;
 }
 
+interface WeekDay {
+  date: string;
+  dayLabel: string;
+  outcome: string | null;
+  compositeScore: number | null;
+  divergence: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+interface WeekRow {
+  weekLabel: string;
+  startDate: string;
+  days: WeekDay[];
+}
+
 interface BestReadinessWindow {
   timeWindow: number;
   day: number;
@@ -32,6 +48,7 @@ interface PerformanceRhythmData {
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
+  weekRows?: WeekRow[];
   bestReadinessWindow: BestReadinessWindow | null;
   checkInCount: number;
   behaviorLogCount: number;
@@ -317,7 +334,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         };
 
         // Path A: Calendar Event Type × HRV Correlation
-        if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
+        if (hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
           const allHRVs = wearableData.map((w: any) => w.hrv as number);
           const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
           const hrvByDate = new Map<string, number>();
@@ -342,7 +359,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
           let bestDeviation: { et: string; avgHRV: number; count: number; devPct: number; recentTitle: string; direction: string } | null = null;
           eventTypeHRV.forEach((data, et) => {
-            if (data.hrvs.length < 2) return;
+            if (data.hrvs.length < 1) return;
             const avgHRV = data.hrvs.reduce((a, b) => a + b, 0) / data.hrvs.length;
             const devPct = ((avgHRV - hrvBaseline) / hrvBaseline) * 100;
             if (Math.abs(devPct) >= 10) {
@@ -358,6 +375,39 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             causeEffectInsight = b.direction === 'drop'
               ? `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — observed across ${b.count} events.`
               : `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — these events don't tax your nervous system.`;
+            // Confidence qualifier for single-occurrence correlations
+            if (b.count === 1) {
+              causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence — will validate over time)`;
+            }
+            // RHR enrichment
+            const rhrByDate = new Map<string, number>();
+            for (const w of wearableData) {
+              if (w.resting_heart_rate) rhrByDate.set(w.summary_date, w.resting_heart_rate as number);
+            }
+            const allRHRs = wearableData.filter((w: any) => w.resting_heart_rate).map((w: any) => w.resting_heart_rate as number);
+            if (allRHRs.length >= 3) {
+              const rhrBaseline = Math.round(allRHRs.reduce((a: number, b: number) => a + b, 0) / allRHRs.length);
+              const eventRHRs: number[] = [];
+              for (const ev of insightCalendarEvents) {
+                if (!ev.title) continue;
+                const tl = ev.title.toLowerCase();
+                const et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
+                  EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl.includes(kw))
+                );
+                const groupKey = et || (ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title);
+                if (groupKey !== b.et) continue;
+                const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+                const rhr = rhrByDate.get(evDate);
+                if (rhr !== undefined) eventRHRs.push(rhr);
+              }
+              if (eventRHRs.length >= 1) {
+                const avgRHR = Math.round(eventRHRs.reduce((a, b) => a + b, 0) / eventRHRs.length);
+                const rhrDiff = avgRHR - rhrBaseline;
+                if (Math.abs(rhrDiff) >= 3) {
+                  causeEffectInsight += ` RHR averaged ${avgRHR}bpm on those days vs ${rhrBaseline}bpm baseline.`;
+                }
+              }
+            }
           }
         }
 
@@ -667,6 +717,60 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
         }
 
+        // ── Build Rolling Weekly Calendar (4 weeks) ──
+        const today = new Date();
+        const todayStr = format(today, 'yyyy-MM-dd');
+        const todayDayOfWeek = today.getDay(); // 0=Sun
+        const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
+        const thisMonday = subDays(today, mondayOffset);
+        
+        const weekRows: WeekRow[] = [];
+        for (let w = 0; w < 4; w++) {
+          const weekStart = subDays(thisMonday, w * 7);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          const weekLabel = w === 0 ? 'This week' : w === 1 ? 'Last week' : `${format(weekStart, 'MMM d')}–${format(weekEnd, 'MMM d')}`;
+          
+          const days: WeekDay[] = [];
+          for (let d = 0; d < 7; d++) {
+            const dayDate = new Date(weekStart);
+            dayDate.setDate(dayDate.getDate() + d);
+            const dateStr = format(dayDate, 'yyyy-MM-dd');
+            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const isFuture = dateStr > todayStr;
+            const isToday = dateStr === todayStr;
+            
+            // Find check-in for this specific date
+            const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
+            // Find readiness score for this specific date
+            const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
+            const avgScore = dayReadiness.length > 0
+              ? Math.round(dayReadiness.reduce((sum, s) => sum + s.composite_score, 0) / dayReadiness.length)
+              : null;
+            
+            // Divergence check
+            const outcomeExpectedMap: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
+            const outcome = dayCheckIn?.outcome || null;
+            let divergence = false;
+            if (outcome && avgScore !== null) {
+              const expected = outcomeExpectedMap[outcome] || 50;
+              if (Math.abs(avgScore - expected) >= 20) divergence = true;
+            }
+            
+            days.push({
+              date: dateStr,
+              dayLabel: dayNames[d],
+              outcome: isFuture ? null : outcome,
+              compositeScore: isFuture ? null : avgScore,
+              divergence: isFuture ? false : divergence,
+              isToday,
+              isFuture,
+            });
+          }
+          
+          weekRows.push({ weekLabel, startDate: format(weekStart, 'yyyy-MM-dd'), days });
+        }
+
         // ── Data Source Note ──
         const daySpan = checkIns.length > 0
           ? Math.ceil((new Date().getTime() - new Date(checkIns[checkIns.length - 1].checkin_date).getTime()) / 86400000)
@@ -684,6 +788,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           calendarInsight,
           causeEffectInsight,
           grid,
+          weekRows,
           bestReadinessWindow: bestReadinessWindow,
           checkInCount: checkIns.length,
           behaviorLogCount: behaviorLogs.length,
@@ -776,7 +881,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </p>
             )}
 
-            {/* 1A — How You Show Up (15+ check-ins) */}
+            {/* 1A — How You Show Up (7+ check-ins) */}
             {data.checkInCount >= 7 && data.presenceLabel && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -789,7 +894,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
-                {/* Combined: presence actions + temporal patterns */}
                 {(data.presenceActions?.length || data.temporalPatterns?.length) ? (
                   <ul className="pl-6 space-y-1.5 mt-1">
                     {data.presenceActions?.map((action, i) => (
@@ -809,7 +913,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1B — Calendar Pattern (10+ check-ins) */}
+            {/* Elevated: Your Sharpest Window */}
+            {data.bestReadinessWindow && (
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                <p className="text-[11px] font-semibold tracking-widest uppercase text-emerald-700/70 dark:text-emerald-400/70 font-body mb-1">
+                  Your Sharpest Window
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {data.bestReadinessWindow.label}
+                </p>
+              </div>
+            )}
+
+            {/* 1B — Calendar Pattern */}
             {data.checkInCount >= 7 && data.calendarInsight && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2">
@@ -822,9 +938,19 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1C — Cause-Effect (10+ check-ins) */}
+            {/* 1C — Cause-Effect with Coach Impact elevation */}
             {data.checkInCount >= 7 && data.causeEffectInsight && (
-              <div className="p-4 rounded-xl bg-muted/20 border border-border/30 space-y-2">
+              <div className={cn(
+                "p-4 rounded-xl space-y-2",
+                data.causeEffectInsight.toLowerCase().includes('coach')
+                  ? "bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/10"
+                  : "bg-muted/20 border border-border/30"
+              )}>
+                {data.causeEffectInsight.toLowerCase().includes('coach') && (
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary/70 font-body">
+                    Coach Impact
+                  </span>
+                )}
                 <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
               </div>
             )}
@@ -851,17 +977,18 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Heatmap (7+ check-ins) */}
-            {data.checkInCount >= 5 && data.grid && (
+            {/* 2 — Rolling Weekly Calendar (replaces composite heatmap) */}
+            {data.checkInCount >= 5 && (data.weekRows || data.grid) && (
               <>
                 <div>
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body mb-3 block">
                     Your Week at a Glance
                   </span>
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[400px]">
-                      {/* Header row */}
-                      <div className="flex items-center mb-2">
+                  
+                  {data.weekRows ? (
+                    <div className="space-y-3">
+                      {/* Day header row */}
+                      <div className="flex items-center">
                         <div className="w-20" />
                         {DAYS.map(day => (
                           <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
@@ -869,52 +996,106 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                           </div>
                         ))}
                       </div>
-
-                      {/* Time rows */}
-                      {TIME_LABELS.map((label, twIdx) => (
-                        <div key={label} className="flex items-center mb-2">
-                          <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
-                            {label}
-                          </div>
-                          {DAYS.map((day, dayIdx) => {
-                            const cell = data.grid[twIdx]?.[dayIdx];
-                            const hasOutcome = cell && cell.outcome;
-                            const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
-
-                            return (
-                              <div key={`${twIdx}-${dayIdx}`} className="flex-1 px-0.5">
-                                <div
-                                  className={cn(
-                                    'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
-                                    hasOutcome
-                                      ? 'shadow-lg'
-                                      : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
-                                    cell?.divergence && 'ring-2 ring-amber-400/60'
-                                  )}
-                                  style={hasOutcome && style ? {
-                                    boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
-                                  } : undefined}
-                                >
-                                  {hasOutcome && style && (
-                                    <>
-                                      <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
-                                      <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
-                                      {cell.compositeScore !== null && (
-                                        <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
-                                          {cell.compositeScore}
-                                          {cell.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
-                                        </span>
-                                      )}
-                                    </>
-                                  )}
+                      
+                      {/* Week rows */}
+                      {data.weekRows.map((week, wIdx) => (
+                        <div key={wIdx}>
+                          <div className="flex items-center mb-1">
+                            <div className="w-20 text-[10px] text-muted-foreground pr-3 text-right font-medium">
+                              {week.weekLabel}
+                            </div>
+                            {week.days.map((day, dIdx) => {
+                              const hasOutcome = day.outcome && !day.isFuture;
+                              const style = hasOutcome ? stateColors[day.outcome || ''] : null;
+                              
+                              return (
+                                <div key={`${wIdx}-${dIdx}`} className="flex-1 px-0.5">
+                                  <div
+                                    className={cn(
+                                      'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                      day.isFuture
+                                        ? 'bg-muted/10 border border-dashed border-border/20'
+                                        : hasOutcome
+                                          ? 'shadow-lg'
+                                          : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
+                                      day.divergence && 'ring-2 ring-amber-400/60',
+                                      day.isToday && 'ring-2 ring-primary/40'
+                                    )}
+                                    style={hasOutcome && style ? {
+                                      boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
+                                    } : undefined}
+                                  >
+                                    {hasOutcome && style && (
+                                      <>
+                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                        <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                                        {day.compositeScore !== null && (
+                                          <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
+                                            {day.compositeScore}
+                                            {day.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  ) : (
+                    /* Fallback to legacy composite grid */
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[400px]">
+                        <div className="flex items-center mb-2">
+                          <div className="w-20" />
+                          {DAYS.map(day => (
+                            <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+                        {TIME_LABELS.map((label, twIdx) => (
+                          <div key={label} className="flex items-center mb-2">
+                            <div className="w-20 text-xs text-muted-foreground pr-3 text-right font-medium">
+                              {label}
+                            </div>
+                            {DAYS.map((day, dayIdx) => {
+                              const cell = data.grid[twIdx]?.[dayIdx];
+                              const hasOutcome = cell && cell.outcome;
+                              const style = hasOutcome ? stateColors[cell.outcome || ''] : null;
+                              return (
+                                <div key={`${twIdx}-${dayIdx}`} className="flex-1 px-0.5">
+                                  <div
+                                    className={cn(
+                                      'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                      hasOutcome ? 'shadow-lg' : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5',
+                                      cell?.divergence && 'ring-2 ring-amber-400/60'
+                                    )}
+                                    style={hasOutcome && style ? { boxShadow: `0 4px 12px ${style.glow}` } : undefined}
+                                  >
+                                    {hasOutcome && style && (
+                                      <>
+                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                        <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
+                                        {cell.compositeScore !== null && (
+                                          <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm">
+                                            {cell.compositeScore}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Legend */}
@@ -929,14 +1110,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </>
             )}
 
-            {/* 3 — Best Readiness Window */}
-            {data.bestReadinessWindow && (
-              <p className="text-xs text-muted-foreground text-center font-medium">
-                Your sharpest window: {data.bestReadinessWindow.label}
-              </p>
-            )}
-
-            {/* 4 — Data Source Note */}
+            {/* Data Source Note */}
             {data.checkInCount > 0 && (
               <p className="text-[10px] text-muted-foreground/60 text-center">
                 {data.dataSourceNote}
