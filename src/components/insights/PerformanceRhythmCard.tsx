@@ -317,7 +317,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         };
 
         // Path A: Calendar Event Type × HRV Correlation
-        if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
+        if (hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
           const allHRVs = wearableData.map((w: any) => w.hrv as number);
           const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
           const hrvByDate = new Map<string, number>();
@@ -342,7 +342,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           }
           let bestDeviation: { et: string; avgHRV: number; count: number; devPct: number; recentTitle: string; direction: string } | null = null;
           eventTypeHRV.forEach((data, et) => {
-            if (data.hrvs.length < 2) return;
+            if (data.hrvs.length < 1) return;
             const avgHRV = data.hrvs.reduce((a, b) => a + b, 0) / data.hrvs.length;
             const devPct = ((avgHRV - hrvBaseline) / hrvBaseline) * 100;
             if (Math.abs(devPct) >= 10) {
@@ -358,6 +358,39 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             causeEffectInsight = b.direction === 'drop'
               ? `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV drop (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — observed across ${b.count} events.`
               : `${label.charAt(0).toUpperCase() + label.slice(1)} events (e.g. "${b.recentTitle}") correlate with a ${absDevPct}% HRV rise (avg ${b.avgHRV}ms vs your baseline ${Math.round(hrvBaseline)}ms) — these events don't tax your nervous system.`;
+            // Confidence qualifier for single-occurrence correlations
+            if (b.count === 1) {
+              causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence — will validate over time)`;
+            }
+            // RHR enrichment
+            const rhrByDate = new Map<string, number>();
+            for (const w of wearableData) {
+              if (w.resting_heart_rate) rhrByDate.set(w.summary_date, w.resting_heart_rate as number);
+            }
+            const allRHRs = wearableData.filter((w: any) => w.resting_heart_rate).map((w: any) => w.resting_heart_rate as number);
+            if (allRHRs.length >= 3) {
+              const rhrBaseline = Math.round(allRHRs.reduce((a: number, b: number) => a + b, 0) / allRHRs.length);
+              const eventRHRs: number[] = [];
+              for (const ev of insightCalendarEvents) {
+                if (!ev.title) continue;
+                const tl = ev.title.toLowerCase();
+                const et = Object.keys(EVENT_TYPE_KEYWORDS_CE).find(type =>
+                  EVENT_TYPE_KEYWORDS_CE[type].some(kw => tl.includes(kw))
+                );
+                const groupKey = et || (ev.title.length > 40 ? ev.title.substring(0, 40) : ev.title);
+                if (groupKey !== b.et) continue;
+                const evDate = new Date(ev.start_time).toISOString().split('T')[0];
+                const rhr = rhrByDate.get(evDate);
+                if (rhr !== undefined) eventRHRs.push(rhr);
+              }
+              if (eventRHRs.length >= 1) {
+                const avgRHR = Math.round(eventRHRs.reduce((a, b) => a + b, 0) / eventRHRs.length);
+                const rhrDiff = avgRHR - rhrBaseline;
+                if (Math.abs(rhrDiff) >= 3) {
+                  causeEffectInsight += ` RHR averaged ${avgRHR}bpm on those days vs ${rhrBaseline}bpm baseline.`;
+                }
+              }
+            }
           }
         }
 
