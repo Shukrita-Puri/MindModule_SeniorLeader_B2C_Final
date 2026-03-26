@@ -15,6 +15,22 @@ interface HeatmapCell {
   divergence: boolean;
 }
 
+interface WeekDay {
+  date: string;
+  dayLabel: string;
+  outcome: string | null;
+  compositeScore: number | null;
+  divergence: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+interface WeekRow {
+  weekLabel: string;
+  startDate: string;
+  days: WeekDay[];
+}
+
 interface BestReadinessWindow {
   timeWindow: number;
   day: number;
@@ -32,6 +48,7 @@ interface PerformanceRhythmData {
   calendarInsight: string | null;
   causeEffectInsight: string | null;
   grid: HeatmapCell[][];
+  weekRows?: WeekRow[];
   bestReadinessWindow: BestReadinessWindow | null;
   checkInCount: number;
   behaviorLogCount: number;
