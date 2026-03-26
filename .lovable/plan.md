@@ -1,144 +1,121 @@
 
 
-# Fix: JIT & Time-of-Day Context Lines — Intermittent & Generic
+# Insights Page Overhaul — C-Suite Performance Intelligence
 
-## Root Cause Analysis
+8 tasks across 4 files. No database migrations.
 
-There are **two separate context description pipelines**, and the inconsistency comes from which one runs:
+---
 
-### JIT Context (`contextDescription`)
+## Task 1: Rename & Gate AI Observation — `LeadershipPatternsCard.tsx`
 
-**Path A — New Pipeline (jit_event_context bridge):** `buildEnrichedContextDescription()` (line 1085) generates rich context from bucket classification, coach memory, HRV data, and confidence framing. This produces lines like *"High inner-state demand detected — you've discussed this concern with your coach — in 10 hours. Prepare with targeted practice."*
+- Line 278: `"Your Self Mastery Patterns"` → `"Your Performance Patterns"` (title, InsightInfoModal title+explanation, error fallback line 292)
+- Lines 296-306: Wrap AI observation with quality gate:
+  ```tsx
+  {data.aiObservation && data.checkInCount >= 7 && 
+   (data.recurringThemes?.length > 0 || data.coachStrength) && (
+  ```
 
-**Path B — Legacy fallback:** `scoreCalendarEventsLegacy()` (line 1164) generates weak context using only basic structural signals. This produces lines like *"You're organizing this event — in 10 hours. Prepare with targeted practice."* — which is the generic text visible in your screenshot.
+## Task 2: Harden AI Prompt — `state-patterns-insights/index.ts`
 
-**Why it's intermittent:** The bridge queries `jit_event_context` for rows updated within the last 4 hours. If `generate-jit-events` hasn't run recently (it's not called on every page load), the bridge finds no rows and falls back to legacy scoring — producing the generic "organizing this event" text.
+- Line 465 system prompt: Append `"If the data is too sparse to name a specific, non-obvious pattern, respond with exactly the word 'null'. Do NOT generate generic statements about navigating challenges, recalibration, or renewal."`
+- After line 491 (parsing): If `aiObservation === "null"` or word count < 10, set `aiObservation = null`
+- Enrich recurring themes (line 271-273): Also query `daily_checkins` for `state_tags` (already fetched in checkInsRes), merge tag counts into `themeCounts` map before building `recurringThemes`
 
-**Additional issue:** In the legacy path, `coachContext.mentionContent` is never populated (line 638 — `coachContext` object is initialized without a `mentionContent` property), so `generateContextStatement()` in `generate-jit-events` always receives `null` as `content`, making the emotional concern detection ("Last time: You felt anxious going in") unreachable.
+## Task 3: Redesign Momentum Card — `Insights.tsx` (lines 812-910)
 
-### Time-of-Day Context (`module.reasoning`)
+Replace bubble chart with performance log per mockup. Keep title "Your Momentum".
 
-The `reasoning` field exists on every module but is **never rendered** in `DailyRitual.tsx` or `JitCarousel.tsx`. The previous plan identified this but it hasn't been implemented yet. Values like "Restore calm and emotional regulation" are generated but invisible.
+**Header:** Two stat boxes — "X Wins this month" | "Y Under pressure"  
+- "Under pressure" = wins where `regulation_level` is `managed`/`composed` or `primary_emotion` is `determination`/`relief`
 
-### Per-Module Reasoning (Static)
+**Insight bar** (≥3 wins): Pattern line reframed with C-suite language
 
-All `reasoning` values in both JIT and ToD are hardcoded strings (e.g., "Settle your body before this event", "Mental framework to sharpen your approach"). They're never context-aware.
+**Win list** (up to 5 recent): Each shows color dot, win text (line-clamp-2), domain tag pill + date  
+**Domain tag mapping** from existing `tiny_wins` fields:
+- `agency_type: proactive/decisive` → Decision (purple)
+- `primary_emotion: pride/confidence` → Leadership (blue)
+- `regulation_level: managed/composed` → Resilience (green)
+- `growth_signal: insight/progress` → Growth (amber)
+- Default → Delivery (slate)
 
-## Plan
+**Remove:** `PsychologicalDimensionBubbles`, `InnerWorldBubbles` renders, dimension text summaries. Move archived components to `src/components/_archived/`.
 
-### Step 1: Fix Legacy Fallback Context in `generate-mastery-plan`
+Keep data source line at bottom.
 
-**File: `supabase/functions/generate-mastery-plan/index.ts`**
+## Task 4: Lower Cause-Effect Thresholds — `PerformanceRhythmCard.tsx`
 
-In `scoreCalendarEventsLegacy()` (~line 1255-1273), replace the weak context builder with richer logic:
+- Line 320: `insightCalendarEvents.length >= 3` → `>= 2`, `wearableData.length >= 5` → `>= 3`
+- Line 345: `data.hrvs.length < 2` → `< 1`
+- After line 361 (bestDeviation block): Add confidence qualifier:
+  ```typescript
+  if (bestDeviation && bestDeviation.count === 1) {
+    causeEffectInsight = `Early signal: ${causeEffectInsight} (based on 1 occurrence — will validate over time)`;
+  }
+  ```
 
-- Remove the generic "You're organizing this event" line — being organizer alone is not a justifiable reason
-- When no scenario matches and no structural signals exist, produce: `"Upcoming event — in X hours. Preparation recommended."`  
-- When a scenario matches, use the scenario's `contextLabel` (e.g., "Board Meeting Prep detected")
-- When confidence is below medium (from dim scores), suppress the context line entirely (return empty string so UI hides it)
+## Task 5: Add RHR to Path A — `PerformanceRhythmCard.tsx`
 
-Add a confidence-like score to legacy events using dimA + dimB to decide whether to show context:
-```
-if (dimA + dimB < 18) contextDescription = ''; // Hide if low confidence
-```
+After HRV deviation block (~line 361), add RHR enrichment using `wearableData` (which already fetches `resting_heart_rate` at line 137):
+- Build `rhrByDate` map, calculate `rhrBaseline` from all RHR readings
+- For matched event type, collect event-day RHRs
+- If `eventRHRs.length >= 1` and `|avgRHR - rhrBaseline| >= 3`, append to `causeEffectInsight`
 
-### Step 2: Fix `mentionContent` Never Being Set in `generate-jit-events`
+## Task 6: Elevate Sharpest Window & Coach Impact — `PerformanceRhythmCard.tsx`
 
-**File: `supabase/functions/generate-jit-events/index.ts`**
+**Best Readiness Window** (lines 932-937):
+- Move up to render after "How You Show Up" section (after line 810)
+- Restyle as highlighted stat box with green gradient border
+- Remove old footer rendering
 
-In the coach memory cross-reference block (~line 537-546), when `coachMemoryMatch` is true, also capture the matching memory content:
+**Coach Session Impact** (lines 826-830):
+- When `causeEffectInsight` contains "coach" (case-insensitive), render in its own bordered section with "Coach Impact" label and primary gradient styling
+- Otherwise render in default muted box
 
+## Task 7: Heatmap → Rolling Weekly Calendar — `PerformanceRhythmCard.tsx`
+
+Replace the 30-day composite 3×7 grid with a rolling weekly calendar view:
+
+**Data model change** (lines 168-204): Instead of building a single composite grid, build an array of week objects:
 ```typescript
-if (coachMemoryMatch) {
-  coachSignalScore = 15;
-  coachSignalBucket = 'clarity';
-  coachContext.hasMentions = true;
-  // FIX: Actually populate mentionContent for generateContextStatement
-  const matchedMemory = coachMemoryTexts.find((m: any) =>
-    titleWords.some(w => m.content.includes(w)) ||
-    m.themes.some((t: string) => titleLower.includes(t.toLowerCase()))
-  );
-  coachContext.mentionContent = matchedMemory?.content || null;
+interface WeekRow {
+  weekLabel: string;        // e.g. "This week", "Last week", "Mar 3-9"
+  startDate: string;
+  days: Array<{ date: string; dayLabel: string; outcome: string | null; compositeScore: number | null; divergence: boolean; isToday: boolean; isFuture: boolean }>;
 }
 ```
 
-This enables the emotional concern detection ("Last time: You felt anxious going in") to actually fire.
+Build 4 weeks of data (current week + 3 prior weeks). Current week shows Mon→today with future days greyed/empty. Each cell maps to a specific real date.
 
-### Step 3: Add `generate-jit-events` Call from `generate-mastery-plan` When Bridge is Stale
+**UI change** (lines 854-918): Replace single grid with vertically stacked weeks:
+- "This week" label + 7-cell row (future days muted)
+- "Last week" label + 7-cell row
+- 2 more prior weeks (scrollable or always visible)
+- Keep same cell styling (gradient colors, composite score overlay, divergence ring)
+- Keep "Your Week at a Glance" title
+- Add small date range subtitle per week row
 
-**File: `supabase/functions/generate-mastery-plan/index.ts`**
+Keep existing legend unchanged.
 
-In `getPreScoredEvents()` (~line 960), before falling back to legacy scoring, check if there are calendar events available and the bridge is simply stale. If so, run the JIT scoring logic inline (simplified version) rather than falling back to the weak legacy path.
+## Task 8: Verify Upstream/Downstream Connections (Audit Only)
 
-Actually, a simpler fix: **extend the bridge staleness window from 4 hours to 12 hours.** The data doesn't change that fast — events are the same throughout the day. Change line 971:
-```typescript
-const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
-```
+Verified during file reads:
+- ✅ `state-patterns-insights` EF reads: `daily_checkins`, `daily_themes`, `user_coach_insights`, `profiles`, `wearable_data`, `sanctuary_events`, `daily_ritual_completions`, `tiny_wins`, `dialogue_sessions`, `calendar_connections`, `behavior_logs`, `inner_readiness_scores`
+- ✅ `performance-rhythm-insights` EF: called from production path (line 704)
+- ✅ `tiny-wins-insights` EF reads: `tiny_wins` (via edge function, line 395)
+- ✅ `insights-semantic-analysis` EF reads: `dialogue_messages`, `tiny_wins`, `daily_checkins` (line 690)
+- ✅ All write operations upstream — insights page is read-only
+- ✅ DEV_MODE paths mirror production queries correctly
 
-### Step 4: Enrich Legacy Context with Coach Memory + HRV
+---
 
-**File: `supabase/functions/generate-mastery-plan/index.ts`**
+## Files Modified
 
-In the `enrichedContextDescription` block (~line 2021-2047), this enrichment only runs when the **bridge** path produced the top event. Move this enrichment to also apply when legacy scoring produced the top event. Currently it works because `topEvent.contextDescription` is set either way — but the legacy path starts with weak context. Enhance the enrichment to be more aggressive:
+| File | Changes |
+|------|---------|
+| `LeadershipPatternsCard.tsx` | Rename → "Performance Patterns"; gate AI observation on data quality |
+| `state-patterns-insights/index.ts` | Harden prompt; null-gate sparse output; enrich themes with state_tags |
+| `Insights.tsx` | Redesign Momentum → performance log; archive bubble components |
+| `PerformanceRhythmCard.tsx` | Lower thresholds; add RHR; elevate sharpest window & coach impact; rolling weekly heatmap |
 
-- When `relevantCommitment` exists, replace the entire opening with: `"You discussed this with your coach — prepare with targeted practice."`
-- When `patternInsight` matches, use: `"Your coach has noted a pattern here — in X hours."`
-- When HRV correlation exists (already appended), make it the lead context if no coach signal exists
-
-### Step 5: Hide Context When Confidence is Low
-
-**File: `src/components/home/JitCarousel.tsx`**
-
-At line 297, conditionally render the context description:
-```tsx
-{preEventPlan.contextDescription && preEventPlan.contextDescription.length > 0 && (
-  <p className="text-xs text-muted-foreground italic font-body leading-relaxed flex-1 min-w-0">
-    {preEventPlan.contextDescription}
-  </p>
-)}
-```
-
-The backend will now send empty string for low-confidence events.
-
-### Step 6: Add Per-Module `reasoning` to Card UI
-
-**File: `src/components/home/DailyRitual.tsx`** (~line 629) and **`src/components/home/JitCarousel.tsx`** (~line 382)
-
-After the title block, before the duration line, render:
-```tsx
-{module.reasoning && (
-  <p className="text-[10px] text-muted-foreground/70 italic font-body line-clamp-2 leading-snug mt-0.5">
-    {module.reasoning}
-  </p>
-)}
-```
-
-Increase card height from `h-40` to `h-44` in both files to accommodate.
-
-### Step 7: Make Per-Module Reasoning Context-Aware (JIT only)
-
-**File: `supabase/functions/generate-mastery-plan/index.ts`**
-
-In the JIT module building blocks (~line 1920-2017), replace static reasoning strings with event-aware ones:
-
-```typescript
-// Touch 2 somatic
-reasoning: `Settle your body before ${topEvent.event.title?.split(' ').slice(0, 4).join(' ') || 'this event'}`
-
-// Touch 1 coach
-reasoning: topEvent.scenario 
-  ? `Discuss your ${topEvent.scenario.contextLabel.toLowerCase()} approach with your coach`
-  : `Discuss your approach with your coach before this event`
-```
-
-## Summary of Changes
-
-| File | Change |
-|------|--------|
-| `generate-mastery-plan/index.ts` | Extend bridge window 4h→12h; enrich legacy context; suppress low-confidence context; event-aware module reasoning |
-| `generate-jit-events/index.ts` | Fix `mentionContent` never being populated |
-| `JitCarousel.tsx` | Hide empty context; render `module.reasoning` |
-| `DailyRitual.tsx` | Render `module.reasoning`; bump card height |
-
-No database changes required.
+No database changes. Mind Map untouched.
 
