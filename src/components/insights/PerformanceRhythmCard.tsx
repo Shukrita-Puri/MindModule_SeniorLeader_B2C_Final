@@ -8,6 +8,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface HeatmapCell {
   outcome: string | null;
@@ -95,6 +96,7 @@ const stateColors: Record<string, { gradient: string; glow: string }> = {
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (userId) fetchData();
@@ -971,9 +973,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {data.checkInCount >= 5 && data.weekRows && (() => {
               // Full month days are already in order (1st to last)
               const allDays = data.weekRows.flatMap(w => w.days);
-              const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-              const monthIdx = allDays.length > 0 ? new Date(allDays[0].date).getMonth() : new Date().getMonth();
-
               // Find the index of today (or nearest past day) for auto-scroll
               const todayIdx = allDays.findIndex(d => d.isToday);
 
@@ -984,7 +983,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
                         Your Week at a Glance
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60">{monthNames[monthIdx]}</span>
+                      <span className="text-[10px] text-muted-foreground/50">← scroll for past weeks</span>
                     </div>
 
                     <div className="flex">
