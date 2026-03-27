@@ -83,7 +83,7 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
       if (retryTimerId) clearTimeout(retryTimerId);
       retryTimerId = setTimeout(() => {
         if (pendingScoreUpdate) {
-          persistCompositeScore(pendingScoreUpdate.checkinDate, pendingScoreUpdate.score);
+          persistCompositeScore(pendingScoreUpdate.checkinDate, pendingScoreUpdate.score, pendingScoreUpdate.timeWindow);
         }
       }, RETRY_INTERVAL_MS);
       console.log('[energyStateEngine] Scheduled retry in 5 min (attempt', pendingScoreUpdate.retries, '/', MAX_RETRIES, ')');
