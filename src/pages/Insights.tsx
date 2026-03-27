@@ -834,31 +834,33 @@ const Insights = () => {
               <div className="space-y-4">
                 {/* Stat boxes */}
                 {(() => {
-                  // Dynamic dimension counts
-                  const composureCount = tinyWinsContent.filter(w => 
-                    w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
-                    w.primary_emotion === 'determination' || w.primary_emotion === 'relief'
-                  ).length;
-                  const clarityCount = tinyWinsContent.filter(w => 
-                    w.agency_type === 'proactive' || w.agency_type === 'decisive'
-                  ).length;
-                  const resilienceCount = tinyWinsContent.filter(w => 
-                    w.growth_signal === 'resilience' || w.growth_signal === 'boundary'
-                  ).length;
-                  const growthCount = tinyWinsContent.filter(w => 
-                    w.growth_signal === 'learning' || w.growth_signal === 'breakthrough' || w.growth_signal === 'insight' || w.growth_signal === 'progress'
-                  ).length;
+                  // Helper to compute primary domain for a win
+                  const getDomain = (w: any) => {
+                    const content = (w.content || '').toLowerCase();
+                    // Delivery: explicit shipping/completing signals
+                    if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) return 'Delivery';
+                    // Resilience: sustained effort, recovery, endurance
+                    if (w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
+                        w.growth_signal === 'resilience' || w.growth_signal === 'boundary' ||
+                        /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) return 'Resilience';
+                    // Leadership: must have content signals, not just pride
+                    if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) return 'Leadership';
+                    // Decision: metadata + verb
+                    if ((w.agency_type === 'proactive' || w.agency_type === 'decisive') &&
+                        /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) return 'Decision';
+                    // Growth
+                    if (w.growth_signal === 'insight' || w.growth_signal === 'progress' ||
+                        w.growth_signal === 'learning' || w.growth_signal === 'breakthrough' ||
+                        /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) return 'Growth';
+                    return 'Delivery';
+                  };
+
+                  // Count by primary domain
+                  const domainCounts: Record<string, number> = { Resilience: 0, Leadership: 0, Decision: 0, Growth: 0, Delivery: 0 };
+                  tinyWinsContent.forEach(w => { domainCounts[getDomain(w)]++; });
                   
-                  const dimensions = [
-                    { label: 'With Composure', count: composureCount },
-                    { label: 'With Clarity', count: clarityCount },
-                    { label: 'With Resilience', count: resilienceCount },
-                    { label: 'With Growth', count: growthCount },
-                  ].sort((a, b) => b.count - a.count);
-                  
-                  const dominant = dimensions[0];
-                  const dominantCount = dominant.count;
-                  const dominantLabel = dominant.label;
+                  const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
+                  const [dominantDomain, dominantCount] = sorted[0];
                   
                   return (
                     <>
@@ -869,7 +871,7 @@ const Insights = () => {
                       </div>
                        <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                         <p className="text-2xl font-headline text-foreground">{dominantCount}</p>
-                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantLabel}</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantDomain}</p>
                       </div>
                     </div>
 
@@ -879,7 +881,7 @@ const Insights = () => {
                         return (
                           <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                             <p className="text-sm text-foreground leading-relaxed">
-                              {pct}% of your wins this month showed {dominantLabel.toLowerCase()} — that's your dominant pattern right now.
+                              {pct}% of your wins this month showed {dominantDomain.toLowerCase()} — that's your dominant pattern right now.
                             </p>
                           </div>
                         );
@@ -893,44 +895,28 @@ const Insights = () => {
                 {/* Win list */}
                 <div className="space-y-2">
                   {tinyWinsContent.slice(0, 5).map((win, i) => {
-                    // Domain tag mapping
+                    // Domain tag mapping — must match getDomain logic above
+                    const content = (win.content || '').toLowerCase();
                     let domain = 'Delivery';
                     let dotColor = 'bg-slate-400';
                     let tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
                     
-                    const content = (win.content || '').toLowerCase();
-                    
-                    // Resilience first (most specific signal)
-                    if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
-                        win.growth_signal === 'resilience' ||
-                        /patience|strength|persisted|bounced|recovered|despite|endured|stayed steady/.test(content)) {
+                    // Delivery first (explicit shipping signals)
+                    if (/\b(launched|shipped|live|released|built|completed|delivered|ready for|deployed|went live)\b/.test(content)) {
+                      domain = 'Delivery'; dotColor = 'bg-slate-400'; tagBg = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+                    } else if (win.regulation_level === 'managed' || win.regulation_level === 'composed' ||
+                        win.growth_signal === 'resilience' || win.growth_signal === 'boundary' ||
+                        /\b(patience|persisted|bounced|recovered|despite|endured|stayed steady|over the course of|year|months|long-term|transitioned)\b/.test(content)) {
                       domain = 'Resilience'; dotColor = 'bg-emerald-500'; tagBg = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
-                    } else if (win.primary_emotion === 'pride' || win.primary_emotion === 'confidence' ||
-                        /\b(led|delegated|mentored|coached|inspired)\b/.test(content)) {
+                    } else if (/\b(led|delegated|mentored|coached|inspired|managed team|guided|empowered|rallied)\b/.test(content)) {
                       domain = 'Leadership'; dotColor = 'bg-blue-500'; tagBg = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
                     } else if ((win.agency_type === 'proactive' || win.agency_type === 'decisive') &&
-                        /\b(decided|chose|committed|pivoted|initiated)\b/.test(content)) {
+                        /\b(decided|chose|committed|pivoted|initiated|cut|prioriti[sz]ed)\b/.test(content)) {
                       domain = 'Decision'; dotColor = 'bg-purple-500'; tagBg = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
                     } else if (win.growth_signal === 'insight' || win.growth_signal === 'progress' ||
                         win.growth_signal === 'learning' || win.growth_signal === 'breakthrough' ||
-                        /\b(learned|realized|grew|improved|first time)\b/.test(content)) {
+                        /\b(learned|realized|grew|improved|first time|noticed)\b/.test(content)) {
                       domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
-                    }
-
-                    // Secondary tags from dimension metadata (same definitions as Performance Patterns)
-                    const secondaryTags: Array<{ label: string; color: string }> = [];
-                    // Recalibration = energyRegulation: how you regulate
-                    if (win.regulation_level === 'regulated' || win.regulation_level === 'intentional' ||
-                        win.regulation_level === 'managed' || win.regulation_level === 'composed') {
-                      secondaryTags.push({ label: 'Recalibration', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' });
-                    }
-                    // Clarity = focusRecovery: how you think under load
-                    if (win.agency_type === 'proactive' || win.agency_type === 'decisive') {
-                      secondaryTags.push({ label: 'Clarity', color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' });
-                    }
-                    // Renewal = energyRenewal: how you recover
-                    if (win.growth_signal === 'resilience' || win.growth_signal === 'letting-go' || win.growth_signal === 'boundary') {
-                      secondaryTags.push({ label: 'Renewal', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' });
                     }
                     
                     return (
@@ -942,11 +928,6 @@ const Insights = () => {
                             <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', tagBg)}>
                               {domain}
                             </span>
-                            {secondaryTags.map((st, si) => (
-                              <span key={si} className={cn('px-1.5 py-0.5 rounded-full text-[9px] font-medium', st.color)}>
-                                {st.label}
-                              </span>
-                            ))}
                             <span className="text-[10px] text-muted-foreground">{win.date}</span>
                           </div>
                         </div>
