@@ -482,14 +482,13 @@ serve(async (req) => {
         continue;
       }
 
-      // ════════ STAGE 0b: Educational Event Dampening ════════
-      const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:|webinar:|course:|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
+      // ════════ STAGE 0b: Educational Event Hard Gate ════════
+      const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
       const isEducational = EDUCATIONAL_PATTERNS.test(title);
       const isOrganizer = event.is_organizer || false;
-      let educationalDampening = false;
       if (isEducational && !isOrganizer) {
-        educationalDampening = true;
-        if (IS_DEV) console.log(`[JIT:Stage0b] DAMPENED title="${title}" reason=educational_non_organizer`);
+        if (IS_DEV) console.log(`[JIT:Stage0b] BLOCKED title="${title}" reason=educational_non_organizer (hard gate)`);
+        continue;
       }
 
       // ════════ STAGE 1: Cancellation Memory ════════
