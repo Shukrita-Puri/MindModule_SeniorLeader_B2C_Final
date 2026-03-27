@@ -1,0 +1,1 @@
+DELETE FROM tiny_wins WHERE id = '6ca8a3a8-6d0a-49a6-b506-5382b14b3e11';
