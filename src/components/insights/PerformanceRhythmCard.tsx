@@ -105,7 +105,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] = await Promise.all([
           supabase
             .from('daily_checkins')
-            .select('outcome, energy_balance, checkin_date, created_at')
+            .select('outcome, energy_balance, checkin_date, created_at, time_window')
             .eq('user_id', effectiveUserId)
             .gte('checkin_date', thirtyDaysAgo)
             .order('created_at', { ascending: false }),
