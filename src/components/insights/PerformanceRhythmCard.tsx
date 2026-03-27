@@ -719,60 +719,56 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
         }
 
-        // ── Build Rolling Weekly Calendar (4 weeks) ──
+        // ── Build Full Month Calendar ──
         const today = new Date();
         const todayStr = format(today, 'yyyy-MM-dd');
-        const todayDayOfWeek = today.getDay(); // 0=Sun
-        const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
-        const thisMonday = subDays(today, mondayOffset);
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth(); // 0-indexed
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
         
-        const weekRows: WeekRow[] = [];
         // Map time_window values to slot keys
         const twToSlot = (tw: string) => {
           if (tw === 'morning') return 'morning';
           if (tw === 'afternoon') return 'midday';
           return 'evening';
         };
-        
-        for (let w = 0; w < 4; w++) {
-          const weekStart = subDays(thisMonday, w * 7);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          const weekLabel = w === 0 ? 'This week' : w === 1 ? 'Last week' : `${format(weekStart, 'MMM d')}–${format(weekEnd, 'MMM d')}`;
-          
-          const days: WeekDay[] = [];
-          for (let d = 0; d < 7; d++) {
-            const dayDate = new Date(weekStart);
-            dayDate.setDate(dayDate.getDate() + d);
-            const dateStr = format(dayDate, 'yyyy-MM-dd');
-            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const isFuture = dateStr > todayStr;
-            const isToday = dateStr === todayStr;
-            
-            // Find check-ins for this specific date, grouped by time_window
-            const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
-            const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
-            
-            if (!isFuture) {
-              for (const ci of dayCheckIns) {
-                if (!ci.outcome) continue;
-                const slot = twToSlot(ci.time_window || 'morning');
-                slots[slot].outcome = ci.outcome;
-              }
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const monthDays: WeekDay[] = [];
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dayDate = new Date(currentYear, currentMonth, d);
+          const dateStr = format(dayDate, 'yyyy-MM-dd');
+          const isFuture = dateStr > todayStr;
+          const isToday = dateStr === todayStr;
+
+          const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+          const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
+
+          if (!isFuture) {
+            for (const ci of dayCheckIns) {
+              if (!ci.outcome) continue;
+              const slot = twToSlot(ci.time_window || 'morning');
+              slots[slot].outcome = ci.outcome;
             }
-            
-            days.push({
-              date: dateStr,
-              dayLabel: dayNames[d],
-              dateNum: String(dayDate.getDate()),
-              isToday,
-              isFuture,
-              slots,
-            });
           }
-          
-          weekRows.push({ weekLabel, startDate: format(weekStart, 'yyyy-MM-dd'), days });
+
+          monthDays.push({
+            date: dateStr,
+            dayLabel: dayNames[dayDate.getDay()],
+            dateNum: String(d),
+            isToday,
+            isFuture,
+            slots,
+          });
         }
+
+        // Wrap in a single weekRow for compatibility
+        const weekRows: WeekRow[] = [{
+          weekLabel: '',
+          startDate: format(new Date(currentYear, currentMonth, 1), 'yyyy-MM-dd'),
+          days: monthDays,
+        }];
 
         // ── Data Source Note ──
         const daySpan = checkIns.length > 0
@@ -971,10 +967,16 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Continuous Horizontal Calendar */}
+            {/* 2 — Continuous Horizontal Calendar (Full Month) */}
             {data.checkInCount >= 5 && data.weekRows && (() => {
-              // Flatten all days from all weeks into a single continuous strip (oldest first)
-              const allDays = [...data.weekRows].reverse().flatMap(w => w.days);
+              // Full month days are already in order (1st to last)
+              const allDays = data.weekRows.flatMap(w => w.days);
+              const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+              const monthIdx = allDays.length > 0 ? new Date(allDays[0].date).getMonth() : new Date().getMonth();
+
+              // Find the index of today (or nearest past day) for auto-scroll
+              const todayIdx = allDays.findIndex(d => d.isToday);
+
               return (
                 <>
                   <div>
@@ -982,7 +984,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
                         Your Week at a Glance
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60">← scroll for past weeks</span>
+                      <span className="text-[10px] text-muted-foreground/60">{monthNames[monthIdx]}</span>
                     </div>
 
                     <div className="flex">
@@ -999,69 +1001,61 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div
                         className="overflow-x-auto flex-1 pb-1"
                         ref={(el) => {
-                          if (el) setTimeout(() => { el.scrollLeft = el.scrollWidth; }, 80);
+                          if (el && todayIdx >= 0) {
+                            // Scroll so current week (Mon containing today) is visible
+                            // Each day column is ~27px (26 + 1 gap)
+                            const dayWidth = 27;
+                            // Find Monday of today's week
+                            const todayDate = new Date(allDays[todayIdx].date);
+                            const dow = todayDate.getDay();
+                            const mondayOffset = dow === 0 ? 6 : dow - 1;
+                            const mondayIdx = Math.max(0, todayIdx - mondayOffset);
+                            const scrollTo = mondayIdx * dayWidth;
+                            setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
+                          }
                         }}
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
                         <div className="inline-flex gap-1" style={{ minWidth: 'max-content' }}>
-                          {allDays.map((day, i) => {
-                            // Month marker: show month label before the first day of a new month
-                            const prevDay = i > 0 ? allDays[i - 1] : null;
-                            const curMonth = new Date(day.date).getMonth();
-                            const prevMonth = prevDay ? new Date(prevDay.date).getMonth() : -1;
-                            const showMonth = curMonth !== prevMonth;
-                            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-                            return (
-                              <div key={day.date} className="flex items-start gap-0">
-                                {showMonth && i > 0 && (
-                                  <div className="w-px bg-border/30 self-stretch mx-1" />
-                                )}
-                                {showMonth && (
-                                  <div className="text-[9px] text-muted-foreground font-medium self-end mb-0.5 mr-1 whitespace-nowrap">
-                                    {monthNames[curMonth]}
-                                  </div>
-                                )}
-                                <div className="flex flex-col items-center gap-1.5 w-[26px]">
-                                  {/* Day header */}
-                                  <div className="flex flex-col items-center h-[34px] justify-end pb-1">
-                                    <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
-                                    <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
-                                      {day.dateNum}
-                                    </span>
-                                  </div>
-                                  {/* 3 dots: morning, midday, evening */}
-                                  {(['morning', 'midday', 'evening'] as const).map((tw) => {
-                                    const slot = day.slots[tw];
-                                    const hasOutcome = slot.outcome && !day.isFuture;
-                                    const colors = hasOutcome ? stateColors[slot.outcome || ''] : null;
-
-                                    return (
-                                      <div
-                                        key={tw}
-                                        className={cn(
-                                          'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
-                                          day.isFuture
-                                            ? 'border border-border/20 bg-transparent'
-                                            : hasOutcome
-                                              ? 'shadow-sm'
-                                              : 'bg-white/90 dark:bg-white/15',
-                                          day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                                        )}
-                                        style={hasOutcome && colors ? {
-                                          boxShadow: `0 2px 6px ${colors.glow}`,
-                                        } : undefined}
-                                      >
-                                        {hasOutcome && colors && (
-                                          <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                          {allDays.map((day) => (
+                            <div key={day.date} className="flex flex-col items-center gap-1.5 w-[26px]">
+                              {/* Day header */}
+                              <div className="flex flex-col items-center h-[34px] justify-end pb-1">
+                                <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
+                                <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
+                                  {day.dateNum}
+                                </span>
                               </div>
-                            );
-                          })}
+                              {/* 3 dots: morning, midday, evening */}
+                              {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                                const slot = day.slots[tw];
+                                const hasOutcome = slot.outcome && !day.isFuture;
+                                const colors = hasOutcome ? stateColors[slot.outcome || ''] : null;
+
+                                return (
+                                  <div
+                                    key={tw}
+                                    className={cn(
+                                      'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                                      day.isFuture
+                                        ? 'border border-dashed border-border/40 bg-transparent'
+                                        : hasOutcome
+                                          ? 'shadow-sm'
+                                          : 'bg-white/90 dark:bg-white/15',
+                                      day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                                    )}
+                                    style={hasOutcome && colors ? {
+                                      boxShadow: `0 2px 6px ${colors.glow}`,
+                                    } : undefined}
+                                  >
+                                    {hasOutcome && colors && (
+                                      <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
