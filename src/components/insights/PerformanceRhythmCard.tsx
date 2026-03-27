@@ -971,84 +971,114 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Rolling Weekly Calendar (replaces composite heatmap) */}
-            {data.checkInCount >= 5 && data.weekRows && (
-              <>
-                <div>
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body mb-3 block">
-                    Your Week at a Glance
-                  </span>
+            {/* 2 — Continuous Horizontal Calendar */}
+            {data.checkInCount >= 5 && data.weekRows && (() => {
+              // Flatten all days from all weeks into a single continuous strip (oldest first)
+              const allDays = [...data.weekRows].reverse().flatMap(w => w.days);
+              return (
+                <>
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
+                        Your Week at a Glance
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60">← scroll for past weeks</span>
+                    </div>
 
-                  <div className="overflow-x-auto snap-x snap-mandatory pb-2 -mx-2 px-2">
-                    <div className="flex gap-3">
-                      {data.weekRows.map((week, wIdx) => (
-                        <div key={wIdx} className="snap-start shrink-0 min-w-[340px] rounded-xl border border-border/20 bg-muted/5 p-3">
-                          <p className="text-[10px] text-muted-foreground font-medium mb-1.5">{week.weekLabel}</p>
-
-                          {/* Day + date header */}
-                          <div className="flex items-end mb-1">
-                            <div className="w-16" />
-                            {week.days.map((day, dIdx) => (
-                              <div key={dIdx} className={cn('flex-1 text-center', day.isToday && 'font-bold')}>
-                                <div className="text-[10px] text-muted-foreground">{day.dayLabel}</div>
-                                <div className={cn('text-[10px]', day.isToday ? 'text-primary' : 'text-muted-foreground/70')}>{day.dateNum}</div>
-                              </div>
-                            ))}
+                    <div className="flex">
+                      {/* Fixed row labels */}
+                      <div className="flex flex-col gap-1.5 mr-2.5 pt-[38px]">
+                        {['Morning', 'Midday', 'Evening'].map(label => (
+                          <div key={label} className="h-[22px] flex items-center justify-end">
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap w-[44px] text-right">{label}</span>
                           </div>
+                        ))}
+                      </div>
 
-                          {/* 3 time-window rows */}
-                          {(['morning', 'midday', 'evening'] as const).map((tw) => (
-                            <div key={tw} className="flex items-center mb-1">
-                              <div className="w-16 text-[10px] text-muted-foreground pr-2 text-right capitalize">
-                                {tw === 'midday' ? 'Midday' : tw.charAt(0).toUpperCase() + tw.slice(1)}
-                              </div>
-                              {week.days.map((day, dIdx) => {
-                                const slot = day.slots[tw];
-                                const hasOutcome = slot.outcome && !day.isFuture;
-                                const style = hasOutcome ? stateColors[slot.outcome || ''] : null;
+                      {/* Scrollable day columns */}
+                      <div
+                        className="overflow-x-auto flex-1 pb-1"
+                        ref={(el) => {
+                          if (el) setTimeout(() => { el.scrollLeft = el.scrollWidth; }, 80);
+                        }}
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                      >
+                        <div className="inline-flex gap-1" style={{ minWidth: 'max-content' }}>
+                          {allDays.map((day, i) => {
+                            // Month marker: show month label before the first day of a new month
+                            const prevDay = i > 0 ? allDays[i - 1] : null;
+                            const curMonth = new Date(day.date).getMonth();
+                            const prevMonth = prevDay ? new Date(prevDay.date).getMonth() : -1;
+                            const showMonth = curMonth !== prevMonth;
+                            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-                                return (
-                                  <div key={`${wIdx}-${tw}-${dIdx}`} className="flex-1 px-0.5">
-                                    <div
-                                      className={cn(
-                                        'h-6 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden',
-                                        day.isFuture
-                                          ? 'bg-muted/10 border border-dashed border-border/20'
-                                          : hasOutcome
-                                            ? 'shadow-sm'
-                                            : 'border border-dotted border-border/30 bg-transparent',
-                                        day.isToday && !day.isFuture && 'ring-1 ring-primary/30'
-                                      )}
-                                      style={hasOutcome && style ? {
-                                        boxShadow: `0 2px 6px ${style.glow}`,
-                                      } : undefined}
-                                    >
-                                      {hasOutcome && style && (
-                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
-                                      )}
-                                    </div>
+                            return (
+                              <div key={day.date} className="flex items-start gap-0">
+                                {showMonth && i > 0 && (
+                                  <div className="w-px bg-border/30 self-stretch mx-1" />
+                                )}
+                                {showMonth && (
+                                  <div className="text-[9px] text-muted-foreground font-medium self-end mb-0.5 mr-1 whitespace-nowrap">
+                                    {monthNames[curMonth]}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ))}
+                                )}
+                                <div className="flex flex-col items-center gap-1.5 w-[26px]">
+                                  {/* Day header */}
+                                  <div className="flex flex-col items-center h-[34px] justify-end pb-1">
+                                    <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
+                                    <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
+                                      {day.dateNum}
+                                    </span>
+                                  </div>
+                                  {/* 3 dots: morning, midday, evening */}
+                                  {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                                    const slot = day.slots[tw];
+                                    const hasOutcome = slot.outcome && !day.isFuture;
+                                    const colors = hasOutcome ? stateColors[slot.outcome || ''] : null;
+
+                                    return (
+                                      <div
+                                        key={tw}
+                                        className={cn(
+                                          'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                                          day.isFuture
+                                            ? 'border border-border/20 bg-transparent'
+                                            : hasOutcome
+                                              ? 'shadow-sm'
+                                              : 'bg-white/90 dark:bg-white/15',
+                                          day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                                        )}
+                                        style={hasOutcome && colors ? {
+                                          boxShadow: `0 2px 6px ${colors.glow}`,
+                                        } : undefined}
+                                      >
+                                        {hasOutcome && colors && (
+                                          <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Legend */}
-                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-1">
-                  {Object.entries(stateColors).map(([state, style]) => (
-                    <div key={state} className="flex items-center gap-1.5">
-                      <div className={cn('w-3 h-3 rounded shadow-sm bg-gradient-to-br', style.gradient)} />
-                      <span className="capitalize">{state}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+                  {/* Legend */}
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-3 border-t border-border/20">
+                    {Object.entries(stateColors).map(([state, style]) => (
+                      <div key={state} className="flex items-center gap-1.5">
+                        <div className={cn('w-2.5 h-2.5 rounded-full shadow-sm bg-gradient-to-br', style.gradient)} />
+                        <span className="capitalize">{state}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Data Source Note */}
             {data.checkInCount > 0 && (

@@ -990,13 +990,12 @@ async function getPreScoredEvents(
         const minutesUntil = Math.floor((eventStart.getTime() - now.getTime()) / (1000 * 60));
         if (minutesUntil < 0) continue;
 
-        // Educational non-organizer guard (prevents stale misclassification from surfacing)
+        // Educational non-organizer hard gate — completely block, no override
         const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
-        const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || '').toLowerCase());
+        const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || ''));
         const isOrganizer = matchingEvent?.isOrganizer ?? false;
-        const hasStrongCoachSignal = !!(row.has_coach_context || row.expressed_concern || row.has_pending_tool || row.coach_scenario);
-        const hasStrongPhysioSignal = !!(hrvCorrelations && extractEventType(row.event_title || '') in hrvCorrelations && Math.abs(hrvCorrelations[extractEventType(row.event_title || '')]?.avgHRVDeviation || 0) >= 15);
-        if (isEducational && !isOrganizer && !(hasStrongCoachSignal || hasStrongPhysioSignal) && (row.final_score || 0) < 75) {
+        if (isEducational && !isOrganizer) {
+          console.log(`[generate-mastery-plan] Bridge: BLOCKED educational non-organizer "${row.event_title}"`);
           continue;
         }
 
