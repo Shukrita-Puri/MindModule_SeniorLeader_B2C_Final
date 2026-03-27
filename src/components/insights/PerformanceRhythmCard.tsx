@@ -186,20 +186,22 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const getTimeWindow = (h: number) => h >= 5 && h < 12 ? 0 : h >= 12 && h < 17 ? 1 : 2;
         const getDayIndex = (d: number) => d === 0 ? 6 : d - 1; // Sun=6, Mon=0
 
-        // ── Build 3x7 grid ──
+        // ── Build 3x7 grid — uses stored time_window, not UTC-derived hours ──
         const grid: HeatmapCell[][] = Array(3).fill(null).map(() => 
           Array(7).fill(null).map(() => ({ outcome: null, compositeScore: null, divergence: false }))
         );
-        const cellLatest: number[][] = Array(3).fill(null).map(() => Array(7).fill(0));
+        const cellLatest: Map<string, number> = new Map();
 
         for (const ci of checkIns) {
-          if (!ci.created_at || !ci.outcome) continue;
-          const date = new Date(ci.created_at);
-          const tw = getTimeWindow(date.getHours());
+          if (!ci.checkin_date || !ci.outcome) continue;
+          const date = new Date(ci.checkin_date);
+          const tw = ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2;
           const di = getDayIndex(date.getDay());
-          const t = date.getTime();
-          if (t > cellLatest[tw][di]) {
-            cellLatest[tw][di] = t;
+          const cellKey = `${tw}-${di}`;
+          const t = ci.created_at ? new Date(ci.created_at).getTime() : 0;
+          const prev = cellLatest.get(cellKey) || 0;
+          if (t > prev) {
+            cellLatest.set(cellKey, t);
             grid[tw][di].outcome = ci.outcome;
           }
         }
@@ -746,12 +748,17 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
 
           const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
           const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
+          const slotTimestamps: Record<string, number> = { morning: 0, midday: 0, evening: 0 };
 
           if (!isFuture) {
             for (const ci of dayCheckIns) {
               if (!ci.outcome) continue;
               const slot = twToSlot(ci.time_window || 'morning');
-              slots[slot].outcome = ci.outcome;
+              const ciTime = ci.created_at ? new Date(ci.created_at).getTime() : 0;
+              if (ciTime > slotTimestamps[slot]) {
+                slotTimestamps[slot] = ciTime;
+                slots[slot].outcome = ci.outcome;
+              }
             }
           }
 
