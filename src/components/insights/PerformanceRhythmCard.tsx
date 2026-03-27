@@ -8,6 +8,7 @@ import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface HeatmapCell {
   outcome: string | null;
@@ -95,6 +96,7 @@ const stateColors: Record<string, { gradient: string; glow: string }> = {
 const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
   const [data, setData] = useState<PerformanceRhythmData | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (userId) fetchData();
@@ -971,9 +973,6 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             {data.checkInCount >= 5 && data.weekRows && (() => {
               // Full month days are already in order (1st to last)
               const allDays = data.weekRows.flatMap(w => w.days);
-              const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-              const monthIdx = allDays.length > 0 ? new Date(allDays[0].date).getMonth() : new Date().getMonth();
-
               // Find the index of today (or nearest past day) for auto-scroll
               const todayIdx = allDays.findIndex(d => d.isToday);
 
@@ -984,7 +983,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
                         Your Week at a Glance
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60">{monthNames[monthIdx]}</span>
+                      <span className="text-[10px] text-muted-foreground/50">← scroll for past weeks</span>
                     </div>
 
                     <div className="flex">
@@ -1001,24 +1000,48 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div
                         className="overflow-x-auto flex-1 pb-1"
                         ref={(el) => {
-                          if (el && todayIdx >= 0) {
-                            // Scroll so current week (Mon containing today) is visible
-                            // Each day column is ~27px (26 + 1 gap)
-                            const dayWidth = 27;
-                            // Find Monday of today's week
+                          if (!el) return;
+                          // On mobile, set each column to 1/7th of container so exactly Mon-Sun fits
+                          if (isMobile) {
+                            const colW = Math.floor(el.clientWidth / 7);
+                            const cols = el.querySelectorAll('[data-day-col]');
+                            cols.forEach((c: Element) => {
+                              (c as HTMLElement).style.width = `${colW}px`;
+                              (c as HTMLElement).style.minWidth = `${colW}px`;
+                            });
+                          }
+                          if (todayIdx >= 0) {
                             const todayDate = new Date(allDays[todayIdx].date);
                             const dow = todayDate.getDay();
                             const mondayOffset = dow === 0 ? 6 : dow - 1;
                             const mondayIdx = Math.max(0, todayIdx - mondayOffset);
-                            const scrollTo = mondayIdx * dayWidth;
+                            const colWidth = isMobile
+                              ? Math.floor(el.clientWidth / 7)
+                              : 27;
+                            const scrollTo = mondayIdx * colWidth;
                             setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
                           }
                         }}
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
-                        <div className="inline-flex gap-1" style={{ minWidth: 'max-content' }}>
+                        <div
+                          className="inline-flex"
+                          style={{
+                            minWidth: 'max-content',
+                            gap: isMobile ? 0 : '4px',
+                          }}
+                        >
                           {allDays.map((day) => (
-                            <div key={day.date} className="flex flex-col items-center gap-1.5 w-[26px]">
+                            <div
+                              key={day.date}
+                              data-day-col
+                              className="flex flex-col items-center gap-1.5"
+                              style={{
+                                width: isMobile ? undefined : '26px',
+                                minWidth: isMobile ? undefined : '26px',
+                                flexShrink: 0,
+                              }}
+                            >
                               {/* Day header */}
                               <div className="flex flex-col items-center h-[34px] justify-end pb-1">
                                 <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
