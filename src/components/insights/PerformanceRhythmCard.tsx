@@ -33,6 +33,12 @@ interface WeekRow {
   startDate: string;
   days: WeekDay[];
 }
+interface BestReadinessWindow {
+  timeWindow: number;
+  day: number;
+  avgScore: number;
+  label: string;
+}
 
 interface PerformanceRhythmData {
   // New v2.0 fields
