@@ -967,10 +967,16 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 2 — Continuous Horizontal Calendar */}
+            {/* 2 — Continuous Horizontal Calendar (Full Month) */}
             {data.checkInCount >= 5 && data.weekRows && (() => {
-              // Flatten all days from all weeks into a single continuous strip (oldest first)
-              const allDays = [...data.weekRows].reverse().flatMap(w => w.days);
+              // Full month days are already in order (1st to last)
+              const allDays = data.weekRows.flatMap(w => w.days);
+              const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+              const monthIdx = allDays.length > 0 ? new Date(allDays[0].date).getMonth() : new Date().getMonth();
+
+              // Find the index of today (or nearest past day) for auto-scroll
+              const todayIdx = allDays.findIndex(d => d.isToday);
+
               return (
                 <>
                   <div>
@@ -978,7 +984,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground font-body">
                         Your Week at a Glance
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60">← scroll for past weeks</span>
+                      <span className="text-[10px] text-muted-foreground/60">{monthNames[monthIdx]}</span>
                     </div>
 
                     <div className="flex">
@@ -995,69 +1001,61 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div
                         className="overflow-x-auto flex-1 pb-1"
                         ref={(el) => {
-                          if (el) setTimeout(() => { el.scrollLeft = el.scrollWidth; }, 80);
+                          if (el && todayIdx >= 0) {
+                            // Scroll so current week (Mon containing today) is visible
+                            // Each day column is ~27px (26 + 1 gap)
+                            const dayWidth = 27;
+                            // Find Monday of today's week
+                            const todayDate = new Date(allDays[todayIdx].date);
+                            const dow = todayDate.getDay();
+                            const mondayOffset = dow === 0 ? 6 : dow - 1;
+                            const mondayIdx = Math.max(0, todayIdx - mondayOffset);
+                            const scrollTo = mondayIdx * dayWidth;
+                            setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
+                          }
                         }}
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
                         <div className="inline-flex gap-1" style={{ minWidth: 'max-content' }}>
-                          {allDays.map((day, i) => {
-                            // Month marker: show month label before the first day of a new month
-                            const prevDay = i > 0 ? allDays[i - 1] : null;
-                            const curMonth = new Date(day.date).getMonth();
-                            const prevMonth = prevDay ? new Date(prevDay.date).getMonth() : -1;
-                            const showMonth = curMonth !== prevMonth;
-                            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-                            return (
-                              <div key={day.date} className="flex items-start gap-0">
-                                {showMonth && i > 0 && (
-                                  <div className="w-px bg-border/30 self-stretch mx-1" />
-                                )}
-                                {showMonth && (
-                                  <div className="text-[9px] text-muted-foreground font-medium self-end mb-0.5 mr-1 whitespace-nowrap">
-                                    {monthNames[curMonth]}
-                                  </div>
-                                )}
-                                <div className="flex flex-col items-center gap-1.5 w-[26px]">
-                                  {/* Day header */}
-                                  <div className="flex flex-col items-center h-[34px] justify-end pb-1">
-                                    <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
-                                    <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
-                                      {day.dateNum}
-                                    </span>
-                                  </div>
-                                  {/* 3 dots: morning, midday, evening */}
-                                  {(['morning', 'midday', 'evening'] as const).map((tw) => {
-                                    const slot = day.slots[tw];
-                                    const hasOutcome = slot.outcome && !day.isFuture;
-                                    const colors = hasOutcome ? stateColors[slot.outcome || ''] : null;
-
-                                    return (
-                                      <div
-                                        key={tw}
-                                        className={cn(
-                                          'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
-                                          day.isFuture
-                                            ? 'border border-border/20 bg-transparent'
-                                            : hasOutcome
-                                              ? 'shadow-sm'
-                                              : 'bg-white/90 dark:bg-white/15',
-                                          day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
-                                        )}
-                                        style={hasOutcome && colors ? {
-                                          boxShadow: `0 2px 6px ${colors.glow}`,
-                                        } : undefined}
-                                      >
-                                        {hasOutcome && colors && (
-                                          <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                          {allDays.map((day) => (
+                            <div key={day.date} className="flex flex-col items-center gap-1.5 w-[26px]">
+                              {/* Day header */}
+                              <div className="flex flex-col items-center h-[34px] justify-end pb-1">
+                                <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
+                                <span className={cn('text-[11px]', day.isToday ? 'text-primary font-medium' : 'text-foreground/70')}>
+                                  {day.dateNum}
+                                </span>
                               </div>
-                            );
-                          })}
+                              {/* 3 dots: morning, midday, evening */}
+                              {(['morning', 'midday', 'evening'] as const).map((tw) => {
+                                const slot = day.slots[tw];
+                                const hasOutcome = slot.outcome && !day.isFuture;
+                                const colors = hasOutcome ? stateColors[slot.outcome || ''] : null;
+
+                                return (
+                                  <div
+                                    key={tw}
+                                    className={cn(
+                                      'w-[22px] h-[22px] rounded-full flex-shrink-0 relative overflow-hidden transition-all duration-200',
+                                      day.isFuture
+                                        ? 'border border-dashed border-border/40 bg-transparent'
+                                        : hasOutcome
+                                          ? 'shadow-sm'
+                                          : 'bg-white/90 dark:bg-white/15',
+                                      day.isToday && !day.isFuture && 'ring-2 ring-primary/40 ring-offset-1 ring-offset-background'
+                                    )}
+                                    style={hasOutcome && colors ? {
+                                      boxShadow: `0 2px 6px ${colors.glow}`,
+                                    } : undefined}
+                                  >
+                                    {hasOutcome && colors && (
+                                      <div className={cn('absolute inset-0 bg-gradient-to-br', colors.gradient)} />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
