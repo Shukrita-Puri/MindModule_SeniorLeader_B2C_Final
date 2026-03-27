@@ -719,60 +719,56 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           presenceInsight = signals[0].score > 0 ? signals[0].text : 'Building pattern data — presence insights strengthen after more high-stakes moments.';
         }
 
-        // ── Build Rolling Weekly Calendar (4 weeks) ──
+        // ── Build Full Month Calendar ──
         const today = new Date();
         const todayStr = format(today, 'yyyy-MM-dd');
-        const todayDayOfWeek = today.getDay(); // 0=Sun
-        const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
-        const thisMonday = subDays(today, mondayOffset);
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth(); // 0-indexed
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
         
-        const weekRows: WeekRow[] = [];
         // Map time_window values to slot keys
         const twToSlot = (tw: string) => {
           if (tw === 'morning') return 'morning';
           if (tw === 'afternoon') return 'midday';
           return 'evening';
         };
-        
-        for (let w = 0; w < 4; w++) {
-          const weekStart = subDays(thisMonday, w * 7);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          const weekLabel = w === 0 ? 'This week' : w === 1 ? 'Last week' : `${format(weekStart, 'MMM d')}–${format(weekEnd, 'MMM d')}`;
-          
-          const days: WeekDay[] = [];
-          for (let d = 0; d < 7; d++) {
-            const dayDate = new Date(weekStart);
-            dayDate.setDate(dayDate.getDate() + d);
-            const dateStr = format(dayDate, 'yyyy-MM-dd');
-            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const isFuture = dateStr > todayStr;
-            const isToday = dateStr === todayStr;
-            
-            // Find check-ins for this specific date, grouped by time_window
-            const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
-            const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
-            
-            if (!isFuture) {
-              for (const ci of dayCheckIns) {
-                if (!ci.outcome) continue;
-                const slot = twToSlot(ci.time_window || 'morning');
-                slots[slot].outcome = ci.outcome;
-              }
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const monthDays: WeekDay[] = [];
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dayDate = new Date(currentYear, currentMonth, d);
+          const dateStr = format(dayDate, 'yyyy-MM-dd');
+          const isFuture = dateStr > todayStr;
+          const isToday = dateStr === todayStr;
+
+          const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+          const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
+
+          if (!isFuture) {
+            for (const ci of dayCheckIns) {
+              if (!ci.outcome) continue;
+              const slot = twToSlot(ci.time_window || 'morning');
+              slots[slot].outcome = ci.outcome;
             }
-            
-            days.push({
-              date: dateStr,
-              dayLabel: dayNames[d],
-              dateNum: String(dayDate.getDate()),
-              isToday,
-              isFuture,
-              slots,
-            });
           }
-          
-          weekRows.push({ weekLabel, startDate: format(weekStart, 'yyyy-MM-dd'), days });
+
+          monthDays.push({
+            date: dateStr,
+            dayLabel: dayNames[dayDate.getDay()],
+            dateNum: String(d),
+            isToday,
+            isFuture,
+            slots,
+          });
         }
+
+        // Wrap in a single weekRow for compatibility
+        const weekRows: WeekRow[] = [{
+          weekLabel: '',
+          startDate: format(new Date(currentYear, currentMonth, 1), 'yyyy-MM-dd'),
+          days: monthDays,
+        }];
 
         // ── Data Source Note ──
         const daySpan = checkIns.length > 0
