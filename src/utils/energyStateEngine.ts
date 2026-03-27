@@ -19,7 +19,7 @@ const MAX_RETRIES = 6; // max 30 min of retrying
 let pendingScoreUpdate: { checkinDate: string; score: number; retries: number } | null = null;
 let retryTimerId: ReturnType<typeof setTimeout> | null = null;
 
-async function persistCompositeScore(checkinDate: string, score: number): Promise<void> {
+async function persistCompositeScore(checkinDate: string, score: number, timeWindow?: string): Promise<void> {
   // DEV_MODE: Write directly to DB without Auth0
   if (DEV_MODE) {
     try {
@@ -64,8 +64,9 @@ async function persistCompositeScore(checkinDate: string, score: number): Promis
     }
     if (!token) throw new Error('No Auth0 token available');
 
+    const resolvedWindow = timeWindow || getCurrentTimeWindow();
     const res = await supabase.functions.invoke('daily-checkins', {
-      body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate, energyBalance: score, timeWindow: getCurrentTimeWindow() },
+      body: { action: 'UPDATE_ENERGY_BALANCE', checkinDate, energyBalance: score, timeWindow: resolvedWindow },
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -125,16 +126,18 @@ export interface CurrentEnergyState {
 }
 
 // Fetch today's check-in from DB to get clarity/confidence
-async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null } | null> {
+async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | null; clarity: number | null; confidence: number | null; timeWindow: string | null } | null> {
   // DEV_MODE: Query DB directly
   if (DEV_MODE) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('daily_checkins')
-        .select('outcome, clarity_level, confidence_level, skipped')
+        .select('outcome, clarity_level, confidence_level, skipped, time_window')
         .eq('user_id', DEV_USER.id)
         .eq('checkin_date', today)
+        .order('timestamp', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error || !data) return null;
@@ -142,6 +145,7 @@ async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | nu
         outcome: data.skipped ? null : data.outcome,
         clarity: data.clarity_level,
         confidence: data.confidence_level,
+        timeWindow: data.time_window,
       };
     } catch {
       return null;
@@ -163,6 +167,7 @@ async function fetchTodayCheckin(userId: string): Promise<{ outcome: string | nu
       outcome: row.skipped ? null : row.outcome,
       clarity: row.clarity_level,
       confidence: row.confidence_level,
+      timeWindow: row.time_window || null,
     };
   } catch {
     return null;
@@ -243,6 +248,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
   let clarityLevel: number | null = null;
   let confidenceLevel: number | null = null;
   let checkInOutcome: string | null = null;
+  let checkInTimeWindow: string | null = null;
   let hasCheckIn = false;
 
   if (userId) {
@@ -250,6 +256,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     if (dbCheckin) {
       clarityLevel = dbCheckin.clarity;
       confidenceLevel = dbCheckin.confidence;
+      checkInTimeWindow = dbCheckin.timeWindow;
       // DB is authoritative for outcome if available
       if (dbCheckin.outcome) {
         checkInOutcome = dbCheckin.outcome;
@@ -297,7 +304,7 @@ export async function computeEnergyState(userId?: string): Promise<CurrentEnergy
     // Persist composite score to DB with retry guardrail
     const todayISO = new Date().toISOString().split('T')[0];
     if (hasCheckIn) {
-      persistCompositeScore(todayISO, result.score);
+      persistCompositeScore(todayISO, result.score, checkInTimeWindow || undefined);
     }
 
     // Calendar metrics computed client-side (used by Outer Readiness Brief and Performance Plan)
