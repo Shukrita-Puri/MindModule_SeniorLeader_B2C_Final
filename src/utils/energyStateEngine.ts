@@ -16,18 +16,24 @@ import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableCo
 // ==================== RETRY GUARDRAIL ====================
 const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 6; // max 30 min of retrying
-let pendingScoreUpdate: { checkinDate: string; score: number; retries: number } | null = null;
+let pendingScoreUpdate: { checkinDate: string; score: number; retries: number; timeWindow?: string } | null = null;
 let retryTimerId: ReturnType<typeof setTimeout> | null = null;
 
 async function persistCompositeScore(checkinDate: string, score: number, timeWindow?: string): Promise<void> {
   // DEV_MODE: Write directly to DB without Auth0
   if (DEV_MODE) {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('daily_checkins')
         .update({ energy_balance: score })
         .eq('user_id', DEV_USER.id)
         .eq('checkin_date', checkinDate);
+
+      if (timeWindow) {
+        query = query.eq('time_window', timeWindow);
+      }
+
+      const { error } = await query;
 
       if (error) {
         console.error('[energyStateEngine] DEV_MODE persistCompositeScore error:', error);
@@ -48,7 +54,7 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
   }
 
   const isFirstAttempt = !pendingScoreUpdate || pendingScoreUpdate.checkinDate !== checkinDate;
-  pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0 };
+  pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0, timeWindow };
 
   try {
     // On first attempt, wait up to 3s for token to be ready (avoids unnecessary retry cycle)
@@ -83,7 +89,7 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
       if (retryTimerId) clearTimeout(retryTimerId);
       retryTimerId = setTimeout(() => {
         if (pendingScoreUpdate) {
-          persistCompositeScore(pendingScoreUpdate.checkinDate, pendingScoreUpdate.score);
+          persistCompositeScore(pendingScoreUpdate.checkinDate, pendingScoreUpdate.score, pendingScoreUpdate.timeWindow);
         }
       }, RETRY_INTERVAL_MS);
       console.log('[energyStateEngine] Scheduled retry in 5 min (attempt', pendingScoreUpdate.retries, '/', MAX_RETRIES, ')');
