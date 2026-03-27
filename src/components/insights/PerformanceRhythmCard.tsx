@@ -1002,22 +1002,37 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                         ref={(el) => {
                           if (el && todayIdx >= 0) {
                             // Scroll so current week (Mon containing today) is visible
-                            // Each day column is ~27px (26 + 1 gap)
-                            const dayWidth = 27;
-                            // Find Monday of today's week
                             const todayDate = new Date(allDays[todayIdx].date);
                             const dow = todayDate.getDay();
                             const mondayOffset = dow === 0 ? 6 : dow - 1;
                             const mondayIdx = Math.max(0, todayIdx - mondayOffset);
-                            const scrollTo = mondayIdx * dayWidth;
+                            // On mobile, use dynamic column width; on desktop use fixed 27px
+                            const colWidth = isMobile
+                              ? el.clientWidth / 7
+                              : 27;
+                            const scrollTo = mondayIdx * colWidth;
                             setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
                           }
                         }}
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
-                        <div className="inline-flex gap-1" style={{ minWidth: 'max-content' }}>
+                        <div
+                          className="inline-flex"
+                          style={{
+                            minWidth: 'max-content',
+                            gap: isMobile ? 0 : '4px',
+                          }}
+                        >
                           {allDays.map((day) => (
-                            <div key={day.date} className="flex flex-col items-center gap-1.5 w-[26px]">
+                            <div
+                              key={day.date}
+                              className="flex flex-col items-center gap-1.5"
+                              style={{
+                                width: isMobile ? `calc(${100 / 7}cqw)` : '26px',
+                                minWidth: isMobile ? undefined : '26px',
+                                flexShrink: 0,
+                              }}
+                            >
                               {/* Day header */}
                               <div className="flex flex-col items-center h-[34px] justify-end pb-1">
                                 <span className="text-[9px] text-muted-foreground">{day.dayLabel}</span>
