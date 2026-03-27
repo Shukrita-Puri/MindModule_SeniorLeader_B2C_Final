@@ -1000,15 +1000,23 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                       <div
                         className="overflow-x-auto flex-1 pb-1"
                         ref={(el) => {
-                          if (el && todayIdx >= 0) {
-                            // Scroll so current week (Mon containing today) is visible
+                          if (!el) return;
+                          // On mobile, set each column to 1/7th of container so exactly Mon-Sun fits
+                          if (isMobile) {
+                            const colW = Math.floor(el.clientWidth / 7);
+                            const cols = el.querySelectorAll('[data-day-col]');
+                            cols.forEach((c: Element) => {
+                              (c as HTMLElement).style.width = `${colW}px`;
+                              (c as HTMLElement).style.minWidth = `${colW}px`;
+                            });
+                          }
+                          if (todayIdx >= 0) {
                             const todayDate = new Date(allDays[todayIdx].date);
                             const dow = todayDate.getDay();
                             const mondayOffset = dow === 0 ? 6 : dow - 1;
                             const mondayIdx = Math.max(0, todayIdx - mondayOffset);
-                            // On mobile, use dynamic column width; on desktop use fixed 27px
                             const colWidth = isMobile
-                              ? el.clientWidth / 7
+                              ? Math.floor(el.clientWidth / 7)
                               : 27;
                             const scrollTo = mondayIdx * colWidth;
                             setTimeout(() => { el.scrollLeft = scrollTo; }, 80);
@@ -1026,9 +1034,10 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                           {allDays.map((day) => (
                             <div
                               key={day.date}
+                              data-day-col
                               className="flex flex-col items-center gap-1.5"
                               style={{
-                                width: isMobile ? `calc(${100 / 7}cqw)` : '26px',
+                                width: isMobile ? undefined : '26px',
                                 minWidth: isMobile ? undefined : '26px',
                                 flexShrink: 0,
                               }}
