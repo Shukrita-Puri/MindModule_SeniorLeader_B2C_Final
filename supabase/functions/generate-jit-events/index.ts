@@ -631,14 +631,29 @@ serve(async (req) => {
       // ════════ STAGE 4: Threshold Gate ════════
       const gatePass = finalScore >= 55 && dimA >= 10 && dimB >= 8;
 
+      // Educational non-organizer events must clear a stricter bar with strong external evidence.
+      // Organizers are not dampened and follow normal gate logic.
+      const strongCoachEducationalSignal =
+        coachContext.hasScenario ||
+        coachContext.expressedConcern ||
+        coachContext.hasPendingTool ||
+        coachMemoryMatch ||
+        coachSignalScore >= 15;
+      const strongPhysioEducationalSignal = hrvDeviation !== null && Math.abs(hrvDeviation) >= 15;
+      const educationalHighBar = finalScore >= 75 && dimB >= 8;
+      const educationalOverridePass = !educationalDampening || ((strongCoachEducationalSignal || strongPhysioEducationalSignal) && educationalHighBar);
+
       if (IS_DEV) {
-        const reason = !gatePass
+        const gateReason = !gatePass
           ? `FAIL (${finalScore < 55 ? `score=${finalScore}<55` : ''}${dimA < 10 ? ` A=${dimA}<10` : ''}${dimB < 8 ? ` B=${dimB}<8` : ''})`
           : `PASS (${finalScore}≥55, A=${dimA}≥10, B=${dimB}≥8)`;
-        console.log(`[JIT:Stage4] GATE title="${title}" ${reason}`);
+        const eduReason = !educationalOverridePass
+          ? ` EDU_FAIL (non_organizer_educational without strong coach/physio signal or score<75)`
+          : '';
+        console.log(`[JIT:Stage4] GATE title="${title}" ${gateReason}${eduReason}`);
       }
 
-      if (!gatePass) continue;
+      if (!gatePass || !educationalOverridePass) continue;
 
       // Confidence band check: below 20 = do not surface
       if (confidence.band === 'none') {
