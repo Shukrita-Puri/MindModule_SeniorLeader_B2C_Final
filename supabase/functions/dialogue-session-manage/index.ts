@@ -269,26 +269,29 @@ Deno.serve(async (req) => {
                         role: 'system',
                          content: `You are given ONLY user messages from a coaching conversation. Every message is something the user said — no coach responses are included.
 
-Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of, even if they don't call it a "win."
+Extract genuine tiny wins — actions they took, achievements, growth moments, or things they are proud of.
+
+A win MUST contain an ACTION VERB — the user must describe something they DID, ACHIEVED, CHOSE, REALIZED, or COMPLETED.
 
 DO NOT treat the following as wins:
 - Generic greetings or small talk
 - Questions the user asks without describing an action
+- Complaints, venting, or purely negative statements about current state (e.g., "feeling overwhelmed", "stressed out", "struggling with", "things are tough")
+- Status descriptions without an action verb (e.g., "workload is heavy", "things are busy", "lots going on")
+- Descriptions of problems or challenges without a response to them
 
-DO treat these as wins (be generous — capture implicit achievements):
+DO treat these as wins:
 - Specific actions the user took (e.g., "I stayed calm during the board meeting")
 - Behaviors they're proud of (e.g., "I delegated instead of doing it myself")
 - Realizations or growth moments (e.g., "I noticed I was getting reactive and paused")
 - Reflections on what went well (e.g., "things actually went smoothly today")
 - Moments of self-awareness
 - Choosing differently than usual
-- Showing up despite difficulty
+- Completing or delivering something (e.g., "launched the beta", "shipped the project")
 - Progress on a pattern they've been working on
-- Any moment where the user describes doing something positive, even casually
-- Launching something, completing a project, hitting a milestone
 
 If the user shared a genuine win across multiple messages, consolidate it into one clear statement.
-Err on the side of capturing rather than missing.`
+If no genuine win is present, do NOT force one — it's better to miss than to capture a complaint as a win.`
                       },
                       ...aiMessages,
                     ],
@@ -326,7 +329,9 @@ Err on the side of capturing rather than missing.`
                         try {
                           const args = JSON.parse(tc.function.arguments);
                           const winContent = args.win_content?.trim();
-                          if (winContent && winContent.length >= 10) {
+                          // Quality gate: reject non-wins
+                          const NON_WIN_PATTERNS = /^(feeling\s+(overwhelmed|stressed|anxious|burned|drained|exhausted|frustrated|stuck)|struggling\s+with|things\s+are\s+(tough|hard|busy|heavy)|workload\s+is|lots?\s+going\s+on|i('m|\s+am)\s+(overwhelmed|stressed|anxious|burned|drained|exhausted|frustrated|stuck))/i;
+                          if (winContent && winContent.length >= 10 && !NON_WIN_PATTERNS.test(winContent)) {
                             await supabase.from('tiny_wins').insert({
                               user_id: userId,
                               session_id: sessionId,
