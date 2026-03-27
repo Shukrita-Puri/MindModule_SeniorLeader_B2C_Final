@@ -721,6 +721,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const thisMonday = subDays(today, mondayOffset);
         
         const weekRows: WeekRow[] = [];
+        // Map time_window values to slot keys
+        const twToSlot = (tw: string) => {
+          if (tw === 'morning') return 'morning';
+          if (tw === 'afternoon') return 'midday';
+          return 'evening';
+        };
+        
         for (let w = 0; w < 4; w++) {
           const weekStart = subDays(thisMonday, w * 7);
           const weekEnd = new Date(weekStart);
@@ -736,31 +743,25 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const isFuture = dateStr > todayStr;
             const isToday = dateStr === todayStr;
             
-            // Find check-in for this specific date
-            const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
-            // Find readiness score for this specific date
-            const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
-            const avgScore = dayReadiness.length > 0
-              ? Math.round(dayReadiness.reduce((sum, s) => sum + s.composite_score, 0) / dayReadiness.length)
-              : null;
+            // Find check-ins for this specific date, grouped by time_window
+            const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+            const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
             
-            // Divergence check
-            const outcomeExpectedMap: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
-            const outcome = dayCheckIn?.outcome || null;
-            let divergence = false;
-            if (outcome && avgScore !== null) {
-              const expected = outcomeExpectedMap[outcome] || 50;
-              if (Math.abs(avgScore - expected) >= 20) divergence = true;
+            if (!isFuture) {
+              for (const ci of dayCheckIns) {
+                if (!ci.outcome) continue;
+                const slot = twToSlot(ci.time_window || 'morning');
+                slots[slot].outcome = ci.outcome;
+              }
             }
             
             days.push({
               date: dateStr,
               dayLabel: dayNames[d],
-              outcome: isFuture ? null : outcome,
-              compositeScore: isFuture ? null : avgScore,
-              divergence: isFuture ? false : divergence,
+              dateNum: String(dayDate.getDate()),
               isToday,
               isFuture,
+              slots,
             });
           }
           
