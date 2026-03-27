@@ -89,7 +89,7 @@ const LeftSidebar = () => {
         {/* Features Section */}
         <SidebarGroup>
           <SidebarGroupLabel className={cn("text-primary font-body", hideLabels && "sr-only")}>
-            Features
+            Mental Performance Suite
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
