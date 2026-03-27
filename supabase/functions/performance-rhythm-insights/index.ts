@@ -253,7 +253,7 @@ serve(async (req) => {
     let causeEffectInsight: string | null = null;
 
     // Path A (NEW): Calendar Event Type × HRV Correlation
-    if (hasCalendar && insightCalendarEvents.length >= 3 && wearableData.length >= 5) {
+    if (hasCalendar && insightCalendarEvents.length >= 2 && wearableData.length >= 3) {
       // Calculate 30-day HRV baseline
       const allHRVs = wearableData.map((w: any) => w.hrv as number);
       const hrvBaseline = allHRVs.reduce((a: number, b: number) => a + b, 0) / allHRVs.length;
@@ -718,8 +718,7 @@ serve(async (req) => {
         else weekdayOutcomes.push(ci.outcome);
       }
 
-      // 1. Consecutive same-day patterns (e.g., "3 consecutive Mondays depleted")
-      // Group check-ins by day-of-week, ordered by date
+      // 1. Consecutive same-day patterns — deduplicated by outcome
       const dayDateOutcomes: Map<number, { date: string; outcome: string }[]> = new Map();
       for (const ci of checkIns) {
         if (!ci.created_at || !ci.outcome) continue;
@@ -728,25 +727,39 @@ serve(async (req) => {
         if (!dayDateOutcomes.has(di)) dayDateOutcomes.set(di, []);
         dayDateOutcomes.get(di)!.push({ date: ci.checkin_date, outcome: ci.outcome });
       }
+      // Collect consecutive patterns per outcome, then consolidate days with same outcome
+      const consecutiveByOutcome: Map<string, { days: string[]; minRun: number }> = new Map();
       for (const [di, entries] of dayDateOutcomes) {
-        // Deduplicate by date (keep latest)
         const byDate = new Map<string, string>();
         for (const e of entries) byDate.set(e.date, e.outcome);
         const sorted = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-        // Find consecutive runs of 3+
         let runOutcome = sorted[0]?.[1];
         let runLen = 1;
         for (let i = 1; i < sorted.length; i++) {
           if (sorted[i][1] === runOutcome) { runLen++; }
           else { 
             if (runLen >= 3 && runOutcome) {
-              temporalPatterns.push(`${runLen} consecutive ${DAYS[di]}s you've checked in '${runOutcome}'.`);
+              if (!consecutiveByOutcome.has(runOutcome)) consecutiveByOutcome.set(runOutcome, { days: [], minRun: runLen });
+              const entry = consecutiveByOutcome.get(runOutcome)!;
+              entry.days.push(DAYS[di]);
+              entry.minRun = Math.min(entry.minRun, runLen);
             }
             runOutcome = sorted[i][1]; runLen = 1;
           }
         }
         if (runLen >= 3 && runOutcome) {
-          temporalPatterns.push(`${runLen} consecutive ${DAYS[di]}s you've checked in '${runOutcome}'.`);
+          if (!consecutiveByOutcome.has(runOutcome)) consecutiveByOutcome.set(runOutcome, { days: [], minRun: runLen });
+          const entry = consecutiveByOutcome.get(runOutcome)!;
+          entry.days.push(DAYS[di]);
+          entry.minRun = Math.min(entry.minRun, runLen);
+        }
+      }
+      // Consolidate: "You consistently check in 'steady' on Wed and Thu (3+ consecutive weeks each)"
+      for (const [outcome, data] of consecutiveByOutcome) {
+        if (data.days.length === 1) {
+          temporalPatterns.push(`${data.minRun}+ consecutive ${data.days[0]}s you've checked in '${outcome}'.`);
+        } else {
+          temporalPatterns.push(`You consistently check in '${outcome}' on ${data.days.join(' and ')} (${data.minRun}+ consecutive weeks each).`);
         }
       }
 
@@ -811,15 +824,86 @@ serve(async (req) => {
     if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? "s" : ""}`;
     dataSourceNote += ` over ${daySpan} days`;
 
+    // ── BUILD ROLLING WEEKLY CALENDAR (4 weeks) ──
+    interface WeekDay { date: string; dayLabel: string; outcome: string | null; compositeScore: number | null; divergence: boolean; isToday: boolean; isFuture: boolean; }
+    interface WeekRow { weekLabel: string; startDate: string; days: WeekDay[]; }
+
+    const todayStr = now.toISOString().split("T")[0];
+    const todayDayOfWeek = now.getDay(); // 0=Sun
+    const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(thisMonday.getDate() - mondayOffset);
+    thisMonday.setHours(0, 0, 0, 0);
+
+    const weekRows: WeekRow[] = [];
+    for (let w = 0; w < 4; w++) {
+      const weekStart = new Date(thisMonday);
+      weekStart.setDate(weekStart.getDate() - w * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const fmtDate = (d: Date) => d.toISOString().split("T")[0];
+      const fmtShort = (d: Date) => `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`;
+      const weekLabel = w === 0 ? "This week" : w === 1 ? "Last week" : `${fmtShort(weekStart)}–${fmtShort(weekEnd)}`;
+
+      const days: WeekDay[] = [];
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + d);
+        const dateStr = fmtDate(dayDate);
+        const isFuture = dateStr > todayStr;
+        const isToday = dateStr === todayStr;
+
+        const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
+        const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
+        const avgScore = dayReadiness.length > 0
+          ? Math.round(dayReadiness.reduce((sum: number, s: any) => sum + s.composite_score, 0) / dayReadiness.length)
+          : null;
+
+        const outcome = dayCheckIn?.outcome || null;
+        let divergence = false;
+        if (outcome && avgScore !== null) {
+          const expected = outcomeExpected[outcome] || 50;
+          if (Math.abs(avgScore - expected) >= 20) divergence = true;
+        }
+
+        days.push({
+          date: dateStr,
+          dayLabel: DAYS[d],
+          outcome: isFuture ? null : outcome,
+          compositeScore: isFuture ? null : avgScore,
+          divergence: isFuture ? false : divergence,
+          isToday,
+          isFuture,
+        });
+      }
+      weekRows.push({ weekLabel, startDate: fmtDate(weekStart), days });
+    }
+
+    // Deduplicate temporal patterns against causeEffectInsight
+    let filteredTemporalPatterns = temporalPatterns;
+    if (causeEffectInsight) {
+      // If cause-effect says weekday/weekend or morning/evening, suppress matching temporal pattern
+      const ceWords = causeEffectInsight.toLowerCase();
+      filteredTemporalPatterns = temporalPatterns.filter(tp => {
+        const tpWords = tp.toLowerCase();
+        if (ceWords.includes('weekday') && tpWords.includes('weekday')) return false;
+        if (ceWords.includes('weekend') && tpWords.includes('weekend')) return false;
+        if (ceWords.includes('morning') && tpWords.includes('morning')) return false;
+        if (ceWords.includes('evening') && tpWords.includes('evening')) return false;
+        return true;
+      });
+    }
+
     const result = {
       presenceScore,
       presenceLabel,
       presenceInsight,
       presenceActions: presenceActions.length > 0 ? presenceActions : null,
-      temporalPatterns: temporalPatterns.length > 0 ? temporalPatterns.slice(0, 4) : null,
+      temporalPatterns: filteredTemporalPatterns.length > 0 ? filteredTemporalPatterns.slice(0, 2) : null,
       calendarInsight,
       causeEffectInsight,
       grid,
+      weekRows,
       bestReadinessWindow,
       checkInCount: checkIns.length,
       behaviorLogCount: behaviorLogs.length,
