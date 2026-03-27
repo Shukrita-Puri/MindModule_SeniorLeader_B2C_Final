@@ -124,19 +124,22 @@ serve(async (req) => {
     console.log(`[perf-rhythm] ${userId}: ${checkIns.length}ci ${calendarEvents.length}ev ${behaviorLogs.length}beh ${readinessScores.length}irs ${wearableData.length}hrv`);
 
     // ── BUILD 3×7 GRID ──
+    // Uses stored time_window (not UTC-derived hours) to avoid timezone mismatch
     const grid: HeatmapCell[][] = Array(3).fill(null).map(() =>
       Array(7).fill(null).map(() => ({ outcome: null, compositeScore: null, divergence: false }))
     );
-    const cellLatest: number[][] = Array(3).fill(null).map(() => Array(7).fill(0));
+    const cellLatest: Map<string, number> = new Map();
 
     for (const ci of checkIns) {
-      if (!ci.created_at || !ci.outcome) continue;
-      const d = new Date(ci.created_at);
-      const tw = getTimeWindow(d.getHours());
+      if (!ci.checkin_date || !ci.outcome) continue;
+      const d = new Date(ci.checkin_date);
+      const tw = ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2;
       const di = getDayIndex(d.getDay());
-      const t = d.getTime();
-      if (t > cellLatest[tw][di]) {
-        cellLatest[tw][di] = t;
+      const cellKey = `${tw}-${di}`;
+      const t = ci.created_at ? new Date(ci.created_at).getTime() : 0;
+      const prev = cellLatest.get(cellKey) || 0;
+      if (t > prev) {
+        cellLatest.set(cellKey, t);
         grid[tw][di].outcome = ci.outcome;
       }
     }
@@ -690,7 +693,7 @@ serve(async (req) => {
     const temporalPatterns: string[] = [];
 
     if (checkIns.length >= 7) {
-      // Group check-ins by day-of-week × time-window
+      // Group check-ins by day-of-week × time-window using stored time_window
       const dayTimeOutcomes: Map<string, string[]> = new Map();
       const dayOutcomes: Map<number, string[]> = new Map();
       const timeOutcomes: Map<number, string[]> = new Map();
@@ -698,10 +701,10 @@ serve(async (req) => {
       const weekendOutcomes: string[] = [];
 
       for (const ci of checkIns) {
-        if (!ci.created_at || !ci.outcome) continue;
-        const d = new Date(ci.created_at);
+        if (!ci.checkin_date || !ci.outcome) continue;
+        const d = new Date(ci.checkin_date);
         const di = getDayIndex(d.getDay());
-        const tw = getTimeWindow(d.getHours());
+        const tw = ci.time_window === 'morning' ? 0 : ci.time_window === 'afternoon' ? 1 : 2;
         const isWeekend = di >= 5; // Sat=5, Sun=6
 
         if (!dayOutcomes.has(di)) dayOutcomes.set(di, []);
@@ -718,11 +721,11 @@ serve(async (req) => {
         else weekdayOutcomes.push(ci.outcome);
       }
 
-      // 1. Consecutive same-day patterns — deduplicated by outcome
+      // 1. Consecutive same-day patterns — using stored time_window
       const dayDateOutcomes: Map<number, { date: string; outcome: string }[]> = new Map();
       for (const ci of checkIns) {
-        if (!ci.created_at || !ci.outcome) continue;
-        const d = new Date(ci.created_at);
+        if (!ci.checkin_date || !ci.outcome) continue;
+        const d = new Date(ci.checkin_date);
         const di = getDayIndex(d.getDay());
         if (!dayDateOutcomes.has(di)) dayDateOutcomes.set(di, []);
         dayDateOutcomes.get(di)!.push({ date: ci.checkin_date, outcome: ci.outcome });
