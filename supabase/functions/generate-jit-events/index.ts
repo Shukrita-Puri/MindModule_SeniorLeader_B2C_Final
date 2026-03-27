@@ -524,8 +524,6 @@ serve(async (req) => {
 
       // Dim A: Interpersonal Stakes
       let dimA = scoreDimensionA(title, event.attendees_count || 0);
-      // Educational dampening: halve Dim A for non-organizer educational events
-      if (educationalDampening) dimA = Math.round(dimA / 2);
 
       // Coach signal check for Dim B (calendar inference layer 2)
       let coachSignalScore = 0;
@@ -582,8 +580,6 @@ serve(async (req) => {
       // Dim B: Inner State Relevance
       const dimBResult = scoreDimensionB(title, coachSignalScore, coachSignalBucket);
       let dimB = dimBResult.score;
-      // Educational dampening: halve Dim B for non-organizer educational events
-      if (educationalDampening) dimB = Math.round(dimB / 2);
 
       // Dim C: Urgency
       const dimC = scoreDimensionC(minutesUntil);
@@ -630,29 +626,14 @@ serve(async (req) => {
       // ════════ STAGE 4: Threshold Gate ════════
       const gatePass = finalScore >= 55 && dimA >= 10 && dimB >= 8;
 
-      // Educational non-organizer events must clear a stricter bar with strong external evidence.
-      // Organizers are not dampened and follow normal gate logic.
-      const strongCoachEducationalSignal =
-        coachContext.hasScenario ||
-        coachContext.expressedConcern ||
-        coachContext.hasPendingTool ||
-        coachMemoryMatch ||
-        coachSignalScore >= 15;
-      const strongPhysioEducationalSignal = hrvDeviation !== null && Math.abs(hrvDeviation) >= 15;
-      const educationalHighBar = finalScore >= 75 && dimB >= 8;
-      const educationalOverridePass = !educationalDampening || ((strongCoachEducationalSignal || strongPhysioEducationalSignal) && educationalHighBar);
-
       if (IS_DEV) {
         const gateReason = !gatePass
           ? `FAIL (${finalScore < 55 ? `score=${finalScore}<55` : ''}${dimA < 10 ? ` A=${dimA}<10` : ''}${dimB < 8 ? ` B=${dimB}<8` : ''})`
           : `PASS (${finalScore}≥55, A=${dimA}≥10, B=${dimB}≥8)`;
-        const eduReason = !educationalOverridePass
-          ? ` EDU_FAIL (non_organizer_educational without strong coach/physio signal or score<75)`
-          : '';
-        console.log(`[JIT:Stage4] GATE title="${title}" ${gateReason}${eduReason}`);
+        console.log(`[JIT:Stage4] GATE title="${title}" ${gateReason}`);
       }
 
-      if (!gatePass || !educationalOverridePass) continue;
+      if (!gatePass) continue;
 
       // Confidence band check: below 20 = do not surface
       if (confidence.band === 'none') {
