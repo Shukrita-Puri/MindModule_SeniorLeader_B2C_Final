@@ -824,7 +824,7 @@ serve(async (req) => {
     if (wearableData.length > 0) dataSourceNote += `, ${wearableData.length} HRV reading${wearableData.length !== 1 ? "s" : ""}`;
     dataSourceNote += ` over ${daySpan} days`;
 
-    // ── BUILD ROLLING WEEKLY CALENDAR (4 weeks) ──
+    // ── BUILD FULL MONTH CALENDAR ──
     interface WeekDaySlot { outcome: string | null; }
     interface WeekDay { date: string; dayLabel: string; dateNum: string; isToday: boolean; isFuture: boolean; slots: { morning: WeekDaySlot; midday: WeekDaySlot; evening: WeekDaySlot }; }
     interface WeekRow { weekLabel: string; startDate: string; days: WeekDay[]; }
@@ -836,52 +836,45 @@ serve(async (req) => {
     };
 
     const todayStr = now.toISOString().split("T")[0];
-    const todayDayOfWeek = now.getDay();
-    const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
-    const thisMonday = new Date(now);
-    thisMonday.setDate(thisMonday.getDate() - mondayOffset);
-    thisMonday.setHours(0, 0, 0, 0);
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const DAY_NAMES_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    const weekRows: WeekRow[] = [];
-    for (let w = 0; w < 4; w++) {
-      const weekStart = new Date(thisMonday);
-      weekStart.setDate(weekStart.getDate() - w * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      const fmtDate = (d: Date) => d.toISOString().split("T")[0];
-      const fmtShort = (d: Date) => `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`;
-      const weekLabel = w === 0 ? "This week" : w === 1 ? "Last week" : `${fmtShort(weekStart)}–${fmtShort(weekEnd)}`;
+    const monthDays: WeekDay[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayDate = new Date(currentYear, currentMonth, d);
+      const fmtDate = (dt: Date) => dt.toISOString().split("T")[0];
+      const dateStr = fmtDate(dayDate);
+      const isFuture = dateStr > todayStr;
+      const isToday = dateStr === todayStr;
 
-      const days: WeekDay[] = [];
-      for (let d = 0; d < 7; d++) {
-        const dayDate = new Date(weekStart);
-        dayDate.setDate(dayDate.getDate() + d);
-        const dateStr = fmtDate(dayDate);
-        const isFuture = dateStr > todayStr;
-        const isToday = dateStr === todayStr;
+      const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
 
-        const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
-        
-        if (!isFuture) {
-          const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
-          for (const ci of dayCheckIns) {
-            if (!ci.outcome) continue;
-            const slot = twToSlot(ci.time_window || 'morning');
-            slots[slot].outcome = ci.outcome;
-          }
+      if (!isFuture) {
+        const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+        for (const ci of dayCheckIns) {
+          if (!ci.outcome) continue;
+          const slot = twToSlot(ci.time_window || 'morning');
+          slots[slot].outcome = ci.outcome;
         }
-
-        days.push({
-          date: dateStr,
-          dayLabel: DAYS[d],
-          dateNum: String(dayDate.getDate()),
-          isToday,
-          isFuture,
-          slots,
-        });
       }
-      weekRows.push({ weekLabel, startDate: fmtDate(weekStart), days });
+
+      monthDays.push({
+        date: dateStr,
+        dayLabel: DAY_NAMES_FULL[dayDate.getDay()],
+        dateNum: String(d),
+        isToday,
+        isFuture,
+        slots,
+      });
     }
+
+    const weekRows: WeekRow[] = [{
+      weekLabel: '',
+      startDate: monthDays[0].date,
+      days: monthDays,
+    }];
 
     // Deduplicate temporal patterns against causeEffectInsight
     let filteredTemporalPatterns = temporalPatterns;
