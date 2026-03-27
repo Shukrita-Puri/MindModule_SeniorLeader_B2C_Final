@@ -894,7 +894,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                 {data.presenceInsight && (
                   <p className="text-sm text-foreground/80 leading-relaxed pl-6">{data.presenceInsight}</p>
                 )}
-                {(data.presenceActions?.length || data.temporalPatterns?.length || (data.causeEffectInsight && data.causeEffectInsight.toLowerCase().includes('coach'))) ? (
+                {(data.presenceActions?.length || data.temporalPatterns?.length || data.causeEffectInsight) ? (
                   <ul className="pl-6 space-y-1.5 mt-1">
                     {data.presenceActions?.map((action, i) => (
                       <li key={`a-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
@@ -902,13 +902,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                         <span>{action}</span>
                       </li>
                     ))}
-                    {data.temporalPatterns?.map((pattern, i) => (
+                    {data.temporalPatterns?.slice(0, 2).map((pattern, i) => (
                       <li key={`t-${i}`} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
                         <ArrowRight className="h-3 w-3 text-primary/40 flex-shrink-0 mt-0.5" />
                         <span>{pattern}</span>
                       </li>
                     ))}
-                    {data.causeEffectInsight && data.causeEffectInsight.toLowerCase().includes('coach') && (
+                    {data.causeEffectInsight && (
                       <li className="text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
                         <ArrowRight className="h-3 w-3 text-primary/50 flex-shrink-0 mt-0.5" />
                         <span>{data.causeEffectInsight}</span>
@@ -944,12 +944,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
               </div>
             )}
 
-            {/* 1C — Cause-Effect (merged into How You Show Up if coach-related, otherwise standalone) */}
-            {data.checkInCount >= 7 && data.causeEffectInsight && !data.causeEffectInsight.toLowerCase().includes('coach') && (
-              <div className="p-4 rounded-xl space-y-2 bg-muted/20 border border-border/30">
-                <p className="text-sm text-foreground/85 leading-relaxed">{data.causeEffectInsight}</p>
-              </div>
-            )}
+            {/* 1C removed — cause-effect insights now render inside How You Show Up */}
 
             {/* Insight unlock incentives */}
             {getInsightUnlockMessages().length > 0 && !data.presenceLabel && !data.calendarInsight && !data.causeEffectInsight && (

@@ -834,41 +834,60 @@ const Insights = () => {
               <div className="space-y-4">
                 {/* Stat boxes */}
                 {(() => {
-                  const pressureCount = tinyWinsContent.filter(w => 
+                  // Dynamic dimension counts
+                  const composureCount = tinyWinsContent.filter(w => 
                     w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
                     w.primary_emotion === 'determination' || w.primary_emotion === 'relief'
                   ).length;
+                  const clarityCount = tinyWinsContent.filter(w => 
+                    w.agency_type === 'proactive' || w.agency_type === 'decisive'
+                  ).length;
+                  const resilienceCount = tinyWinsContent.filter(w => 
+                    w.growth_signal === 'resilience' || w.growth_signal === 'boundary'
+                  ).length;
+                  const growthCount = tinyWinsContent.filter(w => 
+                    w.growth_signal === 'learning' || w.growth_signal === 'breakthrough' || w.growth_signal === 'insight' || w.growth_signal === 'progress'
+                  ).length;
+                  
+                  const dimensions = [
+                    { label: 'With Composure', count: composureCount },
+                    { label: 'With Clarity', count: clarityCount },
+                    { label: 'With Resilience', count: resilienceCount },
+                    { label: 'With Growth', count: growthCount },
+                  ].sort((a, b) => b.count - a.count);
+                  
+                  const dominant = dimensions[0];
+                  const dominantCount = dominant.count;
+                  const dominantLabel = dominant.label;
+                  
                   return (
+                    <>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
                         <p className="text-2xl font-headline text-foreground">{tinyWinsInsights.winsCount}</p>
                         <p className="text-[10px] text-muted-foreground tracking-wider uppercase">Wins this month</p>
                       </div>
                        <div className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                        <p className="text-2xl font-headline text-foreground">{pressureCount}</p>
-                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">With composure</p>
+                        <p className="text-2xl font-headline text-foreground">{dominantCount}</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider uppercase">{dominantLabel}</p>
                       </div>
                     </div>
-                  );
-                })()}
 
-                {/* Insight bar */}
-                {tinyWinsInsights.winsCount >= 3 && (() => {
-                  const pressureCount = tinyWinsContent.filter(w => 
-                    w.regulation_level === 'managed' || w.regulation_level === 'composed' ||
-                    w.primary_emotion === 'determination' || w.primary_emotion === 'relief'
-                  ).length;
-                  const pressurePct = Math.round((pressureCount / tinyWinsInsights.winsCount) * 100);
-                  if (pressurePct >= 30) {
-                    return (
-                      <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
-                        <p className="text-sm text-foreground leading-relaxed">
-                          {pressurePct}% of your wins showed active self-regulation — that's your composure pattern.
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
+                    {tinyWinsInsights.winsCount >= 3 && dominantCount > 0 && (() => {
+                      const pct = Math.round((dominantCount / tinyWinsInsights.winsCount) * 100);
+                      if (pct >= 25) {
+                        return (
+                          <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                            <p className="text-sm text-foreground leading-relaxed">
+                              {pct}% of your wins this month showed {dominantLabel.toLowerCase()} — that's your dominant pattern right now.
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    </>
+                  );
                 })()}
 
                 {/* Win list */}
@@ -898,16 +917,20 @@ const Insights = () => {
                       domain = 'Growth'; dotColor = 'bg-amber-500'; tagBg = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
                     }
 
-                    // Secondary tags: Clarity / Renewal / Recalibration (from Performance Patterns definitions)
+                    // Secondary tags from dimension metadata (same definitions as Performance Patterns)
                     const secondaryTags: Array<{ label: string; color: string }> = [];
-                    if (/clarity|focused|cut through|clear thinking|mental precision|sharp/.test(content)) {
+                    // Recalibration = energyRegulation: how you regulate
+                    if (win.regulation_level === 'regulated' || win.regulation_level === 'intentional' ||
+                        win.regulation_level === 'managed' || win.regulation_level === 'composed') {
+                      secondaryTags.push({ label: 'Recalibration', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' });
+                    }
+                    // Clarity = focusRecovery: how you think under load
+                    if (win.agency_type === 'proactive' || win.agency_type === 'decisive') {
                       secondaryTags.push({ label: 'Clarity', color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' });
                     }
-                    if (/recharged|recovered|rested|paused|grounded|renewed|breathe/.test(content)) {
+                    // Renewal = energyRenewal: how you recover
+                    if (win.growth_signal === 'resilience' || win.growth_signal === 'letting-go' || win.growth_signal === 'boundary') {
                       secondaryTags.push({ label: 'Renewal', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' });
-                    }
-                    if (/regulated|recalibrated|managed energy|shifted|adjusted|stayed steady/.test(content)) {
-                      secondaryTags.push({ label: 'Recalibration', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' });
                     }
                     
                     return (
