@@ -549,8 +549,8 @@ serve(async (req) => {
         }
       }
       if (!causeEffectInsight) {
-        const morningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 5 && h < 12 && c.outcome; });
-        const eveningCI = checkIns.filter(c => { const h = new Date(c.created_at).getHours(); return h >= 17 && c.outcome; });
+            const morningCI = checkIns.filter(c => c.time_window === 'morning' && c.outcome);
+            const eveningCI = checkIns.filter(c => c.time_window === 'evening' && c.outcome);
         if (morningCI.length >= 3 && eveningCI.length >= 3) {
           const mPos = morningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / morningCI.length;
           const ePos = eveningCI.filter(c => positiveOutcomes.has(c.outcome!)).length / eveningCI.length;
