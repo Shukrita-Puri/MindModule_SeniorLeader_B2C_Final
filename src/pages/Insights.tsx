@@ -881,7 +881,7 @@ const Insights = () => {
                         return (
                           <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
                             <p className="text-sm text-foreground leading-relaxed">
-                              {pct}% of your wins this month showed {dominantDomain.toLowerCase()} — that's your dominant pattern right now.
+                              {pct}% of your wins this month were {dominantDomain.toLowerCase()} wins — that's your dominant pattern right now.
                             </p>
                           </div>
                         );
