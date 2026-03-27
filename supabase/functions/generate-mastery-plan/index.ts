@@ -990,6 +990,16 @@ async function getPreScoredEvents(
         const minutesUntil = Math.floor((eventStart.getTime() - now.getTime()) / (1000 * 60));
         if (minutesUntil < 0) continue;
 
+        // Educational non-organizer guard (prevents stale misclassification from surfacing)
+        const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
+        const isEducational = EDUCATIONAL_PATTERNS.test((row.event_title || '').toLowerCase());
+        const isOrganizer = matchingEvent?.isOrganizer ?? false;
+        const hasStrongCoachSignal = !!(row.has_coach_context || row.expressed_concern || row.has_pending_tool || row.coach_scenario);
+        const hasStrongPhysioSignal = !!(hrvCorrelations && extractEventType(row.event_title || '') in hrvCorrelations && Math.abs(hrvCorrelations[extractEventType(row.event_title || '')]?.avgHRVDeviation || 0) >= 15);
+        if (isEducational && !isOrganizer && !(hasStrongCoachSignal || hasStrongPhysioSignal) && (row.final_score || 0) < 75) {
+          continue;
+        }
+
         // ═══ TWO-TOUCH ACTION WINDOW FILTER ═══
         // Only include events in valid action windows (touch1 or touch2)
         const actionWindow = getActionWindow(minutesUntil);
@@ -1175,6 +1185,11 @@ function scoreCalendarEventsLegacy(events: CalendarEvent[], skippedTypes: string
 
     // ═══ NOISE FILTER ═══
     if (isNoiseEvent(event.title || '')) continue;
+
+    // Educational non-organizer guard in legacy fallback path
+    const EDUCATIONAL_PATTERNS = /\b(the power of|how to|masterclass|workshop:?|webinar:?|course:?|learn to|introduction to|build momentum|close your round|lessons from|secrets of|art of|guide to|tips for|strategies for|fundamentals of)\b/i;
+    const isEducational = EDUCATIONAL_PATTERNS.test((event.title || '').toLowerCase());
+    if (isEducational && !event.isOrganizer) continue;
 
     // ═══ TWO-TOUCH ACTION WINDOW ═══
     const actionWindow = getActionWindow(minutesUntil);
