@@ -23,11 +23,17 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
   // DEV_MODE: Write directly to DB without Auth0
   if (DEV_MODE) {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('daily_checkins')
         .update({ energy_balance: score })
         .eq('user_id', DEV_USER.id)
         .eq('checkin_date', checkinDate);
+
+      if (timeWindow) {
+        query = query.eq('time_window', timeWindow);
+      }
+
+      const { error } = await query;
 
       if (error) {
         console.error('[energyStateEngine] DEV_MODE persistCompositeScore error:', error);
