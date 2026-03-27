@@ -82,7 +82,7 @@ serve(async (req) => {
     // Fetch all data in parallel
     const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] =
       await Promise.all([
-        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at")
+        sb.from("daily_checkins").select("outcome, energy_balance, checkin_date, created_at, time_window")
           .eq("user_id", userId).gte("checkin_date", thirtyDaysAgoStr).order("created_at", { ascending: false }),
         sb.from("calendar_connections").select("is_active")
           .eq("user_id", userId).eq("is_active", true).maybeSingle(),
@@ -825,11 +825,18 @@ serve(async (req) => {
     dataSourceNote += ` over ${daySpan} days`;
 
     // ── BUILD ROLLING WEEKLY CALENDAR (4 weeks) ──
-    interface WeekDay { date: string; dayLabel: string; outcome: string | null; compositeScore: number | null; divergence: boolean; isToday: boolean; isFuture: boolean; }
+    interface WeekDaySlot { outcome: string | null; }
+    interface WeekDay { date: string; dayLabel: string; dateNum: string; isToday: boolean; isFuture: boolean; slots: { morning: WeekDaySlot; midday: WeekDaySlot; evening: WeekDaySlot }; }
     interface WeekRow { weekLabel: string; startDate: string; days: WeekDay[]; }
 
+    const twToSlot = (tw: string): 'morning' | 'midday' | 'evening' => {
+      if (tw === 'morning') return 'morning';
+      if (tw === 'afternoon') return 'midday';
+      return 'evening';
+    };
+
     const todayStr = now.toISOString().split("T")[0];
-    const todayDayOfWeek = now.getDay(); // 0=Sun
+    const todayDayOfWeek = now.getDay();
     const mondayOffset = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
     const thisMonday = new Date(now);
     thisMonday.setDate(thisMonday.getDate() - mondayOffset);
@@ -853,27 +860,24 @@ serve(async (req) => {
         const isFuture = dateStr > todayStr;
         const isToday = dateStr === todayStr;
 
-        const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
-        const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
-        const avgScore = dayReadiness.length > 0
-          ? Math.round(dayReadiness.reduce((sum: number, s: any) => sum + s.composite_score, 0) / dayReadiness.length)
-          : null;
-
-        const outcome = dayCheckIn?.outcome || null;
-        let divergence = false;
-        if (outcome && avgScore !== null) {
-          const expected = outcomeExpected[outcome] || 50;
-          if (Math.abs(avgScore - expected) >= 20) divergence = true;
+        const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
+        
+        if (!isFuture) {
+          const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+          for (const ci of dayCheckIns) {
+            if (!ci.outcome) continue;
+            const slot = twToSlot(ci.time_window || 'morning');
+            slots[slot].outcome = ci.outcome;
+          }
         }
 
         days.push({
           date: dateStr,
           dayLabel: DAYS[d],
-          outcome: isFuture ? null : outcome,
-          compositeScore: isFuture ? null : avgScore,
-          divergence: isFuture ? false : divergence,
+          dateNum: String(dayDate.getDate()),
           isToday,
           isFuture,
+          slots,
         });
       }
       weekRows.push({ weekLabel, startDate: fmtDate(weekStart), days });
