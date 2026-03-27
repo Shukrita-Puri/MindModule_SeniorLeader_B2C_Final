@@ -18,24 +18,20 @@ interface HeatmapCell {
 interface WeekDay {
   date: string;
   dayLabel: string;
-  outcome: string | null;
-  compositeScore: number | null;
-  divergence: boolean;
+  dateNum: string; // e.g. "24"
   isToday: boolean;
   isFuture: boolean;
+  slots: {
+    morning: { outcome: string | null };
+    midday: { outcome: string | null };
+    evening: { outcome: string | null };
+  };
 }
 
 interface WeekRow {
   weekLabel: string;
   startDate: string;
   days: WeekDay[];
-}
-
-interface BestReadinessWindow {
-  timeWindow: number;
-  day: number;
-  avgScore: number;
-  label: string;
 }
 
 interface PerformanceRhythmData {
