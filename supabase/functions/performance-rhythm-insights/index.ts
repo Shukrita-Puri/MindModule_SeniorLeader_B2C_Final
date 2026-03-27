@@ -853,13 +853,18 @@ serve(async (req) => {
       const isToday = dateStr === todayStr;
 
       const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
+      const slotTimestamps: Record<string, number> = { morning: 0, midday: 0, evening: 0 };
 
       if (!isFuture) {
         const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
         for (const ci of dayCheckIns) {
           if (!ci.outcome) continue;
           const slot = twToSlot(ci.time_window || 'morning');
-          slots[slot].outcome = ci.outcome;
+          const ciTime = ci.created_at ? new Date(ci.created_at).getTime() : 0;
+          if (ciTime > slotTimestamps[slot]) {
+            slotTimestamps[slot] = ciTime;
+            slots[slot].outcome = ci.outcome;
+          }
         }
       }
 
