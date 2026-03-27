@@ -16,7 +16,7 @@ import { getUserHRVBaseline, computeHRVPatternContext } from '@/utils/wearableCo
 // ==================== RETRY GUARDRAIL ====================
 const RETRY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 6; // max 30 min of retrying
-let pendingScoreUpdate: { checkinDate: string; score: number; retries: number } | null = null;
+let pendingScoreUpdate: { checkinDate: string; score: number; retries: number; timeWindow?: string } | null = null;
 let retryTimerId: ReturnType<typeof setTimeout> | null = null;
 
 async function persistCompositeScore(checkinDate: string, score: number, timeWindow?: string): Promise<void> {
@@ -48,7 +48,7 @@ async function persistCompositeScore(checkinDate: string, score: number, timeWin
   }
 
   const isFirstAttempt = !pendingScoreUpdate || pendingScoreUpdate.checkinDate !== checkinDate;
-  pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0 };
+  pendingScoreUpdate = { checkinDate, score, retries: pendingScoreUpdate?.retries ?? 0, timeWindow };
 
   try {
     // On first attempt, wait up to 3s for token to be ready (avoids unnecessary retry cycle)
