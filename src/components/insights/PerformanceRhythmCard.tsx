@@ -18,11 +18,14 @@ interface HeatmapCell {
 interface WeekDay {
   date: string;
   dayLabel: string;
-  outcome: string | null;
-  compositeScore: number | null;
-  divergence: boolean;
+  dateNum: string; // e.g. "24"
   isToday: boolean;
   isFuture: boolean;
+  slots: {
+    morning: { outcome: string | null };
+    midday: { outcome: string | null };
+    evening: { outcome: string | null };
+  };
 }
 
 interface WeekRow {
@@ -30,7 +33,6 @@ interface WeekRow {
   startDate: string;
   days: WeekDay[];
 }
-
 interface BestReadinessWindow {
   timeWindow: number;
   day: number;
@@ -109,7 +111,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const [checkInsRes, calConnRes, calEventsRes, behaviorRes, readinessRes, ritualsRes, dialogueRes, jitRes, wearableRes] = await Promise.all([
           supabase
             .from('daily_checkins')
-            .select('outcome, energy_balance, checkin_date, created_at')
+            .select('outcome, energy_balance, checkin_date, created_at, time_window')
             .eq('user_id', effectiveUserId)
             .gte('checkin_date', thirtyDaysAgo)
             .order('created_at', { ascending: false }),
@@ -725,6 +727,13 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
         const thisMonday = subDays(today, mondayOffset);
         
         const weekRows: WeekRow[] = [];
+        // Map time_window values to slot keys
+        const twToSlot = (tw: string) => {
+          if (tw === 'morning') return 'morning';
+          if (tw === 'afternoon') return 'midday';
+          return 'evening';
+        };
+        
         for (let w = 0; w < 4; w++) {
           const weekStart = subDays(thisMonday, w * 7);
           const weekEnd = new Date(weekStart);
@@ -740,31 +749,25 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
             const isFuture = dateStr > todayStr;
             const isToday = dateStr === todayStr;
             
-            // Find check-in for this specific date
-            const dayCheckIn = checkIns.find(c => c.checkin_date === dateStr);
-            // Find readiness score for this specific date
-            const dayReadiness = readinessScores.filter(s => s.score_date === dateStr);
-            const avgScore = dayReadiness.length > 0
-              ? Math.round(dayReadiness.reduce((sum, s) => sum + s.composite_score, 0) / dayReadiness.length)
-              : null;
+            // Find check-ins for this specific date, grouped by time_window
+            const dayCheckIns = checkIns.filter(c => c.checkin_date === dateStr);
+            const slots = { morning: { outcome: null as string | null }, midday: { outcome: null as string | null }, evening: { outcome: null as string | null } };
             
-            // Divergence check
-            const outcomeExpectedMap: Record<string, number> = { focused: 75, steady: 60, scattered: 45, drained: 30, overwhelmed: 25 };
-            const outcome = dayCheckIn?.outcome || null;
-            let divergence = false;
-            if (outcome && avgScore !== null) {
-              const expected = outcomeExpectedMap[outcome] || 50;
-              if (Math.abs(avgScore - expected) >= 20) divergence = true;
+            if (!isFuture) {
+              for (const ci of dayCheckIns) {
+                if (!ci.outcome) continue;
+                const slot = twToSlot(ci.time_window || 'morning');
+                slots[slot].outcome = ci.outcome;
+              }
             }
             
             days.push({
               date: dateStr,
               dayLabel: dayNames[d],
-              outcome: isFuture ? null : outcome,
-              compositeScore: isFuture ? null : avgScore,
-              divergence: isFuture ? false : divergence,
+              dateNum: String(dayDate.getDate()),
               isToday,
               isFuture,
+              slots,
             });
           }
           
@@ -977,64 +980,60 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
                   </span>
                   
                   {data.weekRows ? (
-                    <div className="space-y-3">
-                      {/* Day header row */}
-                      <div className="flex items-center">
-                        <div className="w-20" />
-                        {DAYS.map(day => (
-                          <div key={day} className="flex-1 text-center text-xs text-muted-foreground font-medium">
-                            {day}
+                    <div className="overflow-x-auto snap-x snap-mandatory pb-2 -mx-2 px-2">
+                      <div className="min-w-[480px] space-y-4">
+                        {data.weekRows.map((week, wIdx) => (
+                          <div key={wIdx} className="snap-start">
+                            <p className="text-[10px] text-muted-foreground font-medium mb-1.5">{week.weekLabel}</p>
+                            {/* Day + date header */}
+                            <div className="flex items-end mb-1">
+                              <div className="w-16" />
+                              {week.days.map((day, dIdx) => (
+                                <div key={dIdx} className={cn('flex-1 text-center', day.isToday && 'font-bold')}>
+                                  <div className="text-[10px] text-muted-foreground">{day.dayLabel}</div>
+                                  <div className={cn('text-[10px]', day.isToday ? 'text-primary' : 'text-muted-foreground/70')}>{day.dateNum}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* 3 time-window rows */}
+                            {(['morning', 'midday', 'evening'] as const).map((tw) => (
+                              <div key={tw} className="flex items-center mb-1">
+                                <div className="w-16 text-[10px] text-muted-foreground pr-2 text-right capitalize">
+                                  {tw === 'midday' ? 'Midday' : tw.charAt(0).toUpperCase() + tw.slice(1)}
+                                </div>
+                                {week.days.map((day, dIdx) => {
+                                  const slot = day.slots[tw];
+                                  const hasOutcome = slot.outcome && !day.isFuture;
+                                  const style = hasOutcome ? stateColors[slot.outcome || ''] : null;
+                                  
+                                  return (
+                                    <div key={`${wIdx}-${tw}-${dIdx}`} className="flex-1 px-0.5">
+                                      <div
+                                        className={cn(
+                                          'h-6 rounded-full flex items-center justify-center transition-all duration-300 relative overflow-hidden',
+                                          day.isFuture
+                                            ? 'bg-muted/10 border border-dashed border-border/20'
+                                            : hasOutcome
+                                              ? 'shadow-sm'
+                                              : 'border border-dotted border-border/30 bg-transparent',
+                                          day.isToday && !day.isFuture && 'ring-1 ring-primary/30'
+                                        )}
+                                        style={hasOutcome && style ? {
+                                          boxShadow: `0 2px 6px ${style.glow}`,
+                                        } : undefined}
+                                      >
+                                        {hasOutcome && style && (
+                                          <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>
-                      
-                      {/* Week rows */}
-                      {data.weekRows.map((week, wIdx) => (
-                        <div key={wIdx}>
-                          <div className="flex items-center mb-1">
-                            <div className="w-20 text-[10px] text-muted-foreground pr-3 text-right font-medium">
-                              {week.weekLabel}
-                            </div>
-                            {week.days.map((day, dIdx) => {
-                              const hasOutcome = day.outcome && !day.isFuture;
-                              const style = hasOutcome ? stateColors[day.outcome || ''] : null;
-                              
-                              return (
-                                <div key={`${wIdx}-${dIdx}`} className="flex-1 px-0.5">
-                                  <div
-                                    className={cn(
-                                      'aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden',
-                                      day.isFuture
-                                        ? 'bg-muted/10 border border-dashed border-border/20'
-                                        : hasOutcome
-                                          ? 'shadow-lg'
-                                          : 'bg-gradient-to-br from-muted/40 to-muted/20 border border-white/5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]',
-                                      day.divergence && 'ring-2 ring-amber-400/60',
-                                      day.isToday && 'ring-2 ring-primary/40'
-                                    )}
-                                    style={hasOutcome && style ? {
-                                      boxShadow: `0 4px 12px ${style.glow}, inset 0 1px 2px rgba(255,255,255,0.2)`,
-                                    } : undefined}
-                                  >
-                                    {hasOutcome && style && (
-                                      <>
-                                        <div className={cn('absolute inset-0 bg-gradient-to-br', style.gradient)} />
-                                        <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent" />
-                                        {day.compositeScore !== null && (
-                                          <span className="relative z-10 text-[10px] font-bold text-white/90 drop-shadow-sm flex items-center gap-0.5">
-                                            {day.compositeScore}
-                                            {day.divergence && <AlertTriangle className="w-2.5 h-2.5 text-amber-200" />}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   ) : (
                     /* Fallback to legacy composite grid */
