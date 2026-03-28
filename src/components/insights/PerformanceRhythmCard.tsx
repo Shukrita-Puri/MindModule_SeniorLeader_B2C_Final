@@ -869,7 +869,7 @@ const PerformanceRhythmCard = ({ userId }: PerformanceRhythmCardProps) => {
           </span>
           <InsightInfoModal
             title="Your Readiness Rhythm"
-            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your inner readiness with outer circumstances — calendar events, time of day, behaviors — to surface patterns you can't see without the aggregation."
+            explanation="When you're at your sharpest and what your outer world is doing to your inner state. This card connects your decision readiness with outer circumstances — calendar events, time of day, behaviors — to surface patterns you can't see without the aggregation."
           />
         </div>
       </CardHeader>

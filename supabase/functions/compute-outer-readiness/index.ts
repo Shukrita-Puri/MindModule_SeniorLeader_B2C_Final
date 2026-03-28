@@ -866,7 +866,7 @@ function buildDataSources(
   coachUsed: boolean,
 ): string[] {
   const sources: string[] = [];
-  sources.push('inner readiness score');
+  sources.push('decision readiness score');
   if (calendarState === 'active') sources.push('calendar');
   else if (calendarState === 'connected_no_events') sources.push('calendar (no upcoming events)');
   if (archetype) sources.push('archetype');

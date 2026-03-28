@@ -1,7 +1,7 @@
 /**
  * Energy State Scoring System — Cleaned (v4)
  * 
- * Inner Readiness scoring logic lives in the `compute-inner-readiness` edge function.
+ * Decision Readiness scoring logic lives in the `compute-inner-readiness` edge function.
  * Outer Readiness (Strategic Theme) logic lives in the `compute-outer-readiness` edge function.
  * 
  * This file retains ONLY:

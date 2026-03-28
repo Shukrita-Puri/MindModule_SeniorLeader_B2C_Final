@@ -48,7 +48,7 @@ Generate a 3-4 sentence trend analysis that:
 4. References their growth priority and how it's showing up
 
 Meta-Skill Context:
-Self-Regulation mastery includes: emotional awareness, focus, discipline, mindfulness, emotional regulation, attention management, task switching. Taught through Pause, Flow, and Renewal practices as Daily Rituals.
+Self-Regulation mastery includes: self-awareness, focus, discipline, mindfulness, emotional regulation, attention management, task switching. Taught through Pause, Flow, and Renewal practices as Daily Rituals.
 
 Tone: Strategic, pattern-focused, executive-appropriate
 

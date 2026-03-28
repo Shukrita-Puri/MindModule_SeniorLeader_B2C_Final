@@ -220,7 +220,7 @@ const ExecutiveHome = () => {
                   </div>
                   <MetricInfoModal
                     title="Your Proactive Mastery Plan"
-                    description="Your Proactive Mastery Plan is built from your Inner Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
+                    description="Your Proactive Mastery Plan is built from your Decision Readiness Score and Outer Readiness Brief — what your system needs right now, matched to the shape of your day. Each session is designed to close the gap between where you are and where the day needs you to be."
                   />
                 </div>
               </section>

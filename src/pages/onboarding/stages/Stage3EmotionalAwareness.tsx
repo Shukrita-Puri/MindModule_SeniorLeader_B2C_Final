@@ -23,7 +23,7 @@ export default function Stage3EmotionalAwareness() {
     { 
       value: "notice_early", 
       label: "I notice it early and can name what I'm feeling",
-      description: "I'm aware of my emotional state as it shifts"
+      description: "I'm aware of my internal state as it shifts"
     },
     { 
       value: "physical_signs", 

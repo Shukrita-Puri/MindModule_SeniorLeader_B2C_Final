@@ -27,7 +27,7 @@ const calculateWeightedProgress = (stageIndex: number): number => {
   const weights = {
     0: 0,    // Welcome - 0%
     1: 10,   // Identity - 10%
-    2: 25,   // Emotional Awareness - 25%
+    2: 25,   // Self-Awareness - 25%
     3: 40,   // Stress Response - 40%
     4: 55,   // Recovery Patterns - 55%
     5: 70,   // Mental Clarity - 70%
