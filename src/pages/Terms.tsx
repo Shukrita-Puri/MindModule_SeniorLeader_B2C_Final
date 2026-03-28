@@ -122,7 +122,7 @@ const Terms = () => {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>The AI Coach is <strong>not</strong> a licensed therapist, psychologist, psychiatrist, counsellor, or medical professional</li>
               <li>The Service does <strong>not</strong> provide medical advice, mental health treatment, diagnosis, or therapy</li>
-              <li>The Service is designed for professional development, performance optimisation, and general wellness only</li>
+              <li>The Service is designed for professional development, performance optimisation, and general performance enhancement only</li>
               <li><strong>If you are experiencing a medical or mental health emergency, contact emergency services immediately</strong></li>
               <li>Always seek advice from qualified healthcare providers for medical or mental health concerns</li>
               <li>Do not use the Service as a substitute for professional medical or psychological care</li>

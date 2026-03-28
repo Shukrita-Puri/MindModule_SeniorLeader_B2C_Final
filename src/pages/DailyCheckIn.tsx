@@ -243,7 +243,7 @@ const DailyCheckIn = () => {
           <h1 className="text-4xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Emotional & Cognitive State</p>
+          <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Mental Sharpness State</p>
           <p className="text-base font-subheadline italic text-muted-foreground">
             Awareness First. Action Follows.
           </p>

@@ -45,7 +45,7 @@ const WellnessCard = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp size={20} className="text-hyper-coral" />
-            Today's Wellness
+            Today's Performance Vitals
             {checkInData && (
               <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
                 <Calendar size={12} />

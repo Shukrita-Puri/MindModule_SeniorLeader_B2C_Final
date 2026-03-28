@@ -39,7 +39,7 @@ const PoweredByAI = () => {
             <p className="mb-4">The following features within Mind Module are powered by AI:</p>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li><strong>AI Self-Mastery Coach</strong> — Real-time conversational coaching that adapts to your context, patterns, and goals</li>
-              <li><strong>Daily Brief &amp; Energy Insights</strong> — AI-generated summaries of your inner readiness state based on check-in data, calendar context, and wearable signals</li>
+              <li><strong>Daily Brief &amp; Energy Insights</strong> — AI-generated summaries of your decision readiness state based on check-in data, calendar context, and wearable signals</li>
               <li><strong>Proactive Mastery Plan</strong> — Personalised practice recommendations generated based on your performance profile and behavioural patterns</li>
               <li><strong>State Pattern Analysis</strong> — AI-driven identification of recurring patterns in your energy, clarity, and confidence over time</li>
               <li><strong>Nudge Recommendations</strong> — Context-aware micro-interventions timed to your schedule and state</li>

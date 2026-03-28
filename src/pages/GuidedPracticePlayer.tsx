@@ -646,7 +646,7 @@ const practiceData: Record<string, PracticeData> = {
       "Complete mental focus and clarity",
       "Heightened physical strength and pain tolerance",
       "Powerful posture and commanding presence",
-      "Primal, empowered emotional state",
+      "Primal, empowered mental state",
       "Complete absence of doubt or hesitation",
       "Significantly increased confidence (with regular practice)",
       "Enhanced physical power and endurance",

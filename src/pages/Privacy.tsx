@@ -45,7 +45,7 @@ const Privacy = () => {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>Professional role and industry</li>
               <li>Self-reported performance preferences and goals</li>
-              <li>Daily self-assessment responses (emotional state, cognitive clarity, confidence levels)</li>
+              <li>Daily self-assessment responses (mental sharpness, cognitive clarity, confidence levels)</li>
             </ul>
 
             <h3 className="text-xl font-subheadline text-foreground mb-2">1.3 Usage and Interaction Data</h3>
@@ -122,7 +122,7 @@ const Privacy = () => {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>The AI Coach is <strong>not</strong> a licensed therapist, psychologist, psychiatrist, counsellor, or medical professional</li>
               <li>The Service does <strong>not</strong> provide medical advice, mental health treatment, diagnosis, or therapy</li>
-              <li>The Service is designed for professional development, performance optimisation, and general wellness only</li>
+              <li>The Service is designed for professional development, performance optimisation, and general performance enhancement only</li>
               <li><strong>If you are experiencing a medical or mental health emergency, contact emergency services immediately</strong></li>
               <li>Always seek advice from qualified healthcare providers for medical or mental health concerns</li>
               <li>Do not use the Service as a substitute for professional medical or psychological care</li>
@@ -144,7 +144,7 @@ const Privacy = () => {
               <li>Should not be relied upon for health-related decisions</li>
             </ul>
             <p>
-              Wearable data (HRV) is used solely for performance context and wellness insights, not for medical purposes. If you have health concerns, consult a qualified healthcare professional.
+              Wearable data (HRV) is used solely for performance context and performance insights, not for medical purposes. If you have health concerns, consult a qualified healthcare professional.
             </p>
           </section>
 

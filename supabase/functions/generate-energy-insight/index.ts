@@ -45,7 +45,7 @@ Recent Pattern (last 7 days):
 - Practices used: ${context.recentPractices.slice(0, 3).map((p: any) => p.type).join(', ') || 'none yet'}
 
 Your Role:
-You're teaching Self-Regulation through Pause, Flow, and Renewal practices. Self-Regulation includes: emotional awareness, focus, discipline, mindfulness, attention management, emotional regulation, and task switching.
+You're teaching Self-Regulation through Pause, Flow, and Renewal practices. Self-Regulation includes: self-awareness, focus, discipline, mindfulness, attention management, emotional regulation, and task switching.
 
 Time-Specific Language Rules:
 - Morning (6-12): "seize window", "peak window available", "prepare for day ahead"

@@ -1,5 +1,5 @@
 /**
- * Energy State Engine — v2.0 (Inner Readiness)
+ * Energy State Engine — v2.0 (Decision Readiness)
  * Thin client orchestrator: gathers inputs, calls backend for scoring.
  * No proprietary scoring logic lives here.
  */

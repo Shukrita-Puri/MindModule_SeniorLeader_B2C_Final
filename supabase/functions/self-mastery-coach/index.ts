@@ -513,7 +513,7 @@ You operate at the intersection of ancient wisdom, high-performer practices, neu
 
 ## 1. CONTEXT AWARENESS
 You receive dynamic context about the user's current state, recent patterns, and upcoming demands:
-- **Inner Readiness Score** (0–100) + tier (depleted / managing / strong / peak)
+- **Decision Readiness Score** (0–100) + tier (depleted / managing / strong / peak)
 - **Outer Readiness Brief** theme (strategic orientation for the day)
 - **Calendar events** (upcoming high-stakes moments, time until event)
 - **Recent practices** completed (Pause / Flow / Recharge from Reset Studio)
@@ -3045,7 +3045,7 @@ const buildSystemPrompt = (context?: CoachContext, flowType?: string, entryPoint
     // Today's State
     if (context.todayState) {
       lines.push('\n## Today\'s State');
-      lines.push(`- **Inner Readiness Score**: ${context.todayState.score}/100 (Tier: ${context.todayState.tier})`);
+      lines.push(`- **Decision Readiness Score**: ${context.todayState.score}/100 (Tier: ${context.todayState.tier})`);
       if (context.todayState.outcome) lines.push(`- **Check-in Outcome**: ${context.todayState.outcome}`);
       if (context.todayState.contextStatement) lines.push(`- **Context**: ${context.todayState.contextStatement}`);
 
