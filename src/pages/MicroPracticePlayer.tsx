@@ -6,7 +6,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
