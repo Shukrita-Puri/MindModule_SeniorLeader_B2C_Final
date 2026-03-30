@@ -243,7 +243,7 @@ const DailyCheckIn = () => {
           <h1 className="text-4xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Mental Sharpness State</p>
+          <p className="text-base font-semibold uppercase tracking-widest text-foreground/70 font-body">Mental Sharpness State</p>
           <p className="text-base font-subheadline italic text-muted-foreground">
             Awareness First. Action Follows.
           </p>
@@ -254,15 +254,6 @@ const DailyCheckIn = () => {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 pb-32">
-        {/* Question Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-xl md:text-2xl font-headline text-foreground tracking-tight mb-2">
-            How are you feeling right now?
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed font-body">
-            Just your first instinct. Don't overthink it.
-          </p>
-        </div>
 
         {/* Catalog Carousel */}
         <div

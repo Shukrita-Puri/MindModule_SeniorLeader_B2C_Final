@@ -926,7 +926,8 @@ const GuidedPracticePlayer = () => {
         
         // Update ritual completion if part of recommended plan or queue
         if (shouldTrackRitual) {
-          await updateRitualCompletion('guided_practice', id);
+          const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+          await updateRitualCompletion('guided_practice', id, queue || undefined);
         }
       }
     } catch (error) {
