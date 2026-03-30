@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
-import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain } from '@/utils/nativeAuth';
+import { isNativeAuthCompleted, clearNativeAuthCompleted, getNativeTokens, clearNativeTokens, decodeJwtPayload, isNativeiOS, clearNativeLoginInProgress, getSanitisedAuth0Domain, refreshNativeTokens, hasRecoverableNativeSession } from '@/utils/nativeAuth';
 import { activateLogoutGuard } from '@/utils/logoutGuard';
 import { clearTokenCache } from '@/services/authTokenService';
 import { toast } from 'sonner';
 
-// Extend window type for global auth client
 declare global {
   interface Window {
     __auth0Client?: {
@@ -15,7 +14,6 @@ declare global {
   }
 }
 
-// Custom user type that includes subscription metadata
 interface AppUser {
   id: string;
   email: string;
@@ -50,7 +48,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  // Dev mode: return mock data immediately
   if (DEV_MODE) {
     return (
       <AuthContext.Provider value={{ 
@@ -64,17 +61,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       </AuthContext.Provider>
     );
   }
-
-  // Production mode: use Auth0
   return <Auth0AuthProvider>{children}</Auth0AuthProvider>;
 };
 
-// Separate component for Auth0 logic to avoid hook rules issues
 const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { user: auth0User, isLoading, logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [nativeAuthed, setNativeAuthed] = useState(false);
+  // Track whether initial auth resolution is complete (SDK loaded + native hydration attempted)
+  const [authResolved, setAuthResolved] = useState(false);
   const syncAttempted = useRef(false);
   const nativeHydrationAttempted = useRef(false);
 
@@ -94,6 +90,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Native auth hydration: when SDK doesn't pick up tokens, use native token store
   useEffect(() => {
     if (isLoading) return;
+
     if (isAuthenticated) {
       // SDK caught up — clear native flags if present
       if (isNativeAuthCompleted()) {
@@ -102,106 +99,109 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         clearNativeTokens();
         setNativeAuthed(false);
       }
+      setAuthResolved(true);
       return;
     }
-    if (nativeHydrationAttempted.current) return;
-    if (!isNativeAuthCompleted()) return;
+
+    if (nativeHydrationAttempted.current) {
+      // Already attempted — mark resolved if we didn't find anything
+      if (!nativeAuthed) setAuthResolved(true);
+      return;
+    }
+
+    // Check for native auth completed flag OR recoverable native session
+    const hasNativeCompleted = isNativeAuthCompleted();
+    const hasRecoverable = hasRecoverableNativeSession();
+
+    if (!hasNativeCompleted && !hasRecoverable) {
+      console.log('[useAuth] No native auth state found, marking resolved');
+      setAuthResolved(true);
+      return;
+    }
 
     nativeHydrationAttempted.current = true;
-    const tokens = getNativeTokens();
-    if (!tokens) {
-      console.warn('[useAuth] Native auth flag set but no valid tokens found, clearing');
-      clearNativeAuthCompleted();
-      return;
-    }
 
-    console.log('[useAuth] 🔄 Hydrating auth from native tokens...');
-    const payload = decodeJwtPayload(tokens.id_token);
-    if (!payload) {
-      console.error('[useAuth] Failed to decode native id_token, clearing');
-      clearNativeAuthCompleted();
-      clearNativeTokens();
-      return;
-    }
-
-    // Expose native token via global auth client so API calls work
-    // Includes refresh logic: if access token is near expiry and refresh_token exists,
-    // attempt to get a new one from Auth0's /oauth/token endpoint.
-    window.__auth0Client = {
-      getAccessTokenSilently: async () => {
-        // Check if current token is still valid (with 60s buffer)
-        const now = Math.floor(Date.now() / 1000);
-        const currentTokens = getNativeTokens();
-        if (currentTokens && currentTokens.expires_at > now + 60) {
-          return currentTokens.access_token;
-        }
-        // Token expired or expiring — try refresh
-        const storedRaw = localStorage.getItem('native_auth_tokens');
-        if (storedRaw) {
-          try {
-            const stored = JSON.parse(storedRaw);
-            if (stored.refresh_token) {
-              console.log('[useAuth] 🔄 Native token expired, refreshing...');
-              const domain = getSanitisedAuth0Domain();
-              const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-              const resp = await fetch(`https://${domain}/oauth/token`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  grant_type: 'refresh_token',
-                  client_id: clientId,
-                  refresh_token: stored.refresh_token,
-                }),
-              });
-              if (resp.ok) {
-                const data = await resp.json();
-                // Update stored tokens
-                const entry = {
-                  access_token: data.access_token,
-                  id_token: data.id_token || stored.id_token,
-                  refresh_token: data.refresh_token || stored.refresh_token,
-                  expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
-                };
-                localStorage.setItem('native_auth_tokens', JSON.stringify(entry));
-                console.log('[useAuth] ✅ Native token refreshed');
-                return data.access_token;
-              } else {
-                console.warn('[useAuth] Native token refresh failed:', resp.status);
-              }
-            }
-          } catch (e) {
-            console.warn('[useAuth] Native token refresh error:', e);
-          }
-        }
-        // Fallback: return whatever we have (may be stale)
-        return tokens.access_token;
-      },
-    };
-
-    // Create user from JWT claims
-    const nativeUser: AppUser = {
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name || payload.nickname,
-      picture: payload.picture,
-      subscription_status: 'none',
-      subscription_plan: undefined,
-    };
-    setAppUser(nativeUser);
-    setNativeAuthed(true);
-    console.log('[useAuth] ✅ Native auth hydration complete, user:', payload.sub);
-
-    // Now attempt profile sync with native token
     (async () => {
+      let tokens = getNativeTokens();
+
+      // If tokens exist but access_token is expired, attempt refresh first
+      if (tokens && tokens.expires_at < Math.floor(Date.now() / 1000)) {
+        console.log('[useAuth] Native access token expired, attempting refresh...');
+        const refreshed = await refreshNativeTokens();
+        if (refreshed) {
+          tokens = getNativeTokens();
+        } else {
+          console.warn('[useAuth] Native token refresh failed, clearing auth state');
+          clearNativeAuthCompleted();
+          clearNativeTokens();
+          setAuthResolved(true);
+          return;
+        }
+      }
+
+      if (!tokens) {
+        console.warn('[useAuth] Native auth flag set but no valid tokens found, clearing');
+        clearNativeAuthCompleted();
+        setAuthResolved(true);
+        return;
+      }
+
+      console.log('[useAuth] 🔄 Hydrating auth from native tokens...');
+      const payload = decodeJwtPayload(tokens.id_token);
+      if (!payload) {
+        console.error('[useAuth] Failed to decode native id_token, clearing');
+        clearNativeAuthCompleted();
+        clearNativeTokens();
+        setAuthResolved(true);
+        return;
+      }
+
+      // Expose native token via global auth client with built-in refresh
+      window.__auth0Client = {
+        getAccessTokenSilently: async () => {
+          const now = Math.floor(Date.now() / 1000);
+          const currentTokens = getNativeTokens();
+          if (currentTokens && currentTokens.expires_at > now + 60) {
+            return currentTokens.access_token;
+          }
+          // Token expired or expiring — try refresh
+          const refreshed = await refreshNativeTokens();
+          if (refreshed) {
+            const freshTokens = getNativeTokens();
+            if (freshTokens) return freshTokens.access_token;
+          }
+          // Fallback: return whatever we have (may be stale)
+          console.warn('[useAuth] Could not refresh native token, returning possibly stale token');
+          return currentTokens?.access_token || tokens!.access_token;
+        },
+      };
+
+      // Create user from JWT claims
+      const nativeUser: AppUser = {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name || payload.nickname,
+        picture: payload.picture,
+        subscription_status: 'none',
+        subscription_plan: undefined,
+      };
+      setAppUser(nativeUser);
+      setNativeAuthed(true);
+      setAuthResolved(true);
+      console.log('[useAuth] ✅ Native auth hydration complete, user:', payload.sub);
+
+      // Now attempt profile sync with native token
       try {
         setSyncing(true);
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const freshTokens = getNativeTokens();
+        const tokenToUse = freshTokens?.access_token || tokens.access_token;
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/sync-profile`,
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${tokens.access_token}`,
+              'Authorization': `Bearer ${tokenToUse}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -258,24 +258,20 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const currentSub = auth0User.sub;
 
-      // Detect mid-session user switch: if Auth0 silently refreshed and
-      // returned a different identity, reset sync gate so we re-sync.
       if (syncAttempted.current && currentSub && lastSyncedSub.current && currentSub !== lastSyncedSub.current) {
         console.warn('[useAuth] ⚠️ Auth0 user changed mid-session:', lastSyncedSub.current, '→', currentSub);
         syncAttempted.current = false;
       }
 
-      // Only attempt sync once per identity
       if (syncAttempted.current) return;
       syncAttempted.current = true;
       
       setSyncing(true);
       
       try {
-        // Get access token for server-side verification
         const token = await getAccessTokenSilently();
 
-        // TIER 4: Client-side token validation — verify token sub matches Auth0 SDK user
+        // TIER 4: Client-side token validation
         try {
           const tokenParts = token.split('.');
           if (tokenParts.length === 3) {
@@ -286,7 +282,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               syncAttempted.current = false;
               setSyncing(false);
               toast.error('Session mismatch detected. Please log in again.');
-              // Force federated logout to clear stale session
               await signOutFederated();
               return;
             }
@@ -295,7 +290,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.warn('[useAuth] Token decode check failed (non-fatal):', decodeErr);
         }
 
-        // Call sync-profile edge function (server-side upsert)
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/sync-profile`,
@@ -306,7 +300,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              // Client hints as fallback only — server verifies identity from JWT
               email: auth0User.email,
               name: auth0User.name,
               picture: auth0User.picture,
@@ -320,7 +313,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.log('[useAuth] ✅ Profile synced to Supabase:', profile.id);
           lastSyncedSub.current = currentSub || profile.id;
 
-          // Use Supabase profile as source of truth for app user
           const mappedUser: AppUser = {
             id: profile.id,
             email: profile.email,
@@ -345,13 +337,11 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setAppUser(mappedUser);
         } else {
-          // Sync failed — still allow auth but log error clearly
           const errorBody = await response.text();
           console.error('[useAuth] ⚠️ Profile sync failed:', response.status, errorBody);
           console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
-          syncAttempted.current = false; // Allow retry on next load
+          syncAttempted.current = false;
 
-          // Fallback: use Auth0 data directly
           setAppUser({
             id: auth0User.sub!,
             email: auth0User.email!,
@@ -366,9 +356,8 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.error('[useAuth] ⚠️ Profile sync error:', error);
         console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
-        syncAttempted.current = false; // Allow retry on next load
+        syncAttempted.current = false;
 
-        // Fallback: use Auth0 data directly
         setAppUser({
           id: auth0User.sub!,
           email: auth0User.email!,
@@ -448,6 +437,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     syncAttempted.current = false;
     nativeHydrationAttempted.current = false;
     setNativeAuthed(false);
+    setAuthResolved(false);
     clearNativeTokens();
     clearNativeAuthCompleted();
     clearNativeLoginInProgress();
@@ -455,11 +445,10 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     delete window.__auth0Client;
   };
 
-  // Normal sign-out: clears app + Auth0 session only, does NOT sign out of Google
+  // Normal sign-out
   const signOut = async () => {
     cleanupLocalState();
 
-    // Native iOS: local logout + clear Auth0 server session (no IdP logout)
     if (isNativeiOS()) {
       try {
         await logout({ openUrl: false });
@@ -481,7 +470,6 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // Web: logout from Auth0 only (no federated flag = Google session preserved)
     await logout({
       logoutParams: {
         returnTo: window.location.origin,
@@ -489,7 +477,7 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  // Federated logout — also signs out of upstream IdP (Google). Used only for security cases.
+  // Federated logout
   const signOutFederated = async () => {
     cleanupLocalState();
 
@@ -508,10 +496,16 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const effectiveAuthenticated = isAuthenticated || nativeAuthed;
 
+  // Loading = true until:
+  // 1. Auth0 SDK has finished loading AND
+  // 2. Auth resolution is complete (native hydration attempted) AND
+  // 3. Profile sync is not in progress (if authenticated)
+  const effectiveLoading = isLoading || !authResolved || syncing;
+
   return (
     <AuthContext.Provider value={{ 
       user: appUser, 
-      loading: isLoading || syncing, 
+      loading: effectiveLoading, 
       signOut,
       refreshProfile,
       isAuthenticated: effectiveAuthenticated

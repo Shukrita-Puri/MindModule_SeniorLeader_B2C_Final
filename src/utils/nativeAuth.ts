@@ -3,21 +3,6 @@
  *
  * Prevents duplicate Browser.open calls, duplicate listeners, and
  * login loops during callback handling.
- *
- * ── Callback Health Check Test Plan ─────────────────────────────────
- * 1. Fresh install on iOS simulator + device:
- *    - Login → confirm callback URL captured with code/state in logs
- *    - Verify token exchange succeeds and user lands on /executive-home
- * 2. Wrong domain scenario:
- *    - Set VITE_AUTH0_DOMAIN to invalid value → clear error logged + toast
- * 3. User cancels (closes Safari without completing):
- *    - Verify no stuck flags; user can retry login
- * 4. Repeated login attempts:
- *    - Tap login multiple times quickly → only ONE Browser.open fires
- *    - No duplicate deep-link listeners registered
- * 5. Fragment vs query callback:
- *    - If Auth0 returns #code=...&state=..., verify parsing works
- * ────────────────────────────────────────────────────────────────────
  */
 
 import { Capacitor } from '@capacitor/core';
@@ -31,24 +16,14 @@ export const AUTH0_NATIVE_REDIRECT_URI = `${APP_SCHEME}://callback`;
 
 // ─── Environment helpers ────────────────────────────────────────────
 
-/**
- * Returns a sanitised Auth0 domain (hostname only).
- * Strips protocol, trailing slashes, and whitespace from VITE_AUTH0_DOMAIN.
- */
 export function getSanitisedAuth0Domain(): string {
   let raw = import.meta.env.VITE_AUTH0_DOMAIN || '';
   raw = raw.trim();
-  // Strip protocol if someone pasted a full URL
   raw = raw.replace(/^https?:\/\//i, '');
-  // Strip trailing slashes
   raw = raw.replace(/\/+$/, '');
   return raw;
 }
 
-/**
- * Returns the Auth0 audience with https:// prefix guaranteed.
- * Handles env values that may or may not include the protocol.
- */
 export function getSanitisedAuth0Audience(): string {
   let raw = import.meta.env.VITE_AUTH0_AUDIENCE || '';
   raw = raw.trim();
@@ -60,7 +35,6 @@ export function getSanitisedAuth0Audience(): string {
 }
 
 let _domainLogged = false;
-/** Log domain once at startup (no secrets) */
 export function logAuth0Domain(): void {
   if (_domainLogged) return;
   _domainLogged = true;
@@ -126,9 +100,14 @@ export function storeNativeTokens(tokens: {
     expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
   };
   localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
-  console.log('[NativeAuth] Tokens stored');
+  console.log('[NativeAuth] Tokens stored, expires_at:', entry.expires_at);
 }
 
+/**
+ * Get native tokens. IMPORTANT: Does NOT clear expired tokens if a
+ * refresh_token is present — the caller (useAuth) should attempt refresh.
+ * Only clears if there is no way to recover (no refresh_token + expired).
+ */
 export function getNativeTokens(): {
   access_token: string;
   id_token: string;
@@ -139,8 +118,14 @@ export function getNativeTokens(): {
   if (!raw) return null;
   try {
     const tokens = JSON.parse(raw);
-    if (tokens.expires_at < Math.floor(Date.now() / 1000)) {
-      console.log('[NativeAuth] Stored tokens expired, clearing');
+    const now = Math.floor(Date.now() / 1000);
+    if (tokens.expires_at < now) {
+      // Expired — but if refresh_token exists, KEEP them for refresh attempt
+      if (tokens.refresh_token) {
+        console.log('[NativeAuth] Access token expired but refresh_token available — keeping for refresh');
+        return tokens;
+      }
+      console.log('[NativeAuth] Stored tokens expired (no refresh_token), clearing');
       localStorage.removeItem(NATIVE_TOKENS_KEY);
       return null;
     }
@@ -148,6 +133,22 @@ export function getNativeTokens(): {
   } catch {
     localStorage.removeItem(NATIVE_TOKENS_KEY);
     return null;
+  }
+}
+
+/**
+ * Returns true if native tokens exist in localStorage (even expired),
+ * as long as there's a refresh_token that could recover the session.
+ * Used by ProtectedRoute to avoid premature login redirect.
+ */
+export function hasRecoverableNativeSession(): boolean {
+  const raw = localStorage.getItem(NATIVE_TOKENS_KEY);
+  if (!raw) return false;
+  try {
+    const tokens = JSON.parse(raw);
+    return !!(tokens.refresh_token || tokens.expires_at > Math.floor(Date.now() / 1000));
+  } catch {
+    return false;
   }
 }
 
@@ -193,28 +194,20 @@ export function getRedirectUri(): string {
 
 // ─── Robust callback URL parser ─────────────────────────────────────
 
-/**
- * Extracts code, state, error, and error_description from a callback URL.
- * Handles both query-string (?...) and hash-fragment (#...) formats,
- * as well as custom-scheme URLs that may confuse the URL constructor.
- */
 export function parseCallbackParams(url: string): {
   code: string | null;
   state: string | null;
   error: string | null;
   error_description: string | null;
 } {
-  // Try to extract the part after "callback" regardless of scheme
   const callbackIdx = url.indexOf('callback');
   const suffix = callbackIdx >= 0 ? url.slice(callbackIdx + 'callback'.length) : '';
 
   const tryParse = (raw: string): URLSearchParams => {
-    // Strip leading ? or #
     const cleaned = raw.replace(/^[?#]/, '');
     return new URLSearchParams(cleaned);
   };
 
-  // Check query string first, then hash fragment
   let params: URLSearchParams;
 
   const hashIdx = suffix.indexOf('#');
@@ -225,7 +218,6 @@ export function parseCallbackParams(url: string): {
       ? suffix.slice(queryIdx, hashIdx)
       : suffix.slice(queryIdx);
     params = tryParse(queryStr);
-    // If code not in query, check hash
     if (!params.get('code') && hashIdx >= 0) {
       const hashParams = tryParse(suffix.slice(hashIdx));
       if (hashParams.get('code')) params = hashParams;
@@ -244,6 +236,72 @@ export function parseCallbackParams(url: string): {
   };
 }
 
+// ─── Native token refresh helper ────────────────────────────────────
+
+let _refreshInProgress: Promise<boolean> | null = null;
+
+/**
+ * Attempt to refresh expired native tokens using the stored refresh_token.
+ * Returns true if refresh succeeded and tokens were updated.
+ * Deduplicates concurrent calls.
+ */
+export async function refreshNativeTokens(): Promise<boolean> {
+  if (_refreshInProgress) return _refreshInProgress;
+
+  _refreshInProgress = (async () => {
+    const raw = localStorage.getItem(NATIVE_TOKENS_KEY);
+    if (!raw) return false;
+    try {
+      const stored = JSON.parse(raw);
+      if (!stored.refresh_token) return false;
+
+      console.log('[NativeAuth] 🔄 Attempting native token refresh...');
+      const domain = getSanitisedAuth0Domain();
+      const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+
+      const resp = await fetch(`https://${domain}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          client_id: clientId,
+          refresh_token: stored.refresh_token,
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const entry = {
+          access_token: data.access_token,
+          id_token: data.id_token || stored.id_token,
+          refresh_token: data.refresh_token || stored.refresh_token,
+          expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
+        };
+        localStorage.setItem(NATIVE_TOKENS_KEY, JSON.stringify(entry));
+        console.log('[NativeAuth] ✅ Native tokens refreshed successfully');
+        return true;
+      } else {
+        const errText = await resp.text();
+        console.warn('[NativeAuth] ❌ Native token refresh failed:', resp.status, errText);
+        // If refresh token is revoked/invalid, clear everything
+        if (resp.status === 403 || resp.status === 401) {
+          console.log('[NativeAuth] Refresh token invalid, clearing native auth state');
+          localStorage.removeItem(NATIVE_TOKENS_KEY);
+          localStorage.removeItem(NATIVE_AUTH_COMPLETED_KEY);
+        }
+        return false;
+      }
+    } catch (e) {
+      console.warn('[NativeAuth] Native token refresh error:', e);
+      return false;
+    } finally {
+      _refreshInProgress = null;
+    }
+  })();
+
+  return _refreshInProgress;
+}
+
 // ─── Login (Browser.open) ───────────────────────────────────────────
 
 export async function nativeLogin(options?: {
@@ -252,15 +310,20 @@ export async function nativeLogin(options?: {
 }): Promise<boolean> {
   if (!isNativeiOS()) return false;
 
-  // Guard: only one login attempt at a time
   if (_loginInProgress || _safariPresented || _callbackInProgress) {
     console.log('[NativeAuth] Login blocked — loginInProgress:', _loginInProgress,
       'safariPresented:', _safariPresented, 'callbackInProgress:', _callbackInProgress);
-    return true; // tell caller not to fall through to web flow
+    return true;
   }
 
   if (isNativeAuthCompleted()) {
     console.log('[NativeAuth] Auth already completed (pending hydration), skipping login');
+    return true;
+  }
+
+  // Check if we have recoverable tokens before opening login
+  if (hasRecoverableNativeSession()) {
+    console.log('[NativeAuth] Recoverable native session exists, skipping login — will attempt refresh');
     return true;
   }
 
@@ -298,11 +361,9 @@ export async function nativeLogin(options?: {
 
   const authorizeUrl = `https://${domain}/authorize?${params.toString()}`;
 
-  // Set BOTH flags before opening
   _loginInProgress = true;
   _safariPresented = true;
   console.log('[NativeAuth] 🔐 Opening Safari for login...');
-  console.log('[NativeAuth] redirect_uri:', redirectUri);
 
   try {
     const { Browser } = await import('@capacitor/browser');
@@ -327,7 +388,6 @@ export async function initNativeAuthListener(): Promise<void> {
   }
   _listenerRegistered = true;
 
-  // Log domain once at startup
   logAuth0Domain();
 
   try {
@@ -342,32 +402,21 @@ export async function initNativeAuthListener(): Promise<void> {
         return;
       }
 
-      // Parse params robustly BEFORE doing anything else
       const parsed = parseCallbackParams(url);
       console.log('[NativeAuth] Parsed callback params:', JSON.stringify(parsed));
 
-      // Handle Auth0 errors
       if (parsed.error) {
         console.error('[NativeAuth] Auth0 returned error:', parsed.error, parsed.error_description);
         _callbackInProgress = false;
         clearNativeLoginInProgress();
-        // Close browser
         try { await Browser.close(); } catch { /* ignore */ }
         _safariPresented = false;
-        // Navigate to show error
         window.location.href = `/callback?error=${encodeURIComponent(parsed.error)}&error_description=${encodeURIComponent(parsed.error_description || '')}`;
         return;
       }
 
       if (!parsed.code || !parsed.state) {
         console.error('[NativeAuth] ❌ Callback URL missing code/state!');
-        console.error('[NativeAuth] Diagnostic:', {
-          receivedUrl: url,
-          parsedCode: parsed.code,
-          parsedState: parsed.state,
-          expectedRedirectUri: AUTH0_NATIVE_REDIRECT_URI,
-        });
-        // Don't set callbackInProgress — let user retry
         clearNativeLoginInProgress();
         try { await Browser.close(); } catch { /* ignore */ }
         _safariPresented = false;
@@ -375,25 +424,18 @@ export async function initNativeAuthListener(): Promise<void> {
         return;
       }
 
-      // Mark callback in progress — prevents ProtectedRoute from triggering login
       _callbackInProgress = true;
       console.log('[NativeAuth] ✅ Callback URL matched with code+state, callbackInProgress=true');
 
-      // Close browser first
       try {
         await Browser.close();
         _safariPresented = false;
-        console.log('[NativeAuth] Browser closed, safariPresented=false');
       } catch (e) {
         _safariPresented = false;
-        console.warn('[NativeAuth] Browser.close() failed (may already be closed):', e);
+        console.warn('[NativeAuth] Browser.close() failed:', e);
       }
 
-      // Build the internal navigation path with parsed params
       const webPath = `/callback?code=${encodeURIComponent(parsed.code)}&state=${encodeURIComponent(parsed.state)}`;
-      console.log('[NativeAuth] Navigating WebView to:', webPath);
-
-      // Short delay to let Safari dismiss before navigation
       setTimeout(() => {
         window.location.href = webPath;
       }, 150);

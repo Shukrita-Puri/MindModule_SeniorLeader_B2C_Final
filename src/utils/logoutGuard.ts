@@ -7,13 +7,13 @@
  *
  * The flag is cleared when:
  *  1. The user explicitly taps "Sign In" / "Get Started".
- *  2. A safety timeout expires (default 10 s).
+ *  2. A safety timeout expires (default 30 s).
  *  3. The session/tab is closed (sessionStorage is ephemeral).
  */
 
 const LOGOUT_GUARD_KEY = 'logout_guard_active';
 const LOGOUT_GUARD_TS_KEY = 'logout_guard_ts';
-const GUARD_TTL_MS = 10_000; // 10 seconds
+const GUARD_TTL_MS = 30_000; // 30 seconds (increased from 10s for slow networks)
 
 /** Activate the logout guard (call right before signing out). */
 export function activateLogoutGuard(): void {

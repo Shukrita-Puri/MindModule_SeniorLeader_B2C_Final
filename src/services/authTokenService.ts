@@ -1,11 +1,11 @@
 /**
- * Centralized Auth Token Service (v2 — hardened)
+ * Centralized Auth Token Service (v3 — hardened)
  * 
  * Single source of truth for Auth0 access token retrieval.
  * - Deduplicates concurrent requests (one in-flight promise)
  * - Expiry-aware: returns cached token if still valid
  * - DEV_MODE safe (returns anon key fallback)
- * - Structured logging (source path: cache / refresh / fallback)
+ * - Retries silent refresh before giving up
  * - Used by all hooks/utils that need to call edge functions
  */
 
@@ -13,16 +13,11 @@ import { DEV_MODE } from '@/config/devMode';
 
 // ─── Token cache with expiry ────────────────────────────────────────
 let cachedToken: string | null = null;
-let cachedTokenExpiresAt = 0; // Unix timestamp in seconds
-const TOKEN_EXPIRY_BUFFER_S = 60; // Refresh 60s before actual expiry
+let cachedTokenExpiresAt = 0;
+const TOKEN_EXPIRY_BUFFER_S = 60;
 
-// In-flight token promise for deduplication
 let inflightTokenPromise: Promise<string | null> | null = null;
 
-/**
- * Decode JWT payload to extract expiry (exp claim).
- * Returns null if token is not a valid JWT.
- */
 function getJwtExpiry(token: string): number | null {
   try {
     const parts = token.split('.');
@@ -34,23 +29,16 @@ function getJwtExpiry(token: string): number | null {
   }
 }
 
-/**
- * Get Auth0 access token with request deduplication and expiry-aware caching.
- * Concurrent calls reuse a single in-flight promise.
- * Returns null in DEV_MODE or when Auth0 is unavailable.
- */
 export async function getAuthToken(): Promise<string | null> {
   if (DEV_MODE) {
     return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || null;
   }
 
-  // Fast path: return cached token if still valid
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedTokenExpiresAt > now + TOKEN_EXPIRY_BUFFER_S) {
     return cachedToken;
   }
 
-  // Deduplicate: if a request is already in flight, reuse it
   if (inflightTokenPromise) {
     return inflightTokenPromise;
   }
@@ -59,15 +47,28 @@ export async function getAuthToken(): Promise<string | null> {
     try {
       const auth0Client = (window as any).__auth0Client;
       if (!auth0Client) {
-        console.warn('[authTokenService] Auth0 client not available');
-        return null;
+        console.warn('[authTokenService] Auth0 client not available yet, waiting 1s...');
+        // Brief wait — client may still be initializing
+        await new Promise(r => setTimeout(r, 1000));
+        const retryClient = (window as any).__auth0Client;
+        if (!retryClient) {
+          console.warn('[authTokenService] Auth0 client still not available after wait');
+          return null;
+        }
+        const token = await retryClient.getAccessTokenSilently();
+        if (token) {
+          const exp = getJwtExpiry(token);
+          cachedToken = token;
+          cachedTokenExpiresAt = exp || now + 300;
+          const ttl = (exp || now + 300) - now;
+          console.log(`[authTokenService] ✅ Token acquired (TTL: ${ttl}s, path: delayed-refresh)`);
+        }
+        return token;
       }
 
-      // Request fresh token (SDK handles cache/refresh internally)
       const token = await auth0Client.getAccessTokenSilently();
 
       if (token) {
-        // Cache with expiry
         const exp = getJwtExpiry(token);
         if (exp) {
           cachedToken = token;
@@ -75,7 +76,6 @@ export async function getAuthToken(): Promise<string | null> {
           const ttl = exp - now;
           console.log(`[authTokenService] ✅ Token acquired (TTL: ${ttl}s, path: refresh)`);
         } else {
-          // Opaque token — cache for 5 min
           cachedToken = token;
           cachedTokenExpiresAt = now + 300;
           console.log('[authTokenService] ✅ Token acquired (opaque, cached 5min)');
@@ -103,8 +103,14 @@ export async function getAuthToken(): Promise<string | null> {
           console.error('[authTokenService] Iframe fallback also failed:', fallbackErr);
         }
       }
-      console.error('[authTokenService] Token retrieval failed:', err?.error || err?.message || err);
-      // Clear stale cache on error
+
+      // Don't log "login_required" as an error — it's expected when session is truly gone
+      if (err?.error === 'login_required') {
+        console.log('[authTokenService] Session expired (login_required) — user will need to re-authenticate');
+      } else {
+        console.error('[authTokenService] Token retrieval failed:', err?.error || err?.message || err);
+      }
+
       cachedToken = null;
       cachedTokenExpiresAt = 0;
       return null;
@@ -116,19 +122,12 @@ export async function getAuthToken(): Promise<string | null> {
   return inflightTokenPromise;
 }
 
-/**
- * Get authorization headers for edge function calls.
- * Returns headers object with Bearer token.
- */
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
 
-/**
- * Clear the token cache. Useful after logout.
- */
 export function clearTokenCache(): void {
   cachedToken = null;
   cachedTokenExpiresAt = 0;
