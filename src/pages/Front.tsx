@@ -170,7 +170,6 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
       </div>
       
     </div>;
-    </div>;
 };
 
 export default Front;
