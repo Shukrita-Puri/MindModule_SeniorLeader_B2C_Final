@@ -12,6 +12,7 @@ import PracticeQueueProgress from '@/components/PracticeQueueProgress';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getTodayRitual, upsertRitual, updateRitualCompletion } from '@/utils/dailyRituals';
+import { setPlanFeedbackFlag } from '@/utils/relevanceFeedback';
 import CoachSplitView from '@/components/coach/CoachSplitView';
 import { isLikelyGibberish, getGibberishPrompt } from '@/utils/inputValidation';
 import { useCoachAccess } from '@/hooks/useCoachAccess';
