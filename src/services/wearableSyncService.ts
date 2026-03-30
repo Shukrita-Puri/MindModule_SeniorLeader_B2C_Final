@@ -1,6 +1,6 @@
 /**
  * Service to persist HealthKit data to the backend via edge function.
- * Syncs ALL daily HRV samples (up to 30 days) in a single bulk request.
+ * Syncs ALL daily wearable summaries (HRV, RHR, HR, Sleep — up to 30 days) in a single bulk request.
  * Only active on native iOS — no-op on web.
  */
 import { isNativeApp, queryHealthKitData, verifyHealthKitAccess } from '@/utils/healthKitCapacitor';
@@ -134,6 +134,7 @@ export async function disconnectAppleHealthFromBackend(): Promise<boolean> {
 
 /**
  * Query HealthKit and persist ALL daily summaries to wearable_data via edge function.
+ * Now includes HRV, RHR, HR, and Sleep metrics.
  * Returns structured result with explicit connection state.
  */
 export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
@@ -184,7 +185,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       };
     }
 
-    console.log('[WearableSync] HealthKit access verified, querying 30-day data...');
+    console.log('[WearableSync] HealthKit access verified, querying 30-day data (HRV + RHR + HR + Sleep)...');
     const data = await queryHealthKitData();
 
     if (data.permissionGranted) {
@@ -230,9 +231,11 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       };
     }
 
-    // Permission granted but no HRV samples — still a successful connection
-    if (data.dailySamples.length === 0) {
-      console.log('[WearableSync] HealthKit accessible, no HRV samples in 30-day window');
+    // Check both legacy dailySamples and new dailySummaries
+    const hasAnyData = data.dailySummaries.length > 0 || data.dailySamples.length > 0;
+
+    if (!hasAnyData) {
+      console.log('[WearableSync] HealthKit accessible, no samples in 30-day window');
       await persistWatchStatus({
         watch_connection_status: 'connected',
         watch_sync_status: 'waiting_for_data',
@@ -252,7 +255,7 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
       };
     }
 
-    console.log('[WearableSync] Found', data.dailySamples.length, 'daily HRV samples — persisting to backend...');
+    console.log('[WearableSync] Found', data.dailySummaries.length, 'daily summaries — persisting to backend...');
 
     const token = await getAuthToken();
     if (!token) {
@@ -270,14 +273,20 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
 
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-    // Build bulk payload
-    const samples = data.dailySamples.map(ds => ({
+    // Build enriched bulk payload with all metrics
+    const samples = data.dailySummaries.map(ds => ({
       summary_date: ds.date,
       hrv: ds.hrv,
-      hrv_samples: ds.samples,
+      hrv_samples: ds.hrvSamples,
+      resting_heart_rate: ds.restingHeartRate,
+      heart_rate: ds.heartRate,
+      total_sleep_minutes: ds.totalSleepMinutes,
+      deep_sleep_minutes: ds.deepSleepMinutes,
+      rem_sleep_minutes: ds.remSleepMinutes,
+      sleep_score: ds.sleepScore,
     }));
 
-    console.log('[WearableSync] Sending bulk persist request:', samples.length, 'samples');
+    console.log('[WearableSync] Sending bulk persist request:', samples.length, 'samples with enriched metrics');
 
     const res = await fetch(
       `https://${projectId}.supabase.co/functions/v1/persist-wearable-data`,
@@ -291,7 +300,13 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
           samples,
           raw_data: {
             synced_at: new Date().toISOString(),
-            total_daily_samples: data.dailySamples.length,
+            total_daily_samples: data.dailySummaries.length,
+            metrics_available: {
+              hrv: data.dailySamples.length,
+              rhr: data.dailySummaries.filter(d => d.restingHeartRate !== null).length,
+              hr: data.dailySummaries.filter(d => d.heartRate !== null).length,
+              sleep: data.dailySummaries.filter(d => d.totalSleepMinutes !== null).length,
+            },
           },
         }),
       }
@@ -300,15 +315,22 @@ export async function syncHealthKitToBackend(): Promise<WearableSyncResult> {
     if (res.ok) {
       const result = await res.json();
       console.log('[WearableSync] ✅ Bulk persist success:', JSON.stringify(result));
-      // Save latest to local store for backward compat
-      const latest = data.dailySamples[data.dailySamples.length - 1];
-      if (latest) {
+
+      // Save all daily summaries to local store
+      for (const ds of data.dailySummaries) {
         saveWearableDataLocally({
-          hrv: latest.hrv,
+          hrv: ds.hrv,
+          restingHeartRate: ds.restingHeartRate,
+          heartRate: ds.heartRate,
+          totalSleepMinutes: ds.totalSleepMinutes,
+          deepSleepMinutes: ds.deepSleepMinutes,
+          remSleepMinutes: ds.remSleepMinutes,
+          sleepScore: ds.sleepScore,
           syncedAt: new Date().toISOString(),
-          summaryDate: latest.date,
+          summaryDate: ds.date,
         });
       }
+
       return {
         success: true,
         permissionGranted: true,

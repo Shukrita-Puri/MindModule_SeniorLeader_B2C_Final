@@ -18,6 +18,12 @@ export interface LocalCalendarEvent {
 
 export interface LocalWearableEntry {
   hrv: number | null;
+  restingHeartRate?: number | null;
+  heartRate?: number | null;
+  totalSleepMinutes?: number | null;
+  deepSleepMinutes?: number | null;
+  remSleepMinutes?: number | null;
+  sleepScore?: number | null;
   syncedAt: string;
   summaryDate: string;
 }
