@@ -558,7 +558,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
             </div>
             <span className={cn(
               "text-xs font-medium font-body",
-              ritualStatus.status === 'completed' ? "text-emerald-500" : ritualStatus.completedCount > 0 ? "text-emerald-500/80" : "text-muted-foreground"
+              ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
             )}>
               {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
               {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
@@ -597,14 +597,14 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                       "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
                       "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                       isCompleted
-                        ? "bg-emerald-950/20 backdrop-blur-md border border-emerald-500/30 opacity-65 cursor-default"
+                        ? "bg-saffron/10 backdrop-blur-md border border-saffron/30 opacity-65 cursor-default"
                         : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       isLastCard && "mr-4"
                     )}
                   >
                     {/* Completed overlay badge */}
                     {isCompleted && (
-                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-emerald-600/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
                         <Check size={10} className="stroke-[3]" />
                         Done
                       </div>
@@ -636,7 +636,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                       <div className="flex flex-col gap-0.5">
-                        <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-emerald-500/80" : "text-saffron")}>{display.label}</span>
+                        <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
                         <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                       </div>
                       <div className="flex items-start gap-1 mt-1.5">
@@ -652,7 +652,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
                         {isCompleted ? (
-                          <span className="text-[10px] text-emerald-500/70 font-medium font-body">Completed</span>
+                          <span className="text-[10px] text-saffron/70 font-medium font-body">Completed</span>
                         ) : (
                           <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                         )}
@@ -660,7 +660,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                     </div>
 
                     {isCompleted && (
-                      <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                      <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
                         <Check size={16} className="text-white stroke-[3]" />
                       </div>
                     )}
