@@ -300,7 +300,9 @@ const SoundscapePlayer = () => {
 
         // Update ritual completion if part of recommended plan or queue
         if (shouldTrackRitual) {
+          console.log('[SoundscapePlayer] Calling updateRitualCompletion:', { id, queueLength: practiceQueue?.length });
           await updateRitualCompletion('soundscape', id, practiceQueue);
+          console.log('[SoundscapePlayer] updateRitualCompletion complete');
         }
       }
     } catch (error) {

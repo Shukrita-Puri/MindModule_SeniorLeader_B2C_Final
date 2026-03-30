@@ -1869,7 +1869,9 @@ const MicroPracticePlayerCards = () => {
       // Update ritual completion if part of recommended plan or queue
       if (shouldTrackRitual) {
         const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        console.log('[MicroPracticePlayerCards] Calling updateRitualCompletion:', { id, queueLength: queue?.length });
         await updateRitualCompletion('micro_exercise', id, queue || undefined);
+        console.log('[MicroPracticePlayerCards] updateRitualCompletion complete');
       }
     } catch (error) {
       console.error("Failed to save completion:", error);
