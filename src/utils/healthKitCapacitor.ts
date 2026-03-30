@@ -45,7 +45,7 @@ const HEALTHKIT_READ_TYPES = [
   'heartRateVariability',
   'restingHeartRate',
   'heartRate',
-  'sleepAnalysis',
+  'sleep',
 ] as const;
 
 /** Returns true when running inside the Capacitor native shell */
@@ -186,7 +186,7 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
       safeReadSamples(Health, 'heartRateVariability', startISO, endISO, 'HRV'),
       safeReadSamples(Health, 'restingHeartRate', startISO, endISO, 'RHR'),
       safeReadSamples(Health, 'heartRate', startISO, endISO, 'HR'),
-      safeReadSamples(Health, 'sleepAnalysis', startISO, endISO, 'Sleep'),
+      safeReadSamples(Health, 'sleep', startISO, endISO, 'Sleep'),
     ]);
 
     console.log(`[HealthKit] Raw counts — HRV: ${hrvSamples.length}, RHR: ${rhrSamples.length}, HR: ${hrSamples.length}, Sleep: ${sleepSamples.length}`);
