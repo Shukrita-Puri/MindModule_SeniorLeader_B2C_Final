@@ -943,6 +943,44 @@ const GuidedPracticePlayer = () => {
       console.error('Failed to save practice session:', error);
     }
     
+    // If this is the last practice in a plan, skip practice feedback and trigger plan feedback
+    if (isLastPracticeInPlan(id)) {
+      console.log('[GuidedPracticePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      const ritualMode = localStorage.getItem('ritualMode');
+      const jitData = localStorage.getItem('jitInterventionData');
+      const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
+      
+      localStorage.removeItem('practiceQueue');
+      localStorage.removeItem('ritualMode');
+      
+      // Check for JIT coach navigation first
+      if (jitData) {
+        try {
+          const parsed = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          if (parsed.hasCoachStep === true && parsed.coachPrompt) {
+            toast.success('Practices complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType: parsed.flowType,
+                initialPrompt: parsed.coachPrompt,
+                fromIntervention: true,
+                eventTitle: parsed.eventTitle
+              }
+            });
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      
+      setPlanFeedbackFlag(planType as 'tod' | 'jit');
+      toast.success('🎉 Plan complete!');
+      navigate('/executive-home');
+      return;
+    }
+    
     setView("rating");
   };
 
