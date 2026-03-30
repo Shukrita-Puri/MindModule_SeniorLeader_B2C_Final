@@ -75,6 +75,21 @@ serve(async (req) => {
       .map(m => `${m.sender_type === 'user' ? 'USER' : 'COACH'}: ${m.content}`)
       .join('\n\n');
 
+    // Pre-scan user messages for explicit accountability language as fallback hints
+    const accountabilityPhrases = [
+      'hold me accountable', 'keep me accountable', 'i commit to', 'i want to commit',
+      'help me stick to', 'i promise to', 'i will start', 'i pledge to',
+      'make sure i', 'remind me to', 'i need to follow through'
+    ];
+    const userMessages = messages.filter(m => m.sender_type === 'user').map(m => m.content.toLowerCase());
+    const detectedAccountability = userMessages
+      .filter(msg => accountabilityPhrases.some(phrase => msg.includes(phrase)))
+      .map(msg => messages.find(m => m.content.toLowerCase() === msg)?.content || msg);
+
+    const accountabilityHint = detectedAccountability.length > 0
+      ? `\nACCOUNTABILITY LANGUAGE DETECTED — the user explicitly asked to be held accountable in these messages. Treat each as a commitment:\n${detectedAccountability.map(m => `- "${m}"`).join('\n')}\n`
+      : '';
+
     // Build commitment context for AI
     const commitmentContext = pendingCommitments.length > 0
       ? `\nPENDING COMMITMENTS (check if discussed/completed in conversation):\n${pendingCommitments.map(c => `- [${c.id}] "${c.commitment_text}"`).join('\n')}\n`
