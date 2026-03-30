@@ -356,7 +356,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                       >
                         {/* Completed overlay badge */}
                         {isCompleted && (
-                          <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-emerald-600/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                          <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-saffron/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
                             <Check size={10} className="stroke-[3]" />
                             Done
                           </div>
