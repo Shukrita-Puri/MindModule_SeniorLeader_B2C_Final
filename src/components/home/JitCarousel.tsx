@@ -412,7 +412,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                         </div>
 
                         {isCompleted && (
-                          <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                          <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
                             <Check size={16} className="text-white stroke-[3]" />
                           </div>
                         )}
