@@ -349,7 +349,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                           "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
                           "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                           isCompleted
-                            ? "bg-emerald-950/20 backdrop-blur-md border border-emerald-500/30 opacity-65 cursor-default"
+                            ? "bg-saffron/10 backdrop-blur-md border border-saffron/30 opacity-65 cursor-default"
                             : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                           isLastCard && "mr-4"
                         )}
