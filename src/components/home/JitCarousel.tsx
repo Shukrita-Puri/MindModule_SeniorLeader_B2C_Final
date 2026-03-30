@@ -392,7 +392,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                             <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                           </div>
                           <div className="flex items-start gap-1 mt-1.5">
-                            <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50 line-through decoration-1" : "text-foreground")}>{module.title}</h4>
+                            <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
                             {!isCoach && isFavorite(module.contentId) && (
                               <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                             )}
