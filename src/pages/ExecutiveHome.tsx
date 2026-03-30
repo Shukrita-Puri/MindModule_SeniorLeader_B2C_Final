@@ -64,15 +64,9 @@ const ExecutiveHome = () => {
 
   // Check for plan feedback flag on mount
   useEffect(() => {
-    const raw = localStorage.getItem('showPlanFeedback');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        setPlanFeedback({ planType: parsed.planType || 'tod' });
-      } catch {
-        // ignore
-      }
-      localStorage.removeItem('showPlanFeedback');
+    const result = consumePlanFeedbackFlag();
+    if (result) {
+      setPlanFeedback(result);
     }
   }, []);
 
