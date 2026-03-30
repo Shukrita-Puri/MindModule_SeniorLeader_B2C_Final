@@ -6,7 +6,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
@@ -96,20 +96,47 @@ const MicroPracticePlayer = () => {
         console.log('[MicroPracticePlayer] Calling updateRitualCompletion (atomic):', { practiceId: id });
         await updateRitualCompletion('micro_exercise', id, practiceQueue || undefined);
         console.log('[MicroPracticePlayer] updateRitualCompletion complete');
-        
-        // Set plan feedback flag if this is the last item in the queue
-        const queueIndex = parseInt(localStorage.getItem('queueIndex') || '0');
-        if (queueIndex >= (practiceQueue?.length || 1) - 1) {
-          localStorage.setItem('showPlanFeedback', JSON.stringify({ 
-            planType: localStorage.getItem('jitInterventionData') ? 'jit' : 'tod' 
-          }));
-        }
       }
     } catch (error) {
       console.error('[MicroPracticePlayer] Failed to save completion:', error);
     }
     
-    // Show rating modal
+    // If this is the last practice in a plan, skip practice rating and trigger plan feedback
+    if (isLastPracticeInPlan(id)) {
+      console.log('[MicroPracticePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      const jitData = localStorage.getItem('jitInterventionData');
+      const planType = jitData ? 'jit' : 'tod';
+      
+      localStorage.removeItem('practiceQueue');
+      localStorage.removeItem('ritualMode');
+      
+      if (jitData) {
+        try {
+          const parsed = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          if (parsed.hasCoachStep === true && parsed.coachPrompt) {
+            navigate('/coach', {
+              state: {
+                flowType: parsed.flowType,
+                initialPrompt: parsed.coachPrompt,
+                fromIntervention: true,
+                eventTitle: parsed.eventTitle
+              }
+            });
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      
+      setPlanFeedbackFlag(planType as 'tod' | 'jit');
+      toast.success('🎉 Plan complete!');
+      navigate('/executive-home');
+      return;
+    }
+    
+    // Show rating modal for non-final or standalone practices
     setShowRatingModal(true);
   };
 

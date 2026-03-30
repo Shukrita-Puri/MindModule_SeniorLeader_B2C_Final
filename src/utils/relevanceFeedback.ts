@@ -179,6 +179,103 @@ export async function submitPracticeRating(
 }
 
 /**
+ * Submit plan-level feedback (distinct from practice feedback)
+ * Uses trigger_context='post_plan_completion' so plan feedback is queryable separately
+ */
+export async function submitPlanFeedback(
+  planType: 'tod' | 'jit',
+  rating: number,
+  feedback?: string,
+  energyTier?: string
+) {
+  try {
+    const accessToken = await getAuthToken();
+    if (!accessToken) return { success: false, error: new Error('Not authenticated') };
+
+    const qualitativeRating = mapRatingToQualitative(rating);
+
+    const { data: result, error } = await supabase.functions.invoke('content-feedback', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        action: 'SUBMIT_FEEDBACK',
+        feedbackData: {
+          content_id: `plan-${planType}`,
+          content_type: `plan-${planType}`,
+          feedback_type: 'star_rating',
+          star_rating: rating,
+          trigger_context: 'post_plan_completion',
+          feedback_text: feedback,
+          feedback_reason: qualitativeRating,
+          context_data: {
+            feedback_scope: 'plan',
+            plan_type: planType,
+            energy_tier: energyTier,
+          }
+        }
+      }
+    });
+
+    if (error) throw error;
+
+    // Also store reflection-like feedback as a tiny win
+    if (feedback && isReflectionContent(feedback)) {
+      await storeFeedbackAsWin(feedback, `plan-${planType}`, `plan-${planType}`);
+    }
+
+    return { success: true, data: result?.data };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to submit plan feedback:', error);
+    }
+    return { success: false, error };
+  }
+}
+
+/**
+ * Check if the current practice is the last item in the active plan queue
+ */
+export function isLastPracticeInPlan(practiceId: string | undefined): boolean {
+  if (!practiceId) return false;
+  try {
+    const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+    if (!Array.isArray(queue) || queue.length === 0) return false;
+    const idx = queue.findIndex((p: any) => p.id === practiceId);
+    return idx === queue.length - 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Set plan feedback flag with timestamp for staleness detection
+ */
+export function setPlanFeedbackFlag(planType: 'tod' | 'jit') {
+  localStorage.setItem('showPlanFeedback', JSON.stringify({
+    planType,
+    timestamp: Date.now()
+  }));
+}
+
+/**
+ * Read and consume plan feedback flag (returns null if stale >5min or absent)
+ */
+export function consumePlanFeedbackFlag(): { planType: 'tod' | 'jit' } | null {
+  const raw = localStorage.getItem('showPlanFeedback');
+  if (!raw) return null;
+  localStorage.removeItem('showPlanFeedback');
+  try {
+    const parsed = JSON.parse(raw);
+    // Expire if older than 5 minutes
+    if (parsed.timestamp && Date.now() - parsed.timestamp > 5 * 60 * 1000) {
+      return null;
+    }
+    return { planType: parsed.planType || 'tod' };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Map star rating to qualitative feedback categories
  */
 function mapRatingToQualitative(rating: number): string {

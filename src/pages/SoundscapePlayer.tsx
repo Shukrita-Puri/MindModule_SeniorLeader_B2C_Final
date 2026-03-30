@@ -26,7 +26,7 @@ import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
@@ -309,8 +309,45 @@ const SoundscapePlayer = () => {
       console.error('Failed to save practice session:', error);
     }
     
-    // Show rating modal instead of completion screen
-    // Navigation will happen after rating submit/skip
+    // If this is the last practice in a plan, skip practice rating and trigger plan feedback
+    if (isLastPracticeInPlan(id)) {
+      console.log('[SoundscapePlayer] Last in plan — skipping practice rating, setting plan feedback flag');
+      const ritualMode = localStorage.getItem('ritualMode');
+      const jitData = localStorage.getItem('jitInterventionData');
+      const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
+      
+      localStorage.removeItem('practiceQueue');
+      localStorage.removeItem('ritualMode');
+      
+      // Check for JIT coach navigation first
+      if (jitData) {
+        try {
+          const parsed = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          if (parsed.hasCoachStep === true && parsed.coachPrompt) {
+            toast.success('Practices complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType: parsed.flowType,
+                initialPrompt: parsed.coachPrompt,
+                fromIntervention: true,
+                eventTitle: parsed.eventTitle
+              }
+            });
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      
+      setPlanFeedbackFlag(planType as 'tod' | 'jit');
+      toast.success('🎉 Plan complete!');
+      navigate('/executive-home');
+      return;
+    }
+    
+    // Show rating modal for non-final or standalone practices
     setShowRatingModal(true);
   };
 
@@ -354,14 +391,10 @@ const SoundscapePlayer = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      // Set plan feedback flag for ExecutiveHome
       const ritualMode = localStorage.getItem('ritualMode');
-      localStorage.setItem('showPlanFeedback', JSON.stringify({
-        planType: ritualMode === 'jit' ? 'jit' : 'tod',
-        timestamp: Date.now()
-      }));
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
-      toast.success('🎉 Ritual complete!');
+      toast.success('🎉 Plan complete!');
       navigate('/executive-home');
     }
   };

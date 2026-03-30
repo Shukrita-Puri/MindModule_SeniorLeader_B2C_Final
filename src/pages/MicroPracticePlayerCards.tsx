@@ -14,7 +14,7 @@ import TopNavigation from "@/components/simulation/TopNavigation";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { toast } from "sonner";
@@ -1877,6 +1877,43 @@ const MicroPracticePlayerCards = () => {
       console.error("Failed to save completion:", error);
     }
 
+    // If this is the last practice in a plan, skip practice rating and trigger plan feedback
+    if (isLastPracticeInPlan(id)) {
+      console.log('[MicroPracticePlayerCards] Last in plan — skipping practice rating, setting plan feedback flag');
+      const ritualMode = localStorage.getItem('ritualMode');
+      const jitData = localStorage.getItem('jitInterventionData');
+      const planType = (ritualMode === 'jit' || jitData) ? 'jit' : 'tod';
+      
+      localStorage.removeItem('practiceQueue');
+      localStorage.removeItem('ritualMode');
+      
+      if (jitData) {
+        try {
+          const parsed = JSON.parse(jitData);
+          localStorage.removeItem('jitInterventionData');
+          if (parsed.hasCoachStep === true && parsed.coachPrompt) {
+            toast.success('Practices complete! Opening Coach...');
+            navigate('/coach', {
+              state: {
+                flowType: parsed.flowType,
+                initialPrompt: parsed.coachPrompt,
+                fromIntervention: true,
+                eventTitle: parsed.eventTitle
+              }
+            });
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing JIT data:', e);
+        }
+      }
+      
+      setPlanFeedbackFlag(planType as 'tod' | 'jit');
+      toast.success('🎉 Plan complete!');
+      navigate('/executive-home');
+      return;
+    }
+
     setShowRatingModal(true);
   };
 
@@ -2067,12 +2104,14 @@ const MicroPracticePlayerCards = () => {
   };
 
   const handleQueueComplete = () => {
-    // Navigate to next or complete ritual
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
+      const ritualMode = localStorage.getItem('ritualMode');
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
+      localStorage.removeItem('ritualMode');
       localStorage.removeItem('practiceQueue');
-      toast.success('🎉 Ritual complete!');
+      toast.success('🎉 Plan complete!');
       navigate('/executive-home');
     }
   };

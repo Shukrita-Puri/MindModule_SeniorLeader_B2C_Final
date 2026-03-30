@@ -24,7 +24,7 @@ import MetricInfoModal from "@/components/home/MetricInfoModal";
 import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPlanFeedback, consumePlanFeedbackFlag } from "@/utils/relevanceFeedback";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
@@ -64,15 +64,9 @@ const ExecutiveHome = () => {
 
   // Check for plan feedback flag on mount
   useEffect(() => {
-    const raw = localStorage.getItem('showPlanFeedback');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        setPlanFeedback({ planType: parsed.planType || 'tod' });
-      } catch {
-        // ignore
-      }
-      localStorage.removeItem('showPlanFeedback');
+    const result = consumePlanFeedbackFlag();
+    if (result) {
+      setPlanFeedback(result);
     }
   }, []);
 
@@ -265,12 +259,11 @@ const ExecutiveHome = () => {
               energyTier={energyState?.energyTier}
               onSubmit={async (rating, feedback) => {
                 try {
-                  await submitPracticeRating(
-                    undefined,
-                    `plan-${planFeedback.planType}`,
-                    planFeedback.planType === 'jit' ? 'micro-practice' : 'guided-practice',
+                  await submitPlanFeedback(
+                    planFeedback.planType,
                     rating,
-                    feedback
+                    feedback,
+                    energyState?.energyTier
                   );
                 } catch (e) {
                   console.error('Failed to save plan feedback:', e);
