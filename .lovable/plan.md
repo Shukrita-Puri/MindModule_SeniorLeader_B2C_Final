@@ -1,92 +1,52 @@
 
 
-# Language Rebranding: Wellness → Performance Science Terminology
+## Plan: Fix Three Issues — Accountability Tracking, Restart Button, Completed Card Styling
 
-## Terminology Map
+### Issue 1: `coach_accountability_tracker` Not Recording Commitments
 
-| Current Term | New Term | Rationale |
-|---|---|---|
-| Inner Readiness | Decision Readiness | Leaders think in decisions, not "readiness" |
-| Inner Readiness Score | Decision Readiness Score | Consistent |
-| Emotional State (user-facing) | Mental Sharpness | Performance framing; keep "emotional state" in internal AI prompts |
-| Emotional & Cognitive State | Mental Sharpness State | Check-in sub-label |
-| Wellness (outside Reset Studio) | Performance Recovery | Avoids "Protocol" which is Reset Studio's term |
-| Today's Wellness | Today's Performance Vitals | WellnessCard title |
-| wellness check | performance baseline | In description copy |
-| wellness insights | performance insights | Privacy page |
-| Emotional Awareness (onboarding) | Self-Awareness | Onboarding stage name |
+**Root Cause**: The `generate-coach-summary` edge function uses AI to extract commitments from session transcripts. Looking at the last 5 session summaries, ALL have `commitments_made: []` — the AI is not recognizing accountability requests like "hold me accountable for X" as formal commitments.
 
-**NOT changing:**
-- "Protocol" usage inside Reset Studio / ProtocolCard (already correct)
-- "emotional state" inside AI system prompts (dialogue-engine, self-mastery-coach) — these are internal processing terms, not user-facing
-- Clarity & Confidence State — already performance-oriented
-- Reset Studio language — stays wellness-adjacent by design
+**Fix**: Update the AI prompt in `generate-coach-summary/index.ts` to explicitly recognize accountability language patterns ("hold me accountable", "I commit to", "I want to", "help me stick to") as commitments. Also add a fallback: scan user messages for explicit accountability phrases and inject them into the commitment extraction context so the AI doesn't miss them.
 
-## Files to Modify
+**Files**: `supabase/functions/generate-coach-summary/index.ts`
 
-### 1. `src/components/home/TodayStateCard.tsx`
-- Line 76: "Inner Readiness" → "Decision Readiness"
-- Line 79: "How Your Inner Readiness Score is Calculated" → "How Your Decision Readiness Score is Calculated"
-- Line 80: Replace all "Inner Readiness Score" → "Decision Readiness Score", "Not a wellness check" → "Not a status check", "Outer Readiness Brief" stays (outer is contextually different)
+---
 
-### 2. `src/components/home/StrategicIntentionCard.tsx`
-- Line 59: "Inner Readiness Score" → "Decision Readiness Score" in description
+### Issue 2: Restart Button Shows New Plan Instead of Same Plan
 
-### 3. `src/pages/ExecutiveHome.tsx`
-- Line 223: "Inner Readiness Score" → "Decision Readiness Score" in Mastery Plan description
+**Root Cause**: `handleRestartRitual` (DailyRitual.tsx line 472) deletes the ritual row, clears all session/local caches, then calls `loadPlan()` which hits the server for a fresh plan. This means the user gets a completely different set of practices.
 
-### 4. `src/components/home/WellnessCard.tsx`
-- Line 48: "Today's Wellness" → "Today's Performance Vitals"
-- Internal variable names (wellnessData, wellnessScrollRef, scrollWellness) — rename for consistency
+**Fix**: Change `handleRestartRitual` to:
+- Reset the `completed_practice_ids` to `[]` and `completion_status` to `partial` on the existing ritual (instead of deleting it)
+- Clear local queue state (`practiceQueue`, `queueIndex`)
+- Keep the session cache and `recommended_practice_ids` intact
+- Re-read the existing plan from session cache (not regenerate)
+- This way the same practices appear, just with progress reset
 
-### 5. `src/pages/DailyCheckIn.tsx`
-- Line 246: "Emotional & Cognitive State" → "Mental Sharpness State"
+**Files**: `src/components/home/DailyRitual.tsx`
 
-### 6. `src/pages/CheckInDetail.tsx`
-- Line 83: "Clarity & Confidence State" — **keep as-is** (already performance-oriented)
+---
 
-### 7. `src/pages/Privacy.tsx`
-- Line 48: "emotional state, cognitive clarity" → "mental sharpness, cognitive clarity"
-- Line 125: "general wellness" → "general performance optimisation"
-- Line 147: "wellness insights" → "performance insights"
+### Issue 3: Completed Card Styling Too Heavy
 
-### 8. `src/pages/Terms.tsx`
-- Line 125: "general wellness" → "general performance optimisation"
+**Current state** (from screenshot): Orange-tinted card background, "Done" pill, strikethrough title, "Completed" text, and an orange check circle — all at once. User wants only the "Done" pill and the tick circle; no "Completed" label, no strikethrough on title, no orange card background.
 
-### 9. `src/pages/PoweredByAI.tsx`
-- Line 42: "inner readiness state" → "decision readiness state"
+**Fix** in both `DailyRitual.tsx` and `JitCarousel.tsx`:
+- Remove `bg-saffron/10` and `border-saffron/30` from completed card container — use the same neutral styling as incomplete cards but with reduced opacity
+- Remove `line-through decoration-1` from the title `<h4>`
+- Remove the `"Completed"` text span in the bottom area
+- Keep the "Done" pill badge (top-left) and the saffron check circle (right side)
+- Keep thumbnail dimming (brightness/grayscale) for subtle differentiation
 
-### 10. `src/pages/onboarding/OnboardingFlow.tsx`
-- Line 30: Comment "Emotional Awareness" → "Self-Awareness" (cosmetic)
+**Files**: `src/components/home/DailyRitual.tsx`, `src/components/home/JitCarousel.tsx`
 
-### 11. `src/pages/onboarding/stages/Stage3EmotionalAwareness.tsx`
-- Line 26: "I'm aware of my emotional state as it shifts" → "I'm aware of my internal state as it shifts"
+---
 
-### 12. `src/pages/GuidedPracticePlayer.tsx`
-- Line 649: "Primal, empowered emotional state" → "Primal, empowered mental state" (this is in visualization content)
+### Summary of File Changes
 
-### 13. `src/components/insights/PerformanceRhythmCard.tsx`
-- Line 872: "inner readiness" → "decision readiness" in explanation text
-
-### 14. `src/utils/energyStateEngine.ts`
-- Line 2: Comment update "Inner Readiness" → "Decision Readiness"
-
-### 15. `src/utils/energyStateScoring.ts`
-- Line 4: Comment update "Inner Readiness" → "Decision Readiness"
-
-### 16. Edge functions (user-facing strings only)
-- `compute-outer-readiness/index.ts` line 869: `'inner readiness score'` → `'decision readiness score'` (this surfaces in UI footer)
-- `self-mastery-coach/index.ts`: "Inner Readiness Score" → "Decision Readiness Score" in system prompt context lines (3048) — this affects what the coach says to users
-- `generate-dashboard-insight/index.ts` line 46: "emotional awareness" → "self-awareness"
-- `generate-energy-insight/index.ts` line 48: "emotional awareness" → "self-awareness"
-
-### Not touching
-- `dialogue-engine/index.ts` — all "emotional state" references are internal AI persona mechanics
-- `self-mastery-coach/index.ts` — "emotional state" in tracking sections are internal coaching framework, not user-facing
-- `generate-onboarding-insight/index.ts` — comment-level "Emotional Awareness" is internal logic
-- Reset Studio pages (PauseOutcomePage, PowerUpOutcomePage, PresenceOutcomePage) — "Protocol" stays
-- `ProtocolCard.tsx` — stays as-is
-
-## Estimated scope
-~16 files, ~30 string replacements. No logic changes, no DB changes, no edge function redeployment needed except for the 4 edge functions with user-facing string updates.
+| File | Change |
+|------|--------|
+| `supabase/functions/generate-coach-summary/index.ts` | Improve AI prompt to detect accountability language |
+| `src/components/home/DailyRitual.tsx` | Fix restart to reset progress (not regenerate), fix completed card styling |
+| `src/components/home/JitCarousel.tsx` | Fix completed card styling |
 
