@@ -242,17 +242,17 @@ export async function queryHealthKitData(): Promise<HealthKitWearableData> {
 
       if (!sleepByDay[dayKey]) sleepByDay[dayKey] = { totalMinutes: 0, deepMinutes: 0, remMinutes: 0, inBedMinutes: 0 };
 
-      // Apple Health sleep categories: InBed, Asleep, AsleepCore, AsleepDeep, AsleepREM, Awake
-      const category = (s.value ?? s.category ?? '').toString().toLowerCase();
-      if (category.includes('deep')) {
+      // @capgo/capacitor-health uses sleepState: 'inBed' | 'asleep' | 'awake' | 'rem' | 'deep' | 'light'
+      const state = (s.sleepState ?? s.value ?? s.category ?? '').toString().toLowerCase();
+      if (state.includes('deep')) {
         sleepByDay[dayKey].deepMinutes += durationMin;
         sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (category.includes('rem')) {
+      } else if (state.includes('rem')) {
         sleepByDay[dayKey].remMinutes += durationMin;
         sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (category.includes('asleep') || category.includes('core')) {
+      } else if (state.includes('asleep') || state.includes('core') || state.includes('light')) {
         sleepByDay[dayKey].totalMinutes += durationMin;
-      } else if (category.includes('inbed') || category.includes('in_bed')) {
+      } else if (state.includes('inbed') || state.includes('in_bed')) {
         sleepByDay[dayKey].inBedMinutes += durationMin;
       }
       // "Awake" periods are intentionally excluded from total sleep
