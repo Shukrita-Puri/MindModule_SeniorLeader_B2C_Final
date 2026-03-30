@@ -388,7 +388,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                         {/* Content */}
                         <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                           <div className="flex flex-col gap-0.5">
-                            <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-emerald-500/80" : "text-saffron")}>{display.label}</span>
+                            <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-saffron/80" : "text-saffron")}>{display.label}</span>
                             <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                           </div>
                           <div className="flex items-start gap-1 mt-1.5">
