@@ -7,7 +7,7 @@ export async function requestHRVPermission() {
   }
   const { Health } = await import('@capgo/capacitor-health');
   return Health.requestAuthorization({
-    read: ['heartRateVariability'],
+    read: ['heartRateVariability', 'restingHeartRate', 'heartRate', 'sleep'],
     write: [],
   });
 }

@@ -107,7 +107,10 @@ Deno.serve(async (req) => {
       let latestSummaryDate: string | null = null;
 
       for (const sample of body.samples) {
-        if (!sample.summary_date || sample.hrv == null) {
+        // Allow rows where at least one metric exists (partial availability)
+        const hasAnyMetric = sample.hrv != null || sample.resting_heart_rate != null
+          || sample.heart_rate != null || sample.total_sleep_minutes != null;
+        if (!sample.summary_date || !hasAnyMetric) {
           results.errors++;
           continue;
         }
@@ -120,13 +123,17 @@ Deno.serve(async (req) => {
           user_id: userId,
           summary_date: sample.summary_date,
           source: "apple-healthkit",
-          hrv: sample.hrv,
           updated_at: new Date().toISOString(),
         };
 
-        if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) {
-          row.hrv_samples = sample.hrv_samples;
-        }
+        // Set each metric only if provided (preserve existing values on partial updates)
+        if (sample.hrv != null) row.hrv = sample.hrv;
+        if (sample.hrv_samples && Array.isArray(sample.hrv_samples)) row.hrv_samples = sample.hrv_samples;
+        if (sample.resting_heart_rate != null) row.resting_heart_rate = sample.resting_heart_rate;
+        if (sample.total_sleep_minutes != null) row.total_sleep_minutes = sample.total_sleep_minutes;
+        if (sample.deep_sleep_minutes != null) row.deep_sleep_minutes = sample.deep_sleep_minutes;
+        if (sample.rem_sleep_minutes != null) row.rem_sleep_minutes = sample.rem_sleep_minutes;
+        if (sample.sleep_score != null) row.sleep_score = sample.sleep_score;
 
         if (body.raw_data) {
           row.raw_data = body.raw_data;
