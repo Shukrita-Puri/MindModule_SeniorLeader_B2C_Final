@@ -1937,6 +1937,13 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
+      // Set plan feedback flag for ExecutiveHome
+      const ritualMode = localStorage.getItem('ritualMode');
+      localStorage.setItem('showPlanFeedback', JSON.stringify({
+        planType: ritualMode === 'jit' ? 'jit' : 'tod',
+        timestamp: Date.now()
+      }));
+      localStorage.removeItem('ritualMode');
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
     } else {
