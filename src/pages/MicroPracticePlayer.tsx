@@ -7,6 +7,7 @@ import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { getAllContent } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
 import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { supabase } from "@/integrations/supabase/client";
 import { getAuthToken } from "@/services/authTokenService";
 import { toast } from "sonner";
@@ -67,7 +68,12 @@ const MicroPracticePlayer = () => {
       const practiceQueue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
       const isPartOfRitual = practiceQueue && practiceQueue.some((p: any) => p.id === id);
       
-      // Track practice session via edge function
+      console.log('[MicroPracticePlayer] handleComplete:', { 
+        id, isPartOfRitual, queueLength: practiceQueue?.length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Track practice session via edge function (engagement logging only)
       const { data: sessionResult, error: sessionError } = await supabase.functions.invoke('practice-data', {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: {
@@ -85,83 +91,22 @@ const MicroPracticePlayer = () => {
         setSessionId(sessionResult.data.id);
       }
 
-      // Update ritual completion if part of ritual
-      if (isPartOfRitual) {
-        const today = new Date().toISOString().split('T')[0];
+      // Update ritual completion using the SAME atomic path as all other players
+      if (isPartOfRitual && id) {
+        console.log('[MicroPracticePlayer] Calling updateRitualCompletion (atomic):', { practiceId: id });
+        await updateRitualCompletion('micro_exercise', id, practiceQueue || undefined);
+        console.log('[MicroPracticePlayer] updateRitualCompletion complete');
         
-        // First, get existing data to append to completed_practice_ids
-        const { data: existingResult } = await supabase.functions.invoke('practice-data', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {
-            action: 'GET_RITUAL_STATUS',
-            ritualDate: today
-          }
-        });
-        
-        const existingData = existingResult?.data;
-        const existingIds = existingData?.completed_practice_ids || [];
-        const newCompletedIds = existingIds.includes(id) ? existingIds : [...existingIds, id || ''];
-        
-        // Step 1: Upsert the specific completion field with completed_practice_ids
-        await supabase.functions.invoke('practice-data', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {
-            action: 'UPSERT_RITUAL',
-            ritualDate: today,
-            microExerciseCompleted: true,
-            microExerciseCompletedAt: new Date().toISOString(),
-            completedPracticeIds: newCompletedIds
-          }
-        });
-        
-        // Step 2: Query FRESH data AFTER the upsert
-        const { data: freshResult } = await supabase.functions.invoke('practice-data', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: {
-            action: 'GET_RITUAL_STATUS',
-            ritualDate: today
-          }
-        });
-        
-        const freshRitualData = freshResult?.data;
-        
-        // Step 3: Calculate completion using FRESH data
-        if (freshRitualData) {
-          const completed = [
-            freshRitualData.soundscape_completed,
-            freshRitualData.guided_practice_completed,
-            freshRitualData.micro_exercise_completed
-          ].filter(Boolean).length;
-          
-          const totalRecommended = freshRitualData.recommended_practices_count || 3;
-          
-          // Step 4: Update status atomically
-          const newStatus = completed >= totalRecommended && completed > 0 
-            ? 'full' 
-            : completed > 0 
-              ? 'partial' 
-              : 'skipped';
-          
-          await supabase.functions.invoke('practice-data', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: {
-              action: 'UPDATE_RITUAL_STATUS',
-              ritualDate: today,
-              completionStatus: newStatus
-            }
-          });
-          
-          console.log('🎯 Micro practice completed:', {
-            type: 'micro-practice',
-            completedCount: completed,
-            totalRecommended,
-            newStatus,
-            timestamp: new Date().toISOString()
-          });
+        // Set plan feedback flag if this is the last item in the queue
+        const queueIndex = parseInt(localStorage.getItem('queueIndex') || '0');
+        if (queueIndex >= (practiceQueue?.length || 1) - 1) {
+          localStorage.setItem('showPlanFeedback', JSON.stringify({ 
+            planType: localStorage.getItem('jitInterventionData') ? 'jit' : 'tod' 
+          }));
         }
       }
     } catch (error) {
-      console.error('Failed to save completion:', error);
+      console.error('[MicroPracticePlayer] Failed to save completion:', error);
     }
     
     // Show rating modal
