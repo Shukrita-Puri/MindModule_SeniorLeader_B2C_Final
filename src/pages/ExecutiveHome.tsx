@@ -21,8 +21,10 @@ import DailyRitual from "@/components/home/DailyRitual";
 import JitCarousel from "@/components/home/JitCarousel";
 import PrivacyFooter from "@/components/home/PrivacyFooter";
 import MetricInfoModal from "@/components/home/MetricInfoModal";
+import PlanFeedbackModal from "@/components/home/PlanFeedbackModal";
 import { computeEnergyState } from "@/utils/energyStateEngine";
 import { useOuterReadiness } from "@/hooks/useOuterReadiness";
+import { submitPracticeRating } from "@/utils/relevanceFeedback";
 
 // Tier-based CSS gradient colors for poster placeholder (no bundled images)
 const TIER_GRADIENTS: Record<string, string> = {
@@ -58,6 +60,21 @@ interface PreEventPlan {
 const ExecutiveHome = () => {
   const { user } = useAuth();
   const [preEventPlan, setPreEventPlan] = useState<PreEventPlan | null>(null);
+  const [planFeedback, setPlanFeedback] = useState<{ planType: 'tod' | 'jit' } | null>(null);
+
+  // Check for plan feedback flag on mount
+  useEffect(() => {
+    const raw = localStorage.getItem('showPlanFeedback');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setPlanFeedback({ planType: parsed.planType || 'tod' });
+      } catch {
+        // ignore
+      }
+      localStorage.removeItem('showPlanFeedback');
+    }
+  }, []);
 
   // Fetch energy state for hero visual
   const { data: energyState } = useQuery({
@@ -240,6 +257,29 @@ const ExecutiveHome = () => {
               <PrivacyFooter />
             </div>
           </div>
+
+          {/* Plan Feedback Modal */}
+          {planFeedback && (
+            <PlanFeedbackModal
+              planType={planFeedback.planType}
+              energyTier={energyState?.energyTier}
+              onSubmit={async (rating, feedback) => {
+                try {
+                  await submitPracticeRating(
+                    undefined,
+                    `plan-${planFeedback.planType}`,
+                    planFeedback.planType === 'jit' ? 'micro-practice' : 'guided-practice',
+                    rating,
+                    feedback
+                  );
+                } catch (e) {
+                  console.error('Failed to save plan feedback:', e);
+                }
+                setPlanFeedback(null);
+              }}
+              onSkip={() => setPlanFeedback(null)}
+            />
+          )}
         </SidebarInset>
       </div>
     </SidebarProvider>

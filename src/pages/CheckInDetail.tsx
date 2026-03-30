@@ -80,7 +80,7 @@ const CheckInDetail = () => {
           <h1 className="text-3xl font-headline text-foreground tracking-tight">
             Performance Readiness Assessment
           </h1>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground font-body">Clarity & Confidence State</p>
+          <p className="text-base font-semibold uppercase tracking-widest text-foreground/70 font-body">Clarity & Confidence State</p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
             Rate your mental clarity and decision confidence. This shapes your readiness profile and how your day is calibrated.
           </p>
@@ -142,9 +142,9 @@ const CheckInDetail = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full h-12 text-sm font-semibold bg-[#1DB954] text-black hover:bg-[#1DB954]/90 rounded-xl"
+                className="w-full h-12 text-sm font-semibold bg-taupe text-white hover:bg-taupe/90 rounded-xl"
               >
-                {saving ? 'Saving...' : 'Continue to My Mastery Homepage'}
+                {saving ? 'Saving...' : 'Continue to my Performance Dashboard'}
               </Button>
             </div>
           </div>

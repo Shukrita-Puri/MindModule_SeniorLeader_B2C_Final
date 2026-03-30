@@ -1868,7 +1868,8 @@ const MicroPracticePlayerCards = () => {
 
       // Update ritual completion if part of recommended plan or queue
       if (shouldTrackRitual) {
-        await updateRitualCompletion('micro_exercise', id);
+        const queue = JSON.parse(localStorage.getItem('practiceQueue') || 'null');
+        await updateRitualCompletion('micro_exercise', id, queue || undefined);
       }
     } catch (error) {
       console.error("Failed to save completion:", error);
@@ -1936,6 +1937,13 @@ const MicroPracticePlayerCards = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
+      // Set plan feedback flag for ExecutiveHome
+      const ritualMode = localStorage.getItem('ritualMode');
+      localStorage.setItem('showPlanFeedback', JSON.stringify({
+        planType: ritualMode === 'jit' ? 'jit' : 'tod',
+        timestamp: Date.now()
+      }));
+      localStorage.removeItem('ritualMode');
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
     } else {

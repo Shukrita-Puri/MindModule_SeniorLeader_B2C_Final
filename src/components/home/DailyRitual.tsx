@@ -628,7 +628,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                         )}
                       </div>
                       {module.reasoning && (
-                        <p className="text-[10px] text-muted-foreground/70 italic font-body line-clamp-2 leading-snug mt-0.5">
+                        <p className="text-[11px] text-muted-foreground italic font-body line-clamp-2 leading-snug mt-0.5">
                           {module.reasoning}
                         </p>
                       )}
