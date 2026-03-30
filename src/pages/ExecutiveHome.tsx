@@ -259,12 +259,11 @@ const ExecutiveHome = () => {
               energyTier={energyState?.energyTier}
               onSubmit={async (rating, feedback) => {
                 try {
-                  await submitPracticeRating(
-                    undefined,
-                    `plan-${planFeedback.planType}`,
-                    planFeedback.planType === 'jit' ? 'micro-practice' : 'guided-practice',
+                  await submitPlanFeedback(
+                    planFeedback.planType,
                     rating,
-                    feedback
+                    feedback,
+                    energyState?.energyTier
                   );
                 } catch (e) {
                   console.error('Failed to save plan feedback:', e);
