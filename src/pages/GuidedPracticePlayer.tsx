@@ -31,7 +31,7 @@ import PracticeRatingModal from "@/components/PracticeRatingModal";
 import PracticeQueueProgress from "@/components/PracticeQueueProgress";
 import { getContentById, PracticeStep as ImportedPracticeStep } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { cn } from "@/lib/utils";
