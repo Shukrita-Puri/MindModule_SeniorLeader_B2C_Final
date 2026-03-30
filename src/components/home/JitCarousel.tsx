@@ -349,7 +349,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                           "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
                           "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                           isCompleted
-                            ? "bg-saffron/10 backdrop-blur-md border border-saffron/30 opacity-65 cursor-default"
+                            ? "bg-white/15 backdrop-blur-md border border-white/40 opacity-60 cursor-default"
                             : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                           isLastCard && "mr-4"
                         )}
@@ -392,7 +392,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                             <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                           </div>
                           <div className="flex items-start gap-1 mt-1.5">
-                            <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50 line-through decoration-1" : "text-foreground")}>{module.title}</h4>
+                            <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
                             {!isCoach && isFavorite(module.contentId) && (
                               <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                             )}
@@ -403,11 +403,7 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
                             </p>
                           )}
                           <div className="flex items-center gap-2 mt-1.5">
-                            {isCompleted ? (
-                              <span className="text-[10px] text-saffron/70 font-medium font-body">Completed</span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
-                            )}
+                            <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                           </div>
                         </div>
 

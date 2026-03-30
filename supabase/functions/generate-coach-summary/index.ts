@@ -75,6 +75,21 @@ serve(async (req) => {
       .map(m => `${m.sender_type === 'user' ? 'USER' : 'COACH'}: ${m.content}`)
       .join('\n\n');
 
+    // Pre-scan user messages for explicit accountability language as fallback hints
+    const accountabilityPhrases = [
+      'hold me accountable', 'keep me accountable', 'i commit to', 'i want to commit',
+      'help me stick to', 'i promise to', 'i will start', 'i pledge to',
+      'make sure i', 'remind me to', 'i need to follow through'
+    ];
+    const userMessages = messages.filter(m => m.sender_type === 'user').map(m => m.content.toLowerCase());
+    const detectedAccountability = userMessages
+      .filter(msg => accountabilityPhrases.some(phrase => msg.includes(phrase)))
+      .map(msg => messages.find(m => m.content.toLowerCase() === msg)?.content || msg);
+
+    const accountabilityHint = detectedAccountability.length > 0
+      ? `\nACCOUNTABILITY LANGUAGE DETECTED — the user explicitly asked to be held accountable in these messages. Treat each as a commitment:\n${detectedAccountability.map(m => `- "${m}"`).join('\n')}\n`
+      : '';
+
     // Build commitment context for AI
     const commitmentContext = pendingCommitments.length > 0
       ? `\nPENDING COMMITMENTS (check if discussed/completed in conversation):\n${pendingCommitments.map(c => `- [${c.id}] "${c.commitment_text}"`).join('\n')}\n`
@@ -102,13 +117,13 @@ serve(async (req) => {
 
 CONVERSATION:
 ${transcript}
-${commitmentContext}
+${commitmentContext}${accountabilityHint}
 GENERATE a JSON object with:
 - summary_text: 2-3 sentence summary of what happened
 - key_topics: array of 3-5 topic strings (e.g., "board pressure", "emotional regulation")
 - dominant_pattern: one of "recalibration" | "clarity" | "renewal"
 - emotional_arc: brief phrase describing state shift (e.g., "escalated → grounded")
-- commitments_made: array of specific NEW actions the user committed to (empty if none)
+- commitments_made: array of specific NEW actions the user committed to. IMPORTANT: Look carefully for accountability language like "hold me accountable for...", "I commit to...", "I want to...", "help me stick to...", "I will start...". These are commitments even if phrased as requests. Extract the specific action. Never return an empty array if the user expressed any intent to change behavior or follow through on something.
 - commitment_updates: array of objects { id: string, new_status: "progressed" | "completed" | "abandoned", evidence: string } for any EXISTING pending commitments that were discussed (empty array if none discussed)
 - practices_recommended: array of practice names/types recommended by the coach (empty if none)
 - wisdom_referenced: array of wisdom references used (empty if none)

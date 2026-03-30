@@ -470,28 +470,37 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const handleRestartRitual = async () => {
+    const todayDate = new Date().toISOString().split('T')[0];
+    const currentPeriod = getCurrentTimeWindow();
+    const modules = plan?.timeOfDayPlan?.modules || [];
+
+    // Reset progress on the EXISTING ritual row (keep recommended_practice_ids intact)
     if (user || DEV_MODE) {
-      const currentPeriod = getCurrentTimeWindow();
-      // Route through EF instead of direct DB delete (Auth0 RLS fix)
-      const token = await getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
-      await supabase.functions.invoke('daily-rituals', {
-        headers,
-        body: { action: 'DELETE_TODAY_RITUAL', sessionPeriod: currentPeriod }
+      await upsertRitual({
+        ritual_date: todayDate,
+        session_period: currentPeriod,
+        completed_practice_ids: [],
+        completion_status: 'partial',
+        soundscape_completed: false,
+        soundscape_completed_at: null,
+        guided_practice_completed: false,
+        guided_practice_completed_at: null,
+        micro_exercise_completed: false,
+        micro_exercise_completed_at: null,
+        // Preserve the same recommended practices
+        recommended_practice_ids: modules.map(m => m.contentId),
+        recommended_practices_count: modules.length,
       });
     }
+
+    // Clear local queue state so carousel restarts from the beginning
     localStorage.removeItem('practiceQueue');
     localStorage.removeItem('queueIndex');
     localStorage.removeItem('ritualMode');
-    const todayDate = new Date().toISOString().split('T')[0];
-    const currentPeriod = getCurrentTimeWindow();
-    sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
-    sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
-    sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
-    setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: plan?.timeOfDayPlan?.modules?.length || 0 });
-    await loadPlan();
+
+    // Reset UI state — do NOT clear session cache or reload plan
+    setCompletedPracticeIds([]);
+    setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length });
   };
 
   if (loading) {
@@ -597,7 +606,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                       "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
                       "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
                       isCompleted
-                        ? "bg-saffron/10 backdrop-blur-md border border-saffron/30 opacity-65 cursor-default"
+                        ? "bg-white/15 backdrop-blur-md border border-white/40 opacity-60 cursor-default"
                         : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       isLastCard && "mr-4"
                     )}
@@ -640,7 +649,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                         <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                       </div>
                       <div className="flex items-start gap-1 mt-1.5">
-                        <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50 line-through decoration-1" : "text-foreground")}>{module.title}</h4>
+                        <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50" : "text-foreground")}>{module.title}</h4>
                         {!isCoach && isFavorite(module.contentId) && (
                           <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                         )}
@@ -651,11 +660,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
-                        {isCompleted ? (
-                          <span className="text-[10px] text-saffron/70 font-medium font-body">Completed</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
-                        )}
+                        <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                       </div>
                     </div>
 
