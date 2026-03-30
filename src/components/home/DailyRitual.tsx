@@ -470,28 +470,37 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   };
 
   const handleRestartRitual = async () => {
+    const todayDate = new Date().toISOString().split('T')[0];
+    const currentPeriod = getCurrentTimeWindow();
+    const modules = plan?.timeOfDayPlan?.modules || [];
+
+    // Reset progress on the EXISTING ritual row (keep recommended_practice_ids intact)
     if (user || DEV_MODE) {
-      const currentPeriod = getCurrentTimeWindow();
-      // Route through EF instead of direct DB delete (Auth0 RLS fix)
-      const token = await getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (DEV_MODE) headers['x-dev-user-id'] = DEV_USER.id;
-      await supabase.functions.invoke('daily-rituals', {
-        headers,
-        body: { action: 'DELETE_TODAY_RITUAL', sessionPeriod: currentPeriod }
+      await upsertRitual({
+        ritual_date: todayDate,
+        session_period: currentPeriod,
+        completed_practice_ids: [],
+        completion_status: 'partial',
+        soundscape_completed: false,
+        soundscape_completed_at: null,
+        guided_practice_completed: false,
+        guided_practice_completed_at: null,
+        micro_exercise_completed: false,
+        micro_exercise_completed_at: null,
+        // Preserve the same recommended practices
+        recommended_practice_ids: modules.map(m => m.contentId),
+        recommended_practices_count: modules.length,
       });
     }
+
+    // Clear local queue state so carousel restarts from the beginning
     localStorage.removeItem('practiceQueue');
     localStorage.removeItem('queueIndex');
     localStorage.removeItem('ritualMode');
-    const todayDate = new Date().toISOString().split('T')[0];
-    const currentPeriod = getCurrentTimeWindow();
-    sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
-    sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
-    sessionStorage.removeItem(`plan-energy-hash-${todayDate}`);
-    setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: plan?.timeOfDayPlan?.modules?.length || 0 });
-    await loadPlan();
+
+    // Reset UI state — do NOT clear session cache or reload plan
+    setCompletedPracticeIds([]);
+    setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length });
   };
 
   if (loading) {
