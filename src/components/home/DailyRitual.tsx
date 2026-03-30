@@ -660,11 +660,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
-                        {isCompleted ? (
-                          <span className="text-[10px] text-saffron/70 font-medium font-body">Completed</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
-                        )}
+                        <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
                       </div>
                     </div>
 

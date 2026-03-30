@@ -117,13 +117,13 @@ serve(async (req) => {
 
 CONVERSATION:
 ${transcript}
-${commitmentContext}
+${commitmentContext}${accountabilityHint}
 GENERATE a JSON object with:
 - summary_text: 2-3 sentence summary of what happened
 - key_topics: array of 3-5 topic strings (e.g., "board pressure", "emotional regulation")
 - dominant_pattern: one of "recalibration" | "clarity" | "renewal"
 - emotional_arc: brief phrase describing state shift (e.g., "escalated → grounded")
-- commitments_made: array of specific NEW actions the user committed to (empty if none)
+- commitments_made: array of specific NEW actions the user committed to. IMPORTANT: Look carefully for accountability language like "hold me accountable for...", "I commit to...", "I want to...", "help me stick to...", "I will start...". These are commitments even if phrased as requests. Extract the specific action. Never return an empty array if the user expressed any intent to change behavior or follow through on something.
 - commitment_updates: array of objects { id: string, new_status: "progressed" | "completed" | "abandoned", evidence: string } for any EXISTING pending commitments that were discussed (empty array if none discussed)
 - practices_recommended: array of practice names/types recommended by the coach (empty if none)
 - wisdom_referenced: array of wisdom references used (empty if none)
