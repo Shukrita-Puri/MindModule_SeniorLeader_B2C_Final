@@ -325,11 +325,11 @@ const SelfMasteryCoach = () => {
     const isLastPractice = currentQueueIndex === practiceQueue.length - 1;
     
     if (isLastPractice) {
-      localStorage.setItem('showPlanFeedback', JSON.stringify({ 
-        planType: localStorage.getItem('jitInterventionData') ? 'jit' : 'tod' 
-      }));
+      const jitData = localStorage.getItem('jitInterventionData');
+      setPlanFeedbackFlag(jitData ? 'jit' : 'tod');
+      localStorage.removeItem('jitInterventionData');
       localStorage.removeItem('practiceQueue');
-      toast.success('🎉 Ritual complete!');
+      toast.success('🎉 Plan complete!');
       navigate('/executive-home');
     } else {
       navigateToNext();
