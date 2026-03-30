@@ -2104,12 +2104,14 @@ const MicroPracticePlayerCards = () => {
   };
 
   const handleQueueComplete = () => {
-    // Navigate to next or complete ritual
     if (currentQueueIndex < practiceQueue.length - 1) {
       navigateToNext();
     } else {
+      const ritualMode = localStorage.getItem('ritualMode');
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
+      localStorage.removeItem('ritualMode');
       localStorage.removeItem('practiceQueue');
-      toast.success('🎉 Ritual complete!');
+      toast.success('🎉 Plan complete!');
       navigate('/executive-home');
     }
   };
