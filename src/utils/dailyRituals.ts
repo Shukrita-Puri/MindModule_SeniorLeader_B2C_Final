@@ -216,16 +216,19 @@ export async function updateRitualCompletion(
 ): Promise<void> {
   const timestamp = new Date().toISOString();
   const today = new Date().toLocaleDateString('en-CA');
+  const currentPeriod = getCurrentTimeWindowForRituals();
   
-  console.log(`[dailyRituals ${timestamp}] updateRitualCompletion called:`, { practiceType, practiceId, queueLength: practiceQueue?.length });
+  console.log(`[dailyRituals] updateRitualCompletion:`, { 
+    practiceType, practiceId, queueLength: practiceQueue?.length, 
+    sessionPeriod: currentPeriod, date: today, timestamp 
+  });
   
   // DEV_MODE: Direct database — single atomic upsert
   if (DEV_MODE) {
-    console.log(`[dailyRituals ${timestamp}] DEV_MODE: Atomic update`);
+    console.log(`[dailyRituals] DEV_MODE: Atomic update for period=${currentPeriod}`);
     
     try {
       // Get existing ritual for current period
-      const currentPeriod = getCurrentTimeWindowForRituals();
       const existingRitual = await getTodayRitual(currentPeriod);
       const existingIds = existingRitual?.completed_practice_ids || [];
       const newCompletedIds = existingIds.includes(practiceId) ? existingIds : [...existingIds, practiceId];
@@ -260,9 +263,12 @@ export async function updateRitualCompletion(
           : 'skipped';
 
       const result = await upsertRitual(ritualData);
-      console.log(`[dailyRituals ${timestamp}] DEV_MODE atomic result:`, result ? 'SUCCESS' : 'FAILED');
+      console.log(`[dailyRituals] DEV_MODE result:`, { 
+        success: !!result, completedIds: newCompletedIds, 
+        status: ritualData.completion_status, period: currentPeriod 
+      });
     } catch (error) {
-      console.error(`[dailyRituals ${timestamp}] DEV_MODE update failed:`, error);
+      console.error(`[dailyRituals] DEV_MODE update failed:`, error);
     }
     return;
   }
@@ -270,12 +276,13 @@ export async function updateRitualCompletion(
   // Production: Single atomic COMPLETE_PRACTICE call via edge function
   try {
     const accessToken = await getAccessToken();
-    console.log(`[dailyRituals ${timestamp}] Access token:`, accessToken ? 'present' : 'MISSING');
     
     if (!accessToken) {
-      console.warn(`[dailyRituals ${timestamp}] No access token available - ritual completion will NOT be saved!`);
+      console.warn(`[dailyRituals] No access token — completion NOT saved!`);
       return;
     }
+
+    console.log(`[dailyRituals] Invoking COMPLETE_PRACTICE EF:`, { practiceType, practiceId, sessionPeriod: currentPeriod });
 
     const { data, error } = await supabase.functions.invoke('daily-rituals', {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -284,16 +291,20 @@ export async function updateRitualCompletion(
         practiceType,
         practiceId,
         practiceQueue,
-        sessionPeriod: getCurrentTimeWindowForRituals()
+        sessionPeriod: currentPeriod
       }
     });
 
     if (error) {
-      console.error(`[dailyRituals ${timestamp}] COMPLETE_PRACTICE error:`, error);
+      console.error(`[dailyRituals] COMPLETE_PRACTICE error:`, error);
       return;
     }
 
-    console.log(`[dailyRituals ${timestamp}] COMPLETE_PRACTICE success:`, data?.data?.completion_status);
+    console.log(`[dailyRituals] COMPLETE_PRACTICE success:`, { 
+      status: data?.data?.completion_status, 
+      completedCount: data?.data?.completed_practice_ids?.length,
+      period: currentPeriod
+    });
   } catch (error) {
     console.error(`[dailyRituals ${timestamp}] Failed to update ritual completion:`, error);
   }

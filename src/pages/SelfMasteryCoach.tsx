@@ -300,7 +300,9 @@ const SelfMasteryCoach = () => {
   const markCoachComplete = async () => {
     try {
       const coachId = flowType === 'integrate' ? 'coach-integrate' : 'coach-prepare';
+      console.log('[SelfMasteryCoach] Calling updateRitualCompletion:', { coachId, queueLength: practiceQueue.length });
       await updateRitualCompletion('micro_exercise', coachId, practiceQueue.length > 0 ? practiceQueue : undefined);
+      console.log('[SelfMasteryCoach] updateRitualCompletion complete');
     } catch (error) {
       console.error('[SelfMasteryCoach] Failed to mark coach complete:', error);
     }
@@ -322,6 +324,9 @@ const SelfMasteryCoach = () => {
     const isLastPractice = currentQueueIndex === practiceQueue.length - 1;
     
     if (isLastPractice) {
+      localStorage.setItem('showPlanFeedback', JSON.stringify({ 
+        planType: localStorage.getItem('jitInterventionData') ? 'jit' : 'tod' 
+      }));
       localStorage.removeItem('practiceQueue');
       toast.success('🎉 Ritual complete!');
       navigate('/executive-home');
