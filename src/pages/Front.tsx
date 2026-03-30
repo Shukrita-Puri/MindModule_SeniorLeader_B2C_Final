@@ -105,26 +105,29 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
     onSignIn();
   };
 
-  return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center justify-center px-5 py-4 sm:py-16 overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+  return <div className={`relative h-screen h-[100dvh] bg-background flex flex-col items-center overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       
-      {/* Subtle background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
+      {/* Full-bleed background illustration */}
+      <img 
+        src={heroIllustration} 
+        alt="" 
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.12]"
+        width={1920}
+        height={1080}
+      />
+
+      {/* Gradient overlays for depth and readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/30 to-background/90 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-background pointer-events-none" />
       
-      {/* Main Hero Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-3 sm:space-y-5 lg:space-y-6">
+      {/* Content layer */}
+      <div className="relative z-10 flex flex-col items-center justify-center text-center h-full w-full px-5 py-4 sm:py-16 max-w-4xl mx-auto space-y-3 sm:space-y-5 lg:space-y-6">
         
-        {/* Hero Illustration */}
-        <div className="w-full max-w-[320px] sm:max-w-[420px] lg:max-w-[520px] mx-auto">
-          <img 
-            src={heroIllustration} 
-            alt="Mind Module — precision mental performance instrument" 
-            className="w-full h-auto rounded-lg"
-            width={1920}
-            height={1080}
-          />
-        </div>
+        {/* Logo */}
+        <img src={mmLogoCircle} alt="Mind Module logo" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-lg" />
         
-        {/* LOGO - THE HERO */}
+        {/* Brand name */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
@@ -138,7 +141,7 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         </h2>
         
         {/* Gold Divider */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
+        <div className="w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
         
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-3 mt-2">
