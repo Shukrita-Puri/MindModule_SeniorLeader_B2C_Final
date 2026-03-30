@@ -391,14 +391,10 @@ const SoundscapePlayer = () => {
           console.error('Error parsing JIT data:', e);
         }
       }
-      // Set plan feedback flag for ExecutiveHome
       const ritualMode = localStorage.getItem('ritualMode');
-      localStorage.setItem('showPlanFeedback', JSON.stringify({
-        planType: ritualMode === 'jit' ? 'jit' : 'tod',
-        timestamp: Date.now()
-      }));
+      setPlanFeedbackFlag((ritualMode === 'jit' ? 'jit' : 'tod'));
       localStorage.removeItem('ritualMode');
-      toast.success('🎉 Ritual complete!');
+      toast.success('🎉 Plan complete!');
       navigate('/executive-home');
     }
   };
