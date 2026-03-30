@@ -558,8 +558,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
             </div>
             <span className={cn(
               "text-xs font-medium font-body",
-              ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
+              ritualStatus.status === 'completed' ? "text-emerald-500" : ritualStatus.completedCount > 0 ? "text-emerald-500/80" : "text-muted-foreground"
             )}>
+              {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
               {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
             </span>
           </div>

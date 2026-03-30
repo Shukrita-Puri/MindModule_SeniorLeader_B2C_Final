@@ -301,7 +301,11 @@ const JitCarousel = ({ preEventPlan }: JitCarouselProps) => {
           )}
 
           {/* Progress tracker — mirrors Time-of-Day placement */}
-          <span className="text-xs font-medium font-body text-foreground/80 whitespace-nowrap">
+          <span className={cn(
+            "text-xs font-medium font-body whitespace-nowrap",
+            completedModuleIds.length >= preEventPlan.modules.length ? "text-emerald-500" : completedModuleIds.length > 0 ? "text-emerald-500/80" : "text-foreground/80"
+          )}>
+            {completedModuleIds.length > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
             {completedModuleIds.length} of {preEventPlan.modules.length} completed
           </span>
         </div>
