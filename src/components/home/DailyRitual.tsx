@@ -505,7 +505,13 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
     );
   }
 
-  const activeModules = plan?.timeOfDayPlan?.modules || [];
+  const rawModules = plan?.timeOfDayPlan?.modules || [];
+  // Sort: incomplete first, completed last — preserves original order within each group
+  const activeModules = [...rawModules].sort((a, b) => {
+    const aCompleted = completedPracticeIds.includes(a.contentId) ? 1 : 0;
+    const bCompleted = completedPracticeIds.includes(b.contentId) ? 1 : 0;
+    return aCompleted - bCompleted;
+  });
 
   if (activeModules.length === 0 && !loading) {
     return (
@@ -552,8 +558,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
             </div>
             <span className={cn(
               "text-xs font-medium font-body",
-              ritualStatus.status === 'completed' ? "text-saffron" : "text-muted-foreground"
+              ritualStatus.status === 'completed' ? "text-emerald-500" : ritualStatus.completedCount > 0 ? "text-emerald-500/80" : "text-muted-foreground"
             )}>
+              {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
               {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
             </span>
           </div>
@@ -587,59 +594,74 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                   <div
                     onClick={() => !isDragging && !isCompleted && navigateToPractice(module)}
                     className={cn(
-                      "flex rounded-xl overflow-hidden h-44 cursor-pointer transition-all duration-300",
-                      "bg-white/15 backdrop-blur-md border border-white/40",
+                      "relative flex rounded-xl overflow-hidden h-44 transition-all duration-300",
                       "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
-                      isCompleted ? "opacity-50 cursor-not-allowed" : "hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
+                      isCompleted
+                        ? "bg-emerald-950/20 backdrop-blur-md border border-emerald-500/30 opacity-65 cursor-default"
+                        : "bg-white/15 backdrop-blur-md border border-white/40 cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5",
                       isLastCard && "mr-4"
                     )}
                   >
+                    {/* Completed overlay badge */}
+                    {isCompleted && (
+                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-emerald-600/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                        <Check size={10} className="stroke-[3]" />
+                        Done
+                      </div>
+                    )}
+
                     {/* Thumbnail */}
                     {isCoach ? (
                       <div className="w-32 h-full flex-shrink-0 relative overflow-hidden">
-                        <img src={coachVisual} alt="" className="w-full h-full object-cover object-top brightness-75" />
+                        <img src={coachVisual} alt="" className={cn("w-full h-full object-cover object-top", isCompleted ? "brightness-50 grayscale-[30%]" : "brightness-75")} />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30" />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <span className="text-3xl font-headline text-white tracking-tight leading-none drop-shadow-lg">SM</span>
                           <span className="text-[8px] uppercase tracking-[0.15em] text-white/80 mt-0.5">Coach</span>
                         </div>
-                        <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
-                          {module.title === 'Tiny Win and Reflection' ? 'Tiny Win & Reflection' : "Today's Plan"}
-                        </div>
+                        {!isCompleted && (
+                          <div className="absolute top-2 right-2 bg-saffron/90 text-charcoal text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shadow-sm">
+                            {module.title === 'Tiny Win and Reflection' ? 'Tiny Win & Reflection' : "Today's Plan"}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <img
                         src={module.thumbnailUrl || getContentById(module.contentId)?.thumbnail || ''}
                         alt={module.title}
-                        className="w-32 h-full object-cover flex-shrink-0"
+                        className={cn("w-32 h-full object-cover flex-shrink-0", isCompleted && "brightness-50 grayscale-[30%]")}
                       />
                     )}
 
                     {/* Content */}
                     <div className="flex-1 p-4 flex flex-col justify-center min-w-0">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-medium tracking-wide uppercase text-saffron font-body">{display.label}</span>
+                        <span className={cn("text-xs font-medium tracking-wide uppercase font-body", isCompleted ? "text-emerald-500/80" : "text-saffron")}>{display.label}</span>
                         <span className="text-[10px] text-muted-foreground/60 font-body">{display.protocolType}</span>
                       </div>
                       <div className="flex items-start gap-1 mt-1.5">
-                        <h4 className="text-base font-semibold text-foreground line-clamp-2 leading-snug font-body flex-1">{module.title}</h4>
+                        <h4 className={cn("text-base font-semibold line-clamp-2 leading-snug font-body flex-1", isCompleted ? "text-foreground/50 line-through decoration-1" : "text-foreground")}>{module.title}</h4>
                         {!isCoach && isFavorite(module.contentId) && (
                           <Heart size={14} className="text-saffron fill-saffron flex-shrink-0 mt-0.5" />
                         )}
                       </div>
-                      {module.reasoning && (
+                      {module.reasoning && !isCompleted && (
                         <p className="text-[11px] text-muted-foreground italic font-body line-clamp-2 leading-snug mt-0.5">
                           {module.reasoning}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
+                        {isCompleted ? (
+                          <span className="text-[10px] text-emerald-500/70 font-medium font-body">Completed</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-body">{module.duration} min</span>
+                        )}
                       </div>
                     </div>
 
                     {isCompleted && (
-                      <div className="w-8 h-8 rounded-full bg-saffron flex items-center justify-center mr-3 flex-shrink-0 self-center">
-                        <Check size={16} className="text-white" />
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center mr-3 flex-shrink-0 self-center">
+                        <Check size={16} className="text-white stroke-[3]" />
                       </div>
                     )}
                   </div>
