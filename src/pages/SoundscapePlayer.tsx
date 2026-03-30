@@ -26,7 +26,7 @@ import PracticeRatingModal from "@/components/PracticeRatingModal";
 import { toast } from "sonner";
 import { getContentById } from "@/data/practicesAndSoundscapes";
 import { trackEngagement } from "@/utils/engagementTracking";
-import { submitPracticeRating } from "@/utils/relevanceFeedback";
+import { submitPracticeRating, isLastPracticeInPlan, setPlanFeedbackFlag } from "@/utils/relevanceFeedback";
 import { updateRitualCompletion } from "@/utils/dailyRituals";
 import { trackSanctuaryEvent } from "@/utils/sanctuaryEventTracking";
 import { useMentalFitnessTracking } from "@/hooks/useMentalFitnessTracking";
