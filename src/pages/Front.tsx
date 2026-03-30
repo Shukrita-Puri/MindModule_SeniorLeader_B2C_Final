@@ -111,16 +111,24 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-mocha/5 pointer-events-none" />
       
       {/* Main Hero Content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl space-y-3 sm:space-y-5 lg:space-y-6">
         
-        {/* Logo */}
-        <img src={mmLogoCircle} alt="Mind Module logo" className="w-24 h-24 sm:w-28 sm:h-28 rounded-full shadow-lg" />
+        {/* Hero Illustration */}
+        <div className="w-full max-w-[320px] sm:max-w-[420px] lg:max-w-[520px] mx-auto">
+          <img 
+            src={heroIllustration} 
+            alt="Mind Module — precision mental performance instrument" 
+            className="w-full h-auto rounded-lg"
+            width={1920}
+            height={1080}
+          />
+        </div>
         
         {/* LOGO - THE HERO */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-headline font-bold text-foreground tracking-wider leading-none">
           MIND MODULE
         </h1>
-        <p className="text-sm sm:text-base tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-2 sm:-mt-4">
+        <p className="text-[9px] sm:text-xs tracking-[0.25em] uppercase text-muted-foreground/70 font-body -mt-2 sm:-mt-4">
           Executive Edition
         </p>
         
@@ -131,14 +139,6 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         
         {/* Gold Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent mt-2" />
-        
-        {/* Description */}
-        <p className="text-[11px] sm:text-base lg:text-lg text-muted-foreground leading-relaxed font-body max-w-2xl mt-2">
-          Always One Step Ahead. Always Based on Your Context. All in One App.
-        </p>
-        <p className="text-sm sm:text-xl lg:text-2xl font-bold text-muted-foreground font-body mt-1">
-          Built for Leaders. By Leaders.
-        </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-3 mt-2">
@@ -169,6 +169,7 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
         </div>
       </div>
       
+    </div>;
     </div>;
 };
 
