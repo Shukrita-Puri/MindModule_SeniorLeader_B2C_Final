@@ -302,8 +302,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday rather than spending it before the week begins.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead, and your above-baseline readiness is a genuine advantage. Protecting this state tonight is the single highest-leverage move for tomorrow."
+          : lightMon
+          ? "A lighter Monday ahead and strong readiness to carry into it. Protecting tonight means the week opens from a position of genuine strength."
+          : "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday rather than spending it before the week begins.";
+        return { phrase: "Carry it into Monday.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return { phrase: "Close strong.", context: "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.", driver: 'evening' };
