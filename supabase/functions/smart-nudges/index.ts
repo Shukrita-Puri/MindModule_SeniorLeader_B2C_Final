@@ -287,7 +287,6 @@ async function buildNudgeContext(
     { data: jitEventsRaw },
     { data: practiceSessions30d },
     { data: checkins30d },
-    { data: sessionSummaries },
   ] = await Promise.all([
     // Today's calendar events
     supabase.from('calendar_events')
@@ -372,13 +371,15 @@ async function buildNudgeContext(
       .eq('user_id', userId)
       .gte('checkin_date', thirtyDaysAgo.split('T')[0])
       .order('checkin_date', { ascending: true }),
-    // Coach session summaries for stress signals
-    supabase.from('coach_session_summaries')
-      .select('session_id, key_topics, commitments_made')
-      .in('session_id', (recentSessions || []).map(s => s.id).length > 0
-        ? (recentSessions || []).map(s => s.id)
-        : ['__none__']),
   ]);
+
+  // Fetch session summaries separately (depends on recentSessions)
+  const sessionIds = (recentSessions || []).map(s => s.id).filter(Boolean);
+  const { data: sessionSummaries } = sessionIds.length > 0
+    ? await supabase.from('coach_session_summaries')
+        .select('session_id, key_topics, commitments_made')
+        .in('session_id', sessionIds)
+    : { data: [] as any[] };
 
   // Process wearable signals
   const latestW = latestWearable?.[0];
