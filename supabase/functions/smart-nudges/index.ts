@@ -1633,12 +1633,7 @@ serve(async (req) => {
     };
 
     for (const notif of allNotifications) {
-      const deepLinkRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
-
-      // Feature performance pattern → route to coach (it suggests a coach session)
-      const effectiveRoute = (notif.type === 'pattern_alert' && notif.eventReference === 'feature_performance')
-        ? '/self-mastery-coach'
-        : deepLinkRoute;
+      const effectiveRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
 
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
