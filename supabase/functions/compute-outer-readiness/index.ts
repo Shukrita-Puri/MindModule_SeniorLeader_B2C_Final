@@ -975,10 +975,13 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
+    // Fetch tomorrow's calendar for late evening OR Sunday evening (≥18:00)
     const lateEvening = isLateEvening(hour);
+    const sundayEvening = dayOfWeek === 0 && hour >= 18;
+    const needTomorrow = lateEvening || sundayEvening;
     const [calendarResult, tomorrowResult] = await Promise.all([
       getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
-      lateEvening ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
+      needTomorrow ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
