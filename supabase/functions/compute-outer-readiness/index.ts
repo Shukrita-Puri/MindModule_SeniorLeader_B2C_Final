@@ -266,8 +266,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead. How you close tonight is how you open the week — a clean transition here protects your capacity for tomorrow's first high-stakes moments."
+          : lightMon
+          ? "A lighter Monday ahead. A clean close tonight means you can open the week with intention rather than inertia."
+          : "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.";
+        return { phrase: "Close into the week.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity. How you close is how you recover.", driver: 'evening' };
