@@ -1,52 +1,29 @@
+## Smart Nudges — Signal-First Architecture (Completed)
 
+### What Changed
 
-## Plan: Fix Three Issues — Accountability Tracking, Restart Button, Completed Card Styling
+Complete rewrite of `supabase/functions/smart-nudges/index.ts` from template-rotation to signal-first architecture.
 
-### Issue 1: `coach_accountability_tracker` Not Recording Commitments
+### Architecture
 
-**Root Cause**: The `generate-coach-summary` edge function uses AI to extract commitments from session transcripts. Looking at the last 5 session summaries, ALL have `commitments_made: []` — the AI is not recognizing accountability requests like "hold me accountable for X" as formal commitments.
+1. **`buildNudgeContext()`** — single parallel query assembling all signals: calendar events (today + tomorrow), wearable data (HRV, RHR, sleep score + 30d baselines), coach commitments + patterns + stress signals, check-in state, mastery plan, JIT events, 30d performance correlations.
 
-**Fix**: Update the AI prompt in `generate-coach-summary/index.ts` to explicitly recognize accountability language patterns ("hold me accountable", "I commit to", "I want to", "help me stick to") as commitments. Also add a fallback: scan user messages for explicit accountability phrases and inject them into the commitment extraction context so the AI doesn't miss them.
+2. **Priority Cascade (P0–P7)**:
+   - P0: Morning Preparation (calendar-aware timing — first event minus commute buffer, clamped 6:30–9:30am)
+   - P1: JIT Pre-Event (score ≥ 55, 30–90 min window)
+   - P2: Calendar Gap (≥20 min, fires 5 min into gap, post-gap load check)
+   - P3: Coach Commitment + Meeting Match (semantic keyword match, stress signals)
+   - P4: Performance + State-Aware (merged — feature performance correlation + afternoon state)
+   - P5: Evening Cool-Down (references actual day, Sunday→Monday signals, soft weekend tone)
+   - P6: Pattern Alert (consecutive low, recovery deficit, streak milestones)
+   - P7: Daily Fallback (best available signal)
 
-**Files**: `supabase/functions/generate-coach-summary/index.ts`
+3. **`generateNudgeCopy()`** — AI copy via Lovable AI Gateway (gemini-2.5-flash-lite), 6s timeout, static fallbacks if AI unavailable.
 
----
+4. **Hardened suppression**: quiet hours 10pm–6:30am, in-meeting skip, 30min app-open skip, 2h cooldown (JIT overrides), daily cap 3.
 
-### Issue 2: Restart Button Shows New Plan Instead of Same Plan
-
-**Root Cause**: `handleRestartRitual` (DailyRitual.tsx line 472) deletes the ritual row, clears all session/local caches, then calls `loadPlan()` which hits the server for a fresh plan. This means the user gets a completely different set of practices.
-
-**Fix**: Change `handleRestartRitual` to:
-- Reset the `completed_practice_ids` to `[]` and `completion_status` to `partial` on the existing ritual (instead of deleting it)
-- Clear local queue state (`practiceQueue`, `queueIndex`)
-- Keep the session cache and `recommended_practice_ids` intact
-- Re-read the existing plan from session cache (not regenerate)
-- This way the same practices appear, just with progress reset
-
-**Files**: `src/components/home/DailyRitual.tsx`
-
----
-
-### Issue 3: Completed Card Styling Too Heavy
-
-**Current state** (from screenshot): Orange-tinted card background, "Done" pill, strikethrough title, "Completed" text, and an orange check circle — all at once. User wants only the "Done" pill and the tick circle; no "Completed" label, no strikethrough on title, no orange card background.
-
-**Fix** in both `DailyRitual.tsx` and `JitCarousel.tsx`:
-- Remove `bg-saffron/10` and `border-saffron/30` from completed card container — use the same neutral styling as incomplete cards but with reduced opacity
-- Remove `line-through decoration-1` from the title `<h4>`
-- Remove the `"Completed"` text span in the bottom area
-- Keep the "Done" pill badge (top-left) and the saffron check circle (right side)
-- Keep thumbnail dimming (brightness/grayscale) for subtle differentiation
-
-**Files**: `src/components/home/DailyRitual.tsx`, `src/components/home/JitCarousel.tsx`
-
----
-
-### Summary of File Changes
-
-| File | Change |
-|------|--------|
-| `supabase/functions/generate-coach-summary/index.ts` | Improve AI prompt to detect accountability language |
-| `src/components/home/DailyRitual.tsx` | Fix restart to reset progress (not regenerate), fix completed card styling |
-| `src/components/home/JitCarousel.tsx` | Fix completed card styling |
-
+### Key Design Decisions
+- P4/P7 merged: Feature Performance (coach lift > 20% + high-stakes upcoming) and State-Aware Afternoon (morning depleted + afternoon high-stakes) share one priority slot
+- Evening/weekend copy uses softer "permission to stop" tone
+- Sunday evening references Monday's calendar signals (event count, high-stakes)
+- Every nudge references something specific — no generic copy possible
