@@ -1036,7 +1036,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
