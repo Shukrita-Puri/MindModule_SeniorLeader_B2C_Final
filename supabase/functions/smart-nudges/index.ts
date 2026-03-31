@@ -1147,7 +1147,7 @@ async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<str
   return { type: 'evening_close', copy, priority: 5 };
 }
 
-// P6: Pattern Alert (kept from original, fed by NudgeContext)
+// P6: Pattern Alert + Feature Performance (merged — both are data-driven observations)
 async function evaluatePatternAlert(
   ctx: NudgeContext,
   alreadySentTypes: Set<string>,
@@ -1172,6 +1172,22 @@ async function evaluatePatternAlert(
       return (p?.pattern_type as string) || l.variant_id;
     })
   );
+
+  // Pattern 0 (NEW): Feature Performance — coach session readiness lift
+  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
+  if (!recentPatternTypes.has('feature_performance') &&
+      ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
+    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
+      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
+    const noRecentCoach = !ctx.coach.lastSessionAt ||
+      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
+
+    if (hasUpcomingHighStakes && noRecentCoach) {
+      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
+      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
+      return { type: 'pattern_alert', copy, eventReference: 'feature_performance', priority: 6 };
+    }
+  }
 
   // Pattern 1: Consecutive low state (3 days)
   if (!recentPatternTypes.has('consecutive_low')) {
