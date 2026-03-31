@@ -5,7 +5,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Create a JWT for APNs authentication using ES256 (ECDSA P-256 + SHA-256).
- * The P8 key is an ECDSA private key in PEM/PKCS8 format.
  */
 async function createApnsJwt(p8Key: string, keyId: string, teamId: string): Promise<string> {
   const pemBody = p8Key
@@ -102,7 +101,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ── Noise filter (aligned with JIT pipeline generate-jit-events) ──
+// ══════════════════════════════════════════════════════════════
+// ── SIGNAL-FIRST ARCHITECTURE: Types & Constants ──
+// ══════════════════════════════════════════════════════════════
+
+const DAILY_NOTIFICATION_CAP = 3;
+const LOW_TIERS = ['depleted', 'managing'];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Noise filter (aligned with JIT pipeline)
 const NOISE_KEYWORDS = [
   'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
   'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
@@ -119,7 +126,6 @@ function isNoiseEvent(title: string): boolean {
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// ── Fallback event scoring (only used when jit_event_context has no data) ──
 const HIGH_STAKES_KEYWORDS = [
   'board', 'investor', 'presentation', 'negotiation', 'pitch',
   'review', 'performance', 'strategy', 'stakeholder',
@@ -139,134 +145,8 @@ function scoreEvent(title: string | null): number {
   return Math.min(score, 100);
 }
 
-// ── Constants ──
-const DAILY_NOTIFICATION_CAP = 3;
-const LOW_TIERS = ['depleted', 'managing'];
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-// ── Copy Variants ──
-
-interface Variant {
-  id: string;
-  title: string;
-  body: string;
-}
-
-function getMorningVariants(ctx: {
-  dayOfWeek: string;
-  calendarPressure: string;
-  streak: number;
-  topEventTitle?: string;
-  topEventTime?: string;
-  morningLoad: string;
-  afternoonLoad: string;
-}): Variant[] {
-  return [
-    { id: 'MA-1', title: 'Your Compass is Ready', body: `Your ${ctx.dayOfWeek} is mapped. Check in to see your Compass.` },
-    { id: 'MA-2', title: 'Ground First', body: `You have high-stakes events today. Ground first.` },
-    { id: 'MA-3', title: 'Shape Your Day', body: 'Your readiness shapes the next 12 hours. Check in.' },
-    { id: 'MA-4', title: 'Prep Session Ready', body: ctx.topEventTitle ? `${ctx.topEventTitle} is ${ctx.topEventTime || 'soon'}. Your prep session is ready.` : 'Your readiness shapes the next 12 hours. Check in.' },
-    { id: 'MA-5', title: 'Keep the Rhythm', body: `Day ${ctx.streak} of your practice. Morning Practice ready.` },
-    { id: 'MA-6', title: 'Start Strong', body: 'Clear morning, heavy afternoon. Start strong.' },
-  ];
-}
-
-// ── Weekend Morning Variants ──
-function getWeekendMorningVariants(): Variant[] {
-  return [
-    { id: 'MA-W1', title: 'Weekend Check-In', body: 'No calendar pressure today. Check in when you\'re ready.' },
-    { id: 'MA-W2', title: 'Slower Pace', body: 'Weekend morning. A slower check-in for a different pace.' },
-  ];
-}
-
-// ── Weekend Evening Variants ──
-function getFridayEveningVariants(): Variant[] {
-  return [
-    { id: 'EC-F1', title: 'Week Complete', body: 'Week complete. What are you carrying into the weekend?' },
-    { id: 'EC-F2', title: 'Close the Week', body: 'Five days behind you. Close the week before you unplug.' },
-  ];
-}
-
-function getSaturdayEveningVariants(): Variant[] {
-  return [
-    { id: 'EC-W1', title: 'Saturday Close', body: 'No agenda tonight. Just notice how you\'re landing.' },
-  ];
-}
-
-function getSundayEveningVariants(): Variant[] {
-  return [
-    { id: 'EC-S1', title: 'Week Ahead', body: 'Monday is mapped. Set your intention before the week begins.' },
-    { id: 'EC-S2', title: 'Sunday Close', body: 'Sunday close. What do you want to carry into the new week?' },
-  ];
-}
-
-function getPreEventVariants(ctx: {
-  eventTitle: string;
-  minutesUntil: number;
-  innerTier: string;
-  calendarLoad: string;
-  eventCount: number;
-  practiceName?: string;
-  priorityScore: number;
-}): Variant[] {
-  return [
-    { id: 'PE-1', title: 'Prep Ready', body: `${ctx.eventTitle} in ${ctx.minutesUntil} min. Open your prep.` },
-    { id: 'PE-2', title: 'Ground and Prepare', body: `${ctx.eventTitle} ahead. Ground and prepare now.` },
-    { id: 'PE-3', title: "You're Well-Resourced", body: "You're well-resourced. Channel it." },
-    { id: 'PE-4', title: 'Regulate First', body: "You're running low. Regulate before you engage." },
-    { id: 'PE-5', title: 'Reset First', body: `${ctx.eventTitle} is your ${ctx.eventCount}${ordinalSuffix(ctx.eventCount)} meeting today. Reset first.` },
-    { id: 'PE-6', title: 'High Stakes Prep', body: `High stakes, ${ctx.minutesUntil} min out. Open your prep.` },
-  ];
-}
-
-function getEveningVariants(ctx: {
-  dayOfWeek: string;
-  calendarLoad: string;
-  streak: number;
-  hrvDeltaPct?: number;
-  calendarPressure: string;
-}): Variant[] {
-  return [
-    { id: 'EC-1', title: 'Evening Close', body: `Close your ${ctx.dayOfWeek}. Evening Practice ready.` },
-    { id: 'EC-2', title: 'Release the Weight', body: `You carried a heavy schedule today. Release the weight.` },
-    { id: 'EC-3', title: 'Log Your Win', body: 'Log your win. Close the day.' },
-    { id: 'EC-4', title: 'Recovery Tonight', body: ctx.hrvDeltaPct ? `Your HRV dropped ${ctx.hrvDeltaPct}% today. Genuine recovery tonight protects tomorrow.` : 'Your body worked hard today. Genuine recovery tonight protects tomorrow.' },
-    { id: 'EC-5', title: 'Evening Close', body: `Day ${ctx.streak}. Evening Close ready.` },
-    { id: 'EC-6', title: 'Worth Carrying Forward', body: 'Heavy day behind you. What\'s worth carrying forward?' },
-  ];
-}
-
-function getPatternAlertVariants(ctx: {
-  patternType: string;
-  tier?: string;
-  consecutiveCount?: number;
-  practiceName?: string;
-  effectivenessRate?: number;
-  streakDays?: number;
-  eventType?: string;
-  hrvDays?: number;
-}): Variant[] {
-  return [
-    { id: 'PA-1', title: 'Pattern Noticed', body: `Day ${ctx.consecutiveCount || 3} at ${ctx.tier || 'low'}. Your system is showing a pattern worth noticing.` },
-    { id: 'PA-2', title: 'What Works for You', body: `${ctx.practiceName || 'This practice'} works for you — ${ctx.effectivenessRate || 80}% followed by stronger days.` },
-    { id: 'PA-3', title: 'Rhythm Forming', body: `${ctx.streakDays || 7} days. Your practice is becoming a rhythm.` },
-    { id: 'PA-4', title: 'Pattern Worth Naming', body: `${ctx.eventType || 'These meetings'} consistently drain you. That pattern is worth naming.` },
-    { id: 'PA-5', title: 'Recovery Priority', body: `Your HRV has been low for ${ctx.hrvDays || 3} days. Recovery is the priority.` },
-  ];
-}
-
-function getStateAwareVariants(ctx: {
-  highStakesCount: number;
-  nextEventTitle?: string;
-  minutesUntilNextEvent?: number;
-  practiceName?: string;
-}): Variant[] {
-  return [
-    { id: 'SN-1', title: 'Reset Available', body: `${ctx.highStakesCount} high-stakes events ahead. 5-min reset available now.` },
-    { id: 'SN-2', title: 'Recalibrate', body: 'You started low. The afternoon is heavy. Recalibrate first.' },
-    { id: 'SN-3', title: 'Afternoon Reset', body: `Afternoon Reset: ${ctx.practiceName || 'Quick reset'} is ready.` },
-    { id: 'SN-4', title: 'Reset or Push Through', body: `${ctx.nextEventTitle || 'Next event'} in ${ctx.minutesUntilNextEvent || 90} min. Reset now or push through?` },
-  ];
+function isHighStakes(title: string | null): boolean {
+  return scoreEvent(title) >= 25;
 }
 
 function ordinalSuffix(n: number): string {
@@ -275,47 +155,1115 @@ function ordinalSuffix(n: number): string {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-// ── Variant selection (round-robin) ──
+// ── NudgeContext: all signals assembled once per user ──
 
-function selectVariant(variants: Variant[], lastVariantId: string | null): Variant {
-  if (!lastVariantId) return variants[0];
-  const lastIdx = variants.findIndex(v => v.id === lastVariantId);
-  const nextIdx = (lastIdx + 1) % variants.length;
-  return variants[nextIdx];
+interface CalendarEvent {
+  id: string;
+  title: string | null;
+  start_time: string;
+  end_time: string;
+  external_id: string;
+  is_organizer?: boolean;
+  attendees_count?: number;
 }
 
-// ── Day helpers ──
+interface CalendarGap {
+  startTime: Date;
+  endTime: Date;
+  durationMinutes: number;
+  nextEvent: CalendarEvent;
+  postGapMeetingCount: number;
+  postGapHasHighStakes: boolean;
+}
 
-function getUserLocalDate(timezoneOffset: number): Date {
+interface WearableSignals {
+  sleepScore: number | null;
+  hrv: number | null;
+  rhr: number | null;
+  hrvBaseline30d: number | null;
+  rhrBaseline30d: number | null;
+  hrvDeltaPct: number | null;
+  rhrElevated: boolean;
+  totalSleepMinutes: number | null;
+}
+
+interface CoachSignals {
+  pendingCommitments: Array<{ text: string; overdueDays: number; patternArea: string | null; metaSkill: string | null }>;
+  activePatterns: Array<{ description: string; patternArea: string | null; observationCount: number }>;
+  stressSignals: Array<{ topic: string; sessionId: string }>;
+  lastSessionAt: Date | null;
+  sessionsIn7d: number;
+}
+
+interface NudgeContext {
+  userId: string;
+  todayStr: string;
+  tomorrowStr: string;
+  localHour: number;
+  localMinute: number;
+  localTime: number;
+  dayOfWeek: number;
+  dayName: string;
+  isWeekend: boolean;
+  // Calendar
+  todayEvents: CalendarEvent[];
+  tomorrowEvents: CalendarEvent[];
+  nonNoiseEvents: CalendarEvent[];
+  firstNonNoiseEvent: CalendarEvent | null;
+  eventCount: number;
+  highStakesEvents: CalendarEvent[];
+  calendarGaps: CalendarGap[];
+  dayType: 'light' | 'moderate' | 'heavy' | 'extreme';
+  // Wearable
+  wearable: WearableSignals;
+  // Coach
+  coach: CoachSignals;
+  // Check-in
+  morningCheckinOutcome: string | null;
+  afternoonCheckinOutcome: string | null;
+  lastCheckinTime: Date | null;
+  checkinCountToday: number;
+  // Mastery plan
+  pendingPracticeIds: string[];
+  completedPracticeIds: string[];
+  // JIT
+  jitEvents: Array<{ eventId: string; eventTitle: string; eventStart: string; finalScore: number; externalId: string; confidenceBand: string }>;
+  // Performance correlations (30d)
+  coachSessionReadinessLift: number | null; // % lift on days after coach session
+  practiceCompletionCorrelation: number | null; // % lift on days after practice
+  // Streak
+  currentStreak: number;
+  // Suppression signals
+  lastAppOpen: Date | null;
+  inMeetingNow: boolean;
+  // Energy snapshot
+  hrvDeltaPctFromSnapshot: number | null;
+}
+
+interface NudgeCopy {
+  title: string;
+  body: string;
+  variantId: string;
+}
+
+interface QualifiedNudge {
+  type: string;
+  copy: NudgeCopy;
+  eventReference?: string;
+  priority: number;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── buildNudgeContext() — Central Signal Assembly ──
+// ══════════════════════════════════════════════════════════════
+
+async function buildNudgeContext(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  todayStr: string,
+  tomorrowStr: string,
+  localHour: number,
+  localMinute: number,
+  dayOfWeek: number,
+  currentStreak: number,
+  lastAppOpen: Date | null,
+): Promise<NudgeContext> {
   const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utcMs + timezoneOffset * 60000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // All queries in parallel
+  const [
+    { data: todayEventsRaw },
+    { data: tomorrowEventsRaw },
+    { data: latestWearable },
+    { data: wearable30d },
+    { data: latestSnapshot },
+    { data: pendingCommitments },
+    { data: activePatterns },
+    { data: recentSessions },
+    { data: todayCheckins },
+    { data: todayRituals },
+    { data: jitEventsRaw },
+    { data: practiceSessions30d },
+    { data: checkins30d },
+    { data: sessionSummaries },
+  ] = await Promise.all([
+    // Today's calendar events
+    supabase.from('calendar_events')
+      .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
+      .eq('user_id', userId)
+      .gte('start_time', `${todayStr}T00:00:00`)
+      .lte('start_time', `${todayStr}T23:59:59`)
+      .order('start_time', { ascending: true }),
+    // Tomorrow's calendar events (for Sunday→Monday, evening→tomorrow)
+    supabase.from('calendar_events')
+      .select('id, title, start_time, end_time, external_id, is_organizer, attendees_count')
+      .eq('user_id', userId)
+      .gte('start_time', `${tomorrowStr}T00:00:00`)
+      .lte('start_time', `${tomorrowStr}T23:59:59`)
+      .order('start_time', { ascending: true }),
+    // Latest wearable data
+    supabase.from('wearable_data')
+      .select('hrv, resting_heart_rate, sleep_score, total_sleep_minutes, summary_date')
+      .eq('user_id', userId)
+      .order('summary_date', { ascending: false })
+      .limit(1),
+    // 30-day wearable baseline
+    supabase.from('wearable_data')
+      .select('hrv, resting_heart_rate')
+      .eq('user_id', userId)
+      .gte('summary_date', thirtyDaysAgo.split('T')[0])
+      .not('hrv', 'is', null),
+    // Today's energy snapshot
+    supabase.from('energy_snapshots')
+      .select('oura_readiness, computed_data')
+      .eq('user_id', userId)
+      .eq('snapshot_date', todayStr)
+      .limit(1)
+      .maybeSingle(),
+    // Pending coach commitments
+    supabase.from('coach_accountability_tracker')
+      .select('commitment_text, committed_at, check_in_due_date, status, pattern_area, meta_skill')
+      .eq('user_id', userId)
+      .eq('status', 'pending'),
+    // Active coach pattern observations
+    supabase.from('coach_pattern_observations')
+      .select('pattern_description, pattern_area, observation_count')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('observation_count', { ascending: false })
+      .limit(5),
+    // Recent coach dialogue sessions (7d)
+    supabase.from('dialogue_sessions')
+      .select('id, started_at, session_title, flow_type')
+      .eq('user_id', userId)
+      .eq('flow_type', 'coach')
+      .gte('started_at', sevenDaysAgo)
+      .order('started_at', { ascending: false }),
+    // Today's check-ins
+    supabase.from('daily_checkins')
+      .select('outcome, time_window, timestamp')
+      .eq('user_id', userId)
+      .eq('checkin_date', todayStr)
+      .order('timestamp', { ascending: true }),
+    // Today's ritual completions
+    supabase.from('daily_ritual_completions')
+      .select('recommended_practice_ids, completed_practice_ids, session_period, completion_status')
+      .eq('user_id', userId)
+      .eq('ritual_date', todayStr),
+    // JIT events (next 90 min, score >= 55)
+    supabase.from('jit_event_context')
+      .select('id, event_title, event_start, final_score, confidence_band')
+      .eq('user_id', userId)
+      .gte('event_start', new Date(now.getTime() + 30 * 60000).toISOString())
+      .lte('event_start', new Date(now.getTime() + 90 * 60000).toISOString())
+      .gte('final_score', 55)
+      .order('final_score', { ascending: false }),
+    // Practice sessions (30d) for performance correlation
+    supabase.from('practice_sessions')
+      .select('completed_at, completed, content_id')
+      .eq('user_id', userId)
+      .eq('completed', true)
+      .gte('created_at', thirtyDaysAgo),
+    // Check-ins (30d) for performance correlation
+    supabase.from('daily_checkins')
+      .select('checkin_date, outcome, time_window')
+      .eq('user_id', userId)
+      .gte('checkin_date', thirtyDaysAgo.split('T')[0])
+      .order('checkin_date', { ascending: true }),
+    // Coach session summaries for stress signals
+    supabase.from('coach_session_summaries')
+      .select('session_id, key_topics, commitments_made')
+      .in('session_id', (recentSessions || []).map(s => s.id).length > 0
+        ? (recentSessions || []).map(s => s.id)
+        : ['__none__']),
+  ]);
+
+  // Process wearable signals
+  const latestW = latestWearable?.[0];
+  const hrvValues = (wearable30d || []).map(w => w.hrv).filter((v): v is number => v !== null);
+  const rhrValues = (wearable30d || []).map(w => w.resting_heart_rate).filter((v): v is number => v !== null);
+  const hrvBaseline = hrvValues.length > 0 ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length : null;
+  const rhrBaseline = rhrValues.length > 0 ? rhrValues.reduce((a, b) => a + b, 0) / rhrValues.length : null;
+
+  const hrvDeltaPct = (latestW?.hrv && hrvBaseline) 
+    ? Math.round(((latestW.hrv - hrvBaseline) / hrvBaseline) * 100) 
+    : null;
+  const rhrElevated = (latestW?.resting_heart_rate && rhrBaseline)
+    ? latestW.resting_heart_rate > rhrBaseline * 1.1
+    : false;
+
+  // HRV delta from energy snapshot (may differ from wearable calc)
+  const snapshotComputed = latestSnapshot?.computed_data as Record<string, unknown> | null;
+  const hrvDeltaPctFromSnapshot = snapshotComputed?.hrv_delta_pct as number | null ?? hrvDeltaPct;
+
+  // Process calendar
+  const todayEvents = (todayEventsRaw || []) as CalendarEvent[];
+  const tomorrowEvents = (tomorrowEventsRaw || []) as CalendarEvent[];
+  const nonNoiseEvents = todayEvents.filter(e => !isNoiseEvent(e.title || ''));
+  const highStakesEvents = nonNoiseEvents.filter(e => isHighStakes(e.title));
+
+  // Day type classification
+  const eventCount = nonNoiseEvents.length;
+  let dayType: 'light' | 'moderate' | 'heavy' | 'extreme' = 'light';
+  if (eventCount >= 8) dayType = 'extreme';
+  else if (eventCount >= 6) dayType = 'heavy';
+  else if (eventCount >= 3) dayType = 'moderate';
+
+  // Calendar gaps (≥20 min between events)
+  const calendarGaps: CalendarGap[] = [];
+  for (let i = 0; i < nonNoiseEvents.length - 1; i++) {
+    const currentEnd = new Date(nonNoiseEvents[i].end_time);
+    const nextStart = new Date(nonNoiseEvents[i + 1].start_time);
+    const gapMs = nextStart.getTime() - currentEnd.getTime();
+    const gapMinutes = gapMs / 60000;
+    if (gapMinutes >= 20) {
+      // Count post-gap meetings and check for high-stakes
+      const postGapEvents = nonNoiseEvents.slice(i + 1);
+      calendarGaps.push({
+        startTime: currentEnd,
+        endTime: nextStart,
+        durationMinutes: Math.round(gapMinutes),
+        nextEvent: nonNoiseEvents[i + 1],
+        postGapMeetingCount: postGapEvents.length,
+        postGapHasHighStakes: postGapEvents.some(e => isHighStakes(e.title)),
+      });
+    }
+  }
+
+  // Currently in a meeting?
+  const inMeetingNow = todayEvents.some(e => {
+    const start = new Date(e.start_time);
+    const end = new Date(e.end_time);
+    return now >= start && now <= end;
+  });
+
+  // Coach signals
+  const commitments = (pendingCommitments || []).map(c => {
+    const dueDate = c.check_in_due_date ? new Date(c.check_in_due_date) : null;
+    const overdueDays = dueDate ? Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / 86400000)) : 0;
+    return {
+      text: c.commitment_text,
+      overdueDays,
+      patternArea: c.pattern_area,
+      metaSkill: c.meta_skill,
+    };
+  });
+
+  // Extract stress signals from session summaries
+  const stressSignals: Array<{ topic: string; sessionId: string }> = [];
+  for (const summary of (sessionSummaries || [])) {
+    const topics = summary.key_topics as string[] | null;
+    if (topics) {
+      for (const topic of topics) {
+        const lower = topic.toLowerCase();
+        if (lower.includes('stress') || lower.includes('anxiety') || lower.includes('worried') ||
+            lower.includes('nervous') || lower.includes('overwhelm') || lower.includes('dread')) {
+          stressSignals.push({ topic, sessionId: summary.session_id });
+        }
+      }
+    }
+  }
+
+  const lastCoachSession = recentSessions?.[0];
+  const lastSessionAt = lastCoachSession?.started_at ? new Date(lastCoachSession.started_at) : null;
+
+  // Check-in data
+  const morningCheckin = (todayCheckins || []).find(c => c.time_window === 'morning');
+  const afternoonCheckin = (todayCheckins || []).find(c => c.time_window === 'afternoon');
+  const lastCheckin = (todayCheckins || []).length > 0
+    ? new Date((todayCheckins || [])[(todayCheckins || []).length - 1].timestamp)
+    : null;
+
+  // Mastery plan
+  const allRecommended = (todayRituals || []).flatMap(r => r.recommended_practice_ids || []);
+  const allCompleted = (todayRituals || []).flatMap(r => r.completed_practice_ids || []);
+  const pendingPracticeIds = allRecommended.filter(id => !allCompleted.includes(id));
+
+  // Performance correlation: coach session → next-day readiness lift
+  let coachSessionReadinessLift: number | null = null;
+  let practiceCompletionCorrelation: number | null = null;
+
+  if ((checkins30d || []).length >= 10) {
+    const checkinMap = new Map<string, string>();
+    for (const c of (checkins30d || [])) {
+      if (c.time_window === 'morning') {
+        checkinMap.set(c.checkin_date, c.outcome);
+      }
+    }
+
+    // Coach session dates
+    const coachSessionDates = new Set((recentSessions || []).map(s => s.started_at?.split('T')[0]).filter(Boolean));
+    const coachDayAfterOutcomes: string[] = [];
+    const nonCoachDayOutcomes: string[] = [];
+
+    for (const [date, outcome] of checkinMap) {
+      const prevDate = new Date(date);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+      if (coachSessionDates.has(prevDateStr)) {
+        coachDayAfterOutcomes.push(outcome);
+      } else {
+        nonCoachDayOutcomes.push(outcome);
+      }
+    }
+
+    const outcomeScore = (o: string) => o === 'peak' ? 5 : o === 'strong' ? 4 : o === 'steady' ? 3 : o === 'managing' ? 2 : 1;
+
+    if (coachDayAfterOutcomes.length >= 2 && nonCoachDayOutcomes.length >= 2) {
+      const coachAvg = coachDayAfterOutcomes.reduce((a, o) => a + outcomeScore(o), 0) / coachDayAfterOutcomes.length;
+      const nonCoachAvg = nonCoachDayOutcomes.reduce((a, o) => a + outcomeScore(o), 0) / nonCoachDayOutcomes.length;
+      if (nonCoachAvg > 0) {
+        coachSessionReadinessLift = Math.round(((coachAvg - nonCoachAvg) / nonCoachAvg) * 100);
+      }
+    }
+
+    // Practice completion → next-day outcome correlation
+    const practiceDates = new Set(
+      (practiceSessions30d || []).map(p => p.completed_at?.split('T')[0]).filter(Boolean)
+    );
+    const practiceDayAfterOutcomes: string[] = [];
+    const noPracticeDayOutcomes: string[] = [];
+
+    for (const [date, outcome] of checkinMap) {
+      const prevDate = new Date(date);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+      if (practiceDates.has(prevDateStr)) {
+        practiceDayAfterOutcomes.push(outcome);
+      } else {
+        noPracticeDayOutcomes.push(outcome);
+      }
+    }
+
+    if (practiceDayAfterOutcomes.length >= 2 && noPracticeDayOutcomes.length >= 2) {
+      const practiceAvg = practiceDayAfterOutcomes.reduce((a, o) => a + outcomeScore(o), 0) / practiceDayAfterOutcomes.length;
+      const noPracticeAvg = noPracticeDayOutcomes.reduce((a, o) => a + outcomeScore(o), 0) / noPracticeDayOutcomes.length;
+      if (noPracticeAvg > 0) {
+        practiceCompletionCorrelation = Math.round(((practiceAvg - noPracticeAvg) / noPracticeAvg) * 100);
+      }
+    }
+  }
+
+  // JIT events
+  const jitEvents = (jitEventsRaw || []).map(e => ({
+    eventId: e.id,
+    eventTitle: e.event_title,
+    eventStart: e.event_start,
+    finalScore: e.final_score || 0,
+    externalId: e.id, // use id as reference
+    confidenceBand: e.confidence_band || 'low',
+  }));
+
+  return {
+    userId,
+    todayStr,
+    tomorrowStr,
+    localHour,
+    localMinute,
+    localTime: localHour + localMinute / 60,
+    dayOfWeek,
+    dayName: DAYS[dayOfWeek],
+    isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+    todayEvents,
+    tomorrowEvents,
+    nonNoiseEvents,
+    firstNonNoiseEvent: nonNoiseEvents.length > 0 ? nonNoiseEvents[0] : null,
+    eventCount,
+    highStakesEvents,
+    calendarGaps,
+    dayType,
+    wearable: {
+      sleepScore: latestW?.sleep_score ?? null,
+      hrv: latestW?.hrv ?? null,
+      rhr: latestW?.resting_heart_rate ?? null,
+      hrvBaseline30d: hrvBaseline,
+      rhrBaseline30d: rhrBaseline,
+      hrvDeltaPct,
+      rhrElevated,
+      totalSleepMinutes: latestW?.total_sleep_minutes ?? null,
+    },
+    coach: {
+      pendingCommitments: commitments,
+      activePatterns: (activePatterns || []).map(p => ({
+        description: p.pattern_description,
+        patternArea: p.pattern_area,
+        observationCount: p.observation_count || 0,
+      })),
+      stressSignals,
+      lastSessionAt,
+      sessionsIn7d: (recentSessions || []).length,
+    },
+    morningCheckinOutcome: morningCheckin?.outcome || null,
+    afternoonCheckinOutcome: afternoonCheckin?.outcome || null,
+    lastCheckinTime: lastCheckin,
+    checkinCountToday: (todayCheckins || []).length,
+    pendingPracticeIds,
+    completedPracticeIds: allCompleted,
+    jitEvents,
+    coachSessionReadinessLift,
+    practiceCompletionCorrelation,
+    currentStreak,
+    lastAppOpen,
+    inMeetingNow,
+    hrvDeltaPctFromSnapshot,
+  };
 }
 
-function toDateString(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// ══════════════════════════════════════════════════════════════
+// ── AI Copy Generation ──
+// ══════════════════════════════════════════════════════════════
+
+async function generateNudgeCopy(
+  ctx: NudgeContext,
+  nudgeType: string,
+  specificSignals: Record<string, unknown> = {}
+): Promise<NudgeCopy | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.warn('[smart-nudges] No LOVABLE_API_KEY — using static fallback');
+    return null;
+  }
+
+  const systemPrompt = `You are writing push notifications for a C-suite leader's performance coaching app. 
+Rules:
+- Title: max 5 words, no emoji
+- Body: max 15 words, performance-oriented tone
+- NEVER use: wellness, mindfulness, relax, well done, great job, amazing
+- For evenings/weekends: use softer, permission-to-stop tone — but still reference specific signals
+- Every nudge must reference something specific (a meeting title, a number, a commitment, a state)
+- If a signal is null, skip it — never fabricate data
+- Return ONLY valid JSON: {"title":"...","body":"..."}`;
+
+  let userPrompt = '';
+
+  switch (nudgeType) {
+    case 'morning_prep': {
+      const firstEvent = specificSignals.firstEventTitle || ctx.firstNonNoiseEvent?.title;
+      const firstEventTime = specificSignals.firstEventTime || (ctx.firstNonNoiseEvent ? new Date(ctx.firstNonNoiseEvent.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null);
+      userPrompt = `Morning preparation nudge.
+Signals:
+- First event: ${firstEvent || 'none'} at ${firstEventTime || 'unknown'}
+- Day type: ${ctx.dayType} (${ctx.eventCount} meetings)
+- High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
+- Sleep score: ${ctx.wearable.sleepScore ?? 'unavailable'}
+- HRV vs baseline: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
+- RHR: ${ctx.wearable.rhrElevated ? 'elevated above baseline' : 'normal'}
+- Day: ${ctx.dayName}
+${ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60 ? 'PRIORITY: Lead with recovery signal — sleep was poor' : ''}
+${ctx.wearable.hrvDeltaPct !== null && ctx.wearable.hrvDeltaPct < -15 ? 'PRIORITY: Lead with HRV recovery signal' : ''}
+${ctx.highStakesEvents.length > 0 ? `PRIORITY: Name the high-stakes event: ${ctx.highStakesEvents[0].title}` : ''}`;
+      break;
+    }
+
+    case 'jit_pre_event': {
+      const evt = specificSignals as { eventTitle: string; minutesUntil: number };
+      userPrompt = `JIT pre-event nudge. The user's mental readiness plan is ready.
+Signals:
+- Event: ${evt.eventTitle} in ${evt.minutesUntil} minutes
+- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}% vs baseline` : 'unavailable'}
+- Current state: ${ctx.morningCheckinOutcome || 'unknown'}
+- Today: ${ctx.dayType} day (${ctx.eventCount} meetings)
+Must reference the event by name and mention the prep plan is ready.`;
+      break;
+    }
+
+    case 'calendar_gap': {
+      const gap = specificSignals as { durationMinutes: number; nextEventTitle: string; postGapHeavy: boolean };
+      userPrompt = `Calendar gap nudge. User has a ${gap.durationMinutes}-minute gap before their next meeting.
+Signals:
+- Gap: ${gap.durationMinutes} mins
+- Next meeting: ${gap.nextEventTitle}
+- Post-gap load: ${gap.postGapHeavy ? 'heavy block ahead' : 'moderate'}
+- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
+- RHR: ${ctx.wearable.rhrElevated ? 'elevated' : 'normal'}
+Reference the gap duration and what comes after it.`;
+      break;
+    }
+
+    case 'coach_meeting_match': {
+      const match = specificSignals as { commitmentText: string; meetingTitle: string; minutesUntil: number };
+      userPrompt = `Coach commitment + meeting match nudge. Tone: your coach spotted this connection, not an algorithm.
+Signals:
+- Coach commitment: "${match.commitmentText}"
+- Upcoming meeting: ${match.meetingTitle} in ${match.minutesUntil} mins
+These appear related. Write one sentence connecting them.`;
+      break;
+    }
+
+    case 'performance_state': {
+      const perf = specificSignals as { subType: string };
+      if (perf.subType === 'feature_performance') {
+        const lift = ctx.coachSessionReadinessLift;
+        const nextHighStakes = ctx.highStakesEvents[0]?.title || (ctx.tomorrowEvents.find(e => isHighStakes(e.title))?.title);
+        userPrompt = `Feature performance nudge. Use data to build trust.
+Signals:
+- Coach session readiness lift: ${lift}%
+- Next high-stakes event: ${nextHighStakes || 'upcoming'}
+- Last coach session: ${ctx.coach.lastSessionAt ? `${Math.round((Date.now() - ctx.coach.lastSessionAt.getTime()) / 3600000)}h ago` : 'not recent'}
+Example: "You perform X% sharper after a coach session — [event] is tomorrow"`;
+      } else {
+        // State-aware afternoon
+        userPrompt = `State-aware afternoon nudge. User started low and has heavy afternoon.
+Signals:
+- Morning state: ${ctx.morningCheckinOutcome}
+- Afternoon high-stakes: ${ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).map(e => e.title).join(', ') || 'none'}
+- HRV: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
+- RHR: ${ctx.wearable.rhrElevated ? 'elevated — body is carrying load' : 'normal'}
+Reference the specific state and what's ahead.`;
+      }
+      break;
+    }
+
+    case 'evening_close': {
+      const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
+      const isSundayEvening = ctx.dayOfWeek === 0;
+      const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
+      const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
+
+      userPrompt = `Evening cool-down nudge. ${isWeekendEvening ? 'WEEKEND: Use softer, permission-to-rest tone.' : ''}
+${isSundayEvening ? `SUNDAY EVENING: Reference Monday signals — ${tomorrowEventCount} meetings tomorrow${tomorrowHighStakes.length > 0 ? `, including: ${tomorrowHighStakes.map(e => e.title).join(', ')}` : ''}.` : ''}
+Today's signals:
+- Meetings today: ${ctx.eventCount}
+- High-stakes today: ${ctx.highStakesEvents.map(e => e.title).join(', ') || 'none'}
+- HRV end of day vs baseline: ${ctx.wearable.hrvDeltaPct !== null ? `${ctx.wearable.hrvDeltaPct}%` : 'unavailable'}
+- RHR: ${ctx.wearable.rhrElevated ? 'elevated through the day' : 'normal'}
+- Check-ins today: ${ctx.checkinCountToday}
+${ctx.dayOfWeek === 5 ? 'FRIDAY: Close-the-week tone' : ''}
+${ctx.dayOfWeek === 6 ? 'SATURDAY: Gentle unwind, no agenda' : ''}
+Tone: permission to stop, not another task. NEVER say: wellness, mindfulness, relax, well done.
+${isWeekendEvening ? 'Use warmer, softer language. The weekend is theirs.' : ''}`;
+      break;
+    }
+
+    case 'pattern_alert': {
+      const pattern = specificSignals as { patternDescription: string; patternType: string };
+      userPrompt = `Pattern alert nudge. A pattern has been detected worth naming.
+Pattern: ${pattern.patternDescription}
+Type: ${pattern.patternType}
+Reference the specific pattern. Tone: curious observation, not alarm.`;
+      break;
+    }
+
+    case 'daily_fallback': {
+      // Use best available signal
+      const bestSignal = ctx.highStakesEvents.length > 0
+        ? `High-stakes event today: ${ctx.highStakesEvents[0].title}`
+        : ctx.wearable.sleepScore !== null
+          ? `Sleep score: ${ctx.wearable.sleepScore}`
+          : ctx.dayType !== 'light'
+            ? `${ctx.dayType} day ahead (${ctx.eventCount} meetings)`
+            : ctx.currentStreak > 0
+              ? `Day ${ctx.currentStreak} of practice streak`
+              : 'Start of day';
+      userPrompt = `Daily fallback nudge. Use the best available signal.
+Best signal: ${bestSignal}
+Day: ${ctx.dayName}, ${ctx.dayType} (${ctx.eventCount} events)
+Tone: gentle invitation, not pressure.`;
+      break;
+    }
+
+    default:
+      return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn(`[smart-nudges] AI copy generation failed: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) return null;
+
+    // Parse JSON from response (handle markdown code blocks)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (parsed.title && parsed.body) {
+      return {
+        title: parsed.title.substring(0, 60),
+        body: parsed.body.substring(0, 120),
+        variantId: `AI-${nudgeType}-${Date.now()}`,
+      };
+    }
+    return null;
+  } catch (e) {
+    console.warn(`[smart-nudges] AI copy error:`, e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
-function isInDND(hour: number, dndStart: number | null, dndEnd: number | null): boolean {
-  if (dndStart === null || dndEnd === null) return false;
-  if (dndStart < dndEnd) return hour >= dndStart && hour < dndEnd;
-  return hour >= dndStart || hour < dndEnd; // wraps midnight
+// ══════════════════════════════════════════════════════════════
+// ── Static Fallback Variants ──
+// ══════════════════════════════════════════════════════════════
+
+function getFallbackMorningCopy(ctx: NudgeContext): NudgeCopy {
+  if (ctx.wearable.sleepScore !== null && ctx.wearable.sleepScore < 60) {
+    return { title: 'Ground First', body: 'Low recovery last night. Ground yourself before the day starts.', variantId: 'FB-MA-recovery' };
+  }
+  if (ctx.highStakesEvents.length > 0) {
+    return { title: 'Prep Ready', body: `${ctx.highStakesEvents[0].title || 'High-stakes event'} today. Check in first.`, variantId: 'FB-MA-stakes' };
+  }
+  if (ctx.dayType === 'heavy' || ctx.dayType === 'extreme') {
+    return { title: 'Heavy Day Ahead', body: `${ctx.eventCount} meetings today. Your Compass is ready.`, variantId: 'FB-MA-heavy' };
+  }
+  if (ctx.isWeekend) {
+    return { title: 'Weekend Morning', body: 'No calendar pressure today. Check in when you\'re ready.', variantId: 'FB-MA-weekend' };
+  }
+  return { title: 'Your Compass is Ready', body: `Your ${ctx.dayName} is mapped. Check in to see your Compass.`, variantId: 'FB-MA-default' };
 }
 
-function isQuietDay(dayOfWeek: number, quietDays: number[] | null): boolean {
-  if (!quietDays || quietDays.length === 0) return false;
-  return quietDays.includes(dayOfWeek);
+function getFallbackJitCopy(eventTitle: string, minutesUntil: number): NudgeCopy {
+  return { title: 'Prep Ready', body: `${eventTitle} in ${minutesUntil} min. Open your prep.`, variantId: 'FB-JIT' };
 }
 
-function isWeekend(dayOfWeek: number): boolean {
-  return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+function getFallbackGapCopy(durationMinutes: number, nextTitle: string): NudgeCopy {
+  return { title: 'Gap Window', body: `${durationMinutes} mins before ${nextTitle}. A good moment to prepare.`, variantId: 'FB-GAP' };
 }
 
-// ── Engagement-Based Learning (7-day feedback loop) ──
+function getFallbackCoachMatchCopy(commitment: string, meetingTitle: string): NudgeCopy {
+  return { title: 'Coach Connection', body: `You committed to work on this — ${meetingTitle} is the moment.`, variantId: 'FB-COACH' };
+}
+
+function getFallbackEveningCopy(ctx: NudgeContext): NudgeCopy {
+  if (ctx.dayOfWeek === 0) {
+    // Sunday evening — reference Monday
+    const tomorrowCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
+    const tomorrowStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title));
+    if (tomorrowStakes.length > 0) {
+      return { title: 'Week Ahead', body: `Monday has ${tomorrowStakes[0].title}. Set your intention tonight.`, variantId: 'FB-EC-sun-stakes' };
+    }
+    if (tomorrowCount > 0) {
+      return { title: 'Week Ahead', body: `${tomorrowCount} meetings Monday. Close tonight, prepare tomorrow.`, variantId: 'FB-EC-sun' };
+    }
+    return { title: 'Sunday Close', body: 'Sunday close. What do you want to carry into the new week?', variantId: 'FB-EC-sun-default' };
+  }
+  if (ctx.dayOfWeek === 5) {
+    return { title: 'Week Complete', body: 'Five days behind you. Close the week before you switch off.', variantId: 'FB-EC-fri' };
+  }
+  if (ctx.dayOfWeek === 6) {
+    return { title: 'Saturday Close', body: 'No agenda tonight. Just notice how you\'re landing.', variantId: 'FB-EC-sat' };
+  }
+  if (ctx.wearable.rhrElevated) {
+    return { title: 'Body Carried Load', body: 'Your body carried load today. A proper close helps you let go.', variantId: 'FB-EC-rhr' };
+  }
+  if (ctx.eventCount >= 6) {
+    return { title: 'Heavy Day Done', body: `${ctx.eventCount} meetings done. One check-in to close the loop.`, variantId: 'FB-EC-heavy' };
+  }
+  return { title: 'Evening Close', body: `The day is done. A quiet moment to close the loop.`, variantId: 'FB-EC-default' };
+}
+
+function getFallbackPerformanceStateCopy(ctx: NudgeContext, subType: string): NudgeCopy {
+  if (subType === 'feature_performance') {
+    const lift = ctx.coachSessionReadinessLift || 20;
+    return { title: 'Coach Impact', body: `You perform ${lift}% sharper after a coach session. Worth one tonight?`, variantId: 'FB-PERF' };
+  }
+  // State-aware
+  const hsCount = ctx.highStakesEvents.filter(e => new Date(e.start_time).getHours() >= 12).length;
+  return { title: 'Afternoon Reset', body: `You started low. ${hsCount > 0 ? `${hsCount} high-stakes ahead.` : 'Heavy afternoon.'} Reset now.`, variantId: 'FB-STATE' };
+}
+
+function getFallbackDailyFallbackCopy(ctx: NudgeContext): NudgeCopy {
+  if (ctx.highStakesEvents.length > 0) {
+    return { title: 'Day Mapped', body: `${ctx.highStakesEvents[0].title} today. Check in to prepare.`, variantId: 'FB-DAILY-hs' };
+  }
+  return { title: 'Check In', body: 'Take 30 seconds to check in. Your Compass is ready.', variantId: 'FB-DAILY' };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Priority Cascade Evaluators (P0–P7) ──
+// ══════════════════════════════════════════════════════════════
+
+// P0: Morning Preparation
+async function evaluateMorningPrep(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('morning_prep')) return null;
+  if (ctx.morningCheckinOutcome !== null) return null; // Already checked in
+
+  // Calendar-aware timing
+  let morningStart = 6.5;
+  let morningEnd = 9.5;
+
+  if (ctx.firstNonNoiseEvent) {
+    const eventTime = new Date(ctx.firstNonNoiseEvent.start_time);
+    const eventHour = eventTime.getHours() + eventTime.getMinutes() / 60;
+    // Estimate commute: virtual events → 20-30 min buffer, otherwise 60-90 min
+    const title = (ctx.firstNonNoiseEvent.title || '').toLowerCase();
+    const isVirtual = title.includes('zoom') || title.includes('teams') || title.includes('call') || title.includes('video') || title.includes('virtual');
+    const commuteBuffer = isVirtual ? 0.5 : 1.25; // hours
+    const idealStart = eventHour - commuteBuffer - 0.33; // minus 20 min
+    morningStart = Math.max(6.5, Math.min(idealStart, 9.5));
+    morningEnd = Math.max(morningEnd, morningStart + 1.5);
+  }
+
+  // Weekend: shift later
+  if (ctx.dayOfWeek === 6) { morningStart = Math.max(morningStart, 7.5); morningEnd = Math.max(morningEnd, 10); }
+  if (ctx.dayOfWeek === 0) { morningStart = Math.max(morningStart, 8); morningEnd = Math.max(morningEnd, 10.5); }
+
+  if (ctx.localTime < morningStart || ctx.localTime >= morningEnd) return null;
+
+  // Never fire if first event < 30 min away
+  if (ctx.firstNonNoiseEvent) {
+    const minutesUntil = (new Date(ctx.firstNonNoiseEvent.start_time).getTime() - Date.now()) / 60000;
+    if (minutesUntil < 30) return null;
+  }
+
+  const aiCopy = await generateNudgeCopy(ctx, 'morning_prep');
+  const copy = aiCopy || getFallbackMorningCopy(ctx);
+
+  return { type: 'morning_prep', copy, priority: 0 };
+}
+
+// P1: JIT Pre-Event
+async function evaluateJitPreEvent(ctx: NudgeContext, alreadySentTypes: Set<string>, sentEventRefs: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('pre_event_prep')) return null;
+
+  for (const evt of ctx.jitEvents) {
+    if (evt.confidenceBand === 'none') continue;
+    if (sentEventRefs.has(evt.externalId)) continue;
+
+    const minutesUntil = Math.round((new Date(evt.eventStart).getTime() - Date.now()) / 60000);
+
+    const aiCopy = await generateNudgeCopy(ctx, 'jit_pre_event', {
+      eventTitle: evt.eventTitle || 'Upcoming event',
+      minutesUntil,
+    });
+    const copy = aiCopy || getFallbackJitCopy(evt.eventTitle || 'Upcoming event', minutesUntil);
+
+    return { type: 'pre_event_prep', copy, eventReference: evt.externalId, priority: 1 };
+  }
+
+  // Fallback: keyword scoring for calendar events in 30-90 min window
+  if (ctx.jitEvents.length === 0) {
+    const now = Date.now();
+    for (const evt of ctx.nonNoiseEvents) {
+      const startMs = new Date(evt.start_time).getTime();
+      const minutesUntil = (startMs - now) / 60000;
+      if (minutesUntil < 30 || minutesUntil > 90) continue;
+      if (scoreEvent(evt.title) < 50) continue; // require 2+ keyword matches
+      if (sentEventRefs.has(evt.external_id)) continue;
+
+      const aiCopy = await generateNudgeCopy(ctx, 'jit_pre_event', {
+        eventTitle: evt.title || 'Upcoming event',
+        minutesUntil: Math.round(minutesUntil),
+      });
+      const copy = aiCopy || getFallbackJitCopy(evt.title || 'Upcoming event', Math.round(minutesUntil));
+
+      return { type: 'pre_event_prep', copy, eventReference: evt.external_id, priority: 1 };
+    }
+  }
+
+  return null;
+}
+
+// P2: Calendar Gap
+async function evaluateCalendarGap(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('calendar_gap')) return null;
+  if (ctx.inMeetingNow) return null;
+
+  // Suppress if user checked in within 90 min
+  if (ctx.lastCheckinTime && (Date.now() - ctx.lastCheckinTime.getTime()) < 90 * 60000) return null;
+
+  const now = Date.now();
+
+  for (const gap of ctx.calendarGaps) {
+    // Fire 5 min into the gap
+    const fiveMinIntoGap = gap.startTime.getTime() + 5 * 60000;
+    if (now < fiveMinIntoGap || now > gap.endTime.getTime()) continue;
+
+    // Only if post-gap is heavy or has high stakes
+    if (gap.postGapMeetingCount < 2 && !gap.postGapHasHighStakes) continue;
+
+    const aiCopy = await generateNudgeCopy(ctx, 'calendar_gap', {
+      durationMinutes: gap.durationMinutes,
+      nextEventTitle: gap.nextEvent.title || 'next meeting',
+      postGapHeavy: gap.postGapHasHighStakes || gap.postGapMeetingCount >= 3,
+    });
+    const copy = aiCopy || getFallbackGapCopy(gap.durationMinutes, gap.nextEvent.title || 'next meeting');
+
+    return { type: 'calendar_gap', copy, priority: 2 };
+  }
+
+  return null;
+}
+
+// P3: Coach Commitment + Meeting Match
+async function evaluateCoachMeetingMatch(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  supabase: ReturnType<typeof createClient>
+): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('coach_meeting_match')) return null;
+  if (ctx.coach.pendingCommitments.length === 0 && ctx.coach.stressSignals.length === 0) return null;
+
+  // Suppress if coach opened in last 2 hours
+  if (ctx.coach.lastSessionAt && (Date.now() - ctx.coach.lastSessionAt.getTime()) < 2 * 60 * 60 * 1000) return null;
+
+  // Check today's coach sessions
+  const { data: todayCoachSessions } = await supabase
+    .from('dialogue_sessions')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .eq('flow_type', 'coach')
+    .gte('started_at', `${ctx.todayStr}T00:00:00`)
+    .limit(1);
+
+  if (todayCoachSessions && todayCoachSessions.length > 0) return null; // Coach session happened today
+
+  // Look at next 4 hours of events
+  const now = Date.now();
+  const fourHoursLater = now + 4 * 60 * 60 * 1000;
+  const upcomingEvents = ctx.nonNoiseEvents.filter(e => {
+    const startMs = new Date(e.start_time).getTime();
+    return startMs > now && startMs < fourHoursLater;
+  });
+
+  // Semantic match: commitment keywords vs event title keywords
+  for (const commitment of ctx.coach.pendingCommitments) {
+    const commitWords = commitment.text.toLowerCase().split(/\s+/);
+    const keyCommitWords = commitWords.filter(w => w.length > 3);
+
+    for (const event of upcomingEvents) {
+      const titleLower = (event.title || '').toLowerCase();
+      const matchCount = keyCommitWords.filter(w => titleLower.includes(w)).length;
+      // Also check pattern area match
+      const patternMatch = commitment.patternArea && titleLower.includes(commitment.patternArea.toLowerCase());
+
+      if (matchCount >= 1 || patternMatch) {
+        const minutesUntil = Math.round((new Date(event.start_time).getTime() - now) / 60000);
+        if (minutesUntil < 45 || minutesUntil > 240) continue;
+
+        const aiCopy = await generateNudgeCopy(ctx, 'coach_meeting_match', {
+          commitmentText: commitment.text,
+          meetingTitle: event.title || 'upcoming meeting',
+          minutesUntil,
+        });
+        const copy = aiCopy || getFallbackCoachMatchCopy(commitment.text, event.title || 'upcoming meeting');
+
+        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, priority: 3 };
+      }
+    }
+  }
+
+  // Also check stress signals vs upcoming events
+  for (const signal of ctx.coach.stressSignals) {
+    const stressWords = signal.topic.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    for (const event of upcomingEvents) {
+      const titleLower = (event.title || '').toLowerCase();
+      if (stressWords.some(w => titleLower.includes(w))) {
+        const minutesUntil = Math.round((new Date(event.start_time).getTime() - now) / 60000);
+        if (minutesUntil < 45 || minutesUntil > 240) continue;
+
+        const aiCopy = await generateNudgeCopy(ctx, 'coach_meeting_match', {
+          commitmentText: `You mentioned feeling stressed about: ${signal.topic}`,
+          meetingTitle: event.title || 'upcoming meeting',
+          minutesUntil,
+        });
+        const copy = aiCopy || getFallbackCoachMatchCopy(signal.topic, event.title || 'upcoming meeting');
+
+        return { type: 'coach_meeting_match', copy, eventReference: event.external_id, priority: 3 };
+      }
+    }
+  }
+
+  return null;
+}
+
+// P4: Performance + State-Aware (merged)
+async function evaluatePerformanceState(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('performance_state')) return null;
+
+  // Sub-evaluator A: Feature Performance
+  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
+  if (ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
+    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
+      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
+    const noRecentCoach = !ctx.coach.lastSessionAt ||
+      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
+
+    if (hasUpcomingHighStakes && noRecentCoach) {
+      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
+      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
+      return { type: 'performance_state', copy, priority: 4 };
+    }
+  }
+
+  // Sub-evaluator B: State-Aware Afternoon
+  // Skip on weekends; requires structured calendar pressure
+  if (ctx.isWeekend) return null;
+  if (ctx.localTime < 12 || ctx.localTime >= 15) return null;
+
+  // Only fire if morning check-in was depleted/managing
+  if (!ctx.morningCheckinOutcome || !LOW_TIERS.includes(ctx.morningCheckinOutcome)) return null;
+
+  // Suppress if app opened in last 3 hours
+  if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 3 * 60 * 60 * 1000) return null;
+
+  // Check for afternoon high-stakes events
+  const afternoonHighStakes = ctx.highStakesEvents.filter(e => {
+    const hour = new Date(e.start_time).getHours();
+    return hour >= 12;
+  });
+
+  if (afternoonHighStakes.length >= 1) {
+    const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'state_aware' });
+    const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'state_aware');
+    return { type: 'performance_state', copy, priority: 4 };
+  }
+
+  return null;
+}
+
+// P5: Evening Cool-Down
+async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('evening_close')) return null;
+
+  let eveningStart = 19;
+  let eveningEnd = 22;
+
+  // Sunday: extended for week-prep (18:00-22:00)
+  if (ctx.dayOfWeek === 0) { eveningStart = 18; eveningEnd = 22; }
+  // Friday: slightly earlier OK
+  if (ctx.dayOfWeek === 5) { eveningStart = 18.5; }
+
+  if (ctx.localTime < eveningStart || ctx.localTime >= eveningEnd) return null;
+
+  // Check if evening check-in or ritual already done
+  // (We still send if no evening activity completed)
+
+  const aiCopy = await generateNudgeCopy(ctx, 'evening_close');
+  const copy = aiCopy || getFallbackEveningCopy(ctx);
+
+  return { type: 'evening_close', copy, priority: 5 };
+}
+
+// P6: Pattern Alert (kept from original, fed by NudgeContext)
+async function evaluatePatternAlert(
+  ctx: NudgeContext,
+  alreadySentTypes: Set<string>,
+  supabase: ReturnType<typeof createClient>
+): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('pattern_alert')) return null;
+
+  // Suppress if app opened recently (4h)
+  if (ctx.lastAppOpen && (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000) return null;
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentPatternLogs } = await supabase
+    .from('notification_log')
+    .select('variant_id, payload')
+    .eq('user_id', ctx.userId)
+    .eq('notification_type', 'pattern_alert')
+    .gte('sent_at', sevenDaysAgo);
+
+  const recentPatternTypes = new Set(
+    (recentPatternLogs || []).map(l => {
+      const p = l.payload as Record<string, unknown>;
+      return (p?.pattern_type as string) || l.variant_id;
+    })
+  );
+
+  // Pattern 1: Consecutive low state (3 days)
+  if (!recentPatternTypes.has('consecutive_low')) {
+    const { data: recentCheckins } = await supabase
+      .from('daily_checkins')
+      .select('outcome, checkin_date')
+      .eq('user_id', ctx.userId)
+      .order('checkin_date', { ascending: false })
+      .limit(3);
+
+    if (recentCheckins && recentCheckins.length >= 3 && recentCheckins.every(c => LOW_TIERS.includes(c.outcome))) {
+      const desc = `Day ${recentCheckins.length} at ${recentCheckins[0].outcome}. Your system is showing a pattern worth noticing.`;
+      const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'consecutive_low' });
+      const copy = aiCopy || { title: 'Pattern Noticed', body: desc, variantId: 'PA-1' };
+      return { type: 'pattern_alert', copy, eventReference: 'consecutive_low', priority: 6 };
+    }
+  }
+
+  // Pattern 2: Recovery deficit (3 days low HRV)
+  if (!recentPatternTypes.has('recovery_deficit')) {
+    const { data: recentSnapshots } = await supabase
+      .from('energy_snapshots')
+      .select('snapshot_date, computed_data')
+      .eq('user_id', ctx.userId)
+      .order('snapshot_date', { ascending: false })
+      .limit(3);
+
+    if (recentSnapshots && recentSnapshots.length >= 3) {
+      const allLowHrv = recentSnapshots.every(snap => {
+        const computed = snap.computed_data as Record<string, unknown> | null;
+        const hrvDelta = computed?.hrv_delta_pct as number | undefined;
+        return hrvDelta !== undefined && hrvDelta <= -20;
+      });
+
+      if (allLowHrv) {
+        const desc = `Your HRV has been low for 3 days. Recovery is the priority.`;
+        const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'recovery_deficit' });
+        const copy = aiCopy || { title: 'Recovery Priority', body: desc, variantId: 'PA-5' };
+        return { type: 'pattern_alert', copy, eventReference: 'recovery_deficit', priority: 6 };
+      }
+    }
+  }
+
+  // Pattern 3: Streak milestone
+  if (!recentPatternTypes.has('streak_milestone')) {
+    const milestones = [30, 14, 7];
+    for (const milestone of milestones) {
+      if (ctx.currentStreak === milestone) {
+        const desc = `${milestone} days. Your practice is becoming a rhythm.`;
+        const aiCopy = await generateNudgeCopy(ctx, 'pattern_alert', { patternDescription: desc, patternType: 'streak_milestone' });
+        const copy = aiCopy || { title: 'Rhythm Forming', body: desc, variantId: 'PA-3' };
+        return { type: 'pattern_alert', copy, eventReference: 'streak_milestone', priority: 6 };
+      }
+    }
+  }
+
+  return null;
+}
+
+// P7: Daily Fallback
+async function evaluateDailyFallback(ctx: NudgeContext, alreadySentTypes: Set<string>, todayLogCount: number): Promise<QualifiedNudge | null> {
+  if (todayLogCount > 0) return null; // Only if nothing sent today
+  if (ctx.localTime < 10 || ctx.localTime >= 12) return null;
+
+  const aiCopy = await generateNudgeCopy(ctx, 'daily_fallback');
+  const copy = aiCopy || getFallbackDailyFallbackCopy(ctx);
+
+  return { type: 'daily_fallback', copy, priority: 7 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Engagement Learning (kept from original) ──
+// ══════════════════════════════════════════════════════════════
 
 interface EngagementProfile {
   typeEffectiveness: Record<string, { sent: number; tapped: number; rate: number }>;
-  suppressedTypes: string[]; // types with 0 taps in 5+ sends
+  suppressedTypes: string[];
 }
 
 async function getUserEngagementProfile(
@@ -339,11 +1287,9 @@ async function getUserEngagementProfile(
     if (log.tapped) typeEffectiveness[t].tapped++;
   }
 
-  // Calculate rates and find suppressed types
   const suppressedTypes: string[] = [];
   for (const [type, stats] of Object.entries(typeEffectiveness)) {
     stats.rate = stats.sent > 0 ? stats.tapped / stats.sent : 0;
-    // Suppress types sent 5+ times with 0 taps (50% reduction, not full suppression)
     if (stats.sent >= 5 && stats.tapped === 0) {
       suppressedTypes.push(type);
     }
@@ -352,87 +1298,34 @@ async function getUserEngagementProfile(
   return { typeEffectiveness, suppressedTypes };
 }
 
-// ── Type Diversity: 3-day lookback ──
+// ══════════════════════════════════════════════════════════════
+// ── Day helpers ──
+// ══════════════════════════════════════════════════════════════
 
-async function getTypeFrequencyMap(
-  supabase: ReturnType<typeof createClient>,
-  userId: string
-): Promise<Map<string, number>> {
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data: logs } = await supabase
-    .from('notification_log')
-    .select('notification_type')
-    .eq('user_id', userId)
-    .gte('sent_at', threeDaysAgo);
-
-  const freq = new Map<string, number>();
-  for (const log of (logs || [])) {
-    freq.set(log.notification_type, (freq.get(log.notification_type) || 0) + 1);
-  }
-  return freq;
+function getUserLocalDate(timezoneOffset: number): Date {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utcMs + timezoneOffset * 60000);
 }
 
-// ── Time-of-Day Priority Shifting ──
-// Returns priority order based on current time window.
-// Lower index = higher priority.
-
-function getTimePriority(localHour: number): string[] {
-  if (localHour >= 6 && localHour < 11) {
-    // Morning: Morning Anchor most contextual, State-Aware above Afternoon
-    return ['morning_anchor', 'pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'evening_close', 'afternoon_checkin', 'daily_fallback'];
-  }
-  if (localHour >= 11 && localHour < 15) {
-    // Midday: Pre-Event most urgent, State-Aware above Afternoon
-    return ['pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'afternoon_checkin', 'morning_anchor', 'evening_close', 'daily_fallback'];
-  }
-  if (localHour >= 18 && localHour < 22) {
-    // Evening: Evening Close most contextual
-    return ['evening_close', 'pattern_alert', 'pre_event_prep', 'state_aware_nudge', 'morning_anchor', 'afternoon_checkin', 'daily_fallback'];
-  }
-  // Default (15-18, 22+): Pre-Event > Pattern > State-Aware > Afternoon > Fallback
-  return ['pre_event_prep', 'pattern_alert', 'state_aware_nudge', 'afternoon_checkin', 'daily_fallback', 'morning_anchor', 'evening_close'];
+function toDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ── Diversity-aware sort ──
-// When multiple notifications qualify, prefer least-recently-sent type.
-// Pre-Event always wins within its 30-90 min trigger window.
-
-function diversitySort(
-  notifications: Array<{ type: string }>,
-  typeFrequency: Map<string, number>,
-  timePriority: string[],
-  engagementProfile: EngagementProfile
-): void {
-  notifications.sort((a, b) => {
-    // Pre-Event always wins (time-critical)
-    if (a.type === 'pre_event_prep' && b.type !== 'pre_event_prep') return -1;
-    if (b.type === 'pre_event_prep' && a.type !== 'pre_event_prep') return 1;
-
-    // Check diversity: types not sent in 3 days get a boost
-    const aFreq = typeFrequency.get(a.type) || 0;
-    const bFreq = typeFrequency.get(b.type) || 0;
-    const aDiversityBoost = aFreq === 0 ? -10 : 0;
-    const bDiversityBoost = bFreq === 0 ? -10 : 0;
-
-    // Check engagement: effective types get a small boost
-    const aRate = engagementProfile.typeEffectiveness[a.type]?.rate || 0;
-    const bRate = engagementProfile.typeEffectiveness[b.type]?.rate || 0;
-    const aEngagementBoost = aRate > 0.5 ? -5 : 0;
-    const bEngagementBoost = bRate > 0.5 ? -5 : 0;
-
-    // Base priority from time-of-day
-    const aPriority = timePriority.indexOf(a.type);
-    const bPriority = timePriority.indexOf(b.type);
-
-    const aScore = aPriority + aDiversityBoost + aEngagementBoost;
-    const bScore = bPriority + bDiversityBoost + bEngagementBoost;
-
-    return aScore - bScore;
-  });
+function isInDND(hour: number, dndStart: number | null, dndEnd: number | null): boolean {
+  if (dndStart === null || dndEnd === null) return false;
+  if (dndStart < dndEnd) return hour >= dndStart && hour < dndEnd;
+  return hour >= dndStart || hour < dndEnd;
 }
 
-// ── Main handler ──
+function isQuietDay(dayOfWeek: number, quietDays: number[] | null): boolean {
+  if (!quietDays || quietDays.length === 0) return false;
+  return quietDays.includes(dayOfWeek);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── Main Handler ──
+// ══════════════════════════════════════════════════════════════
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -445,7 +1338,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    console.log('[smart-nudges] Starting evaluation run...');
+    console.log('[smart-nudges] Starting signal-first evaluation run...');
 
     // 1. Fetch all users with active device tokens
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -469,9 +1362,9 @@ serve(async (req) => {
     }
 
     const userIds = Array.from(userTokens.keys());
-    console.log(`[smart-nudges] Evaluating ${userIds.length} users`);
+    console.log(`[smart-nudges] Evaluating ${userIds.length} users (signal-first)`);
 
-    // 2. Batch-fetch all needed data
+    // 2. Batch-fetch profiles, preferences, recent engagements
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
 
     const [
@@ -491,7 +1384,6 @@ serve(async (req) => {
     const profileMap = new Map((profiles || []).map(p => [p.id, p]));
     const prefMap = new Map((preferences || []).map(p => [p.user_id, p]));
 
-    // Build map of last app_open per user
     const lastAppOpenMap = new Map<string, Date>();
     for (const eng of (recentEngagements || [])) {
       const ts = new Date(eng.timestamp);
@@ -502,10 +1394,9 @@ serve(async (req) => {
     const allNotifications: Array<{
       userId: string;
       type: string;
-      variant: Variant;
+      copy: NudgeCopy;
       eventReference?: string;
       tokens: Array<{ token: string; platform: string }>;
-      suppressionReason?: string;
     }> = [];
 
     // 3. Evaluate each user
@@ -516,11 +1407,20 @@ serve(async (req) => {
       const localDate = getUserLocalDate(tzOffset);
       const localHour = localDate.getHours();
       const localMinute = localDate.getMinutes();
-      const localTime = localHour + localMinute / 60;
       const dayOfWeek = localDate.getDay();
       const todayStr = toDateString(localDate);
-      const dayName = DAYS[dayOfWeek];
-      const weekend = isWeekend(dayOfWeek);
+
+      // Tomorrow string (for Sunday→Monday signals)
+      const tomorrowDate = new Date(localDate);
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrowStr = toDateString(tomorrowDate);
+
+      // ── Quiet Hours: 10pm–6:30am (hardened) ──
+      const localTime = localHour + localMinute / 60;
+      if (localTime >= 22 || localTime < 6.5) {
+        console.log(`[smart-nudges] User ${userId} in quiet hours (${localTime.toFixed(1)}). Skipping.`);
+        continue;
+      }
 
       // DND / quiet day check
       const dndStart = prefs?.dnd_start ?? null;
@@ -528,12 +1428,12 @@ serve(async (req) => {
       if (isInDND(localHour, dndStart, dndEnd)) continue;
       if (isQuietDay(dayOfWeek, prefs?.quiet_days ?? null)) continue;
 
-      // Convert local midnight to UTC for timezone-aware log queries
+      // Convert local midnight to UTC for log queries
       const localMidnightMs = new Date(`${todayStr}T00:00:00`).getTime();
       const todayStartUtc = new Date(localMidnightMs - tzOffset * 60000).toISOString();
       const todayEndUtc = new Date(localMidnightMs - tzOffset * 60000 + 24 * 60 * 60 * 1000).toISOString();
 
-      // Fetch today's notification log using timezone-corrected UTC boundaries
+      // Fetch today's notification log
       const { data: todayLogs } = await supabase
         .from('notification_log')
         .select('notification_type, variant_id, sent_at, event_reference')
@@ -542,19 +1442,13 @@ serve(async (req) => {
         .lt('sent_at', todayEndUtc)
         .order('sent_at', { ascending: false });
 
-      // ── DAILY CAP: max 3 notifications per user per day ──
+      // ── DAILY CAP ──
       if (todayLogs && todayLogs.length >= DAILY_NOTIFICATION_CAP) {
         console.log(`[smart-nudges] User ${userId} hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`);
         continue;
       }
 
-      const logsByType = new Map<string, typeof todayLogs>();
-      for (const log of (todayLogs || [])) {
-        if (!logsByType.has(log.notification_type)) logsByType.set(log.notification_type, []);
-        logsByType.get(log.notification_type)!.push(log);
-      }
-
-      // 2-hour suppression: query recent logs independently (handles midnight crossover)
+      // 2-hour suppression check
       const twoHoursAgoIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       const { data: recentLogs } = await supabase
         .from('notification_log')
@@ -564,720 +1458,136 @@ serve(async (req) => {
         .order('sent_at', { ascending: false })
         .limit(1);
 
-      const lastSentAt = recentLogs && recentLogs.length > 0 ? new Date(recentLogs[0].sent_at) : null;
+      const lastSentAt = recentLogs?.[0] ? new Date(recentLogs[0].sent_at) : null;
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      const suppressed = lastSentAt && lastSentAt > twoHoursAgo;
+      const suppressed = lastSentAt !== null && lastSentAt > twoHoursAgo;
 
-      // ── Engagement profile + type diversity (fetched per user) ──
-      const [engagementProfile, typeFrequency] = await Promise.all([
-        getUserEngagementProfile(supabase, userId),
-        getTypeFrequencyMap(supabase, userId),
-      ]);
+      // ── In-meeting suppression ──
+      // (checked inside buildNudgeContext, but also pre-check for app open)
+      const lastAppOpen = lastAppOpenMap.get(userId) || null;
+      const appOpenedRecently = lastAppOpen && (Date.now() - lastAppOpen.getTime()) < 30 * 60 * 1000;
 
-      const userNotifications: typeof allNotifications = [];
+      if (appOpenedRecently && suppressed) {
+        console.log(`[smart-nudges] User ${userId} app open recently + suppressed. Skipping.`);
+        continue;
+      }
 
-      // Helper: should this type be suppressed by engagement learning?
-      // Types with 0 taps in 5+ sends get 50% reduction (skip every other time)
+      // ── Engagement learning ──
+      const engagementProfile = await getUserEngagementProfile(supabase, userId);
+
       function isEngagementSuppressed(type: string): boolean {
         if (!engagementProfile.suppressedTypes.includes(type)) return false;
-        // Use a simple hash to get consistent 50% suppression per user+type+day
         const hash = (userId + type + todayStr).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
         return hash % 2 === 0;
       }
 
-      // ── Pre-Event Prep (aligned with JIT pipeline — single source of truth) ──
-      if ((prefs?.pre_event_prep_enabled ?? true) && !suppressed && !isEngagementSuppressed('pre_event_prep')) {
-        const preEventCount = (logsByType.get('pre_event_prep') || []).length;
-        if (preEventCount < 3) {
-          const now = new Date();
-          const min30 = new Date(now.getTime() + 30 * 60000);
-          const min90 = new Date(now.getTime() + 90 * 60000);
+      // ══════════════════════════════════════════════════
+      // ── Build NudgeContext (single parallel query) ──
+      // ══════════════════════════════════════════════════
+      const ctx = await buildNudgeContext(
+        supabase, userId, todayStr, tomorrowStr,
+        localHour, localMinute, dayOfWeek,
+        profile?.current_streak || 0,
+        lastAppOpen,
+      );
 
-          // PRIMARY: Query jit_event_context for events that already passed the JIT Stage 4 gate
-          const { data: jitEvents } = await supabase
-            .from('jit_event_context')
-            .select('event_id, event_title, event_start, event_type, final_score, dim_a, dim_b, confidence_band, external_id')
-            .eq('user_id', userId)
-            .gte('event_start', min30.toISOString())
-            .lte('event_start', min90.toISOString())
-            .gte('final_score', 55)
-            .order('final_score', { ascending: false });
+      // Already-sent types today
+      const alreadySentTypes = new Set((todayLogs || []).map(l => l.notification_type));
+      const sentEventRefs = new Set((todayLogs || []).map(l => l.event_reference).filter(Boolean) as string[]);
 
-          let preEventMatched = false;
+      // ══════════════════════════════════════════════════
+      // ── Priority Cascade: P0 → P7 ──
+      // ══════════════════════════════════════════════════
+      const qualified: QualifiedNudge[] = [];
 
-          for (const evt of (jitEvents || [])) {
-            // Skip if confidence too low (mirrors JIT Stage 4)
-            if (evt.confidence_band === 'none') continue;
-
-            // Dedup by external_id
-            const alreadySent = (logsByType.get('pre_event_prep') || [])
-              .some(l => l.event_reference === evt.external_id);
-            if (alreadySent) continue;
-
-            const { data: latestCheckin } = await supabase
-              .from('daily_checkins')
-              .select('outcome')
-              .eq('user_id', userId)
-              .eq('checkin_date', todayStr)
-              .limit(1)
-              .single();
-
-            const minutesUntil = Math.round((new Date(evt.event_start).getTime() - now.getTime()) / 60000);
-            const innerTier = latestCheckin?.outcome || 'unknown';
-
-            const { count: todayEventCount } = await supabase
-              .from('calendar_events')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .gte('start_time', `${todayStr}T00:00:00`)
-              .lte('start_time', `${todayStr}T23:59:59`);
-
-            const variants = getPreEventVariants({
-              eventTitle: evt.event_title || 'Upcoming event',
-              minutesUntil,
-              innerTier,
-              calendarLoad: (todayEventCount || 0) > 5 ? 'high' : 'moderate',
-              eventCount: (todayEventCount || 0),
-              priorityScore: evt.final_score,
-            });
-
-            let selectedVariant: Variant;
-            if (innerTier === 'strong' || innerTier === 'peak') {
-              selectedVariant = variants[2]; // PE-3
-            } else if (innerTier === 'depleted' || innerTier === 'managing') {
-              selectedVariant = variants[3]; // PE-4
-            } else {
-              const lastVariant = (logsByType.get('pre_event_prep') || [])[0]?.variant_id || null;
-              selectedVariant = selectVariant(variants, lastVariant);
-            }
-
-            userNotifications.push({
-              userId,
-              type: 'pre_event_prep',
-              variant: selectedVariant,
-              eventReference: evt.external_id,
-              tokens: userTokens.get(userId)!,
-            });
-            preEventMatched = true;
-            break;
-          }
-
-          // FALLBACK: If jit_event_context had no qualifying events, use keyword scoring
-          // with noise filter + raised threshold (requires 2+ keyword hits)
-          if (!preEventMatched && (!jitEvents || jitEvents.length === 0)) {
-            const { data: upcomingEvents } = await supabase
-              .from('calendar_events')
-              .select('id, title, start_time, external_id')
-              .eq('user_id', userId)
-              .gte('start_time', min30.toISOString())
-              .lte('start_time', min90.toISOString())
-              .order('start_time', { ascending: true });
-
-            for (const evt of (upcomingEvents || [])) {
-              // Noise filter: skip transit, logistics, admin events
-              if (isNoiseEvent(evt.title || '')) continue;
-
-              const score = scoreEvent(evt.title);
-              if (score < 50) continue; // Raised from 25 — require 2+ keyword matches
-
-              const alreadySent = (logsByType.get('pre_event_prep') || [])
-                .some(l => l.event_reference === evt.external_id);
-              if (alreadySent) continue;
-
-              const { data: latestCheckin } = await supabase
-                .from('daily_checkins')
-                .select('outcome')
-                .eq('user_id', userId)
-                .eq('checkin_date', todayStr)
-                .limit(1)
-                .single();
-
-              const minutesUntil = Math.round((new Date(evt.start_time).getTime() - now.getTime()) / 60000);
-              const innerTier = latestCheckin?.outcome || 'unknown';
-
-              const { count: todayEventCount } = await supabase
-                .from('calendar_events')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', userId)
-                .gte('start_time', `${todayStr}T00:00:00`)
-                .lte('start_time', `${todayStr}T23:59:59`);
-
-              const variants = getPreEventVariants({
-                eventTitle: evt.title || 'Upcoming event',
-                minutesUntil,
-                innerTier,
-                calendarLoad: (todayEventCount || 0) > 5 ? 'high' : 'moderate',
-                eventCount: (todayEventCount || 0),
-                priorityScore: score,
-              });
-
-              let selectedVariant: Variant;
-              if (innerTier === 'strong' || innerTier === 'peak') {
-                selectedVariant = variants[2]; // PE-3
-              } else if (innerTier === 'depleted' || innerTier === 'managing') {
-                selectedVariant = variants[3]; // PE-4
-              } else {
-                const lastVariant = (logsByType.get('pre_event_prep') || [])[0]?.variant_id || null;
-                selectedVariant = selectVariant(variants, lastVariant);
-              }
-
-              userNotifications.push({
-                userId,
-                type: 'pre_event_prep',
-                variant: selectedVariant,
-                eventReference: evt.external_id,
-                tokens: userTokens.get(userId)!,
-                suppressionReason: 'fallback_keyword_scoring',
-              });
-              break;
-            }
-          }
-        }
+      // P0: Morning Preparation
+      if ((prefs?.morning_anchor_enabled ?? true) && !isEngagementSuppressed('morning_prep')) {
+        const nudge = await evaluateMorningPrep(ctx, alreadySentTypes);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── Pattern Alert ──
-      if (
-        (prefs?.pattern_alert_enabled ?? true) &&
-        !suppressed &&
-        !isEngagementSuppressed('pattern_alert') &&
-        !(logsByType.get('pattern_alert')?.length)
-      ) {
-        const lastAppOpen = lastAppOpenMap.get(userId);
-        const appOpenedRecently = lastAppOpen && lastAppOpen > new Date(Date.now() - 4 * 60 * 60 * 1000);
-
-        if (!appOpenedRecently) {
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: recentPatternLogs } = await supabase
-            .from('notification_log')
-            .select('variant_id, payload')
-            .eq('user_id', userId)
-            .eq('notification_type', 'pattern_alert')
-            .gte('sent_at', sevenDaysAgo);
-
-          const recentPatternTypes = new Set(
-            (recentPatternLogs || []).map(l => {
-              const p = l.payload as Record<string, unknown>;
-              return (p?.pattern_type as string) || l.variant_id;
-            })
-          );
-
-          let patternVariant: Variant | null = null;
-          let patternType: string | null = null;
-
-          // --- Pattern 1: Consecutive low state (3 days) ---
-          if (!patternVariant && !recentPatternTypes.has('consecutive_low')) {
-            const { data: recentCheckins } = await supabase
-              .from('daily_checkins')
-              .select('outcome, checkin_date')
-              .eq('user_id', userId)
-              .order('checkin_date', { ascending: false })
-              .limit(3);
-
-            if (
-              recentCheckins && recentCheckins.length >= 3 &&
-              recentCheckins.every(c => LOW_TIERS.includes(c.outcome))
-            ) {
-              const tier = recentCheckins[0].outcome;
-              const variants = getPatternAlertVariants({
-                patternType: 'consecutive_low',
-                tier,
-                consecutiveCount: 3,
-              });
-              patternVariant = variants[0];
-              patternType = 'consecutive_low';
-            }
-          }
-
-          // --- Pattern 2: Effectiveness milestone ---
-          if (!patternVariant && !recentPatternTypes.has('effectiveness_milestone')) {
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-            const { data: practiceSessions } = await supabase
-              .from('practice_sessions')
-              .select('content_id, effectiveness_rating')
-              .eq('user_id', userId)
-              .eq('completed', true)
-              .not('effectiveness_rating', 'is', null)
-              .gte('created_at', thirtyDaysAgo);
-
-            if (practiceSessions && practiceSessions.length > 0) {
-              const byContent = new Map<string, number[]>();
-              for (const ps of practiceSessions) {
-                if (!byContent.has(ps.content_id)) byContent.set(ps.content_id, []);
-                byContent.get(ps.content_id)!.push(ps.effectiveness_rating);
-              }
-
-              for (const [contentId, ratings] of byContent) {
-                if (ratings.length >= 5) {
-                  const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-                  if (avg >= 4.0) {
-                    const { data: content } = await supabase
-                      .from('sanctuary_content')
-                      .select('title')
-                      .eq('id', contentId)
-                      .limit(1)
-                      .single();
-
-                    const variants = getPatternAlertVariants({
-                      patternType: 'effectiveness_milestone',
-                      practiceName: content?.title || 'This practice',
-                      effectivenessRate: Math.round(avg / 5 * 100),
-                    });
-                    patternVariant = variants[1];
-                    patternType = 'effectiveness_milestone';
-                    break;
-                  }
-                }
-              }
-            }
-          }
-
-          // --- Pattern 3: Streak milestone (7, 14, 30 days) ---
-          if (!patternVariant && !recentPatternTypes.has('streak_milestone')) {
-            const streak = profile?.current_streak || 0;
-            const milestones = [30, 14, 7];
-            for (const milestone of milestones) {
-              if (streak === milestone) {
-                const variants = getPatternAlertVariants({
-                  patternType: 'streak_milestone',
-                  streakDays: milestone,
-                });
-                patternVariant = variants[2];
-                patternType = 'streak_milestone';
-                break;
-              }
-            }
-          }
-
-          // --- Pattern 4: Calendar correlation ---
-          if (!patternVariant && !recentPatternTypes.has('calendar_correlation')) {
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-            const { data: classifications } = await supabase
-              .from('calendar_event_classifications')
-              .select('event_type, calendar_event_id, created_at')
-              .eq('user_id', userId)
-              .gte('created_at', thirtyDaysAgo);
-
-            if (classifications && classifications.length > 0) {
-              const { data: checkins } = await supabase
-                .from('daily_checkins')
-                .select('checkin_date, outcome')
-                .eq('user_id', userId)
-                .gte('checkin_date', thirtyDaysAgo.split('T')[0]);
-
-              if (checkins && checkins.length > 0) {
-                const lowDays = new Set(
-                  checkins.filter(c => LOW_TIERS.includes(c.outcome)).map(c => c.checkin_date)
-                );
-
-                const eventTypeCounts = new Map<string, number>();
-                for (const cls of classifications) {
-                  const eventDate = cls.created_at.split('T')[0];
-                  if (lowDays.has(eventDate)) {
-                    eventTypeCounts.set(cls.event_type, (eventTypeCounts.get(cls.event_type) || 0) + 1);
-                  }
-                }
-
-                for (const [eventType, count] of eventTypeCounts) {
-                  if (count >= 5) {
-                    const variants = getPatternAlertVariants({
-                      patternType: 'calendar_correlation',
-                      eventType: eventType.charAt(0).toUpperCase() + eventType.slice(1) + ' meetings',
-                    });
-                    patternVariant = variants[3];
-                    patternType = 'calendar_correlation';
-                    break;
-                  }
-                }
-              }
-            }
-          }
-
-          // --- Pattern 5: Recovery deficit ---
-          if (!patternVariant && !recentPatternTypes.has('recovery_deficit')) {
-            const { data: recentSnapshots } = await supabase
-              .from('energy_snapshots')
-              .select('snapshot_date, oura_readiness, computed_data')
-              .eq('user_id', userId)
-              .order('snapshot_date', { ascending: false })
-              .limit(3);
-
-            if (recentSnapshots && recentSnapshots.length >= 3) {
-              const allLowHrv = recentSnapshots.every(snap => {
-                const computed = snap.computed_data as Record<string, unknown> | null;
-                const hrvDelta = computed?.hrv_delta_pct as number | undefined;
-                return hrvDelta !== undefined && hrvDelta <= -20;
-              });
-
-              if (allLowHrv) {
-                const variants = getPatternAlertVariants({
-                  patternType: 'recovery_deficit',
-                  hrvDays: 3,
-                });
-                patternVariant = variants[4];
-                patternType = 'recovery_deficit';
-              }
-            }
-          }
-
-          if (patternVariant && patternType) {
-            userNotifications.push({
-              userId,
-              type: 'pattern_alert',
-              variant: patternVariant,
-              tokens: userTokens.get(userId)!,
-              eventReference: patternType,
-            });
-          }
-        }
+      // P1: JIT Pre-Event (overrides 2h suppression)
+      if ((prefs?.pre_event_prep_enabled ?? true) && !isEngagementSuppressed('pre_event_prep')) {
+        const nudge = await evaluateJitPreEvent(ctx, alreadySentTypes, sentEventRefs);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── Morning Anchor ──
-      // Weekend: shifted windows (Sat 7:30-10:00, Sun 8:00-10:30)
-      let morningStart = prefs?.morning_window_start ?? 6;
-      let morningEnd = prefs?.morning_window_end ?? 9;
-      if (dayOfWeek === 6) { // Saturday
-        morningStart = Math.max(morningStart, 7.5);
-        morningEnd = Math.max(morningEnd, 10);
-      } else if (dayOfWeek === 0) { // Sunday
-        morningStart = Math.max(morningStart, 8);
-        morningEnd = Math.max(morningEnd, 10.5);
+      // P2: Calendar Gap
+      if (!isEngagementSuppressed('calendar_gap') && !suppressed) {
+        const nudge = await evaluateCalendarGap(ctx, alreadySentTypes);
+        if (nudge) qualified.push(nudge);
       }
 
-      if (
-        (prefs?.morning_anchor_enabled ?? true) &&
-        !isEngagementSuppressed('morning_anchor') &&
-        localTime >= morningStart && localTime < morningEnd - 0.5 &&
-        !(logsByType.get('morning_anchor')?.length) &&
-        (userNotifications.length === 0 || !suppressed)
-      ) {
-        const { data: todayCheckin } = await supabase
-          .from('daily_checkins')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('checkin_date', todayStr)
-          .limit(1);
-
-        if (!todayCheckin || todayCheckin.length === 0) {
-          const { count: eventCount } = await supabase
-            .from('calendar_events')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gte('start_time', `${todayStr}T00:00:00`)
-            .lte('start_time', `${todayStr}T23:59:59`);
-
-          const calendarPressure = (eventCount || 0) > 5 ? 'high' : (eventCount || 0) > 2 ? 'moderate' : 'low';
-          const streak = profile?.current_streak || 0;
-
-          let selectedVariant: Variant;
-
-          // Weekend: use weekend variants when calendar is not high
-          if (weekend && calendarPressure !== 'high') {
-            const weekendVariants = getWeekendMorningVariants();
-            const lastVariant = (logsByType.get('morning_anchor') || [])[0]?.variant_id || null;
-            selectedVariant = selectVariant(weekendVariants, lastVariant);
-          } else {
-            const variants = getMorningVariants({
-              dayOfWeek: dayName,
-              calendarPressure,
-              streak,
-              morningLoad: 'moderate',
-              afternoonLoad: 'moderate',
-            });
-
-            if (calendarPressure === 'high') {
-              selectedVariant = variants[1]; // MA-2
-            } else if (streak >= 3) {
-              selectedVariant = variants[4]; // MA-5
-            } else {
-              const lastVariant = (logsByType.get('morning_anchor') || [])[0]?.variant_id || null;
-              selectedVariant = selectVariant(variants, lastVariant);
-            }
-          }
-
-          userNotifications.push({
-            userId,
-            type: 'morning_anchor',
-            variant: selectedVariant,
-            tokens: userTokens.get(userId)!,
-          });
-        }
+      // P3: Coach Commitment + Meeting Match
+      if (!isEngagementSuppressed('coach_meeting_match') && !suppressed) {
+        const nudge = await evaluateCoachMeetingMatch(ctx, alreadySentTypes, supabase);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── State-Aware Nudge (P4 — above Afternoon Check-In) ──
-      // SKIP on weekends — requires structured calendar pressure
-      if (
-        !weekend &&
-        (prefs?.state_aware_nudge_enabled ?? true) &&
-        !isEngagementSuppressed('state_aware_nudge') &&
-        localTime >= 12 && localTime < 15 &&
-        !(logsByType.get('state_aware_nudge')?.length)
-      ) {
-        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
-        const strictSuppressed = lastSentAt && lastSentAt > threeHoursAgo;
-
-        if (!strictSuppressed && userNotifications.length === 0) {
-          const lastAppOpen = lastAppOpenMap.get(userId);
-          const appOpenedIn3h = lastAppOpen && lastAppOpen > threeHoursAgo;
-
-          if (!appOpenedIn3h) {
-            const { data: morningCheckin } = await supabase
-              .from('daily_checkins')
-              .select('outcome')
-              .eq('user_id', userId)
-              .eq('checkin_date', todayStr)
-              .limit(1)
-              .single();
-
-            if (morningCheckin && LOW_TIERS.includes(morningCheckin.outcome)) {
-              const { data: afternoonReset } = await supabase
-                .from('daily_ritual_completions')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('ritual_date', todayStr)
-                .eq('session_period', 'afternoon')
-                .limit(1);
-
-              if (!afternoonReset || afternoonReset.length === 0) {
-                const now = new Date();
-                const fourHoursLater = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-
-                const { data: afternoonEvents } = await supabase
-                  .from('calendar_events')
-                  .select('id, title, start_time')
-                  .eq('user_id', userId)
-                  .gte('start_time', now.toISOString())
-                  .lte('start_time', fourHoursLater.toISOString())
-                  .order('start_time', { ascending: true });
-
-                const highStakesEvents = (afternoonEvents || []).filter(e => scoreEvent(e.title) >= 25);
-
-                if (highStakesEvents.length >= 1) {
-                  const min60 = new Date(now.getTime() + 60 * 60000);
-                  const min120 = new Date(now.getTime() + 120 * 60000);
-                  const nearEvent = highStakesEvents.find(e => {
-                    const start = new Date(e.start_time);
-                    return start >= min60 && start <= min120;
-                  });
-
-                  const variants = getStateAwareVariants({
-                    highStakesCount: highStakesEvents.length,
-                    nextEventTitle: nearEvent?.title || undefined,
-                    minutesUntilNextEvent: nearEvent
-                      ? Math.round((new Date(nearEvent.start_time).getTime() - now.getTime()) / 60000)
-                      : undefined,
-                  });
-
-                  let selectedVariant: Variant;
-                  if (nearEvent) {
-                    selectedVariant = variants[3]; // SN-4
-                  } else if (highStakesEvents.length >= 3) {
-                    selectedVariant = variants[0]; // SN-1
-                  } else {
-                    selectedVariant = variants[1]; // SN-2
-                  }
-
-                  userNotifications.push({
-                    userId,
-                    type: 'state_aware_nudge',
-                    variant: selectedVariant,
-                    tokens: userTokens.get(userId)!,
-                  });
-                }
-              }
-            }
-          }
-        }
+      // P4: Performance + State-Aware (merged)
+      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('performance_state') && !suppressed) {
+        const nudge = await evaluatePerformanceState(ctx, alreadySentTypes);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── Afternoon Check-In (P6 — below State-Aware and Evening Close) ──
-      // SKIP on weekends — no structured afternoon work
-      if (
-        !weekend &&
-        !isEngagementSuppressed('afternoon_checkin') &&
-        localTime >= 12.5 && localTime < 14.5 &&
-        !(logsByType.get('afternoon_checkin')?.length) &&
-        (userNotifications.length === 0 || !suppressed)
-      ) {
-        const { data: afternoonCheckin } = await supabase
-          .from('daily_checkins')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('checkin_date', todayStr)
-          .eq('time_window', 'afternoon')
-          .limit(1);
-
-        if (!afternoonCheckin || afternoonCheckin.length === 0) {
-          const afternoonVariants: Variant[] = [
-            { id: 'AC-1', title: 'Midday Reset', body: 'Halfway through — how are you holding up? A quick check-in recalibrates the rest of your day.' },
-            { id: 'AC-2', title: 'Afternoon Pulse', body: 'Your morning self set the tone. Your afternoon self steers the ship. Check in now.' },
-            { id: 'AC-3', title: 'Quick Recalibration', body: 'Before the afternoon stacks up — 30 seconds to notice where your energy sits.' },
-          ];
-          const lastAfternoon = (logsByType.get('afternoon_checkin') || [])[0]?.variant_id || null;
-          const selectedAfternoon = selectVariant(afternoonVariants, lastAfternoon);
-          userNotifications.push({
-            userId,
-            type: 'afternoon_checkin',
-            variant: selectedAfternoon,
-            tokens: userTokens.get(userId)!,
-          });
-        }
+      // P5: Evening Cool-Down
+      if ((prefs?.evening_close_enabled ?? true) && !isEngagementSuppressed('evening_close') && !suppressed) {
+        const nudge = await evaluateEveningClose(ctx, alreadySentTypes);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── Evening Close ──
-      // Weekend: use day-specific variants (Fri close-the-week, Sat unwind, Sun week-prep)
-      const eveningStart = prefs?.evening_window_start ?? 19;
-      let eveningEnd = prefs?.evening_window_end ?? 22;
-      // Sunday evening: extended window for week-prep (18:00-22:00)
-      if (dayOfWeek === 0) {
-        eveningEnd = Math.max(eveningEnd, 22);
+      // P6: Pattern Alert
+      if ((prefs?.pattern_alert_enabled ?? true) && !isEngagementSuppressed('pattern_alert') && !suppressed) {
+        const nudge = await evaluatePatternAlert(ctx, alreadySentTypes, supabase);
+        if (nudge) qualified.push(nudge);
       }
 
-      if (
-        (prefs?.evening_close_enabled ?? true) &&
-        !isEngagementSuppressed('evening_close') &&
-        localTime >= eveningStart && localTime < eveningEnd - 0.5 &&
-        !(logsByType.get('evening_close')?.length) &&
-        (userNotifications.length === 0 || !suppressed)
-      ) {
-        const { data: todayRitual } = await supabase
-          .from('daily_ritual_completions')
-          .select('id, session_period')
-          .eq('user_id', userId)
-          .eq('ritual_date', todayStr)
-          .eq('session_period', 'evening')
-          .limit(1);
-
-        const { data: eveningCheckin } = await supabase
-          .from('daily_checkins')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('checkin_date', todayStr)
-          .eq('time_window', 'evening')
-          .limit(1);
-
-        const noEveningRitual = !todayRitual || todayRitual.length === 0;
-        const noEveningCheckin = !eveningCheckin || eveningCheckin.length === 0;
-
-        if (noEveningRitual || noEveningCheckin) {
-          // Weekend-specific evening variants
-          let variants: Variant[];
-          let selectedVariant: Variant;
-
-          if (dayOfWeek === 5) {
-            // Friday evening: close-the-week variants
-            variants = getFridayEveningVariants();
-            const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
-            selectedVariant = selectVariant(variants, lastVariant);
-          } else if (dayOfWeek === 6) {
-            // Saturday evening: unwind variants
-            variants = getSaturdayEveningVariants();
-            selectedVariant = variants[0]; // Only one variant
-          } else if (dayOfWeek === 0) {
-            // Sunday evening: week-prep variants
-            variants = getSundayEveningVariants();
-            const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
-            selectedVariant = selectVariant(variants, lastVariant);
-          } else if (noEveningCheckin) {
-            // Weekday: evening check-in variants
-            variants = [
-              { id: 'ECI-1', title: 'Evening Check-In', body: 'Before you wind down — how did you show up today? A quick check-in closes the loop.' },
-              { id: 'ECI-2', title: 'End-of-Day Pulse', body: 'Your evening self has wisdom your morning self didn\'t. Capture it in 30 seconds.' },
-            ];
-            const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
-            selectedVariant = selectVariant(variants, lastVariant);
-          } else {
-            // Weekday: evening ritual variants with context
-            const { count: eventCount } = await supabase
-              .from('calendar_events')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .gte('start_time', `${todayStr}T00:00:00`)
-              .lte('start_time', `${todayStr}T23:59:59`);
-
-            const calendarLoad = (eventCount || 0) > 5 ? 'high' : 'moderate';
-            const streak = profile?.current_streak || 0;
-
-            const { data: energySnap } = await supabase
-              .from('energy_snapshots')
-              .select('oura_readiness, computed_data')
-              .eq('user_id', userId)
-              .eq('snapshot_date', todayStr)
-              .limit(1)
-              .single();
-
-            const hrvDeltaPct = energySnap?.computed_data?.hrv_delta_pct as number | undefined;
-
-            variants = getEveningVariants({
-              dayOfWeek: dayName,
-              calendarLoad,
-              streak,
-              hrvDeltaPct: hrvDeltaPct ? Math.round(Math.abs(hrvDeltaPct)) : undefined,
-              calendarPressure: calendarLoad,
-            });
-
-            if (hrvDeltaPct && Math.abs(hrvDeltaPct) >= 15) {
-              selectedVariant = variants[3]; // EC-4
-            } else if (calendarLoad === 'high') {
-              selectedVariant = variants[1]; // EC-2
-            } else if (streak >= 3) {
-              selectedVariant = variants[4]; // EC-5
-            } else {
-              const lastVariant = (logsByType.get('evening_close') || [])[0]?.variant_id || null;
-              selectedVariant = selectVariant(variants, lastVariant);
-            }
-          }
-
-          userNotifications.push({
-            userId,
-            type: 'evening_close',
-            variant: selectedVariant,
-            tokens: userTokens.get(userId)!,
-          });
-        }
+      // P7: Daily Fallback
+      if (qualified.length === 0) {
+        const nudge = await evaluateDailyFallback(ctx, alreadySentTypes, (todayLogs || []).length);
+        if (nudge) qualified.push(nudge);
       }
 
-      // ── Daily Fallback ──
-      if (
-        userNotifications.length === 0 &&
-        localTime >= 10 && localTime < 12 &&
-        (!todayLogs || todayLogs.length === 0)
-      ) {
-        const fallbackVariants: Variant[] = [
-          { id: 'FB-1', title: 'Your Day Awaits', body: 'Take 30 seconds to check in. Your Compass is ready.' },
-          { id: 'FB-2', title: 'Quick Check-In', body: 'How are you showing up today? A moment of awareness changes everything.' },
-          { id: 'FB-3', title: 'Pause & Notice', body: 'Before the day runs you — pause and notice where you are.' },
-        ];
-        const lastFallback = (logsByType.get('daily_fallback') || [])[0]?.variant_id || null;
-        const selectedFallback = selectVariant(fallbackVariants, lastFallback);
-        userNotifications.push({
-          userId,
-          type: 'daily_fallback',
-          variant: selectedFallback,
-          tokens: userTokens.get(userId)!,
-        });
-      }
+      // ── Select best notification (priority order) ──
+      qualified.sort((a, b) => a.priority - b.priority);
 
-      // ── Final selection: diversity-aware priority sort ──
-      if (userNotifications.length > 1) {
-        const timePriority = getTimePriority(localHour);
-        diversitySort(userNotifications, typeFrequency, timePriority, engagementProfile);
+      if (qualified.length > 0) {
+        // JIT (P1) always wins if present — even over suppression
+        const jitNudge = qualified.find(n => n.type === 'pre_event_prep');
+        const bestNudge = jitNudge || qualified[0];
 
-        if (suppressed) {
-          // Only keep highest-priority notification when suppressed
-          allNotifications.push(userNotifications[0]);
+        // If suppressed, only allow JIT through
+        if (suppressed && !jitNudge) {
+          console.log(`[smart-nudges] User ${userId} 2h-suppressed, no JIT. Skipping ${bestNudge.type}.`);
         } else {
-          // Allow Morning Anchor + Pre-Event Prep to coexist
-          allNotifications.push(...userNotifications);
+          allNotifications.push({
+            userId,
+            type: bestNudge.type,
+            copy: bestNudge.copy,
+            eventReference: bestNudge.eventReference,
+            tokens: userTokens.get(userId)!,
+          });
+
+          // Allow a second notification if morning + JIT both qualified
+          if (!suppressed && qualified.length > 1) {
+            const second = qualified.find(n => n !== bestNudge && (n.type === 'morning_prep' || n.type === 'pre_event_prep'));
+            if (second && (todayLogs || []).length + allNotifications.filter(n => n.userId === userId).length < DAILY_NOTIFICATION_CAP) {
+              allNotifications.push({
+                userId,
+                type: second.type,
+                copy: second.copy,
+                eventReference: second.eventReference,
+                tokens: userTokens.get(userId)!,
+              });
+            }
+          }
         }
-      } else {
-        allNotifications.push(...userNotifications);
       }
     }
 
     console.log(`[smart-nudges] ${allNotifications.length} notifications qualified`);
 
-    // 4. Send notifications via APNs (or dry-run if credentials not configured)
+    // 4. Send notifications via APNs
     const apnsKey = Deno.env.get('APNS_P8_KEY');
     const apnsKeyId = Deno.env.get('APNS_KEY_ID');
     const apnsTeamId = Deno.env.get('APNS_TEAM_ID');
@@ -1311,26 +1621,22 @@ serve(async (req) => {
 
     for (const notif of allNotifications) {
       const payload: Record<string, unknown> = {
-        title: notif.variant.title,
-        body: notif.variant.body,
+        title: notif.copy.title,
+        body: notif.copy.body,
         notification_type: notif.type,
-        variant_id: notif.variant.id,
+        variant_id: notif.copy.variantId,
         dry_run: isDryRun,
+        architecture: 'signal-first-v1',
       };
 
       if (notif.type === 'pattern_alert' && notif.eventReference) {
         payload.pattern_type = notif.eventReference;
       }
 
-      // Log suppression reason if present
-      if (notif.suppressionReason) {
-        payload.suppression_note = notif.suppressionReason;
-      }
-
       const { data: logRow } = await supabase.from('notification_log').insert({
         user_id: notif.userId,
         notification_type: notif.type,
-        variant_id: notif.variant.id,
+        variant_id: notif.copy.variantId,
         event_reference: notif.eventReference || null,
         payload,
       }).select('id').single();
@@ -1345,11 +1651,11 @@ serve(async (req) => {
               tokenInfo.token,
               apnsJwt,
               apnsBundleId,
-              notif.variant.title,
-              notif.variant.body,
+              notif.copy.title,
+              notif.copy.body,
               {
                 notification_type: notif.type,
-                variant_id: notif.variant.id,
+                variant_id: notif.copy.variantId,
                 notification_log_id: notificationLogId || '',
               },
               apnsHost
@@ -1363,7 +1669,7 @@ serve(async (req) => {
         }
       }
 
-      console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.variant.id} → ${notif.userId}`);
+      console.log(`[smart-nudges] ${isDryRun ? 'DRY RUN' : 'SENT'}: ${notif.type}/${notif.copy.variantId} → ${notif.userId} | "${notif.copy.body}"`);
     }
 
     return new Response(JSON.stringify({
@@ -1372,10 +1678,13 @@ serve(async (req) => {
       dry_run: isDryRun,
       apns_success: sendSuccess,
       apns_failed: sendFailed,
+      architecture: 'signal-first-v1',
       details: allNotifications.map(n => ({
         user_id: n.userId,
         type: n.type,
-        variant: n.variant.id,
+        variant: n.copy.variantId,
+        title: n.copy.title,
+        body: n.copy.body,
       })),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
