@@ -1,40 +1,75 @@
-## Smart Nudges — Signal-First Architecture (Completed)
 
-### What Changed
 
-Complete rewrite of `supabase/functions/smart-nudges/index.ts` from template-rotation to signal-first architecture.
+## Plan: Outer Readiness Brief — Full Context Audit Fix
 
-### Architecture
+Two issues plus gaps discovered during audit.
 
-1. **`buildNudgeContext()`** — single parallel query assembling all signals: calendar events (today + tomorrow), wearable data (HRV, RHR, sleep score + 30d baselines), coach commitments + patterns + stress signals, check-in state, mastery plan, JIT events, 30d performance correlations.
+---
 
-2. **Priority Cascade (P0–P7)**:
-   - P0: Morning Preparation (calendar-aware timing — first event minus commute buffer, clamped 6:30–9:30am)
-   - P1: JIT Pre-Event (score ≥ 55, 30–90 min window)
-   - P2: Calendar Gap (≥20 min, fires 5 min into gap, post-gap load check)
-   - P3: Coach Commitment + Meeting Match (semantic keyword match, stress signals)
-   - P4: State-Aware Afternoon (morning depleted/managing + afternoon high-stakes)
-   - P5: Evening Cool-Down (references actual day, Sunday→Monday signals, soft weekend tone)
-   - P6: Pattern Alert + Feature Performance (consecutive low, recovery deficit, streak milestones, coach session readiness lift >20%)
-   - P7: Daily Fallback (best available signal)
+### Issue 2: `computeCalendarMetrics()` Inaccuracy
 
-3. **`generateNudgeCopy()`** — AI copy via Lovable AI Gateway (gemini-2.5-flash-lite), 6s timeout, static fallbacks if AI unavailable.
+**File**: `supabase/functions/compute-outer-readiness/index.ts` (lines 47-93)
 
-4. **Hardened suppression**: quiet hours 10pm–6:30am, in-meeting skip, 30min app-open skip, 2h cooldown (JIT overrides), daily cap 3.
+**Changes to `computeCalendarMetrics()`:**
 
-5. **Deep link routing**: each nudge type includes `deep_link_route` in APNs payload, routing users directly to the action:
-   - morning_prep → /daily-check-in
-   - pre_event_prep → /executive-home (JIT carousel)
-   - calendar_gap → /daily-check-in
-   - coach_meeting_match → /self-mastery-coach
-   - state_aware_nudge → /executive-home
-   - evening_close → /daily-check-in
-   - pattern_alert / feature_performance → /insights
-   - daily_fallback → /executive-home
+1. **Meeting density metric**: Calculate total gap time between consecutive events. If total gap < 30 min across 3+ meetings, boost pressure by +3.
 
-### Key Design Decisions
-- P4 is pure State-Aware Afternoon; Feature Performance moved into P6 Pattern Alert (both are data-driven observations)
-- Evening/weekend copy uses softer "permission to stop" tone
-- Sunday evening references Monday's calendar signals (event count, high-stakes)
-- Every nudge references something specific — no generic copy possible
-- Client reads `deep_link_route` from notification data, with type-based fallback
+2. **Lower load threshold**: ≥4 events with average gap < 20 min = 'high' (currently needs ≥5).
+
+3. **Higher attendee weight**: >5 attendees now adds +3 pressure (was +2).
+
+4. **Intensity multiplier**: If >50% of events are non-recurring AND organizer, apply 1.5x pressure multiplier before thresholding.
+
+5. **Stronger back-to-back**: Gap < 15 min adds +2 (was +1). Gap < 5 min adds +3.
+
+No auth changes needed — function already works for both auth and dev users via `userId` from either source.
+
+---
+
+### Issue 4: Reasoning Line Visibility
+
+**Files**: `src/components/home/DailyRitual.tsx`, `src/components/home/JitCarousel.tsx`
+
+Change reasoning styling from:
+```
+text-[11px] text-muted-foreground italic
+```
+to:
+```
+text-[11px] text-muted-foreground/90 italic font-medium
+```
+
+No edge function change needed — reasoning is already populated for all users via service role key in `generate-mastery-plan`.
+
+---
+
+### Gap Found: Sunday Evening Theme Ignores Monday Signals
+
+**Problem**: `getTheme()` produces Sunday evening phrases like "Close into the week" without referencing Monday's actual calendar load. Only the leanOn/watchFor cascade uses Monday data. The theme phrase + context should differ based on whether Monday is heavy or light.
+
+**Additionally**: Tomorrow's calendar is only fetched when `isLateEvening(hour)` (≥21:00), but Sunday evening themes in `getTheme()` fire at any evening hour (≥18:00). This means a user checking in at 7pm Sunday gets no Monday context.
+
+**Fix** (same file):
+
+1. **Expand tomorrow fetch**: Also fetch tomorrow's calendar when `dayOfWeek === 0` (Sunday) AND hour ≥ 18, not just when `isLateEvening`.
+
+2. **Pass tomorrow metrics to `getTheme()`**: Add `tomorrowLoad` and `tomorrowPressure` parameters.
+
+3. **Update Sunday evening theme entries**: For all 4 tiers, the Sunday evening context text should reference Monday's actual load:
+   - Heavy Monday: "A demanding Monday is ahead — [tier-specific guidance]"
+   - Light Monday: "A lighter Monday ahead — [tier-specific guidance]"
+   - No Monday data: Keep current generic text
+
+This ensures the entire Outer Readiness Brief (phrase, context, leanOn, watchFor) is Monday-aware on Sunday evenings, not just the leanOn/watchFor section.
+
+---
+
+### Summary of Changes
+
+| File | Change |
+|------|--------|
+| `compute-outer-readiness/index.ts` | Enhanced `computeCalendarMetrics()` with density, intensity multiplier, stronger back-to-back, lower thresholds |
+| `compute-outer-readiness/index.ts` | Expand tomorrow fetch to Sunday ≥18:00; pass tomorrow metrics to `getTheme()`; update Sunday evening themes for all 4 tiers |
+| `DailyRitual.tsx` | Reasoning line styling boost |
+| `JitCarousel.tsx` | Reasoning line styling boost |
+
