@@ -1620,12 +1620,32 @@ serve(async (req) => {
       }
     }
 
+    // Deep link route mapping: nudge type → destination route
+    const DEEP_LINK_ROUTES: Record<string, string> = {
+      morning_prep: '/daily-check-in',
+      pre_event_prep: '/executive-home',
+      calendar_gap: '/daily-check-in',
+      coach_meeting_match: '/self-mastery-coach',
+      state_aware_nudge: '/recalibrate',
+      evening_close: '/daily-check-in',
+      pattern_alert: '/insights',
+      daily_fallback: '/daily-check-in',
+    };
+
     for (const notif of allNotifications) {
+      const deepLinkRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
+
+      // Feature performance pattern → route to coach (it suggests a coach session)
+      const effectiveRoute = (notif.type === 'pattern_alert' && notif.eventReference === 'feature_performance')
+        ? '/self-mastery-coach'
+        : deepLinkRoute;
+
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
         body: notif.copy.body,
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
+        deep_link_route: effectiveRoute,
         dry_run: isDryRun,
         architecture: 'signal-first-v1',
       };
@@ -1658,6 +1678,7 @@ serve(async (req) => {
                 notification_type: notif.type,
                 variant_id: notif.copy.variantId,
                 notification_log_id: notificationLogId || '',
+                deep_link_route: effectiveRoute,
               },
               apnsHost
             );
