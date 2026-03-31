@@ -200,6 +200,8 @@ function getTheme(
   score: number,
   hour: number,
   dayOfWeek: number,
+  tomorrowLoad?: CalendarLevel | null,
+  tomorrowPressure?: CalendarLevel | null,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
