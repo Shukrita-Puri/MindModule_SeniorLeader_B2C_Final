@@ -46,23 +46,34 @@ interface CalendarMetricsResult {
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
   const now = new Date();
-
-  // Use ALL of today's events for load (reflects how busy the day was/is)
   const allEvents = events;
-
-  // Load — based on total events today (not just upcoming)
   const count = allEvents.length;
+
+  // Sort events chronologically for gap analysis
+  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  // Calculate gaps between consecutive events
+  const gaps: number[] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+    gaps.push(gap);
+  }
+  const avgGap = gaps.length > 0 ? gaps.reduce((s, g) => s + g, 0) / gaps.length : Infinity;
+  const totalGapTime = gaps.length > 0 ? gaps.reduce((s, g) => s + Math.max(0, g), 0) : Infinity;
+
+  // Load — density-aware thresholds
   let load: CalendarLevel = 'low';
   if (count >= 5) load = 'high';
+  else if (count >= 4 && avgGap < 20) load = 'high';
   else if (count >= 3) load = 'medium';
 
-  // Pressure — weight upcoming events more, but include past high-stakes events too
+  // Pressure — weighted scoring
   let totalPressure = 0;
   for (const event of allEvents) {
     let p = 0;
     if (event.is_organizer) p += 2;
     const att = event.attendees_count || 0;
-    if (att > 5) p += 2; else if (att > 2) p += 1;
+    if (att > 5) p += 3; else if (att > 2) p += 1;
     const start = new Date(event.start_time);
     const end = new Date(event.end_time);
     const dur = (end.getTime() - start.getTime()) / 60000;
@@ -79,11 +90,21 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
     }
   }
 
-  // Back-to-back detection across all events
-  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
-    if (gap < 15) totalPressure += 1;
+  // Stronger back-to-back detection
+  for (const gap of gaps) {
+    if (gap < 5) totalPressure += 3;
+    else if (gap < 15) totalPressure += 2;
+  }
+
+  // Meeting density boost: total gap < 30 min across 3+ meetings
+  if (count >= 3 && totalGapTime < 30) {
+    totalPressure += 3;
+  }
+
+  // Intensity multiplier: >50% non-recurring AND organizer → 1.5x pressure
+  const intenseMeetings = allEvents.filter(e => !e.is_recurring && e.is_organizer).length;
+  if (count > 0 && intenseMeetings / count > 0.5) {
+    totalPressure = Math.ceil(totalPressure * 1.5);
   }
 
   let pressure: CalendarLevel = 'low';
@@ -179,6 +200,8 @@ function getTheme(
   score: number,
   hour: number,
   dayOfWeek: number,
+  tomorrowLoad?: CalendarLevel | null,
+  tomorrowPressure?: CalendarLevel | null,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
@@ -207,8 +230,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Close before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead and your reserves are low. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
+          : lightMon
+          ? "A lighter Monday ahead, but ending the weekend depleted means the week still starts in deficit. Tonight's recovery matters."
+          : "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.";
+        return { phrase: "Close before the week.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return { phrase: "Close before tomorrow.", context: "What you don't release tonight you carry into tomorrow's first decisions and interactions.", driver: 'evening' };
@@ -235,8 +266,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead. How you close tonight is how you open the week — a clean transition here protects your capacity for tomorrow's first high-stakes moments."
+          : lightMon
+          ? "A lighter Monday ahead. A clean close tonight means you can open the week with intention rather than inertia."
+          : "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.";
+        return { phrase: "Close into the week.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity. How you close is how you recover.", driver: 'evening' };
@@ -263,8 +302,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Protect the window.", context: "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday rather than spending it before the week begins.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead, and your above-baseline readiness is a genuine advantage. Protecting this state tonight is the single highest-leverage move for tomorrow."
+          : lightMon
+          ? "A lighter Monday ahead and strong readiness to carry into it. Protecting tonight means the week opens from a position of genuine strength."
+          : "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday rather than spending it before the week begins.";
+        return { phrase: "Carry it into Monday.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return { phrase: "Close strong.", context: "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.", driver: 'evening' };
@@ -290,8 +337,16 @@ function getTheme(
   if (timeOfDay === 'morning')
     return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
   if (timeOfDay === 'evening') {
-    if (dayCtx === 'sunday')
-      return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'evening' };
+    if (dayCtx === 'sunday') {
+      const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+      const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+      const ctx = heavyMon
+        ? "Full readiness before a demanding Monday is exceptionally rare and valuable. Your only priority tonight is protecting this state through genuine rest."
+        : lightMon
+        ? "A lighter Monday ahead and peak readiness to carry into it. Protect this state — the week could open at your absolute best."
+        : "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.";
+      return { phrase: "Protect it for Monday.", context: ctx, driver: 'evening' };
+    }
     if (dayCtx === 'friday')
       return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return { phrase: "Close with intention.", context: "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.", driver: 'evening' };
@@ -920,10 +975,13 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
+    // Fetch tomorrow's calendar for late evening OR Sunday evening (≥18:00)
     const lateEvening = isLateEvening(hour);
+    const sundayEvening = dayOfWeek === 0 && hour >= 18;
+    const needTomorrow = lateEvening || sundayEvening;
     const [calendarResult, tomorrowResult] = await Promise.all([
       getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
-      lateEvening ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
+      needTomorrow ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
     ]);
     const calendarLoad: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.load : null;
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
@@ -978,7 +1036,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
