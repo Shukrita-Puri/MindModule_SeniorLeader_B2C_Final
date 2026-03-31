@@ -1095,26 +1095,10 @@ async function evaluateCoachMeetingMatch(
   return null;
 }
 
-// P4: Performance + State-Aware (merged)
-async function evaluatePerformanceState(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('performance_state')) return null;
+// P4: State-Aware Afternoon (pure — feature performance moved to P6 pattern_alert)
+async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('state_aware_nudge')) return null;
 
-  // Sub-evaluator A: Feature Performance
-  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
-  if (ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
-    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
-      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
-    const noRecentCoach = !ctx.coach.lastSessionAt ||
-      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
-
-    if (hasUpcomingHighStakes && noRecentCoach) {
-      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
-      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
-      return { type: 'performance_state', copy, priority: 4 };
-    }
-  }
-
-  // Sub-evaluator B: State-Aware Afternoon
   // Skip on weekends; requires structured calendar pressure
   if (ctx.isWeekend) return null;
   if (ctx.localTime < 12 || ctx.localTime >= 15) return null;
@@ -1134,7 +1118,7 @@ async function evaluatePerformanceState(ctx: NudgeContext, alreadySentTypes: Set
   if (afternoonHighStakes.length >= 1) {
     const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'state_aware' });
     const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'state_aware');
-    return { type: 'performance_state', copy, priority: 4 };
+    return { type: 'state_aware_nudge', copy, priority: 4 };
   }
 
   return null;
@@ -1163,7 +1147,7 @@ async function evaluateEveningClose(ctx: NudgeContext, alreadySentTypes: Set<str
   return { type: 'evening_close', copy, priority: 5 };
 }
 
-// P6: Pattern Alert (kept from original, fed by NudgeContext)
+// P6: Pattern Alert + Feature Performance (merged — both are data-driven observations)
 async function evaluatePatternAlert(
   ctx: NudgeContext,
   alreadySentTypes: Set<string>,
@@ -1188,6 +1172,22 @@ async function evaluatePatternAlert(
       return (p?.pattern_type as string) || l.variant_id;
     })
   );
+
+  // Pattern 0 (NEW): Feature Performance — coach session readiness lift
+  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
+  if (!recentPatternTypes.has('feature_performance') &&
+      ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
+    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
+      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
+    const noRecentCoach = !ctx.coach.lastSessionAt ||
+      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
+
+    if (hasUpcomingHighStakes && noRecentCoach) {
+      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
+      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
+      return { type: 'pattern_alert', copy, eventReference: 'feature_performance', priority: 6 };
+    }
+  }
 
   // Pattern 1: Consecutive low state (3 days)
   if (!recentPatternTypes.has('consecutive_low')) {
@@ -1525,9 +1525,9 @@ serve(async (req) => {
         if (nudge) qualified.push(nudge);
       }
 
-      // P4: Performance + State-Aware (merged)
-      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('performance_state') && !suppressed) {
-        const nudge = await evaluatePerformanceState(ctx, alreadySentTypes);
+      // P4: State-Aware Afternoon
+      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('state_aware_nudge') && !suppressed) {
+        const nudge = await evaluateStateAwareAfternoon(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
@@ -1620,12 +1620,32 @@ serve(async (req) => {
       }
     }
 
+    // Deep link route mapping: nudge type → destination route
+    const DEEP_LINK_ROUTES: Record<string, string> = {
+      morning_prep: '/daily-check-in',
+      pre_event_prep: '/executive-home',
+      calendar_gap: '/daily-check-in',
+      coach_meeting_match: '/self-mastery-coach',
+      state_aware_nudge: '/recalibrate',
+      evening_close: '/daily-check-in',
+      pattern_alert: '/insights',
+      daily_fallback: '/daily-check-in',
+    };
+
     for (const notif of allNotifications) {
+      const deepLinkRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
+
+      // Feature performance pattern → route to coach (it suggests a coach session)
+      const effectiveRoute = (notif.type === 'pattern_alert' && notif.eventReference === 'feature_performance')
+        ? '/self-mastery-coach'
+        : deepLinkRoute;
+
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
         body: notif.copy.body,
         notification_type: notif.type,
         variant_id: notif.copy.variantId,
+        deep_link_route: effectiveRoute,
         dry_run: isDryRun,
         architecture: 'signal-first-v1',
       };
@@ -1658,6 +1678,7 @@ serve(async (req) => {
                 notification_type: notif.type,
                 variant_id: notif.copy.variantId,
                 notification_log_id: notificationLogId || '',
+                deep_link_route: effectiveRoute,
               },
               apnsHost
             );
