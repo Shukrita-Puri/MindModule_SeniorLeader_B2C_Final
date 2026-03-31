@@ -1095,26 +1095,10 @@ async function evaluateCoachMeetingMatch(
   return null;
 }
 
-// P4: Performance + State-Aware (merged)
-async function evaluatePerformanceState(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
-  if (alreadySentTypes.has('performance_state')) return null;
+// P4: State-Aware Afternoon (pure — feature performance moved to P6 pattern_alert)
+async function evaluateStateAwareAfternoon(ctx: NudgeContext, alreadySentTypes: Set<string>): Promise<QualifiedNudge | null> {
+  if (alreadySentTypes.has('state_aware_nudge')) return null;
 
-  // Sub-evaluator A: Feature Performance
-  // If coach correlation > 20% AND high-stakes event in next 24h AND no coach session in 48h
-  if (ctx.coachSessionReadinessLift !== null && ctx.coachSessionReadinessLift > 20) {
-    const hasUpcomingHighStakes = ctx.highStakesEvents.length > 0 ||
-      ctx.tomorrowEvents.some(e => isHighStakes(e.title));
-    const noRecentCoach = !ctx.coach.lastSessionAt ||
-      (Date.now() - ctx.coach.lastSessionAt.getTime()) > 48 * 60 * 60 * 1000;
-
-    if (hasUpcomingHighStakes && noRecentCoach) {
-      const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'feature_performance' });
-      const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'feature_performance');
-      return { type: 'performance_state', copy, priority: 4 };
-    }
-  }
-
-  // Sub-evaluator B: State-Aware Afternoon
   // Skip on weekends; requires structured calendar pressure
   if (ctx.isWeekend) return null;
   if (ctx.localTime < 12 || ctx.localTime >= 15) return null;
@@ -1134,7 +1118,7 @@ async function evaluatePerformanceState(ctx: NudgeContext, alreadySentTypes: Set
   if (afternoonHighStakes.length >= 1) {
     const aiCopy = await generateNudgeCopy(ctx, 'performance_state', { subType: 'state_aware' });
     const copy = aiCopy || getFallbackPerformanceStateCopy(ctx, 'state_aware');
-    return { type: 'performance_state', copy, priority: 4 };
+    return { type: 'state_aware_nudge', copy, priority: 4 };
   }
 
   return null;
