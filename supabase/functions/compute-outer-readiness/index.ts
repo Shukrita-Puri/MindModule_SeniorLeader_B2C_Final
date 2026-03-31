@@ -46,23 +46,34 @@ interface CalendarMetricsResult {
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
   const now = new Date();
-
-  // Use ALL of today's events for load (reflects how busy the day was/is)
   const allEvents = events;
-
-  // Load — based on total events today (not just upcoming)
   const count = allEvents.length;
+
+  // Sort events chronologically for gap analysis
+  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  // Calculate gaps between consecutive events
+  const gaps: number[] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
+    gaps.push(gap);
+  }
+  const avgGap = gaps.length > 0 ? gaps.reduce((s, g) => s + g, 0) / gaps.length : Infinity;
+  const totalGapTime = gaps.length > 0 ? gaps.reduce((s, g) => s + Math.max(0, g), 0) : Infinity;
+
+  // Load — density-aware thresholds
   let load: CalendarLevel = 'low';
   if (count >= 5) load = 'high';
+  else if (count >= 4 && avgGap < 20) load = 'high';
   else if (count >= 3) load = 'medium';
 
-  // Pressure — weight upcoming events more, but include past high-stakes events too
+  // Pressure — weighted scoring
   let totalPressure = 0;
   for (const event of allEvents) {
     let p = 0;
     if (event.is_organizer) p += 2;
     const att = event.attendees_count || 0;
-    if (att > 5) p += 2; else if (att > 2) p += 1;
+    if (att > 5) p += 3; else if (att > 2) p += 1;
     const start = new Date(event.start_time);
     const end = new Date(event.end_time);
     const dur = (end.getTime() - start.getTime()) / 60000;
@@ -79,11 +90,21 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
     }
   }
 
-  // Back-to-back detection across all events
-  const sorted = [...allEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const gap = (new Date(sorted[i + 1].start_time).getTime() - new Date(sorted[i].end_time).getTime()) / 60000;
-    if (gap < 15) totalPressure += 1;
+  // Stronger back-to-back detection
+  for (const gap of gaps) {
+    if (gap < 5) totalPressure += 3;
+    else if (gap < 15) totalPressure += 2;
+  }
+
+  // Meeting density boost: total gap < 30 min across 3+ meetings
+  if (count >= 3 && totalGapTime < 30) {
+    totalPressure += 3;
+  }
+
+  // Intensity multiplier: >50% non-recurring AND organizer → 1.5x pressure
+  const intenseMeetings = allEvents.filter(e => !e.is_recurring && e.is_organizer).length;
+  if (count > 0 && intenseMeetings / count > 0.5) {
+    totalPressure = Math.ceil(totalPressure * 1.5);
   }
 
   let pressure: CalendarLevel = 'low';
