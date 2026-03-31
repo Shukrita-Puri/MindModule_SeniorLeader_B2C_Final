@@ -230,8 +230,16 @@ function getTheme(
     if (timeOfDay === 'morning')
       return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
     if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday')
-        return { phrase: "Close before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'evening' };
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead and your reserves are low. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
+          : lightMon
+          ? "A lighter Monday ahead, but ending the weekend depleted means the week still starts in deficit. Tonight's recovery matters."
+          : "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.";
+        return { phrase: "Close before the week.", context: ctx, driver: 'evening' };
+      }
       if (dayCtx === 'friday')
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return { phrase: "Close before tomorrow.", context: "What you don't release tonight you carry into tomorrow's first decisions and interactions.", driver: 'evening' };
