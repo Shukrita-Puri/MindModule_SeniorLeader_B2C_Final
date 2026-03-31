@@ -1525,9 +1525,9 @@ serve(async (req) => {
         if (nudge) qualified.push(nudge);
       }
 
-      // P4: Performance + State-Aware (merged)
-      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('performance_state') && !suppressed) {
-        const nudge = await evaluatePerformanceState(ctx, alreadySentTypes);
+      // P4: State-Aware Afternoon
+      if ((prefs?.state_aware_nudge_enabled ?? true) && !isEngagementSuppressed('state_aware_nudge') && !suppressed) {
+        const nudge = await evaluateStateAwareAfternoon(ctx, alreadySentTypes);
         if (nudge) qualified.push(nudge);
       }
 
