@@ -337,8 +337,16 @@ function getTheme(
   if (timeOfDay === 'morning')
     return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
   if (timeOfDay === 'evening') {
-    if (dayCtx === 'sunday')
-      return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'evening' };
+    if (dayCtx === 'sunday') {
+      const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+      const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+      const ctx = heavyMon
+        ? "Full readiness before a demanding Monday is exceptionally rare and valuable. Your only priority tonight is protecting this state through genuine rest."
+        : lightMon
+        ? "A lighter Monday ahead and peak readiness to carry into it. Protect this state — the week could open at your absolute best."
+        : "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.";
+      return { phrase: "Protect it for Monday.", context: ctx, driver: 'evening' };
+    }
     if (dayCtx === 'friday')
       return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return { phrase: "Close with intention.", context: "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.", driver: 'evening' };
