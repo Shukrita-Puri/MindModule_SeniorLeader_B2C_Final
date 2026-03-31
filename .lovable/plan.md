@@ -27,10 +27,10 @@ Complete rewrite of `supabase/functions/smart-nudges/index.ts` from template-rot
    - pre_event_prep → /executive-home (JIT carousel)
    - calendar_gap → /daily-check-in
    - coach_meeting_match → /self-mastery-coach
-   - state_aware_nudge → /recalibrate
+   - state_aware_nudge → /executive-home
    - evening_close → /daily-check-in
-   - pattern_alert → /insights (feature_performance variant → /self-mastery-coach)
-   - daily_fallback → /daily-check-in
+   - pattern_alert / feature_performance → /insights
+   - daily_fallback → /executive-home
 
 ### Key Design Decisions
 - P4 is pure State-Aware Afternoon; Feature Performance moved into P6 Pattern Alert (both are data-driven observations)
