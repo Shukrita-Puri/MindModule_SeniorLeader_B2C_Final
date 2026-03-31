@@ -1626,19 +1626,14 @@ serve(async (req) => {
       pre_event_prep: '/executive-home',
       calendar_gap: '/daily-check-in',
       coach_meeting_match: '/self-mastery-coach',
-      state_aware_nudge: '/recalibrate',
+      state_aware_nudge: '/executive-home',
       evening_close: '/daily-check-in',
       pattern_alert: '/insights',
-      daily_fallback: '/daily-check-in',
+      daily_fallback: '/executive-home',
     };
 
     for (const notif of allNotifications) {
-      const deepLinkRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
-
-      // Feature performance pattern → route to coach (it suggests a coach session)
-      const effectiveRoute = (notif.type === 'pattern_alert' && notif.eventReference === 'feature_performance')
-        ? '/self-mastery-coach'
-        : deepLinkRoute;
+      const effectiveRoute = DEEP_LINK_ROUTES[notif.type] || '/executive-home';
 
       const payload: Record<string, unknown> = {
         title: notif.copy.title,
