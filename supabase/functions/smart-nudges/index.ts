@@ -1626,10 +1626,10 @@ serve(async (req) => {
       pre_event_prep: '/executive-home',
       calendar_gap: '/daily-check-in',
       coach_meeting_match: '/self-mastery-coach',
-      state_aware_nudge: '/recalibrate',
+      state_aware_nudge: '/executive-home',
       evening_close: '/daily-check-in',
       pattern_alert: '/insights',
-      daily_fallback: '/daily-check-in',
+      daily_fallback: '/executive-home',
     };
 
     for (const notif of allNotifications) {
