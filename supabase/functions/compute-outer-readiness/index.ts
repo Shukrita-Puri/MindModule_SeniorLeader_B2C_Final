@@ -815,10 +815,12 @@ function getTheme(
   eventCount?: number,
   remainingEvents?: number,
   remainingHighStakes?: string[],
+  meetingCount?: number,
+  remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
   }
 
   const timeOfDay = getTimeOfDay(hour);
