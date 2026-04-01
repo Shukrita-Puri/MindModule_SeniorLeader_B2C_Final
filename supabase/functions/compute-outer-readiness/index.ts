@@ -2025,7 +2025,7 @@ serve(async (req) => {
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
       calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
       tomorrowHighStakes, wearableContext, wearableRecovery,
-      todayHighStakes, calendarResult.eventCount
+      todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
