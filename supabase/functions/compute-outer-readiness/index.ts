@@ -1695,7 +1695,7 @@ function getLeanOnWatchFor(
   }
 
   // ── P2: C×C independent signal modifier ──
-  const ccMod = getCCModifier(clarity, confidence);
+  const ccMod = getCCModifier(clarity, confidence, timeOfDay);
   if (ccMod) {
     if (hasCoachBoth && coachTier === 'contextual') {
       const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
