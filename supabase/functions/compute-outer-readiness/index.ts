@@ -1285,7 +1285,7 @@ serve(async (req) => {
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
-    const wearableUsed = !!wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated);
+    const wearableUsed = !!wearableContext;
     const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
 
     const timeOfDay = getTimeOfDay(hour);
