@@ -268,6 +268,8 @@ export default function Stage7ContextConnection() {
       completed: true,
     });
 
+    let completionSucceeded = false;
+
     try {
       const token = await getAuthToken();
       if (token) {
@@ -288,17 +290,44 @@ export default function Stage7ContextConnection() {
         );
         if (res.ok) {
           console.log("[Stage7] ✅ Onboarding marked complete");
+          completionSucceeded = true;
           await refreshProfile();
         } else {
           console.warn("[Stage7] ⚠️ complete-onboarding failed:", res.status);
+          // Retry once
+          const retry = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/complete-onboarding`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                calendar_provider: calendarEnabled ? "google" : null,
+                watch_type: watchEnabled ? (isNativeApp() ? "apple" : "apple_pending") : null,
+              }),
+            }
+          );
+          if (retry.ok) {
+            console.log("[Stage7] ✅ Onboarding marked complete (retry)");
+            completionSucceeded = true;
+            await refreshProfile();
+          } else {
+            console.error("[Stage7] ❌ complete-onboarding retry also failed:", retry.status);
+          }
         }
       }
     } catch (err) {
       console.warn("[Stage7] ⚠️ complete-onboarding error:", err);
     }
 
-    console.log("[Stage7] Context preferences saved, navigating to daily check-in");
-    navigate("/daily-check-in");
+    if (completionSucceeded) {
+      console.log("[Stage7] Context preferences saved, navigating to daily check-in");
+      navigate("/daily-check-in");
+    } else {
+      // Still navigate but warn — profile refresh will reconcile on next load
+      console.warn("[Stage7] Navigating despite completion failure — will reconcile on next load");
+      toast.warning("Setup saved. If you see onboarding again, just tap Continue.");
+      navigate("/daily-check-in");
+    }
   };
 
   return (
