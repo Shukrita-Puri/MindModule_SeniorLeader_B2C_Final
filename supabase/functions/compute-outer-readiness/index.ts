@@ -215,8 +215,85 @@ function getDayContext(dayOfWeek: number): DayContext {
   if (dayOfWeek === 0) return 'sunday';
   return 'weekday';
 }
+// ==================== WEEKDAY EVENING THEME BUILDER ====================
+function buildWeekdayEveningTheme(
+  tier: EnergyTier,
+  tomorrowHighStakes?: string[],
+  wearable?: WearableContext | null,
+  defaultPhrase?: string,
+  defaultContext?: string,
+): { phrase: string; context: string; driver: ThemeDriver } {
+  const hasHighStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
+  const eventName = hasHighStakes ? tomorrowHighStakes[0] : null;
+  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
 
-// ==================== THEME MATRIX (v4.0 — evening-enriched) ====================
+  // Priority 1: Tomorrow has high-stakes event + body is stressed
+  if (hasHighStakes && bodyStressed) {
+    const bodySignal = wearable!.hrElevated
+      ? "Your heart rate spiked through a demanding day"
+      : "Your HRV is signalling accumulated strain";
+    if (tier === 'depleted' || tier === 'managing') {
+      return {
+        phrase: "Ground before tomorrow.",
+        context: `${bodySignal} — and you have ${eventName} tomorrow. What you release tonight determines how sharp you are when it matters. Tonight is about arriving restored, not prepared.`,
+        driver: 'evening',
+      };
+    }
+    return {
+      phrase: "Restore for what matters.",
+      context: `${bodySignal} through today's demands, and ${eventName} is tomorrow. Your body needs genuine recovery tonight — you'll be sharper arriving rested than over-rehearsed.`,
+      driver: 'evening',
+    };
+  }
+
+  // Priority 2: Tomorrow has high-stakes event (body is fine)
+  if (hasHighStakes) {
+    if (tier === 'depleted') {
+      return {
+        phrase: "Ground before tomorrow.",
+        context: `You have ${eventName} tomorrow and your reserves are low. Tonight is about arriving restored, not prepared. What you protect now directly shapes how you show up.`,
+        driver: 'evening',
+      };
+    }
+    if (tier === 'managing') {
+      return {
+        phrase: "Close with tomorrow in mind.",
+        context: `${eventName} is tomorrow. A clean close tonight is the best preparation — you'll show up sharper by resting well than by rehearsing late.`,
+        driver: 'evening',
+      };
+    }
+    if (tier === 'strong') {
+      return {
+        phrase: "Protect your edge for tomorrow.",
+        context: `You have ${eventName} tomorrow and above-baseline readiness to carry into it. The highest-leverage move tonight is a deliberate wind-down, not preparation.`,
+        driver: 'evening',
+      };
+    }
+    // peak
+    return {
+      phrase: "Arrive at your best.",
+      context: `${eventName} is tomorrow and your readiness is at its peak. Your only priority tonight is protecting this state through genuine rest — not spending it on preparation.`,
+      driver: 'evening',
+    };
+  }
+
+  // Priority 3: Body stressed but no high-stakes tomorrow
+  if (bodyStressed) {
+    const bodySignal = wearable!.hrElevated
+      ? "Your heart rate ran high through today's demands"
+      : "Your HRV is showing accumulated strain from today";
+    return {
+      phrase: defaultPhrase || "Let the body close.",
+      context: `${bodySignal}. The cool-down tonight is physical, not just mental — what you release now determines how you recover overnight.`,
+      driver: 'evening',
+    };
+  }
+
+  // Default: soft close
+  return { phrase: defaultPhrase || "Close before tomorrow.", context: defaultContext || "Tonight is about release, not review.", driver: 'evening' };
+}
+
+
 function getTheme(
   tier: EnergyTier,
   pressure: CalendarLevel | null,
