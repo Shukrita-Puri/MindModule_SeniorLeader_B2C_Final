@@ -373,7 +373,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
-        sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`);
+        sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}:${todayCheckin?.clarity_level ?? 'x'}:${todayCheckin?.confidence_level ?? 'x'}`);
         console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length, prunedCompleted: prunedCompleted.length });
       }
     } catch (error) {

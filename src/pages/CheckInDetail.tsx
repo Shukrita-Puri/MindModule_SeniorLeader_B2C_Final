@@ -72,12 +72,14 @@ const CheckInDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
       queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
       
-      // Clear mastery plan session cache to force fresh plan generation
+      // Clear ALL mastery plan session caches to force fresh plan generation
+      // Wipe every period variant to prevent any stale cache from surviving
       const todayDate = new Date().toISOString().split('T')[0];
-      const currentPeriod = getCurrentTimeWindow();
-      sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
-      sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
-      sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+      for (const p of ['morning', 'afternoon', 'evening']) {
+        sessionStorage.removeItem(`plan-loaded-${todayDate}-${p}`);
+        sessionStorage.removeItem(`plan-data-${todayDate}-${p}`);
+        sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${p}`);
+      }
 
       navigate('/executive-home');
     } catch (e) {
