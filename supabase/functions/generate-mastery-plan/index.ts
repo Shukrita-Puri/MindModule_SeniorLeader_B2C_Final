@@ -73,6 +73,9 @@ interface PlanRequest {
   innerReadinessScore: number;
   outerReadinessPhrase: string;
   outerReadinessDriver: string;
+  outerReadinessContext: string;
+  outerReadinessLeanOn: string;
+  outerReadinessWatchFor: string;
   calendarLoad: string;
   calendarPressure: string;
   favorites: string[];
@@ -88,6 +91,7 @@ interface PlanRequest {
   practicePriorityTag?: string;
   pressureContextTag?: string;
   wearableContext: WearableContext;
+  latestCheckinTimestamp?: string;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -691,9 +695,13 @@ function generatePlanBrief(
   ctx: CalendarContext,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
   innerReadinessTier: string,
+  innerReadinessScore: number,
   checkInOutcome: string,
   calendarLoad: string,
-  wearable: WearableContext
+  wearable: WearableContext,
+  outerReadinessPhrase: string,
+  outerReadinessContext: string,
+  outerReadinessLeanOn: string,
 ): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
   const remainingCount = ctx.remainingMeetingCount ?? count;
@@ -701,10 +709,10 @@ function generatePlanBrief(
 
   // Map readiness tier to human language
   const tierLabel: Record<string, string> = {
-    depleted: 'drained',
+    depleted: 'low',
     managing: 'steady',
     strong: 'above baseline',
-    peak: 'at peak readiness'
+    peak: 'at peak'
   };
   const readinessWord = tierLabel[innerReadinessTier] || 'steady';
 
@@ -716,7 +724,9 @@ function generatePlanBrief(
     drained: 'drained',
     scattered: 'scattered',
     anxious: 'tense',
-    flat: 'flat'
+    flat: 'flat',
+    overwhelmed: 'overwhelmed',
+    focused: 'focused',
   };
   const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
 
@@ -727,50 +737,100 @@ function generatePlanBrief(
   const goodSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore >= 80;
 
   let wearableFragment = '';
-  if (poorSleep && lowHRV) wearableFragment = ' and your sleep and HRV are both below baseline';
-  else if (poorSleep) wearableFragment = ' and your sleep score is below baseline';
-  else if (lowHRV) wearableFragment = ' and your HRV is below baseline';
+  if (poorSleep && lowHRV) wearableFragment = ', and your sleep and HRV are both below baseline';
+  else if (poorSleep) wearableFragment = ', and your sleep score is below baseline';
+  else if (lowHRV) wearableFragment = ', and your HRV is below baseline';
   else if (goodHRV && goodSleep) wearableFragment = ' with recovered HRV and solid sleep';
   else if (goodHRV) wearableFragment = ' with recovered HRV';
 
+  // Build sentence 1: what state the user is in now – synthesising decision readiness, check-in, and wearable
+  const scoreLabel = innerReadinessScore <= 39 ? 'depleted' : innerReadinessScore <= 59 ? 'moderate' : innerReadinessScore <= 74 ? 'strong' : 'peak';
+  let stateSentence = '';
+
+  // Build sentence 2: why this sequence matters – driven by outer readiness phrase/context
+  let purposeSentence = '';
+
   // ---- EVENING ----
   if (timeOfDay === 'evening') {
-    if (!hasCalendar) {
-      if (poorSleep || lowHRV) return `Your body signals show fatigue${wearableFragment.replace(' and ', ' – ')}. This evening sequence prioritises deep recovery to protect tomorrow's capacity.`;
-      return 'This evening sequence helps you close the day with intention and prepare your mind for tomorrow.';
+    // State: acknowledge today retrospectively
+    if (hasCalendar && (calendarLoad === 'extreme' || calendarLoad === 'heavy')) {
+      stateSentence = `Your decision readiness is ${readinessWord} after ${count} meetings${wearableFragment}.`;
+    } else if (hasCalendar) {
+      stateSentence = `You checked in as ${stateWord} after a ${calendarLoad || 'moderate'} day of ${count} meetings${wearableFragment}.`;
+    } else if (poorSleep || lowHRV) {
+      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
+    } else {
+      stateSentence = `You checked in as ${stateWord} this evening.`;
     }
-    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `You checked in as ${stateWord} after ${count} meetings${wearableFragment}. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
+
+    // Purpose: connect to outer readiness directive
+    if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
+      // Use the outer readiness phrase as the anchor for why
+      const phraseAction = outerReadinessPhrase.replace(/\.$/, '').toLowerCase();
+      if (innerReadinessTier === 'depleted') {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence helps you release what you carried today and protect tomorrow's first decisions.`;
+      } else if (innerReadinessTier === 'managing') {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence helps you close cleanly so you arrive restored tomorrow.`;
+      } else {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence consolidates your edge and sets up tomorrow.`;
+      }
+    } else {
+      if (innerReadinessTier === 'depleted') {
+        purposeSentence = 'This sequence is designed to release what you carried today and protect tomorrow\'s capacity.';
+      } else if (innerReadinessTier === 'managing') {
+        purposeSentence = 'This sequence helps you close with intention and arrive restored tomorrow.';
+      } else {
+        purposeSentence = 'This sequence consolidates today and sharpens your edge for tomorrow.';
+      }
     }
-    if (calendarLoad === 'moderate') {
-      return `After a moderate day of ${count} meetings${wearableFragment}, this sequence helps you close with clarity and set up tomorrow.`;
-    }
-    return `A lighter day behind you${wearableFragment}. This evening sequence helps you consolidate what went well and rest with intention.`;
+
+    return `${stateSentence} ${purposeSentence}`;
   }
 
   // ---- MORNING ----
   if (timeOfDay === 'morning') {
-    if (!hasCalendar) {
-      if (poorSleep) return `Your sleep score is below baseline. These practices are calibrated to compensate – building the focus and composure your body didn't fully restore overnight.`;
-      return `Your readiness is ${readinessWord}${wearableFragment}. These practices set your mental edge for the day ahead.`;
+    // State
+    if (poorSleep) {
+      stateSentence = `Your decision readiness is ${readinessWord} after below-baseline sleep${lowHRV ? ' and low HRV' : ''}.`;
+    } else if (hasCalendar && count >= 4) {
+      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead.`;
+    } else if (hasCalendar) {
+      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead.`;
+    } else {
+      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
     }
-    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `Your readiness is ${readinessWord}${wearableFragment} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
+
+    // Purpose
+    if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
+      const phraseAction = outerReadinessPhrase.replace(/\.$/, '').toLowerCase();
+      if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices build the composure and focus to sustain you through a dense day.`;
+      } else if (innerReadinessTier === 'depleted') {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices compensate for what rest didn't fully restore.`;
+      } else {
+        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices set your mental edge for what lies ahead.`;
+      }
+    } else {
+      purposeSentence = 'These practices set your mental edge for the day ahead.';
     }
-    if (calendarLoad === 'moderate') {
-      return `Your readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
-    }
-    return `You're ${readinessWord}${wearableFragment} with a light day ahead. These practices channel that clarity into deliberate intention.`;
+
+    return `${stateSentence} ${purposeSentence}`;
   }
 
   // ---- AFTERNOON ----
-  if (!hasCalendar || remainingCount === 0) {
-    return `Your readiness is ${readinessWord}${wearableFragment}. This sequence resets your energy for the stretch that remains.`;
+  if (hasCalendar && remainingCount > 0) {
+    stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead.`;
+  } else {
+    stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
   }
-  if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-    return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
+
+  if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
+    purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence restores your edge for the stretch that remains.`;
+  } else {
+    purposeSentence = 'This sequence resets your energy for the stretch that remains.';
   }
-  return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
+
+  return `${stateSentence} ${purposeSentence}`;
 }
 
 function hashCode(str: string): number {
@@ -1929,7 +1989,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.favorites = (favs || []).map((f: any) => f.content_id);
   } catch { req.favorites = []; }
 
-  // Outer readiness – call compute-outer-readiness server-to-server
+  // Outer readiness – call compute-outer-readiness server-to-server with FULL readiness inputs
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -1939,16 +1999,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ userId: req.userId, timezoneOffset: req.timezoneOffset }),
+      body: JSON.stringify({
+        userId: req.userId,
+        timezoneOffset: req.timezoneOffset,
+        innerReadinessTier: req.innerReadinessTier,
+        innerReadinessScore: req.innerReadinessScore,
+        clarityLevel: req.clarityLevel,
+        confidenceLevel: req.confidenceLevel,
+        checkInOutcome: req.checkInOutcome,
+      }),
     });
     if (outerRes.ok) {
       const outerData = await outerRes.json();
       req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
       req.outerReadinessDriver = outerData.driver || 'state';
+      req.outerReadinessContext = outerData.context || '';
+      req.outerReadinessLeanOn = outerData.leanOn || '';
+      req.outerReadinessWatchFor = outerData.watchFor || '';
     }
   } catch {
     req.outerReadinessPhrase = 'Steady execution.';
     req.outerReadinessDriver = 'state';
+    req.outerReadinessContext = '';
+    req.outerReadinessLeanOn = '';
+    req.outerReadinessWatchFor = '';
   }
 
   // 1. Get skip preferences
@@ -2219,7 +2293,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, req.wearableContext);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
@@ -2293,14 +2367,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: spec.focus,
           intensity: spec.intensity,
           isFavorite: req.favorites.includes(selected.id),
-           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
+           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext, req.outerReadinessPhrase),
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
       } else if (timeOfDay === 'evening') {
-        // Fallback: try to find ANY real content from DB for this module type
+        // Fallback: try to find unfinished content from DB for this module type
         const fallbackCategory = moduleType === 'regulate' ? 'somatic' : 'mindset';
-        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory);
+        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory && !req.completedToday.includes(c.id));
         if (fallbackItem) {
           todModules.push({
             type: moduleType,
@@ -2311,12 +2385,12 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: spec.focus,
             intensity: spec.intensity,
             isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
+            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext, req.outerReadinessPhrase),
             required: spec.required,
             thumbnailUrl: fallbackItem.thumbnail_url
           });
         }
-        // If no real content exists at all, skip the module entirely
+        // If no unfinished content exists, skip the module entirely – never resurface completed
       }
     }
   }
@@ -2417,9 +2491,9 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
     return null; // prepare/integrate are coach cards
   }
 
-  // Filter out completed today
+  // Filter out completed today – return null if no unfinished candidates
   const available = pool.filter(c => !req.completedToday.includes(c.id));
-  if (available.length === 0) return pool[0] || null;
+  if (available.length === 0) return null; // HARD exclude – never resurface completed content
 
   // Score
   const scored = available.map(c => ({
@@ -2444,7 +2518,8 @@ function getContextualReasoning(
   checkInOutcome: string,
   calendarLoad: string,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
-  wearable?: WearableContext
+  wearable?: WearableContext,
+  outerReadinessPhrase?: string
 ): string {
   const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
   const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
@@ -2455,21 +2530,24 @@ function getContextualReasoning(
   const poorSleep = wearable?.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
   const lowHRV = wearable?.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
 
-  // Context-aware reasoning per focus area – wearable signals take priority when notable
+  // Context-aware reasoning per focus area – wearable > readiness > calendar hierarchy
   if (focus === 'composure') {
     if (lowHRV) return 'Your HRV is below baseline – this settles your nervous system before what\'s ahead';
+    if (isDepleted && isDense) return 'Your check-in and calendar both flag strain – this settles your nervous system to protect what remains';
     if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
     if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
     return 'This practice anchors your composure so you show up grounded, not reactive';
   }
   if (focus === 'release') {
     if (poorSleep && isEvening) return 'Your sleep was disrupted last night – this practice helps discharge residual tension before rest';
+    if (isEvening && isDepleted) return 'Your decision readiness is low – this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
     if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
     return 'Clear mental clutter so your next decision comes from clarity, not residue';
   }
   if (focus === 'grounding') {
+    if (isEvening && isDepleted) return 'Your readiness is low – grounding closes the mental loops and protects tonight\'s recovery';
     if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
     if (lowHRV && isDepleted) return 'Your HRV and check-in both flag low reserves – grounding reconnects you to a stable centre';
     if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
@@ -2482,6 +2560,7 @@ function getContextualReasoning(
     return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
   }
   if (focus === 'confidence') {
+    if (isStrong && isDense) return 'Your readiness is high despite a dense day – this channels that into confident presence for what remains';
     if (isStrong) return 'Your readiness is high – this practice channels that into visible, confident presence';
     if (isDepleted) return 'Even when drained, this practice reconnects you to your leadership presence';
     return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
@@ -2489,6 +2568,7 @@ function getContextualReasoning(
   if (focus === 'restore') {
     if (poorSleep && isDepleted) return 'Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level';
     if (poorSleep) return 'Your sleep was disrupted – this practice is designed to replenish what rest didn\'t fully restore';
+    if (isDepleted && isEvening) return 'Your decision readiness is low – this practice replenishes and prepares your system for deep recovery overnight';
     if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
     if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
     return 'Top up your reserves now so you have capacity for what remains';
@@ -2534,14 +2614,15 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting – 30s cooldown per user+period
+    // Rate limiting – 30s cooldown per user+period+state fingerprint
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
+    const forceRefresh = body.forceRefresh === true;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
     const cacheKey = `${userId}:${currentPeriod}`;
     const cached = rateLimitMap.get(cacheKey);
-    if (cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
+    if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
       console.log(`[generate-mastery-plan] Rate limited: ${userId} period=${currentPeriod} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2558,6 +2639,9 @@ Deno.serve(async (req) => {
       innerReadinessScore: 50,
       outerReadinessPhrase: 'Steady execution.',
       outerReadinessDriver: 'state',
+      outerReadinessContext: '',
+      outerReadinessLeanOn: '',
+      outerReadinessWatchFor: '',
       calendarLoad: 'none',
       calendarPressure: 'none',
       favorites: [],

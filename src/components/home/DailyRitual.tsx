@@ -282,9 +282,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           
-          // Validate cached plan against current energy state to prevent cross-device divergence
+      // Validate cached plan against current energy state to prevent cross-device divergence
           const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
-          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}`; // basic hash from plan period
+          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`;
           // If we can detect a different energy tier from the plan metadata, invalidate
           if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
             console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
@@ -355,7 +355,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
-        sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}`);
+        sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`);
         console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length });
       }
 
@@ -516,12 +516,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   }
 
   const rawModules = plan?.timeOfDayPlan?.modules || [];
-  // Sort: incomplete first, completed last — preserves original order within each group
-  const activeModules = [...rawModules].sort((a, b) => {
-    const aCompleted = completedPracticeIds.includes(a.contentId) ? 1 : 0;
-    const bCompleted = completedPracticeIds.includes(b.contentId) ? 1 : 0;
-    return aCompleted - bCompleted;
-  });
+  // Filter out completed practices entirely – only show outstanding work
+  const activeModules = rawModules.filter(m => !completedPracticeIds.includes(m.contentId));
 
   if (activeModules.length === 0 && !loading) {
     return (

@@ -12,10 +12,15 @@ import { DEV_MODE, DEV_USER } from '@/config/devMode';
 import FloatingNavigation from '@/components/navigation/FloatingNavigation';
 import { getAuthToken as getAccessToken } from '@/services/authTokenService';
 import { toast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 
 const CheckInDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
   const [saving, setSaving] = useState(false);
@@ -62,6 +67,18 @@ const CheckInDetail = () => {
           throw error;
         }
       }
+
+      // Invalidate all relevant caches so dashboard reflects new state immediately
+      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      
+      // Clear mastery plan session cache to force fresh plan generation
+      const todayDate = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
+      sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+
       navigate('/executive-home');
     } catch (e) {
       console.error('[CheckInDetail] Save error:', e);
