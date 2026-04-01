@@ -568,7 +568,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
           {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
               <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
-                {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
+                <TextWithEventEmphasis text={plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage || ''} />
               </span>
             </div>
           )}
