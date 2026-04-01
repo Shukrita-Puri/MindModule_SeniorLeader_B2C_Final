@@ -2572,6 +2572,7 @@ Deno.serve(async (req) => {
       archetype: '',
       practicePriorityTag: '',
       pressureContextTag: '',
+      wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
     };
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
