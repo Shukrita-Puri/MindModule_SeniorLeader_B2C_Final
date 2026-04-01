@@ -332,7 +332,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Begin with intention.", context: "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", driver: 'morning' };
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
