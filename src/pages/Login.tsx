@@ -19,7 +19,7 @@ const Login = () => {
   const location = useLocation();
   const redirectInitiated = useRef(false);
 
-  const intendedDestination = (location.state as { from?: string })?.from || '/executive-home';
+  const intendedDestination = (location.state as { from?: string })?.from || '/daily-check-in';
   const urlParams = new URLSearchParams(window.location.search);
   const returnToParam = urlParams.get('returnTo');
   const finalDestination = returnToParam || intendedDestination;

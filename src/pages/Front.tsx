@@ -10,34 +10,39 @@ import { DEV_MODE } from "@/config/devMode";
 import { getRedirectUri, nativeLogin, getSanitisedAuth0Audience } from "@/utils/nativeAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { clearLogoutGuard } from "@/utils/logoutGuard";
-import { hasValidSubscription, isWithin60DaysOfCancellation, resetIncompleteOnboarding } from "@/utils/subscriptionHelpers";
+import { hasValidAccess, isWithin60DaysOfCancellation } from "@/utils/subscriptionHelpers";
+import { getResumeRoute } from "@/utils/onboardingStatus";
+
+const CANONICAL_HOME = '/daily-check-in';
 
 const Front = () => {
   if (DEV_MODE) {
-    return <FrontContent onSignIn={() => {}} onLetsGoReset={async () => {}} isAuthenticated={false} user={null} />;
+    return <FrontContent onSignIn={() => {}} onLetsGo={async () => {}} isAuthenticated={false} user={null} />;
   }
   return <Auth0Front />;
 };
 
 const Auth0Front = () => {
-  const { loginWithRedirect, logout } = useAuth0();
+  const { loginWithRedirect } = useAuth0();
   const { isAuthenticated, loading, user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Auto-redirect: logged-in + completed + valid → straight to app
   useEffect(() => {
-    if (!loading && isAuthenticated && user?.onboarding_completed_at && hasValidSubscription(user as any)) {
-      navigate('/daily-check-in', { replace: true });
+    if (loading || !isAuthenticated || !user) return;
+    if (user.onboarding_completed_at && hasValidAccess(user)) {
+      navigate(CANONICAL_HOME, { replace: true });
     }
   }, [loading, isAuthenticated, user, navigate]);
 
   const handleSignIn = async () => {
     clearLogoutGuard();
 
-    const handled = await nativeLogin({ returnTo: '/daily-check-in' });
+    const handled = await nativeLogin({ returnTo: CANONICAL_HOME });
     if (handled) return;
 
     loginWithRedirect({
-      appState: { returnTo: '/daily-check-in' },
+      appState: { returnTo: CANONICAL_HOME },
       authorizationParams: {
         redirect_uri: getRedirectUri(),
         audience: getSanitisedAuth0Audience(),
@@ -46,35 +51,46 @@ const Auth0Front = () => {
     });
   };
 
-  const handleLetsGoReset = async () => {
-    if (isAuthenticated && user) {
-      // Check 60-day cancellation rule
-      if (isWithin60DaysOfCancellation(user as any)) {
-        // Recent cancellation — go straight to payment
-        navigate('/onboarding/payment');
-        return;
-      }
-
-      // Authenticated but no valid subscription — full reset
-      if (!hasValidSubscription(user as any)) {
-        try {
-          await resetIncompleteOnboarding();
-        } catch (err) {
-          console.warn('[Front] Reset failed, continuing with logout:', err);
-        }
-        await signOut();
-        // After signOut, user lands back on / and can press "Let's Go" as fresh user
-        return;
-      }
+  const handleLetsGo = async () => {
+    // Case 1: Logged-in + onboarding complete + valid subscription → go to app
+    if (isAuthenticated && user?.onboarding_completed_at && hasValidAccess(user)) {
+      navigate(CANONICAL_HOME);
+      return;
     }
+
+    // Case 2: Logged-in + onboarding incomplete → resume at correct step
+    if (isAuthenticated && user && !user.onboarding_completed_at) {
+      try {
+        const resumeRoute = await getResumeRoute();
+        console.log('[Front] Resuming onboarding at:', resumeRoute);
+        navigate(resumeRoute);
+      } catch {
+        navigate('/onboarding');
+      }
+      return;
+    }
+
+    // Case 3: Logged-in + onboarding complete + no valid subscription
+    if (isAuthenticated && user?.onboarding_completed_at && !hasValidAccess(user)) {
+      if (isWithin60DaysOfCancellation(user as any)) {
+        navigate('/onboarding/payment');
+      } else {
+        navigate('/onboarding/payment');
+      }
+      return;
+    }
+
+    // Case 4: Not logged in → start fresh onboarding
+    clearSession();
+    navigate('/onboarding');
   };
 
-  return <FrontContent onSignIn={handleSignIn} onLetsGoReset={handleLetsGoReset} isAuthenticated={isAuthenticated} user={user} />;
+  return <FrontContent onSignIn={handleSignIn} onLetsGo={handleLetsGo} isAuthenticated={isAuthenticated} user={user} />;
 };
 
-const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
+const FrontContent = ({ onSignIn, onLetsGo, isAuthenticated, user }: {
   onSignIn: () => void;
-  onLetsGoReset: () => Promise<void>;
+  onLetsGo: () => Promise<void>;
   isAuthenticated: boolean;
   user: any;
 }) => {
@@ -83,23 +99,17 @@ const FrontContent = ({ onSignIn, onLetsGoReset, isAuthenticated, user }: {
 
   const handleGetStarted = async () => {
     setIsTransitioning(true);
-
-    // If authenticated but no valid subscription, trigger re-entry flow
-    if (isAuthenticated && user && !hasValidSubscription(user)) {
-      await onLetsGoReset();
-      setIsTransitioning(false);
-      return;
+    try {
+      await onLetsGo();
+    } finally {
+      // Reset in case navigation didn't happen (e.g. error)
+      setTimeout(() => setIsTransitioning(false), 500);
     }
-
-    setTimeout(() => {
-      clearSession();
-      navigate('/onboarding');
-    }, 300);
   };
 
   const handleSignIn = () => {
     if (DEV_MODE) {
-      navigate('/daily-check-in');
+      navigate(CANONICAL_HOME);
       return;
     }
     onSignIn();

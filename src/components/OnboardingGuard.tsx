@@ -4,14 +4,50 @@ import { useAuth } from "@/hooks/useAuth";
 import { DEV_MODE } from "@/config/devMode";
 import { Loader2 } from "lucide-react";
 import { getResumeRoute } from "@/utils/onboardingStatus";
+import { getAuthToken } from "@/services/authTokenService";
 
 // Routes that completed users can still access (e.g. upgrade flow)
 const ONBOARDING_WHITELIST = ['/onboarding/payment'];
 
 /**
+ * Check if onboarding is complete by querying DB progress.
+ * Returns true if completed_at is set in onboarding_progress.
+ * Used as reconciliation when profile.onboarding_completed_at is missing.
+ */
+async function checkDbOnboardingCompletion(): Promise<boolean> {
+  try {
+    const token = await getAuthToken();
+    if (!token) return false;
+
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/onboarding-progress`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'GET' }),
+      }
+    );
+
+    if (!res.ok) return false;
+    const { data } = await res.json();
+    return !!(data?.completed_at);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Wraps protected routes to enforce onboarding completion.
- * If onboarding_completed_at is NULL → fetch DB progress to find correct resume route
- * If onboarding_completed_at exists → allow through
+ * 
+ * Resolution order:
+ * 1. If user.onboarding_completed_at exists → allow through immediately
+ * 2. If missing → check DB onboarding_progress.completed_at (reconciliation)
+ *    - If DB says completed → allow through (profile will sync on next refresh)
+ *    - If DB says incomplete → fetch resume route and redirect
  */
 export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -26,18 +62,29 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
 
     console.log('[OnboardingGuard] user:', user.id, 'onboarding_completed_at:', user.onboarding_completed_at, 'path:', location.pathname);
 
+    // Fast path: profile says completed
     if (user.onboarding_completed_at) {
       console.log('[OnboardingGuard] ✅ Onboarding completed, allowing access');
       setResolved(true);
       return;
     }
 
-    // Not completed — fetch DB progress to find the correct resume route
+    // Slow path: reconcile via DB
     if (resolving) return;
     setResolving(true);
 
     (async () => {
       try {
+        // First check if DB says completed (profile may be stale from sync failure)
+        const dbCompleted = await checkDbOnboardingCompletion();
+        if (dbCompleted) {
+          console.log('[OnboardingGuard] ✅ DB says onboarding completed (profile was stale), allowing access');
+          setResolved(true);
+          setResolving(false);
+          return;
+        }
+
+        // Truly incomplete — find resume route
         console.log('[OnboardingGuard] ⏳ Fetching DB progress for resume route...');
         const resumeRoute = await getResumeRoute();
         console.log('[OnboardingGuard] 📍 Resume route resolved:', resumeRoute);
@@ -58,7 +105,7 @@ export const OnboardingGuard = ({ children }: { children: React.ReactNode }) => 
   }
 
   if (!user) return null;
-  if (!user.onboarding_completed_at) return null;
+  if (!resolved && !user.onboarding_completed_at) return null;
 
   return <>{children}</>;
 };
@@ -111,6 +158,14 @@ export const OnboardingBlockGuard = ({ children }: { children: React.ReactNode }
       setResuming(true);
       (async () => {
         try {
+          // Check if DB actually says completed (reconcile stale profile)
+          const dbCompleted = await checkDbOnboardingCompletion();
+          if (dbCompleted && !isWhitelisted) {
+            console.log('[OnboardingBlockGuard] DB says completed, redirecting to /daily-check-in');
+            navigate('/daily-check-in', { replace: true });
+            return;
+          }
+
           console.log('[OnboardingBlockGuard] ⏳ Authenticated user at /onboarding root, checking DB for resume...');
           const resumeRoute = await getResumeRoute();
           console.log('[OnboardingBlockGuard] 📍 DB resume route:', resumeRoute);

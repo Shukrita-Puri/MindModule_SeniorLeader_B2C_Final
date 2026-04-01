@@ -339,34 +339,41 @@ const Auth0AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           const errorBody = await response.text();
           console.error('[useAuth] ⚠️ Profile sync failed:', response.status, errorBody);
-          console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
           syncAttempted.current = false;
 
-          setAppUser({
-            id: auth0User.sub!,
-            email: auth0User.email!,
-            name: auth0User.name,
-            picture: auth0User.picture,
-            subscription_status: 'none',
-            subscription_plan: undefined,
-            onboarding_completed_at: null,
-            subscription_tier: 'none',
+          // CRITICAL: Preserve last-known-good profile state on transient failures.
+          // Only create a minimal Auth0 user if we have NO existing profile at all.
+          setAppUser(prev => {
+            if (prev && prev.id) {
+              console.warn('[useAuth] Preserving last-known-good profile for', prev.id);
+              return prev;
+            }
+            console.warn('[useAuth] No prior profile, creating minimal Auth0-only user');
+            return {
+              id: auth0User.sub!,
+              email: auth0User.email!,
+              name: auth0User.name,
+              picture: auth0User.picture,
+            };
           });
         }
       } catch (error) {
         console.error('[useAuth] ⚠️ Profile sync error:', error);
-        console.warn('[useAuth] Falling back to Auth0-only user data (will retry next load)');
         syncAttempted.current = false;
 
-        setAppUser({
-          id: auth0User.sub!,
-          email: auth0User.email!,
-          name: auth0User.name,
-          picture: auth0User.picture,
-          subscription_status: 'none',
-          subscription_plan: undefined,
-          onboarding_completed_at: null,
-          subscription_tier: 'none',
+        // CRITICAL: Same preservation logic — never downgrade to 'none' on transient errors
+        setAppUser(prev => {
+          if (prev && prev.id) {
+            console.warn('[useAuth] Preserving last-known-good profile for', prev.id);
+            return prev;
+          }
+          console.warn('[useAuth] No prior profile, creating minimal Auth0-only user');
+          return {
+            id: auth0User.sub!,
+            email: auth0User.email!,
+            name: auth0User.name,
+            picture: auth0User.picture,
+          };
         });
       } finally {
         setSyncing(false);
