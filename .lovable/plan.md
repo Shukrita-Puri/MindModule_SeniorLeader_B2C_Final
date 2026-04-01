@@ -1,109 +1,158 @@
 
 
-## Plan: Context-Rich Outer Readiness Brief — All Day Periods
+## Plan: Context-Rich Brief with Relevance-First Enrichment + Evening Day-Acknowledgment
 
-### Problem
-
-The brief's theme, context, leanOn, and watchFor are **generic during mornings and afternoons**. Calendar event names and wearable signals only enrich evening copy. The user sees "Light demands on a managing state. A genuine opportunity to invest rather than spend today" — with no mention of their actual meetings, sleep quality, or body state. The intelligence exists server-side but isn't surfaced.
-
-### Root Cause (3 gaps)
-
-1. **Today's high-stakes event titles are never passed to `getTheme()`** — `calendarResult.highStakesEvents` is computed but not forwarded. Only `tomorrowHighStakes` is used (evenings only).
-2. **The tier × load × pressure matrix returns static strings** — 48 hardcoded entries that never reference event count, event names, or wearable state for morning/afternoon.
-3. **`getLeanOnWatchFor()` only routes to context-rich insights for `lateEvening`** — during daytime it falls through to coach/archetype/tier fallbacks that have zero calendar or wearable awareness.
-
-### Single file changed: `supabase/functions/compute-outer-readiness/index.ts`
+### Single file: `supabase/functions/compute-outer-readiness/index.ts`
 
 ---
 
-### 1. Pass Today's High-Stakes Events into Theme
+### Core Principle: Relevance, Not Listing
 
-In `main()` (~line 1301), pass `calendarResult.highStakesEvents` as a new parameter `todayHighStakes` to `getTheme()`.
+The user's feedback is clear: **don't mention calendar events or wearable data for the sake of it**. Context must serve a purpose — connecting what the body shows to what the calendar demands. "Your calendar includes Day Block - Prepare for Interview" adds zero value. But "Steadiness through a high-density day with 3 high-stakes meetings, while your HR ran elevated throughout" connects the dots.
 
-Update `getTheme()` signature to accept `todayHighStakes?: string[]`.
+**Rules for context statements:**
+- Never list event titles as standalone items
+- Reference event names ONLY when paired with a body/strain signal or when characterizing the day's demands (e.g., "a day anchored by [Board Meeting]")
+- For many events, use count: "5 meetings with tight gaps"
+- For high-stakes, reference by name only when it contextualizes the challenge or recovery need
 
----
-
-### 2. Enrich Tier × Load × Pressure Context Strings
-
-For each of the ~48 tier/load/pressure matrix entries, append **dynamic context suffixes** based on available data:
-
-**Calendar suffix** (when `todayHighStakes` has entries):
-- Reference up to 2 event names: e.g. `"Your calendar includes [Board Review] and [1:1 with CEO]."`
-- For high load without named events: reference event count: `"${eventCount} meetings today with tight gaps between them."`
-
-**Wearable suffix** (when wearable data is present):
-- Poor sleep: `"Your recovery overnight was incomplete (sleep score: ${score})."`
-- HR elevated: `"Your heart rate ran high recently — your body is carrying more than your calendar shows."`
-- HRV low: `"Your HRV is signalling accumulated strain."`
-- Good state: `"Your body is well-recovered and ready for what's ahead."`
-
-Implementation: Create a **`buildContextSuffix()`** helper that generates a 1–2 sentence suffix from `todayHighStakes`, `eventCount`, and `wearableContext`. Append this to each matrix entry's `context` string rather than rewriting all 48 entries individually.
+**Rules for LeanOn/WatchFor:**
+- Crisp, 1-2 sentences max
+- Lead with personal insight (Coach > Archetype > future LinkedIn/LLM data)
+- Situational context (calendar/wearable) is layered subtly — NO event titles, NO HR numbers
+- Example LeanOn: "Your capacity to navigate politics and pressure without absorbing it. A demanding day met that instinct." (personal + situational)
+- Example WatchFor: "Replaying the day's demands instead of releasing them. Your body is signalling the need to stop." (personal + situational, no specifics)
 
 ---
 
-### 3. Enrich `buildMorningTheme()` with Calendar
+### 1. Rewrite `buildContextSuffix()` — Relevance-First
 
-Expand signature to accept `todayHighStakes?: string[]`, `eventCount?: number`.
+Replace current implementation that blindly lists events. New logic:
 
-When today has high-stakes events + poor sleep/HRV strain:
-- e.g. "Recovery overnight was incomplete (sleep score: 52), and you have [Board Meeting] this morning. Pace the opening — you'll need to deploy carefully."
-
-When today has high-stakes events + good recovery:
-- e.g. "Well-recovered and [Strategy Session] is ahead. Your readiness is genuine — protect it through the morning's first demands."
-
----
-
-### 4. Add Afternoon Awareness
-
-Create `buildAfternoonContext()` that appends:
-- Remaining high-stakes events (if any haven't passed yet based on hour)
-- Wearable strain accumulated through the day
-- e.g. "Your heart rate has been elevated through a dense morning. The afternoon's demands — including [Client Presentation] — need a leader who paces, not pushes."
-
-Call this from each afternoon branch in `getTheme()`.
+- **When high-stakes events exist AND wearable shows strain**: "A day anchored by {eventName} while your body carried elevated strain throughout." (connects the two signals)
+- **When high-stakes events exist AND wearable is fine**: Reference event only if load is also high: "Your most demanding conditions today, anchored by {eventName}."
+- **When no high-stakes but dense calendar + strain**: "{N} meetings with tight gaps, and your heart rate reflected the density."
+- **When dense calendar, no strain**: "{N} meetings today — pace the gaps."
+- **When wearable strain only, light calendar**: "Your body is carrying more than your calendar suggests — accumulated strain from recent days."
+- **Never**: "Your calendar includes {title1} and {title2}." as a standalone listing
 
 ---
 
-### 5. Enrich Daytime Lean On / Watch For
+### 2. Rewrite `buildAfternoonContext()` — Same Relevance Rule
 
-In `getLeanOnWatchFor()`, add a new priority level between P0b (evening) and P1a (coach insights):
-
-**P0c: Daytime calendar + wearable enrichment** (morning/afternoon only)
-
-When today has high-stakes events OR wearable shows strain, append a contextual sentence to whichever leanOn/watchFor source wins (coach, archetype, or tier):
-
-- LeanOn suffix: `"Your body carried a heavy morning — elevated heart rate through back-to-back demands."` or `"[Strategy Offsite] is ahead — your readiness for it is genuine."`
-- WatchFor suffix: `"Spending your recovery advantage before [Board Meeting] this afternoon."` or `"Pushing through the volume when your HR is already signalling strain."`
-
-This is additive — it enriches the existing source rather than replacing it.
+Remove standalone event name references. Instead:
+- Strain + remaining demands: "Your heart rate has been elevated through a dense morning. The afternoon needs a leader who paces, not pushes."
+- No event titles listed. If high-stakes afternoon event exists, weave it: "With your most critical meeting still ahead, the pace of the next few hours matters."
 
 ---
 
-### 6. Wire Today's Event Count into Context
+### 3. Evening: Acknowledge Today First, Then Tomorrow
 
-Pass `calendarResult.eventCount` through to `getTheme()` and `buildContextSuffix()` so density references are concrete: "5 meetings today" rather than "high load."
+**Expand `buildWeekdayEveningTheme()` signature** to accept `todayHighStakes`, `eventCount`, `calendarLoad`, `calendarPressure`.
+
+**New priority structure:**
+- **P0: Build `todaySummary`** from today's load + events + body state:
+  - Heavy day + body strain: "You carried a demanding day — {N} high-stakes meetings with your heart rate elevated throughout."
+  - Heavy day + named event (only if high-stakes): "You navigated {eventName} and a full calendar today."
+  - Heavy day no names: "You navigated a dense calendar — {N} meetings with tight gaps."
+  - Poor sleep carried through: "You started today under-recovered and carried that through a full day."
+- **P1: Layer tomorrow** as recovery motivation (NOT planning):
+  - "Tomorrow has {eventName}. What you release tonight determines how sharp you arrive — restoration, not preparation."
+  - Light today + heavy tomorrow: "A lighter day is behind you, but tomorrow is demanding. The recovery window tonight is genuine."
+- **RHR in evening**: "Your resting heart rate is still elevated — tonight's recovery is especially important."
+
+**Wire in `main()`**: Pass `todayHighStakes`, `calendarResult.eventCount`, `calendarLoad`, `calendarPressure` to all `buildWeekdayEveningTheme()` calls.
 
 ---
 
-### 7. Tone Rules (preserved)
+### 4. Add `rhrElevated` to `WearableContext`
 
-- Morning: directive, forward-looking, reference what's ahead
-- Afternoon: acknowledges what's happened + orients remaining energy
-- Evening: permission to stop, restoration-first (unchanged)
-- All periods: banned words remain (wellness, mindfulness, relax, well done)
-- Wearable language: clinical-precise, not alarming ("your HRV is signalling" not "your HRV is dangerously low")
+- Add `rhrElevated: boolean` to interface (threshold: `rhr > 75`)
+- Compute alongside existing flags in wearable fetch block
+- Reference in morning: "Your resting heart rate is running above baseline — your system didn't fully reset overnight."
+- Reference in evening: as above
+- NOT in afternoon
 
 ---
 
-### Summary of What Changes
+### 5. Sleep in Morning + Evening (Not Afternoon)
 
-| Area | Current | After |
-|------|---------|-------|
-| Today's event names | Computed but unused | Referenced in theme context for all periods |
-| Morning themes | Sleep-only or generic | Sleep + today's calendar events by name |
-| Afternoon themes | Same as morning (no afternoon awareness) | References remaining events + accumulated body strain |
-| Tier×load×pressure context | 48 static strings | Dynamic suffix with event names, count, wearable state |
-| Daytime leanOn/watchFor | Coach/archetype/tier only | Enriched with calendar + wearable context |
-| Event count | Not surfaced | "5 meetings today with tight gaps" |
+- **Morning**: Already implemented — no change
+- **Evening**: Add to `buildWeekdayEveningTheme()`: "You started today under-recovered and carried that through a full day. Tonight's sleep matters more than usual."
+- **Afternoon**: No sleep reference — confirmed unchanged
+
+---
+
+### 6. Rewrite `buildDaytimeLeanOnSuffix()` — Crisp, No Titles/Numbers
+
+Remove event name references and HR numbers. New approach — subtle situational acknowledgment that reinforces the personal insight:
+
+- Morning + strain: "A demanding day ahead is meeting that instinct."
+- Morning + good recovery: "Your readiness for today's demands is genuine."
+- Afternoon + strain: "The morning tested that capacity — the afternoon will too."
+- Evening (newly enabled): "Today tested that capacity. The day is done."
+- No data: return empty (don't force it)
+
+---
+
+### 7. Rewrite `buildDaytimeWatchForSuffix()` — Crisp, No Titles/Numbers
+
+Same principle — subtle, one sentence max, no specifics:
+
+- Morning + strain: "Spending your advantage before the day's biggest moments."
+- Afternoon + strain: "Pushing through when your body is already signalling the cost."
+- Evening (newly enabled): "Replaying the day's demands instead of releasing them."
+- No data: return empty
+
+---
+
+### 8. Enable Evening in `hasDaytimeContext` Guard
+
+- Remove `timeOfDay !== 'evening'` from line 1300
+- Rename to `hasContextEnrichment`
+- Evening suffix content handled by steps 6-7 above
+
+---
+
+### 9. Enrich `getEveningInsights()` with Today's Context
+
+Add `todayHighStakes` parameter. But per the relevance rule, don't list event names in leanOn/watchFor. Instead:
+- Heavy day: "Your awareness that a demanding day is done. Permission to stop is itself leadership tonight."
+- NOT: "You carried [Board Review] through a demanding day"
+
+Same for `getSundayEveningInsights()`.
+
+---
+
+### 10. Future Data Source Hierarchy Comment
+
+Add comment block in the cascade:
+```
+// Data source priority for LeanOn/WatchFor:
+// 1. Coach conversations (strength/growth insights) — PERSONAL
+// 2. Archetype (onboarding-derived behavioral profile) — PERSONAL
+// 3. [Future] LinkedIn profile analysis — PERSONAL
+// 4. [Future] LLM conversation data (Claude/ChatGPT patterns) — PERSONAL
+// 5. Calendar + Wearable context — SITUATIONAL (layered as suffix, never standalone)
+// 6. Tier fallback — GENERIC
+//
+// Rule: Personal sources always lead. Situational context enriches but never replaces.
+// Suffixes must be crisp — no event titles, no metric numbers.
+```
+
+---
+
+### Summary
+
+| Change | What |
+|--------|------|
+| `buildContextSuffix()` | Relevance-first: connect body + calendar, never list events |
+| `buildAfternoonContext()` | Remove standalone event listings |
+| `buildWeekdayEveningTheme()` | Acknowledge today first, tomorrow as recovery motivation |
+| `rhrElevated` | New flag + morning/evening references |
+| Sleep in evening | Added to evening builder |
+| LeanOn/WatchFor suffixes | Crisp, no titles/numbers, personal-first |
+| `hasDaytimeContext` → `hasContextEnrichment` | Includes evening |
+| `getEveningInsights()` | Today-aware but no event name listing |
+| Future hierarchy | Documented for LinkedIn/LLM extensibility |
 
