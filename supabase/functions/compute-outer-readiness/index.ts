@@ -1114,10 +1114,10 @@ serve(async (req) => {
     const db = createClient(supabaseUrl, supabaseKey);
 
     // ── Server-side calendar metrics: today + tomorrow (for evening forward-look) ──
-    // Fetch tomorrow's calendar for late evening OR Sunday evening (≥18:00)
+    // Fetch tomorrow's calendar for any evening (≥18:00), not just late evening
     const lateEvening = isLateEvening(hour);
-    const sundayEvening = dayOfWeek === 0 && hour >= 18;
-    const needTomorrow = lateEvening || sundayEvening;
+    const isEvening = hour >= 18 || lateEvening;
+    const needTomorrow = isEvening;
     const [calendarResult, tomorrowResult] = await Promise.all([
       getServerCalendarMetrics(db as any, userId, timezoneOffset, 0),
       needTomorrow ? getServerCalendarMetrics(db as any, userId, timezoneOffset, 1) : Promise.resolve(null),
@@ -1126,6 +1126,43 @@ serve(async (req) => {
     const calendarPressure: CalendarLevel | null = calendarResult.state === 'active' ? calendarResult.pressure : null;
     const tomorrowLoad: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.load : null;
     const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
+    const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
+
+    // ── Fetch wearable data for evening context ──
+    let wearableContext: WearableContext | null = null;
+    if (isEvening) {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: wearableRow } = await db
+          .from('wearable_data')
+          .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
+          .eq('user_id', userId)
+          .order('recorded_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (wearableRow) {
+          const rhr = wearableRow.resting_heart_rate || null;
+          const peakHR = wearableRow.heart_rate || null;
+          const hrv = wearableRow.hrv || null;
+          // Elevated HR: peak > 100 or > 120% of RHR
+          const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
+          // HRV stress: below 30ms absolute (low) — a simple heuristic
+          const hrvElevated = hrv !== null && hrv < 30;
+          wearableContext = {
+            hrv,
+            rhr,
+            peakHR,
+            sleepScore: wearableRow.sleep_score || null,
+            sleepDuration: wearableRow.sleep_duration || null,
+            hrvElevated,
+            hrElevated,
+          };
+        }
+      } catch (err) {
+        console.error('[compute-outer-readiness] Wearable data fetch error:', err);
+      }
+    }
 
     console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
       userId: userId.substring(0, 12) + '...',
@@ -1140,6 +1177,10 @@ serve(async (req) => {
       calendarPressure,
       tomorrowLoad,
       tomorrowPressure,
+      tomorrowHighStakes,
+      wearablePresent: !!wearableContext,
+      wearableHRE: wearableContext?.hrElevated,
+      wearableHRVE: wearableContext?.hrvElevated,
       hour,
       dayOfWeek,
     }));
@@ -1175,7 +1216,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
@@ -1211,11 +1252,12 @@ serve(async (req) => {
       safeTier, serverArchetype, clarityLevel, confidenceLevel,
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
       calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
-      wearableRecovery
+      tomorrowHighStakes, wearableContext, wearableRecovery
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
-    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed);
+    const wearableUsed = !!wearableContext && (wearableContext.hrElevated || wearableContext.hrvElevated);
+    const dataSources = buildDataSources(calendarResult.state, serverArchetype, checkInOutcome, coachUsed, wearableUsed);
 
     const timeOfDay = getTimeOfDay(hour);
     const today = new Date().toISOString().split('T')[0];
