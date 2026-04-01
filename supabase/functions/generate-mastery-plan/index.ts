@@ -1829,6 +1829,45 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     }
   } catch { /* ignore */ }
 
+  // Wearable data – latest snapshot within 24 hours
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: wearableRow } = await supabaseClient
+      .from('wearable_data')
+      .select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date')
+      .eq('user_id', req.userId)
+      .gte('summary_date', oneDayAgo.split('T')[0])
+      .order('summary_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (wearableRow) {
+      // Calculate HRV deviation from 30-day baseline
+      let hrvDeviation: number | null = null;
+      if (wearableRow.hrv != null) {
+        const { data: baselineRows } = await supabaseClient
+          .from('wearable_data')
+          .select('hrv')
+          .eq('user_id', req.userId)
+          .not('hrv', 'is', null)
+          .order('summary_date', { ascending: false })
+          .limit(30);
+        if (baselineRows && baselineRows.length >= 5) {
+          const avgHRV = baselineRows.reduce((sum: number, r: any) => sum + Number(r.hrv), 0) / baselineRows.length;
+          if (avgHRV > 0) hrvDeviation = ((Number(wearableRow.hrv) - avgHRV) / avgHRV) * 100;
+        }
+      }
+      req.wearableContext = {
+        sleepScore: wearableRow.sleep_score ?? null,
+        hrvMs: wearableRow.hrv != null ? Number(wearableRow.hrv) : null,
+        restingHR: wearableRow.resting_heart_rate ?? null,
+        hrvDeviation,
+        sleepQuality: wearableRow.sleep_quality ?? null,
+        hasData: true,
+      };
+      console.log(`[generate-mastery-plan] wearableContext: sleep=${wearableRow.sleep_score}, hrv=${wearableRow.hrv}, rhr=${wearableRow.resting_heart_rate}, hrvDev=${hrvDeviation?.toFixed(1)}%`);
+    }
+  } catch { /* ignore */ }
+
   // Profile tags
   try {
     const { data: profile } = await supabaseClient
