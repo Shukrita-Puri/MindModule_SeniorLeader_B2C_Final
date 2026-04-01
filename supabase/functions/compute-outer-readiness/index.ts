@@ -41,6 +41,8 @@ interface CalendarMetricsResult {
   load: CalendarLevel;
   pressure: CalendarLevel;
   eventCount: number;
+  meetingCount: number;        // Filtered: excludes all-day blocks, personal blocks
+  remainingMeetings: number;   // Filtered remaining meetings only
   state: 'active' | 'connected_no_events' | 'not_connected';
   highStakesEvents: string[];
   remainingEvents: number;
