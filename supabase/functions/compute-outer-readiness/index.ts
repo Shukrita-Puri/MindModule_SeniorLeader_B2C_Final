@@ -306,7 +306,8 @@ function getTheme(
       }
       if (dayCtx === 'friday')
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
-      return { phrase: "Close with care.", context: "You've carried the day's demands at operating capacity. How you close is how you recover.", driver: 'evening' };
+      return buildWeekdayEveningTheme('managing', tomorrowHighStakes, wearable,
+        "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.");
     }
     return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of the day.", driver: 'state' };
   }
