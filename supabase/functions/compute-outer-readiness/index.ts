@@ -893,7 +893,7 @@ function getTheme(
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return buildWeekdayEveningTheme('managing', tomorrowHighStakes, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
     if (timeOfDay === 'morning')
