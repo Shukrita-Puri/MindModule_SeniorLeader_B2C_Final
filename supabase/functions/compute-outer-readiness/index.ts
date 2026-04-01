@@ -268,7 +268,9 @@ function getTheme(
       }
       if (dayCtx === 'friday')
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
-      return { phrase: "Close before tomorrow.", context: "What you don't release tonight you carry into tomorrow's first decisions and interactions.", driver: 'evening' };
+      // Weekday evening — enriched with tomorrow + wearable
+      return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
+        "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.");
     }
     return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today.", driver: 'state' };
   }
