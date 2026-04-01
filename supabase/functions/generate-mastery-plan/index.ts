@@ -2219,7 +2219,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, req.wearableContext);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
