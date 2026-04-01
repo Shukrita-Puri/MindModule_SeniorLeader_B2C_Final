@@ -1,109 +1,98 @@
 
 
-## Plan: Evening Context Enrichment + Wearable Heart-Level Intelligence
+## Plan: Context-Rich Outer Readiness Brief — All Day Periods
 
-### Single file: `supabase/functions/compute-outer-readiness/index.ts`
+### Problem
 
----
+The brief's theme, context, leanOn, and watchFor are **generic during mornings and afternoons**. Calendar event names and wearable signals only enrich evening copy. The user sees "Light demands on a managing state. A genuine opportunity to invest rather than spend today" — with no mention of their actual meetings, sleep quality, or body state. The intelligence exists server-side but isn't surfaced.
 
-### 1. Fetch Wearable Data (new parallel query)
+### Root Cause (3 gaps)
 
-Add to the existing `Promise.all` block (line ~1009) a query for the latest `wearable_data` row:
+1. **Today's high-stakes event titles are never passed to `getTheme()`** — `calendarResult.highStakesEvents` is computed but not forwarded. Only `tomorrowHighStakes` is used (evenings only).
+2. **The tier × load × pressure matrix returns static strings** — 48 hardcoded entries that never reference event count, event names, or wearable state for morning/afternoon.
+3. **`getLeanOnWatchFor()` only routes to context-rich insights for `lateEvening`** — during daytime it falls through to coach/archetype/tier fallbacks that have zero calendar or wearable awareness.
 
-```sql
-wearable_data WHERE user_id = userId ORDER BY recorded_date DESC LIMIT 1
-```
-
-Extract: `hrv`, `resting_heart_rate`, `heart_rate` (peak HR), `sleep_score`, `sleep_duration`. Also fetch today's `energy_snapshots` for `hrv_delta_pct` if available.
-
-Create a `WearableContext` type:
-```
-{ hrv, rhr, peakHR, sleepScore, sleepDuration, hrvDeltaPct }
-```
+### Single file changed: `supabase/functions/compute-outer-readiness/index.ts`
 
 ---
 
-### 2. Expand Tomorrow Fetch to All Evenings (≥18:00)
+### 1. Pass Today's High-Stakes Events into Theme
 
-Change `needTomorrow` logic from:
-```
-lateEvening || sundayEvening
-```
-to:
-```
-hour >= 18 || lateEvening
-```
+In `main()` (~line 1301), pass `calendarResult.highStakesEvents` as a new parameter `todayHighStakes` to `getTheme()`.
 
-This ensures any evening user (6pm+) gets tomorrow's calendar context.
+Update `getTheme()` signature to accept `todayHighStakes?: string[]`.
 
 ---
 
-### 3. Return High-Stakes Event Titles from Calendar Query
+### 2. Enrich Tier × Load × Pressure Context Strings
 
-Modify `getServerCalendarMetrics()` to also select `title` and return a new field:
-```
-highStakesEvents: string[]  // titles of events with pressure > threshold
-```
+For each of the ~48 tier/load/pressure matrix entries, append **dynamic context suffixes** based on available data:
 
-High-stakes = non-recurring + (attendees > 5 OR organizer + attendees > 2 OR duration > 60min). Return up to 2 titles.
+**Calendar suffix** (when `todayHighStakes` has entries):
+- Reference up to 2 event names: e.g. `"Your calendar includes [Board Review] and [1:1 with CEO]."`
+- For high load without named events: reference event count: `"${eventCount} meetings today with tight gaps between them."`
 
-Update `CalendarMetricsResult` interface to include `highStakesEvents: string[]`.
+**Wearable suffix** (when wearable data is present):
+- Poor sleep: `"Your recovery overnight was incomplete (sleep score: ${score})."`
+- HR elevated: `"Your heart rate ran high recently — your body is carrying more than your calendar shows."`
+- HRV low: `"Your HRV is signalling accumulated strain."`
+- Good state: `"Your body is well-recovered and ready for what's ahead."`
 
----
-
-### 4. Enrich `getTheme()` Evening Entries
-
-Add parameters: `tomorrowHighStakes: string[]`, `wearable: WearableContext | null`.
-
-For **weekday evenings** (currently generic "Close before tomorrow"):
-- If tomorrow has high-stakes events: reference the event name and orient toward restoration
-  - e.g. phrase: "Ground before tomorrow." context: "You have [Event Title] tomorrow — tonight is about arriving restored, not prepared."
-- If wearable shows elevated HR/low HRV: lead with body signal
-  - e.g. "Your heart rate spiked through a demanding day — what you release tonight determines how sharp you are for [event] tomorrow."
-- If tomorrow is light + wearable is fine: keep current soft close language
-
-For **Sunday evenings**: keep planning orientation but also reference Monday's specific high-stakes event titles if present.
+Implementation: Create a **`buildContextSuffix()`** helper that generates a 1–2 sentence suffix from `todayHighStakes`, `eventCount`, and `wearableContext`. Append this to each matrix entry's `context` string rather than rewriting all 48 entries individually.
 
 ---
 
-### 5. Enrich `getEveningInsights()` (Lean On / Watch For)
+### 3. Enrich `buildMorningTheme()` with Calendar
 
-Expand signature to receive: `tomorrowLoad`, `tomorrowPressure`, `tomorrowHighStakes: string[]`, `wearable: WearableContext | null`.
+Expand signature to accept `todayHighStakes?: string[]`, `eventCount?: number`.
 
-Integrate:
-- **Wearable in leanOn**: "Your body carried a heavy day — elevated heart rate through back-to-back stakes. The cool-down tonight is physical, not just mental."
-- **Tomorrow high-stakes in watchFor**: "Preparing for [Event] tonight when what you actually need is restoration. You'll be sharper arriving rested than over-rehearsed."
-- Keep soft, permission-to-stop tone as Priority 1 unless a high-stakes event tomorrow requires explicit acknowledgment.
+When today has high-stakes events + poor sleep/HRV strain:
+- e.g. "Recovery overnight was incomplete (sleep score: 52), and you have [Board Meeting] this morning. Pace the opening — you'll need to deploy carefully."
 
----
-
-### 6. Update `getLeanOnWatchFor()` Cascade
-
-Pass wearable context through to `getEveningInsights()` call at P0b (line ~799). Currently it calls:
-```ts
-getEveningInsights(tier, calendarLoad, calendarPressure)
-```
-Change to:
-```ts
-getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext)
-```
-
-Same for `getSundayEveningInsights()` — add wearable context.
+When today has high-stakes events + good recovery:
+- e.g. "Well-recovered and [Strategy Session] is ahead. Your readiness is genuine — protect it through the morning's first demands."
 
 ---
 
-### 7. Add Wearable to `dataSources`
+### 4. Add Afternoon Awareness
 
-Update `buildDataSources()`: if wearable data was present and used, add `'wearable'` to the sources array. This shows users the system is reading their physiological data.
+Create `buildAfternoonContext()` that appends:
+- Remaining high-stakes events (if any haven't passed yet based on hour)
+- Wearable strain accumulated through the day
+- e.g. "Your heart rate has been elevated through a dense morning. The afternoon's demands — including [Client Presentation] — need a leader who paces, not pushes."
+
+Call this from each afternoon branch in `getTheme()`.
 
 ---
 
-### 8. Tone Rules
+### 5. Enrich Daytime Lean On / Watch For
 
-- **Weekday evenings**: Soft, cool-down, "permission to stop" — unless high-stakes tomorrow, then acknowledge + orient toward restoration
-- **Weekend evenings**: Soft, recovery-focused
-- **Sunday evenings**: Planning-oriented (unchanged) but enriched with Monday event titles + wearable state
-- **Banned words in evening copy**: wellness, mindfulness, relax, well done (preserved from nudge spec)
+In `getLeanOnWatchFor()`, add a new priority level between P0b (evening) and P1a (coach insights):
+
+**P0c: Daytime calendar + wearable enrichment** (morning/afternoon only)
+
+When today has high-stakes events OR wearable shows strain, append a contextual sentence to whichever leanOn/watchFor source wins (coach, archetype, or tier):
+
+- LeanOn suffix: `"Your body carried a heavy morning — elevated heart rate through back-to-back demands."` or `"[Strategy Offsite] is ahead — your readiness for it is genuine."`
+- WatchFor suffix: `"Spending your recovery advantage before [Board Meeting] this afternoon."` or `"Pushing through the volume when your HR is already signalling strain."`
+
+This is additive — it enriches the existing source rather than replacing it.
+
+---
+
+### 6. Wire Today's Event Count into Context
+
+Pass `calendarResult.eventCount` through to `getTheme()` and `buildContextSuffix()` so density references are concrete: "5 meetings today" rather than "high load."
+
+---
+
+### 7. Tone Rules (preserved)
+
+- Morning: directive, forward-looking, reference what's ahead
+- Afternoon: acknowledges what's happened + orients remaining energy
+- Evening: permission to stop, restoration-first (unchanged)
+- All periods: banned words remain (wellness, mindfulness, relax, well done)
+- Wearable language: clinical-precise, not alarming ("your HRV is signalling" not "your HRV is dangerously low")
 
 ---
 
@@ -111,10 +100,10 @@ Update `buildDataSources()`: if wearable data was present and used, add `'wearab
 
 | Area | Current | After |
 |------|---------|-------|
-| Wearable data | Not fetched | Fetched + used in evening themes, leanOn/watchFor |
-| Tomorrow fetch | Only ≥21:00 or Sunday ≥18:00 | Any evening ≥18:00 |
-| Tomorrow events | Load/pressure levels only | Includes high-stakes event titles |
-| Weekday evening themes | Generic "Close before tomorrow" | References tomorrow's specific events + body state |
-| Evening leanOn/watchFor | Today-only context | Includes tomorrow forward-look + wearable signals |
-| Data sources label | No wearable | Shows "wearable" when data present |
+| Today's event names | Computed but unused | Referenced in theme context for all periods |
+| Morning themes | Sleep-only or generic | Sleep + today's calendar events by name |
+| Afternoon themes | Same as morning (no afternoon awareness) | References remaining events + accumulated body strain |
+| Tier×load×pressure context | 48 static strings | Dynamic suffix with event names, count, wearable state |
+| Daytime leanOn/watchFor | Coach/archetype/tier only | Enriched with calendar + wearable context |
+| Event count | Not surfaced | "5 meetings today with tight gaps" |
 
