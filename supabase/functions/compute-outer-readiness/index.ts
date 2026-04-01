@@ -928,13 +928,12 @@ function getLeanOnWatchFor(
 
   // ── P0a: Sunday evening (after 9pm on Sunday) — ALWAYS wins ──
   if (lateEvening && dayCtx === 'sunday') {
-    // Monday = tomorrow for Sunday evening
-    return { ...getSundayEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure), source: 'sunday-evening-override' };
+    return { ...getSundayEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'sunday-evening-override' };
   }
 
   // ── P0b: Late evening weekdays/Saturday (after 9pm) — recovery ALWAYS takes priority ──
   if (lateEvening) {
-    return { ...getEveningInsights(tier, calendarLoad, calendarPressure), source: 'evening-recovery-override' };
+    return { ...getEveningInsights(tier, calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext), source: 'evening-recovery-override' };
   }
 
   // ── P1a: Coach insights ≤3 days (recent) — no age label ──
