@@ -43,6 +43,8 @@ interface CalendarMetricsResult {
   eventCount: number;
   state: 'active' | 'connected_no_events' | 'not_connected';
   highStakesEvents: string[];
+  remainingEvents: number;
+  remainingHighStakes: string[];
 }
 
 interface WearableContext {
