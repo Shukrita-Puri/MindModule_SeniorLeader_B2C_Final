@@ -10,7 +10,7 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
-import { hasValidAccess } from '@/utils/subscriptionHelpers';
+import { resolveSubscriptionAccess } from '@/utils/subscriptionHelpers';
 
 export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -21,11 +21,28 @@ export const SubscriptionGuard = ({ children }: { children: React.ReactNode }) =
   // No user — let ProtectedRoute handle redirect
   if (!user) return <>{children}</>;
 
-  // Valid access — pass through
-  if (hasValidAccess(user)) {
+  const decision = resolveSubscriptionAccess(user);
+
+  if (decision === 'allow') {
     return <>{children}</>;
   }
 
-  // Restricted — show upgrade modal (non-dismissable since access is blocked)
+  if (decision === 'pending') {
+    console.log('[SubscriptionGuard] Failing open while subscription state is unresolved', {
+      user_id: user.id,
+      subscription_status: user.subscription_status,
+      subscription_tier: user.subscription_tier,
+      onboarding_completed: user.onboarding_completed_at,
+    });
+    return <>{children}</>;
+  }
+
+  console.warn('[SubscriptionGuard] Blocking user with confirmed invalid subscription state', {
+    user_id: user.id,
+    subscription_status: user.subscription_status,
+    subscription_tier: user.subscription_tier,
+    onboarding_completed: user.onboarding_completed_at,
+  });
+
   return <UpgradeModal sessionsRemaining={0} onClose={() => {}} />;
 };

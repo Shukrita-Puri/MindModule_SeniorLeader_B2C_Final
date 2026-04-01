@@ -9,7 +9,7 @@
 
 import { getAuthToken } from '@/services/authTokenService';
 
-interface AccessUser {
+export interface AccessUser {
   subscription_status?: string;
   subscription_tier?: string;
   trial_ends_at?: string | null;
@@ -17,6 +17,19 @@ interface AccessUser {
   subscription_canceled_at?: string | null;
   beta_user?: boolean;
   beta_expires_at?: string | null;
+}
+
+export type SubscriptionAccessDecision = 'allow' | 'block' | 'pending';
+
+function hasResolvedSubscriptionState(user: AccessUser): boolean {
+  return [
+    user.subscription_status,
+    user.subscription_tier,
+    user.trial_ends_at,
+    user.subscription_current_period_end,
+    user.beta_user,
+    user.beta_expires_at,
+  ].some(value => value !== undefined && value !== null);
 }
 
 /**
@@ -34,37 +47,57 @@ interface AccessUser {
  * we ALLOW access (prefer not blocking valid users over false paywall).
  */
 export function hasValidAccess(user: AccessUser | null): boolean {
-  if (!user) return false;
+  return resolveSubscriptionAccess(user) === 'allow';
+}
+
+export function resolveSubscriptionAccess(user: AccessUser | null): SubscriptionAccessDecision {
+  if (!user) return 'pending';
 
   // 1. Beta access
   if (user.beta_user && user.beta_expires_at) {
-    if (new Date(user.beta_expires_at) > new Date()) return true;
+    if (new Date(user.beta_expires_at) > new Date()) return 'allow';
   }
 
   const status = user.subscription_status;
 
   // 2. Active subscription — always allowed
-  if (status === 'active') return true;
+  if (status === 'active') return 'allow';
 
   // 3. Trialing subscription
   if (status === 'trialing') {
     const tier = user.subscription_tier;
     // Paid-tier Stripe billing trial → full access (no local expiry check)
-    if (tier === 'monthly_pro' || tier === 'annual_pro') return true;
+    if (tier === 'monthly_pro' || tier === 'annual_pro') return 'allow';
     // App-level free trial — check trial_ends_at if present
     if (user.trial_ends_at) {
-      return new Date(user.trial_ends_at) > new Date();
+      return new Date(user.trial_ends_at) > new Date() ? 'allow' : 'block';
     }
     // No trial_ends_at but status is trialing → allow (don't false-block)
-    return true;
+    return 'allow';
   }
 
   // 4. Legacy 'trial' status
   if (status === 'trial' && user.trial_ends_at) {
-    return new Date(user.trial_ends_at) > new Date();
+    return new Date(user.trial_ends_at) > new Date() ? 'allow' : 'block';
   }
 
-  return false;
+  // If subscription data hasn't been resolved yet, fail open.
+  if (!hasResolvedSubscriptionState(user)) {
+    return 'pending';
+  }
+
+  // Explicit invalid states should block.
+  if (status === 'expired' || status === 'inactive' || status === 'canceled' || status === 'past_due' || status === 'none') {
+    return 'block';
+  }
+
+  // Explicitly no subscription tier also blocks, but only once data is resolved.
+  if (user.subscription_tier === 'none') {
+    return 'block';
+  }
+
+  // Unknown partial state should not false-block valid users.
+  return 'pending';
 }
 
 // Backwards-compatible alias — callers that used the old name keep working
