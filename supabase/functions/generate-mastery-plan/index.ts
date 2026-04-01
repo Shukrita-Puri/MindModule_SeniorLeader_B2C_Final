@@ -1933,7 +1933,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     req.favorites = (favs || []).map((f: any) => f.content_id);
   } catch { req.favorites = []; }
 
-  // Outer readiness – call compute-outer-readiness server-to-server
+  // Outer readiness – call compute-outer-readiness server-to-server with FULL readiness inputs
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -1943,16 +1943,30 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ userId: req.userId, timezoneOffset: req.timezoneOffset }),
+      body: JSON.stringify({
+        userId: req.userId,
+        timezoneOffset: req.timezoneOffset,
+        innerReadinessTier: req.innerReadinessTier,
+        innerReadinessScore: req.innerReadinessScore,
+        clarityLevel: req.clarityLevel,
+        confidenceLevel: req.confidenceLevel,
+        checkInOutcome: req.checkInOutcome,
+      }),
     });
     if (outerRes.ok) {
       const outerData = await outerRes.json();
       req.outerReadinessPhrase = outerData.phrase || 'Steady execution.';
       req.outerReadinessDriver = outerData.driver || 'state';
+      req.outerReadinessContext = outerData.context || '';
+      req.outerReadinessLeanOn = outerData.leanOn || '';
+      req.outerReadinessWatchFor = outerData.watchFor || '';
     }
   } catch {
     req.outerReadinessPhrase = 'Steady execution.';
     req.outerReadinessDriver = 'state';
+    req.outerReadinessContext = '';
+    req.outerReadinessLeanOn = '';
+    req.outerReadinessWatchFor = '';
   }
 
   // 1. Get skip preferences
