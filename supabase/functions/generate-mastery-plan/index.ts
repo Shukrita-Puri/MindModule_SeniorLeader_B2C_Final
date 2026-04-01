@@ -528,6 +528,7 @@ interface CalendarContext {
   upcomingLoad: 'light' | 'moderate' | 'heavy' | 'extreme';
   upcomingMeetingCount: number;
   upcomingMeetingHours: number;
+  remainingMeetingCount: number;
 }
 
 function classifyLoad(count: number, hours: number): 'light' | 'moderate' | 'heavy' | 'extreme' {
