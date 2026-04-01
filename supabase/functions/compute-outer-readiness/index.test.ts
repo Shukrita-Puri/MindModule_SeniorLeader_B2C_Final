@@ -242,8 +242,6 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
     userId: "test-user-archetype-1",
     innerReadinessTier: "depleted",
     innerReadinessScore: 30,
-    calendarLoad: "low",
-    calendarPressure: "low",
     archetype: "adaptive-navigator",
     clarityLevel: null,
     confidenceLevel: null,
@@ -251,6 +249,7 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
+  // Server has no calendar for test user → no-calendar theme, but archetype lean-on still applies
   assertEquals(result.leanOn, "Your ability to read what a situation actually needs. Even in a depleted state your situational awareness is sharp.");
   assertEquals(result.watchFor, "Adapting to everyone else's demands when your own capacity is the priority.");
 });
