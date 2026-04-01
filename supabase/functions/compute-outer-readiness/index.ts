@@ -704,6 +704,33 @@ function getTheme(
 
   // DEPLETED TIER
   if (tier === 'depleted') {
+    // Evening FIRST — always route to retrospective logic
+    if (timeOfDay === 'evening') {
+      if (dayCtx === 'sunday') {
+        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
+        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
+        const ctx = heavyMon
+          ? "A demanding Monday is ahead and your reserves are low. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
+          : lightMon
+          ? "A lighter Monday ahead, but ending the weekend depleted means the week still starts in deficit. Tonight's recovery matters."
+          : "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.";
+        return { phrase: "Close before the week.", context: ctx, driver: 'evening' };
+      }
+      if (dayCtx === 'friday')
+        return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
+      return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
+        "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
+        todayHighStakes, eventCount, load, pressure);
+    }
+    // Morning
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", todayHighStakes, eventCount);
+    // Afternoon
+    if (timeOfDay === 'afternoon') {
+      const base = "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.";
+      return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
+    // Pressure×load matrix (morning/afternoon only now)
     if (pressure === 'high' && load === 'high')
       return { phrase: "One thing at a time.", context: "A heavy and high-stakes calendar is meeting a leader running below full capacity. What genuinely requires your full presence today, and what can be held or delegated?" + suffix, driver: 'pressure+load' };
     if (pressure === 'high' && load === 'medium')
@@ -718,55 +745,12 @@ function getTheme(
       return { phrase: "Pace and protect.", context: "A moderate day that asks you to be present without overspending. Each recovery window between engagements is worth protecting." + suffix, driver: 'load' };
     if (load === 'low')
       return { phrase: "Rest is the work.", context: "A light calendar and a depleted system. Today's most productive act is genuine recovery." + suffix, driver: 'load' };
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('depleted', wearable, "Begin with intention.", "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.", todayHighStakes, eventCount);
-    if (timeOfDay === 'afternoon') {
-      const base = "Starting the day in a depleted state with demands ahead. How you enter each moment today matters more than how much you do.";
-      return { phrase: "Pace the remaining hours.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
-    }
-    if (timeOfDay === 'evening') {
-      if (dayCtx === 'sunday') {
-        const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
-        const lightMon = tomorrowLoad === 'low' && (tomorrowPressure === 'low' || tomorrowPressure === null);
-        const ctx = heavyMon
-          ? "A demanding Monday is ahead and your reserves are low. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
-          : lightMon
-          ? "A lighter Monday ahead, but ending the weekend depleted means the week still starts in deficit. Tonight's recovery matters."
-          : "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.";
-        return { phrase: "Close before the week.", context: ctx, driver: 'evening' };
-      }
-      if (dayCtx === 'friday')
-        return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
-      // Weekday evening — enriched with today + tomorrow + wearable
-      return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
-        "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, load, pressure);
-    }
     return { phrase: "Protect your reserves.", context: "The demands ahead need to be met with what you have. Deliberate pacing is your strategy today." + suffix, driver: 'state' };
   }
 
   // MANAGING TIER
   if (tier === 'managing') {
-    if (pressure === 'high' && load === 'high')
-      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader. Steadiness through the full weight of the day is both the challenge and the achievement." + suffix, driver: 'pressure+load' };
-    if (pressure === 'high' && load === 'medium')
-      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule. You have the capacity to show up well for what matters most today." + suffix, driver: 'pressure+load' };
-    if (pressure === 'high' && load === 'low')
-      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule. Your operating capacity is well-matched to the important moments today if you protect the space around them." + suffix, driver: 'pressure' };
-    if (pressure === 'medium' && load === 'high')
-      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing. Sustainable engagement through the full day rather than peaks and drops." + suffix, driver: 'load' };
-    if (load === 'high' && pressure === 'low')
-      return { phrase: "Ride the rhythm.", context: "High volume without high stakes. A day to move steadily through rather than push against." + suffix, driver: 'load' };
-    if (load === 'medium')
-      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity. A well-matched day for consistent, quality output." + suffix, driver: 'load' };
-    if (load === 'low')
-      return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today." + suffix, driver: 'load' };
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", todayHighStakes, eventCount);
-    if (timeOfDay === 'afternoon') {
-      const base = "The full shape of the day is ahead. How you pace the remaining hours determines whether you finish well.";
-      return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
-    }
+    // Evening FIRST
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -784,31 +768,35 @@ function getTheme(
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
         todayHighStakes, eventCount, load, pressure);
     }
+    // Morning
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", todayHighStakes, eventCount);
+    // Afternoon
+    if (timeOfDay === 'afternoon') {
+      const base = "The full shape of the day is ahead. How you pace the remaining hours determines whether you finish well.";
+      return { phrase: "Sustain the pace.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
+    // Pressure×load matrix
+    if (pressure === 'high' && load === 'high')
+      return { phrase: "Hold your ground.", context: "Your most demanding conditions are meeting an operational leader. Steadiness through the full weight of the day is both the challenge and the achievement." + suffix, driver: 'pressure+load' };
+    if (pressure === 'high' && load === 'medium')
+      return { phrase: "Steady into the stakes.", context: "High-stakes moments ahead with a manageable schedule. You have the capacity to show up well for what matters most today." + suffix, driver: 'pressure+load' };
+    if (pressure === 'high' && load === 'low')
+      return { phrase: "Depth over breadth.", context: "Significant stakes on a clear schedule. Your operating capacity is well-matched to the important moments today if you protect the space around them." + suffix, driver: 'pressure' };
+    if (pressure === 'medium' && load === 'high')
+      return { phrase: "Rhythm over intensity.", context: "A dense calendar at your current capacity calls for consistent pacing. Sustainable engagement through the full day rather than peaks and drops." + suffix, driver: 'load' };
+    if (load === 'high' && pressure === 'low')
+      return { phrase: "Ride the rhythm.", context: "High volume without high stakes. A day to move steadily through rather than push against." + suffix, driver: 'load' };
+    if (load === 'medium')
+      return { phrase: "Steady execution.", context: "Moderate demands meeting moderate capacity. A well-matched day for consistent, quality output." + suffix, driver: 'load' };
+    if (load === 'low')
+      return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today." + suffix, driver: 'load' };
     return { phrase: "Maintain your rhythm.", context: "Today calls for consistent, sustainable engagement. Protecting your operational state through the full shape of what the day holds." + suffix, driver: 'state' };
   }
 
   // STRONG TIER
   if (tier === 'strong') {
-    if (pressure === 'high' && load === 'high')
-      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader. A day where your readiness is genuinely being asked for." + suffix, driver: 'pressure+load' };
-    if (pressure === 'high' && load === 'medium')
-      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule. You have both the capacity and the space to bring your best to the moments that count." + suffix, driver: 'pressure+load' };
-    if (pressure === 'high' && load === 'low')
-      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover. Conditions that allow your strongest leadership to show up fully." + suffix, driver: 'pressure' };
-    if (pressure === 'medium' && load === 'high')
-      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes. Your above-baseline capacity is what keeps quality consistent across the full day." + suffix, driver: 'load' };
-    if (load === 'high' && pressure === 'low')
-      return { phrase: "Move with confidence.", context: "High volume meets strong capacity. A day you can move through with assurance rather than caution." + suffix, driver: 'load' };
-    if (load === 'medium')
-      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day. The conditions are there to go deep on what matters rather than wide across everything." + suffix, driver: 'load' };
-    if (load === 'low')
-      return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward." + suffix, driver: 'load' };
-    if (timeOfDay === 'morning')
-      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", todayHighStakes, eventCount);
-    if (timeOfDay === 'afternoon') {
-      const base = "Strong readiness through the afternoon. How you use the remaining hours determines how much of this advantage you carry into close.";
-      return { phrase: "Sustain the advantage.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
-    }
+    // Evening FIRST
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -826,30 +814,33 @@ function getTheme(
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
         todayHighStakes, eventCount, load, pressure);
     }
+    // Morning
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('strong', wearable, "Protect the window.", "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.", todayHighStakes, eventCount);
+    // Afternoon
+    if (timeOfDay === 'afternoon') {
+      const base = "Strong readiness through the afternoon. How you use the remaining hours determines how much of this advantage you carry into close.";
+      return { phrase: "Sustain the advantage.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+    }
+    // Pressure×load matrix
+    if (pressure === 'high' && load === 'high')
+      return { phrase: "Lead from strength.", context: "Your most demanding conditions are meeting a well-resourced leader. A day where your readiness is genuinely being asked for." + suffix, driver: 'pressure+load' };
+    if (pressure === 'high' && load === 'medium')
+      return { phrase: "Execute with presence.", context: "Significant stakes ahead with a focused schedule. You have both the capacity and the space to bring your best to the moments that count." + suffix, driver: 'pressure+load' };
+    if (pressure === 'high' && load === 'low')
+      return { phrase: "Bring your full weight.", context: "High stakes with room to prepare and recover. Conditions that allow your strongest leadership to show up fully." + suffix, driver: 'pressure' };
+    if (pressure === 'medium' && load === 'high')
+      return { phrase: "Sustain the quality.", context: "A dense calendar with real stakes. Your above-baseline capacity is what keeps quality consistent across the full day." + suffix, driver: 'load' };
+    if (load === 'high' && pressure === 'low')
+      return { phrase: "Move with confidence.", context: "High volume meets strong capacity. A day you can move through with assurance rather than caution." + suffix, driver: 'load' };
+    if (load === 'medium')
+      return { phrase: "Invest the advantage.", context: "Above-baseline readiness on a selective day. The conditions are there to go deep on what matters rather than wide across everything." + suffix, driver: 'load' };
+    if (load === 'low')
+      return { phrase: "Protect and build.", context: "Strong readiness on a light day. Rare conditions for deep work, strategic thinking, or genuine recovery that compounds forward." + suffix, driver: 'load' };
     return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing." + suffix, driver: 'state' };
   }
 
-  // PEAK TIER
-  if (pressure === 'high' && load === 'high')
-    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness. A genuine high-leverage day where your leadership capacity is fully called upon." + suffix, driver: 'pressure+load' };
-  if (pressure === 'high' && load === 'medium')
-    return { phrase: "Full capacity, focused stakes.", context: "Significant moments ahead with room to be deliberate. Peak readiness plus space is the best possible condition for your most important leadership." + suffix, driver: 'pressure+load' };
-  if (pressure === 'high' && load === 'low')
-    return { phrase: "Peak meets opportunity.", context: "Your strongest readiness and the space to use it fully. A rare condition — deploy on what genuinely matters most to you." + suffix, driver: 'pressure' };
-  if (pressure === 'medium' && load === 'high')
-    return { phrase: "Flow through the day.", context: "A full calendar with your strongest capacity. Conditions for effortless passage through complex demands." + suffix, driver: 'load' };
-  if (load === 'high' && pressure === 'low')
-    return { phrase: "Effortless volume.", context: "High volume at peak readiness. The rare day where a full schedule doesn't need careful management." + suffix, driver: 'load' };
-  if (load === 'medium')
-    return { phrase: "Choose your investments.", context: "Full readiness on a selective day. The question is not what you can handle, but what deserves this state of readiness." + suffix, driver: 'load' };
-  if (load === 'low')
-    return { phrase: "Rare conditions.", context: "Peak readiness and an open schedule. The rarest combination — conditions for the thinking or decisions you've been waiting for." + suffix, driver: 'load' };
-  if (timeOfDay === 'morning')
-    return buildMorningTheme('peak', wearable, "Protect the peak.", "Peak readiness at the start of the day. Every decision about how you use the opening hours is high-leverage.", todayHighStakes, eventCount);
-  if (timeOfDay === 'afternoon') {
-    const base = "Peak readiness through the afternoon. How you use the remaining hours determines how much of this advantage you carry into close.";
-    return { phrase: "Channel the peak.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
-  }
+  // PEAK TIER — evening FIRST
   if (timeOfDay === 'evening') {
     if (dayCtx === 'sunday') {
       const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
@@ -867,6 +858,29 @@ function getTheme(
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
       todayHighStakes, eventCount, load, pressure);
   }
+  // Morning
+  if (timeOfDay === 'morning')
+    return buildMorningTheme('peak', wearable, "Protect the peak.", "Peak readiness at the start of the day. Every decision about how you use the opening hours is high-leverage.", todayHighStakes, eventCount);
+  // Afternoon
+  if (timeOfDay === 'afternoon') {
+    const base = "Peak readiness through the afternoon. How you use the remaining hours determines how much of this advantage you carry into close.";
+    return { phrase: "Channel the peak.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
+  }
+  // Pressure×load matrix
+  if (pressure === 'high' && load === 'high')
+    return { phrase: "Peak performance day.", context: "Your most demanding calendar is meeting your fullest readiness. A genuine high-leverage day where your leadership capacity is fully called upon." + suffix, driver: 'pressure+load' };
+  if (pressure === 'high' && load === 'medium')
+    return { phrase: "Full capacity, focused stakes.", context: "Significant moments ahead with room to be deliberate. Peak readiness plus space is the best possible condition for your most important leadership." + suffix, driver: 'pressure+load' };
+  if (pressure === 'high' && load === 'low')
+    return { phrase: "Peak meets opportunity.", context: "Your strongest readiness and the space to use it fully. A rare condition — deploy on what genuinely matters most to you." + suffix, driver: 'pressure' };
+  if (pressure === 'medium' && load === 'high')
+    return { phrase: "Flow through the day.", context: "A full calendar with your strongest capacity. Conditions for effortless passage through complex demands." + suffix, driver: 'load' };
+  if (load === 'high' && pressure === 'low')
+    return { phrase: "Effortless volume.", context: "High volume at peak readiness. The rare day where a full schedule doesn't need careful management." + suffix, driver: 'load' };
+  if (load === 'medium')
+    return { phrase: "Choose your investments.", context: "Full readiness on a selective day. The question is not what you can handle, but what deserves this state of readiness." + suffix, driver: 'load' };
+  if (load === 'low')
+    return { phrase: "Rare conditions.", context: "Peak readiness and an open schedule. The rarest combination — conditions for the thinking or decisions you've been waiting for." + suffix, driver: 'load' };
   return { phrase: "Own your optimal state.", context: "Full readiness is present. The priority is protecting that state through the full shape of what the day holds." + suffix, driver: 'state' };
 }
 
