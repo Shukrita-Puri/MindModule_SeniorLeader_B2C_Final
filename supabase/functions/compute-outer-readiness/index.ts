@@ -1681,8 +1681,8 @@ function getLeanOnWatchFor(
 
   // ── P1a: Coach insights ≤3 days (recent) — no age label, enriched with context ──
   if (hasCoachBoth && coachTier === 'recent') {
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return {
       leanOn: `Based on your recent coach conversation: ${coachStrength!}${leanOnSuffix}`,
       watchFor: `Based on your recent coach conversation: ${coachGrowth!}${watchForSuffix}`,
@@ -1695,8 +1695,8 @@ function getLeanOnWatchFor(
   if (hasCoachBoth && coachTier === 'grace') {
     const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
     if (!hasContradiction) {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-      const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+      const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
       return {
         leanOn: `From your coach session ${coachDaysOld} days ago: ${coachStrength!}${leanOnSuffix}`,
         watchFor: `From your coach session ${coachDaysOld} days ago: ${coachGrowth!}${watchForSuffix}`,
@@ -1711,33 +1711,33 @@ function getLeanOnWatchFor(
   const ccMod = getCCModifier(clarity, confidence, timeOfDay);
   if (ccMod) {
     if (hasCoachBoth && coachTier === 'contextual') {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
       const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_${leanOnSuffix}`;
       return {
         leanOn: enrichedLeanOn,
-        watchFor: ccMod.watchFor + (hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : ''),
+        watchFor: ccMod.watchFor + (hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : ''),
         source: 'cc-modifier-with-context',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
       };
     }
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return { leanOn: `Based on your check-in today: ${ccMod.leanOn}${leanOnSuffix}`, watchFor: `Based on your check-in today: ${ccMod.watchFor}${watchForSuffix}`, source: 'cc-modifier' };
   }
 
   // ── Partial coach: mix with other priorities (any non-archived tier) ──
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
     return { leanOn: `From your coach conversation: ${coachStrength}${leanOnSuffix}`, watchFor: `${watchSource}${watchFor}${watchForSuffix}`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
     return { leanOn: `${leanSource}${leanOn}${leanOnSuffix}`, watchFor: `From your coach conversation: ${coachGrowth}${watchForSuffix}`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
@@ -1745,15 +1745,15 @@ function getLeanOnWatchFor(
   // ── P4: Archetype × Tier — enriched with context ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     const base = archetypeMatrix[archetype][tier];
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return { leanOn: `Based on your archetype profile: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your archetype profile: ${base.watchFor}${watchForSuffix}`, source: 'archetype-tier' };
   }
 
   // ── P5: Tier fallback — enriched with context ──
   const base = tierFallbacks[tier];
-  const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-  const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+  const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+  const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
   return { leanOn: `Based on your current readiness state: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your current readiness state: ${base.watchFor}${watchForSuffix}`, source: 'tier-fallback' };
 }
 
