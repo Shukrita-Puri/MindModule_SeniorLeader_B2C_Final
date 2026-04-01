@@ -383,6 +383,7 @@ function buildAfternoonContext(
 // ==================== WEEKDAY EVENING THEME BUILDER ====================
 // Evening themes: acknowledge today first (validation), then frame tomorrow as recovery motivation.
 // Banned: "plan", "prepare", "get ready". Use: "restore", "arrive", "release".
+// REMAINING-EVENTS AWARENESS: Split into "day still going" vs "day is done" based on remainingEvents.
 function buildWeekdayEveningTheme(
   tier: EnergyTier,
   tomorrowHighStakes?: string[],
@@ -393,6 +394,8 @@ function buildWeekdayEveningTheme(
   eventCount?: number,
   calendarLoad?: CalendarLevel | null,
   calendarPressure?: CalendarLevel | null,
+  remainingEvents?: number,
+  remainingHighStakes?: string[],
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasTomorrowStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
   const tomorrowEvent = hasTomorrowStakes ? tomorrowHighStakes[0] : null;
@@ -400,6 +403,77 @@ function buildWeekdayEveningTheme(
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hasTodayStakes = todayHighStakes && todayHighStakes.length > 0;
   const todayDense = eventCount && eventCount >= 4;
+  const remaining = remainingEvents ?? 0;
+  const pastEvents = (eventCount ?? 0) - remaining;
+  const hasRemainingHS = remainingHighStakes && remainingHighStakes.length > 0;
+
+  // Sleep acknowledgment for evening
+  const sleepNote = wearable?.poorSleep
+    ? ' You started today under-recovered and carried that through a full day. Tonight\'s sleep matters more than usual.'
+    : '';
+
+  // RHR note for evening
+  const rhrNote = wearable?.rhrElevated && !bodyStressed
+    ? ' Your resting heart rate is still elevated — tonight\'s recovery is especially important.'
+    : '';
+
+  // ══════════════════════════════════════════════════════════════
+  // BRANCH A: Events still ahead (remainingEvents > 0)
+  // Acknowledge past + frame remaining — day is NOT done
+  // ══════════════════════════════════════════════════════════════
+  if (remaining > 0) {
+    // A-1: Remaining high-stakes events ahead
+    if (hasRemainingHS) {
+      if (tier === 'depleted') {
+        return {
+          phrase: "Protect what's left.",
+          context: `You've spent most of today's reserves across ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''}. With ${remainingHighStakes![0]} still ahead, protect what's left for the moment that matters.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      if (tier === 'managing') {
+        return {
+          phrase: "Stay present for what's left.",
+          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today. With ${remainingHighStakes![0]} still ahead, your decision readiness continues to matter — stay present for what's left.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      if (tier === 'strong') {
+        return {
+          phrase: "Carry your edge forward.",
+          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today with above-baseline readiness. ${remainingHighStakes![0]} is still ahead — your advantage is genuine, deploy it where it counts.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      // peak
+      return {
+        phrase: "Finish at your best.",
+        context: `${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} navigated at peak readiness. ${remainingHighStakes![0]} is still ahead — this state is rare, use it fully for what remains.${sleepNote}${rhrNote}`,
+        driver: 'evening',
+      };
+    }
+
+    // A-2: Remaining events but not high-stakes + body strain
+    if (bodyStressed) {
+      return {
+        phrase: "Pace the remaining hours.",
+        context: `You've carried strain through ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} already. With ${remaining} still ahead, pace the remaining hours deliberately.${sleepNote}${rhrNote}`,
+        driver: 'evening',
+      };
+    }
+
+    // A-3: Remaining events, no strain, no high-stakes
+    return {
+      phrase: defaultPhrase || "Stay steady.",
+      context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} so far. ${remaining} still ahead — the day isn't done, but the hardest part may be behind you.${sleepNote}${rhrNote}`,
+      driver: 'evening',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // BRANCH B: Day is done (remainingEvents === 0)
+  // Full retrospective + tomorrow as recovery motivation
+  // ══════════════════════════════════════════════════════════════
 
   // ── Build todaySummary: acknowledge what the user carried today ──
   let todaySummary = '';
@@ -415,17 +489,9 @@ function buildWeekdayEveningTheme(
       : "Your HRV is showing accumulated strain from today.";
   } else if (hadHeavyDay) {
     todaySummary = 'You carried a full day of demands.';
+  } else if (todayDense) {
+    todaySummary = `You navigated ${eventCount} meetings today.`;
   }
-
-  // Sleep acknowledgment for evening
-  const sleepNote = wearable?.poorSleep
-    ? ' You started today under-recovered and carried that through a full day. Tonight\'s sleep matters more than usual.'
-    : '';
-
-  // RHR note for evening
-  const rhrNote = wearable?.rhrElevated && !bodyStressed
-    ? ' Your resting heart rate is still elevated — tonight\'s recovery is especially important.'
-    : '';
 
   // ── Priority 1: Today was heavy + Tomorrow has high-stakes ──
   if (todaySummary && hasTomorrowStakes) {
@@ -454,7 +520,6 @@ function buildWeekdayEveningTheme(
 
   // ── Priority 3: Light today + heavy tomorrow ──
   if (!hadHeavyDay && hasTomorrowStakes) {
-    const tomorrowLoad = calendarLoad; // Note: this is today's load; tomorrow is framed via tomorrowHighStakes
     if (tier === 'depleted') {
       return {
         phrase: "Ground before tomorrow.",
