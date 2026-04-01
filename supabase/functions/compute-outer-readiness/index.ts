@@ -1088,7 +1088,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('managing', null, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment." + wearableSuffix, driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes." + wearableSuffix, driver: 'state' };
