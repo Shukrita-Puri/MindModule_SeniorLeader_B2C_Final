@@ -41,6 +41,8 @@ interface CalendarMetricsResult {
   load: CalendarLevel;
   pressure: CalendarLevel;
   eventCount: number;
+  meetingCount: number;        // Filtered: excludes all-day blocks, personal blocks
+  remainingMeetings: number;   // Filtered remaining meetings only
   state: 'active' | 'connected_no_events' | 'not_connected';
   highStakesEvents: string[];
   remainingEvents: number;
@@ -157,7 +159,7 @@ async function getServerCalendarMetrics(
     .maybeSingle();
 
   if (!conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
   }
 
   const { data: events, error } = await db
@@ -220,10 +222,34 @@ async function getServerCalendarMetrics(
       if (remainingHighStakes.length >= 2) break;
     }
 
-    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
+    // ── Filtered meeting count: excludes all-day blocks and personal blocks ──
+    // Used for user-facing text ("You've navigated X meetings") — raw eventCount stays for load/pressure scoring
+    const isMeeting = (e: any): boolean => {
+      const att = e.attendees_count || 0;
+      const start = new Date(e.start_time);
+      const end = new Date(e.end_time);
+      const dur = (end.getTime() - start.getTime()) / 60000;
+      if (e.title && personalBlockPatterns.test(e.title)) return false;
+      if (dur > 240 && att <= 1) return false;
+      return true;
+    };
+    const meetingList = eventList.filter(isMeeting);
+    const meetingCount = meetingList.length;
+    const remainingMeetings = meetingList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime())).length;
+
+    // Debug: log filtered-out events
+    const filteredOut = eventList.filter((e: any) => !isMeeting(e));
+    if (filteredOut.length > 0) {
+      console.log('[compute-outer-readiness] Filtered non-meeting events:', filteredOut.map((e: any) => {
+        const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
+        return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees)`;
+      }));
+    }
+
+    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
 }
 
 // ==================== TIME HELPERS ====================
@@ -396,6 +422,8 @@ function buildWeekdayEveningTheme(
   calendarPressure?: CalendarLevel | null,
   remainingEvents?: number,
   remainingHighStakes?: string[],
+  meetingCount?: number,
+  remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasTomorrowStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
   const tomorrowEvent = hasTomorrowStakes ? tomorrowHighStakes[0] : null;
@@ -403,8 +431,11 @@ function buildWeekdayEveningTheme(
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hasTodayStakes = todayHighStakes && todayHighStakes.length > 0;
   const todayDense = eventCount && eventCount >= 4;
-  const remaining = remainingEvents ?? 0;
-  const pastEvents = (eventCount ?? 0) - remaining;
+
+  // Use filtered meeting counts for user-facing text
+  const filteredRemaining = remainingMeetings ?? remainingEvents ?? 0;
+  const filteredTotal = meetingCount ?? eventCount ?? 0;
+  const pastMeetings = filteredTotal - filteredRemaining;
   const hasRemainingHS = remainingHighStakes && remainingHighStakes.length > 0;
 
   // Sleep acknowledgment for evening
@@ -418,79 +449,84 @@ function buildWeekdayEveningTheme(
     : '';
 
   // ══════════════════════════════════════════════════════════════
-  // BRANCH A: Events still ahead (remainingEvents > 0)
-  // Acknowledge past + frame remaining — day is NOT done
+  // BRANCH A: Meetings still ahead (remainingMeetings > 0)
+  // Acknowledge past + frame remaining + connect to directive
   // ══════════════════════════════════════════════════════════════
-  if (remaining > 0) {
+  if (filteredRemaining > 0) {
+    const pastLabel = pastMeetings > 0 ? `${pastMeetings} meeting${pastMeetings !== 1 ? 's' : ''}` : null;
+
     // A-1: Remaining high-stakes events ahead
     if (hasRemainingHS) {
       if (tier === 'depleted') {
         return {
           phrase: "Protect what's left.",
-          context: `You've spent most of today's reserves across ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''}. With ${remainingHighStakes![0]} still ahead, protect what's left for the moment that matters.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've spent most of today's reserves across ${pastLabel}. ` : ''}With ${remainingHighStakes![0]} still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters — everything before it is cost, not investment.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       if (tier === 'managing') {
         return {
           phrase: "Stay present for what's left.",
-          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today. With ${remainingHighStakes![0]} still ahead, your decision readiness continues to matter — stay present for what's left.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today. ` : ''}With ${remainingHighStakes![0]} still ahead, your decision readiness is still operational — staying present for what remains is the highest-value move right now.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       if (tier === 'strong') {
         return {
           phrase: "Carry your edge forward.",
-          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today with above-baseline readiness. ${remainingHighStakes![0]} is still ahead — your advantage is genuine, deploy it where it counts.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today with above-baseline readiness. ` : ''}${remainingHighStakes![0]} is still ahead — carry that edge forward into the moment that matters most rather than coasting on what's already done.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       // peak
       return {
         phrase: "Finish at your best.",
-        context: `${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} navigated at peak readiness. ${remainingHighStakes![0]} is still ahead — this state is rare, use it fully for what remains.${sleepNote}${rhrNote}`,
+        context: `${pastLabel ? `${pastLabel} navigated at peak readiness. ` : ''}${remainingHighStakes![0]} is still ahead — this state is rare, finish at your best where it counts.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
 
-    // A-2: Remaining events but not high-stakes + body strain
+    // A-2: Remaining meetings but not high-stakes + body strain
     if (bodyStressed) {
       return {
         phrase: "Pace the remaining hours.",
-        context: `You've carried strain through ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} already. With ${remaining} still ahead, pace the remaining hours deliberately.${sleepNote}${rhrNote}`,
+        context: `${pastLabel ? `You've carried strain through ${pastLabel} already. ` : 'Your body is carrying accumulated strain. '}With ${filteredRemaining} still ahead, pacing the remaining hours protects the quality of your presence for what's left.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
 
-    // A-3: Remaining events, no strain, no high-stakes
+    // A-3: Remaining meetings, no strain, no high-stakes
+    const phrase = defaultPhrase || "Close with care.";
     return {
-      phrase: defaultPhrase || "Stay steady.",
-      context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} so far. ${remaining} still ahead — the day isn't done, but the hardest part may be behind you.${sleepNote}${rhrNote}`,
+      phrase,
+      context: `${pastLabel ? `You've navigated ${pastLabel} so far. ` : ''}${filteredRemaining} still ahead — closing with care means bringing the same quality of attention to what remains without borrowing from tomorrow.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
 
   // ══════════════════════════════════════════════════════════════
-  // BRANCH B: Day is done (remainingEvents === 0)
+  // BRANCH B: Day is done (remainingMeetings === 0)
   // Full retrospective + tomorrow as recovery motivation
+  // Context connects to the phrase directive
   // ══════════════════════════════════════════════════════════════
 
   // ── Build todaySummary: acknowledge what the user carried today ──
+  const meetingLabel = filteredTotal > 0 ? `${filteredTotal} meeting${filteredTotal !== 1 ? 's' : ''}` : null;
   let todaySummary = '';
   if (hadHeavyDay && bodyStressed && hasTodayStakes) {
     todaySummary = `You carried a demanding day — ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : todayHighStakes![0]} with your heart rate elevated throughout.`;
   } else if (hadHeavyDay && hasTodayStakes) {
     todaySummary = `You navigated ${todayHighStakes![0]} and a full calendar today.`;
-  } else if (hadHeavyDay && todayDense) {
-    todaySummary = `You navigated a dense calendar — ${eventCount} meetings with tight gaps.`;
+  } else if (hadHeavyDay && meetingLabel) {
+    todaySummary = `You navigated a dense calendar — ${meetingLabel} with tight gaps.`;
   } else if (bodyStressed) {
     todaySummary = wearable!.hrElevated
       ? "Your heart rate ran high through today's demands."
       : "Your HRV is showing accumulated strain from today.";
   } else if (hadHeavyDay) {
     todaySummary = 'You carried a full day of demands.';
-  } else if (todayDense) {
-    todaySummary = `You navigated ${eventCount} meetings today.`;
+  } else if (meetingLabel) {
+    todaySummary = `You navigated ${meetingLabel} today.`;
   }
 
   // ── Priority 1: Today was heavy + Tomorrow has high-stakes ──
@@ -498,13 +534,13 @@ function buildWeekdayEveningTheme(
     if (tier === 'depleted' || tier === 'managing') {
       return {
         phrase: "Ground before tomorrow.",
-        context: `${todaySummary} Tomorrow has ${tomorrowEvent}. What you release tonight determines how sharp you arrive — restoration, not preparation.${sleepNote}${rhrNote}`,
+        context: `${todaySummary} Tomorrow has ${tomorrowEvent}. Grounding now means what you release tonight determines how sharp you arrive — restoration, not preparation.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
     return {
       phrase: "Restore for what matters.",
-      context: `${todaySummary} ${tomorrowEvent} is tomorrow. Your body needs genuine recovery tonight — you'll arrive sharper rested than over-rehearsed.${sleepNote}${rhrNote}`,
+      context: `${todaySummary} ${tomorrowEvent} is tomorrow. Restoring tonight is the highest-leverage move — you'll arrive sharper rested than over-rehearsed.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
@@ -513,7 +549,7 @@ function buildWeekdayEveningTheme(
   if (todaySummary && bodyStressed) {
     return {
       phrase: defaultPhrase || "Let the body close.",
-      context: `${todaySummary} The cool-down tonight is physical, not just mental — what you release now determines how you recover overnight.${sleepNote}${rhrNote}`,
+      context: `${todaySummary} Letting the body close means the cool-down tonight is physical, not just mental — what you release now determines how you recover overnight.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
@@ -523,13 +559,13 @@ function buildWeekdayEveningTheme(
     if (tier === 'depleted') {
       return {
         phrase: "Ground before tomorrow.",
-        context: `A lighter day is behind you, but ${tomorrowEvent} is tomorrow. The recovery window tonight is genuine — use it. Your reserves are low and tomorrow will ask for them.${sleepNote}${rhrNote}`,
+        context: `A lighter day is behind you, but ${tomorrowEvent} is tomorrow. Grounding tonight is genuine — your reserves are low and tomorrow will ask for them.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
     return {
       phrase: "Arrive at your best.",
-      context: `A lighter day is behind you, but ${tomorrowEvent} is tomorrow. The recovery window tonight is genuine — restoration now determines how you arrive.${sleepNote}${rhrNote}`,
+      context: `A lighter day is behind you, but ${tomorrowEvent} is tomorrow. Arriving at your best means restoration now determines how you show up — not preparation.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
@@ -539,28 +575,28 @@ function buildWeekdayEveningTheme(
     if (tier === 'depleted') {
       return {
         phrase: "Ground before tomorrow.",
-        context: `You have ${tomorrowEvent} tomorrow and your reserves are low. Tonight is about arriving restored, not prepared. What you protect now directly shapes how you show up.${sleepNote}${rhrNote}`,
+        context: `You have ${tomorrowEvent} tomorrow and your reserves are low. Grounding tonight means arriving restored, not prepared — what you protect now directly shapes how you show up.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
     if (tier === 'managing') {
       return {
         phrase: "Close with tomorrow in mind.",
-        context: `${tomorrowEvent} is tomorrow. A clean close tonight is the best preparation — you'll show up sharper by resting well than by rehearsing late.${sleepNote}${rhrNote}`,
+        context: `${tomorrowEvent} is tomorrow. Closing with tomorrow in mind means a clean finish tonight — you'll show up sharper by resting well than by rehearsing late.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
     if (tier === 'strong') {
       return {
         phrase: "Protect your edge for tomorrow.",
-        context: `You have ${tomorrowEvent} tomorrow and above-baseline readiness to carry into it. The highest-leverage move tonight is a deliberate wind-down, not preparation.${sleepNote}${rhrNote}`,
+        context: `You have ${tomorrowEvent} tomorrow and above-baseline readiness to carry into it. Protecting your edge means a deliberate wind-down tonight, not preparation.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
     // peak
     return {
       phrase: "Arrive at your best.",
-      context: `${tomorrowEvent} is tomorrow and your readiness is at its peak. Your only priority tonight is protecting this state through genuine rest.${sleepNote}${rhrNote}`,
+      context: `${tomorrowEvent} is tomorrow and your readiness is at its peak. Arriving at your best means your only priority tonight is protecting this state through genuine rest.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
@@ -572,25 +608,27 @@ function buildWeekdayEveningTheme(
       : "Your HRV is showing accumulated strain from today";
     return {
       phrase: defaultPhrase || "Let the body close.",
-      context: `${bodySignal}. The cool-down tonight is physical, not just mental — what you release now determines how you recover overnight.${sleepNote}${rhrNote}`,
+      context: `${bodySignal}. Letting the body close means the cool-down is physical, not just mental — what you release now determines how you recover overnight.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
 
   // ── Priority 6: Today acknowledgment without strain ──
   if (todaySummary) {
+    const phrase = defaultPhrase || "Close before tomorrow.";
     return {
-      phrase: defaultPhrase || "Close before tomorrow.",
-      context: `${todaySummary} Tonight is about release, not review.${sleepNote}${rhrNote}`,
+      phrase,
+      context: `${todaySummary} Closing before tomorrow means tonight is about release, not review — protecting what you need for what comes next.${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
 
   // Default: soft close
-  let ctx = defaultContext || "Tonight is about release, not review.";
+  const phrase = defaultPhrase || "Close before tomorrow.";
+  let ctx = `${defaultContext || "Tonight is about release, not review."} Closing before tomorrow protects the quality of how you arrive.`;
   if (sleepNote) ctx += sleepNote;
   if (rhrNote) ctx += rhrNote;
-  return { phrase: defaultPhrase || "Close before tomorrow.", context: ctx, driver: 'evening' };
+  return { phrase, context: ctx, driver: 'evening' };
 }
 
 // ==================== MORNING THEME BUILDER (sleep/recovery + calendar-aware) ====================
@@ -777,10 +815,12 @@ function getTheme(
   eventCount?: number,
   remainingEvents?: number,
   remainingHighStakes?: string[],
+  meetingCount?: number,
+  remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
   }
 
   const timeOfDay = getTimeOfDay(hour);
@@ -807,7 +847,7 @@ function getTheme(
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -853,7 +893,7 @@ function getTheme(
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return buildWeekdayEveningTheme('managing', tomorrowHighStakes, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -899,7 +939,7 @@ function getTheme(
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return buildWeekdayEveningTheme('strong', tomorrowHighStakes, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
-        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -943,7 +983,7 @@ function getTheme(
       return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return buildWeekdayEveningTheme('peak', tomorrowHighStakes, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
-      todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
+      todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
   }
   // Morning
   if (timeOfDay === 'morning')
@@ -972,7 +1012,7 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[]): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[], meetingCount?: number, remainingMeetings?: number): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
@@ -1018,7 +1058,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('depleted', null, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual." + wearableSuffix, driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now." + wearableSuffix, driver: 'state' };
@@ -1048,7 +1088,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('managing', null, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment." + wearableSuffix, driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes." + wearableSuffix, driver: 'state' };
@@ -1078,7 +1118,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('strong', null, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
-        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you." + wearableSuffix, driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing." + wearableSuffix, driver: 'state' };
@@ -1108,7 +1148,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
   if (timeOfDay === 'evening')
     return buildWeekdayEveningTheme('peak', null, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
-      todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
+      todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes, meetingCount, remainingMeetings);
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest." + wearableSuffix, driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately." + wearableSuffix, driver: 'state' };
@@ -1989,7 +2029,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes, calendarResult.meetingCount, calendarResult.remainingMeetings);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
