@@ -1057,11 +1057,13 @@ function buildDataSources(
   archetype: string | null,
   _checkInOutcome: string | null,
   coachUsed: boolean,
+  wearableUsed: boolean,
 ): string[] {
   const sources: string[] = [];
   sources.push('decision readiness score');
   if (calendarState === 'active') sources.push('calendar');
   else if (calendarState === 'connected_no_events') sources.push('calendar (no upcoming events)');
+  if (wearableUsed) sources.push('wearable');
   if (archetype) sources.push('archetype');
   if (coachUsed) sources.push('coach insights');
   return sources;
