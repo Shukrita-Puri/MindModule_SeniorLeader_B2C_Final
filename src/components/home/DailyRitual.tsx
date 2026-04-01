@@ -177,23 +177,29 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
   useEffect(() => {
     loadPlan();
-    checkRitualCompletion();
     
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && plan) {
         checkRitualCompletion();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     
-    // Relaxed polling as fallback (60s instead of 15s)
-    const interval = setInterval(() => checkRitualCompletion(), 60000);
+    // Relaxed polling as fallback (60s instead of 15s) — only when plan is loaded
+    const interval = setInterval(() => { if (plan) checkRitualCompletion(); }, 60000);
     
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user?.id]);
+
+  // Re-check completion whenever plan loads/changes — this is the canonical trigger
+  useEffect(() => {
+    if (plan) {
+      checkRitualCompletion();
+    }
+  }, [plan]);
 
   // Detect newly completed practices
   useEffect(() => {
