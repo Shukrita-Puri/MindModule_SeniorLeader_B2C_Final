@@ -2008,7 +2008,7 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(5),
       db.from('daily_checkins')
-        .select('checkin_date, outcome, clarity_level, confidence_level')
+        .select('checkin_date, outcome, clarity_level, confidence_level, energy_balance')
         .eq('user_id', userId)
         .gte('checkin_date', new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0])
         .order('checkin_date', { ascending: false })
