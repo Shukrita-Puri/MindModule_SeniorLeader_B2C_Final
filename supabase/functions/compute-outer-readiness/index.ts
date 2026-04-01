@@ -222,10 +222,34 @@ async function getServerCalendarMetrics(
       if (remainingHighStakes.length >= 2) break;
     }
 
-    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
+    // ── Filtered meeting count: excludes all-day blocks and personal blocks ──
+    // Used for user-facing text ("You've navigated X meetings") — raw eventCount stays for load/pressure scoring
+    const isMeeting = (e: any): boolean => {
+      const att = e.attendees_count || 0;
+      const start = new Date(e.start_time);
+      const end = new Date(e.end_time);
+      const dur = (end.getTime() - start.getTime()) / 60000;
+      if (e.title && personalBlockPatterns.test(e.title)) return false;
+      if (dur > 240 && att <= 1) return false;
+      return true;
+    };
+    const meetingList = eventList.filter(isMeeting);
+    const meetingCount = meetingList.length;
+    const remainingMeetings = meetingList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime())).length;
+
+    // Debug: log filtered-out events
+    const filteredOut = eventList.filter((e: any) => !isMeeting(e));
+    if (filteredOut.length > 0) {
+      console.log('[compute-outer-readiness] Filtered non-meeting events:', filteredOut.map((e: any) => {
+        const dur = (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 60000;
+        return `"${e.title}" (${Math.round(dur)}min, ${e.attendees_count || 0} attendees)`;
+      }));
+    }
+
+    return { ...metrics, eventCount: eventList.length, meetingCount, remainingMeetings, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
 }
 
 // ==================== TIME HELPERS ====================
