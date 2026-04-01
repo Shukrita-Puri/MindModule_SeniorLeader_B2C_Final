@@ -613,12 +613,23 @@ function buildWeekdayEveningTheme(
     };
   }
 
-  // ── Priority 6: Today acknowledgment without strain ──
+  // ── Priority 6: Today acknowledgment without strain – TIER-AWARE directives ──
   if (todaySummary) {
     const phrase = defaultPhrase || "Close before tomorrow.";
+    let directive: string;
+    if (tier === 'depleted') {
+      directive = 'tonight is about release and protection – your system needs genuine recovery before tomorrow\'s first decisions.';
+    } else if (tier === 'managing') {
+      directive = 'tonight is about a clean close – releasing the day\'s residue so you arrive steady tomorrow.';
+    } else if (tier === 'strong') {
+      directive = 'tonight is about consolidation – protecting the edge you carried today so it\'s available tomorrow.';
+    } else {
+      // peak
+      directive = 'tonight is about intentional wind-down – a gentle transition preserves what you built today.';
+    }
     return {
       phrase,
-      context: `${todaySummary} Closing before tomorrow means tonight is about release, not review – protecting what you need for what comes next.${sleepNote}${rhrNote}`,
+      context: `${todaySummary} Closing before tomorrow means ${directive}${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
