@@ -692,7 +692,8 @@ function generatePlanBrief(
   timeOfDay: 'morning' | 'afternoon' | 'evening',
   innerReadinessTier: string,
   checkInOutcome: string,
-  calendarLoad: string
+  calendarLoad: string,
+  wearable: WearableContext
 ): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
   const remainingCount = ctx.remainingMeetingCount ?? count;
@@ -719,42 +720,57 @@ function generatePlanBrief(
   };
   const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
 
+  // Wearable signal fragments – only when notable
+  const poorSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
+  const lowHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
+  const goodHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation > 5;
+  const goodSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore >= 80;
+
+  let wearableFragment = '';
+  if (poorSleep && lowHRV) wearableFragment = ' and your sleep and HRV are both below baseline';
+  else if (poorSleep) wearableFragment = ' and your sleep score is below baseline';
+  else if (lowHRV) wearableFragment = ' and your HRV is below baseline';
+  else if (goodHRV && goodSleep) wearableFragment = ' with recovered HRV and solid sleep';
+  else if (goodHRV) wearableFragment = ' with recovered HRV';
+
   // ---- EVENING ----
   if (timeOfDay === 'evening') {
     if (!hasCalendar) {
+      if (poorSleep || lowHRV) return `Your body signals show fatigue${wearableFragment.replace(' and ', ' – ')}. This evening sequence prioritises deep recovery to protect tomorrow's capacity.`;
       return 'This evening sequence helps you close the day with intention and prepare your mind for tomorrow.';
     }
     if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `You checked in as ${stateWord} after ${count} meetings. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
+      return `You checked in as ${stateWord} after ${count} meetings${wearableFragment}. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
     }
     if (calendarLoad === 'moderate') {
-      return `After a moderate day of ${count} meetings, this sequence helps you close with clarity and set up tomorrow.`;
+      return `After a moderate day of ${count} meetings${wearableFragment}, this sequence helps you close with clarity and set up tomorrow.`;
     }
-    return `A lighter day behind you. This evening sequence helps you consolidate what went well and rest with intention.`;
+    return `A lighter day behind you${wearableFragment}. This evening sequence helps you consolidate what went well and rest with intention.`;
   }
 
   // ---- MORNING ----
   if (timeOfDay === 'morning') {
     if (!hasCalendar) {
-      return `Your readiness is ${readinessWord}. These practices set your mental edge for the day ahead.`;
+      if (poorSleep) return `Your sleep score is below baseline. These practices are calibrated to compensate – building the focus and composure your body didn't fully restore overnight.`;
+      return `Your readiness is ${readinessWord}${wearableFragment}. These practices set your mental edge for the day ahead.`;
     }
     if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `Your readiness is ${readinessWord} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
+      return `Your readiness is ${readinessWord}${wearableFragment} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
     }
     if (calendarLoad === 'moderate') {
-      return `Your readiness is ${readinessWord} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
+      return `Your readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
     }
-    return `You're ${readinessWord} with a light day ahead. These practices channel that clarity into deliberate intention.`;
+    return `You're ${readinessWord}${wearableFragment} with a light day ahead. These practices channel that clarity into deliberate intention.`;
   }
 
   // ---- AFTERNOON ----
   if (!hasCalendar || remainingCount === 0) {
-    return `Your readiness is ${readinessWord}. This sequence resets your energy for the stretch that remains.`;
+    return `Your readiness is ${readinessWord}${wearableFragment}. This sequence resets your energy for the stretch that remains.`;
   }
   if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-    return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
+    return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
   }
-  return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
+  return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
 }
 
 function hashCode(str: string): number {
