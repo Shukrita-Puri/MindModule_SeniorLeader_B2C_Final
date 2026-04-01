@@ -290,13 +290,11 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
 
-Deno.test("Footer: no calendar, no archetype → only 'inner readiness score'", async () => {
+Deno.test("Footer: no calendar, no archetype → only 'decision readiness score'", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-footer-1",
     innerReadinessTier: "managing",
     innerReadinessScore: 50,
-    calendarLoad: null,
-    calendarPressure: null,
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -304,16 +302,14 @@ Deno.test("Footer: no calendar, no archetype → only 'inner readiness score'", 
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.dataSources, ["inner readiness score"]);
+  assertEquals(result.dataSources, ["decision readiness score"]);
 });
 
-Deno.test("Footer: with calendar + archetype → all three sources", async () => {
+Deno.test("Footer: no calendar + archetype → readiness + archetype", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-footer-2",
     innerReadinessTier: "strong",
     innerReadinessScore: 70,
-    calendarLoad: "high",
-    calendarPressure: "medium",
     archetype: "natural-regulator",
     clarityLevel: null,
     confidenceLevel: null,
@@ -321,16 +317,15 @@ Deno.test("Footer: with calendar + archetype → all three sources", async () =>
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.dataSources, ["inner readiness score", "calendar", "archetype"]);
+  // No calendar connection for test user → no 'calendar' in sources
+  assertEquals(result.dataSources, ["decision readiness score", "archetype"]);
 });
 
-Deno.test("Footer: with calendar, no archetype → two sources", async () => {
+Deno.test("Footer: no calendar, no archetype → single source", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-footer-3",
     innerReadinessTier: "depleted",
     innerReadinessScore: 25,
-    calendarLoad: "low",
-    calendarPressure: "low",
     archetype: null,
     clarityLevel: null,
     confidenceLevel: null,
@@ -338,7 +333,7 @@ Deno.test("Footer: with calendar, no archetype → two sources", async () => {
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.dataSources, ["inner readiness score", "calendar"]);
+  assertEquals(result.dataSources, ["decision readiness score"]);
 });
 
 // ==================== OUTPUT CONTRACT TESTS ====================
