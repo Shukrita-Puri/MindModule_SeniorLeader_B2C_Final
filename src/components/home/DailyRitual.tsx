@@ -216,35 +216,38 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
+    // Guard: only compute when plan is loaded so we have authoritative module IDs
+    if (!plan) return;
+    
     const currentPeriod = getCurrentTimeWindow();
     const data = await getTodayRitual(currentPeriod);
-    const modules = plan?.timeOfDayPlan?.modules || [];
+    const modules = plan.timeOfDayPlan?.modules || [];
     const planModuleIds = modules.map(m => m.contentId);
+    const totalCount = modules.length;
     
     if (!data) {
-      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length || 0 });
+      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount });
       setCompletedPracticeIds([]);
       return;
     }
 
     const allCompletedIds = data.completed_practice_ids || [];
-    // Only count completions that belong to THIS plan's modules (not JIT completions)
+    // Strict intersection: only count completions that belong to THIS plan's modules
     const activeCompletedIds = planModuleIds.length > 0
       ? allCompletedIds.filter(id => planModuleIds.includes(id))
-      : allCompletedIds;
+      : [];
     setCompletedPracticeIds(activeCompletedIds);
-    const totalRecommended = modules.length || data.recommended_practices_count || 3;
-    const effectiveCompletedCount = activeCompletedIds.length;
+    const effectiveCompletedCount = Math.min(activeCompletedIds.length, totalCount);
 
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
+    if (effectiveCompletedCount >= totalCount && effectiveCompletedCount > 0) {
       status = 'completed';
       if (data.completion_status !== 'full') {
         await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
       }
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
-    setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
+    setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount });
   };
 
   const loadPlan = async () => {
