@@ -296,11 +296,11 @@ function buildContextSuffix(
   // ── EVENING: Retrospective framing – acknowledge what was carried, not what to pace ──
   if (isEvening) {
     if (hasStakes && bodyStrained) {
-      const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+     const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
       return ` You carried ${stakeRef} today while your body ran at elevated strain throughout.`;
     }
     if (hasStakes && denseCalendar) {
-      const stakeRef = todayHighStakes![0];
+      const stakeRef = `'${todayHighStakes![0]}'`;
       return ` You navigated ${stakeRef} and a full calendar today.`;
     }
     if (denseCalendar && bodyStrained) {
@@ -322,20 +322,20 @@ function buildContextSuffix(
 
   // When high-stakes events AND body strain – connect the two signals
   if (hasStakes && bodyStrained) {
-    const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+    const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
     return ` A day anchored by ${stakeRef} while your body carried elevated strain throughout.`;
   }
 
   // High-stakes events AND poor sleep (morning) – connect recovery to demands
   if (hasStakes && timeOfDay === 'morning' && hasSleepIssue) {
-    const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+    const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
     const sleepDetail = wearable!.sleepScore ? `(sleep score: ${wearable!.sleepScore})` : '';
     return ` Recovery overnight was incomplete ${sleepDetail} – and ${stakeRef} is ahead.`;
   }
 
   // High-stakes events, load is also high, body is fine – characterize the day
   if (hasStakes && denseCalendar) {
-    const stakeRef = todayHighStakes![0];
+    const stakeRef = `'${todayHighStakes![0]}'`;
     return ` Your most demanding conditions today, anchored by ${stakeRef}.`;
   }
 
@@ -426,7 +426,7 @@ function buildWeekdayEveningTheme(
   remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasTomorrowStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
-  const tomorrowEvent = hasTomorrowStakes ? tomorrowHighStakes[0] : null;
+  const tomorrowEvent = hasTomorrowStakes ? `'${tomorrowHighStakes[0]}'` : null;
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hasTodayStakes = todayHighStakes && todayHighStakes.length > 0;
@@ -460,28 +460,28 @@ function buildWeekdayEveningTheme(
       if (tier === 'depleted') {
         return {
           phrase: "Protect what's left.",
-          context: `${pastLabel ? `You've spent most of today's reserves across ${pastLabel}. ` : ''}With ${remainingHighStakes![0]} still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters – everything before it is cost, not investment.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've spent most of today's reserves across ${pastLabel}. ` : ''}With '${remainingHighStakes![0]}' still ahead and your reserves low, protecting what's left means deploying only where it genuinely matters – everything before it is cost, not investment.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       if (tier === 'managing') {
         return {
           phrase: "Stay present for what's left.",
-          context: `${pastLabel ? `You've navigated ${pastLabel} today. ` : ''}With ${remainingHighStakes![0]} still ahead, your decision readiness is still operational – staying present for what remains is the highest-value move right now.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today. ` : ''}With '${remainingHighStakes![0]}' still ahead, your decision readiness is still operational – staying present for what remains is the highest-value move right now.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       if (tier === 'strong') {
         return {
           phrase: "Carry your edge forward.",
-          context: `${pastLabel ? `You've navigated ${pastLabel} today with above-baseline readiness. ` : ''}${remainingHighStakes![0]} is still ahead – carry that edge forward into the moment that matters most rather than coasting on what's already done.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today with above-baseline readiness. ` : ''}'${remainingHighStakes![0]}' is still ahead – carry that edge forward into the moment that matters most rather than coasting on what's already done.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
       // peak
       return {
         phrase: "Finish at your best.",
-        context: `${pastLabel ? `${pastLabel} navigated at peak readiness. ` : ''}${remainingHighStakes![0]} is still ahead – this state is rare, finish at your best where it counts.${sleepNote}${rhrNote}`,
+        context: `${pastLabel ? `${pastLabel} navigated at peak readiness. ` : ''}'${remainingHighStakes![0]}' is still ahead – this state is rare, finish at your best where it counts.${sleepNote}${rhrNote}`,
         driver: 'evening',
       };
     }
@@ -514,9 +514,9 @@ function buildWeekdayEveningTheme(
   const meetingLabel = filteredTotal > 0 ? `${filteredTotal} meeting${filteredTotal !== 1 ? 's' : ''}` : null;
   let todaySummary = '';
   if (hadHeavyDay && bodyStressed && hasTodayStakes) {
-    todaySummary = `You carried a demanding day – ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : todayHighStakes![0]} with your heart rate elevated throughout.`;
+    todaySummary = `You carried a demanding day – ${todayHighStakes!.length >= 2 ? `${todayHighStakes!.length} high-stakes meetings` : `'${todayHighStakes![0]}'`} with your heart rate elevated throughout.`;
   } else if (hadHeavyDay && hasTodayStakes) {
-    todaySummary = `You navigated ${todayHighStakes![0]} and a full calendar today.`;
+    todaySummary = `You navigated '${todayHighStakes![0]}' and a full calendar today.`;
   } else if (hadHeavyDay && meetingLabel) {
     todaySummary = `You navigated a dense calendar – ${meetingLabel} with tight gaps.`;
   } else if (bodyStressed) {
@@ -613,19 +613,40 @@ function buildWeekdayEveningTheme(
     };
   }
 
-  // ── Priority 6: Today acknowledgment without strain ──
+  // ── Priority 6: Today acknowledgment without strain – TIER-AWARE directives ──
   if (todaySummary) {
     const phrase = defaultPhrase || "Close before tomorrow.";
+    let directive: string;
+    if (tier === 'depleted') {
+      directive = 'tonight is about release and protection – your system needs genuine recovery before tomorrow\'s first decisions.';
+    } else if (tier === 'managing') {
+      directive = 'tonight is about a clean close – releasing the day\'s residue so you arrive steady tomorrow.';
+    } else if (tier === 'strong') {
+      directive = 'tonight is about consolidation – protecting the edge you carried today so it\'s available tomorrow.';
+    } else {
+      // peak
+      directive = 'tonight is about intentional wind-down – a gentle transition preserves what you built today.';
+    }
     return {
       phrase,
-      context: `${todaySummary} Closing before tomorrow means tonight is about release, not review – protecting what you need for what comes next.${sleepNote}${rhrNote}`,
+      context: `${todaySummary} Closing before tomorrow means ${directive}${sleepNote}${rhrNote}`,
       driver: 'evening',
     };
   }
 
-  // Default: soft close
+  // Default: soft close – tier-aware
   const phrase = defaultPhrase || "Close before tomorrow.";
-  let ctx = `${defaultContext || "Tonight is about release, not review."} Closing before tomorrow protects the quality of how you arrive.`;
+  let defaultDirective: string;
+  if (tier === 'depleted') {
+    defaultDirective = 'Tonight is about genuine release – your system needs recovery before tomorrow asks for anything.';
+  } else if (tier === 'managing') {
+    defaultDirective = 'Tonight is about a clean close – releasing the day so you arrive steady tomorrow.';
+  } else if (tier === 'strong') {
+    defaultDirective = 'Tonight is about protecting your edge – a deliberate wind-down carries today\'s advantage into tomorrow.';
+  } else {
+    defaultDirective = 'Tonight is about intentional transition – preserving what you built today through genuine rest.';
+  }
+  let ctx = `${defaultContext || defaultDirective} Closing before tomorrow protects the quality of how you arrive.`;
   if (sleepNote) ctx += sleepNote;
   if (rhrNote) ctx += rhrNote;
   return { phrase, context: ctx, driver: 'evening' };
@@ -642,7 +663,7 @@ function buildMorningTheme(
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasHighStakes = todayHighStakes && todayHighStakes.length > 0;
   const eventRef = hasHighStakes
-    ? todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`
+    ? todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`
     : null;
 
   // RHR morning note (added to relevant contexts)
@@ -778,25 +799,56 @@ function buildMorningTheme(
     };
   }
 
-  // Priority 5: High-stakes events but no wearable data
+  // Priority 5: High-stakes events but no wearable data – tier-aware
   if (hasHighStakes) {
+    let morningDirective: string;
+    if (tier === 'depleted') {
+      morningDirective = `'${eventRef}' is ahead today. Your reserves are low – protecting the opening hours determines how much you have when it matters.`;
+    } else if (tier === 'managing') {
+      morningDirective = `'${eventRef}' is ahead today. A steady opening protects the capacity you'll need for what matters later.`;
+    } else if (tier === 'strong') {
+      morningDirective = `'${eventRef}' is ahead today. Your readiness is genuine – protect it through the morning's first demands.`;
+    } else {
+      morningDirective = `'${eventRef}' is ahead today. Peak readiness is rare – deploy it where it matters most, not where it's spent first.`;
+    }
     return {
       phrase: defaultPhrase || "Start with presence.",
-      context: `${eventRef} is ahead today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
+      context: morningDirective,
       driver: 'morning',
     };
   }
 
-  // Priority 6: Dense calendar but no wearable / no stakes
+  // Priority 6: Dense calendar but no wearable / no stakes – tier-aware
   if (eventCount && eventCount >= 4) {
+    let denseDirective: string;
+    if (tier === 'depleted') {
+      denseDirective = `${eventCount} meetings today. Your reserves are low – pace through the volume and protect the gaps between.`;
+    } else if (tier === 'managing') {
+      denseDirective = `${eventCount} meetings today. Sustainable pacing through the volume is the goal – protect the space between demands.`;
+    } else if (tier === 'strong') {
+      denseDirective = `${eventCount} meetings today. Your above-baseline readiness handles volume well – sustain the quality across the full day.`;
+    } else {
+      denseDirective = `${eventCount} meetings today. Peak readiness meets a full calendar – the conditions for effortless passage through complex demands.`;
+    }
     return {
       phrase: defaultPhrase || "Start with presence.",
-      context: `${eventCount} meetings today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
+      context: denseDirective,
       driver: 'morning',
     };
   }
 
-  return { phrase: defaultPhrase || "Start with presence.", context: defaultContext || "The opening of the day sets the tone for everything that follows.", driver: 'morning' };
+  // Morning default fallback – tier-aware
+  let morningDefault: string;
+  if (tier === 'depleted') {
+    morningDefault = defaultContext || "Your reserves are low. How you enter the day determines how much you have for what matters.";
+  } else if (tier === 'managing') {
+    morningDefault = defaultContext || "A steady opening protects the capacity you'll need through the full shape of the day.";
+  } else if (tier === 'strong') {
+    morningDefault = defaultContext || "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.";
+  } else {
+    morningDefault = defaultContext || "Peak readiness at the start of the day. Every decision about how you use the opening hours is high-leverage.";
+  }
+  return { phrase: defaultPhrase || "Start with presence.", context: morningDefault, driver: 'morning' };
 }
 
 
@@ -1245,7 +1297,7 @@ function getSundayEveningInsights(
     : '';
 
   // High-stakes Monday event reference (kept for Sunday as forward-look is primary)
-  const stakeRef = monEvent ? ` You have ${monEvent} on Monday.` : '';
+  const stakeRef = monEvent ? ` You have '${monEvent}' on Monday.` : '';
 
   if (tier === 'depleted') {
     return {
