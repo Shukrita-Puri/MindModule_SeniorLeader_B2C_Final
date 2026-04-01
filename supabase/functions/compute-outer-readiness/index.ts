@@ -294,8 +294,60 @@ function buildWeekdayEveningTheme(
   return { phrase: defaultPhrase || "Close before tomorrow.", context: defaultContext || "Tonight is about release, not review.", driver: 'evening' };
 }
 
+// ==================== MORNING THEME BUILDER (sleep/recovery-aware) ====================
+function buildMorningTheme(
+  tier: EnergyTier,
+  wearable?: WearableContext | null,
+  defaultPhrase?: string,
+  defaultContext?: string,
+): { phrase: string; context: string; driver: ThemeDriver } {
+  if (wearable?.poorSleep) {
+    const sleepDetail = wearable.sleepScore
+      ? `(sleep score: ${wearable.sleepScore})`
+      : wearable.sleepDuration
+      ? `(${Math.round(wearable.sleepDuration / 60)} hours)`
+      : '';
+    if (tier === 'depleted') {
+      return {
+        phrase: "Pace from the start.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your system is starting in deficit — every early commitment costs more today. Protect the first hours and deploy carefully.`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'managing') {
+      return {
+        phrase: "Start steady, not strong.",
+        context: `Recovery overnight was incomplete ${sleepDetail}. Your operating baseline is lower than usual — a steady opening protects the capacity you'll need for what matters later.`,
+        driver: 'morning',
+      };
+    }
+    if (tier === 'strong') {
+      return {
+        phrase: "Guard the morning window.",
+        context: `Your readiness is above baseline despite incomplete recovery overnight ${sleepDetail}. That advantage is more fragile than usual — protect it through the morning's first demands.`,
+        driver: 'morning',
+      };
+    }
+    // peak
+    return {
+      phrase: "Protect the peak carefully.",
+      context: `Peak readiness despite a shorter recovery window ${sleepDetail}. This state may not sustain through a full day — deploy it where it matters most, not where it's spent first.`,
+      driver: 'morning',
+    };
+  }
 
-function getTheme(
+  if (wearable?.hrvElevated) {
+    return {
+      phrase: defaultPhrase || "Ease into the day.",
+      context: `Your HRV is signalling accumulated strain from recent days. ${defaultContext || "How you pace the opening hours determines your capacity through the rest of the day."}`,
+      driver: 'morning',
+    };
+  }
+
+  return { phrase: defaultPhrase || "Start with presence.", context: defaultContext || "The opening of the day sets the tone for everything that follows.", driver: 'morning' };
+}
+
+
   tier: EnergyTier,
   pressure: CalendarLevel | null,
   load: CalendarLevel | null,
