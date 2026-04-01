@@ -2367,14 +2367,14 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: spec.focus,
           intensity: spec.intensity,
           isFavorite: req.favorites.includes(selected.id),
-           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
+           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext, req.outerReadinessPhrase),
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
       } else if (timeOfDay === 'evening') {
-        // Fallback: try to find ANY real content from DB for this module type
+        // Fallback: try to find unfinished content from DB for this module type
         const fallbackCategory = moduleType === 'regulate' ? 'somatic' : 'mindset';
-        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory);
+        const fallbackItem = todCandidates.find((c: any) => c.category === fallbackCategory && !req.completedToday.includes(c.id));
         if (fallbackItem) {
           todModules.push({
             type: moduleType,
@@ -2385,12 +2385,12 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: spec.focus,
             intensity: spec.intensity,
             isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
+            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext, req.outerReadinessPhrase),
             required: spec.required,
             thumbnailUrl: fallbackItem.thumbnail_url
           });
         }
-        // If no real content exists at all, skip the module entirely
+        // If no unfinished content exists, skip the module entirely – never resurface completed
       }
     }
   }
