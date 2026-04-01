@@ -270,7 +270,7 @@ serve(async (req) => {
       }
     } else if (provider === 'outlook') {
       const response = await fetch(
-        `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${nextWeek.toISOString()}&$orderby=start/dateTime`,
+        `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${syncWindowStart.toISOString()}&endDateTime=${syncWindowEnd.toISOString()}&$orderby=start/dateTime&$top=250`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
 
