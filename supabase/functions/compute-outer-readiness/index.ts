@@ -175,12 +175,23 @@ async function getServerCalendarMetrics(
     const metrics = computeCalendarMetrics(eventList);
 
     // Identify high-stakes events by title
+    // RELEVANCE RULE: Personal blocks (Day Block, Focus Time, Prep, Hold, etc.) are NOT high-stakes.
+    // High-stakes = real meetings/presentations with multiple attendees or significant duration,
+    // NOT personal calendar blocks used for preparation or focus.
+    const personalBlockPatterns = /\b(day\s*block|focus\s*time|block\s*time|prep\s*block|hold|blocked|do\s*not\s*book|dnb|no\s*meetings|lunch|break|commute|travel\s*time|personal|buffer)\b/i;
     const highStakesEvents: string[] = [];
     for (const e of eventList) {
       const att = e.attendees_count || 0;
       const start = new Date(e.start_time);
       const end = new Date(e.end_time);
       const dur = (end.getTime() - start.getTime()) / 60000;
+
+      // Skip personal blocks: low attendees + title matches a block pattern
+      if (e.title && personalBlockPatterns.test(e.title) && att <= 1) continue;
+
+      // Skip events with 0 attendees and duration > 60 — likely personal blocks even without matching title
+      if (att === 0 && dur > 60 && !e.is_organizer) continue;
+
       const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
       if (isHighStakes && e.title) {
         highStakesEvents.push(e.title);
