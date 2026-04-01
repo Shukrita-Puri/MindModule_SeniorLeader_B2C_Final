@@ -1155,40 +1155,42 @@ serve(async (req) => {
     const tomorrowPressure: CalendarLevel | null = tomorrowResult?.state === 'active' ? tomorrowResult.pressure : null;
     const tomorrowHighStakes: string[] = tomorrowResult?.highStakesEvents || [];
 
-    // ── Fetch wearable data for evening context ──
+    // ── Fetch wearable data (always — mornings use sleep, evenings use HR/HRV) ──
     let wearableContext: WearableContext | null = null;
-    if (isEvening) {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { data: wearableRow } = await db
-          .from('wearable_data')
-          .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
-          .eq('user_id', userId)
-          .order('recorded_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    try {
+      const { data: wearableRow } = await db
+        .from('wearable_data')
+        .select('hrv, resting_heart_rate, heart_rate, sleep_score, sleep_duration')
+        .eq('user_id', userId)
+        .order('recorded_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (wearableRow) {
-          const rhr = wearableRow.resting_heart_rate || null;
-          const peakHR = wearableRow.heart_rate || null;
-          const hrv = wearableRow.hrv || null;
-          // Elevated HR: peak > 100 or > 120% of RHR
-          const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
-          // HRV stress: below 30ms absolute (low) — a simple heuristic
-          const hrvElevated = hrv !== null && hrv < 30;
-          wearableContext = {
-            hrv,
-            rhr,
-            peakHR,
-            sleepScore: wearableRow.sleep_score || null,
-            sleepDuration: wearableRow.sleep_duration || null,
-            hrvElevated,
-            hrElevated,
-          };
-        }
-      } catch (err) {
-        console.error('[compute-outer-readiness] Wearable data fetch error:', err);
+      if (wearableRow) {
+        const rhr = wearableRow.resting_heart_rate || null;
+        const peakHR = wearableRow.heart_rate || null;
+        const hrv = wearableRow.hrv || null;
+        const sleepScore = wearableRow.sleep_score || null;
+        const sleepDuration = wearableRow.sleep_duration || null;
+        // Elevated HR: peak > 100 or > 120% of RHR
+        const hrElevated = peakHR !== null && (peakHR > 100 || (rhr !== null && peakHR > rhr * 1.2));
+        // HRV stress: below 30ms absolute (low) — a simple heuristic
+        const hrvElevated = hrv !== null && hrv < 30;
+        // Poor sleep: score < 60 or duration < 6 hours (360 min)
+        const poorSleep = (sleepScore !== null && sleepScore < 60) || (sleepDuration !== null && sleepDuration < 360);
+        wearableContext = {
+          hrv,
+          rhr,
+          peakHR,
+          sleepScore,
+          sleepDuration,
+          hrvElevated,
+          hrElevated,
+          poorSleep,
+        };
       }
+    } catch (err) {
+      console.error('[compute-outer-readiness] Wearable data fetch error:', err);
     }
 
     console.log('[compute-outer-readiness] INPUT SUMMARY:', JSON.stringify({
