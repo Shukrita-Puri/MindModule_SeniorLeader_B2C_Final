@@ -987,6 +987,11 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
         : "Strong readiness through the afternoon. The question is where that advantage is most worth directing in the remaining hours.";
       return { phrase: "Sustain the advantage.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
     }
+    // Non-late evening
+    if (timeOfDay === 'evening')
+      return buildWeekdayEveningTheme('strong', null, wearable,
+        "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
+        todayHighStakes, eventCount, null, null);
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you." + wearableSuffix, driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing." + wearableSuffix, driver: 'state' };
