@@ -322,7 +322,7 @@ function buildContextSuffix(
 
   // When high-stakes events AND body strain – connect the two signals
   if (hasStakes && bodyStrained) {
-    const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+    const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
     return ` A day anchored by ${stakeRef} while your body carried elevated strain throughout.`;
   }
 
