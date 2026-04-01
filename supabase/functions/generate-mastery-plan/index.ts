@@ -2311,7 +2311,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       coachCard: todCoachCard,
       totalDuration,
       progressTracked: true,
-      calendarMessage: calendarMessage || undefined
+      planBrief: planBrief || undefined
     },
     calendarPills,
     preEventPlan,
