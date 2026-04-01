@@ -216,7 +216,7 @@ function getDayContext(dayOfWeek: number): DayContext {
   return 'weekday';
 }
 
-// ==================== THEME MATRIX (v3.0 — 40 themes) ====================
+// ==================== THEME MATRIX (v4.0 — evening-enriched) ====================
 function getTheme(
   tier: EnergyTier,
   pressure: CalendarLevel | null,
@@ -226,6 +226,8 @@ function getTheme(
   dayOfWeek: number,
   tomorrowLoad?: CalendarLevel | null,
   tomorrowPressure?: CalendarLevel | null,
+  tomorrowHighStakes?: string[],
+  wearable?: WearableContext | null,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
