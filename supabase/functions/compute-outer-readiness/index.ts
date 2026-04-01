@@ -1637,6 +1637,7 @@ function getLeanOnWatchFor(
   wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
   todayHighStakes?: string[],
   eventCount?: number,
+  remainingEvents?: number,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
