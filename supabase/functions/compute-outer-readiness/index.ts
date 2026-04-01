@@ -309,7 +309,7 @@ function getTheme(
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable);
   }
 
   const timeOfDay = getTimeOfDay(hour);
