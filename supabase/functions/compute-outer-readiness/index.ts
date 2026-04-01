@@ -443,7 +443,7 @@ function getTheme(
   if (load === 'low')
     return { phrase: "Deep work window.", context: "Peak readiness on a protected schedule. Among the rarest conditions for your highest-value thinking and most important work.", driver: 'load' };
   if (timeOfDay === 'morning')
-    return { phrase: "Protect the peak.", context: "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.", driver: 'morning' };
+    return buildMorningTheme('peak', wearable, "Protect the peak.", "Full readiness at the start of the day, a window that is both rare and perishable. How you open the day determines how much of it you carry through.");
   if (timeOfDay === 'evening') {
     if (dayCtx === 'sunday') {
       const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
