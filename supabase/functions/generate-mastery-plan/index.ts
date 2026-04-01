@@ -2257,7 +2257,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         timePill: topEvent.timePill,
         contextDescription: enrichedContextDescription,
         modules: preEventModules,
-        coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
+        coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil, coachStateHash),
         progressTracked: false,
         hrvCorrelation: topEvent.hrvCorrelation || null,
         actionWindow: actionWindow,
