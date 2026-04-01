@@ -22,12 +22,25 @@ serve(async (req) => {
     // Only active connections
     const { data: connections, error: connError } = await serviceClient
       .from('calendar_connections')
-      .select('user_id, provider, profiles!inner(timezone_offset)')
+      .select('user_id, provider')
       .eq('is_active', true);
 
     if (connError) {
       console.error('[sync-calendar-scheduled] Error fetching connections:', connError);
       throw connError;
+    }
+
+    // Fetch timezone_offset for all connected users in one query
+    const userIds = [...new Set((connections || []).map(c => c.user_id))];
+    const tzMap: Record<string, number> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await serviceClient
+        .from('profiles')
+        .select('id, timezone_offset')
+        .in('id', userIds);
+      for (const p of profiles || []) {
+        tzMap[p.id] = p.timezone_offset ?? 0;
+      }
     }
 
     const total = connections?.length || 0;
@@ -54,7 +67,7 @@ serve(async (req) => {
             provider: conn.provider,
             _internalUserId: conn.user_id,
             _internalKey: serviceRoleKey,
-            timezoneOffset: (conn as any).profiles?.timezone_offset ?? 0,
+            timezoneOffset: tzMap[conn.user_id] ?? 0,
           }),
         });
 
