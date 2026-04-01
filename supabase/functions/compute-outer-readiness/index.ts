@@ -1017,6 +1017,11 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
       : "Exceptional readiness is present through the afternoon. A rare state that is worth both using fully and protecting deliberately.";
     return { phrase: "Channel the peak.", context: buildAfternoonContext(todayHighStakes, eventCount, wearable, base), driver: 'state' };
   }
+  // Non-late evening
+  if (timeOfDay === 'evening')
+    return buildWeekdayEveningTheme('peak', null, wearable,
+      "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
+      todayHighStakes, eventCount, null, null);
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest." + wearableSuffix, driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately." + wearableSuffix, driver: 'state' };
