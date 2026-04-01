@@ -515,50 +515,65 @@ function getEveningInsights(
   tier: EnergyTier,
   calendarLoad: CalendarLevel | null,
   calendarPressure: CalendarLevel | null,
+  tomorrowLoad?: CalendarLevel | null,
+  tomorrowPressure?: CalendarLevel | null,
+  tomorrowHighStakes?: string[],
+  wearable?: WearableContext | null,
 ): { leanOn: string; watchFor: string } {
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hadModerateDay = calendarLoad === 'medium' || calendarPressure === 'medium';
+  const hasHighStakesTomorrow = tomorrowHighStakes && tomorrowHighStakes.length > 0;
+  const eventName = hasHighStakesTomorrow ? tomorrowHighStakes[0] : null;
+  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+
+  // Build wearable-aware leanOn suffix
+  const bodyLeanOnSuffix = bodyStressed
+    ? ` Your body carried today's load — ${wearable!.hrElevated ? 'elevated heart rate through back-to-back demands' : 'accumulated HRV strain'}. The cool-down tonight is physical, not just mental.`
+    : '';
+
+  // Build tomorrow-aware watchFor suffix
+  const tomorrowWatchSuffix = hasHighStakesTomorrow
+    ? ` Preparing for ${eventName} tonight when what you actually need is restoration. You'll be sharper arriving rested than over-rehearsed.`
+    : '';
 
   if (tier === 'depleted') {
     return {
-      leanOn: hadHeavyDay
+      leanOn: (hadHeavyDay
         ? "Your awareness that your system has given everything it had to a demanding day. Permission to stop is itself a form of leadership tonight."
-        : "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.",
-      watchFor: hadHeavyDay
+        : "Your awareness that your system has already given what it had. Permission to stop is itself a form of leadership.") + bodyLeanOnSuffix,
+      watchFor: (hadHeavyDay
         ? "Replaying today's high-stakes moments when what your system actually needs is release. The review can wait until morning."
-        : "Replaying the day when what your system actually needs is release.",
+        : "Replaying the day when what your system actually needs is release.") + tomorrowWatchSuffix,
     };
   }
   if (tier === 'managing') {
     return {
-      leanOn: hadHeavyDay
+      leanOn: (hadHeavyDay
         ? "Your capacity to close a demanding day cleanly. You carried the weight — now let the day be done."
-        : "Your capacity to close cleanly. The day is done and your system knows it.",
-      watchFor: hadHeavyDay
+        : "Your capacity to close cleanly. The day is done and your system knows it.") + bodyLeanOnSuffix,
+      watchFor: (hadHeavyDay
         ? "Carrying today's unfinished threads into recovery hours. A heavy day needs a clean close, not extended processing."
-        : "Carrying unfinished mental threads into the hours your body needs to recover.",
+        : "Carrying unfinished mental threads into the hours your body needs to recover.") + tomorrowWatchSuffix,
     };
   }
   if (tier === 'strong') {
     return {
-      leanOn: hadHeavyDay
+      leanOn: (hadHeavyDay
         ? "Your ability to transition deliberately after a full day. Strength used well today needs quality rest tonight."
-        : hadModerateDay
-        ? "Your ability to transition. You can shift from performance mode to recovery mode deliberately."
-        : "Your ability to transition. You can shift from performance mode to recovery mode deliberately.",
-      watchFor: hadHeavyDay
+        : "Your ability to transition. You can shift from performance mode to recovery mode deliberately.") + bodyLeanOnSuffix,
+      watchFor: (hadHeavyDay
         ? "Staying in problem-solving mode after a day that already asked a lot. Tomorrow benefits more from rest than from tonight's residual thinking."
-        : "Staying in problem-solving mode past the point where it serves tomorrow.",
+        : "Staying in problem-solving mode past the point where it serves tomorrow.") + tomorrowWatchSuffix,
     };
   }
   // peak
   return {
-    leanOn: hadHeavyDay
+    leanOn: (hadHeavyDay
       ? "Your discipline to protect recovery after a high-output day. Peak performance sustained through a demanding schedule needs deliberate wind-down."
-      : "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.",
-    watchFor: hadHeavyDay
+      : "Your discipline to protect recovery even when your system still feels activated. High output needs high-quality rest.") + bodyLeanOnSuffix,
+    watchFor: (hadHeavyDay
       ? "Mistaking late-night activation for productive energy after a full day. Your nervous system needs the wind-down especially after sustained output."
-      : "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.",
+      : "Mistaking late-night activation for productive energy. Your nervous system needs the wind-down even when your mind doesn't.") + tomorrowWatchSuffix,
   };
 }
 
