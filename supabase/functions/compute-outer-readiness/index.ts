@@ -1297,7 +1297,7 @@ function getSundayEveningInsights(
     : '';
 
   // High-stakes Monday event reference (kept for Sunday as forward-look is primary)
-  const stakeRef = monEvent ? ` You have ${monEvent} on Monday.` : '';
+  const stakeRef = monEvent ? ` You have '${monEvent}' on Monday.` : '';
 
   if (tier === 'depleted') {
     return {
