@@ -464,16 +464,24 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
+  const timeOfDay = getTimeOfDay(hour);
+  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
 
   if (tier === 'depleted') {
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Rest before the week.", context: "Ending the weekend in a low-reserve state means Monday starts in deficit. What tonight holds matters more than it might feel like it does.", driver: 'state' };
-      return { phrase: "Let the day close.", context: "Your system has already given what it had. The most important thing now is genuine release and recovery.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Your ${wearable!.hrElevated ? 'heart rate ran high' : 'HRV shows strain'} through today — the cool-down is physical, not just mental.` : '';
+      return { phrase: "Let the day close.", context: `Your system has already given what it had. The most important thing now is genuine release and recovery.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('depleted', wearable, score <= 25 ? "Begin with stillness." : "Protect your reserves.",
+        score <= 25
+          ? "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual."
+          : "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.");
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual.", driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now.", driver: 'state' };
@@ -482,8 +490,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Close into the week.", context: "Sunday evening is its own transition. How you close it is how you open the week. A clean close here protects Monday's first hours.", driver: 'state' };
-      return { phrase: "Close the day cleanly.", context: "Operational capacity has served its purpose today. A clean close now protects tomorrow's opening state.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Your body is also signalling strain — a deliberate physical wind-down tonight supports tomorrow's recovery.` : '';
+      return { phrase: "Close the day cleanly.", context: `Operational capacity has served its purpose today. A clean close now protects tomorrow's opening state.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('managing', wearable, score <= 49 ? "Operate with care." : "Steady and selective.",
+        score <= 49
+          ? "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment."
+          : "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.");
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment.", driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes.", driver: 'state' };
@@ -492,8 +506,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (lateEvening) {
       if (dayCtx === 'sunday')
         return { phrase: "Carry it into Monday.", context: "Strong readiness at the close of the weekend is a real asset. Protecting tonight means carrying that advantage into Monday.", driver: 'state' };
-      return { phrase: "Protect tomorrow's advantage.", context: "Above-baseline readiness at this hour is worth protecting through deliberate wind-down rather than spending.", driver: 'state' };
+      const bodyNote = bodyStressed ? ` Despite above-baseline readiness, your ${wearable!.hrElevated ? 'heart rate' : 'HRV'} is signalling the body needs recovery — honour that tonight.` : '';
+      return { phrase: "Protect tomorrow's advantage.", context: `Above-baseline readiness at this hour is worth protecting through deliberate wind-down rather than spending.${bodyNote}`, driver: 'state' };
     }
+    if (timeOfDay === 'morning')
+      return buildMorningTheme('strong', wearable, score <= 69 ? "Lead with confidence." : "Invest your advantage.",
+        score <= 69
+          ? "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you."
+          : "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.");
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you.", driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing.", driver: 'state' };
@@ -502,8 +522,14 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
   if (lateEvening) {
     if (dayCtx === 'sunday')
       return { phrase: "Protect it for Monday.", context: "Full readiness on a Sunday evening is worth protecting deliberately. How you close tonight determines whether that state is still available when the week's first demands arrive.", driver: 'state' };
-    return { phrase: "Wind down deliberately.", context: "Peak activation at this hour needs a deliberate transition. Your nervous system needs the wind-down even when your mind doesn't.", driver: 'state' };
+    const bodyNote = bodyStressed ? ` Your body is telling a different story to your mind — honour the physical signal with a genuine wind-down.` : '';
+    return { phrase: "Wind down deliberately.", context: `Peak activation at this hour needs a deliberate transition. Your nervous system needs the wind-down even when your mind doesn't.${bodyNote}`, driver: 'state' };
   }
+  if (timeOfDay === 'morning')
+    return buildMorningTheme('peak', wearable, score <= 89 ? "Bring your full presence." : "Own your peak.",
+      score <= 89
+        ? "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest."
+        : "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.");
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest.", driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately.", driver: 'state' };
