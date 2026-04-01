@@ -528,6 +528,7 @@ interface CalendarContext {
   upcomingLoad: 'light' | 'moderate' | 'heavy' | 'extreme';
   upcomingMeetingCount: number;
   upcomingMeetingHours: number;
+  remainingMeetingCount: number;
 }
 
 function classifyLoad(count: number, hours: number): 'light' | 'moderate' | 'heavy' | 'extreme' {
@@ -576,6 +577,7 @@ function calculateCalendarContext(
     upcomingLoad: classifyLoad(upcomingMeetingCount, upcomingMeetingHours),
     upcomingMeetingCount,
     upcomingMeetingHours: Math.round(upcomingMeetingHours * 10) / 10,
+    remainingMeetingCount: upcomingMeetingCount,
   };
 }
 
@@ -675,34 +677,74 @@ function applyCalendarOverrides(
   return m;
 }
 
-function generateCalendarMessage(
+function generatePlanBrief(
   ctx: CalendarContext,
-  timeOfDay: 'morning' | 'afternoon' | 'evening'
-): string | null {
-  const load = timeOfDay === 'morning' ? ctx.upcomingLoad : ctx.todayLoad;
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  innerReadinessTier: string,
+  checkInOutcome: string,
+  calendarLoad: string
+): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
-  const hours = timeOfDay === 'morning' ? ctx.upcomingMeetingHours : ctx.todayMeetingHours;
+  const remainingCount = ctx.remainingMeetingCount ?? count;
+  const hasCalendar = count > 0;
 
-  if (count === 0) return null; // No calendar data
+  // Map readiness tier to human language
+  const tierLabel: Record<string, string> = {
+    depleted: 'drained',
+    managing: 'steady',
+    strong: 'above baseline',
+    peak: 'at peak readiness'
+  };
+  const readinessWord = tierLabel[innerReadinessTier] || 'steady';
 
-  const hrsLabel = hours === 1 ? '1 hr' : `${hours} hrs`;
+  // Map check-in outcome to state descriptor
+  const outcomeLabel: Record<string, string> = {
+    thriving: 'energised',
+    steady: 'steady',
+    struggling: 'under pressure',
+    drained: 'drained',
+    scattered: 'scattered',
+    anxious: 'tense',
+    flat: 'flat'
+  };
+  const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
 
+  // ---- EVENING ----
+  if (timeOfDay === 'evening') {
+    if (!hasCalendar) {
+      return 'This evening sequence helps you close the day with intention and prepare your mind for tomorrow.';
+    }
+    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+      return `You checked in as ${stateWord} after ${count} meetings. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
+    }
+    if (calendarLoad === 'moderate') {
+      return `After a moderate day of ${count} meetings, this sequence helps you close with clarity and set up tomorrow.`;
+    }
+    return `A lighter day behind you. This evening sequence helps you consolidate what went well and rest with intention.`;
+  }
+
+  // ---- MORNING ----
   if (timeOfDay === 'morning') {
-    if (load === 'extreme') return `Extreme Day Ahead (${count} meetings, ${hrsLabel})`;
-    if (load === 'heavy') return `Heavy Day Ahead (${count} meetings, ${hrsLabel})`;
-    if (load === 'moderate') return `Moderate Day (${count} meetings, ${hrsLabel})`;
-    return `Open Day (${count} meetings)`;
+    if (!hasCalendar) {
+      return `Your readiness is ${readinessWord}. These practices set your mental edge for the day ahead.`;
+    }
+    if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+      return `Your readiness is ${readinessWord} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
+    }
+    if (calendarLoad === 'moderate') {
+      return `Your readiness is ${readinessWord} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
+    }
+    return `You're ${readinessWord} with a light day ahead. These practices channel that clarity into deliberate intention.`;
   }
-  if (timeOfDay === 'afternoon') {
-    if (load === 'extreme' || load === 'heavy') return `Dense Day (${count} meetings, ${hrsLabel})`;
-    if (load === 'moderate') return `Moderate Day (${count} meetings)`;
-    return null; // Light afternoon – no special callout
+
+  // ---- AFTERNOON ----
+  if (!hasCalendar || remainingCount === 0) {
+    return `Your readiness is ${readinessWord}. This sequence resets your energy for the stretch that remains.`;
   }
-  // Evening
-  if (load === 'extreme') return `Deep Recovery (${count} meetings today, ${hrsLabel})`;
-  if (load === 'heavy') return `Wind-Down Priority (${count} meetings today)`;
-  if (load === 'moderate') return `Evening Transition (${count} meetings today)`;
-  return `Light Close (${count} meetings today)`;
+  if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+    return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
+  }
+  return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
 }
 
 function hashCode(str: string): number {
@@ -2112,8 +2154,8 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const calendarMessage = generateCalendarMessage(calendarContext, timeOfDay);
-  console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), calendarMessage=${calendarMessage}`);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad);
+  console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
   if (timeOfDay === 'evening') {
@@ -2170,7 +2212,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           intensity: spec.intensity,
           isFavorite: false,
           isCoachCard: true,
-          reasoning: moduleType === 'prepare' ? 'Mental rehearsal for upcoming moments' : 'Evening reflection and tiny wins capture',
+          reasoning: moduleType === 'prepare' ? 'Prepare your mindset for what\'s coming – arrive ready, not reactive' : 'Capture what went well today and close with intention – this prevents rumination overnight',
           required: spec.required
         });
       }
@@ -2186,7 +2228,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: spec.focus,
           intensity: spec.intensity,
           isFavorite: req.favorites.includes(selected.id),
-          reasoning: getModuleReasoning(moduleType, spec.focus),
+           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
@@ -2204,7 +2246,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: spec.focus,
             intensity: spec.intensity,
             isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getModuleReasoning(moduleType, spec.focus),
+            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
             required: spec.required,
             thumbnailUrl: fallbackItem.thumbnail_url
           });
@@ -2271,7 +2313,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
       coachCard: todCoachCard,
       totalDuration,
       progressTracked: true,
-      calendarMessage: calendarMessage || undefined
+      planBrief: planBrief || undefined
     },
     calendarPills,
     preEventPlan,
@@ -2330,16 +2372,61 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
   return topCandidates[idx]?.content || null;
 }
 
-function getModuleReasoning(moduleType: string, focus: string): string {
-  const reasons: Record<string, string> = {
-    composure: 'Restore calm and emotional regulation',
-    grounding: 'Anchor your attention and center yourself',
-    focus: 'Sharpen concentration and clarity',
-    confidence: 'Build presence and self-assurance',
-    release: 'Let go of tension and mental clutter',
-    restore: 'Replenish depleted energy reserves'
-  };
-  return reasons[focus] || 'Support your current state';
+function getContextualReasoning(
+  moduleType: string,
+  focus: string,
+  innerReadinessTier: string,
+  checkInOutcome: string,
+  calendarLoad: string,
+  timeOfDay: 'morning' | 'afternoon' | 'evening'
+): string {
+  const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
+  const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
+  const isEvening = timeOfDay === 'evening';
+  const isStrong = innerReadinessTier === 'strong' || innerReadinessTier === 'peak';
+
+  // Context-aware reasoning per focus area
+  if (focus === 'composure') {
+    if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
+    if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
+    return 'This practice anchors your composure so you show up grounded, not reactive';
+  }
+  if (focus === 'release') {
+    if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
+    if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
+    if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
+    return 'Clear mental clutter so your next decision comes from clarity, not residue';
+  }
+  if (focus === 'grounding') {
+    if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
+    if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
+    return 'This practice anchors your attention so you\'re fully present for what\'s next';
+  }
+  if (focus === 'focus') {
+    if (isDense) return 'With a dense calendar, this narrows your attention to what genuinely matters next';
+    if (isDepleted) return 'When depleted, targeted focus prevents you from spreading thin';
+    return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
+  }
+  if (focus === 'confidence') {
+    if (isStrong) return 'Your readiness is high – this practice channels that into visible, confident presence';
+    if (isDepleted) return 'Even when drained, this practice reconnects you to your leadership presence';
+    return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
+  }
+  if (focus === 'restore') {
+    if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
+    if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
+    return 'Top up your reserves now so you have capacity for what remains';
+  }
+
+  // Fallback by module type
+  if (moduleType === 'integrate') {
+    if (isEvening) return 'Capture what went well today and close with intention – this prevents rumination overnight';
+    return 'Integrate what you\'ve practised into how you show up next';
+  }
+  if (moduleType === 'prepare') {
+    return 'Prepare your mindset for what\'s coming – arrive ready, not reactive';
+  }
+  return 'This practice supports your current state and what lies ahead';
 }
 
 // ==================== HANDLER ====================

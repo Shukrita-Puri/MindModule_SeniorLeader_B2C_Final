@@ -80,6 +80,7 @@ interface MasteryPlanResponse {
     totalDuration: number;
     progressTracked: boolean;
     calendarMessage?: string;
+    planBrief?: string;
   };
   calendarPills: CalendarPill[];
   preEventPlan: PreEventPlan | null;
@@ -559,10 +560,12 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                   {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
                 </span>
               </div>
-              {plan?.timeOfDayPlan?.calendarMessage && (
-                <span className="text-[11px] text-muted-foreground font-body mt-0.5 italic">
-                  {plan.timeOfDayPlan.calendarMessage}
-                </span>
+              {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
+                <div className="bg-muted/20 rounded-lg px-3 py-2 mt-1.5 min-h-[20px]">
+                  <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+                    {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
+                  </span>
+                </div>
               )}
             </div>
             <span className={cn(
@@ -655,7 +658,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
                         )}
                       </div>
                       {module.reasoning && !isCompleted && (
-                        <p className="text-[11px] text-muted-foreground/90 italic font-medium font-body line-clamp-2 leading-snug mt-0.5">
+                        <p className="text-[12px] text-muted-foreground font-medium font-body line-clamp-3 leading-snug mt-0.5">
                           {module.reasoning}
                         </p>
                       )}
