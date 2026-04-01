@@ -300,7 +300,7 @@ function buildContextSuffix(
       return ` You carried ${stakeRef} today while your body ran at elevated strain throughout.`;
     }
     if (hasStakes && denseCalendar) {
-      const stakeRef = todayHighStakes![0];
+      const stakeRef = `'${todayHighStakes![0]}'`;
       return ` You navigated ${stakeRef} and a full calendar today.`;
     }
     if (denseCalendar && bodyStrained) {
