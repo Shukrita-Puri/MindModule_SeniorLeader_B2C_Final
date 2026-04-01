@@ -159,7 +159,7 @@ async function getServerCalendarMetrics(
     .maybeSingle();
 
   if (!conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
+    return { load: 'low', pressure: 'low', eventCount: 0, meetingCount: 0, remainingMeetings: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
   }
 
   const { data: events, error } = await db
