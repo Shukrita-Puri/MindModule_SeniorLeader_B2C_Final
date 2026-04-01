@@ -577,6 +577,7 @@ function calculateCalendarContext(
     upcomingLoad: classifyLoad(upcomingMeetingCount, upcomingMeetingHours),
     upcomingMeetingCount,
     upcomingMeetingHours: Math.round(upcomingMeetingHours * 10) / 10,
+    remainingMeetingCount: upcomingMeetingCount,
   };
 }
 
