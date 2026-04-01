@@ -42,6 +42,17 @@ interface CalendarMetricsResult {
   pressure: CalendarLevel;
   eventCount: number;
   state: 'active' | 'connected_no_events' | 'not_connected';
+  highStakesEvents: string[];
+}
+
+interface WearableContext {
+  hrv: number | null;
+  rhr: number | null;
+  peakHR: number | null;
+  sleepScore: number | null;
+  sleepDuration: number | null;
+  hrvElevated: boolean; // HRV significantly below baseline
+  hrElevated: boolean;  // Peak HR notably high (>100 or >120% of RHR)
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
