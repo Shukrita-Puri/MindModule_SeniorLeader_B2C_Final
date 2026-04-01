@@ -584,27 +584,40 @@ function getSundayEveningInsights(
   calendarPressure: CalendarLevel | null,
   mondayLoad: CalendarLevel | null,
   mondayPressure: CalendarLevel | null,
+  mondayHighStakes?: string[],
+  wearable?: WearableContext | null,
 ): { leanOn: string; watchFor: string } {
   const heavyMonday = mondayLoad === 'high' || mondayPressure === 'high';
   const moderateMonday = mondayLoad === 'medium' || mondayPressure === 'medium';
+  const hasMonStakes = mondayHighStakes && mondayHighStakes.length > 0;
+  const monEvent = hasMonStakes ? mondayHighStakes[0] : null;
+  const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
+
+  // Wearable suffix for Sunday leanOn
+  const bodySuffix = bodyStressed
+    ? ` Your body is also signalling strain — ${wearable!.hrElevated ? 'elevated heart rate' : 'low HRV'} from this weekend. Tonight's recovery is physical too.`
+    : '';
+
+  // High-stakes Monday event reference
+  const stakeRef = monEvent ? ` You have ${monEvent} on Monday.` : '';
 
   if (tier === 'depleted') {
     return {
-      leanOn: heavyMonday
-        ? "Your awareness that starting the week depleted before a demanding Monday is itself critical information. What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment."
-        : "Your awareness that starting the week already depleted is itself useful information. What you protect tonight is the most important leadership decision you make before Monday.",
+      leanOn: (heavyMonday
+        ? `Your awareness that starting the week depleted before a demanding Monday is itself critical information.${stakeRef} What you protect tonight directly determines how you show up for tomorrow's first high-stakes moment.`
+        : "Your awareness that starting the week already depleted is itself useful information. What you protect tonight is the most important leadership decision you make before Monday.") + bodySuffix,
       watchFor: heavyMonday
-        ? "Pushing through Sunday evening when Monday demands your best. Deficit carried into a heavy day compounds every decision."
+        ? `Pushing through Sunday evening when Monday demands your best.${stakeRef ? ` Preparing for ${monEvent} tonight when what you need is restoration.` : ''} Deficit carried into a heavy day compounds every decision.`
         : "Pushing through Sunday evening when your system needs recovery. Deficit carried into Monday compounds through the week.",
     };
   }
   if (tier === 'managing') {
     return {
-      leanOn: heavyMonday
-        ? "Your capacity to close the weekend cleanly and prepare deliberately. A demanding Monday is ahead — how you enter it matters more than what you plan for it."
-        : "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.",
+      leanOn: (heavyMonday
+        ? `Your capacity to close the weekend cleanly and prepare deliberately.${stakeRef} A demanding Monday is ahead — how you enter it matters more than what you plan for it.`
+        : "Your capacity to close the weekend cleanly and set a deliberate intention for how you want to enter the week.") + bodySuffix,
       watchFor: heavyMonday
-        ? "Pre-loading Monday's stress tonight. The preparation that matters most is protecting your internal state, not rehearsing tomorrow's calendar."
+        ? `Pre-loading Monday's stress tonight.${monEvent ? ` Rehearsing for ${monEvent} when` : ' The preparation that matters most is protecting your internal state, not rehearsing tomorrow\'s calendar. When'} what you actually need is restoration.`
         : moderateMonday
         ? "Drifting into Monday without a clear internal anchor. A moderate week ahead deserves a deliberate opening."
         : "Drifting into Monday without a clear internal anchor. Operational capacity without direction diffuses quickly.",
@@ -612,21 +625,21 @@ function getSundayEveningInsights(
   }
   if (tier === 'strong') {
     return {
-      leanOn: heavyMonday
-        ? "Your above-baseline readiness meeting a demanding Monday. Protecting this state tonight is the single highest-leverage move for tomorrow."
-        : "Your readiness to open the week from a position of genuine strength. Above-baseline on a Sunday evening is a real advantage if protected.",
+      leanOn: (heavyMonday
+        ? `Your above-baseline readiness meeting a demanding Monday.${stakeRef} Protecting this state tonight is the single highest-leverage move for tomorrow.`
+        : "Your readiness to open the week from a position of genuine strength. Above-baseline on a Sunday evening is a real advantage if protected.") + bodySuffix,
       watchFor: heavyMonday
-        ? "Spending tonight's strong state on Monday prep instead of genuine wind-down. Your best asset for a heavy day is arriving rested, not over-prepared."
+        ? `Spending tonight's strong state on Monday prep instead of genuine wind-down.${monEvent ? ` You'll be sharper for ${monEvent} arriving rested than over-prepared.` : ' Your best asset for a heavy day is arriving rested, not over-prepared.'}`
         : "Spending Sunday evening energy on low-value thinking when the higher-leverage move is protecting the state you're already in.",
     };
   }
   // peak
   return {
-    leanOn: heavyMonday
-      ? "Full readiness on Sunday evening before a demanding Monday is exceptionally rare and valuable. Your only priority tonight is protecting this state through genuine rest."
-      : "Full readiness at the start of the week is among the rarest and most valuable conditions. Your priority tonight is protecting it, not spending it.",
+    leanOn: (heavyMonday
+      ? `Full readiness on Sunday evening before a demanding Monday is exceptionally rare and valuable.${stakeRef} Your only priority tonight is protecting this state through genuine rest.`
+      : "Full readiness at the start of the week is among the rarest and most valuable conditions. Your priority tonight is protecting it, not spending it.") + bodySuffix,
     watchFor: heavyMonday
-      ? "Using peak Sunday activation to front-load Monday's work. The week needs this state intact — preserved through rest, not depleted through anticipation."
+      ? `Using peak Sunday activation to front-load Monday's work.${monEvent ? ` The best preparation for ${monEvent} is arriving with this state intact` : ' The week needs this state intact'} — preserved through rest, not depleted through anticipation.`
       : "Using peak Sunday activation for work or planning rather than genuine wind-down. The week needs this state intact, not already drawn from.",
   };
 }
