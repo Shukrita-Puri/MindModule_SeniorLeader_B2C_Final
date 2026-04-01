@@ -799,25 +799,56 @@ function buildMorningTheme(
     };
   }
 
-  // Priority 5: High-stakes events but no wearable data
+  // Priority 5: High-stakes events but no wearable data – tier-aware
   if (hasHighStakes) {
+    let morningDirective: string;
+    if (tier === 'depleted') {
+      morningDirective = `'${eventRef}' is ahead today. Your reserves are low – protecting the opening hours determines how much you have when it matters.`;
+    } else if (tier === 'managing') {
+      morningDirective = `'${eventRef}' is ahead today. A steady opening protects the capacity you'll need for what matters later.`;
+    } else if (tier === 'strong') {
+      morningDirective = `'${eventRef}' is ahead today. Your readiness is genuine – protect it through the morning's first demands.`;
+    } else {
+      morningDirective = `'${eventRef}' is ahead today. Peak readiness is rare – deploy it where it matters most, not where it's spent first.`;
+    }
     return {
       phrase: defaultPhrase || "Start with presence.",
-      context: `${eventRef} is ahead today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
+      context: morningDirective,
       driver: 'morning',
     };
   }
 
-  // Priority 6: Dense calendar but no wearable / no stakes
+  // Priority 6: Dense calendar but no wearable / no stakes – tier-aware
   if (eventCount && eventCount >= 4) {
+    let denseDirective: string;
+    if (tier === 'depleted') {
+      denseDirective = `${eventCount} meetings today. Your reserves are low – pace through the volume and protect the gaps between.`;
+    } else if (tier === 'managing') {
+      denseDirective = `${eventCount} meetings today. Sustainable pacing through the volume is the goal – protect the space between demands.`;
+    } else if (tier === 'strong') {
+      denseDirective = `${eventCount} meetings today. Your above-baseline readiness handles volume well – sustain the quality across the full day.`;
+    } else {
+      denseDirective = `${eventCount} meetings today. Peak readiness meets a full calendar – the conditions for effortless passage through complex demands.`;
+    }
     return {
       phrase: defaultPhrase || "Start with presence.",
-      context: `${eventCount} meetings today. ${defaultContext || "The opening of the day sets the tone for everything that follows."}`,
+      context: denseDirective,
       driver: 'morning',
     };
   }
 
-  return { phrase: defaultPhrase || "Start with presence.", context: defaultContext || "The opening of the day sets the tone for everything that follows.", driver: 'morning' };
+  // Morning default fallback – tier-aware
+  let morningDefault: string;
+  if (tier === 'depleted') {
+    morningDefault = defaultContext || "Your reserves are low. How you enter the day determines how much you have for what matters.";
+  } else if (tier === 'managing') {
+    morningDefault = defaultContext || "A steady opening protects the capacity you'll need through the full shape of the day.";
+  } else if (tier === 'strong') {
+    morningDefault = defaultContext || "Strong readiness at the start of the day. How you use the opening hours determines how much of this advantage you carry through.";
+  } else {
+    morningDefault = defaultContext || "Peak readiness at the start of the day. Every decision about how you use the opening hours is high-leverage.";
+  }
+  return { phrase: defaultPhrase || "Start with presence.", context: morningDefault, driver: 'morning' };
 }
 
 
