@@ -343,7 +343,8 @@ function getTheme(
       }
       if (dayCtx === 'friday')
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
-      return { phrase: "Close strong.", context: "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.", driver: 'evening' };
+      return buildWeekdayEveningTheme('strong', tomorrowHighStakes, wearable,
+        "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.");
     }
     return { phrase: "Leverage your position.", context: "You are above baseline today. The question is where that advantage is most worth investing.", driver: 'state' };
   }
