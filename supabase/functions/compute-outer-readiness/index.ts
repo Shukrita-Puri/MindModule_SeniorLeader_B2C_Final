@@ -328,7 +328,7 @@ function buildContextSuffix(
 
   // High-stakes events AND poor sleep (morning) – connect recovery to demands
   if (hasStakes && timeOfDay === 'morning' && hasSleepIssue) {
-    const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+    const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
     const sleepDetail = wearable!.sleepScore ? `(sleep score: ${wearable!.sleepScore})` : '';
     return ` Recovery overnight was incomplete ${sleepDetail} – and ${stakeRef} is ahead.`;
   }
