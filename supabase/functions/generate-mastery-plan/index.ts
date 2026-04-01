@@ -2408,7 +2408,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     if (!hasCoachModule && todModules.length < maxModules) {
       const coachType = timeOfDay === 'evening' ? 'integrate' : 'prepare';
       todCoachCard = {
-        id: `coach-${coachType}`,
+        id: `coach-${coachType}:${coachStateHash.substring(0, 8)}`,
         type: coachType,
         label: coachType === 'integrate' ? 'Integrate' : 'Prepare',
         protocolType: 'Self Mastery Coach',
