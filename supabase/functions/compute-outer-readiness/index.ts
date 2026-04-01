@@ -426,7 +426,7 @@ function buildWeekdayEveningTheme(
   remainingMeetings?: number,
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasTomorrowStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
-  const tomorrowEvent = hasTomorrowStakes ? tomorrowHighStakes[0] : null;
+  const tomorrowEvent = hasTomorrowStakes ? `'${tomorrowHighStakes[0]}'` : null;
   const bodyStressed = wearable && (wearable.hrElevated || wearable.hrvElevated);
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hasTodayStakes = todayHighStakes && todayHighStakes.length > 0;
