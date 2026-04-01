@@ -899,6 +899,8 @@ function getLeanOnWatchFor(
   calendarPressure: CalendarLevel | null,
   tomorrowLoad: CalendarLevel | null,
   tomorrowPressure: CalendarLevel | null,
+  tomorrowHighStakes: string[],
+  wearableContext: WearableContext | null,
   wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
