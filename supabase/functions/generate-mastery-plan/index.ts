@@ -2210,7 +2210,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           intensity: spec.intensity,
           isFavorite: false,
           isCoachCard: true,
-          reasoning: moduleType === 'prepare' ? 'Mental rehearsal for upcoming moments' : 'Evening reflection and tiny wins capture',
+          reasoning: moduleType === 'prepare' ? 'Prepare your mindset for what\'s coming – arrive ready, not reactive' : 'Capture what went well today and close with intention – this prevents rumination overnight',
           required: spec.required
         });
       }
