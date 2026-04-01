@@ -1944,6 +1944,8 @@ serve(async (req) => {
       calendarLoad,
       calendarPressure,
       todayHighStakes,
+      remainingEvents: calendarResult.remainingEvents,
+      remainingHighStakes: calendarResult.remainingHighStakes,
       tomorrowLoad,
       tomorrowPressure,
       tomorrowHighStakes,
