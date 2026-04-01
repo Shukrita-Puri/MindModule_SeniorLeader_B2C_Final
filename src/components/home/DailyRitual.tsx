@@ -518,8 +518,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   }
 
   const rawModules = plan?.timeOfDayPlan?.modules || [];
-  // Filter out completed practices entirely – only show outstanding work
-  const activeModules = rawModules.filter(m => !completedPracticeIds.includes(m.contentId));
+  // Show ALL plan modules – completed ones are dimmed, not removed
+  const activeModules = rawModules;
 
   if (activeModules.length === 0 && !loading) {
     return (
