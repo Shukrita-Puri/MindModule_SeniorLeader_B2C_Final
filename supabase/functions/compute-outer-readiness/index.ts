@@ -202,10 +202,28 @@ async function getServerCalendarMetrics(
       if (highStakesEvents.length >= 2) break;
     }
 
-    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents };
+    // Compute remaining events (events that haven't started yet relative to user's local time)
+    const remainingEventsList = eventList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime()));
+    const remainingEvents = remainingEventsList.length;
+
+    // Remaining high-stakes events
+    const remainingHighStakes: string[] = [];
+    for (const e of remainingEventsList) {
+      const att = e.attendees_count || 0;
+      const start = new Date(e.start_time);
+      const end = new Date(e.end_time);
+      const dur = (end.getTime() - start.getTime()) / 60000;
+      if (e.title && personalBlockPatterns.test(e.title)) continue;
+      if (dur > 240 && att <= 1) continue;
+      const isHS = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
+      if (isHS && e.title) remainingHighStakes.push(e.title);
+      if (remainingHighStakes.length >= 2) break;
+    }
+
+    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
 }
 
 // ==================== TIME HELPERS ====================
