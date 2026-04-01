@@ -899,7 +899,7 @@ function getTheme(
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return buildWeekdayEveningTheme('strong', tomorrowHighStakes, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
-        todayHighStakes, eventCount, load, pressure);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
     }
     // Morning
     if (timeOfDay === 'morning')
