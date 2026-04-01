@@ -177,23 +177,29 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
   useEffect(() => {
     loadPlan();
-    checkRitualCompletion();
     
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && plan) {
         checkRitualCompletion();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     
-    // Relaxed polling as fallback (60s instead of 15s)
-    const interval = setInterval(() => checkRitualCompletion(), 60000);
+    // Relaxed polling as fallback (60s instead of 15s) — only when plan is loaded
+    const interval = setInterval(() => { if (plan) checkRitualCompletion(); }, 60000);
     
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user?.id]);
+
+  // Re-check completion whenever plan loads/changes — this is the canonical trigger
+  useEffect(() => {
+    if (plan) {
+      checkRitualCompletion();
+    }
+  }, [plan]);
 
   // Detect newly completed practices
   useEffect(() => {
@@ -210,35 +216,38 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
 
   const checkRitualCompletion = async () => {
     if (!user?.id) return;
+    // Guard: only compute when plan is loaded so we have authoritative module IDs
+    if (!plan) return;
+    
     const currentPeriod = getCurrentTimeWindow();
     const data = await getTodayRitual(currentPeriod);
-    const modules = plan?.timeOfDayPlan?.modules || [];
+    const modules = plan.timeOfDayPlan?.modules || [];
     const planModuleIds = modules.map(m => m.contentId);
+    const totalCount = modules.length;
     
     if (!data) {
-      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount: modules.length || 0 });
+      setRitualStatus({ status: 'not_started', completedCount: 0, totalCount });
       setCompletedPracticeIds([]);
       return;
     }
 
     const allCompletedIds = data.completed_practice_ids || [];
-    // Only count completions that belong to THIS plan's modules (not JIT completions)
+    // Strict intersection: only count completions that belong to THIS plan's modules
     const activeCompletedIds = planModuleIds.length > 0
       ? allCompletedIds.filter(id => planModuleIds.includes(id))
-      : allCompletedIds;
+      : [];
     setCompletedPracticeIds(activeCompletedIds);
-    const totalRecommended = modules.length || data.recommended_practices_count || 3;
-    const effectiveCompletedCount = activeCompletedIds.length;
+    const effectiveCompletedCount = Math.min(activeCompletedIds.length, totalCount);
 
     let status: 'not_started' | 'partial' | 'completed' = 'not_started';
-    if (effectiveCompletedCount >= totalRecommended && effectiveCompletedCount > 0) {
+    if (effectiveCompletedCount >= totalCount && effectiveCompletedCount > 0) {
       status = 'completed';
       if (data.completion_status !== 'full') {
         await upsertRitual({ ritual_date: new Date().toISOString().split('T')[0], completion_status: 'full', session_period: currentPeriod });
       }
     } else if (effectiveCompletedCount > 0) status = 'partial';
 
-    setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount: totalRecommended });
+    setRitualStatus({ status, completedCount: effectiveCompletedCount, totalCount });
   };
 
   const loadPlan = async () => {
@@ -348,23 +357,25 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       // Store plan for stability — keyed by period
       if (user || DEV_MODE) {
         const moduleIds = planResponse.timeOfDayPlan.modules.map(m => m.contentId);
+        
+        // Prune stale completed_practice_ids: only retain IDs that exist in the NEW plan
+        const existingRitual = await getTodayRitual(currentPeriod);
+        const existingCompleted = existingRitual?.completed_practice_ids || [];
+        const prunedCompleted = existingCompleted.filter(id => moduleIds.includes(id));
+        
         await upsertRitual({
           ritual_date: todayDate,
           recommended_practice_ids: moduleIds,
           recommended_practices_count: moduleIds.length,
+          completed_practice_ids: prunedCompleted,
+          completion_status: prunedCompleted.length >= moduleIds.length && prunedCompleted.length > 0 ? 'full' : prunedCompleted.length > 0 ? 'partial' : 'skipped',
           session_period: planResponse.timeOfDayPlan.period
         });
         sessionStorage.setItem(sessionKey, 'true');
         sessionStorage.setItem(`plan-data-${todayDate}-${currentPeriod}`, JSON.stringify(planResponse));
         sessionStorage.setItem(`plan-energy-hash-${todayDate}-${currentPeriod}`, `${planResponse.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`);
-        console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length });
+        console.log('[DailyRitual] Fresh plan generated and cached', { period: currentPeriod, modules: moduleIds.length, prunedCompleted: prunedCompleted.length });
       }
-
-      setRitualStatus(prev => ({
-        ...prev,
-        totalCount: planResponse.timeOfDayPlan.modules.length,
-        status: prev.completedCount >= planResponse.timeOfDayPlan.modules.length && prev.completedCount > 0 ? 'completed' : prev.completedCount > 0 ? 'partial' : 'not_started'
-      }));
     } catch (error) {
       console.error('Error loading plan:', error);
     }
