@@ -2341,7 +2341,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
     if (moduleType === 'prepare' || moduleType === 'integrate') {
       // Coach cards
-      const coachCard = generateCoachCard(moduleType, timeOfDay, req.innerReadinessTier, req.patternInsight);
+      const coachCard = generateCoachCard(moduleType, timeOfDay, req.innerReadinessTier, req.patternInsight, undefined, undefined, coachStateHash);
       if (coachCard) {
         todModules.push({
           type: moduleType,
