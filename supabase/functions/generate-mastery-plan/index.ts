@@ -73,6 +73,9 @@ interface PlanRequest {
   innerReadinessScore: number;
   outerReadinessPhrase: string;
   outerReadinessDriver: string;
+  outerReadinessContext: string;
+  outerReadinessLeanOn: string;
+  outerReadinessWatchFor: string;
   calendarLoad: string;
   calendarPressure: string;
   favorites: string[];
@@ -88,6 +91,7 @@ interface PlanRequest {
   practicePriorityTag?: string;
   pressureContextTag?: string;
   wearableContext: WearableContext;
+  latestCheckinTimestamp?: string;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
