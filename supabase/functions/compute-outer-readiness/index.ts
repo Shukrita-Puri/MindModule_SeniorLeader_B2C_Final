@@ -807,7 +807,7 @@ function getTheme(
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, load, pressure);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
     }
     // Morning
     if (timeOfDay === 'morning')
