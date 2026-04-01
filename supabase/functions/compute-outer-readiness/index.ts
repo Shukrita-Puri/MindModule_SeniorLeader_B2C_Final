@@ -53,6 +53,7 @@ interface WearableContext {
   sleepDuration: number | null;
   hrvElevated: boolean; // HRV significantly below baseline
   hrElevated: boolean;  // Peak HR notably high (>100 or >120% of RHR)
+  poorSleep: boolean;   // sleep_score < 60 or sleep_duration < 360 min (6h)
 }
 
 function computeCalendarMetrics(events: Array<{ start_time: string; end_time: string; is_organizer: boolean; attendees_count: number; is_recurring: boolean }>): { load: CalendarLevel; pressure: CalendarLevel } {
