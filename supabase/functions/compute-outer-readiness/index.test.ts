@@ -307,7 +307,7 @@ Deno.test("Footer: no calendar, no archetype → only 'decision readiness score'
   assertEquals(result.dataSources, ["decision readiness score"]);
 });
 
-Deno.test("Footer: no calendar + archetype → readiness + archetype", async () => {
+Deno.test("Footer: no calendar + archetype → readiness only (archetype not in DB)", async () => {
   const { status, data } = await callFunction({
     userId: "test-user-footer-2",
     innerReadinessTier: "strong",
@@ -319,8 +319,8 @@ Deno.test("Footer: no calendar + archetype → readiness + archetype", async () 
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  // No calendar connection for test user → no 'calendar' in sources
-  assertEquals(result.dataSources, ["decision readiness score", "archetype"]);
+  // Archetype is fetched server-side — test user has no profile, so no archetype in sources
+  assertEquals(result.dataSources, ["decision readiness score"]);
 });
 
 Deno.test("Footer: no calendar, no archetype → single source", async () => {
