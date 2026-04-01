@@ -1555,13 +1555,15 @@ function getLeanOnWatchFor(
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
     const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
     const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    return { leanOn: coachStrength + leanOnSuffix, watchFor: watchFor + watchForSuffix, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
+    const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
+    return { leanOn: `From your coach conversation: ${coachStrength}${leanOnSuffix}`, watchFor: `${watchSource}${watchFor}${watchForSuffix}`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
     const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
     const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    return { leanOn: leanOn + leanOnSuffix, watchFor: coachGrowth + watchForSuffix, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
+    const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
+    return { leanOn: `${leanSource}${leanOn}${leanOnSuffix}`, watchFor: `From your coach conversation: ${coachGrowth}${watchForSuffix}`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
 
   // ── P4: Archetype × Tier — enriched with context ──
