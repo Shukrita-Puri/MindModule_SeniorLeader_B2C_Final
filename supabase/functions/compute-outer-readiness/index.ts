@@ -370,7 +370,7 @@ function getTheme(
     if (load === 'low')
       return { phrase: "Build your reserves.", context: "Light demands on a managing state. A genuine opportunity to invest rather than spend today.", driver: 'load' };
     if (timeOfDay === 'morning')
-      return { phrase: "Set a sustainable pace.", context: "The full shape of the day is ahead. How you pace the opening determines whether you finish well.", driver: 'morning' };
+      return buildMorningTheme('managing', wearable, "Set a sustainable pace.", "The full shape of the day is ahead. How you pace the opening determines whether you finish well.");
     if (timeOfDay === 'evening') {
       if (dayCtx === 'sunday') {
         const heavyMon = tomorrowLoad === 'high' || tomorrowPressure === 'high';
