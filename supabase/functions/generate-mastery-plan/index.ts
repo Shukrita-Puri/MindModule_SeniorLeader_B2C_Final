@@ -2700,7 +2700,7 @@ Deno.serve(async (req) => {
     const plan = await generateMasteryPlan(planReq, supabaseClient);
 
     // Cache response for rate limiting
-    rateLimitMap.set(cacheKey, { lastCall: now, cachedResponse: plan });
+    rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
     // Evict stale entries (prevent memory leak)
     if (rateLimitMap.size > 500) {
       for (const [key, val] of rateLimitMap) {
