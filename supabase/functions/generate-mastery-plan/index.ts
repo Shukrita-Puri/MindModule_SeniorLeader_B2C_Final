@@ -2518,7 +2518,8 @@ function getContextualReasoning(
   checkInOutcome: string,
   calendarLoad: string,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
-  wearable?: WearableContext
+  wearable?: WearableContext,
+  outerReadinessPhrase?: string
 ): string {
   const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
   const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
@@ -2529,21 +2530,24 @@ function getContextualReasoning(
   const poorSleep = wearable?.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
   const lowHRV = wearable?.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
 
-  // Context-aware reasoning per focus area – wearable signals take priority when notable
+  // Context-aware reasoning per focus area – wearable > readiness > calendar hierarchy
   if (focus === 'composure') {
     if (lowHRV) return 'Your HRV is below baseline – this settles your nervous system before what\'s ahead';
+    if (isDepleted && isDense) return 'Your check-in and calendar both flag strain – this settles your nervous system to protect what remains';
     if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
     if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
     return 'This practice anchors your composure so you show up grounded, not reactive';
   }
   if (focus === 'release') {
     if (poorSleep && isEvening) return 'Your sleep was disrupted last night – this practice helps discharge residual tension before rest';
+    if (isEvening && isDepleted) return 'Your decision readiness is low – this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
     if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
     return 'Clear mental clutter so your next decision comes from clarity, not residue';
   }
   if (focus === 'grounding') {
+    if (isEvening && isDepleted) return 'Your readiness is low – grounding closes the mental loops and protects tonight\'s recovery';
     if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
     if (lowHRV && isDepleted) return 'Your HRV and check-in both flag low reserves – grounding reconnects you to a stable centre';
     if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
@@ -2556,6 +2560,7 @@ function getContextualReasoning(
     return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
   }
   if (focus === 'confidence') {
+    if (isStrong && isDense) return 'Your readiness is high despite a dense day – this channels that into confident presence for what remains';
     if (isStrong) return 'Your readiness is high – this practice channels that into visible, confident presence';
     if (isDepleted) return 'Even when drained, this practice reconnects you to your leadership presence';
     return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
@@ -2563,6 +2568,7 @@ function getContextualReasoning(
   if (focus === 'restore') {
     if (poorSleep && isDepleted) return 'Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level';
     if (poorSleep) return 'Your sleep was disrupted – this practice is designed to replenish what rest didn\'t fully restore';
+    if (isDepleted && isEvening) return 'Your decision readiness is low – this practice replenishes and prepares your system for deep recovery overnight';
     if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
     if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
     return 'Top up your reserves now so you have capacity for what remains';
