@@ -54,6 +54,7 @@ serve(async (req) => {
             provider: conn.provider,
             _internalUserId: conn.user_id,
             _internalKey: serviceRoleKey,
+            timezoneOffset: (conn as any).profiles?.timezone_offset ?? 0,
           }),
         });
 

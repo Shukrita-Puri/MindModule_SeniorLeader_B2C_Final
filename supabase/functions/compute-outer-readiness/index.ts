@@ -80,8 +80,8 @@ function computeCalendarMetrics(events: Array<{ start_time: string; end_time: st
 
   // Load – density-aware thresholds
   let load: CalendarLevel = 'low';
-  if (count >= 5) load = 'high';
-  else if (count >= 4 && avgGap < 20) load = 'high';
+  if (count >= 4) load = 'high';
+  else if (count >= 3 && avgGap < 20) load = 'high';
   else if (count >= 3) load = 'medium';
 
   // Pressure – weighted scoring
