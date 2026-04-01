@@ -252,8 +252,8 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // Falls to tier fallback since server can't find archetype in profiles
-  assertEquals(result.leanOn, "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.");
-  assertEquals(result.watchFor, "Committing to demands that require more than your current state can sustain.");
+  assertEquals(result.leanOn, "Based on your current readiness state: Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.");
+  assertEquals(result.watchFor, "Based on your current readiness state: Committing to demands that require more than your current state can sustain.");
 });
 
 Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
@@ -270,7 +270,7 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Your awareness that today needs more deliberation than momentum.");
+  assertEquals(result.leanOn, "Based on your check-in today: Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.");
 });
 
 Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
@@ -287,7 +287,7 @@ Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tie
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Your above-baseline readiness. A real asset that is worth protecting through the day.");
+  assertEquals(result.leanOn, "Based on your current readiness state: Your above-baseline readiness. A real asset that is worth protecting through the day.");
 });
 
 // ==================== DATA SOURCES (FOOTER) TESTS ====================
