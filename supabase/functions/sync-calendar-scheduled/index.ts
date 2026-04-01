@@ -22,7 +22,7 @@ serve(async (req) => {
     // Only active connections
     const { data: connections, error: connError } = await serviceClient
       .from('calendar_connections')
-      .select('user_id, provider')
+      .select('user_id, provider, profiles!inner(timezone_offset)')
       .eq('is_active', true);
 
     if (connError) {
