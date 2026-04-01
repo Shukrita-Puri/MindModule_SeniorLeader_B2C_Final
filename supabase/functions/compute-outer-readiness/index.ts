@@ -176,9 +176,10 @@ async function getServerCalendarMetrics(
 
     // Identify high-stakes events by title
     // RELEVANCE RULE: Personal blocks (Day Block, Focus Time, Prep, Hold, etc.) are NOT high-stakes.
+    // All-day events (>4h with ≤1 attendee) are NOT high-stakes — they're calendar blockers.
     // High-stakes = real meetings/presentations with multiple attendees or significant duration,
     // NOT personal calendar blocks used for preparation or focus.
-    const personalBlockPatterns = /\b(day\s*block|focus\s*time|block\s*time|prep\s*block|hold|blocked|do\s*not\s*book|dnb|no\s*meetings|lunch|break|commute|travel\s*time|personal|buffer)\b/i;
+    const personalBlockPatterns = /\b(day\s*block|focus\s*time|block\s*time|prep\s*block|prep\b|hold|blocked|do\s*not\s*book|dnb|no\s*meetings|lunch|break|commute|travel\s*time|personal|buffer)\b/i;
     const highStakesEvents: string[] = [];
     for (const e of eventList) {
       const att = e.attendees_count || 0;
@@ -186,11 +187,11 @@ async function getServerCalendarMetrics(
       const end = new Date(e.end_time);
       const dur = (end.getTime() - start.getTime()) / 60000;
 
-      // Skip personal blocks: low attendees + title matches a block pattern
-      if (e.title && personalBlockPatterns.test(e.title) && att <= 1) continue;
+      // Skip personal blocks: title matches a block/prep pattern (regardless of attendees)
+      if (e.title && personalBlockPatterns.test(e.title)) continue;
 
-      // Skip events with 0 attendees and duration > 60 — likely personal blocks even without matching title
-      if (att === 0 && dur > 60 && !e.is_organizer) continue;
+      // Skip all-day or very long events (>4h) with few attendees — calendar blockers, not meetings
+      if (dur > 240 && att <= 1) continue;
 
       const isHighStakes = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
       if (isHighStakes && e.title) {
