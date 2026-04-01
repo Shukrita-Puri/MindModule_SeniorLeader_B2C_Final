@@ -54,6 +54,15 @@ interface CalendarEvent {
   isRecurring?: boolean;
 }
 
+interface WearableContext {
+  sleepScore: number | null;
+  hrvMs: number | null;
+  restingHR: number | null;
+  hrvDeviation: number | null;
+  sleepQuality: string | null;
+  hasData: boolean;
+}
+
 interface PlanRequest {
   // Verified server-side – NOT from client
   userId: string;
@@ -78,6 +87,7 @@ interface PlanRequest {
   archetype: string;
   practicePriorityTag?: string;
   pressureContextTag?: string;
+  wearableContext: WearableContext;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
