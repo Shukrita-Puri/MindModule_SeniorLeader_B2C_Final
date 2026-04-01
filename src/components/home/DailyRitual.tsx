@@ -15,6 +15,7 @@ import { getTodayCheckin, getCheckinForWindow, getCurrentTimeWindow } from '@/ut
 import { getContentById } from '@/data/practicesAndSoundscapes';
 import { getAuthToken } from '@/services/authTokenService';
 import { DEV_MODE, DEV_USER } from '@/config/devMode';
+import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 
 // Background images for Coach cards
 import coachVisual from '@/assets/shared/coach-visual-calm.jpeg';
@@ -516,8 +517,8 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
   }
 
   const rawModules = plan?.timeOfDayPlan?.modules || [];
-  // Filter out completed practices entirely – only show outstanding work
-  const activeModules = rawModules.filter(m => !completedPracticeIds.includes(m.contentId));
+  // Show ALL plan modules – completed ones are dimmed, not removed
+  const activeModules = rawModules;
 
   if (activeModules.length === 0 && !loading) {
     return (
@@ -566,7 +567,7 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
           {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
             <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
               <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
-                {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
+                <TextWithEventEmphasis text={plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage || ''} />
               </span>
             </div>
           )}

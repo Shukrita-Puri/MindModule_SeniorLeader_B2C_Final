@@ -2008,7 +2008,7 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(5),
       db.from('daily_checkins')
-        .select('checkin_date, outcome, clarity_level, confidence_level')
+        .select('checkin_date, outcome, clarity_level, confidence_level, energy_balance')
         .eq('user_id', userId)
         .gte('checkin_date', new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0])
         .order('checkin_date', { ascending: false })
@@ -2046,6 +2046,25 @@ serve(async (req) => {
     const ccProvided = clarityLevel !== null || confidenceLevel !== null;
     let finalPhrase = theme.phrase;
     let finalContext = patternOverride || theme.context;
+
+    // Same-day state shift detection: compare latest 2 check-ins today
+    if (!patternOverride && recentCheckIns.length >= 2) {
+      const today = new Date().toISOString().split('T')[0];
+      const todayCheckins = recentCheckIns.filter((c: any) => c.checkin_date === today);
+      if (todayCheckins.length >= 2) {
+        const latest = todayCheckins[0];
+        const previous = todayCheckins[1];
+        const latestEB = latest.energy_balance ?? 50;
+        const prevEB = previous.energy_balance ?? 50;
+        const drop = prevEB - latestEB;
+        const rise = latestEB - prevEB;
+        if (drop >= 15) {
+          finalContext = `Your latest check-in shows a notable drop in readiness since earlier today. ${theme.context}`;
+        } else if (rise >= 15) {
+          finalContext = `Your readiness has recovered since your earlier check-in. ${theme.context}`;
+        }
+      }
+    }
     
     if (ccProvided && (safeTier === 'strong' || safeTier === 'peak')) {
       const cLow = clarityLevel !== null && clarityLevel <= 2;

@@ -9,6 +9,7 @@ import { useOuterReadiness } from '@/hooks/useOuterReadiness';
 import MetricInfoModal from './MetricInfoModal';
 import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
+import { TextWithEventEmphasis } from '@/components/ui/TextWithEventEmphasis';
 
 /** Parse leanOn text for contextual enrichment blocks (text after \n\n_..._) */
 function renderLeanOn(text: string) {
@@ -69,7 +70,7 @@ const StrategicIntentionCard = () => {
 
         {/* Context line */}
         <p className="text-sm text-muted-foreground leading-relaxed font-body">
-          {brief.context}
+          <TextWithEventEmphasis text={brief.context} />
         </p>
 
         {/* Coach Insight Age Label */}

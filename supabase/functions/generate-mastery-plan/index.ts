@@ -702,6 +702,7 @@ function generatePlanBrief(
   outerReadinessPhrase: string,
   outerReadinessContext: string,
   outerReadinessLeanOn: string,
+  coachInsights?: any[],
 ): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
   const remainingCount = ctx.remainingMeetingCount ?? count;
@@ -743,94 +744,89 @@ function generatePlanBrief(
   else if (goodHRV && goodSleep) wearableFragment = ' with recovered HRV and solid sleep';
   else if (goodHRV) wearableFragment = ' with recovered HRV';
 
-  // Build sentence 1: what state the user is in now – synthesising decision readiness, check-in, and wearable
-  const scoreLabel = innerReadinessScore <= 39 ? 'depleted' : innerReadinessScore <= 59 ? 'moderate' : innerReadinessScore <= 74 ? 'strong' : 'peak';
-  let stateSentence = '';
+  // Extract the key action from outer readiness context (sentence 2 source)
+  // Use context directly as rationale instead of quoting the phrase
+  const hasOuterContext = outerReadinessContext && outerReadinessContext.length > 10;
 
-  // Build sentence 2: why this sequence matters – driven by outer readiness phrase/context
+  // Coach insight fragment – pick one relevant insight if available
+  let coachFragment = '';
+  if (coachInsights && coachInsights.length > 0) {
+    const relevantInsight = coachInsights.find((i: any) => i.type === 'growth_area') || coachInsights[0];
+    if (relevantInsight?.content && relevantInsight.content.length < 80) {
+      coachFragment = ` Your coach has noted: ${relevantInsight.content.toLowerCase().replace(/\.$/, '')}.`;
+    }
+  }
+
+  // ---- Build contextual brief: sentence 1 = state now, sentence 2 = why this sequence ----
+
+  let stateSentence = '';
   let purposeSentence = '';
 
   // ---- EVENING ----
   if (timeOfDay === 'evening') {
-    // State: acknowledge today retrospectively
-    if (hasCalendar && (calendarLoad === 'extreme' || calendarLoad === 'heavy')) {
-      stateSentence = `Your decision readiness is ${readinessWord} after ${count} meetings${wearableFragment}.`;
-    } else if (hasCalendar) {
-      stateSentence = `You checked in as ${stateWord} after a ${calendarLoad || 'moderate'} day of ${count} meetings${wearableFragment}.`;
-    } else if (poorSleep || lowHRV) {
-      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
-    } else {
-      stateSentence = `You checked in as ${stateWord} this evening.`;
-    }
-
-    // Purpose: connect to outer readiness directive
-    if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
-      // Use the outer readiness phrase as the anchor for why
-      const phraseAction = outerReadinessPhrase.replace(/\.$/, '').toLowerCase();
+    // State: acknowledge today retrospectively using outer readiness context
+    if (hasOuterContext) {
+      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
+      // Purpose: derive from outer readiness context – the "why" behind the sequence
       if (innerReadinessTier === 'depleted') {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence helps you release what you carried today and protect tomorrow's first decisions.`;
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence helps you release what you carried and protect tomorrow's capacity.`;
       } else if (innerReadinessTier === 'managing') {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence helps you close cleanly so you arrive restored tomorrow.`;
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence helps you close cleanly so you arrive restored tomorrow.`;
       } else {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence consolidates your edge and sets up tomorrow.`;
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence consolidates your edge and sets up tomorrow.`;
       }
+    } else if (hasCalendar && (calendarLoad === 'extreme' || calendarLoad === 'heavy')) {
+      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100) after ${count} meetings${wearableFragment}.`;
+      purposeSentence = innerReadinessTier === 'depleted'
+        ? 'This sequence helps you release what you carried today and protect tomorrow\'s first decisions.'
+        : 'This sequence helps you close cleanly after a dense day.';
     } else {
-      if (innerReadinessTier === 'depleted') {
-        purposeSentence = 'This sequence is designed to release what you carried today and protect tomorrow\'s capacity.';
-      } else if (innerReadinessTier === 'managing') {
-        purposeSentence = 'This sequence helps you close with intention and arrive restored tomorrow.';
-      } else {
-        purposeSentence = 'This sequence consolidates today and sharpens your edge for tomorrow.';
-      }
+      stateSentence = `You checked in as ${stateWord} this evening – readiness at ${innerReadinessScore}/100${wearableFragment}.`;
+      purposeSentence = innerReadinessTier === 'depleted'
+        ? 'This sequence is designed to release what you carried today and protect tomorrow\'s capacity.'
+        : 'This sequence helps you close with intention and arrive restored tomorrow.';
     }
-
-    return `${stateSentence} ${purposeSentence}`;
+    return `${stateSentence} ${purposeSentence}${coachFragment}`;
   }
 
   // ---- MORNING ----
   if (timeOfDay === 'morning') {
-    // State
-    if (poorSleep) {
-      stateSentence = `Your decision readiness is ${readinessWord} after below-baseline sleep${lowHRV ? ' and low HRV' : ''}.`;
-    } else if (hasCalendar && count >= 4) {
-      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead.`;
-    } else if (hasCalendar) {
-      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead.`;
-    } else {
-      stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
-    }
-
-    // Purpose
-    if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
-      const phraseAction = outerReadinessPhrase.replace(/\.$/, '').toLowerCase();
-      if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices build the composure and focus to sustain you through a dense day.`;
-      } else if (innerReadinessTier === 'depleted') {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices compensate for what rest didn't fully restore.`;
+    if (hasOuterContext) {
+      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}${hasCalendar ? ` with ${count} meetings ahead` : ''}.`;
+      if (innerReadinessTier === 'depleted' || poorSleep) {
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices compensate for what rest didn't fully restore.`;
+      } else if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices build the composure to sustain you through a dense day.`;
       } else {
-        purposeSentence = `The brief says "${outerReadinessPhrase}" – these practices set your mental edge for what lies ahead.`;
+        purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. These practices set your mental edge for what lies ahead.`;
       }
     } else {
+      if (poorSleep) {
+        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100) after below-baseline sleep${lowHRV ? ' and low HRV' : ''}.`;
+      } else if (hasCalendar) {
+        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment} with ${count} meetings ahead.`;
+      } else {
+        stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
+      }
       purposeSentence = 'These practices set your mental edge for the day ahead.';
     }
-
-    return `${stateSentence} ${purposeSentence}`;
+    return `${stateSentence} ${purposeSentence}${coachFragment}`;
   }
 
   // ---- AFTERNOON ----
-  if (hasCalendar && remainingCount > 0) {
-    stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead.`;
+  if (hasOuterContext) {
+    stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}${remainingCount > 0 ? ` with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead` : ''}.`;
+    purposeSentence = `${outerReadinessContext.split('.').slice(0, 2).join('.')}. This sequence restores your edge for the stretch that remains.`;
   } else {
-    stateSentence = `Your decision readiness is ${readinessWord}${wearableFragment}.`;
-  }
-
-  if (outerReadinessPhrase && outerReadinessPhrase !== 'Steady execution.') {
-    purposeSentence = `The brief says "${outerReadinessPhrase}" – this sequence restores your edge for the stretch that remains.`;
-  } else {
+    if (hasCalendar && remainingCount > 0) {
+      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead.`;
+    } else {
+      stateSentence = `Your decision readiness is ${readinessWord} (${innerReadinessScore}/100)${wearableFragment}.`;
+    }
     purposeSentence = 'This sequence resets your energy for the stretch that remains.';
   }
 
-  return `${stateSentence} ${purposeSentence}`;
+  return `${stateSentence} ${purposeSentence}${coachFragment}`;
 }
 
 function hashCode(str: string): number {
@@ -1556,14 +1552,18 @@ function generateCoachCard(
   tier: string,
   patternInsight: any,
   eventTitle?: string,
-  minutesUntil?: number
+  minutesUntil?: number,
+  stateHash?: string,
 ): any | null {
+  // State-versioned ID: ensures completions from a prior state don't suppress new coach work
+  const stateSegment = stateHash ? `:${stateHash.substring(0, 8)}` : '';
+
   // COACH INCLUSION RULES
   if (type === 'prepare') {
     // Pre-event: always include
     if (eventTitle) {
       return {
-        id: 'coach-prepare',
+        id: `coach-prepare${stateSegment}`,
         type: 'prepare',
         label: 'Prepare',
         protocolType: 'Self Mastery Coach',
@@ -1576,7 +1576,7 @@ function generateCoachCard(
     }
     // Afternoon: only with executive scenario (caller handles this)
     return {
-      id: 'coach-prepare',
+      id: `coach-prepare${stateSegment}`,
       type: 'prepare',
       label: 'Prepare',
       protocolType: 'Self Mastery Coach',
@@ -1592,7 +1592,7 @@ function generateCoachCard(
   if (type === 'integrate') {
     // Evening: ALWAYS included with Tiny Wins
     return {
-      id: 'coach-integrate',
+      id: `coach-integrate${stateSegment}`,
       type: 'integrate',
       label: 'Integrate',
       protocolType: 'Self Mastery Coach',
@@ -2257,7 +2257,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
         timePill: topEvent.timePill,
         contextDescription: enrichedContextDescription,
         modules: preEventModules,
-        coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil),
+        coachCard: generateCoachCard('prepare', timeOfDay, req.innerReadinessTier, req.patternInsight, topEvent.event.title, topEvent.minutesUntil, coachStateHash),
         progressTracked: false,
         hrvCorrelation: topEvent.hrvCorrelation || null,
         actionWindow: actionWindow,
@@ -2287,13 +2287,15 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   }
 
   // 6. Build time-of-day plan
+  // State hash for coach card versioning – ensures refreshed state gets new coach cards
+  const coachStateHash = String(hashCode(`${req.innerReadinessTier}:${req.checkInOutcome}:${req.innerReadinessScore}:${req.outerReadinessPhrase}:${timeOfDay}`));
   const { maxModules } = getDurationCeiling(req.calendarLoad);
   const baseMapping = getModulesFromTheme(req.outerReadinessPhrase);
 
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.innerReadinessScore, req.checkInOutcome, req.calendarLoad, req.wearableContext, req.outerReadinessPhrase, req.outerReadinessContext, req.outerReadinessLeanOn, req.coachInsights);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
@@ -2339,7 +2341,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
 
     if (moduleType === 'prepare' || moduleType === 'integrate') {
       // Coach cards
-      const coachCard = generateCoachCard(moduleType, timeOfDay, req.innerReadinessTier, req.patternInsight);
+      const coachCard = generateCoachCard(moduleType, timeOfDay, req.innerReadinessTier, req.patternInsight, undefined, undefined, coachStateHash);
       if (coachCard) {
         todModules.push({
           type: moduleType,
@@ -2406,7 +2408,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     if (!hasCoachModule && todModules.length < maxModules) {
       const coachType = timeOfDay === 'evening' ? 'integrate' : 'prepare';
       todCoachCard = {
-        id: `coach-${coachType}`,
+        id: `coach-${coachType}:${coachStateHash.substring(0, 8)}`,
         type: coachType,
         label: coachType === 'integrate' ? 'Integrate' : 'Prepare',
         protocolType: 'Self Mastery Coach',
@@ -2614,16 +2616,52 @@ Deno.serve(async (req) => {
       userId = auth.userId;
     }
 
-    // Rate limiting – 30s cooldown per user+period+state fingerprint
+    // Rate limiting – 30s cooldown per user+state fingerprint (not just period)
     const now = Date.now();
     const body = await req.json();
     const clientTimezoneOffset = body.timezoneOffset ?? new Date().getTimezoneOffset();
     const forceRefresh = body.forceRefresh === true;
     const currentPeriod = getTimeOfDay(clientTimezoneOffset);
-    const cacheKey = `${userId}:${currentPeriod}`;
-    const cached = rateLimitMap.get(cacheKey);
+
+    // Build state fingerprint from latest check-in + completions for cache key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+    let stateFingerprint = `${userId}:${currentPeriod}`;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [checkinSnap, ritualSnap] = await Promise.all([
+        supabaseClient.from('daily_checkins')
+          .select('timestamp, outcome, energy_balance, clarity_level, confidence_level')
+          .eq('user_id', userId)
+          .eq('checkin_date', today)
+          .eq('time_window', currentPeriod)
+          .maybeSingle(),
+        supabaseClient.from('daily_ritual_completions')
+          .select('updated_at, completed_practice_ids')
+          .eq('user_id', userId)
+          .eq('ritual_date', today)
+          .eq('session_period', currentPeriod)
+          .maybeSingle(),
+      ]);
+      const ci = checkinSnap.data;
+      const ri = ritualSnap.data;
+      stateFingerprint = [
+        userId, currentPeriod,
+        ci?.timestamp || 'none',
+        ci?.outcome || 'none',
+        ci?.energy_balance ?? 'none',
+        ci?.clarity_level ?? 'none',
+        ci?.confidence_level ?? 'none',
+        ri?.updated_at || 'none',
+        (ri?.completed_practice_ids || []).join(',') || 'none',
+      ].join(':');
+    } catch { /* fallback to userId:period */ }
+
+    const cached = rateLimitMap.get(stateFingerprint);
     if (!forceRefresh && cached && (now - cached.lastCall) < RATE_LIMIT_COOLDOWN_MS) {
-      console.log(`[generate-mastery-plan] Rate limited: ${userId} period=${currentPeriod} (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
+      console.log(`[generate-mastery-plan] Rate limited: ${userId} fingerprint=${stateFingerprint.substring(0, 60)}... (${Math.round((now - cached.lastCall) / 1000)}s ago)`);
       return new Response(JSON.stringify(cached.cachedResponse), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
@@ -2659,14 +2697,12 @@ Deno.serve(async (req) => {
       wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
     };
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    // supabaseClient already created above for fingerprint
 
     const plan = await generateMasteryPlan(planReq, supabaseClient);
 
     // Cache response for rate limiting
-    rateLimitMap.set(cacheKey, { lastCall: now, cachedResponse: plan });
+    rateLimitMap.set(stateFingerprint, { lastCall: now, cachedResponse: plan });
     // Evict stale entries (prevent memory leak)
     if (rateLimitMap.size > 500) {
       for (const [key, val] of rateLimitMap) {
