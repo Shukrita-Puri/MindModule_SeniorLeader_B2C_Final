@@ -167,8 +167,16 @@ const DailyCheckIn = () => {
 
       console.log('[Check-In] Saved to database');
 
-      // Invalidate energy-state query to force refetch
+      // Invalidate energy-state and outer-readiness queries to force refetch
       queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      
+      // Clear mastery plan session cache to force fresh plan generation
+      const todayDate2 = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
+      sessionStorage.removeItem(`plan-loaded-${todayDate2}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-data-${todayDate2}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-energy-hash-${todayDate2}-${currentPeriod}`);
 
       // Navigate to optional detail screen for clarity/confidence
       setTimeout(() => {

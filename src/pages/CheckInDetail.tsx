@@ -67,6 +67,18 @@ const CheckInDetail = () => {
           throw error;
         }
       }
+
+      // Invalidate all relevant caches so dashboard reflects new state immediately
+      queryClient.invalidateQueries({ queryKey: ['energy-state'] });
+      queryClient.invalidateQueries({ queryKey: ['outer-readiness'] });
+      
+      // Clear mastery plan session cache to force fresh plan generation
+      const todayDate = new Date().toISOString().split('T')[0];
+      const currentPeriod = getCurrentTimeWindow();
+      sessionStorage.removeItem(`plan-loaded-${todayDate}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-data-${todayDate}-${currentPeriod}`);
+      sessionStorage.removeItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
+
       navigate('/executive-home');
     } catch (e) {
       console.error('[CheckInDetail] Save error:', e);
