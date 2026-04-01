@@ -34,8 +34,11 @@ All signals are derived **server-side** using the service role key. The client s
 | 9 | Favorites | `user_favorites` table | Boosted in content scoring (+3 points) |
 | 10 | Completed Today | `daily_ritual_completions` | Excluded from selection to avoid repetition |
 | 11 | Coach Insights | `coach_pattern_observations` | Pattern-aware content matching |
+| 12 | Wearable Sleep Score | `wearable_data.sleep_score` | When < 70: woven into plan brief and reasoning strings |
+| 13 | Wearable HRV | `wearable_data.hrv` | Deviation from 30-day baseline; when < -10%: prioritised in briefs |
+| 14 | Wearable Resting HR | `wearable_data.resting_heart_rate` | Available for future reasoning enrichment |
 
-Additional derived signals: `archetype`, `practicePriorityTag`, `pressureContextTag`, `effectiveContent`, `patternInsight`.
+Additional derived signals: `archetype`, `practicePriorityTag`, `pressureContextTag`, `effectiveContent`, `patternInsight`, `wearableContext`.
 
 ---
 
@@ -194,6 +197,64 @@ The Plan Brief references the same readiness tier and calendar density that the 
 
 ---
 
-## 12. Typography Standard
+## 12. Wearable Signal Integration
+
+### Data Source
+
+The edge function fetches the latest row from `wearable_data` where `summary_date` is within 24 hours. Fields used:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `sleep_score` | integer | When < 70: flagged in plan brief and reasoning |
+| `hrv` | numeric | Compared to 30-day rolling average; deviation < -10% is notable |
+| `resting_heart_rate` | integer | Available for future enrichment |
+| `sleep_quality` | text | Available for future enrichment |
+
+### HRV Deviation Calculation
+
+```
+baseline = average(last 30 rows of hrv for this user, min 5 rows)
+deviation_pct = ((current_hrv - baseline) / baseline) * 100
+```
+
+### Thresholds for Inclusion
+
+| Signal | Threshold | Effect |
+|--------|-----------|--------|
+| Sleep score < 70 | Poor sleep | Woven into plan brief and per-card reasoning |
+| HRV deviation < -10% | Low HRV | Woven into plan brief and per-card reasoning |
+| HRV deviation > +5% | Recovered HRV | Mentioned positively in plan brief |
+| Sleep score >= 80 | Good sleep | Mentioned positively in plan brief |
+
+### Priority Hierarchy
+
+When multiple signals are available, the reasoning prioritises:
+1. **Wearable** (objective physiological data)
+2. **Check-in** (subjective self-report)
+3. **Calendar** (contextual load)
+4. **Generic** (fallback when no signals available)
+
+When wearable data is unremarkable (within normal range) or absent, the system falls back to check-in/calendar reasoning with no regression.
+
+### Example Briefs with Wearable Data
+
+| Scenario | Brief |
+|----------|-------|
+| Depleted + poor sleep + heavy calendar | "You checked in as drained after 8 meetings and your sleep score is below baseline. This sequence is designed to release what you carried today and protect tomorrow's capacity." |
+| Managing + low HRV + heavy calendar | "Your readiness is steady and your HRV is below baseline but 6 meetings lie ahead. These practices build the composure and focus to sustain you through a dense day." |
+| Strong + recovered HRV + light calendar | "You're above baseline with recovered HRV with a light day ahead. These practices channel that clarity into deliberate intention." |
+
+### Example Reasoning with Wearable Data
+
+| Focus | Wearable Signal | Reasoning |
+|-------|----------------|-----------|
+| composure | Low HRV | "Your HRV is below baseline – this settles your nervous system before what's ahead" |
+| release | Poor sleep (evening) | "Your sleep was disrupted last night – this practice helps discharge residual tension before rest" |
+| restore | Poor sleep + depleted | "Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level" |
+| focus | Poor sleep | "Your sleep was below baseline – this practice compensates by sharpening cognitive focus" |
+
+---
+
+## 13. Typography Standard
 
 All AI-generated text in the Mastery Plan (plan briefs, reasoning strings, context descriptions) uses the en-dash (–) and never the em-dash (—), per the project-wide typography standard.

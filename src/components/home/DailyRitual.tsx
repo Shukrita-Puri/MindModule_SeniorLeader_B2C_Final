@@ -551,31 +551,29 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
       {(
         <div className="px-4 max-w-lg mx-auto space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground font-body">
-                  {plan?.timeOfDayPlan?.label || 'Today'}
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                  {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
-                </span>
-              </div>
-              {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
-                <div className="bg-muted/20 rounded-lg px-3 py-2 mt-1.5 min-h-[20px]">
-                  <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
-                    {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground font-body">
+                {plan?.timeOfDayPlan?.label || 'Today'}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                {plan?.timeOfDayPlan?.period === 'evening' ? 'Evening' : plan?.timeOfDayPlan?.period === 'afternoon' ? 'Afternoon' : 'Morning'}
+              </span>
             </div>
             <span className={cn(
-              "text-xs font-medium font-body",
+              "text-xs font-medium font-body whitespace-nowrap",
               ritualStatus.status === 'completed' ? "text-saffron" : ritualStatus.completedCount > 0 ? "text-saffron/80" : "text-muted-foreground"
             )}>
               {ritualStatus.completedCount > 0 && <Check size={12} className="inline mr-0.5 -mt-0.5" />}
               {ritualStatus.completedCount} of {ritualStatus.totalCount} completed
             </span>
           </div>
+          {(plan?.timeOfDayPlan?.planBrief || plan?.timeOfDayPlan?.calendarMessage) && (
+            <div className="bg-muted/20 rounded-lg px-3 py-2.5 mt-2 min-h-[20px]">
+              <span className="text-[13px] text-muted-foreground font-medium font-body leading-relaxed">
+                {plan.timeOfDayPlan.planBrief || plan.timeOfDayPlan.calendarMessage}
+              </span>
+            </div>
+          )}
           {/* Check-in prompt banner */}
           {noCheckinForWindow && ritualStatus.status !== 'completed' && (
             <button

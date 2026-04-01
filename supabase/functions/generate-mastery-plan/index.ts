@@ -54,6 +54,15 @@ interface CalendarEvent {
   isRecurring?: boolean;
 }
 
+interface WearableContext {
+  sleepScore: number | null;
+  hrvMs: number | null;
+  restingHR: number | null;
+  hrvDeviation: number | null;
+  sleepQuality: string | null;
+  hasData: boolean;
+}
+
 interface PlanRequest {
   // Verified server-side – NOT from client
   userId: string;
@@ -78,6 +87,7 @@ interface PlanRequest {
   archetype: string;
   practicePriorityTag?: string;
   pressureContextTag?: string;
+  wearableContext: WearableContext;
 }
 
 // ==================== EXECUTIVE SCENARIOS ====================
@@ -682,7 +692,8 @@ function generatePlanBrief(
   timeOfDay: 'morning' | 'afternoon' | 'evening',
   innerReadinessTier: string,
   checkInOutcome: string,
-  calendarLoad: string
+  calendarLoad: string,
+  wearable: WearableContext
 ): string {
   const count = timeOfDay === 'morning' ? ctx.upcomingMeetingCount : ctx.todayMeetingCount;
   const remainingCount = ctx.remainingMeetingCount ?? count;
@@ -709,42 +720,57 @@ function generatePlanBrief(
   };
   const stateWord = outcomeLabel[checkInOutcome] || readinessWord;
 
+  // Wearable signal fragments – only when notable
+  const poorSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
+  const lowHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
+  const goodHRV = wearable.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation > 5;
+  const goodSleep = wearable.hasData && wearable.sleepScore !== null && wearable.sleepScore >= 80;
+
+  let wearableFragment = '';
+  if (poorSleep && lowHRV) wearableFragment = ' and your sleep and HRV are both below baseline';
+  else if (poorSleep) wearableFragment = ' and your sleep score is below baseline';
+  else if (lowHRV) wearableFragment = ' and your HRV is below baseline';
+  else if (goodHRV && goodSleep) wearableFragment = ' with recovered HRV and solid sleep';
+  else if (goodHRV) wearableFragment = ' with recovered HRV';
+
   // ---- EVENING ----
   if (timeOfDay === 'evening') {
     if (!hasCalendar) {
+      if (poorSleep || lowHRV) return `Your body signals show fatigue${wearableFragment.replace(' and ', ' – ')}. This evening sequence prioritises deep recovery to protect tomorrow's capacity.`;
       return 'This evening sequence helps you close the day with intention and prepare your mind for tomorrow.';
     }
     if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `You checked in as ${stateWord} after ${count} meetings. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
+      return `You checked in as ${stateWord} after ${count} meetings${wearableFragment}. This sequence is designed to release what you carried today and protect tomorrow's capacity.`;
     }
     if (calendarLoad === 'moderate') {
-      return `After a moderate day of ${count} meetings, this sequence helps you close with clarity and set up tomorrow.`;
+      return `After a moderate day of ${count} meetings${wearableFragment}, this sequence helps you close with clarity and set up tomorrow.`;
     }
-    return `A lighter day behind you. This evening sequence helps you consolidate what went well and rest with intention.`;
+    return `A lighter day behind you${wearableFragment}. This evening sequence helps you consolidate what went well and rest with intention.`;
   }
 
   // ---- MORNING ----
   if (timeOfDay === 'morning') {
     if (!hasCalendar) {
-      return `Your readiness is ${readinessWord}. These practices set your mental edge for the day ahead.`;
+      if (poorSleep) return `Your sleep score is below baseline. These practices are calibrated to compensate – building the focus and composure your body didn't fully restore overnight.`;
+      return `Your readiness is ${readinessWord}${wearableFragment}. These practices set your mental edge for the day ahead.`;
     }
     if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-      return `Your readiness is ${readinessWord} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
+      return `Your readiness is ${readinessWord}${wearableFragment} but ${count} meetings lie ahead. These practices build the composure and focus to sustain you through a dense day.`;
     }
     if (calendarLoad === 'moderate') {
-      return `Your readiness is ${readinessWord} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
+      return `Your readiness is ${readinessWord}${wearableFragment} with ${count} meetings ahead. This sequence sharpens your focus for a moderate day.`;
     }
-    return `You're ${readinessWord} with a light day ahead. These practices channel that clarity into deliberate intention.`;
+    return `You're ${readinessWord}${wearableFragment} with a light day ahead. These practices channel that clarity into deliberate intention.`;
   }
 
   // ---- AFTERNOON ----
   if (!hasCalendar || remainingCount === 0) {
-    return `Your readiness is ${readinessWord}. This sequence resets your energy for the stretch that remains.`;
+    return `Your readiness is ${readinessWord}${wearableFragment}. This sequence resets your energy for the stretch that remains.`;
   }
   if (calendarLoad === 'extreme' || calendarLoad === 'heavy') {
-    return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
+    return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence restores your edge before the next demand.`;
   }
-  return `Your readiness is ${readinessWord} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
+  return `Your readiness is ${readinessWord}${wearableFragment} with ${remainingCount} meeting${remainingCount !== 1 ? 's' : ''} still ahead. This sequence sharpens your edge for the stretch that remains.`;
 }
 
 function hashCode(str: string): number {
@@ -1803,6 +1829,45 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
     }
   } catch { /* ignore */ }
 
+  // Wearable data – latest snapshot within 24 hours
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: wearableRow } = await supabaseClient
+      .from('wearable_data')
+      .select('sleep_score, hrv, resting_heart_rate, sleep_quality, summary_date')
+      .eq('user_id', req.userId)
+      .gte('summary_date', oneDayAgo.split('T')[0])
+      .order('summary_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (wearableRow) {
+      // Calculate HRV deviation from 30-day baseline
+      let hrvDeviation: number | null = null;
+      if (wearableRow.hrv != null) {
+        const { data: baselineRows } = await supabaseClient
+          .from('wearable_data')
+          .select('hrv')
+          .eq('user_id', req.userId)
+          .not('hrv', 'is', null)
+          .order('summary_date', { ascending: false })
+          .limit(30);
+        if (baselineRows && baselineRows.length >= 5) {
+          const avgHRV = baselineRows.reduce((sum: number, r: any) => sum + Number(r.hrv), 0) / baselineRows.length;
+          if (avgHRV > 0) hrvDeviation = ((Number(wearableRow.hrv) - avgHRV) / avgHRV) * 100;
+        }
+      }
+      req.wearableContext = {
+        sleepScore: wearableRow.sleep_score ?? null,
+        hrvMs: wearableRow.hrv != null ? Number(wearableRow.hrv) : null,
+        restingHR: wearableRow.resting_heart_rate ?? null,
+        hrvDeviation,
+        sleepQuality: wearableRow.sleep_quality ?? null,
+        hasData: true,
+      };
+      console.log(`[generate-mastery-plan] wearableContext: sleep=${wearableRow.sleep_score}, hrv=${wearableRow.hrv}, rhr=${wearableRow.resting_heart_rate}, hrvDev=${hrvDeviation?.toFixed(1)}%`);
+    }
+  } catch { /* ignore */ }
+
   // Profile tags
   try {
     const { data: profile } = await supabaseClient
@@ -2154,7 +2219,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
   // Calendar-context density overrides – adjust module focus/intensity based on actual calendar load
   const calendarContext = calculateCalendarContext(rawCalendarEvents, timeOfDay);
   const moduleMapping = applyCalendarOverrides(baseMapping, calendarContext, timeOfDay, req.innerReadinessTier);
-  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad);
+  const planBrief = generatePlanBrief(calendarContext, timeOfDay, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, req.wearableContext);
   console.log(`[generate-mastery-plan] calendarContext: todayLoad=${calendarContext.todayLoad} (${calendarContext.todayMeetingCount} mtgs, ${calendarContext.todayMeetingHours}h), upcomingLoad=${calendarContext.upcomingLoad} (${calendarContext.upcomingMeetingCount} mtgs), planBrief=${planBrief}`);
 
   // Evening: always ensure Regulate + Align (grounding) + Integrate modules are present (even without check-in)
@@ -2228,7 +2293,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: spec.focus,
           intensity: spec.intensity,
           isFavorite: req.favorites.includes(selected.id),
-           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
+           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
@@ -2246,7 +2311,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
             focus: spec.focus,
             intensity: spec.intensity,
             isFavorite: req.favorites.includes(fallbackItem.id),
-            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
+            reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
             required: spec.required,
             thumbnailUrl: fallbackItem.thumbnail_url
           });
@@ -2378,20 +2443,27 @@ function getContextualReasoning(
   innerReadinessTier: string,
   checkInOutcome: string,
   calendarLoad: string,
-  timeOfDay: 'morning' | 'afternoon' | 'evening'
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  wearable?: WearableContext
 ): string {
   const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
   const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
   const isEvening = timeOfDay === 'evening';
   const isStrong = innerReadinessTier === 'strong' || innerReadinessTier === 'peak';
 
-  // Context-aware reasoning per focus area
+  // Wearable notable signals
+  const poorSleep = wearable?.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
+  const lowHRV = wearable?.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
+
+  // Context-aware reasoning per focus area – wearable signals take priority when notable
   if (focus === 'composure') {
+    if (lowHRV) return 'Your HRV is below baseline – this settles your nervous system before what\'s ahead';
     if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
     if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
     return 'This practice anchors your composure so you show up grounded, not reactive';
   }
   if (focus === 'release') {
+    if (poorSleep && isEvening) return 'Your sleep was disrupted last night – this practice helps discharge residual tension before rest';
     if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
     if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
@@ -2399,10 +2471,12 @@ function getContextualReasoning(
   }
   if (focus === 'grounding') {
     if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
+    if (lowHRV && isDepleted) return 'Your HRV and check-in both flag low reserves – grounding reconnects you to a stable centre';
     if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
     return 'This practice anchors your attention so you\'re fully present for what\'s next';
   }
   if (focus === 'focus') {
+    if (poorSleep) return 'Your sleep was below baseline – this practice compensates by sharpening cognitive focus';
     if (isDense) return 'With a dense calendar, this narrows your attention to what genuinely matters next';
     if (isDepleted) return 'When depleted, targeted focus prevents you from spreading thin';
     return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
@@ -2413,6 +2487,8 @@ function getContextualReasoning(
     return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
   }
   if (focus === 'restore') {
+    if (poorSleep && isDepleted) return 'Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level';
+    if (poorSleep) return 'Your sleep was disrupted – this practice is designed to replenish what rest didn\'t fully restore';
     if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
     if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
     return 'Top up your reserves now so you have capacity for what remains';
@@ -2496,6 +2572,7 @@ Deno.serve(async (req) => {
       archetype: '',
       practicePriorityTag: '',
       pressureContextTag: '',
+      wearableContext: { sleepScore: null, hrvMs: null, restingHR: null, hrvDeviation: null, sleepQuality: null, hasData: false },
     };
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
