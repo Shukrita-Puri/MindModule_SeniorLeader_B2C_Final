@@ -1522,8 +1522,8 @@ function getLeanOnWatchFor(
       const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
       const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
       return {
-        leanOn: coachStrength! + leanOnSuffix,
-        watchFor: coachGrowth! + watchForSuffix,
+        leanOn: `From your coach session ${coachDaysOld} days ago: ${coachStrength!}${leanOnSuffix}`,
+        watchFor: `From your coach session ${coachDaysOld} days ago: ${coachGrowth!}${watchForSuffix}`,
         source: 'coach-insights-grace',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `From your last session (${coachDaysOld} days ago)`,
