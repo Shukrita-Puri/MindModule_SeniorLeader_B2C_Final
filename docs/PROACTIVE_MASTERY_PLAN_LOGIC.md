@@ -34,8 +34,11 @@ All signals are derived **server-side** using the service role key. The client s
 | 9 | Favorites | `user_favorites` table | Boosted in content scoring (+3 points) |
 | 10 | Completed Today | `daily_ritual_completions` | Excluded from selection to avoid repetition |
 | 11 | Coach Insights | `coach_pattern_observations` | Pattern-aware content matching |
+| 12 | Wearable Sleep Score | `wearable_data.sleep_score` | When < 70: woven into plan brief and reasoning strings |
+| 13 | Wearable HRV | `wearable_data.hrv` | Deviation from 30-day baseline; when < -10%: prioritised in briefs |
+| 14 | Wearable Resting HR | `wearable_data.resting_heart_rate` | Available for future reasoning enrichment |
 
-Additional derived signals: `archetype`, `practicePriorityTag`, `pressureContextTag`, `effectiveContent`, `patternInsight`.
+Additional derived signals: `archetype`, `practicePriorityTag`, `pressureContextTag`, `effectiveContent`, `patternInsight`, `wearableContext`.
 
 ---
 
