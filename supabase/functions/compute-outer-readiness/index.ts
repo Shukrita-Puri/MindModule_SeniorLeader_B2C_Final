@@ -1248,10 +1248,11 @@ function getSundayEveningInsights(
   };
 }
 
-// Clarity × Confidence modifier
+// Clarity × Confidence modifier — now time-aware for evening retrospective framing
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
+  timeOfDay?: 'morning' | 'afternoon' | 'evening',
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1259,69 +1260,110 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
+  const isEvening = timeOfDay === 'evening';
 
   // Pattern 1: Both low — rare, significant signal
   if (clarityLow && confidenceLow) {
-    return {
-      leanOn: "Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.",
-      watchFor: "Making commitments or significant decisions while both your internal compass and your conviction are unsettled.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your honesty about where you are. Ending a day with low clarity and low confidence is uncomfortable, but recognising it is itself leadership.",
+          watchFor: "Trying to force resolution tonight when both your compass and conviction need rest, not pressure.",
+        }
+      : {
+          leanOn: "Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.",
+          watchFor: "Making commitments or significant decisions while both your internal compass and your conviction are unsettled.",
+        };
   }
 
   // Pattern 2: Both high — full alignment
   if (clarityHigh && confidenceHigh) {
-    return {
-      leanOn: "Your internal alignment. Clear direction with confident execution — rare conditions that deserve to be used fully.",
-      watchFor: "Overriding others because your conviction is high. Alignment can become rigidity if you stop listening.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your internal alignment. You operated with clear direction and confident execution today. Let the day close on that note — no review needed.",
+          watchFor: "Replaying today's decisions to optimise what was already well-executed. Your alignment held — trust it and release.",
+        }
+      : {
+          leanOn: "Your internal alignment. Clear direction with confident execution — rare conditions that deserve to be used fully.",
+          watchFor: "Overriding others because your conviction is high. Alignment can become rigidity if you stop listening.",
+        };
   }
 
   // Pattern 3: High clarity + low confidence — knows what, but doubts self
   if (clarityHigh && confidenceLow) {
-    return {
-      leanOn: "Your clarity. You see the direction clearly even when confidence hasn't caught up yet.",
-      watchFor: "Waiting for confidence to arrive before acting on what you already know is right.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your clarity held through a full day, even without confidence backing it. That directional sense is genuine — trust it tonight.",
+          watchFor: "Replaying moments where confidence didn't match your clarity. The direction was right even when conviction lagged.",
+        }
+      : {
+          leanOn: "Your clarity. You see the direction clearly even when confidence hasn't caught up yet.",
+          watchFor: "Waiting for confidence to arrive before acting on what you already know is right.",
+        };
   }
 
   // Pattern 4: Low clarity + high confidence — confident without direction
   if (clarityLow && confidenceHigh) {
-    return {
-      leanOn: "Your confidence. Trust in your ability to find the right direction once you stop and look.",
-      watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your confidence carried you through today. Even without clear direction, your self-trust kept you moving.",
+          watchFor: "Assuming tonight's reflection will manufacture the clarity that was absent today. Rest first — clarity often arrives after recovery.",
+        }
+      : {
+          leanOn: "Your confidence. Trust in your ability to find the right direction once you stop and look.",
+          watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
+        };
   }
 
   // Pattern 5: Low clarity only (mid confidence)
   if (clarityLow) {
-    return {
-      leanOn: "Your capacity to ask the right question before committing to a direction.",
-      watchFor: "Moving into the day's demands before you've found your anchor point.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your capacity to sit with unresolved direction. If clarity was elusive today, evening is not the time to force it. Clarity often arrives after rest.",
+          watchFor: "Grinding through open questions tonight when your system needs to release, not resolve.",
+        }
+      : {
+          leanOn: "Your capacity to ask the right question before committing to a direction.",
+          watchFor: "Moving into the day's demands before you've found your anchor point.",
+        };
   }
 
   // Pattern 6: Low confidence only (mid clarity)
   if (confidenceLow) {
-    return {
-      leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
-      watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your self-awareness. You carried uncertainty through today's demands — that honesty about your state is itself valuable.",
+          watchFor: "Reviewing today's decisions through the lens of low confidence. The decisions are done — let them stand.",
+        }
+      : {
+          leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
+          watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
+        };
   }
 
   // Pattern 7: High clarity only (mid confidence)
   if (clarityHigh) {
-    return {
-      leanOn: "Your directional certainty. You know what matters today and why.",
-      watchFor: "Clarity about your own view crowding out the perspectives you need.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your directional certainty. You held clarity through a full day. That same directional sense now tells you when to stop.",
+          watchFor: "Replaying today's decisions to find flaws. Your clarity held — trust it and release.",
+        }
+      : {
+          leanOn: "Your directional certainty. You know what matters today and why.",
+          watchFor: "Clarity about your own view crowding out the perspectives you need.",
+        };
   }
 
   // Pattern 8: High confidence only (mid clarity)
   if (confidenceHigh) {
-    return {
-      leanOn: "Your conviction. You trust your judgment today and can move with authority.",
-      watchFor: "Confidence tipping into certainty that closes off important inputs.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your conviction. You backed yourself through today's demands. That conviction has done its work — release it.",
+          watchFor: "Confidence that keeps running past the day's close. Your judgment served you well — let it rest.",
+        }
+      : {
+          leanOn: "Your conviction. You trust your judgment today and can move with authority.",
+          watchFor: "Confidence tipping into certainty that closes off important inputs.",
+        };
   }
 
   // Mid-range on both — no modifier, fall through to archetype/tier
