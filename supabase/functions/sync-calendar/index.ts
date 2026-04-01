@@ -217,11 +217,20 @@ serve(async (req) => {
     }
 
     let events: CalendarEventRow[] = [];
-    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // Sync window: start of today (user's local midnight) through 7 days ahead.
+    // This ensures past events from today are always captured, not just future ones.
+    const startOfTodayUTC = new Date(now);
+    startOfTodayUTC.setUTCHours(0, 0, 0, 0);
+    // If timezoneOffset was passed, adjust — fall back to UTC midnight
+    const timezoneOffset = body.timezoneOffset ?? 0;
+    const syncWindowStart = new Date(startOfTodayUTC.getTime() + timezoneOffset * 60000);
+    const syncWindowEnd = new Date(syncWindowStart.getTime() + 8 * 24 * 60 * 60 * 1000); // 8 days to cover full 7-day rolling window
+
+    console.log('[sync-calendar] Sync window:', syncWindowStart.toISOString(), '→', syncWindowEnd.toISOString());
 
     if (provider === 'google') {
       const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${nextWeek.toISOString()}&singleEvents=true&orderBy=startTime`,
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${syncWindowStart.toISOString()}&timeMax=${syncWindowEnd.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=250`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
 
