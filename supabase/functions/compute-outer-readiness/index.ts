@@ -634,9 +634,19 @@ function buildWeekdayEveningTheme(
     };
   }
 
-  // Default: soft close
+  // Default: soft close – tier-aware
   const phrase = defaultPhrase || "Close before tomorrow.";
-  let ctx = `${defaultContext || "Tonight is about release, not review."} Closing before tomorrow protects the quality of how you arrive.`;
+  let defaultDirective: string;
+  if (tier === 'depleted') {
+    defaultDirective = 'Tonight is about genuine release – your system needs recovery before tomorrow asks for anything.';
+  } else if (tier === 'managing') {
+    defaultDirective = 'Tonight is about a clean close – releasing the day so you arrive steady tomorrow.';
+  } else if (tier === 'strong') {
+    defaultDirective = 'Tonight is about protecting your edge – a deliberate wind-down carries today\'s advantage into tomorrow.';
+  } else {
+    defaultDirective = 'Tonight is about intentional transition – preserving what you built today through genuine rest.';
+  }
+  let ctx = `${defaultContext || defaultDirective} Closing before tomorrow protects the quality of how you arrive.`;
   if (sleepNote) ctx += sleepNote;
   if (rhrNote) ctx += rhrNote;
   return { phrase, context: ctx, driver: 'evening' };
