@@ -282,9 +282,9 @@ const DailyRitual = ({ onPreEventPlanReady }: DailyRitualProps = {}) => {
         if (cachedPlan) {
           const parsed = JSON.parse(cachedPlan) as MasteryPlanResponse;
           
-          // Validate cached plan against current energy state to prevent cross-device divergence
+      // Validate cached plan against current energy state to prevent cross-device divergence
           const cachedEnergyHash = sessionStorage.getItem(`plan-energy-hash-${todayDate}-${currentPeriod}`);
-          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}`; // basic hash from plan period
+          const currentEnergyHash = `${parsed.timeOfDayPlan?.period || currentPeriod}:${todayCheckin?.outcome || 'none'}:${todayCheckin?.energy_balance || 0}`;
           // If we can detect a different energy tier from the plan metadata, invalidate
           if (cachedEnergyHash && cachedEnergyHash !== currentEnergyHash) {
             console.log('[DailyRitual] Energy hash mismatch — invalidating session cache', { cached: cachedEnergyHash, current: currentEnergyHash });
