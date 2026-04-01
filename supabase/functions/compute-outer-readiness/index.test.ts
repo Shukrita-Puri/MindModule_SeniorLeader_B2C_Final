@@ -252,8 +252,8 @@ Deno.test("Archetype priority 3: adaptive-navigator + depleted (daytime) → arc
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
   // Falls to tier fallback since server can't find archetype in profiles
-  assertEquals(result.leanOn, "Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.");
-  assertEquals(result.watchFor, "Committing to demands that require more than your current state can sustain.");
+  assertEquals(result.leanOn, "Based on your current readiness state: Your awareness of your own state. Knowing you're depleted is itself a form of self-leadership.");
+  assertEquals(result.watchFor, "Based on your current readiness state: Committing to demands that require more than your current state can sustain.");
 });
 
 Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C+C lean-on/watch-for", async () => {
