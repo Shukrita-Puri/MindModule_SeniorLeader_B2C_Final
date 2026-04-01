@@ -245,6 +245,34 @@ function buildContextSuffix(
   const denseCalendar = eventCount && eventCount >= 4;
   const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.rhrElevated);
   const hasSleepIssue = wearable?.poorSleep;
+  const isEvening = timeOfDay === 'evening';
+
+  // ── EVENING: Retrospective framing — acknowledge what was carried, not what to pace ──
+  if (isEvening) {
+    if (hasStakes && bodyStrained) {
+      const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+      return ` You carried ${stakeRef} today while your body ran at elevated strain throughout.`;
+    }
+    if (hasStakes && denseCalendar) {
+      const stakeRef = todayHighStakes![0];
+      return ` You navigated ${stakeRef} and a full calendar today.`;
+    }
+    if (denseCalendar && bodyStrained) {
+      return ` ${eventCount} meetings today, and your heart rate reflected the density throughout.`;
+    }
+    if (denseCalendar) {
+      return ` You navigated a dense calendar today — ${eventCount} meetings.`;
+    }
+    if (bodyStrained) {
+      return ' Your body is carrying accumulated strain — the day is done and recovery matters now.';
+    }
+    if (hasSleepIssue) {
+      return ' You started today under-recovered and carried that through a full day.';
+    }
+    return '';
+  }
+
+  // ── MORNING / AFTERNOON: Forward-looking framing ──
 
   // When high-stakes events AND body strain — connect the two signals
   if (hasStakes && bodyStrained) {
@@ -270,7 +298,7 @@ function buildContextSuffix(
     return ` ${eventCount} meetings with tight gaps, and your heart rate reflected the density.`;
   }
 
-  // Dense calendar, no strain — note the volume
+  // Dense calendar, no strain — note the volume (morning/afternoon only)
   if (denseCalendar) {
     return ` ${eventCount} meetings today — pace the gaps.`;
   }
