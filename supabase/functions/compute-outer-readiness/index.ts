@@ -467,7 +467,7 @@ function buildWeekdayEveningTheme(
       if (tier === 'managing') {
         return {
           phrase: "Stay present for what's left.",
-          context: `${pastLabel ? `You've navigated ${pastLabel} today. ` : ''}With ${remainingHighStakes![0]} still ahead, your decision readiness is still operational – staying present for what remains is the highest-value move right now.${sleepNote}${rhrNote}`,
+          context: `${pastLabel ? `You've navigated ${pastLabel} today. ` : ''}With '${remainingHighStakes![0]}' still ahead, your decision readiness is still operational – staying present for what remains is the highest-value move right now.${sleepNote}${rhrNote}`,
           driver: 'evening',
         };
       }
