@@ -1547,7 +1547,7 @@ function getLeanOnWatchFor(
     }
     const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
     const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    return { leanOn: ccMod.leanOn + leanOnSuffix, watchFor: ccMod.watchFor + watchForSuffix, source: 'cc-modifier' };
+    return { leanOn: `Based on your check-in today: ${ccMod.leanOn}${leanOnSuffix}`, watchFor: `Based on your check-in today: ${ccMod.watchFor}${watchForSuffix}`, source: 'cc-modifier' };
   }
 
   // ── Partial coach: mix with other priorities (any non-archived tier) ──

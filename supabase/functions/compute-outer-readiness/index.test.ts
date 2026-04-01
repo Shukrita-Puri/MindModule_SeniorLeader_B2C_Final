@@ -270,7 +270,7 @@ Deno.test("C+C modifier priority 2: low clarity + low confidence (daytime) → C
   });
   assertEquals(status, 200);
   const result = data as OuterReadinessResult;
-  assertEquals(result.leanOn, "Based on your current readiness state: Your awareness that today needs more deliberation than momentum.");
+  assertEquals(result.leanOn, "Based on your check-in today: Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.");
 });
 
 Deno.test("Tier fallback priority 4: no archetype, neutral C+C (daytime) → tier fallback", async () => {
