@@ -2491,9 +2491,9 @@ function selectContent(contentLibrary: any[], spec: ModuleSpec, req: PlanRequest
     return null; // prepare/integrate are coach cards
   }
 
-  // Filter out completed today
+  // Filter out completed today – return null if no unfinished candidates
   const available = pool.filter(c => !req.completedToday.includes(c.id));
-  if (available.length === 0) return pool[0] || null;
+  if (available.length === 0) return null; // HARD exclude – never resurface completed content
 
   // Score
   const scored = available.map(c => ({
