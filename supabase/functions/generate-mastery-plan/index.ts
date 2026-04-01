@@ -2404,20 +2404,27 @@ function getContextualReasoning(
   innerReadinessTier: string,
   checkInOutcome: string,
   calendarLoad: string,
-  timeOfDay: 'morning' | 'afternoon' | 'evening'
+  timeOfDay: 'morning' | 'afternoon' | 'evening',
+  wearable?: WearableContext
 ): string {
   const isDense = calendarLoad === 'extreme' || calendarLoad === 'heavy';
   const isDepleted = innerReadinessTier === 'depleted' || checkInOutcome === 'drained' || checkInOutcome === 'struggling';
   const isEvening = timeOfDay === 'evening';
   const isStrong = innerReadinessTier === 'strong' || innerReadinessTier === 'peak';
 
-  // Context-aware reasoning per focus area
+  // Wearable notable signals
+  const poorSleep = wearable?.hasData && wearable.sleepScore !== null && wearable.sleepScore < 70;
+  const lowHRV = wearable?.hasData && wearable.hrvDeviation !== null && wearable.hrvDeviation < -10;
+
+  // Context-aware reasoning per focus area – wearable signals take priority when notable
   if (focus === 'composure') {
+    if (lowHRV) return 'Your HRV is below baseline – this settles your nervous system before what\'s ahead';
     if (isDepleted) return 'Your check-in flagged tension – this settles your nervous system before what\'s ahead';
     if (isDense) return 'A dense calendar demands composure – this practice steadies you for high-stakes moments';
     return 'This practice anchors your composure so you show up grounded, not reactive';
   }
   if (focus === 'release') {
+    if (poorSleep && isEvening) return 'Your sleep was disrupted last night – this practice helps discharge residual tension before rest';
     if (isEvening && isDense) return 'After a heavy day, this helps discharge accumulated stress so it doesn\'t carry into tomorrow';
     if (isEvening) return 'Release the day\'s weight – this prevents rumination and protects your rest';
     if (isDepleted) return 'Your system is carrying tension – this practice creates space to let it go';
@@ -2425,10 +2432,12 @@ function getContextualReasoning(
   }
   if (focus === 'grounding') {
     if (isEvening) return 'Ground yourself before rest – this closes the mental loops still running';
+    if (lowHRV && isDepleted) return 'Your HRV and check-in both flag low reserves – grounding reconnects you to a stable centre';
     if (isDepleted) return 'When energy is low, grounding reconnects you to a stable centre';
     return 'This practice anchors your attention so you\'re fully present for what\'s next';
   }
   if (focus === 'focus') {
+    if (poorSleep) return 'Your sleep was below baseline – this practice compensates by sharpening cognitive focus';
     if (isDense) return 'With a dense calendar, this narrows your attention to what genuinely matters next';
     if (isDepleted) return 'When depleted, targeted focus prevents you from spreading thin';
     return 'Sharpen your cognitive edge – this practice cuts through noise to priority';
@@ -2439,6 +2448,8 @@ function getContextualReasoning(
     return 'This practice anchors self-assurance so you lead from conviction, not anxiety';
   }
   if (focus === 'restore') {
+    if (poorSleep && isDepleted) return 'Your sleep score and check-in both flag low reserves – this practice replenishes at the deepest level';
+    if (poorSleep) return 'Your sleep was disrupted – this practice is designed to replenish what rest didn\'t fully restore';
     if (isDepleted) return 'Your energy reserves are low – this practice is designed to replenish, not just relax';
     if (isEvening) return 'Restore what the day took – this prepares your system for deep recovery overnight';
     return 'Top up your reserves now so you have capacity for what remains';
