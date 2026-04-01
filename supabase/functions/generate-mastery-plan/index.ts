@@ -2293,7 +2293,7 @@ async function generateMasteryPlan(req: PlanRequest, supabaseClient: any) {
           focus: spec.focus,
           intensity: spec.intensity,
           isFavorite: req.favorites.includes(selected.id),
-           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay),
+           reasoning: getContextualReasoning(moduleType, spec.focus, req.innerReadinessTier, req.checkInOutcome, req.calendarLoad, timeOfDay, req.wearableContext),
           required: spec.required,
           thumbnailUrl: selected.thumbnail_url
         });
