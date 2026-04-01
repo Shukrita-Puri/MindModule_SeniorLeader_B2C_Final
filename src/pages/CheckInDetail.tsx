@@ -19,6 +19,8 @@ import { getCurrentTimeWindow } from '@/utils/dailyCheckins';
 const CheckInDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [clarity, setClarity] = useState(3);
   const [confidence, setConfidence] = useState(3);
   const [saving, setSaving] = useState(false);
