@@ -296,7 +296,7 @@ function buildContextSuffix(
   // ── EVENING: Retrospective framing – acknowledge what was carried, not what to pace ──
   if (isEvening) {
     if (hasStakes && bodyStrained) {
-      const stakeRef = todayHighStakes!.length === 1 ? todayHighStakes![0] : `${todayHighStakes![0]} and ${todayHighStakes![1]}`;
+     const stakeRef = todayHighStakes!.length === 1 ? `'${todayHighStakes![0]}'` : `'${todayHighStakes![0]}' and '${todayHighStakes![1]}'`;
       return ` You carried ${stakeRef} today while your body ran at elevated strain throughout.`;
     }
     if (hasStakes && denseCalendar) {
