@@ -43,6 +43,8 @@ interface CalendarMetricsResult {
   eventCount: number;
   state: 'active' | 'connected_no_events' | 'not_connected';
   highStakesEvents: string[];
+  remainingEvents: number;
+  remainingHighStakes: string[];
 }
 
 interface WearableContext {
@@ -155,7 +157,7 @@ async function getServerCalendarMetrics(
     .maybeSingle();
 
   if (!conn) {
-    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected', highStakesEvents: [] };
+    return { load: 'low', pressure: 'low', eventCount: 0, state: 'not_connected', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
   }
 
   const { data: events, error } = await db
@@ -200,10 +202,28 @@ async function getServerCalendarMetrics(
       if (highStakesEvents.length >= 2) break;
     }
 
-    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents };
+    // Compute remaining events (events that haven't started yet relative to user's local time)
+    const remainingEventsList = eventList.filter((e: any) => new Date(e.start_time) > new Date(now.getTime()));
+    const remainingEvents = remainingEventsList.length;
+
+    // Remaining high-stakes events
+    const remainingHighStakes: string[] = [];
+    for (const e of remainingEventsList) {
+      const att = e.attendees_count || 0;
+      const start = new Date(e.start_time);
+      const end = new Date(e.end_time);
+      const dur = (end.getTime() - start.getTime()) / 60000;
+      if (e.title && personalBlockPatterns.test(e.title)) continue;
+      if (dur > 240 && att <= 1) continue;
+      const isHS = !e.is_recurring && (att > 5 || (e.is_organizer && att > 2) || dur > 60);
+      if (isHS && e.title) remainingHighStakes.push(e.title);
+      if (remainingHighStakes.length >= 2) break;
+    }
+
+    return { ...metrics, eventCount: eventList.length, state: 'active', highStakesEvents, remainingEvents, remainingHighStakes };
   }
 
-  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [] };
+  return { load: 'low', pressure: 'low', eventCount: 0, state: 'connected_no_events', highStakesEvents: [], remainingEvents: 0, remainingHighStakes: [] };
 }
 
 // ==================== TIME HELPERS ====================
@@ -363,6 +383,7 @@ function buildAfternoonContext(
 // ==================== WEEKDAY EVENING THEME BUILDER ====================
 // Evening themes: acknowledge today first (validation), then frame tomorrow as recovery motivation.
 // Banned: "plan", "prepare", "get ready". Use: "restore", "arrive", "release".
+// REMAINING-EVENTS AWARENESS: Split into "day still going" vs "day is done" based on remainingEvents.
 function buildWeekdayEveningTheme(
   tier: EnergyTier,
   tomorrowHighStakes?: string[],
@@ -373,6 +394,8 @@ function buildWeekdayEveningTheme(
   eventCount?: number,
   calendarLoad?: CalendarLevel | null,
   calendarPressure?: CalendarLevel | null,
+  remainingEvents?: number,
+  remainingHighStakes?: string[],
 ): { phrase: string; context: string; driver: ThemeDriver } {
   const hasTomorrowStakes = tomorrowHighStakes && tomorrowHighStakes.length > 0;
   const tomorrowEvent = hasTomorrowStakes ? tomorrowHighStakes[0] : null;
@@ -380,6 +403,77 @@ function buildWeekdayEveningTheme(
   const hadHeavyDay = calendarLoad === 'high' || calendarPressure === 'high';
   const hasTodayStakes = todayHighStakes && todayHighStakes.length > 0;
   const todayDense = eventCount && eventCount >= 4;
+  const remaining = remainingEvents ?? 0;
+  const pastEvents = (eventCount ?? 0) - remaining;
+  const hasRemainingHS = remainingHighStakes && remainingHighStakes.length > 0;
+
+  // Sleep acknowledgment for evening
+  const sleepNote = wearable?.poorSleep
+    ? ' You started today under-recovered and carried that through a full day. Tonight\'s sleep matters more than usual.'
+    : '';
+
+  // RHR note for evening
+  const rhrNote = wearable?.rhrElevated && !bodyStressed
+    ? ' Your resting heart rate is still elevated — tonight\'s recovery is especially important.'
+    : '';
+
+  // ══════════════════════════════════════════════════════════════
+  // BRANCH A: Events still ahead (remainingEvents > 0)
+  // Acknowledge past + frame remaining — day is NOT done
+  // ══════════════════════════════════════════════════════════════
+  if (remaining > 0) {
+    // A-1: Remaining high-stakes events ahead
+    if (hasRemainingHS) {
+      if (tier === 'depleted') {
+        return {
+          phrase: "Protect what's left.",
+          context: `You've spent most of today's reserves across ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''}. With ${remainingHighStakes![0]} still ahead, protect what's left for the moment that matters.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      if (tier === 'managing') {
+        return {
+          phrase: "Stay present for what's left.",
+          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today. With ${remainingHighStakes![0]} still ahead, your decision readiness continues to matter — stay present for what's left.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      if (tier === 'strong') {
+        return {
+          phrase: "Carry your edge forward.",
+          context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} today with above-baseline readiness. ${remainingHighStakes![0]} is still ahead — your advantage is genuine, deploy it where it counts.${sleepNote}${rhrNote}`,
+          driver: 'evening',
+        };
+      }
+      // peak
+      return {
+        phrase: "Finish at your best.",
+        context: `${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} navigated at peak readiness. ${remainingHighStakes![0]} is still ahead — this state is rare, use it fully for what remains.${sleepNote}${rhrNote}`,
+        driver: 'evening',
+      };
+    }
+
+    // A-2: Remaining events but not high-stakes + body strain
+    if (bodyStressed) {
+      return {
+        phrase: "Pace the remaining hours.",
+        context: `You've carried strain through ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} already. With ${remaining} still ahead, pace the remaining hours deliberately.${sleepNote}${rhrNote}`,
+        driver: 'evening',
+      };
+    }
+
+    // A-3: Remaining events, no strain, no high-stakes
+    return {
+      phrase: defaultPhrase || "Stay steady.",
+      context: `You've navigated ${pastEvents} meeting${pastEvents !== 1 ? 's' : ''} so far. ${remaining} still ahead — the day isn't done, but the hardest part may be behind you.${sleepNote}${rhrNote}`,
+      driver: 'evening',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // BRANCH B: Day is done (remainingEvents === 0)
+  // Full retrospective + tomorrow as recovery motivation
+  // ══════════════════════════════════════════════════════════════
 
   // ── Build todaySummary: acknowledge what the user carried today ──
   let todaySummary = '';
@@ -395,17 +489,9 @@ function buildWeekdayEveningTheme(
       : "Your HRV is showing accumulated strain from today.";
   } else if (hadHeavyDay) {
     todaySummary = 'You carried a full day of demands.';
+  } else if (todayDense) {
+    todaySummary = `You navigated ${eventCount} meetings today.`;
   }
-
-  // Sleep acknowledgment for evening
-  const sleepNote = wearable?.poorSleep
-    ? ' You started today under-recovered and carried that through a full day. Tonight\'s sleep matters more than usual.'
-    : '';
-
-  // RHR note for evening
-  const rhrNote = wearable?.rhrElevated && !bodyStressed
-    ? ' Your resting heart rate is still elevated — tonight\'s recovery is especially important.'
-    : '';
 
   // ── Priority 1: Today was heavy + Tomorrow has high-stakes ──
   if (todaySummary && hasTomorrowStakes) {
@@ -434,7 +520,6 @@ function buildWeekdayEveningTheme(
 
   // ── Priority 3: Light today + heavy tomorrow ──
   if (!hadHeavyDay && hasTomorrowStakes) {
-    const tomorrowLoad = calendarLoad; // Note: this is today's load; tomorrow is framed via tomorrowHighStakes
     if (tier === 'depleted') {
       return {
         phrase: "Ground before tomorrow.",
@@ -690,10 +775,12 @@ function getTheme(
   wearable?: WearableContext | null,
   todayHighStakes?: string[],
   eventCount?: number,
+  remainingEvents?: number,
+  remainingHighStakes?: string[],
 ): { phrase: string; context: string; driver: ThemeDriver } {
   
   if (pressure === null || load === null) {
-    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount);
+    return getNoCalendarTheme(tier, score, hour, dayOfWeek, wearable, todayHighStakes, eventCount, remainingEvents, remainingHighStakes);
   }
 
   const timeOfDay = getTimeOfDay(hour);
@@ -720,7 +807,7 @@ function getTheme(
         return { phrase: "Release the week.", context: "The week is done. A depleted system needs genuine release, not just the absence of work.", driver: 'evening' };
       return buildWeekdayEveningTheme('depleted', tomorrowHighStakes, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, load, pressure);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -766,7 +853,7 @@ function getTheme(
         return { phrase: "Let the week go.", context: "You've carried the week at operating capacity. The weekend is a genuine recovery window if you let the work threads close.", driver: 'evening' };
       return buildWeekdayEveningTheme('managing', tomorrowHighStakes, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, load, pressure);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -812,7 +899,7 @@ function getTheme(
         return { phrase: "Close the week strong.", context: "Above-baseline readiness at the end of the week. A strong close sets the foundation for genuine weekend recovery.", driver: 'evening' };
       return buildWeekdayEveningTheme('strong', tomorrowHighStakes, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
-        todayHighStakes, eventCount, load, pressure);
+        todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
     }
     // Morning
     if (timeOfDay === 'morning')
@@ -856,7 +943,7 @@ function getTheme(
       return { phrase: "Close at the peak.", context: "Peak readiness at week's end. A deliberate close tonight protects this state into the weekend.", driver: 'evening' };
     return buildWeekdayEveningTheme('peak', tomorrowHighStakes, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
-      todayHighStakes, eventCount, load, pressure);
+      todayHighStakes, eventCount, load, pressure, remainingEvents, remainingHighStakes);
   }
   // Morning
   if (timeOfDay === 'morning')
@@ -885,7 +972,7 @@ function getTheme(
 }
 
 // ==================== NO-CALENDAR FALLBACKS (sub-tier + time-aware) ====================
-function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number): { phrase: string; context: string; driver: ThemeDriver } {
+function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOfWeek: number, wearable?: WearableContext | null, todayHighStakes?: string[], eventCount?: number, remainingEvents?: number, remainingHighStakes?: string[]): { phrase: string; context: string; driver: ThemeDriver } {
   const dayCtx = getDayContext(dayOfWeek);
   const lateEvening = isLateEvening(hour);
   const timeOfDay = getTimeOfDay(hour);
@@ -931,7 +1018,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('depleted', null, wearable,
         "Close before tomorrow.", "What you don't release tonight you carry into tomorrow's first decisions and interactions.",
-        todayHighStakes, eventCount, null, null);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
     if (score <= 25)
       return { phrase: "Begin with stillness.", context: "Leading from a deeply depleted state asks more of your self-awareness than almost any other condition. Every interaction and judgment today carries a higher cost than usual." + wearableSuffix, driver: 'state' };
     return { phrase: "Protect your reserves.", context: "Below-baseline readiness shapes every interaction today. How much you spend, and on what, is the decision that matters most right now." + wearableSuffix, driver: 'state' };
@@ -961,7 +1048,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('managing', null, wearable,
         "Close with care.", "You've carried the day's demands at operating capacity. How you close is how you recover.",
-        todayHighStakes, eventCount, null, null);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
     if (score <= 49)
       return { phrase: "Operate with care.", context: "Operational but not at full capacity. A day for selective investment of your leadership presence rather than broad deployment." + wearableSuffix, driver: 'state' };
     return { phrase: "Steady and selective.", context: "Baseline readiness is present. You have capacity to show up well for what matters if you're deliberate about where it goes." + wearableSuffix, driver: 'state' };
@@ -991,7 +1078,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
     if (timeOfDay === 'evening')
       return buildWeekdayEveningTheme('strong', null, wearable,
         "Close strong.", "Above-baseline capacity at close of day. A strong finish is within reach and worth protecting.",
-        todayHighStakes, eventCount, null, null);
+        todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
     if (score <= 69)
       return { phrase: "Lead with confidence.", context: "Above-baseline readiness is a real leadership asset today. Your presence, judgment, and influence are all working well for you." + wearableSuffix, driver: 'state' };
     return { phrase: "Invest your advantage.", context: "Strong readiness gives you the conditions for your best thinking and leadership presence. The question is where that advantage is most worth directing." + wearableSuffix, driver: 'state' };
@@ -1021,7 +1108,7 @@ function getNoCalendarTheme(tier: EnergyTier, score: number, hour: number, dayOf
   if (timeOfDay === 'evening')
     return buildWeekdayEveningTheme('peak', null, wearable,
       "Close with intention.", "Peak activation at the close of the day. A structured, intentional close protects tonight's recovery and tomorrow's readiness.",
-      todayHighStakes, eventCount, null, null);
+      todayHighStakes, eventCount, null, null, remainingEvents, remainingHighStakes);
   if (score <= 89)
     return { phrase: "Bring your full presence.", context: "Full readiness. Your capacity for complex decisions, difficult conversations, and high-stakes leadership is at its highest." + wearableSuffix, driver: 'state' };
   return { phrase: "Own your peak.", context: "Exceptional readiness is present. A rare state that is worth both using fully and protecting deliberately." + wearableSuffix, driver: 'state' };
@@ -1163,10 +1250,11 @@ function getSundayEveningInsights(
   };
 }
 
-// Clarity × Confidence modifier
+// Clarity × Confidence modifier — now time-aware for evening retrospective framing
 function getCCModifier(
   clarity: number | null,
   confidence: number | null,
+  timeOfDay?: 'morning' | 'afternoon' | 'evening',
 ): { leanOn: string; watchFor: string } | null {
   if (clarity === null && confidence === null) return null;
 
@@ -1174,69 +1262,110 @@ function getCCModifier(
   const clarityHigh = clarity !== null && clarity >= 4;
   const confidenceLow = confidence !== null && confidence <= 2;
   const confidenceHigh = confidence !== null && confidence >= 4;
+  const isEvening = timeOfDay === 'evening';
 
   // Pattern 1: Both low — rare, significant signal
   if (clarityLow && confidenceLow) {
-    return {
-      leanOn: "Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.",
-      watchFor: "Making commitments or significant decisions while both your internal compass and your conviction are unsettled.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your honesty about where you are. Ending a day with low clarity and low confidence is uncomfortable, but recognising it is itself leadership.",
+          watchFor: "Trying to force resolution tonight when both your compass and conviction need rest, not pressure.",
+        }
+      : {
+          leanOn: "Your honesty about where you are. Recognising that both clarity and confidence are low today is itself a form of self-leadership most people can't manage.",
+          watchFor: "Making commitments or significant decisions while both your internal compass and your conviction are unsettled.",
+        };
   }
 
   // Pattern 2: Both high — full alignment
   if (clarityHigh && confidenceHigh) {
-    return {
-      leanOn: "Your internal alignment. Clear direction with confident execution — rare conditions that deserve to be used fully.",
-      watchFor: "Overriding others because your conviction is high. Alignment can become rigidity if you stop listening.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your internal alignment. You operated with clear direction and confident execution today. Let the day close on that note — no review needed.",
+          watchFor: "Replaying today's decisions to optimise what was already well-executed. Your alignment held — trust it and release.",
+        }
+      : {
+          leanOn: "Your internal alignment. Clear direction with confident execution — rare conditions that deserve to be used fully.",
+          watchFor: "Overriding others because your conviction is high. Alignment can become rigidity if you stop listening.",
+        };
   }
 
   // Pattern 3: High clarity + low confidence — knows what, but doubts self
   if (clarityHigh && confidenceLow) {
-    return {
-      leanOn: "Your clarity. You see the direction clearly even when confidence hasn't caught up yet.",
-      watchFor: "Waiting for confidence to arrive before acting on what you already know is right.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your clarity held through a full day, even without confidence backing it. That directional sense is genuine — trust it tonight.",
+          watchFor: "Replaying moments where confidence didn't match your clarity. The direction was right even when conviction lagged.",
+        }
+      : {
+          leanOn: "Your clarity. You see the direction clearly even when confidence hasn't caught up yet.",
+          watchFor: "Waiting for confidence to arrive before acting on what you already know is right.",
+        };
   }
 
   // Pattern 4: Low clarity + high confidence — confident without direction
   if (clarityLow && confidenceHigh) {
-    return {
-      leanOn: "Your confidence. Trust in your ability to find the right direction once you stop and look.",
-      watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your confidence carried you through today. Even without clear direction, your self-trust kept you moving.",
+          watchFor: "Assuming tonight's reflection will manufacture the clarity that was absent today. Rest first — clarity often arrives after recovery.",
+        }
+      : {
+          leanOn: "Your confidence. Trust in your ability to find the right direction once you stop and look.",
+          watchFor: "Operating as if today's peak readiness is the norm. Protect it, don't spend it.",
+        };
   }
 
   // Pattern 5: Low clarity only (mid confidence)
   if (clarityLow) {
-    return {
-      leanOn: "Your capacity to ask the right question before committing to a direction.",
-      watchFor: "Moving into the day's demands before you've found your anchor point.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your capacity to sit with unresolved direction. If clarity was elusive today, evening is not the time to force it. Clarity often arrives after rest.",
+          watchFor: "Grinding through open questions tonight when your system needs to release, not resolve.",
+        }
+      : {
+          leanOn: "Your capacity to ask the right question before committing to a direction.",
+          watchFor: "Moving into the day's demands before you've found your anchor point.",
+        };
   }
 
   // Pattern 6: Low confidence only (mid clarity)
   if (confidenceLow) {
-    return {
-      leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
-      watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your self-awareness. You carried uncertainty through today's demands — that honesty about your state is itself valuable.",
+          watchFor: "Reviewing today's decisions through the lens of low confidence. The decisions are done — let them stand.",
+        }
+      : {
+          leanOn: "Your self-awareness. You know you're operating with uncertainty today, and that honesty is itself a form of leadership.",
+          watchFor: "Decisions performed from projected confidence rather than genuine conviction.",
+        };
   }
 
   // Pattern 7: High clarity only (mid confidence)
   if (clarityHigh) {
-    return {
-      leanOn: "Your directional certainty. You know what matters today and why.",
-      watchFor: "Clarity about your own view crowding out the perspectives you need.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your directional certainty. You held clarity through a full day. That same directional sense now tells you when to stop.",
+          watchFor: "Replaying today's decisions to find flaws. Your clarity held — trust it and release.",
+        }
+      : {
+          leanOn: "Your directional certainty. You know what matters today and why.",
+          watchFor: "Clarity about your own view crowding out the perspectives you need.",
+        };
   }
 
   // Pattern 8: High confidence only (mid clarity)
   if (confidenceHigh) {
-    return {
-      leanOn: "Your conviction. You trust your judgment today and can move with authority.",
-      watchFor: "Confidence tipping into certainty that closes off important inputs.",
-    };
+    return isEvening
+      ? {
+          leanOn: "Your conviction. You backed yourself through today's demands. That conviction has done its work — release it.",
+          watchFor: "Confidence that keeps running past the day's close. Your judgment served you well — let it rest.",
+        }
+      : {
+          leanOn: "Your conviction. You trust your judgment today and can move with authority.",
+          watchFor: "Confidence tipping into certainty that closes off important inputs.",
+        };
   }
 
   // Mid-range on both — no modifier, fall through to archetype/tier
@@ -1420,10 +1549,12 @@ interface LeanOnWatchForResult {
 
 // Build context enrichment suffix for leanOn — crisp, no event titles, no HR numbers.
 // Subtly reinforces the personal insight with situational acknowledgment.
+// Now aware of remaining events for evening.
 function buildDaytimeLeanOnSuffix(
   todayHighStakes: string[] | undefined,
   wearable: WearableContext | null | undefined,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
+  remainingEvents?: number,
 ): string {
   const hasStakes = todayHighStakes && todayHighStakes.length > 0;
   const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.poorSleep || wearable.rhrElevated);
@@ -1443,6 +1574,11 @@ function buildDaytimeLeanOnSuffix(
   }
 
   if (timeOfDay === 'evening') {
+    const remaining = remainingEvents ?? 0;
+    if (remaining > 0) {
+      if (bodyStrained) return ' The day isn\'t done — that instinct still serves you, and your body is signalling to pace what\'s left.';
+      return ' The day isn\'t done — that instinct still serves you.';
+    }
     if (bodyStrained) return ' Today tested that capacity. Your body is signalling the day is done.';
     return ' Today tested that capacity. The day is done.';
   }
@@ -1451,10 +1587,12 @@ function buildDaytimeLeanOnSuffix(
 }
 
 // Build context enrichment suffix for watchFor — crisp, no event titles, no HR numbers.
+// Now aware of remaining events for evening.
 function buildDaytimeWatchForSuffix(
   todayHighStakes: string[] | undefined,
   wearable: WearableContext | null | undefined,
   timeOfDay: 'morning' | 'afternoon' | 'evening',
+  remainingEvents?: number,
 ): string {
   const hasStakes = todayHighStakes && todayHighStakes.length > 0;
   const bodyStrained = wearable && (wearable.hrElevated || wearable.hrvElevated || wearable.rhrElevated);
@@ -1470,6 +1608,9 @@ function buildDaytimeWatchForSuffix(
   }
 
   if (timeOfDay === 'evening') {
+    const remaining = remainingEvents ?? 0;
+    if (remaining > 0 && bodyStrained) return ' Pushing through the remaining meetings when your body is already signalling the cost.';
+    if (remaining > 0) return ' Mentally closing the day when demands still remain. Stay present for what\'s left.';
     if (bodyStrained) return ' Replaying the day\'s demands instead of releasing them. Your body is signalling the need to stop.';
     if (hasStakes) return ' Replaying the day\'s demands instead of releasing them.';
   }
@@ -1496,6 +1637,7 @@ function getLeanOnWatchFor(
   wearableRecovery?: { triggered: boolean; reason: string; hrvDeviation: number; consecutiveDays: number } | null,
   todayHighStakes?: string[],
   eventCount?: number,
+  remainingEvents?: number,
 ): LeanOnWatchForResult {
   const lateEvening = isLateEvening(hour);
   const dayCtx = getDayContext(dayOfWeek);
@@ -1539,8 +1681,8 @@ function getLeanOnWatchFor(
 
   // ── P1a: Coach insights ≤3 days (recent) — no age label, enriched with context ──
   if (hasCoachBoth && coachTier === 'recent') {
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return {
       leanOn: `Based on your recent coach conversation: ${coachStrength!}${leanOnSuffix}`,
       watchFor: `Based on your recent coach conversation: ${coachGrowth!}${watchForSuffix}`,
@@ -1553,8 +1695,8 @@ function getLeanOnWatchFor(
   if (hasCoachBoth && coachTier === 'grace') {
     const hasContradiction = detectCCContradiction(coachStrength!, coachGrowth!, clarity, confidence);
     if (!hasContradiction) {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-      const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+      const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
       return {
         leanOn: `From your coach session ${coachDaysOld} days ago: ${coachStrength!}${leanOnSuffix}`,
         watchFor: `From your coach session ${coachDaysOld} days ago: ${coachGrowth!}${watchForSuffix}`,
@@ -1566,36 +1708,36 @@ function getLeanOnWatchFor(
   }
 
   // ── P2: C×C independent signal modifier ──
-  const ccMod = getCCModifier(clarity, confidence);
+  const ccMod = getCCModifier(clarity, confidence, timeOfDay);
   if (ccMod) {
     if (hasCoachBoth && coachTier === 'contextual') {
-      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+      const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
       const enrichedLeanOn = `${ccMod.leanOn}\n\n_Last time you spoke to the coach (${coachDaysOld} days ago), you identified: "${coachStrength}"_${leanOnSuffix}`;
       return {
         leanOn: enrichedLeanOn,
-        watchFor: ccMod.watchFor + (hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : ''),
+        watchFor: ccMod.watchFor + (hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : ''),
         source: 'cc-modifier-with-context',
         coachInsightAge: coachDaysOld,
         coachInsightLabel: `Last time you spoke to the coach (${coachDaysOld} days ago)`,
       };
     }
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return { leanOn: `Based on your check-in today: ${ccMod.leanOn}${leanOnSuffix}`, watchFor: `Based on your check-in today: ${ccMod.watchFor}${watchForSuffix}`, source: 'cc-modifier' };
   }
 
   // ── Partial coach: mix with other priorities (any non-archived tier) ──
   if (coachStrength && !coachGrowth && coachTier !== 'historical' && coachTier !== 'archived') {
     const watchFor = archetypeMatrix[archetype || '']?.[tier]?.watchFor || tierFallbacks[tier].watchFor;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     const watchSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
     return { leanOn: `From your coach conversation: ${coachStrength}${leanOnSuffix}`, watchFor: `${watchSource}${watchFor}${watchForSuffix}`, source: 'coach-partial-strength', coachInsightAge: coachDaysOld };
   }
   if (coachGrowth && !coachStrength && coachTier !== 'historical' && coachTier !== 'archived') {
     const leanOn = archetypeMatrix[archetype || '']?.[tier]?.leanOn || tierFallbacks[tier].leanOn;
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     const leanSource = archetypeMatrix[archetype || '']?.[tier] ? 'Based on your archetype profile: ' : '';
     return { leanOn: `${leanSource}${leanOn}${leanOnSuffix}`, watchFor: `From your coach conversation: ${coachGrowth}${watchForSuffix}`, source: 'coach-partial-growth', coachInsightAge: coachDaysOld };
   }
@@ -1603,15 +1745,15 @@ function getLeanOnWatchFor(
   // ── P4: Archetype × Tier — enriched with context ──
   if (archetype && archetypeMatrix[archetype]?.[tier]) {
     const base = archetypeMatrix[archetype][tier];
-    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+    const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+    const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
     return { leanOn: `Based on your archetype profile: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your archetype profile: ${base.watchFor}${watchForSuffix}`, source: 'archetype-tier' };
   }
 
   // ── P5: Tier fallback — enriched with context ──
   const base = tierFallbacks[tier];
-  const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
-  const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay) : '';
+  const leanOnSuffix = hasContextEnrichment ? buildDaytimeLeanOnSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
+  const watchForSuffix = hasContextEnrichment ? buildDaytimeWatchForSuffix(todayHighStakes, wearableContext, timeOfDay, remainingEvents) : '';
   return { leanOn: `Based on your current readiness state: ${base.leanOn}${leanOnSuffix}`, watchFor: `Based on your current readiness state: ${base.watchFor}${watchForSuffix}`, source: 'tier-fallback' };
 }
 
@@ -1802,6 +1944,8 @@ serve(async (req) => {
       calendarLoad,
       calendarPressure,
       todayHighStakes,
+      remainingEvents: calendarResult.remainingEvents,
+      remainingHighStakes: calendarResult.remainingHighStakes,
       tomorrowLoad,
       tomorrowPressure,
       tomorrowHighStakes,
@@ -1845,7 +1989,7 @@ serve(async (req) => {
     const coachGrowth = growthInsight?.insight_content || null;
     const coachInsightCreatedAt = strengthInsight?.created_at || growthInsight?.created_at || null;
 
-    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount);
+    const theme = getTheme(safeTier, calendarPressure, calendarLoad, innerReadinessScore, hour, dayOfWeek, tomorrowLoad, tomorrowPressure, tomorrowHighStakes, wearableContext, todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents, calendarResult.remainingHighStakes);
     const patternOverride = getPatternOverride(recentCheckIns as Array<{ checkin_date: string; outcome: string; clarity_level?: number | null; confidence_level?: number | null }>, checkInOutcome || null);
 
     const hasCalendar = calendarLoad !== null && calendarPressure !== null;
@@ -1883,7 +2027,7 @@ serve(async (req) => {
       coachStrength, coachGrowth, coachInsightCreatedAt, hour, dayOfWeek,
       calendarLoad, calendarPressure, tomorrowLoad, tomorrowPressure,
       tomorrowHighStakes, wearableContext, wearableRecovery,
-      todayHighStakes, calendarResult.eventCount
+      todayHighStakes, calendarResult.eventCount, calendarResult.remainingEvents
     );
 
     const coachUsed = leanOnResult.source.startsWith('coach');
