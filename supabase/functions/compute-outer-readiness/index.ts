@@ -335,7 +335,7 @@ function buildContextSuffix(
 
   // High-stakes events, load is also high, body is fine – characterize the day
   if (hasStakes && denseCalendar) {
-    const stakeRef = todayHighStakes![0];
+    const stakeRef = `'${todayHighStakes![0]}'`;
     return ` Your most demanding conditions today, anchored by ${stakeRef}.`;
   }
 
